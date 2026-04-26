@@ -9,6 +9,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added — Phase A: plugin scaffold (2026-04-26)
 - File tree at `scaffold/` with valid manifests, command stubs, library stubs, MCP skeleton, templates, and install script skeleton. Plugin loads in Claude Code without errors. No functional behavior yet — subsequent phases (B–J) implement capabilities.
 
+### Added — Phase D: slice workflow + 5-phase state machine (2026-04-27)
+- `lib/slice.sh`: full slice state machine. Slug + numbering (`sf_slice_slug`, `sf_slice_format_number` with 2-digit-up-to-99 / 3-digit beyond, `sf_slice_format_id`, `sf_slice_next_number`); creation (`sf_slice_create` with `--force` for concurrent-slice override); AC parsing from spec files (`sf_slice_parse_acs` extracts `- [ ] AC-N: text` lines into JSON with `pending`/`passing` status); phase transitions (`sf_slice_phase_spec` / `_contract` / `_scaffold` / `_implement` / `_verify`) with strict gates and helpful error messages on refusal; verify actually runs the detected test command, captures `last_test_result`, and flips to `complete` on exit 0 or stays at `verify` otherwise.
+- 8 slash commands wired:
+  - `/slice-new <name> [--force]` — allocate next number on this branch, generate spec from template, set current.
+  - `/slice-status` — pretty-print current slice phase + AC checklist + last verify + next-step suggestion per phase.
+  - `/slice-list` — markdown table of all slices on branch.
+  - `/slice-spec` — re-parse ACs from spec file, refresh state.
+  - `/slice-contract` — gate-check ≥1 AC, advance phase. Prose body directs the agent to scaffold failing tests for each AC.
+  - `/slice-scaffold` — gate-check prior phase, advance. Prose body directs Zone-1 boilerplate writing.
+  - `/slice-implement` — gate-check prior=scaffold, advance. Prose body documents composition with ai-mentor (z2-build vs z2-decide vs z1).
+  - `/slice-verify` — run tests, capture results, flip to complete or stay at verify with the failing-tests output snippet.
+- `tests/test-slice-gates.sh`: 36 tests across slug/numbering, slice creation, AC parsing, phase gate transitions (including refusal cases), verify with mocked passing/failing test commands, and per-branch numbering isolation.
+- E2E smoke test on a real fresh repo: `/scaffold-init` → `/slice-new auth-flow` → spec edit → `/slice-contract` → `/slice-implement` (correctly refused, asked for scaffold) → `/slice-scaffold` → `/slice-implement` → `/slice-verify` (mocked passing) → `/slice-status` showing `complete`. Full pipeline works.
+- Total test count across the scaffold plugin now: **103 tests** (30 state + 16 claude-md + 21 audit + 36 slice-gates), all passing.
+
 ### Added — Phase C: project init, status, audit, CLAUDE.md commands (2026-04-27)
 - `/scaffold-init`: bootstrap or onboard the current repo. Conservative + idempotent — only adds missing files (LICENSE/MIT, language-aware `.gitignore`, README skeleton, `docs/{adr,runbooks,slices}/`, generated `CLAUDE.md`). Detects existing `CLAUDE.md` and reports without overwriting; offers manual import / keep / replace via prose. Refuses outside a git repo.
 - `/scaffold-status`: pretty-prints state file fields (project, hash, branch, stack, LLM flag, current slice + phase, slice count, ADR counter, last audit timestamp). Reports "not initialized" cleanly if no state exists.
