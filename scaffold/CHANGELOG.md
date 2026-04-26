@@ -9,6 +9,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added — Phase A: plugin scaffold (2026-04-26)
 - File tree at `scaffold/` with valid manifests, command stubs, library stubs, MCP skeleton, templates, and install script skeleton. Plugin loads in Claude Code without errors. No functional behavior yet — subsequent phases (B–J) implement capabilities.
 
+### Added — Phase F: Python MCP server with semantic memory bank (2026-04-27)
+- `mcp/memory.py`: per-repo SQLite store with three indexes — primary `memory` table, `memory_fts` (FTS5, always available via stdlib), `memory_vec` (sqlite-vec, optional). CRUD operations, `list_recent` with type/since filters, `search` with hybrid retrieval (FTS5 BM25 + vector cosine, weighted blend), idempotent migration via `IF NOT EXISTS`, fail-safe row parsing.
+- `mcp/embed.py`: Ollama HTTP client using stdlib `urllib` only (no `requests` dependency). Returns `None` on any error so memory operations gracefully degrade to FTS5-only when Ollama is unavailable.
+- `mcp/server.py`: FastMCP server exposing **10 MCP tools** — `record_decision`, `record_pattern`, `record_note`, `record_retrospective`, `recall`, `list_recent`, `get_by_id`, `update`, `delete`, `reindex`. Server initialization auto-creates DB schema and probes Ollama availability with a one-time stderr message.
+- `mcp/run-server.sh`: launcher with **lazy venv install on first run** (resolves SPEC OQ-11). Detects current repo via `lib/repo.sh`, exports `SCAFFOLD_REPO_HASH` and `SCAFFOLD_REPO_BRANCH`, execs the server with the venv's Python.
+- `scripts/install.sh`: bootstrap the Python venv. Prefers `uv` when available (fast, robust on Debian/Ubuntu where `python -m venv` may need `python3-venv` apt package), falls back to vanilla `python -m venv` otherwise. Defaults to `UV_NATIVE_TLS=true` to use the OS trust store — handles corporate-TLS-interception environments out of the box.
+- `mcp/requirements.txt`: pinned to `fastmcp>=2.10` and `sqlite-vec>=0.1.6`.
+- `tests/test-mcp.sh`: 28 Python unit tests via `unittest` covering CRUD, list_recent filters, FTS5 search behavior, hybrid search degradation paths, FTS5 query sanitization, embed module non-destructiveness, and vector path (skipped when sqlite-vec is missing). Pure stdlib so it runs without the venv installed.
+- E2E verified: real MCP server launch over stdio successfully responded to `initialize` + `tools/list` (10 tools registered). Real Ollama-backed semantic recall round-trip on three decisions correctly ranked auth-related decision top for "how do we handle login sessions" and caching-related decision top for "database performance".
+- One bug caught and fixed during E2E: single-FTS-only result returned `score=0` because BM25 normalization divides by an empty range. Fixed by special-casing single results to `score=1.0`.
+- Removed stale empty subdir `mcp/memory/` from Phase A — the v1 spec called for a more granular module layout but the actual scope is small enough that the flat `mcp/{server,memory,embed}.py` is clearer.
+- Total scaffold test count: **154 tests** across 6 suites (30 state + 16 claude-md + 21 audit + 36 slice-gates + 23 governance + 28 mcp), all passing.
+
 ### Added — Phase E: governance commands (ADR / changelog / runbook) (2026-04-27)
 - `/adr-new <title>`: auto-numbers (4-digit zero-padded), slugs the title, writes `docs/adr/NNNN-<slug>.md` from the Nygard template. Increments `state.adr_counter` (counter unchanged on usage error). Per-repo numbering survives across worktrees.
 - `/changelog <Type> <summary>` and `/changelog bump <version>`: in-place mutation of `CHANGELOG.md`. Append form locates `## [Unreleased]` → `### <Type>` and inserts a `- summary` bullet, creating the subsection if missing. Bump form rotates `[Unreleased]` to a new versioned heading while preserving the empty `[Unreleased]` heading for next time. Auto-creates `CHANGELOG.md` from template if missing.
