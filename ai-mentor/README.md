@@ -50,12 +50,20 @@ Phrases in your most recent message that unblock the hook for the next edit:
 
 The PreToolUse hook fires on the main session's edits, not on subagent tool calls. Treat zone enforcement as a discipline on the main agent. In `/z2-decide` or `/z2-build`, the main agent's protocol already discourages spawning implementation subagents that would bypass the spotter; if you genuinely need one, run `/z1` or `/locked` first. See SKILL.md for the full rationale.
 
+## Platforms
+
+**Linux and macOS only.** Hook scripts are bash + `jq`; no PowerShell / `.bat` flavor ships. Windows support is deferred (would require porting `lib/state.sh` and the two hook handlers). Track at SPEC `B3`.
+
 ## Dependencies
 
 - bash (POSIX)
 - `jq` (for parsing the transcript file and state JSON)
 
 If `jq` is missing, the hook fails open — edits are allowed but enforcement is disabled. The plugin never bricks your Claude Code session.
+
+## Tests
+
+`bash ai-mentor/tests/test-hooks.sh` runs 28 hook regression tests in isolation (tempfile state, never touches your real plugin data). See `tests/README.md` for details.
 
 ## State location
 

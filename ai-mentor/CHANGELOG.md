@@ -4,6 +4,15 @@ All notable changes to the ai-mentor plugin are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `ai-mentor/tests/test-hooks.sh` — 28-test regression suite (state helpers, PreToolUse hook, SessionStart source-awareness). Run with `bash ai-mentor/tests/test-hooks.sh`. Closes spec open question B4.
+
+### Documentation
+- README "Platforms" section: declared Linux/macOS only. Closes spec open question B3.
+- `ai-mentor/tests/README.md`: how to run the regression suite, dependencies, when to run.
+
 ## [1.1.0] — 2026-04-26
 
 ### Changed
