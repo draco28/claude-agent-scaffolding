@@ -1,0 +1,11 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Plugin runtime state (never committed; lives in ~/.claude/ai-mentor/)
+ai-mentor/state.json

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-agent-scaffolding",
+  "description": "Personal plugin marketplace: AI Mentor (cognitive partner) and future project-scaffolding plugin",
+  "owner": {
+    "name": "Pras"
+  },
+  "plugins": [
+    {
+      "name": "ai-mentor",
+      "description": "Cognitive partner — mechanically enforces spotter mode (Curve 2) via PreToolUse hook. Pillar 3 (Gym: /z2-decide, /z2-build, /locked, /quiz) + Pillar 4 (Fool: /eli10, /fool).",
+      "category": "productivity",
+      "source": "./ai-mentor"
+    }
+  ]
+}
