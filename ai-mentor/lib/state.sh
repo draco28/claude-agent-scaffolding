@@ -3,8 +3,20 @@
 # All functions FAIL OPEN: on any error they return safe defaults so the
 # PreToolUse hook never blocks edits due to a bug in the plugin itself.
 
-# State file path (overridable for tests).
-AI_MENTOR_STATE="${AI_MENTOR_STATE:-$HOME/.claude/ai-mentor/state.json}"
+# State file path resolution (override-friendly for tests).
+# Preference order:
+#   1. AI_MENTOR_STATE — explicit override (used by tests).
+#   2. ${CLAUDE_PLUGIN_DATA}/state.json — canonical plugin-data location set by
+#      Claude Code at hook invocation time. Survives plugin updates.
+#   3. ~/.claude/ai-mentor/state.json — legacy fallback for contexts where the
+#      env var is not set (e.g., sourcing this lib from a plain shell).
+if [[ -z "${AI_MENTOR_STATE:-}" ]]; then
+  if [[ -n "${CLAUDE_PLUGIN_DATA:-}" ]]; then
+    AI_MENTOR_STATE="${CLAUDE_PLUGIN_DATA}/state.json"
+  else
+    AI_MENTOR_STATE="$HOME/.claude/ai-mentor/state.json"
+  fi
+fi
 AI_MENTOR_DIR="$(dirname "$AI_MENTOR_STATE")"
 
 # Default state JSON.

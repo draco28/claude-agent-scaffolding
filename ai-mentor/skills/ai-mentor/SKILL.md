@@ -1,7 +1,8 @@
 ---
 name: ai-mentor
-description: Cognitive partner mode. Enforces Curve 2 (spotter mode) via PreToolUse hook. Use this skill when the user discusses zone classification, hint levels, decide/build modes, quiz protocol, or beginner's mind. Also use when the user says "z1", "z2", "/locked", "/implement", "show me", "skip to solution", "guide me", "let me try", "/eli10", "/fool", "decisions locked", "implement now", or asks how the AI Mentor system works.
-version: 1.0.0
+description: Cognitive-partner spotter mode reference. Detailed rules for Curve 1 vs Curve 2 work, the two Curve 2 sub-modes (decide vs build), progressive hint levels (L1 nudge → L4 solution), quiz protocol, and beginner's mind. Companion to the always-on SessionStart protocol.
+when_to_use: Load when the user engages with mode mechanics or asks how AI Mentor works. Trigger phrases include "z1", "z2", "z2-decide", "z2-build", "/locked", "/implement", "decisions locked", "implement now", "show me", "skip to solution", "guide me", "let me try", "stuck", "hint", "/quiz", "quiz me", "/eli10", "explain like I'm 10", "/fool", "beginner's mind", "spotter mode", "Curve 2", "decide mode", "build mode", "what zone".
+version: 1.1.0
 ---
 
 # AI Mentor — Pillar 3 (Gym) + Pillar 4 (Fool) Reference
@@ -146,8 +147,21 @@ If other plugins ship slash commands (e.g., a future scaffolding plugin), AI Men
 - **Auto-classification** — the skill suggests; the user explicitly invokes `/z2-decide` or `/z2-build`. No silent zone flips.
 - **Telemetry** — no usage logs of overrides or zone switches. Privacy-preserving.
 
+## Subagent scope (important caveat)
+
+The PreToolUse hook fires on the **main session's** Edit/Write/NotebookEdit calls. Edits made by subagents (Task tool — Explore, Plan, code-architect, general-purpose, etc.) run in their own context and may **not** trigger the parent's hook. Treat zone enforcement as a discipline on the main agent, not a hard wall around the entire session.
+
+Practical rules:
+
+- In **`zone=2/decide`**: do not spawn implementation-shaped subagents (code-architect, general-purpose with a "write this code" task). Spawning Explore for read-only research is fine — it isn't writing. The main agent's posture in decide mode already discourages writing-shaped subagent calls; this is a documentation reminder, not enforced.
+- In **`zone=2/build`**: same pattern. Subagents that write code defeat the typing-rep purpose; ask Explore-shaped subagents for research only. If you legitimately need a subagent to write code, run `/z1` or `/locked` first to opt out of the discipline cleanly.
+- The hook still applies to all direct Edit/Write/NotebookEdit calls from the main agent in any submode, so you cannot silently bypass enforcement by direct tool use — only by subagent-mediated tool use.
+
+This is the intended model: the spotter trains *your* discipline (and the main agent's discipline), not a sandbox around every possible tool path.
+
 ## Quick troubleshooting
 
-- **Hook isn't blocking edits when I expect it to:** check `cat ~/.claude/ai-mentor/state.json` — `zone` may be `ambient` or `1`. Run `/z2-decide` or `/z2-build` to engage.
+- **Hook isn't blocking edits when I expect it to:** check `cat "${CLAUDE_PLUGIN_DATA}/state.json"` (or the legacy `~/.claude/ai-mentor/state.json`) — `zone` may be `ambient` or `1`. Run `/z2-decide` or `/z2-build` to engage.
 - **Hook is blocking edits when I want them:** include an override phrase in your message (build mode), or run `/locked` (decide mode), or `/z1` to exit spotter entirely.
 - **Hook seems to do nothing at all:** verify `jq` is installed (`command -v jq`). The hook fails open without it.
+- **Zone state was lost after compaction:** v1.1+ preserves zone state through `compact` and `resume` SessionStart sources. If you're seeing this on v1.0, upgrade.

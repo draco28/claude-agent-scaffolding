@@ -46,12 +46,20 @@ Phrases in your most recent message that unblock the hook for the next edit:
 /plugin install ai-mentor@claude-agent-scaffolding
 ```
 
+## Subagent scope
+
+The PreToolUse hook fires on the main session's edits, not on subagent tool calls. Treat zone enforcement as a discipline on the main agent. In `/z2-decide` or `/z2-build`, the main agent's protocol already discourages spawning implementation subagents that would bypass the spotter; if you genuinely need one, run `/z1` or `/locked` first. See SKILL.md for the full rationale.
+
 ## Dependencies
 
 - bash (POSIX)
-- `jq` (for parsing the transcript file)
+- `jq` (for parsing the transcript file and state JSON)
 
 If `jq` is missing, the hook fails open — edits are allowed but enforcement is disabled. The plugin never bricks your Claude Code session.
+
+## State location
+
+`${CLAUDE_PLUGIN_DATA}/state.json` (resolves to `~/.claude/plugins/data/ai-mentor-claude-agent-scaffolding/state.json` on most installs). Survives plugin updates. If `${CLAUDE_PLUGIN_DATA}` is unavailable in the hook context, falls back to `~/.claude/ai-mentor/state.json`. State resets to `ambient` on `startup` and `clear` SessionStart sources; preserved through `resume` and `compact`.
 
 ## License
 

@@ -1,19 +1,43 @@
 #!/usr/bin/env bash
 # AI Mentor — SessionStart hook.
-# 1. Resets state to ambient (no carryover from prior session).
-# 2. Emits the always-on 4-pillar (3 + 4) protocol as additionalContext.
+# Fires on every session source: startup | resume | clear | compact.
+#
+# Behavior:
+#   - startup, clear → reset state to ambient (truly fresh context)
+#   - resume, compact → preserve current zone state (user was mid-flow)
+#   - Always emit the protocol as additionalContext so spotter rules survive
+#     compaction (this is the load-bearing reason this hook also runs on the
+#     `compact` source; no separate PreCompact hook is needed).
 #
 # FAIL-OPEN: any error → emit minimal JSON or exit 0 with empty output.
 
 set +e
 
+# Read hook input (JSON on stdin) to extract the session source.
+INPUT="$(cat 2>/dev/null)" || INPUT=""
+SOURCE=""
+if command -v jq >/dev/null 2>&1; then
+  SOURCE="$(echo "$INPUT" | jq -r '.source // empty' 2>/dev/null)"
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null)" || exit 0
 LIB="${SCRIPT_DIR}/../lib/state.sh"
 
-# Reset state if helpers are loadable. If not, we still emit context.
+# Decide whether to reset state. Default to reset on any uncertainty (safer
+# than accidentally preserving a stale zone across true session boundaries).
+should_reset=1
+case "$SOURCE" in
+  resume|compact) should_reset=0 ;;
+  startup|clear|"") should_reset=1 ;;
+  *) should_reset=1 ;;
+esac
+
 if [[ -r "$LIB" ]]; then
   # shellcheck source=../lib/state.sh
-  source "$LIB" 2>/dev/null && am_reset_state 2>/dev/null
+  source "$LIB" 2>/dev/null
+  if [[ "$should_reset" == "1" ]]; then
+    am_reset_state 2>/dev/null
+  fi
 fi
 
 # Emit additionalContext. Heredoc keeps the JSON literal so we don't need to
