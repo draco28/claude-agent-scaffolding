@@ -9,6 +9,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added — Phase A: plugin scaffold (2026-04-26)
 - File tree at `scaffold/` with valid manifests, command stubs, library stubs, MCP skeleton, templates, and install script skeleton. Plugin loads in Claude Code without errors. No functional behavior yet — subsequent phases (B–J) implement capabilities.
 
+### Added — Phase C: project init, status, audit, CLAUDE.md commands (2026-04-27)
+- `/scaffold-init`: bootstrap or onboard the current repo. Conservative + idempotent — only adds missing files (LICENSE/MIT, language-aware `.gitignore`, README skeleton, `docs/{adr,runbooks,slices}/`, generated `CLAUDE.md`). Detects existing `CLAUDE.md` and reports without overwriting; offers manual import / keep / replace via prose. Refuses outside a git repo.
+- `/scaffold-status`: pretty-prints state file fields (project, hash, branch, stack, LLM flag, current slice + phase, slice count, ADR counter, last audit timestamp). Reports "not initialized" cleanly if no state exists.
+- `/scaffold-audit`: 10 checks across README/License/Gitignore/ADRs/Runbooks/Slices/Changelog/Tests/LLM (evals + model card, only when `llm_project=true`). Markdown table output with ✓ / ⚠ / ⓘ / ✗ icons; summary line; exit 1 when any `fail` rows. `--save` flag writes `docs/AUDIT.md` and updates `state.audit_results_path`.
+- `/scaffold-claude-md-edit personal|project`: seeds the requested source layer from template if missing, prints path and scope, advises rebuild step. Doesn't open `$EDITOR` (avoids TTY hand-off issues across Claude Code clients) — the prose offers an inline Read+Edit workflow instead.
+- `/scaffold-claude-md-rebuild [--force]`: regenerates `<repo>/CLAUDE.md`. Detects manual edits via mtime-vs-footer-timestamp + 60s buffer; refuses to overwrite without `--force`. Backs up to `CLAUDE.md.bak` when forcing.
+- `lib/audit.sh`: ten check functions emitting tab-separated rows (`category\tname\tstatus\tdetail`); `sf_audit_run` orchestrator; `sf_audit_render_md` produces markdown table; `sf_audit_summary` returns 1 on any fail.
+- `templates/LICENSE.MIT.tmpl`: MIT license seed with `{{year}}` / `{{holder}}` substitution; holder pulled from `git config user.name`.
+- `tests/test-audit.sh`: 21 tests across three fixture repos (empty / well-formed / LLM-shaped). All 67 tests across the suite (state 30 + claude-md 16 + audit 21) pass.
+- E2E smoke test: simulated all 5 commands on a fresh git repo. Init → 7 files added across 3 dirs, CLAUDE.md generated with both layers; status → clean printout; audit → 7 pass/2 warn/1 info/0 fail; init re-run → idempotent no-op; claude-md-edit personal → seeded path + scope.
+
 ### Added — Phase B: state, repo, claude-md libraries + tests (2026-04-26)
 - `lib/repo.sh`: `sf_repo_root`, `sf_repo_remote_url`, `sf_repo_hash` (12-hex SHA-256 of remote-URL or path fallback), `sf_branch` with `_detached_<sha>` / `_unborn` / `_no_git` fallbacks, `sf_branch_safe` (sanitizes `/` for dir use), `sf_stack_detect` (python/node/rust/go), `sf_stack_detect_json`, `sf_llm_detect` (10+ signal sources), `sf_test_command`.
 - `lib/state.sh`: `sf_data_dir`, `sf_project_dir`, `sf_state_dir`, `sf_state_path` path resolution; `sf_default_state` schema; fail-safe `sf_read_state`; atomic `sf_write_state_stdin`; `sf_state_get` / `sf_state_get_path` field reads; `sf_state_apply` (jq expression) and `sf_state_apply_typed` (with `$val` JSON injection) writers; `sf_init_state` (detects stack + LLM at init, idempotent); `sf_is_managed` predicate.
