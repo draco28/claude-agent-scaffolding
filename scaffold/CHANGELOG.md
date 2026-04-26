@@ -9,6 +9,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added — Phase A: plugin scaffold (2026-04-26)
 - File tree at `scaffold/` with valid manifests, command stubs, library stubs, MCP skeleton, templates, and install script skeleton. Plugin loads in Claude Code without errors. No functional behavior yet — subsequent phases (B–J) implement capabilities.
 
+### Added — Phase E: governance commands (ADR / changelog / runbook) (2026-04-27)
+- `/adr-new <title>`: auto-numbers (4-digit zero-padded), slugs the title, writes `docs/adr/NNNN-<slug>.md` from the Nygard template. Increments `state.adr_counter` (counter unchanged on usage error). Per-repo numbering survives across worktrees.
+- `/changelog <Type> <summary>` and `/changelog bump <version>`: in-place mutation of `CHANGELOG.md`. Append form locates `## [Unreleased]` → `### <Type>` and inserts a `- summary` bullet, creating the subsection if missing. Bump form rotates `[Unreleased]` to a new versioned heading while preserving the empty `[Unreleased]` heading for next time. Auto-creates `CHANGELOG.md` from template if missing.
+- `/runbook-new <name>`: slugs the name, writes `docs/runbooks/<slug>.md` from SRE-style template with `{{failure_mode}}` and `{{date}}` substituted. Refuses to overwrite an existing runbook.
+- `lib/changelog.sh`: `sf_changelog_ensure`, `sf_changelog_append`, `sf_changelog_bump`. Lives in its own file because the awk programs use single quotes for body delimiters, conflicting with the slash-command `bash -c '...'` pattern. Sourcing avoids the conflict.
+- `sf_slug` promoted to `lib/repo.sh` (was inline in `lib/slice.sh`). Three callers (slice, ADR, runbook) now share it. `sf_slice_slug` becomes a thin alias for backward compatibility.
+- `tests/test-governance.sh`: 23 tests across the three commands (file creation, slug correctness, counter increment, idempotent error paths, in-place CHANGELOG mutations including bump rotation, runbook overwrite refusal). Covers a discovered awk-quoting bug fixed by extracting to `lib/changelog.sh`.
+- E2E walkthrough on a fresh git repo: 2 ADRs auto-number to 0001/0002, CHANGELOG accepts Added/Fixed entries then bumps to 0.1.0 with content correctly rotated under the new heading, runbook generates with template substitution.
+- Total scaffold test count: **126 tests** across 5 suites (30 state + 16 claude-md + 21 audit + 36 slice-gates + 23 governance), all passing.
+
 ### Added — Phase D: slice workflow + 5-phase state machine (2026-04-27)
 - `lib/slice.sh`: full slice state machine. Slug + numbering (`sf_slice_slug`, `sf_slice_format_number` with 2-digit-up-to-99 / 3-digit beyond, `sf_slice_format_id`, `sf_slice_next_number`); creation (`sf_slice_create` with `--force` for concurrent-slice override); AC parsing from spec files (`sf_slice_parse_acs` extracts `- [ ] AC-N: text` lines into JSON with `pending`/`passing` status); phase transitions (`sf_slice_phase_spec` / `_contract` / `_scaffold` / `_implement` / `_verify`) with strict gates and helpful error messages on refusal; verify actually runs the detected test command, captures `last_test_result`, and flips to `complete` on exit 0 or stays at `verify` otherwise.
 - 8 slash commands wired:

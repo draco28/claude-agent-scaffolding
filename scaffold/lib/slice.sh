@@ -20,13 +20,9 @@ source "${SF_SLICE_LIB_DIR}/state.sh"
 
 # ── Slug + ID + numbering ───────────────────────────────────────────────────
 
-# sf_slice_slug — convert a free-form name into a kebab-case slug.
-# Lowercase, non-alphanumeric → hyphen, collapse repeated hyphens, trim.
+# sf_slice_slug — alias of sf_slug (in lib/repo.sh) for slice-naming clarity.
 sf_slice_slug() {
-  local name="$1"
-  echo "$name" \
-    | tr '[:upper:]' '[:lower:]' \
-    | sed -e 's/[^a-z0-9]/-/g' -e 's/--*/-/g' -e 's/^-//' -e 's/-$//'
+  sf_slug "$1"
 }
 
 # sf_slice_format_number — zero-pad to 2 digits up to 99; raw beyond.

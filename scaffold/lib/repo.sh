@@ -68,6 +68,18 @@ sf_branch_safe() {
   sf_branch | sed 's|/|__|g'
 }
 
+# ── Slug helper ─────────────────────────────────────────────────────────────
+
+# sf_slug — convert a free-form name into a kebab-case slug.
+# Lowercase, non-alphanumeric → hyphen, collapse repeated hyphens, trim.
+# Used by ADR, runbook, and slice naming.
+sf_slug() {
+  local name="$1"
+  echo "$name" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed -e 's/[^a-z0-9]/-/g' -e 's/--*/-/g' -e 's/^-//' -e 's/-$//'
+}
+
 # ── Stack detection ─────────────────────────────────────────────────────────
 
 # sf_stack_detect — newline-separated list of detected stacks.
