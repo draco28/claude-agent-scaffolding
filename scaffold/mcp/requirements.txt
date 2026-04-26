@@ -1,0 +1,7 @@
+# scaffold-memory MCP server runtime dependencies (Phase F).
+# Pinned in the next iteration; left unpinned here so the install script
+# can resolve current versions on first run.
+fastmcp
+sqlite-vec
+requests
+pydantic
