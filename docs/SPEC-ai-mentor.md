@@ -1,12 +1,12 @@
 # SPEC: AI Mentor Plugin
 
-**Status:** Draft v0.2 — design locked, build in progress
-**Date:** 2026-04-26
+**Status:** v1.1.0 shipped (2026-04-26). v1.2 amendments tracked at the top of this doc.
 **Owner:** Praveen Kumar Singh
 **Distribution:** User-level — installed once globally via this marketplace; applies to *every* task and *every* project.
 **Source:** Naval/Vinny-style "Top 1% use AI backwards" 4-step framework (transcript provided by user 2026-04-26).
 **Companion spec:** `SPEC.md` archived as `docs/archive/SPEC-v1.md`; the "ultimate" scaffolding plugin will get a fresh spec before it is built.
 **Repo home:** `claude-agent-scaffolding` marketplace (this repo).
+**Version history:** v0.1 (first-pass spec) → v0.2 (locked decisions before build) → v1.0.0 (shipped) → v1.1.0 (compaction resilience + state migration). v0.1 body retained at the bottom for traceability.
 
 ---
 
@@ -32,7 +32,9 @@ This is the most material refinement vs. v0.1, where Zone 2 conflated thinking a
 PreToolUse hook **hard blocks** `Edit`/`Write`/`NotebookEdit` when `zone=2`. **Fail-open** on any error (missing state file, malformed JSON, missing transcript, jq error → allow tool). Never bricks the user's session.
 
 ### A4. State location: user-level
-`~/.claude/ai-mentor/state.json` (single file across all projects). Default at SessionStart: `{ zone: "ambient", submode: null }` — no carryover from prior sessions.
+`${CLAUDE_PLUGIN_DATA}/state.json` (canonical plugin-data location, set by Claude Code at hook invocation time; resolves to `~/.claude/plugins/data/ai-mentor-claude-agent-scaffolding/state.json` on most installs). Falls back to `~/.claude/ai-mentor/state.json` if the env var is unset (e.g., shell-level testing or unknown plugin context). Single file across all projects. *Updated in v1.1 — see A10.*
+
+Default at SessionStart with `source=startup` or `source=clear`: `{ zone: "ambient", submode: null, quiz_level: null }`. Preserved on `source=resume` and `source=compact`. *Updated in v1.1 — see A11.*
 
 State schema:
 ```json
@@ -61,19 +63,23 @@ State schema:
 Pillar 1 commands (`/drag`) and Pillar 2 commands (`/cot`, `/ground`) deferred to v1.1.
 
 ### A6. Token budget
-Always-on SessionStart `additionalContext` for v1 (Pillars 3+4 only): **~460 tokens** — *less* than the current pair-program plugin (~650 tokens). On-demand `SKILL.md` body adds ~750–1000 tokens, lazy-loaded.
+Always-on SessionStart `additionalContext` for v1 (Pillars 3+4 only): **~621 tokens** (measured on the v1.1 build) — slightly under the original pair-program plugin (~650 tokens) and within budget for the added sub-mode complexity. On-demand `SKILL.md` body adds ~750–1000 tokens, lazy-loaded. *Updated in v1.1 from the initial 460-token estimate.*
 
-### A7. Plugin layout (final v1)
+### A7. Plugin layout (final, as shipped in v1.1)
 ```
 ai-mentor/
 ├── .claude-plugin/plugin.json
-├── hooks/hooks.json
+├── hooks/hooks.json                           # registers SessionStart + PreToolUse
 ├── hooks-handlers/
-│   ├── session-start.sh         # reset state to ambient + emit additionalContext
-│   └── pre-tool-use.sh          # enforcement (fail-open)
-├── lib/state.sh                 # shared bash helpers
-├── skills/ai-mentor/SKILL.md    # detailed Pillar 3 + 4 reference
+│   ├── session-start.sh                       # source-aware: reset on startup/clear,
+│   │                                          # preserve on resume/compact; always
+│   │                                          # emit additionalContext (A11)
+│   └── pre-tool-use.sh                        # enforcement (fail-open)
+├── lib/state.sh                               # shared bash helpers (read/write
+│                                              # state, last_user_msg, override match)
+├── skills/ai-mentor/SKILL.md                  # detailed Pillar 3 + 4 reference
 ├── commands/{z1,z2-decide,z2-build,locked,quiz,eli10,fool}.md
+├── CHANGELOG.md                               # added in v1.1
 ├── README.md
 └── LICENSE
 ```
@@ -94,7 +100,91 @@ ai-mentor/
 
 ---
 
+## v1.1 amendments (shipped 2026-04-26)
+
+Refinements made during/after the v1.0.0 build to address gaps surfaced by the post-build research pass. Each supersedes the v0.2 amendment with the same letter where applicable.
+
+### A10. State path migrated to `${CLAUDE_PLUGIN_DATA}` (supersedes A4 path)
+State now lives at `${CLAUDE_PLUGIN_DATA}/state.json` (the canonical Claude Code plugin-data dir, which survives plugin updates). Resolution order in `lib/state.sh`:
+1. Explicit `AI_MENTOR_STATE` env var (used by tests).
+2. `${CLAUDE_PLUGIN_DATA}/state.json` (set by Claude Code at hook invocation time).
+3. `~/.claude/ai-mentor/state.json` (legacy fallback for contexts where the env var is unset, e.g., sourcing the lib from a plain shell).
+
+*Reason:* the canonical location is documented as plugin-update-safe; the legacy path was a placeholder. Existing v1.0 users silently migrate (a new state file is created at the new path on next session start; the orphaned legacy file is harmless and can be deleted manually).
+
+### A11. SessionStart is source-aware (compaction-resilience)
+The SessionStart hook now reads the `source` field from its stdin payload:
+
+| `source` | Behavior |
+|---|---|
+| `startup` | Reset state to ambient defaults; emit protocol |
+| `clear` | Reset state to ambient defaults; emit protocol |
+| `resume` | **Preserve** state; emit protocol |
+| `compact` | **Preserve** state; emit protocol |
+| missing/unknown | Reset (defensive default) |
+
+This closes a silent failure mode: prior to v1.1, every SessionStart unconditionally reset state, so a long session that triggered context compaction would erase the user's active zone — and from then on the spotter was effectively dead until they noticed and re-ran `/z2-build` or `/z2-decide`. SessionStart firing on the `compact` source already exists in Claude Code, so re-emitting `additionalContext` there gives compaction-resilience for free; **no separate `PreCompact` hook is required**.
+
+### A12. Skill frontmatter split into `description` + `when_to_use`
+Per Skills documentation, the combined description budget for trigger heuristics is ~1,536 chars. v1.1 splits the skill's metadata accordingly: `description` (~280 chars, core purpose only) + `when_to_use` (~410 chars, exhaustive trigger phrases). Trigger phrase list expanded to include all Pillar-3/4 sub-mode names and override variants.
+
+### A13. Subagent scope (explicit, not enforced)
+PreToolUse hook fires on the **main session's** tool calls only. Subagents (spawned via the `Task` tool — Explore, Plan, code-architect, general-purpose, etc.) run in their own isolated context and may not trigger the parent's hook. This is a Claude Code design choice (subagent isolation), not a plugin bug.
+
+Implication: zone enforcement is a discipline on the main agent + user, not a sandbox around every tool path. Enforcement strategy:
+- Main agent's protocol (always-on additionalContext) discourages spawning implementation-shaped subagents in `zone=2`.
+- The hook still catches all direct Edit/Write/NotebookEdit calls from the main agent.
+- Subagent invocations are not blocked — read-only subagents (Explore, Plan) run normally; writing-shaped subagents bypass the spotter intentionally if invoked.
+
+Documented in SKILL.md ("Subagent scope") and README.md. No code-side enforcement added in v1.1; revisit if real-world drift suggests need.
+
+### A14. Edge-case behaviors clarified
+The following behaviors were latent in code but underspecced; v1.1 makes them explicit.
+
+| Behavior | Decision |
+|---|---|
+| **`/locked` from non-decide states** | Works. Sets `zone=1, submode=null` regardless of prior state — effectively a synonym for `/z1` from `ambient` or `build`. Use whichever feels more natural ("decisions locked" vs "exit spotter"). |
+| **`/quiz` with no arg** | Sets `quiz_level=null` (turns quiz mode off). Mirrors `/quiz off` exactly. *v0.2 Q5 asked "repeat last vs default L1" — neither; no-arg means off.* |
+| **`/eli10` progression mechanism** | Relies on the model's conversation memory, not state. Each call simplifies based on the prior `/eli10` response visible in context. Acceptable for v1; if drift observed, add `eli10_level` to state in a future version. |
+| **`/fool` and `/eli10` zone-orthogonality** | Both work in any zone (`ambient`, `1`, `2`). They modify conversational posture, not state's zone field. The user can be in `zone=2/build` AND in fool mode simultaneously. |
+| **Multi-session state collision** | Single `state.json` is shared across simultaneous Claude Code sessions on the same machine. Last-writer-wins. Known limitation; defer until reported in real use. |
+| **`/locked` from `ambient`** | Allowed (same effect as from any non-decide state). No-op feel for the user but the state file gets `set_by: slash:/locked` for traceability. |
+
+### A15. v0.1 sections explicitly superseded
+For future readers parsing the long-form v0.1 body below, the following sections are **stale** and should not be treated as authoritative:
+
+| v0.1 section | Status | Reference |
+|---|---|---|
+| §3 NG2 (mentions "CP-1..CP-9") | Orphan reference from archived v1 5-plugin design. To remove on next major spec rewrite. | — |
+| §5.5 (slash command table with `/z2`) | Superseded by A5 (split into `/z2-decide`/`/z2-build`). | A5 |
+| §5.7 state schema (no `submode`/`quiz_level`) and pseudocode | Superseded by A2/A3/A4/A10/A11. | A2, A3, A4, A10, A11 |
+| §6 plugin layout (`pre-tool-use-curve2.py`, `.bat`, `settings.json.tmpl`) | Superseded by A7/A10. v1 ships `.sh` only — see B3 below. | A7 |
+| §10 verification (uses `/z2`) | Superseded by A5 commands. Manual hook-test scenarios live in build-session bash output, not committed yet — see B4. | A5 |
+
+### A16. Iteration log addendum (v1.1)
+- **v1.1.0 (2026-04-26):** State path migrated to `${CLAUDE_PLUGIN_DATA}` (A10). SessionStart source-awareness for compaction resilience (A11). Skill frontmatter split into `description` + `when_to_use` (A12). Subagent scope documented (A13). Edge-case behaviors clarified (A14). Stale v0.1 sections flagged (A15). New open questions surfaced (B-series).
+
+---
+
+## B-series open questions (surfaced during v1.0/v1.1 build)
+
+These are gaps the build process exposed, distinct from the v0.1 §8 questions (all of which were resolved in A8/A10–A14). All are **deferred** for v1.x — none block current functionality.
+
+| # | Question | Recommendation |
+|---|---|---|
+| **B1** | **Universal applicability scope.** G4 promises "code, prose, strategy, learning" but the hook fires only on Edit/Write/NotebookEdit — Claude Code's only file-edit surfaces. Pure conversational work (drafting an email in chat, deciding on a strategy via dialogue) gets the SessionStart protocol guidance but no mechanical enforcement. | Acknowledge as scope, not bug. Edit-only enforcement is the right scope for v1; the protocol context handles non-tool work via discipline. Update G4 to reflect this when the spec gets a major rewrite. |
+| **B2** | **Multi-session state collision.** Two concurrent Claude Code sessions on the same machine share `${CLAUDE_PLUGIN_DATA}/state.json`. Last writer wins. | Defer. Add per-session state scoping (`state.<session_id>.json`) only if real friction observed. |
+| **B3** | **Cross-platform (Windows).** v0.1 R5 acknowledged this; never resolved. v1.1 ships `.sh` only — Linux/macOS only. | Document as Linux/macOS only in README. Windows support deferred until requested; would require porting `state.sh` and the two hook scripts to PowerShell or rewriting in Python. |
+| **B4** | **Formal eval/regression suite.** v1.0 and v1.1 builds include 11 manual hook scenarios that pass — but they live in session bash output, not in the plugin. A regression on hook behavior could ship to GitHub silently. | Add `evals/` directory with a runnable test script (bash + jq) that exercises the 11 scenarios. Cheap to add in v1.2. |
+| **B5** | **`/eli10` progression state.** Currently relies on model memory (each call simplifies based on prior `/eli10` response in context). If memory drifts mid-session, the simplification ladder breaks. | Defer. Add `eli10_level` to state only if drift becomes a real issue. |
+| **B6** | **Telemetry / override frequency.** v0.2 Q9 deferred; reaffirm. Tracking how often the user overrides could surface "you're at 80% override — Curve 2 may not be the right mode for this work." | Stay deferred. Privacy-sensitive; would require explicit opt-in. Not needed for v1.x. |
+| **B7** | **Auto-classification suggestion.** v0.2 Q4 / A8 chose "skill suggests, user explicitly invokes" — no auto-flip. In practice the SessionStart protocol doesn't strongly nudge the agent to suggest mode changes when it sees a Curve-2-shaped task. | Could strengthen the protocol's "default to suggesting" instruction in v1.2 if real-world use shows the suggestions don't fire. |
+
+---
+
 ## Original v0.1 spec (below, retained for context)
+
+> **Reader note:** sections of v0.1 are superseded — see A15 above for the supersession map.
 
 ## 1. TL;DR
 
