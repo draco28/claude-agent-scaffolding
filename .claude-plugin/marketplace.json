@@ -11,6 +11,12 @@
       "description": "Cognitive partner — mechanically enforces spotter mode (Curve 2) via PreToolUse hook. Pillar 3 (Gym: /z2-decide, /z2-build, /locked, /quiz) + Pillar 4 (Fool: /eli10, /fool).",
       "category": "productivity",
       "source": "./ai-mentor"
+    },
+    {
+      "name": "scaffold",
+      "description": "[WIP — Phase A scaffold] Project-level workflow plugin. Bootstrap or audit any repo, run slice-driven 5-phase workflow (spec→contract→scaffold→implement→verify), manage living governance (ADRs, CHANGELOG, runbooks), per-repo memory bank with semantic search via Ollama. Worktree-safe state. v0.1.0 currently has command stubs only; functionality lands in phases B–J.",
+      "category": "workflow",
+      "source": "./scaffold"
     }
   ]
 }
