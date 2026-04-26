@@ -9,6 +9,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added — Phase A: plugin scaffold (2026-04-26)
 - File tree at `scaffold/` with valid manifests, command stubs, library stubs, MCP skeleton, templates, and install script skeleton. Plugin loads in Claude Code without errors. No functional behavior yet — subsequent phases (B–J) implement capabilities.
 
+### Added — Phase G: worktree commands (2026-04-27)
+- `lib/worktree.sh`: `sf_worktree_fork` wraps `git worktree add -b`, copies parent branch's `state.json` with `current_slice`, `slices`, and audit history reset (per-branch slice context starts fresh) but inherits `stack`, `llm_project`, `adr_counter`, `claude_md_managed` (these are per-repo concepts). Materializes `CLAUDE.md` inside the new worktree by running the generator from inside the new tree's cwd. `sf_worktree_list` parses `git worktree list --porcelain` and joins each block to its branch's `state.json` for current-slice + phase context.
+- `/scaffold-worktree-fork <branch> [--path <p>]`: creates worktree at `../<repo>-<branch-slug>` by default (configurable via `--path`). Pre-flight refuses if branch already exists or target path is occupied. Slash-named branches (`feat/payments`) get the slug applied to the dir name (`-feat-payments`) and `__` substitution for the plugin-data branch dir.
+- `/scaffold-worktree-list`: prints a markdown table of all worktrees with branch, current slice, phase, and last-updated timestamp. Worktrees that exist on disk but have no scaffold state show `(unmanaged)` so the user can spot which ones haven't been initialized.
+- `tests/test-worktree.sh`: 21 tests across success path (10), refusal cases (3), `--path` support including slash-name slugging (3), and list rendering (5).
+- E2E walkthrough: created parent repo with stack signal → `/scaffold-init` → `/slice-new` → `/scaffold-worktree-fork auth-flow-alt` → verified new worktree has `CLAUDE.md`, fresh state with parent's stack/adr_counter inherited but slice context cleared. `/scaffold-worktree-list` correctly showed both worktrees with their respective slice progress.
+- Total scaffold test count: **175 tests** across 7 suites (30 state + 16 claude-md + 21 audit + 36 slice-gates + 23 governance + 28 mcp + 21 worktree), all passing.
+
 ### Added — Phase F: Python MCP server with semantic memory bank (2026-04-27)
 - `mcp/memory.py`: per-repo SQLite store with three indexes — primary `memory` table, `memory_fts` (FTS5, always available via stdlib), `memory_vec` (sqlite-vec, optional). CRUD operations, `list_recent` with type/since filters, `search` with hybrid retrieval (FTS5 BM25 + vector cosine, weighted blend), idempotent migration via `IF NOT EXISTS`, fail-safe row parsing.
 - `mcp/embed.py`: Ollama HTTP client using stdlib `urllib` only (no `requests` dependency). Returns `None` on any error so memory operations gracefully degrade to FTS5-only when Ollama is unavailable.
