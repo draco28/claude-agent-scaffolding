@@ -154,19 +154,46 @@ sf_state_apply_typed() {
 # ── Init ────────────────────────────────────────────────────────────────────
 
 # sf_init_state — create state.json for the current (repo, branch) if missing.
-# Detects stack and LLM signals at init time; never overwrites an existing
-# state file (idempotent).
+# Detects stack and LLM signals at init time; seeds adr_counter from any
+# existing docs/adr/NNNN-*.md files so /adr-new picks up at the next number
+# instead of colliding with existing ADRs. Never overwrites an existing state
+# file (idempotent).
 # Returns 0 if state was created, 1 if it already existed (no-op).
 sf_init_state() {
   if sf_is_managed; then
     return 1
   fi
-  local stack_json llm now
+  local stack_json llm now adr_counter
   stack_json="$(sf_stack_detect_json)"
   llm="$(sf_llm_detect)"
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  adr_counter="$(sf_scan_existing_adrs)"
   sf_default_state \
-    | jq --argjson stack "$stack_json" --argjson llm "$llm" --arg now "$now" \
-        '.stack = $stack | .llm_project = $llm | .created_at = $now | .updated_at = $now' \
+    | jq --argjson stack "$stack_json" \
+         --argjson llm "$llm" \
+         --argjson adr "$adr_counter" \
+         --arg now "$now" \
+        '.stack = $stack | .llm_project = $llm | .adr_counter = $adr
+         | .created_at = $now | .updated_at = $now' \
     | sf_write_state_stdin
+}
+
+# sf_scan_existing_adrs — find the highest ADR number in docs/adr/ as
+# NNNN-*.md and echo it (or 0 if none / no dir). Used by sf_init_state to
+# seed adr_counter for repos onboarded with existing ADRs.
+sf_scan_existing_adrs() {
+  local root adr_dir max=0
+  root="$(sf_repo_root)"
+  adr_dir="$root/docs/adr"
+  [[ -d "$adr_dir" ]] || { echo 0; return 0; }
+  while IFS= read -r f; do
+    local base num
+    base="$(basename "$f")"
+    # Match NNNN- prefix, strip leading zeros for arithmetic
+    if [[ "$base" =~ ^([0-9]+)- ]]; then
+      num=$((10#${BASH_REMATCH[1]}))
+      (( num > max )) && max=$num
+    fi
+  done < <(find "$adr_dir" -maxdepth 1 -type f -name '[0-9]*.md' 2>/dev/null)
+  echo "$max"
 }

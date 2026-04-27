@@ -23,14 +23,30 @@ sf_repo_remote_url() {
 }
 
 # sf_repo_hash — deterministic 12-hex-char identifier for this repo.
-# Uses git remote URL when available (survives dir moves), falls back to
-# absolute path of the repo root. Cross-clone behavior: two clones of the same
-# remote will share state; this is intentional per SPEC OQ-14.
+# Resolution order:
+#   1. git remote URL (origin) — same across all clones and worktrees
+#   2. git common-dir parent — same across all worktrees of one local clone
+#      (uses `git rev-parse --git-common-dir`, which is the SHARED .git dir
+#      that all worktrees of a clone point at)
+#   3. repo root path — final fallback for non-git dirs
+# Cross-clone behavior: two clones of the same remote share state by URL match.
+# Cross-worktree behavior (no remote): worktrees share state via common-dir.
 sf_repo_hash() {
   local key
   key="$(sf_repo_remote_url)"
   if [[ -z "$key" ]]; then
-    key="$(sf_repo_root)"
+    # Resolve common .git dir to its parent (the main repo's root)
+    local common_dir
+    if common_dir="$(git rev-parse --git-common-dir 2>/dev/null)" && [[ -n "$common_dir" ]]; then
+      # `git rev-parse --git-common-dir` returns relative `.git` for the main
+      # worktree and absolute `/path/.git` for secondary worktrees. Normalize
+      # by resolving relative to current dir, then take dirname.
+      if [[ "$common_dir" != /* ]]; then
+        common_dir="$(pwd)/$common_dir"
+      fi
+      key="$(cd "$(dirname "$common_dir")" 2>/dev/null && pwd)"
+    fi
+    [[ -z "$key" ]] && key="$(sf_repo_root)"
   fi
   if command -v sha256sum >/dev/null 2>&1; then
     printf '%s' "$key" | sha256sum | cut -c1-12
