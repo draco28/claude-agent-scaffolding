@@ -4,18 +4,19 @@ Personal Claude Code plugin marketplace.
 
 ## Plugins
 
-| Plugin | Status | Scope | Purpose |
+| Plugin | Version | Scope | Purpose |
 |---|---|---|---|
-| [`ai-mentor`](./ai-mentor/) | v1 (in development) | User-level | Cognitive partner — Pillar 3 (Gym/spotter) + Pillar 4 (Fool/beginner's mind). Replaces the fragile pair-program plugin. Mechanically enforces Curve 2 mode via PreToolUse hook + state file. |
-| `scaffolding` (working title) | Planned | Per-project | "Ultimate" project scaffolding plugin — applies on every new project. Spec drift, governance docs, methodology helpers. Spec at [`docs/archive/SPEC-v1.md`](./docs/archive/SPEC-v1.md) is a stale 5-plugin design; will be rewritten before this plugin is built. |
+| [`ai-mentor`](./ai-mentor/) | v1.1.0 | User-level | Cognitive partner. Pillar 3 (Gym/spotter) with two Curve-2 sub-modes (`/z2-decide` and `/z2-build`) + Pillar 4 (Fool/beginner's mind). Mechanically enforces spotter mode via PreToolUse hook + state file. Replaces the fragile pair-program plugin. |
+| [`scaffold`](./scaffold/) | v1.0.0 | Project-level (state user-global) | Project workflow plugin. Bootstrap or audit any repo, run slice-driven 5-phase workflow, manage living governance (ADRs, CHANGELOG, runbooks), per-repo memory bank with semantic search via Ollama. Worktree-safe. 18 slash commands + 10 MCP tools. |
+
+The two plugins are designed to **compose without overlap**: `ai-mentor` enforces *cognitive mode* (when AI types vs when you do); `scaffold` tracks *workflow phase* (which step of a slice you're on). Disjoint slash command namespaces, distinct state paths.
 
 ## Install
 
-Add this repo as a Claude Code plugin marketplace:
-
 ```
-/plugin marketplace add github:<user>/claude-agent-scaffolding
+/plugin marketplace add github:draco28/claude-agent-scaffolding
 /plugin install ai-mentor@claude-agent-scaffolding
+/plugin install scaffold@claude-agent-scaffolding
 ```
 
 For local development:
@@ -23,6 +24,40 @@ For local development:
 ```
 /plugin marketplace add /home/pras/personal/claude-agent-scaffolding
 /plugin install ai-mentor@claude-agent-scaffolding
+/plugin install scaffold@claude-agent-scaffolding
+```
+
+## Quick start with `scaffold`
+
+```
+cd <your-project>
+/scaffold-init                 # bootstrap LICENSE, .gitignore, README, CLAUDE.md, docs/
+/slice-new my-first-slice      # start a slice
+# ... edit the spec file's acceptance criteria ...
+/slice-contract                # gate-checks ACs, advance to contract phase
+/slice-scaffold                # advance to scaffold phase (write skeletons)
+/slice-implement               # advance to implement phase
+/slice-verify                  # run tests; mark complete on green
+/adr-new "decide caching strategy"
+/changelog Added "user authentication"
+/changelog bump 0.1.0
+/scaffold-worktree-fork alt-approach    # parallel branch with forked state
+```
+
+The MCP memory bank exposes `record_decision`, `record_pattern`, `record_note`, `record_retrospective`, `recall`, `list_recent`, `get_by_id`, `update`, `delete`, `reindex` as MCP tools — usable via natural language ("record a decision about caching strategy"), or directly in tool-calling contexts.
+
+## Quick start with `ai-mentor`
+
+```
+/z1                            # pure delegation; AI does everything (default ambient)
+/z2-decide                     # Curve 2: AI is spotter on architectural thinking;
+                               #          PreToolUse hook blocks edits until /locked
+/locked                        # signal decisions are final; AI implements
+/z2-build                      # Curve 2: AI gives progressive hints; YOU type the code
+                               #          override per-edit with "show me" / "skip to solution"
+/eli10                         # Explain Like I'm 10 (re-invocable to simplify further)
+/quiz l3                       # Socratic quiz at executive-interview depth
+/fool                          # beginner's-mind mode for the conversation
 ```
 
 ## Layout
@@ -30,13 +65,21 @@ For local development:
 ```
 .
 ├── .claude-plugin/marketplace.json    # marketplace manifest
-├── ai-mentor/                         # AI Mentor plugin
+├── ai-mentor/                         # ai-mentor plugin (v1.1.0)
+├── scaffold/                          # scaffold plugin (v1.0.0)
 ├── docs/
-│   ├── SPEC-ai-mentor.md              # active spec (v0.2)
-│   └── archive/SPEC-v1.md             # historical 5-plugin design
+│   ├── SPEC-ai-mentor.md              # ai-mentor spec (v1.1 amendments)
+│   ├── SPEC-scaffold.md               # scaffold spec (v1.0 amendments)
+│   └── archive/SPEC-v1.md             # historical 5-plugin design (pre-pivot)
 ├── README.md
 └── LICENSE
 ```
+
+## Platforms
+
+Linux and macOS. Windows is deferred for both plugins (would require porting bash to PowerShell and the MCP launcher script).
+
+`scaffold`'s MCP memory bank requires Python 3.11+ at install time and (optionally) Ollama running for semantic search. Falls back to FTS5 keyword search when Ollama is unavailable.
 
 ## License
 

@@ -2,11 +2,11 @@
 
 Project-level Claude Code plugin. Bootstrap any repo, run slice-driven development with strict phase gates, manage living governance docs, and query a per-repo memory bank with semantic search.
 
-**Status:** v0.1.0 (Phase A scaffold — file tree exists, functionality lands in subsequent phases).
+**Status:** v1.0.0 — production release (2026-04-27). 236 tests across 9 suites passing.
 
 **Companion plugin:** [`ai-mentor`](../ai-mentor/) — user-level cognitive partner. The two are designed to compose without overlap. See SPEC `§10` for composition rules.
 
-## What it does (target v1.0.0)
+## What it does
 
 Four capabilities, plus a bundled MCP memory bank.
 

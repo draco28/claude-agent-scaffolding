@@ -6,6 +6,41 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-04-27
+
+Initial production release. Phases A–I shipped with 236 tests across 9 suites
+all passing.
+
+**Capabilities (4):**
+- Project init / audit / status (init, audit with --save, status pretty-printer)
+- Slice workflow with strict 5-phase gates (spec → contract → scaffold → implement → verify)
+- Living governance (ADR auto-numbering, Keep-a-Changelog management, SRE-style runbooks)
+- Personal-defaults + 2-layer CLAUDE.md, generated and worktree-safe
+
+**Memory bank (MCP):**
+- 10 tools: record_decision / record_pattern / record_note / record_retrospective / recall / list_recent / get_by_id / update / delete / reindex
+- SQLite + sqlite-vec for vector search; Ollama (`nomic-embed-text`) for embeddings
+- FTS5 keyword fallback when Ollama or sqlite-vec is missing
+- Per-repo isolation (memory.db lives at `${CLAUDE_PLUGIN_DATA}/projects/<hash>/`)
+- Lazy venv install on first tool invocation; `uv` preferred when available
+
+**Worktree-safe state:**
+- All mutable state in `${CLAUDE_PLUGIN_DATA}/projects/<repo-hash>/`, outside the working tree
+- `/scaffold-worktree-fork` creates worktree + forks branch state + materializes CLAUDE.md
+- Repo-hash via git remote URL → git-common-dir → repo root path (so worktrees of one clone share state even without a remote)
+- Per-repo accounting (stack, llm_project, adr_counter) inherited; per-branch slice context reset
+
+**SessionStart hook:**
+- ~280 tokens of project context auto-injected when scaffold-managed (silent on unmanaged repos)
+- Source-aware: emits on startup / resume / clear / compact so context survives compaction
+- Memory bank surfaces 3 most-recent entries via dual-path read (sqlite3 CLI → python3 stdlib fallback)
+
+**Composition with ai-mentor:**
+- Disjoint slash command namespaces; verified composable
+- SKILL.md documents Curve 1 vs Curve 2/decide vs Curve 2/build mapping for each scaffold operation
+
+### Phase-by-phase summary
+
 ### Added — Phase A: plugin scaffold (2026-04-26)
 - File tree at `scaffold/` with valid manifests, command stubs, library stubs, MCP skeleton, templates, and install script skeleton. Plugin loads in Claude Code without errors. No functional behavior yet — subsequent phases (B–J) implement capabilities.
 

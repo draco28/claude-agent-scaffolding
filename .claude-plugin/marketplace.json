@@ -14,7 +14,7 @@
     },
     {
       "name": "scaffold",
-      "description": "[WIP — Phase A scaffold] Project-level workflow plugin. Bootstrap or audit any repo, run slice-driven 5-phase workflow (spec→contract→scaffold→implement→verify), manage living governance (ADRs, CHANGELOG, runbooks), per-repo memory bank with semantic search via Ollama. Worktree-safe state. v0.1.0 currently has command stubs only; functionality lands in phases B–J.",
+      "description": "Project-level workflow plugin. Bootstrap or audit any repo, run slice-driven 5-phase workflow (spec → contract → scaffold → implement → verify), manage living governance (ADRs, CHANGELOG, runbooks), and search a per-repo memory bank via Ollama-backed semantic recall (FTS5 fallback). Worktree-safe: state lives outside the working tree so parallel branches inherit/fork cleanly. 18 slash commands + 10 MCP tools.",
       "category": "workflow",
       "source": "./scaffold"
     }

@@ -1,12 +1,140 @@
 # SPEC: scaffold plugin
 
-**Status:** Draft v0.1 — ready for final review before build
-**Date:** 2026-04-26
+**Status:** v1.0.0 shipped (2026-04-27). v1.0 amendments tracked at the top of this doc.
 **Owner:** Praveen Kumar Singh
 **Repo home:** `claude-agent-scaffolding` marketplace (this repo)
 **Companion plugin:** `ai-mentor` (user-level cognitive partner). `scaffold` is the project-level workflow plugin. The two are designed to compose without overlap.
-**Target version:** 1.0.0
-**Platforms:** Linux, macOS (same as ai-mentor; Windows deferred)
+**Platforms:** Linux, macOS (Windows deferred — same as ai-mentor)
+**Version history:** v0.1 (initial design, 2026-04-26) → v1.0.0 (shipped, 2026-04-27, after phases A–I + bug fixes from the integration suite)
+
+---
+
+## v1.0 amendments (shipped 2026-04-27)
+
+The v0.1 spec below remains the long-form design reference. The following decisions and refinements were made during the build (phases A–I) and **override** v0.1 where they conflict.
+
+### A1. MCP module layout flattened
+v0.1 §8 specified `mcp/memory/{db,embed,search}.py` plus `mcp/memory/tools/*.py` (one file per tool). v1.0 ships flat:
+
+```
+mcp/
+├── server.py        # FastMCP app + all 10 tools as @mcp.tool decorated functions
+├── memory.py        # SQLite + sqlite-vec setup, hybrid search
+├── embed.py         # Ollama HTTP client (urllib stdlib, no `requests` dep)
+├── run-server.sh    # lazy venv install + launcher
+└── requirements.txt
+```
+
+*Reason:* 10 tools as small functions in `server.py` (~250 lines total) is clearer to read than 10 tiny one-function modules.
+
+### A2. Slice state schema simplified
+Dropped `test_paths` and `scaffold_files` arrays from v0.1's slice schema. Final shape:
+
+```json
+{
+  "name": "...",
+  "number": N,
+  "phase": "spec|contract|scaffold|implement|verify|complete",
+  "spec_path": "docs/slices/...",
+  "acceptance_criteria": [{"id","text","status"}],
+  "last_test_result": {"exit_code","summary","captured_at"} | null,
+  "test_command": "...",
+  "created_at": "...",
+  "updated_at": "..."
+}
+```
+
+*Reason:* Auto-tracking which files belong to which phase requires either trapping every Edit/Write or asking the agent to update arrays — both fragile. The spec file + git diff already show what changed per slice. Add back in v1.x if real friction emerges.
+
+### A3. `sf_repo_hash` resolution refined
+v0.1 OQ-1 said "git remote URL with path fallback." v1.0 adds a middle tier:
+
+```
+1. git remote URL (origin)              — same across all clones and worktrees
+2. git rev-parse --git-common-dir       — same across all worktrees of one local clone
+3. repo root path                        — final fallback for non-git dirs
+```
+
+*Reason:* `git rev-parse --show-toplevel` returns the *worktree* root, not the main repo root. Without a remote URL, the path fallback diverged across worktrees, breaking worktree state-sharing. Adding the `git-common-dir` tier ensures all worktrees of one clone share state even without a remote. Caught by the integration suite (Phase I bug F6.4).
+
+### A4. `sf_scan_existing_adrs` added
+Not in v0.1. New helper in `lib/state.sh` scans `docs/adr/NNNN-*.md` at init time and seeds `state.adr_counter` to the highest existing N.
+
+*Reason:* Without this, onboarding an existing repo with `0001-foo.md` already present, then running `/adr-new`, would create another `0001-*.md` collision. Caught by the integration suite (Phase I bug E1.9).
+
+### A5. MCP tool count is 10 (added `reindex`)
+v0.1 §5.5 specified 9 tools. v1.0 ships 10: the 9 original + `reindex` for re-embedding entries that lack vectors (e.g., recorded before Ollama was running, or after upgrading to a different embedding model).
+
+### A6. Install script uses `uv` when available
+v0.1 OQ-7 specified `${CLAUDE_PLUGIN_DATA}/venv/`. v1.0 also adds `uv` preference with `UV_NATIVE_TLS=true` baked in:
+
+- `uv venv --seed` if `uv` is on PATH (faster, doesn't need `python3-venv` apt package on Debian)
+- `python -m venv` fallback otherwise
+- `UV_NATIVE_TLS=true` makes uv use the OS trust store, handling corporate-TLS-interception out of the box
+
+### A7. SessionStart hook uses dual-path memory read
+v0.1 §5.6 didn't specify how the hook would read memory.db. v1.0:
+
+- Try `sqlite3` CLI first
+- Fall back to `python3` with stdlib `sqlite3` module
+- If neither available, show "(memory bank empty — record via the scaffold-memory MCP tools)" placeholder
+
+*Reason:* `sqlite3` CLI is unevenly distributed across distros (Debian Slim doesn't include it; macOS does). Python 3 is universally available where scaffold can run (already required for the MCP server).
+
+### A8. `/scaffold-claude-md-edit` doesn't open `$EDITOR`
+v0.1 OQ-5 specified foreground `$EDITOR` invocation. v1.0 changed direction: command **prints the path and advises `/scaffold-claude-md-rebuild`** instead.
+
+*Reason:* TTY hand-off from a slash-command bash block to an interactive editor isn't reliable across Claude Code clients. The two-step flow (read/edit the file via Claude Code's own Edit tool or any external editor; then `/scaffold-claude-md-rebuild` to materialize) works in every environment.
+
+### A9. SessionStart hook is source-agnostic
+v0.1 §5 specified source-aware behavior mirroring ai-mentor v1.1. v1.0 implements it but with a simpler rule: **always emit context when managed, regardless of source value** (startup / resume / clear / compact / missing). Unlike ai-mentor's hook, scaffold has no per-session mutable state to reset — the source-awareness exists purely so context survives compaction.
+
+### A10. Resolved open questions
+
+| # | v0.1 default | v1.0 outcome |
+|---|---|---|
+| **OQ-1** repo-hash | git URL → path | git URL → git-common-dir → path *(refined; see A3)* |
+| **OQ-2** test-framework default | refuse if none | shipped as specced |
+| **OQ-3** slice numbering scope | per-branch | shipped as specced |
+| **OQ-4** CLAUDE.md gitignore | don't touch repo .gitignore | shipped as specced |
+| **OQ-5** claude-md edit UX | foreground `$EDITOR` | **changed**: print path + advise rebuild *(see A8)* |
+| **OQ-6** audit save | terminal default, `--save` flag | shipped as specced |
+| **OQ-7** venv location | `${CLAUDE_PLUGIN_DATA}/venv/` | shipped as specced *(plus uv preference; see A6)* |
+| **OQ-8** slice spec template | opinionated | shipped as specced |
+| **OQ-9** PreToolUse hook | none | shipped as specced |
+| **OQ-10** concurrent slices | refuse without `--force` | shipped as specced |
+| **OQ-11** MCP install | self-install via run-server.sh | shipped as specced |
+| **OQ-12** slice state import | start fresh in v1 | shipped as specced |
+| **OQ-13** MCP delete confirmation | none, document permanent | shipped as specced |
+| **OQ-14** cross-clone state | intentional shared | shipped as specced *(refined: same-clone-different-worktrees also share via A3)* |
+| **OQ-15** slice numbering format | 2-digit padded for 1–99 | shipped as specced |
+
+### A11. Test counts
+v1.0 ships with **236 tests across 9 suites**, all passing:
+
+| Suite | Tests | What it covers |
+|---|---|---|
+| `test-state.sh` | 30 | repo helpers + state CRUD + multi-branch isolation |
+| `test-claude-md.sh` | 16 | path resolution + seeding + generation + manual-edit detection + opt-out |
+| `test-audit.sh` | 21 | 10 audit checks across empty / full / LLM fixtures + renderer + summary |
+| `test-slice-gates.sh` | 36 | slug + numbering + creation + AC parsing + 5-phase gate logic + verify with mocked tests |
+| `test-governance.sh` | 23 | ADR auto-numbering + CHANGELOG append/bump + runbook creation |
+| `test-mcp.sh` | 28 | Memory CRUD + list_recent + FTS5 + hybrid search + sanitizer + embed module + sqlite-vec path |
+| `test-worktree.sh` | 21 | fork success + refusal cases + `--path` + slugged dir names + list rendering |
+| `test-session-start.sh` | 20 | silent exit cases + JSON output + memory surfacing + source-awareness |
+| `test-e2e.sh` | 41 | full workflow on fresh + existing repos, plus memory smoke and worktree fork |
+
+Run all suites: `for t in scaffold/tests/test-*.sh; do bash "$t"; done`.
+
+### A12. Iteration log
+- **v0.1 (2026-04-26):** First-pass spec drafted after the architecture conversation. 15 OQs surfaced, all defaultable. Build sequence A–J defined.
+- **v1.0.0 (2026-04-27):** Shipped after phases A–I. Three real bugs caught by the integration suite and fixed in Phase I (worktree hash divergence, ADR counter not seeded from existing files, jq path quoting in test). One direction change from v0.1 (OQ-5: claude-md edit UX). All 15 OQs resolved.
+
+---
+
+## Original v0.1 spec (below, retained for context)
+
+> **Reader note:** sections of v0.1 are superseded — see A1–A10 above for the supersession map.
 
 ---
 

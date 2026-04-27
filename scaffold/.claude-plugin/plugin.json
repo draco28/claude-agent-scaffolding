@@ -1,6 +1,6 @@
 {
   "name": "scaffold",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Project-level workflow plugin: bootstrap or audit any repo, run a slice-driven 5-phase workflow with strict gates, manage living governance docs (ADRs, CHANGELOG, runbooks), and a per-repo memory bank with semantic search via Ollama. Worktree-safe: state lives outside the working tree. Composes with ai-mentor.",
   "author": {
     "name": "Pras"
