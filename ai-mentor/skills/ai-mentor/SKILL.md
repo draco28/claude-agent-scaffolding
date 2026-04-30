@@ -165,3 +165,7 @@ This is the intended model: the spotter trains *your* discipline (and the main a
 - **Hook is blocking edits when I want them:** include an override phrase in your message (build mode), or run `/locked` (decide mode), or `/z1` to exit spotter entirely.
 - **Hook seems to do nothing at all:** verify `jq` is installed (`command -v jq`). The hook fails open without it.
 - **Zone state was lost after compaction:** v1.1+ preserves zone state through `compact` and `resume` SessionStart sources. If you're seeing this on v1.0, upgrade.
+
+## See also
+
+- **`grill-me` skill** (sibling in this plugin, since v1.2.0): plan/design interrogation. Different surface from `/quiz` — `/quiz` tests *known material* at depth; `grill-me` surfaces *unmade decisions* in *new material*. Trigger via "grill me", "stress-test this", "challenge my design", "poke holes", etc. Composes with `/z2-decide`: spotter mode blocks edits while grilling drives the thinking.

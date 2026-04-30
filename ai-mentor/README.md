@@ -31,6 +31,12 @@ A `PreToolUse` hook physically blocks `Edit` / `Write` / `NotebookEdit` when you
 | `/eli10` | Explain Like I'm 10 — repeatable for further simplification. |
 | `/fool` | Beginner's-mind mode — no-jargon ground-truth explanations. |
 
+## Sibling skills (auto-triggered, no slash command)
+
+| Skill | Trigger phrases | What it does |
+|---|---|---|
+| `grill-me` | "grill me", "stress-test this", "challenge my design", "poke holes", "what am I missing", "play devil's advocate", "tear this apart" | Interrogates a plan or design one question at a time. Walks the design tree across seven categories (requirements / assumptions / edge cases / trade-offs / operability / composition / reversibility), exits cleanly on user signal or convergence with a summary of locked decisions and open issues. Distinct from `/quiz` — `/quiz` tests known material; `grill-me` surfaces unmade decisions. |
+
 ## Override grammar (in `/z2-build`)
 
 Phrases in your most recent message that unblock the hook for the next edit:

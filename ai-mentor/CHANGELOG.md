@@ -6,6 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-04-30
+
+### Added
+- New sibling skill: `skills/grill-me/SKILL.md`. Activates on phrases like "grill me", "stress-test this", "challenge my design", "poke holes", "what am I missing". Asks one question per turn, walks the design tree across seven categories (requirements, assumptions, edge cases, trade-offs, operability, composition, reversibility), exits cleanly on user signal or convergence, summarizes locked decisions / open issues / assumptions to re-check.
+- The skill is plan-and-design-shaped Socratic — distinct from `/quiz` (which tests known material at depth) and from the main `ai-mentor` skill (which manages cognitive mode). Composition documented in the skill body.
+
+### Changed
+- ai-mentor's main `SKILL.md` gets a one-line "See also" pointer to the new `grill-me` skill.
+
+## [1.1.1] — 2026-04-27
+
 ### Added
 - `ai-mentor/tests/test-hooks.sh` — 28-test regression suite (state helpers, PreToolUse hook, SessionStart source-awareness). Run with `bash ai-mentor/tests/test-hooks.sh`. Closes spec open question B4.
 
