@@ -16,3 +16,6 @@ __pycache__/
 
 # Plugin runtime state (never committed; lives in ~/.claude/ai-mentor/)
 ai-mentor/state.json
+
+# Superpowers brainstorming visual companion mockups
+.superpowers/
