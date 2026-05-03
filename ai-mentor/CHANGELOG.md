@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-05-03
+
+### Added
+- New `/improve` slash command: rewrites an unstructured natural-language draft into a clean coding-agent prompt (specific files, expected behavior, constraints, definition of done). Always shows the rewrite for explicit user confirmation before Claude acts on it.
+- **Pass-through marker** (`<!-- already well-formed; no changes -->`) when the draft is already well-structured (named files + expected behavior + constraints + definition of done), so the command doesn't damage prompts that don't need rewriting.
+- **Inventing-flag rule** — if the rewriter fills in details the user didn't mention (file paths, constraints), it must explicitly flag those for review rather than silently presenting them as ground truth.
+
+### Architecture notes
+- The rewrite happens **in the current Claude session**, not via an external `claude --print` subprocess. We tried the subprocess approach first; it had two real problems: (a) `--bare` (which would isolate the call cleanly) requires `ANTHROPIC_API_KEY` and skips OAuth/keychain auth, and (b) without `--bare`, the rewriter call inherits the user's installed skills (e.g., superpowers' `systematic-debugging`) and ignores our system prompt. The in-context approach avoids both problems and adds zero latency from process spawning.
+- Trade-off: rewrite uses the active session's model (Sonnet/Opus typically) instead of cheaper Haiku. Acceptable because the rewrite is small (~500–1500 input + 200–600 output tokens) and `/improve` is opt-in (used when a draft is genuinely worth thinking about).
+- No separate `ANTHROPIC_API_KEY` required. No subprocess. No subscription complications.
+
 ## [1.2.0] — 2026-04-30
 
 ### Added

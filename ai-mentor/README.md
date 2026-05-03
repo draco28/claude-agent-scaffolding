@@ -30,6 +30,7 @@ A `PreToolUse` hook physically blocks `Edit` / `Write` / `NotebookEdit` when you
 | `/quiz off` | Exit quiz mode. |
 | `/eli10` | Explain Like I'm 10 — repeatable for further simplification. |
 | `/fool` | Beginner's-mind mode — no-jargon ground-truth explanations. |
+| `/improve <draft>` | Rewrite a vague natural-language prompt into a structured coding-agent prompt. Pass-through for already-well-formed drafts. Always asks for confirmation before acting on the rewrite. |
 
 ## Sibling skills (auto-triggered, no slash command)
 
