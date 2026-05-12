@@ -32,7 +32,29 @@ test_state_read_missing_field() {
   assert_eq "missing field reads as null" "null" "$val"
 }
 
+test_answer_write_read() {
+  echo "test_answer_write_read:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_answer "1.1.1" "todo-cli — a fast task manager"
+  local val
+  val="$(sf_state_read_answer 1.1.1)"
+  assert_eq "answer round-trip" "todo-cli — a fast task manager" "$val"
+}
+
+test_answer_with_special_chars() {
+  echo "test_answer_with_special_chars:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_answer "1.2.2" 'A "quoted" value with $special chars'
+  local val
+  val="$(sf_state_read_answer 1.2.2)"
+  assert_eq "special chars preserved" 'A "quoted" value with $special chars' "$val"
+}
+
 test_state_init
 test_state_atomic_write
 test_state_read_missing_field
+test_answer_write_read
+test_answer_with_special_chars
 report_results

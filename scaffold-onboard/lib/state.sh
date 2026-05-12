@@ -60,3 +60,30 @@ sf_state_write_atomic() {
   fi
   mv "$tmp" "$path"
 }
+
+# Write an answer to state.answers["<question_id>"]. value is treated as a
+# raw string; jq handles escaping.
+sf_state_write_answer() {
+  local qid="$1" value="$2"
+  local path
+  path="$(sf_state_path)"
+  local tmp
+  tmp="$(mktemp "${path}.XXXXXX")"
+  local now
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  jq --arg q "$qid" --arg v "$value" --arg now "$now" \
+    '.answers[$q] = $v | .updated_at = $now' "$path" > "$tmp"
+  mv "$tmp" "$path"
+}
+
+# Read state.answers["<question_id>"]. Returns "null" if absent.
+sf_state_read_answer() {
+  local qid="$1"
+  local path
+  path="$(sf_state_path)"
+  if [[ ! -f "$path" ]]; then
+    echo "null"
+    return 0
+  fi
+  jq -r --arg q "$qid" '.answers[$q] // "null"' "$path"
+}
