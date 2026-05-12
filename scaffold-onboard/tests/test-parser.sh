@@ -93,9 +93,37 @@ test_project_class_helper() {
   assert_eq "project_class helper" "CLI tool" "$pc"
 }
 
+test_subsection_extract() {
+  echo "test_subsection_extract:"
+  local spec="$FIXTURE_DIR/min.md"
+  write_min_spec "$spec"
+  local content
+  content="$(sf_spec_subsection "$spec" "1.3")"
+  if echo "$content" | grep -q "Project class:"; then
+    PASS=$((PASS+1)); echo "  ✓ subsection 1.3 found"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ subsection 1.3 missing"
+  fi
+}
+
+test_summary_extract() {
+  echo "test_summary_extract:"
+  local spec="$FIXTURE_DIR/min.md"
+  write_min_spec "$spec"
+  local content
+  content="$(sf_spec_summary "$spec")"
+  if echo "$content" | grep -q "fast local-first"; then
+    PASS=$((PASS+1)); echo "  ✓ exec summary found"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ exec summary missing"
+  fi
+}
+
 test_phases_present
 test_phase_extract
 test_kv_parse
 test_kv_parse_missing
 test_project_class_helper
+test_subsection_extract
+test_summary_extract
 report_results

@@ -48,3 +48,33 @@ sf_spec_kv() {
 sf_spec_project_class() {
   sf_spec_kv "$1" "Project class"
 }
+
+# Print content of subsection `M.N` (### M.N Title) until the next ### or ##.
+sf_spec_subsection() {
+  local path="$1" sec="$2"
+  awk -v target="$sec" '
+    BEGIN { in_sec = 0 }
+    /^### [0-9]+\.[0-9]+ / {
+      line = $0
+      sub(/^### /, "", line)
+      sub(/ .*$/, "", line)
+      sec = line
+      if (sec == target) { in_sec = 1; print; next }
+      else if (in_sec) { in_sec = 0 }
+    }
+    /^## / { if (in_sec) in_sec = 0 }
+    in_sec { print }
+  ' "$path"
+}
+
+# Print content of the executive summary section.
+sf_spec_summary() {
+  local path="$1"
+  awk '
+    BEGIN { in_sec = 0 }
+    /^## Executive Summary[[:space:]]*$/ { in_sec = 1; next }
+    /^## / && !/^## Executive Summary/ { if (in_sec) in_sec = 0 }
+    /^---[[:space:]]*$/ { if (in_sec) in_sec = 0 }
+    in_sec { print }
+  ' "$path"
+}
