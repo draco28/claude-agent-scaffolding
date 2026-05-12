@@ -122,6 +122,38 @@ test_lock_acquire_release
 test_lock_refusal
 test_phase_advance
 test_phase_complete_marks_status
+test_mode_new() {
+  echo "test_mode_new:"
+  setup_tmp_repo
+  rm -f "$(sf_state_path)"  # ensure no state
+  local mode
+  mode="$(sf_state_mode)"
+  assert_eq "no state -> new" "new" "$mode"
+}
+
+test_mode_resume() {
+  echo "test_mode_resume:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_atomic current_phase 5
+  local mode
+  mode="$(sf_state_mode)"
+  assert_eq "in_progress -> resume" "resume" "$mode"
+}
+
+test_mode_reonboard() {
+  echo "test_mode_reonboard:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_atomic status complete
+  local mode
+  mode="$(sf_state_mode)"
+  assert_eq "complete -> reonboard" "reonboard" "$mode"
+}
+
 test_branching_gate_ui
 test_branching_gate_dx
+test_mode_new
+test_mode_resume
+test_mode_reonboard
 report_results

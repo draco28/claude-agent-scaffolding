@@ -164,3 +164,21 @@ sf_state_gate_passes() {
   sf_log_warn "Unknown gate expression: $expr (defaulting to passes)"
   return 0
 }
+
+# Determine the onboarding mode based on state file existence + status.
+# Returns one of: new | resume | reonboard
+sf_state_mode() {
+  local path
+  path="$(sf_state_path)"
+  if [[ ! -f "$path" ]]; then
+    echo "new"
+    return 0
+  fi
+  local status
+  status="$(sf_state_read_field status)"
+  case "$status" in
+    "in_progress") echo "resume" ;;
+    "complete")    echo "reonboard" ;;
+    *)             echo "new" ;;  # malformed or unrecognized
+  esac
+}
