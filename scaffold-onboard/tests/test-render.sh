@@ -40,7 +40,40 @@ test_value_with_spaces() {
     "$out"
 }
 
+test_if_true() {
+  echo "test_if_true:"
+  local tmpl="$FIXTURE_DIR/if.tmpl"
+  cat > "$tmpl" <<'EOF'
+Pre.
+{{#if has_llm}}
+LLM section here.
+{{/if}}
+Post.
+EOF
+  local out
+  out="$(sf_render "$tmpl" has_llm=true)"
+  if echo "$out" | grep -q "LLM section here"; then
+    PASS=$((PASS+1)); echo "  ✓ if-true renders block"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ if-true skipped block: $out"
+  fi
+}
+
+test_if_false() {
+  echo "test_if_false:"
+  local tmpl="$FIXTURE_DIR/if.tmpl"
+  local out
+  out="$(sf_render "$tmpl" has_llm=false)"
+  if echo "$out" | grep -q "LLM section here"; then
+    FAIL=$((FAIL+1)); echo "  ✗ if-false rendered block"
+  else
+    PASS=$((PASS+1)); echo "  ✓ if-false skipped block"
+  fi
+}
+
 test_simple_substitution
 test_missing_var_becomes_todo
 test_value_with_spaces
+test_if_true
+test_if_false
 report_results
