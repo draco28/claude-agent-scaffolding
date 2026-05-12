@@ -60,7 +60,72 @@ test_default_does_not_create_full_docs() {
   assert_file_missing "./docs/EVALS_PLAN.md"
 }
 
+test_full_mode_non_llm() {
+  echo "test_full_mode_non_llm:"
+  setup_tmp_repo
+  seed_master_spec_for_docs  # 9.3.1 = "no"
+  sf_docs_derive --full
+  # 5 default + 6 non-LLM --full = 11 docs total under docs/
+  assert_file_exists "./docs/RISK_REGISTER.md"
+  assert_file_exists "./docs/THREAT_MODEL.md"
+  assert_file_exists "./docs/TEST_STRATEGY.md"
+  assert_file_exists "./docs/DEFINITION_OF_DONE.md"
+  assert_file_exists "./docs/CUTOVER_PLAN.md"
+  assert_file_exists "./docs/DEMO_RUNBOOK.md"
+  # LLM-gated should NOT be generated
+  assert_file_missing "./docs/EVALS_PLAN.md"
+  assert_file_missing "./docs/MODEL_CARD.md"
+  assert_file_missing "./docs/PROMPT_GOVERNANCE.md"
+}
+
+test_full_mode_llm_project() {
+  echo "test_full_mode_llm_project:"
+  setup_tmp_repo
+  seed_master_spec_for_docs
+  # Flip the LLM gate
+  sf_state_write_answer "9.3.1" "yes"
+  sf_state_write_answer "9.3.2" "groundedness, factuality, latency, cost"
+  local tmpl="$PLUGIN_ROOT/templates/master-spec/MASTER-SPEC.md.tmpl"
+  local i
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    sf_master_spec_update_phase "$tmpl" "$i"
+  done
+  sf_docs_derive --full
+  assert_file_exists "./docs/EVALS_PLAN.md"
+  assert_file_exists "./docs/MODEL_CARD.md"
+  assert_file_exists "./docs/PROMPT_GOVERNANCE.md"
+}
+
+test_existing_files_preserved() {
+  echo "test_existing_files_preserved:"
+  setup_tmp_repo
+  seed_master_spec_for_docs
+  sf_docs_derive
+  # Hand-edit
+  echo "## My addition" >> "./docs/PRD.md"
+  sf_docs_derive  # should NOT overwrite
+  assert_file_contains "./docs/PRD.md" "My addition"
+}
+
+test_regenerate_overwrites() {
+  echo "test_regenerate_overwrites:"
+  setup_tmp_repo
+  seed_master_spec_for_docs
+  sf_docs_derive
+  echo "## My addition" >> "./docs/PRD.md"
+  sf_docs_derive --regenerate
+  if grep -q "My addition" "./docs/PRD.md"; then
+    FAIL=$((FAIL+1)); echo "  ✗ --regenerate did not overwrite"
+  else
+    PASS=$((PASS+1)); echo "  ✓ --regenerate overwrote existing file"
+  fi
+}
+
 test_default_docs_generated
 test_prd_content
 test_default_does_not_create_full_docs
+test_full_mode_non_llm
+test_full_mode_llm_project
+test_existing_files_preserved
+test_regenerate_overwrites
 report_results
