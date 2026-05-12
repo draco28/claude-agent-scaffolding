@@ -8,8 +8,14 @@ PASS=0
 FAIL=0
 TMP_DIR=""
 
-_color_pass() { printf "\033[32m%s\033[0m" "$1"; }
-_color_fail() { printf "\033[31m%s\033[0m" "$1"; }
+# Color helpers — emit ANSI only on TTYs or when NO_COLOR is unset.
+if [[ -t 1 && "${NO_COLOR:-}" == "" ]]; then
+  _color_pass() { printf "\033[32m%s\033[0m" "$1"; }
+  _color_fail() { printf "\033[31m%s\033[0m" "$1"; }
+else
+  _color_pass() { printf "%s" "$1"; }
+  _color_fail() { printf "%s" "$1"; }
+fi
 
 assert_eq() {
   local label="$1" expected="$2" actual="$3"
@@ -78,6 +84,11 @@ assert_exit_code() {
   fi
 }
 
+# setup_tmp_repo creates an isolated tmp dir, exports CLAUDE_PLUGIN_DATA,
+# inits a git repo, and cds into it. NOTE: does not restore the prior pwd —
+# test scripts are expected to invoke it once and exit (cleanup trap handles
+# tmp removal). If a later test needs to call this multiple times in one
+# script, save the original directory first: ORIG_DIR=$(pwd).
 setup_tmp_repo() {
   TMP_DIR="$(mktemp -d -t scaffold-onboard-test.XXXXXX)"
   export CLAUDE_PLUGIN_DATA="$TMP_DIR/plugin-data"
