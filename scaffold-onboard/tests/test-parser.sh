@@ -119,6 +119,82 @@ test_summary_extract() {
   fi
 }
 
+write_full_spec() {
+  cat > "$1" <<'EOF'
+# proj — Master Specification
+
+**Spec version:** 1.0
+
+## Executive Summary
+
+Body.
+
+EOF
+  local i
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    cat >> "$1" <<EOF
+<!-- master-spec:phase id=$i name=p$i -->
+## Phase $i: Stuff
+
+Content.
+
+EOF
+  done
+  cat >> "$1" <<'EOF'
+### 1.3 Project class & MVP
+**Project class:** CLI tool
+EOF
+}
+
+test_validate_full_ok() {
+  echo "test_validate_full_ok:"
+  local spec="$FIXTURE_DIR/full.md"
+  write_full_spec "$spec"
+  assert_exit_code 0 sf_spec_validate "$spec"
+}
+
+test_validate_missing_file() {
+  echo "test_validate_missing_file:"
+  assert_exit_code 1 sf_spec_validate "$FIXTURE_DIR/nonexistent.md"
+}
+
+test_validate_missing_phase() {
+  echo "test_validate_missing_phase:"
+  local spec="$FIXTURE_DIR/missing-phase.md"
+  cat > "$spec" <<'EOF'
+# proj — Master Specification
+## Executive Summary
+body
+<!-- master-spec:phase id=1 name=p1 -->
+## Phase 1: x
+### 1.3 Project class & MVP
+**Project class:** CLI tool
+EOF
+  assert_exit_code 1 sf_spec_validate "$spec"
+}
+
+test_validate_invalid_project_class() {
+  echo "test_validate_invalid_project_class:"
+  local spec="$FIXTURE_DIR/bad-pc.md"
+  cat > "$spec" <<'EOF'
+# proj — Master Specification
+## Executive Summary
+body
+EOF
+  local i
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    cat >> "$spec" <<EOF
+<!-- master-spec:phase id=$i name=p$i -->
+## Phase $i: x
+EOF
+  done
+  cat >> "$spec" <<'EOF'
+### 1.3 Project class & MVP
+**Project class:** Toaster
+EOF
+  assert_exit_code 1 sf_spec_validate "$spec"
+}
+
 test_phases_present
 test_phase_extract
 test_kv_parse
@@ -126,4 +202,8 @@ test_kv_parse_missing
 test_project_class_helper
 test_subsection_extract
 test_summary_extract
+test_validate_full_ok
+test_validate_missing_file
+test_validate_missing_phase
+test_validate_invalid_project_class
 report_results

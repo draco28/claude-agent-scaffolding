@@ -78,3 +78,61 @@ sf_spec_summary() {
     in_sec { print }
   ' "$path"
 }
+
+# The 9 enum values for project class (spec §6.5)
+SF_PROJECT_CLASS_ENUM=(
+  "CLI tool" "Library or SDK" "Web app" "Web service (API only)"
+  "Mobile app" "ML or AI system" "Agent or plugin" "Data pipeline" "Other"
+)
+
+# Validate a MASTER-SPEC.md file. Exit 0 if OK; non-zero with stderr message
+# on first ERROR. WARNINGs and INFOs do not block.
+sf_spec_validate() {
+  local path="$1"
+  if [[ ! -f "$path" ]]; then
+    sf_log_error "MASTER-SPEC.md not found at $path. Run /onboard first."
+    return 1
+  fi
+  if ! head -1 "$path" | grep -qE "^# .+ — Master Specification$"; then
+    sf_log_error "Missing top-level '# <name> — Master Specification' heading."
+    return 1
+  fi
+  if ! grep -qE "^## Executive Summary[[:space:]]*$" "$path"; then
+    sf_log_error "Missing ## Executive Summary section."
+    return 1
+  fi
+  local phases
+  phases="$(sf_spec_phases_present "$path")"
+  local missing=""
+  local i
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    if ! echo " $phases " | grep -q " $i "; then
+      missing="$missing id=$i"
+    fi
+  done
+  if [[ -n "$missing" ]]; then
+    sf_log_error "Missing phase markers:$missing. Phases must be authored via /onboard."
+    return 1
+  fi
+  local pc
+  pc="$(sf_spec_project_class "$path")"
+  if [[ -z "$pc" ]]; then
+    sf_log_error "Project class enum not found. Expected **Project class:** <enum>."
+    return 1
+  fi
+  local known=0 enum
+  for enum in "${SF_PROJECT_CLASS_ENUM[@]}"; do
+    if [[ "$pc" == "$enum" ]]; then known=1; break; fi
+  done
+  if [[ "$known" -ne 1 ]]; then
+    sf_log_error "Project class '$pc' not in enum. Expected one of: ${SF_PROJECT_CLASS_ENUM[*]}"
+    return 1
+  fi
+  # WARNING-level: spec version
+  local sv
+  sv="$(sf_spec_kv "$path" "Spec version")"
+  if [[ "$sv" != "1.0" ]]; then
+    sf_log_warn "Spec version '$sv' unrecognized. Continuing with v1.0 parser."
+  fi
+  return 0
+}
