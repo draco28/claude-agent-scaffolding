@@ -19,3 +19,6 @@ ai-mentor/state.json
 
 # Superpowers brainstorming visual companion mockups
 .superpowers/
+
+# scaffold-onboard test fixtures (generated at test-run time)
+scaffold-onboard/tests/fixtures/
