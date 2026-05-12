@@ -87,3 +87,26 @@ sf_state_read_answer() {
   fi
   jq -r --arg q "$qid" '.answers[$q] // "null"' "$path"
 }
+
+sf_state_lock_path() {
+  echo "$(sf_data_dir)/onboarding.lock"
+}
+
+# Acquire the onboarding lock. Exits 1 if already held.
+# Lock contents: PID + iso-timestamp, for diagnostics.
+sf_state_lock_acquire() {
+  local path
+  path="$(sf_state_lock_path)"
+  mkdir -p "$(dirname "$path")"
+  # Use noclobber redirection for atomic create-or-fail
+  if ( set -o noclobber; echo "$$ $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$path" ) 2>/dev/null; then
+    return 0
+  else
+    sf_log_error "onboarding lock already held: $path ($(cat "$path" 2>/dev/null || echo unknown))"
+    return 1
+  fi
+}
+
+sf_state_lock_release() {
+  rm -f "$(sf_state_lock_path)"
+}

@@ -52,9 +52,35 @@ test_answer_with_special_chars() {
   assert_eq "special chars preserved" 'A "quoted" value with $special chars' "$val"
 }
 
+test_lock_acquire_release() {
+  echo "test_lock_acquire_release:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_lock_acquire
+  assert_file_exists "$(sf_state_lock_path)"
+  sf_state_lock_release
+  assert_file_missing "$(sf_state_lock_path)"
+}
+
+test_lock_refusal() {
+  echo "test_lock_refusal:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_lock_acquire
+  local ec
+  set +e
+  sf_state_lock_acquire 2>/dev/null
+  ec=$?
+  set -e 2>/dev/null || true
+  assert_eq "second acquire exits non-zero" "1" "$ec"
+  sf_state_lock_release
+}
+
 test_state_init
 test_state_atomic_write
 test_state_read_missing_field
 test_answer_write_read
 test_answer_with_special_chars
+test_lock_acquire_release
+test_lock_refusal
 report_results
