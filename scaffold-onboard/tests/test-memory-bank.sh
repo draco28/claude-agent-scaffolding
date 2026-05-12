@@ -87,9 +87,36 @@ test_all_derived_files_present() {
   done
 }
 
+test_claude_md_generated() {
+  echo "test_claude_md_generated:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_claude_md_generate
+  assert_file_exists "./CLAUDE.md"
+  assert_file_contains "./CLAUDE.md" "# Project: test-proj"
+  assert_file_contains "./CLAUDE.md" "Tier 0"
+  assert_file_contains "./CLAUDE.md" "Branch loading rules"
+}
+
+test_claude_md_plugin_awareness_when_no_composition() {
+  echo "test_claude_md_plugin_awareness_when_no_composition:"
+  setup_tmp_repo
+  seed_master_spec
+  # No composition.json present
+  sf_claude_md_generate
+  # ai-mentor / critic / superpowers sections should NOT appear
+  if grep -q "/z2-decide" "./CLAUDE.md"; then
+    FAIL=$((FAIL+1)); echo "  ✗ ai-mentor section leaked without composition"
+  else
+    PASS=$((PASS+1)); echo "  ✓ ai-mentor section absent without composition"
+  fi
+}
+
 test_derive_00_project_brief
 test_live_files_preserved
 test_live_files_force_overwritten
 test_workflow_static_unchanged
 test_all_derived_files_present
+test_claude_md_generated
+test_claude_md_plugin_awareness_when_no_composition
 report_results

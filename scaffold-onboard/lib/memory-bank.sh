@@ -90,3 +90,63 @@ sf_memory_bank_derive() {
     cp "$tmpl_dir/WORKFLOW.md" ".claude/memory-bank/WORKFLOW.md"
   fi
 }
+
+# Read composition.json (if it exists) and return key=value pairs for plugin awareness
+_composition_args() {
+  local comp="$(sf_data_dir)/composition.json"
+  if [[ ! -f "$comp" ]]; then
+    echo "has_ai_mentor=false"
+    echo "has_architect_critic=false"
+    echo "has_superpowers=false"
+    echo "has_scaffold_plugin=false"
+    return 0
+  fi
+  local v
+  v="$(jq -r '.plugins["ai-mentor"].installed // false' "$comp")"
+  echo "has_ai_mentor=$v"
+  v="$(jq -r '.plugins["architect-critic"].installed // false' "$comp")"
+  echo "has_architect_critic=$v"
+  v="$(jq -r '.plugins["superpowers"].installed // false' "$comp")"
+  echo "has_superpowers=$v"
+  v="$(jq -r '.plugins["scaffold"].installed // false' "$comp")"
+  echo "has_scaffold_plugin=$v"
+}
+
+# Generate <repo>/CLAUDE.md from the template using state.answers + composition.json
+sf_claude_md_generate() {
+  local root tmpl ts
+  root="$(sf_plugin_root)"
+  tmpl="$root/templates/claude-md/CLAUDE.md.tmpl"
+  ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  # Derive project_name from state answer 1.1.1 (e.g. "test-proj — a fast widget")
+  # by taking the segment before " — ". Fall back to basename of PWD.
+  local raw_oneliner project_name
+  raw_oneliner="$(sf_state_read_answer "1.1.1")"
+  if [[ "$raw_oneliner" != "null" && "$raw_oneliner" == *" — "* ]]; then
+    project_name="${raw_oneliner%% — *}"
+  else
+    project_name="$(basename "$PWD")"
+  fi
+
+  local args=()
+  args+=("project_name=$project_name")
+  args+=("ts=$ts")
+  while IFS= read -r line; do args+=("$line"); done < <(_memory_bank_args "$ts")
+  while IFS= read -r line; do args+=("$line"); done < <(_composition_args)
+
+  sf_render "$tmpl" "${args[@]}" > CLAUDE.md
+}
+
+# Generate .claude/settings.json from template, only if not present
+sf_claude_settings_generate() {
+  if [[ -f ".claude/settings.json" ]]; then
+    sf_log_info "preserved existing .claude/settings.json"
+    return 0
+  fi
+  local root tmpl
+  root="$(sf_plugin_root)"
+  tmpl="$root/templates/settings/claude-settings.json.tmpl"
+  mkdir -p .claude
+  cp "$tmpl" .claude/settings.json
+}
