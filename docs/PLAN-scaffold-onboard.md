@@ -94,6 +94,98 @@ This shared file is implemented in **Task TA.5** below; every later test task as
 
 ---
 
+## Portability notes (added 2026-05-12 after Phase B subagent discoveries)
+
+**Target platforms:** macOS *and* Linux. Windows is deferred per `docs/SPEC-scaffold-onboard.md` §3 NG5 (matches sibling plugins `scaffold` and `ai-mentor`).
+
+**Why macOS + Linux is free:** macOS ships BSD awk + bash 3.2 (oldest viable targets). Linux ships gawk + bash 4+ (strict supersets of the macOS subset). Code written against the macOS subset runs unchanged on Linux. Windows would require additional adaptations (jq install, mktemp quirks, line-ending discipline, path handling) — deferred.
+
+Two real-world patterns were discovered during Phase B execution (commits `ec17b14`, `c58c4cf`, `ce93b2b`). They appear again in Phases C–F. **Apply these substitutions wherever the original pattern appears in later task code blocks.**
+
+### Adaptation 1 · BSD awk → portable `sub()` chains
+
+macOS's default awk does **not** support gawk's 3-arg `match($0, /pattern/, arr)`. Use `sub()` chains to peel substrings off the line. Works in both BSD awk and gawk.
+
+**Avoid (gawk-only):**
+```awk
+match($0, /id=([0-9]+)/, arr)
+pid = arr[1]
+```
+
+**Use instead (POSIX awk, works on both):**
+```awk
+line = $0
+sub(/^.*id=/, "", line)
+sub(/[^0-9].*$/, "", line)
+pid = line
+```
+
+The general transform: identify the prefix to strip, then the suffix to strip, in two `sub()` calls.
+
+### Adaptation 2 · bash 3.2 → parallel indexed arrays
+
+macOS's default bash is 3.2 (Apple hasn't updated due to GPLv3). It does **not** support `declare -A` associative arrays. Use parallel indexed arrays with a lookup helper. Works in both bash 3.2 and bash 4+.
+
+**Avoid (bash 4-only):**
+```bash
+declare -A vars=()
+vars[$key]="$val"
+v="${vars[$k]}"
+```
+
+**Use instead (bash 3.2+, works on both):**
+```bash
+var_keys=()
+var_vals=()
+var_keys+=("$key")
+var_vals+=("$val")
+
+_lookup_var() {
+  local needle="$1"
+  local i
+  for ((i=0; i<${#var_keys[@]}; i++)); do
+    if [[ "${var_keys[$i]}" == "$needle" ]]; then
+      printf '%s' "${var_vals[$i]}"
+      return 0
+    fi
+  done
+  return 1
+}
+```
+
+### Adaptation 3 · awk associative arrays via `ENVIRON[]`
+
+When awk needs a key→value map, BSD awk has no associative-array literal syntax in `-v`. Pass via env vars and reconstruct in `BEGIN`:
+
+```bash
+AWK_KEYS=$(printf '%s\n' "${var_keys[@]}")
+AWK_VALS=$(printf '%s\n' "${var_vals[@]}")
+AWK_KEYS="$AWK_KEYS" AWK_VALS="$AWK_VALS" awk '
+  BEGIN {
+    n = split(ENVIRON["AWK_KEYS"], keys, "\n")
+    split(ENVIRON["AWK_VALS"], vals, "\n")
+    for (i = 1; i <= n; i++) varmap[keys[i]] = vals[i]
+  }
+  # ... script body uses varmap[key] ...
+' input.txt
+```
+
+### Where these matter in later phases
+
+| Phase | Task | Pattern in plan code | Adaptation |
+|---|---|---|---|
+| C | TC.6 (phases.yaml reader) | `match($0, /id: ([0-9]+)/, arr)` | Adaptation 1 |
+| C | TC.6 | `match($0, /text: "(.*)"$/, arr)` | Adaptation 1 |
+| C | TC.6 | `match($0, /required: (true\|false)/, arr)` | Adaptation 1 |
+| D | TD.5 (memory-bank derive) | uses indexed `args=()` already — OK | (none) |
+| D | TD.7 (CLAUDE.md generate) | uses indexed `args=()` already — OK | (none) |
+| E | TE.4 (docs derive) | uses indexed `args=()` already — OK | (none) |
+| F | TF.4 (SessionStart hook) | uses jq only — OK | (none) |
+
+When implementing these tasks, subagents should apply the substitution **before writing the code** rather than discovering at test time. The orchestrator prompt for affected tasks will pre-flag the adaptation explicitly.
+
+---
+
 ## Phase A — Plugin scaffold
 
 Skeleton files only — no logic yet. Verifies the plugin manifest loads, directory structure is in place, license + readme exist.
