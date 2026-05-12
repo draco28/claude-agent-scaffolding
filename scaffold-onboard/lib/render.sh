@@ -108,3 +108,18 @@ sf_render() {
   done
   printf '%s\n' "$result"
 }
+
+# Initialize MASTER-SPEC.md from the template with project_name and project_class.
+# All other placeholders render as TODO: <key> at init; they get filled in
+# as phases complete (via sf_master_spec_update_phase).
+sf_master_spec_init() {
+  local tmpl="$1" project_name="$2" project_class="$3"
+  local today
+  today="$(date -u +%Y-%m-%d)"
+  sf_render "$tmpl" \
+    "project_name=$project_name" \
+    "project_class=$project_class" \
+    "created_date=$today" \
+    "updated_date=$today" \
+    > MASTER-SPEC.md
+}

@@ -71,9 +71,20 @@ test_if_false() {
   fi
 }
 
+test_master_spec_init() {
+  echo "test_master_spec_init:"
+  setup_tmp_repo
+  local tmpl="$HERE/../templates/master-spec/MASTER-SPEC.md.tmpl"
+  sf_master_spec_init "$tmpl" "todo-cli" "CLI tool"
+  assert_file_exists "./MASTER-SPEC.md"
+  assert_file_contains "./MASTER-SPEC.md" "# todo-cli — Master Specification"
+  assert_file_contains "./MASTER-SPEC.md" '\*\*Project class:\*\* CLI tool'
+}
+
 test_simple_substitution
 test_missing_var_becomes_todo
 test_value_with_spaces
 test_if_true
 test_if_false
+test_master_spec_init
 report_results
