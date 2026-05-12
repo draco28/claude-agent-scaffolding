@@ -63,6 +63,39 @@ test_phase_extract() {
   fi
 }
 
+test_kv_parse() {
+  echo "test_kv_parse:"
+  local spec="$FIXTURE_DIR/min.md"
+  write_min_spec "$spec"
+  local pclass
+  pclass="$(sf_spec_kv "$spec" "Project class")"
+  assert_eq "project class enum" "CLI tool" "$pclass"
+  local sv
+  sv="$(sf_spec_kv "$spec" "Spec version")"
+  assert_eq "spec version" "1.0" "$sv"
+}
+
+test_kv_parse_missing() {
+  echo "test_kv_parse_missing:"
+  local spec="$FIXTURE_DIR/min.md"
+  write_min_spec "$spec"
+  local val
+  val="$(sf_spec_kv "$spec" "Nonexistent")"
+  assert_eq "missing key" "" "$val"
+}
+
+test_project_class_helper() {
+  echo "test_project_class_helper:"
+  local spec="$FIXTURE_DIR/min.md"
+  write_min_spec "$spec"
+  local pc
+  pc="$(sf_spec_project_class "$spec")"
+  assert_eq "project_class helper" "CLI tool" "$pc"
+}
+
 test_phases_present
 test_phase_extract
+test_kv_parse
+test_kv_parse_missing
+test_project_class_helper
 report_results

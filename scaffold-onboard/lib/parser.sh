@@ -33,3 +33,18 @@ sf_spec_phase() {
     in_phase { print }
   ' "$path"
 }
+
+# Read a bold-key colon-value line. Returns empty string if not found.
+# Pattern: ^\*\*([\w\s&/-]+):\*\*\s+(.+)$
+sf_spec_kv() {
+  local path="$1" key="$2"
+  # Escape regex specials in key
+  local key_re
+  key_re="$(printf '%s' "$key" | sed -e 's/[][\\.^$*+?(){}|]/\\&/g')"
+  grep -m1 -oE "^\*\*${key_re}:\*\*[[:space:]]+.*$" "$path" 2>/dev/null \
+    | sed -E "s/^\*\*${key_re}:\*\*[[:space:]]+//"
+}
+
+sf_spec_project_class() {
+  sf_spec_kv "$1" "Project class"
+}
