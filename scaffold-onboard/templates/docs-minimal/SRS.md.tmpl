@@ -1,0 +1,53 @@
+# {{project_name}} — Software Requirements (lite)
+
+**Last derived from MASTER-SPEC.md @ {{ts}}**
+
+## 1. Security & access
+
+- Sensitive data: {{phase_4.1.1}}
+- Regulated domain: {{phase_4.1.2}}
+- Auth model: {{phase_4.2.1}}
+- Tenancy: {{phase_4.2.2}}
+- External attack surface: {{phase_4.3.1}}
+
+## 2. Surfaces
+
+{{#if ui_branch}}
+- Surfaces in scope: {{phase_6A.1.1}}
+- Primary user flow: {{phase_6A.1.2}}
+- Accessibility floor: {{phase_6A.2.1}}
+- Design system: {{phase_6A.2.2}}
+{{/if}}
+{{#if dx_branch}}
+- Discovery & learning: {{phase_6B.1.1}}
+- Error and output style: {{phase_6B.1.2}}
+{{/if}}
+
+## 3. Implementation requirements
+
+- Module / package boundaries: {{phase_7.1.1}}
+- Code style: {{phase_7.1.2}}
+
+{{#if backend_branch}}
+- ORM / query / SQL: {{phase_7.2.1}}
+- API style: {{phase_7.2.2}}
+{{/if}}
+{{#if frontend_branch}}
+- State management: {{phase_7.3.1}}
+{{/if}}
+{{#if library_branch}}
+- Public API surface + versioning: {{phase_7.4.1}}
+{{/if}}
+
+## 4. Environments
+
+- Local tooling: {{phase_8.1.1}}
+- Clone-to-running target: {{phase_8.1.2}}
+- CI platform: {{phase_8.2.1}}
+- Environments: {{phase_8.2.2}}
+- Hosting target: {{phase_8.3.1}}
+
+## See also
+
+- [MASTER-SPEC](../MASTER-SPEC.md)
+- [PRD](./PRD.md)
