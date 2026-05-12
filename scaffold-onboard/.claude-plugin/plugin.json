@@ -1,0 +1,9 @@
+{
+  "name": "scaffold-onboard",
+  "version": "0.1.0",
+  "description": "Project onboarding via 10-phase guided conversation. Authors MASTER-SPEC.md as source of truth; derives 11-file memory-bank and 5/14 governance docs. Composes with ai-mentor (cognitive mode) and architect-critic (anti-sycophancy reviews) at Phase 5, Phase 7, and MASTER-SPEC close.",
+  "author": {
+    "name": "Pras"
+  },
+  "category": "workflow"
+}
