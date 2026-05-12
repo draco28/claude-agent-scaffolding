@@ -76,6 +76,43 @@ test_lock_refusal() {
   sf_state_lock_release
 }
 
+test_phase_advance() {
+  echo "test_phase_advance:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_advance_phase
+  local p
+  p="$(sf_state_read_field current_phase)"
+  assert_eq "current_phase after advance" "2" "$p"
+}
+
+test_phase_complete_marks_status() {
+  echo "test_phase_complete_marks_status:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_atomic current_phase 10
+  sf_state_advance_phase
+  local status
+  status="$(sf_state_read_field status)"
+  assert_eq "status after phase 10 advance" "complete" "$status"
+}
+
+test_branching_gate_ui() {
+  echo "test_branching_gate_ui:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_answer "1.3.1" "Web app"
+  assert_exit_code 0 sf_state_gate_passes "project_class in {Web app, Mobile app}"
+}
+
+test_branching_gate_dx() {
+  echo "test_branching_gate_dx:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_answer "1.3.1" "Library or SDK"
+  assert_exit_code 1 sf_state_gate_passes "project_class in {Web app, Mobile app}"
+}
+
 test_state_init
 test_state_atomic_write
 test_state_read_missing_field
@@ -83,4 +120,8 @@ test_answer_write_read
 test_answer_with_special_chars
 test_lock_acquire_release
 test_lock_refusal
+test_phase_advance
+test_phase_complete_marks_status
+test_branching_gate_ui
+test_branching_gate_dx
 report_results

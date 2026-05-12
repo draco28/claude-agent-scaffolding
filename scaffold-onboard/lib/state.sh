@@ -110,3 +110,57 @@ sf_state_lock_acquire() {
 sf_state_lock_release() {
   rm -f "$(sf_state_lock_path)"
 }
+
+# Advance current_phase by 1. If already at 10, set status=complete instead.
+sf_state_advance_phase() {
+  local cur
+  cur="$(sf_state_read_field current_phase)"
+  if [[ "$cur" == "10" ]]; then
+    sf_state_write_atomic status complete
+  else
+    sf_state_write_atomic current_phase "$((cur+1))"
+  fi
+}
+
+# Evaluate a branching gate expression against current state.answers.
+# Supported forms:
+#   "project_class == \"Web app\""
+#   "project_class in {Web app, Mobile app}"
+#   "uses_llm == true"
+# Returns 0 if gate passes, 1 if not.
+sf_state_gate_passes() {
+  local expr="$1"
+  # Substitute known variables
+  local project_class uses_llm
+  project_class="$(sf_state_read_answer 1.3.1)"
+  uses_llm="$(sf_state_read_answer 9.3.1)"
+
+  # Form: project_class in {A, B, C}
+  if [[ "$expr" =~ ^project_class[[:space:]]+in[[:space:]]+\{(.+)\}$ ]]; then
+    local list="${BASH_REMATCH[1]}"
+    local IFS=','
+    local item
+    for item in $list; do
+      # trim leading/trailing whitespace
+      item="${item#"${item%%[![:space:]]*}"}"
+      item="${item%"${item##*[![:space:]]}"}"
+      if [[ "$item" == "$project_class" ]]; then
+        return 0
+      fi
+    done
+    return 1
+  fi
+
+  # Form: project_class == "value"
+  if [[ "$expr" =~ ^project_class[[:space:]]+==[[:space:]]+\"(.+)\"$ ]]; then
+    [[ "$project_class" == "${BASH_REMATCH[1]}" ]] && return 0 || return 1
+  fi
+
+  # Form: uses_llm == true
+  if [[ "$expr" =~ ^uses_llm[[:space:]]+==[[:space:]]+(true|false)$ ]]; then
+    [[ "$uses_llm" == "${BASH_REMATCH[1]}" ]] && return 0 || return 1
+  fi
+
+  sf_log_warn "Unknown gate expression: $expr (defaulting to passes)"
+  return 0
+}
