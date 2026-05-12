@@ -165,6 +165,81 @@ sf_state_gate_passes() {
   return 0
 }
 
+# ---------------------------------------------------------------------------
+# phases.yaml reader helpers (BSD awk — no gawk 3-arg match)
+# ---------------------------------------------------------------------------
+
+# Return all question IDs for phase N from phases.yaml, one per line.
+# Usage: sf_phases_questions_for <yaml> <target_phase>
+sf_phases_questions_for() {
+  local yaml="$1" target="$2"
+  awk -v target="$target" '
+    /^  - id: [0-9]+$/ {
+      line = $0
+      sub(/^  - id: /, "", line)
+      cur_phase = line
+      next
+    }
+    /^          - id: "[0-9]+[A-Z]?\.[0-9]+\.[0-9]+"$/ {
+      if (cur_phase == target) {
+        line = $0
+        sub(/^          - id: "/, "", line)
+        sub(/"$/, "", line)
+        print line
+      }
+    }
+  ' "$yaml"
+}
+
+# Return the text value of a question by id.
+# Usage: sf_phases_question_text <yaml> <qid>
+sf_phases_question_text() {
+  local yaml="$1" qid="$2"
+  awk -v qid="$qid" '
+    $0 == "          - id: \"" qid "\"" { found = 1; next }
+    found && /text:/ {
+      line = $0
+      sub(/^[[:space:]]*text: "/, "", line)
+      sub(/"$/, "", line)
+      print line
+      exit
+    }
+  ' "$yaml"
+}
+
+# Return the required value (true/false) of a question by id.
+# Usage: sf_phases_question_required <yaml> <qid>
+sf_phases_question_required() {
+  local yaml="$1" qid="$2"
+  awk -v qid="$qid" '
+    $0 == "          - id: \"" qid "\"" { found = 1; next }
+    found && /required:/ {
+      line = $0
+      sub(/^[[:space:]]*required:[[:space:]]*/, "", line)
+      print line
+      exit
+    }
+  ' "$yaml"
+}
+
+# Return the gate expression of a question by id, or empty if none.
+# Usage: sf_phases_question_gate <yaml> <qid>
+sf_phases_question_gate() {
+  local yaml="$1" qid="$2"
+  awk -v qid="$qid" '
+    $0 == "          - id: \"" qid "\"" { found = 1; next }
+    found && /^          - id:/ { exit }
+    found && /gate:/ {
+      line = $0
+      sub(/^[[:space:]]*gate:[[:space:]]*/, "", line)
+      sub(/^"/, "", line)
+      sub(/"$/, "", line)
+      print line
+      exit
+    }
+  ' "$yaml"
+}
+
 # Determine the onboarding mode based on state file existence + status.
 # Returns one of: new | resume | reonboard
 sf_state_mode() {

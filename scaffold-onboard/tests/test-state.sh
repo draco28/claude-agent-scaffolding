@@ -156,4 +156,19 @@ test_branching_gate_dx
 test_mode_new
 test_mode_resume
 test_mode_reonboard
+
+test_phases_yaml_question_ids_for_phase() {
+  echo "test_phases_yaml_question_ids_for_phase:"
+  setup_tmp_repo
+  local pyaml="$HERE/../templates/onboarding-questions/phases.yaml"
+  local ids
+  ids="$(sf_phases_questions_for "$pyaml" 1)"
+  if echo "$ids" | grep -q "1.1.1"; then
+    PASS=$((PASS+1)); echo "  ✓ phase 1 contains question 1.1.1"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ phase 1 missing 1.1.1: $ids"
+  fi
+}
+
+test_phases_yaml_question_ids_for_phase
 report_results
