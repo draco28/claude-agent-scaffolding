@@ -41,5 +41,55 @@ test_derive_00_project_brief() {
   assert_file_contains "./.claude/memory-bank/00-project-brief.md" "Last derived from MASTER-SPEC.md"
 }
 
+test_live_files_preserved() {
+  echo "test_live_files_preserved:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  # Hand-edit the live file
+  echo "## My custom note" >> ".claude/memory-bank/05-active-context.md"
+  sf_memory_bank_derive
+  assert_file_contains "./.claude/memory-bank/05-active-context.md" "My custom note"
+}
+
+test_live_files_force_overwritten() {
+  echo "test_live_files_force_overwritten:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  echo "## My custom note" >> ".claude/memory-bank/05-active-context.md"
+  sf_memory_bank_derive --force
+  if grep -q "My custom note" "./.claude/memory-bank/05-active-context.md"; then
+    FAIL=$((FAIL+1)); echo "  ✗ --force should have overwritten"
+  else
+    PASS=$((PASS+1)); echo "  ✓ --force overwrote live file"
+  fi
+}
+
+test_workflow_static_unchanged() {
+  echo "test_workflow_static_unchanged:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  echo "## My workflow note" >> ".claude/memory-bank/WORKFLOW.md"
+  sf_memory_bank_derive
+  assert_file_contains "./.claude/memory-bank/WORKFLOW.md" "My workflow note"
+}
+
+test_all_derived_files_present() {
+  echo "test_all_derived_files_present:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  local f
+  for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 05-active-context 06-progress 07-constraints 08-governance index WORKFLOW; do
+    assert_file_exists "./.claude/memory-bank/${f}.md"
+  done
+}
+
 test_derive_00_project_brief
+test_live_files_preserved
+test_live_files_force_overwritten
+test_workflow_static_unchanged
+test_all_derived_files_present
 report_results
