@@ -171,4 +171,43 @@ test_phases_yaml_question_ids_for_phase() {
 }
 
 test_phases_yaml_question_ids_for_phase
+
+test_scripted_full_onboarding() {
+  echo "test_scripted_full_onboarding:"
+  setup_tmp_repo
+  local pyaml="$HERE/../templates/onboarding-questions/phases.yaml"
+  local tmpl="$HERE/../templates/master-spec/MASTER-SPEC.md.tmpl"
+  source "$HERE/../lib/render.sh"
+  sf_state_init
+  # Project class first (gates everything else)
+  sf_state_write_answer "1.3.1" "CLI tool"
+  # Init MASTER-SPEC with project_name + project_class
+  sf_master_spec_init "$tmpl" "todo-cli" "CLI tool"
+  # Fill a few representative answers across phases
+  sf_state_write_answer "1.1.1" "todo-cli — fast local-first task manager"
+  sf_state_write_answer "1.1.2" "Existing managers are heavy and cloud-coupled."
+  sf_state_write_answer "1.2.1" "Solo devs and ops engineers."
+  sf_state_write_answer "1.3.2" "add/list/complete tasks; persist to ~/.todo.json"
+  sf_state_write_answer "5.2.1" "Rust"
+  sf_state_write_answer "5.2.2" "file (~/.todo.json)"
+  sf_state_write_answer "7.1.2" "statically typed Rust"
+  sf_state_write_answer "9.3.1" "no"
+
+  # Update each phase to reflect state
+  local i
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    sf_master_spec_update_phase "$tmpl" "$i"
+  done
+
+  assert_file_exists "./MASTER-SPEC.md"
+  assert_file_contains "./MASTER-SPEC.md" "todo-cli — fast local-first task manager"
+  assert_file_contains "./MASTER-SPEC.md" '\*\*Project class:\*\* CLI tool'
+  assert_file_contains "./MASTER-SPEC.md" "Rust"
+
+  # Validate the produced spec
+  source "$HERE/../lib/parser.sh"
+  assert_exit_code 0 sf_spec_validate ./MASTER-SPEC.md
+}
+
+test_scripted_full_onboarding
 report_results
