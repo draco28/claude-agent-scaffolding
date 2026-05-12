@@ -123,3 +123,67 @@ sf_master_spec_init() {
     "updated_date=$today" \
     > MASTER-SPEC.md
 }
+
+# Re-render MASTER-SPEC.md from the template, populating Phase N's placeholders
+# with values from state.answers. Other phases' placeholders are left as-is
+# (preserved from prior runs or showing TODO: <key> if not yet answered).
+#
+# Strategy: re-render the FULL template each time, with all currently-known
+# answers fed in. This is deterministic and idempotent.
+sf_master_spec_update_phase() {
+  local tmpl="$1" phase_id="$2"
+  # Collect every answered question's id+value into key=value pairs
+  local args=()
+  args+=("project_name=$(basename "$PWD")")
+  local pc
+  pc="$(sf_state_read_answer 1.3.1)"
+  [[ "$pc" != "null" ]] && args+=("project_class=$pc")
+  args+=("created_date=$(date -u +%Y-%m-%d)")
+  args+=("updated_date=$(date -u +%Y-%m-%d)")
+
+  # All phase answers
+  local path
+  path="$(sf_state_path)"
+  local qid val
+  while IFS=$'\t' read -r qid val; do
+    [[ -z "$qid" ]] && continue
+    # phases.yaml uses "1.1.1" → template placeholder {{phase_1.1.1}}
+    args+=("phase_${qid}=${val}")
+  done < <(jq -r '.answers | to_entries[] | "\(.key)\t\(.value)"' "$path")
+
+  # Branching gate flags for {{#if}} blocks
+  if sf_state_gate_passes 'project_class in {Web app, Mobile app, CLI tool, ML or AI system, Agent or plugin, Other}'; then
+    args+=("ui_branch=true")
+  else
+    args+=("ui_branch=false")
+  fi
+  if sf_state_gate_passes 'project_class in {Library or SDK, Data pipeline, Web service (API only)}'; then
+    args+=("dx_branch=true")
+  else
+    args+=("dx_branch=false")
+  fi
+  if sf_state_gate_passes 'project_class in {Web app, Web service (API only), ML or AI system, Agent or plugin, Data pipeline}'; then
+    args+=("backend_branch=true")
+  else
+    args+=("backend_branch=false")
+  fi
+  if sf_state_gate_passes 'project_class in {Web app, Mobile app}'; then
+    args+=("frontend_branch=true")
+  else
+    args+=("frontend_branch=false")
+  fi
+  if sf_state_gate_passes 'project_class == "Library or SDK"'; then
+    args+=("library_branch=true")
+  else
+    args+=("library_branch=false")
+  fi
+  local llm
+  llm="$(sf_state_read_answer 9.3.1)"
+  if [[ "$llm" == "yes" || "$llm" == "true" ]]; then
+    args+=("uses_llm=true")
+  else
+    args+=("uses_llm=false")
+  fi
+
+  sf_render "$tmpl" "${args[@]}" > MASTER-SPEC.md
+}
