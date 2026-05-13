@@ -55,3 +55,67 @@ sf_compose_brainstorming_available() {
     echo "false"
   fi
 }
+
+sf_compose_path() {
+  echo "$(sf_data_dir)/composition.json"
+}
+
+# Probe every cross-cutting plugin and write composition.json. Atomic via tmp+mv.
+sf_compose_refresh() {
+  local path tmp now
+  path="$(sf_compose_path)"
+  mkdir -p "$(dirname "$path")"
+  tmp="$(mktemp "${path}.XXXXXX")"
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  local mentor_dir critic_dir superpowers_dir brainstorming
+  mentor_dir="$(sf_compose_detect_ai_mentor)"
+  critic_dir="$(sf_compose_detect_architect_critic)"
+  superpowers_dir="$(sf_compose_detect_superpowers)"
+  brainstorming="$(sf_compose_brainstorming_available)"
+
+  jq -n \
+    --arg now "$now" \
+    --arg mentor "$mentor_dir" \
+    --arg critic "$critic_dir" \
+    --arg sp "$superpowers_dir" \
+    --arg br "$brainstorming" \
+    '{
+      detected_at: $now,
+      plugins: {
+        "ai-mentor": {
+          installed: ($mentor != ""),
+          data_dir: $mentor,
+          state_file: (if $mentor != "" then ($mentor + "/state.json") else "" end)
+        },
+        "architect-critic": {
+          installed: ($critic != ""),
+          data_dir: $critic,
+          principles_file: (if $critic != "" then ($critic + "/principles.md") else "" end),
+          command: "/critique"
+        },
+        "superpowers": {
+          installed: ($sp != ""),
+          skills_dir: (if $sp != "" then ($sp + "/skills") else "" end),
+          brainstorming_available: ($br == "true")
+        }
+      },
+      user_overrides: {
+        disable_mentor_suggestions: false,
+        disable_critic: false,
+        disable_superpowers_subskill: false
+      }
+    }' > "$tmp"
+  mv "$tmp" "$path"
+}
+
+# Return 0 if a plugin is currently marked installed in composition.json.
+sf_compose_is_installed() {
+  local name="$1"
+  local path
+  path="$(sf_compose_path)"
+  [[ -f "$path" ]] || return 1
+  local v
+  v="$(jq -r --arg n "$name" '.plugins[$n].installed // false' "$path")"
+  [[ "$v" == "true" ]]
+}
