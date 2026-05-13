@@ -265,6 +265,32 @@ test_critic_response_timeout() {
   assert_eq "timeout exits non-zero" "1" "$ec"
 }
 
+test_user_override_disable_mentor() {
+  echo "test_user_override_disable_mentor:"
+  setup_tmp_repo
+  mk_fake_plugin "ai-mentor-z" "state.json"
+  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
+  sf_compose_refresh
+  # Flip the user override
+  sf_compose_set_override "disable_mentor_suggestions" true
+  local hint
+  hint="$(sf_compose_mentor_hint 5)"
+  assert_eq "override disables hint" "" "$hint"
+}
+
+test_user_override_survives_refresh() {
+  echo "test_user_override_survives_refresh:"
+  setup_tmp_repo
+  mk_fake_plugin "ai-mentor-z" "state.json"
+  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
+  sf_compose_refresh
+  sf_compose_set_override "disable_critic" true
+  sf_compose_refresh  # second refresh — should preserve overrides
+  local v
+  v="$(jq -r '.user_overrides.disable_critic' "$CLAUDE_PLUGIN_DATA/composition.json")"
+  assert_eq "override preserved" "true" "$v"
+}
+
 test_detect_ai_mentor_present
 test_detect_ai_mentor_absent
 test_detect_architect_critic
@@ -281,4 +307,6 @@ test_critic_request_premise_audit
 test_critic_request_close
 test_critic_dispatch_with_mock_outbox
 test_critic_response_timeout
+test_user_override_disable_mentor
+test_user_override_survives_refresh
 report_results

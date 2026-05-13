@@ -74,12 +74,21 @@ sf_compose_refresh() {
   superpowers_dir="$(sf_compose_detect_superpowers)"
   brainstorming="$(sf_compose_brainstorming_available)"
 
+  # Preserve existing user_overrides if composition.json exists
+  local overrides_json
+  if [[ -f "$path" ]]; then
+    overrides_json="$(jq '.user_overrides // {}' "$path")"
+  else
+    overrides_json='{"disable_mentor_suggestions":false,"disable_critic":false,"disable_superpowers_subskill":false}'
+  fi
+
   jq -n \
     --arg now "$now" \
     --arg mentor "$mentor_dir" \
     --arg critic "$critic_dir" \
     --arg sp "$superpowers_dir" \
     --arg br "$brainstorming" \
+    --argjson overrides "$overrides_json" \
     '{
       detected_at: $now,
       plugins: {
@@ -100,12 +109,29 @@ sf_compose_refresh() {
           brainstorming_available: ($br == "true")
         }
       },
-      user_overrides: {
-        disable_mentor_suggestions: false,
-        disable_critic: false,
-        disable_superpowers_subskill: false
-      }
+      user_overrides: ($overrides | . + {
+        disable_mentor_suggestions: (.disable_mentor_suggestions // false),
+        disable_critic: (.disable_critic // false),
+        disable_superpowers_subskill: (.disable_superpowers_subskill // false)
+      })
     }' > "$tmp"
+  mv "$tmp" "$path"
+}
+
+# Set a user override toggle. Args: <key> <true|false>
+sf_compose_set_override() {
+  local key="$1" value="$2"
+  local path tmp
+  path="$(sf_compose_path)"
+  [[ -f "$path" ]] || sf_compose_refresh
+  tmp="$(mktemp "${path}.XXXXXX")"
+  if [[ "$value" == "true" || "$value" == "false" ]]; then
+    jq --arg k "$key" --argjson v "$value" '.user_overrides[$k] = $v' "$path" > "$tmp"
+  else
+    sf_log_error "override value must be true or false, got: $value"
+    rm -f "$tmp"
+    return 1
+  fi
   mv "$tmp" "$path"
 }
 
