@@ -60,8 +60,37 @@ sf_compose_path() {
   echo "$(sf_data_dir)/composition.json"
 }
 
-# Probe every cross-cutting plugin and write composition.json. Atomic via tmp+mv.
-sf_compose_refresh() {
+sf_compose_lock_path() {
+  echo "$(sf_data_dir)/compose.lock"
+}
+
+# Acquire the compose lock with polling timeout (default 5 seconds).
+sf_compose_lock_acquire() {
+  local lock max_wait elapsed
+  lock="$(sf_compose_lock_path)"
+  mkdir -p "$(dirname "$lock")"
+  max_wait="${1:-5}"
+  elapsed=0
+  while [[ "$elapsed" -lt "$max_wait" ]]; do
+    set -C
+    if echo "$$" > "$lock" 2>/dev/null; then
+      set +C
+      return 0
+    fi
+    set +C
+    sleep 1
+    elapsed=$((elapsed+1))
+  done
+  return 1
+}
+
+sf_compose_lock_release() {
+  rm -f "$(sf_compose_lock_path)"
+}
+
+# Internal: does the actual refresh work without acquiring lock.
+# Callers must hold the compose lock when calling this.
+_sf_compose_refresh_locked() {
   local path tmp now
   path="$(sf_compose_path)"
   mkdir -p "$(dirname "$path")"
@@ -123,24 +152,45 @@ sf_compose_refresh() {
   fi
 }
 
+# Public wrapper: acquire lock, refresh, release.
+sf_compose_refresh() {
+  sf_compose_lock_acquire || { sf_log_error "could not acquire compose lock"; return 1; }
+  _sf_compose_refresh_locked
+  local rc=$?
+  sf_compose_lock_release
+  return $rc
+}
+
 # Set a user override toggle. Args: <key> <true|false>
 sf_compose_set_override() {
   local key="$1" value="$2"
   local path tmp
   path="$(sf_compose_path)"
-  [[ -f "$path" ]] || sf_compose_refresh
+
+  sf_compose_lock_acquire || { sf_log_error "could not acquire compose lock"; return 1; }
+
+  # Bootstrap composition.json if missing — call internal (we hold lock)
+  if [[ ! -f "$path" ]]; then
+    _sf_compose_refresh_locked
+  fi
+
   if [[ "$value" != "true" && "$value" != "false" ]]; then
     sf_log_error "override value must be true or false, got: $value"
+    sf_compose_lock_release
     return 1
   fi
+
   tmp="$(mktemp "${path}.XXXXXX")"
   if jq --arg k "$key" --argjson v "$value" '.user_overrides[$k] = $v' "$path" > "$tmp"; then
     mv "$tmp" "$path"
   else
     rm -f "$tmp"
     sf_log_error "jq failed setting override"
+    sf_compose_lock_release
     return 1
   fi
+
+  sf_compose_lock_release
 }
 
 # Return 0 if a plugin is currently marked installed in composition.json.

@@ -322,6 +322,35 @@ BAD_JQ
   fi
 }
 
+test_compose_concurrent_lock_serializes() {
+  echo "test_compose_concurrent_lock_serializes:"
+  setup_tmp_repo
+  mk_fake_plugin "ai-mentor-x" "state.json"
+  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
+  sf_compose_refresh
+
+  # Fork: process A sets override, process B refreshes — they should serialize via lock
+  ( sf_compose_set_override disable_critic true ) &
+  local pidA=$!
+  ( sf_compose_refresh ) &
+  local pidB=$!
+  wait $pidA $pidB
+
+  # Composition must be well-formed JSON regardless of execution order
+  local path="$CLAUDE_PLUGIN_DATA/composition.json"
+  if jq -e . "$path" > /dev/null 2>&1; then
+    PASS=$((PASS+1)); echo "  ✓ composition.json well-formed after concurrent writes"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ composition.json corrupted by concurrent writes"
+  fi
+
+  # The override should be preserved regardless of order
+  # (set_override sets it; refresh after preserves it per TF.8 preservation logic)
+  local v
+  v="$(jq -r '.user_overrides.disable_critic // "absent"' "$path")"
+  assert_eq "override preserved through concurrent writes" "true" "$v"
+}
+
 test_compose_request_id_unique_within_second() {
   echo "test_compose_request_id_unique_within_second:"
   setup_tmp_repo
@@ -361,4 +390,5 @@ test_user_override_disable_mentor
 test_user_override_survives_refresh
 test_compose_jq_failure_preserves_existing
 test_compose_request_id_unique_within_second
+test_compose_concurrent_lock_serializes
 report_results
