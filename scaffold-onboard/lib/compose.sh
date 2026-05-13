@@ -248,3 +248,27 @@ sf_compose_build_critic_request() {
 
   echo "$req_path"
 }
+
+# Read a critic response from the outbox by request_id, with a polling timeout.
+# Args: <request_id> <timeout_seconds>
+# Echoes the response JSON on success; returns 1 on timeout.
+sf_compose_read_critic_response() {
+  local request_id="$1" timeout_s="$2"
+  local comp critic_dir outbox_path
+  comp="$(sf_compose_path)"
+  critic_dir="$(jq -r '.plugins["architect-critic"].data_dir // ""' "$comp")"
+  [[ -z "$critic_dir" ]] && return 1
+  outbox_path="$critic_dir/outbox/${request_id}.json"
+
+  local elapsed=0
+  while [[ "$elapsed" -lt "$timeout_s" ]]; do
+    if [[ -f "$outbox_path" ]]; then
+      cat "$outbox_path"
+      return 0
+    fi
+    sleep 1
+    elapsed=$((elapsed+1))
+  done
+  sf_log_warn "Critic response timeout for request $request_id (waited ${timeout_s}s)"
+  return 1
+}

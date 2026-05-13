@@ -211,6 +211,60 @@ test_critic_request_close() {
   assert_eq "adversaries[1] = codex" "codex" "$adv1"
 }
 
+test_critic_dispatch_with_mock_outbox() {
+  echo "test_critic_dispatch_with_mock_outbox:"
+  setup_tmp_repo
+  mk_fake_plugin "architect-critic-m" "principles.md"
+  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
+  sf_compose_refresh
+  echo "test content" > MASTER-SPEC.md
+  sf_state_init
+  sf_state_write_answer "1.3.1" "CLI tool"
+
+  # Build request
+  local req_path
+  req_path="$(sf_compose_build_critic_request "premise-audit" 5)"
+  local request_id
+  request_id="$(jq -r .request_id "$req_path")"
+
+  # Mock: write a response to the outbox manually (simulating critic)
+  local critic_dir
+  critic_dir="$(jq -r '.plugins["architect-critic"].data_dir' "$CLAUDE_PLUGIN_DATA/composition.json")"
+  mkdir -p "$critic_dir/outbox"
+  jq -n --arg rid "$request_id" '{
+    request_id: $rid,
+    adversaries_used: ["claude"],
+    challenges: [
+      {severity:"premise", text:"Test challenge", references:["Phase 5.2"]}
+    ],
+    gaps: [],
+    divergences: [],
+    elapsed_ms: 25000
+  }' > "$critic_dir/outbox/${request_id}.json"
+
+  # Wait/read the response (no real wait — mock is already there)
+  local response_json
+  response_json="$(sf_compose_read_critic_response "$request_id" 5)"
+  local num_challenges
+  num_challenges="$(echo "$response_json" | jq '.challenges | length')"
+  assert_eq "challenge count" "1" "$num_challenges"
+}
+
+test_critic_response_timeout() {
+  echo "test_critic_response_timeout:"
+  setup_tmp_repo
+  mk_fake_plugin "architect-critic-m" "principles.md"
+  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
+  sf_compose_refresh
+  # No outbox response, short timeout
+  local result ec
+  set +e
+  result="$(sf_compose_read_critic_response "nonexistent-id" 2 2>&1)"
+  ec=$?
+  set -e 2>/dev/null || true
+  assert_eq "timeout exits non-zero" "1" "$ec"
+}
+
 test_detect_ai_mentor_present
 test_detect_ai_mentor_absent
 test_detect_architect_critic
@@ -225,4 +279,6 @@ test_mentor_hint_phase_2
 test_mentor_hint_without_install
 test_critic_request_premise_audit
 test_critic_request_close
+test_critic_dispatch_with_mock_outbox
+test_critic_response_timeout
 report_results
