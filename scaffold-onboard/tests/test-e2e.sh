@@ -152,8 +152,44 @@ test_e2e_regenerate_overwrites_docs() {
   fi
 }
 
+test_e2e_resume_mid_onboarding() {
+  echo "test_e2e_resume_mid_onboarding:"
+  setup_tmp_repo
+  export SF_COMPOSE_PROBE_PATHS="/nonexistent"
+
+  # Partial onboarding: answer phases 1-3 only, leave 4-10 unanswered
+  sf_state_init
+  sf_state_write_answer "1.1.1" "partial-proj"
+  sf_state_write_answer "1.3.1" "CLI tool"
+  sf_state_write_answer "2.2.2" "risks here"
+  sf_state_write_answer "3.1.1" "Thing"
+  sf_state_write_atomic current_phase 4
+
+  # Mode check: should be "resume"
+  local mode
+  mode="$(sf_state_mode)"
+  assert_eq "mode is resume" "resume" "$mode"
+
+  # Current phase persisted
+  local phase
+  phase="$(sf_state_read_field current_phase)"
+  assert_eq "phase 4 persisted" "4" "$phase"
+
+  # Resume by answering remaining phases
+  sf_state_write_answer "4.1.1" "none"
+  sf_state_write_answer "5.2.1" "Rust"
+  sf_state_write_answer "9.3.1" "no"
+  sf_state_write_atomic current_phase 10
+  sf_state_advance_phase  # → status=complete
+
+  local status
+  status="$(sf_state_read_field status)"
+  assert_eq "completed after resume" "complete" "$status"
+}
+
 test_e2e_fresh_repo_cli
 test_e2e_full_mode
 test_e2e_existing_repo_preserves_user_files
 test_e2e_regenerate_overwrites_docs
+test_e2e_resume_mid_onboarding
 report_results
