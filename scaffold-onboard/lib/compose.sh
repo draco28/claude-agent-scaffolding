@@ -82,7 +82,7 @@ sf_compose_refresh() {
     overrides_json='{"disable_mentor_suggestions":false,"disable_critic":false,"disable_superpowers_subskill":false}'
   fi
 
-  jq -n \
+  if jq -n \
     --arg now "$now" \
     --arg mentor "$mentor_dir" \
     --arg critic "$critic_dir" \
@@ -114,8 +114,13 @@ sf_compose_refresh() {
         disable_critic: (.disable_critic // false),
         disable_superpowers_subskill: (.disable_superpowers_subskill // false)
       })
-    }' > "$tmp"
-  mv "$tmp" "$path"
+    }' > "$tmp"; then
+    mv "$tmp" "$path"
+  else
+    rm -f "$tmp"
+    sf_log_error "jq failed during compose refresh"
+    return 1
+  fi
 }
 
 # Set a user override toggle. Args: <key> <true|false>
@@ -124,15 +129,18 @@ sf_compose_set_override() {
   local path tmp
   path="$(sf_compose_path)"
   [[ -f "$path" ]] || sf_compose_refresh
-  tmp="$(mktemp "${path}.XXXXXX")"
-  if [[ "$value" == "true" || "$value" == "false" ]]; then
-    jq --arg k "$key" --argjson v "$value" '.user_overrides[$k] = $v' "$path" > "$tmp"
-  else
+  if [[ "$value" != "true" && "$value" != "false" ]]; then
     sf_log_error "override value must be true or false, got: $value"
-    rm -f "$tmp"
     return 1
   fi
-  mv "$tmp" "$path"
+  tmp="$(mktemp "${path}.XXXXXX")"
+  if jq --arg k "$key" --argjson v "$value" '.user_overrides[$k] = $v' "$path" > "$tmp"; then
+    mv "$tmp" "$path"
+  else
+    rm -f "$tmp"
+    sf_log_error "jq failed setting override"
+    return 1
+  fi
 }
 
 # Return 0 if a plugin is currently marked installed in composition.json.
@@ -253,7 +261,7 @@ sf_compose_build_critic_request() {
   project_class="$(sf_state_read_answer 1.3.1)"
   [[ "$project_class" == "null" ]] && project_class=""
 
-  jq -n \
+  if jq -n \
     --arg rid "$request_id" \
     --arg depth "$depth" \
     --argjson adv "$adversaries_json" \
@@ -270,9 +278,13 @@ sf_compose_build_critic_request() {
       sources: { principles: $principles, accumulated_phases: $acc },
       concession_threshold: $conc,
       project_class: $pc
-    }' > "$req_path"
-
-  echo "$req_path"
+    }' > "$req_path"; then
+    echo "$req_path"
+  else
+    rm -f "$req_path"
+    sf_log_error "jq failed building critic request"
+    return 1
+  fi
 }
 
 # Read a critic response from the outbox by request_id, with a polling timeout.

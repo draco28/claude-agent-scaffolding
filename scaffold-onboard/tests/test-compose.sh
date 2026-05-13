@@ -291,6 +291,37 @@ test_user_override_survives_refresh() {
   assert_eq "override preserved" "true" "$v"
 }
 
+test_compose_jq_failure_preserves_existing() {
+  echo "test_compose_jq_failure_preserves_existing:"
+  setup_tmp_repo
+  mkdir -p "$TMP_DIR/fake-plugins/ai-mentor-x"
+  : > "$TMP_DIR/fake-plugins/ai-mentor-x/state.json"
+  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
+  sf_compose_refresh
+  # Write a sentinel field so we can verify preservation
+  local path="$CLAUDE_PLUGIN_DATA/composition.json"
+  jq '.sentinel = "preserved"' "$path" > "${path}.new" && mv "${path}.new" "$path"
+  # Mock jq to always fail
+  mkdir -p "$TMP_DIR/badbin"
+  cat > "$TMP_DIR/badbin/jq" <<'BAD_JQ'
+#!/bin/sh
+exit 1
+BAD_JQ
+  chmod +x "$TMP_DIR/badbin/jq"
+  # Call set_override with bad jq in PATH — should fail without clobbering
+  local rc
+  set +e
+  PATH="$TMP_DIR/badbin:$PATH" sf_compose_set_override disable_critic true 2>/dev/null
+  rc=$?
+  set -e 2>/dev/null || true
+  # set_override should return nonzero, AND composition.json should still contain sentinel
+  if [[ $rc -ne 0 ]] && grep -q '"sentinel"' "$path" 2>/dev/null; then
+    PASS=$((PASS+1)); echo "  ✓ jq failure preserved existing composition.json"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ jq failure clobbered composition.json (rc=$rc)"
+  fi
+}
+
 test_detect_ai_mentor_present
 test_detect_ai_mentor_absent
 test_detect_architect_critic
@@ -309,4 +340,5 @@ test_critic_dispatch_with_mock_outbox
 test_critic_response_timeout
 test_user_override_disable_mentor
 test_user_override_survives_refresh
+test_compose_jq_failure_preserves_existing
 report_results
