@@ -129,6 +129,43 @@ test_composition_is_installed_helper() {
   assert_exit_code 1 sf_compose_is_installed "architect-critic"
 }
 
+test_mentor_hint_phase_5() {
+  echo "test_mentor_hint_phase_5:"
+  setup_tmp_repo
+  mk_fake_plugin "ai-mentor-q" "state.json"
+  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
+  sf_compose_refresh
+  local hint
+  hint="$(sf_compose_mentor_hint 5)"
+  if echo "$hint" | grep -q "z2-decide"; then
+    PASS=$((PASS+1)); echo "  ✓ phase 5 emits /z2-decide hint"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ phase 5 hint missing: $hint"
+  fi
+}
+
+test_mentor_hint_phase_2() {
+  echo "test_mentor_hint_phase_2:"
+  setup_tmp_repo
+  mk_fake_plugin "ai-mentor-q" "state.json"
+  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
+  sf_compose_refresh
+  local hint
+  hint="$(sf_compose_mentor_hint 2)"
+  assert_eq "phase 2 no hint" "" "$hint"
+}
+
+test_mentor_hint_without_install() {
+  echo "test_mentor_hint_without_install:"
+  setup_tmp_repo
+  mkdir -p "$TMP_DIR/fake-plugins"
+  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
+  sf_compose_refresh
+  local hint
+  hint="$(sf_compose_mentor_hint 5)"
+  assert_eq "no install, no hint" "" "$hint"
+}
+
 test_detect_ai_mentor_present
 test_detect_ai_mentor_absent
 test_detect_architect_critic
@@ -138,4 +175,7 @@ test_detect_brainstorming_unavailable
 test_composition_refresh_with_plugins
 test_composition_refresh_no_plugins
 test_composition_is_installed_helper
+test_mentor_hint_phase_5
+test_mentor_hint_phase_2
+test_mentor_hint_without_install
 report_results

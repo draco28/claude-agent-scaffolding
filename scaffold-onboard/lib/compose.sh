@@ -119,3 +119,50 @@ sf_compose_is_installed() {
   v="$(jq -r --arg n "$name" '.plugins[$n].installed // false' "$path")"
   [[ "$v" == "true" ]]
 }
+
+# Emit ai-mentor /z2-decide hint for judgment-dense phases (5, 7).
+# Returns empty string when phase doesn't qualify, plugin isn't installed,
+# or user has disabled hints.
+sf_compose_mentor_hint() {
+  local phase="$1"
+  case "$phase" in
+    5|7) ;;
+    *)   echo ""; return 0 ;;
+  esac
+
+  local path
+  path="$(sf_compose_path)"
+  [[ -f "$path" ]] || { echo ""; return 0; }
+
+  local installed disabled
+  installed="$(jq -r '.plugins["ai-mentor"].installed // false' "$path")"
+  disabled="$(jq -r '.user_overrides.disable_mentor_suggestions // false' "$path")"
+  [[ "$installed" != "true" ]] && { echo ""; return 0; }
+  [[ "$disabled" == "true" ]]   && { echo ""; return 0; }
+
+  case "$phase" in
+    5) echo "💡 Phase 5 (Architecture) is judgment-dense. Consider /z2-decide for spotter mode." ;;
+    7) echo "💡 Phase 7 (Implementation) is judgment-dense. Consider /z2-decide for spotter mode." ;;
+  esac
+}
+
+# Similarly: superpowers brainstorming hint at Phase 5/7
+sf_compose_brainstorming_hint() {
+  local phase="$1"
+  case "$phase" in
+    5|7) ;;
+    *)   echo ""; return 0 ;;
+  esac
+
+  local path
+  path="$(sf_compose_path)"
+  [[ -f "$path" ]] || { echo ""; return 0; }
+
+  local avail disabled
+  avail="$(jq -r '.plugins["superpowers"].brainstorming_available // false' "$path")"
+  disabled="$(jq -r '.user_overrides.disable_superpowers_subskill // false' "$path")"
+  [[ "$avail" != "true" ]]    && { echo ""; return 0; }
+  [[ "$disabled" == "true" ]] && { echo ""; return 0; }
+
+  echo "💡 superpowers:brainstorming is available for visual trade-off exploration on this phase."
+}
