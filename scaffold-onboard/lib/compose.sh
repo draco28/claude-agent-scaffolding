@@ -36,3 +36,22 @@ _compose_find_plugin() {
 sf_compose_detect_ai_mentor() {
   _compose_find_plugin "ai-mentor"
 }
+
+sf_compose_detect_architect_critic() {
+  _compose_find_plugin "architect-critic"
+}
+
+sf_compose_detect_superpowers() {
+  _compose_find_plugin "superpowers"
+}
+
+# Returns "true" if superpowers is installed AND its brainstorming skill is present
+sf_compose_brainstorming_available() {
+  local sp
+  sp="$(sf_compose_detect_superpowers)"
+  if [[ -n "$sp" && -f "$sp/skills/brainstorming/SKILL.md" ]]; then
+    echo "true"
+  else
+    echo "false"
+  fi
+}
