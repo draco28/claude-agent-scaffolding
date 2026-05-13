@@ -118,6 +118,42 @@ test_e2e_full_mode() {
   assert_file_missing "./docs/EVALS_PLAN.md"
 }
 
+test_e2e_existing_repo_preserves_user_files() {
+  echo "test_e2e_existing_repo_preserves_user_files:"
+  setup_tmp_repo
+  export SF_COMPOSE_PROBE_PATHS="/nonexistent"
+  # Pre-seed user-authored files BEFORE running scaffold-onboard
+  mkdir -p docs/adr
+  echo "# My existing PRD" > docs/PRD.md
+  echo "# Pre-existing ADR" > docs/adr/0001-record-architecture-decisions.md
+  echo "# Existing settings note" > .claude_user_note  # canary
+
+  run_full_pipeline_cli
+
+  # docs/PRD.md is in docs-minimal — preserved unless --regenerate
+  assert_file_contains "./docs/PRD.md" "My existing PRD"
+  # ADR-0001 preserved
+  assert_file_contains "./docs/adr/0001-record-architecture-decisions.md" "Pre-existing ADR"
+  # User's canary untouched
+  assert_file_contains "./.claude_user_note" "Existing settings note"
+}
+
+test_e2e_regenerate_overwrites_docs() {
+  echo "test_e2e_regenerate_overwrites_docs:"
+  setup_tmp_repo
+  export SF_COMPOSE_PROBE_PATHS="/nonexistent"
+  echo "# My existing PRD" > docs/PRD.md 2>/dev/null || { mkdir -p docs; echo "# My existing PRD" > docs/PRD.md; }
+  run_full_pipeline_cli
+  sf_docs_derive --regenerate
+  if grep -q "My existing PRD" docs/PRD.md; then
+    FAIL=$((FAIL+1)); echo "  ✗ --regenerate did not overwrite"
+  else
+    PASS=$((PASS+1)); echo "  ✓ --regenerate overwrote existing PRD"
+  fi
+}
+
 test_e2e_fresh_repo_cli
 test_e2e_full_mode
+test_e2e_existing_repo_preserves_user_files
+test_e2e_regenerate_overwrites_docs
 report_results
