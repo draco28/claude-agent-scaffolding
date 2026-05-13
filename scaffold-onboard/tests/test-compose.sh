@@ -322,6 +322,25 @@ BAD_JQ
   fi
 }
 
+test_compose_request_id_unique_within_second() {
+  echo "test_compose_request_id_unique_within_second:"
+  setup_tmp_repo
+  mk_fake_plugin "architect-critic-x" "principles.md"
+  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
+  sf_compose_refresh
+  echo "test content" > MASTER-SPEC.md
+  sf_state_init
+  sf_state_write_answer "1.3.1" "CLI tool"
+  local r1 r2
+  r1="$(sf_compose_build_critic_request "premise-audit" 5)"
+  r2="$(sf_compose_build_critic_request "premise-audit" 5)"
+  if [[ "$r1" != "$r2" && -f "$r1" && -f "$r2" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ two same-second same-phase requests have unique paths"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ collision: r1=$r1 r2=$r2"
+  fi
+}
+
 test_detect_ai_mentor_present
 test_detect_ai_mentor_absent
 test_detect_architect_critic
@@ -341,4 +360,5 @@ test_critic_response_timeout
 test_user_override_disable_mentor
 test_user_override_survives_refresh
 test_compose_jq_failure_preserves_existing
+test_compose_request_id_unique_within_second
 report_results

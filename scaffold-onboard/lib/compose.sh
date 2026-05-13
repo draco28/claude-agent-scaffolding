@@ -223,10 +223,11 @@ sf_compose_build_critic_request() {
 
   local now request_id req_path
   now="$(date -u +%Y-%m-%dT%H%M%S)"
+  local entropy="$$.$RANDOM"
   if [[ -n "$phase_id" ]]; then
-    request_id="crit-${now}-phase${phase_id}"
+    request_id="crit-${now}-phase${phase_id}-${entropy}"
   else
-    request_id="crit-${now}-close"
+    request_id="crit-${now}-close-${entropy}"
   fi
   req_path="$inbox_dir/${request_id}.json"
 
