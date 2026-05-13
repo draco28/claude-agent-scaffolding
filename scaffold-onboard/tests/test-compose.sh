@@ -166,6 +166,51 @@ test_mentor_hint_without_install() {
   assert_eq "no install, no hint" "" "$hint"
 }
 
+test_critic_request_premise_audit() {
+  echo "test_critic_request_premise_audit:"
+  setup_tmp_repo
+  mk_fake_plugin "architect-critic-r" "principles.md"
+  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
+  sf_compose_refresh
+  echo "test content" > MASTER-SPEC.md
+  sf_state_init
+  sf_state_write_answer "1.3.1" "CLI tool"
+  local req_path
+  req_path="$(sf_compose_build_critic_request "premise-audit" 5)"
+  assert_file_exists "$req_path"
+  local depth phase_id
+  depth="$(jq -r .depth "$req_path")"
+  phase_id="$(jq -r .target.phase_id "$req_path")"
+  assert_eq "request depth" "premise-audit" "$depth"
+  assert_eq "request phase_id" "5" "$phase_id"
+  local concession
+  concession="$(jq -r .concession_threshold "$req_path")"
+  assert_eq "concession threshold = 4" "4" "$concession"
+}
+
+test_critic_request_close() {
+  echo "test_critic_request_close:"
+  setup_tmp_repo
+  mk_fake_plugin "architect-critic-r" "principles.md"
+  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
+  sf_compose_refresh
+  echo "test content" > MASTER-SPEC.md
+  sf_state_init
+  sf_state_write_answer "1.3.1" "CLI tool"
+  local req_path
+  req_path="$(sf_compose_build_critic_request "close" "")"
+  local depth target_type
+  depth="$(jq -r .depth "$req_path")"
+  target_type="$(jq -r .target.type "$req_path")"
+  assert_eq "depth=close" "close" "$depth"
+  assert_eq "target type=master-spec-full" "master-spec-full" "$target_type"
+  local adv0 adv1
+  adv0="$(jq -r '.adversaries[0]' "$req_path")"
+  adv1="$(jq -r '.adversaries[1]' "$req_path")"
+  assert_eq "adversaries[0] = claude" "claude" "$adv0"
+  assert_eq "adversaries[1] = codex" "codex" "$adv1"
+}
+
 test_detect_ai_mentor_present
 test_detect_ai_mentor_absent
 test_detect_architect_critic
@@ -178,4 +223,6 @@ test_composition_is_installed_helper
 test_mentor_hint_phase_5
 test_mentor_hint_phase_2
 test_mentor_hint_without_install
+test_critic_request_premise_audit
+test_critic_request_close
 report_results

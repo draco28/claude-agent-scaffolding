@@ -166,3 +166,85 @@ sf_compose_brainstorming_hint() {
 
   echo "💡 superpowers:brainstorming is available for visual trade-off exploration on this phase."
 }
+
+# Build a critic request envelope per SPEC §8.3 and write it to the
+# architect-critic inbox dir. Echo the path of the written request file.
+# Args: <depth> <phase_id_or_empty>
+sf_compose_build_critic_request() {
+  local depth="$1" phase_id="${2:-}"
+  local comp
+  comp="$(sf_compose_path)"
+  [[ -f "$comp" ]] || { sf_log_error "composition.json missing"; return 1; }
+
+  local critic_dir
+  critic_dir="$(jq -r '.plugins["architect-critic"].data_dir // ""' "$comp")"
+  [[ -z "$critic_dir" ]] && { sf_log_error "architect-critic not installed"; return 1; }
+
+  local principles
+  principles="$(jq -r '.plugins["architect-critic"].principles_file // ""' "$comp")"
+
+  local inbox_dir
+  inbox_dir="$critic_dir/inbox"
+  mkdir -p "$inbox_dir"
+
+  local now request_id req_path
+  now="$(date -u +%Y-%m-%dT%H%M%S)"
+  if [[ -n "$phase_id" ]]; then
+    request_id="crit-${now}-phase${phase_id}"
+  else
+    request_id="crit-${now}-close"
+  fi
+  req_path="$inbox_dir/${request_id}.json"
+
+  # Adversaries: claude only for per-phase audits; claude+codex at close.
+  local adversaries_json
+  if [[ "$depth" == "close" ]]; then
+    adversaries_json='["claude","codex"]'
+  else
+    adversaries_json='["claude"]'
+  fi
+
+  # target: master-spec-phase (for per-phase) or master-spec-full (for close)
+  local target_json
+  local master_spec_path
+  master_spec_path="$(pwd)/MASTER-SPEC.md"
+  if [[ "$depth" == "close" ]]; then
+    target_json="$(jq -n --arg p "$master_spec_path" '{type:"master-spec-full",path:$p}')"
+  else
+    target_json="$(jq -n --arg p "$master_spec_path" --argjson pid "$phase_id" \
+      '{type:"master-spec-phase",path:$p,phase_id:$pid}')"
+  fi
+
+  # Accumulated phases: 1..N-1 for per-phase audits; 1..10 for close
+  local acc_json
+  if [[ "$depth" == "close" ]]; then
+    acc_json='[1,2,3,4,5,6,7,8,9,10]'
+  else
+    acc_json="$(jq -n --argjson pid "$phase_id" '[range(1;$pid)]')"
+  fi
+
+  local project_class
+  project_class="$(sf_state_read_answer 1.3.1)"
+  [[ "$project_class" == "null" ]] && project_class=""
+
+  jq -n \
+    --arg rid "$request_id" \
+    --arg depth "$depth" \
+    --argjson adv "$adversaries_json" \
+    --argjson target "$target_json" \
+    --arg principles "$principles" \
+    --argjson acc "$acc_json" \
+    --argjson conc 4 \
+    --arg pc "$project_class" \
+    '{
+      request_id: $rid,
+      depth: $depth,
+      adversaries: $adv,
+      target: $target,
+      sources: { principles: $principles, accumulated_phases: $acc },
+      concession_threshold: $conc,
+      project_class: $pc
+    }' > "$req_path"
+
+  echo "$req_path"
+}
