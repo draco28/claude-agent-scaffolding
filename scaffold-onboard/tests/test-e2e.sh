@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# End-to-end tests for scaffold-onboard.
+# Each test runs the full bash pipeline (onboard helpers → scaffold-project →
+# scaffold-docs) against a fresh tmp repo with scripted answers.
+set -u
+HERE="$(cd "$(dirname "$0")" && pwd)"
+source "$HERE/_helpers.sh"
+source "$HERE/../lib/state.sh"
+source "$HERE/../lib/parser.sh"
+source "$HERE/../lib/render.sh"
+source "$HERE/../lib/memory-bank.sh"
+source "$HERE/../lib/docs.sh"
+source "$HERE/../lib/compose.sh"
+
+PLUGIN_ROOT="$HERE/.."
+export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
+
+# Scripted answers for a representative CLI project (no LLM, no UI).
+script_answers_cli() {
+  sf_state_write_answer "1.1.1" "todo-cli — fast local-first task manager"
+  sf_state_write_answer "1.1.2" "Existing managers are heavy and cloud-coupled."
+  sf_state_write_answer "1.1.3" "Solo devs adopt as their default task tool."
+  sf_state_write_answer "1.2.1" "Solo devs and ops engineers."
+  sf_state_write_answer "1.2.2" "Add a task, see what's pending, mark done — all under 200ms."
+  sf_state_write_answer "1.3.1" "CLI tool"
+  sf_state_write_answer "1.3.2" "add / list / complete tasks; persist to ~/.todo.json; tab-complete."
+  sf_state_write_answer "2.1.1" "4 weeks"
+  sf_state_write_answer "2.1.2" "Solo"
+  sf_state_write_answer "2.2.1" "0 (no hosted infra)"
+  sf_state_write_answer "2.2.2" "tech: dep drift; market: niche; resource: solo bandwidth"
+  sf_state_write_answer "2.3.1" "Daily use by 1 user for 4 weeks."
+  sf_state_write_answer "3.1.1" "Task, Project (optional)"
+  sf_state_write_answer "3.1.2" "Task(id, title, status, due); Project(id, name)"
+  sf_state_write_answer "3.2.1" "Project has many Tasks"
+  sf_state_write_answer "3.3.1" "task, project, done, due"
+  sf_state_write_answer "4.1.1" "none"
+  sf_state_write_answer "4.1.2" "none"
+  sf_state_write_answer "4.2.1" "none"
+  sf_state_write_answer "4.2.2" "single-tenant (local only)"
+  sf_state_write_answer "4.3.1" "local only"
+  sf_state_write_answer "5.1.1" "CLI"
+  sf_state_write_answer "5.2.1" "Rust"
+  sf_state_write_answer "5.2.2" "file (~/.todo.json)"
+  sf_state_write_answer "5.3.1" "single user, <1MB data"
+  sf_state_write_answer "5.3.2" "<200ms per command"
+  sf_state_write_answer "6A.1.1" "CLI"
+  sf_state_write_answer "6A.1.2" "todo add 'feed cat' → todo list → todo done 1"
+  sf_state_write_answer "7.1.1" "src/{cli,store,model}"
+  sf_state_write_answer "7.1.2" "statically typed Rust"
+  sf_state_write_answer "8.1.1" "cargo"
+  sf_state_write_answer "8.2.1" "GitHub Actions"
+  sf_state_write_answer "8.2.2" "dev only"
+  sf_state_write_answer "8.3.1" "self-hosted (binary release)"
+  sf_state_write_answer "9.1.1" "80%"
+  sf_state_write_answer "9.1.2" "unit, integration"
+  sf_state_write_answer "9.2.1" "tests pass, cargo clippy clean"
+  sf_state_write_answer "9.3.1" "no"
+  sf_state_write_answer "10.1.1" "direct"
+  sf_state_write_answer "10.3.1" "solo / business hours"
+}
+
+run_full_pipeline_cli() {
+  sf_state_init
+  script_answers_cli
+  local tmpl="$PLUGIN_ROOT/templates/master-spec/MASTER-SPEC.md.tmpl"
+  sf_master_spec_init "$tmpl" "todo-cli" "CLI tool"
+  local i
+  for i in 1 2 3 4 5 6 7 8 9 10; do
+    sf_master_spec_update_phase "$tmpl" "$i"
+  done
+  sf_state_write_atomic status complete
+  sf_memory_bank_derive
+  sf_claude_md_generate
+  sf_claude_settings_generate
+  sf_docs_derive
+}
+
+test_e2e_fresh_repo_cli() {
+  echo "test_e2e_fresh_repo_cli:"
+  setup_tmp_repo
+  export SF_COMPOSE_PROBE_PATHS="/nonexistent"
+  run_full_pipeline_cli
+  # MASTER-SPEC artifacts
+  assert_file_exists "./MASTER-SPEC.md"
+  assert_exit_code 0 sf_spec_validate ./MASTER-SPEC.md
+  # Memory bank
+  local f
+  for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 05-active-context 06-progress 07-constraints 08-governance index WORKFLOW; do
+    assert_file_exists "./.claude/memory-bank/${f}.md"
+  done
+  # CLAUDE.md
+  assert_file_exists "./CLAUDE.md"
+  assert_file_contains "./CLAUDE.md" "todo-cli"
+  assert_file_contains "./CLAUDE.md" "Tier 0"
+  # Settings
+  assert_file_exists "./.claude/settings.json"
+  # Default docs
+  assert_file_exists "./docs/PRD.md"
+  assert_file_exists "./docs/SRS.md"
+  assert_file_exists "./docs/BACKLOG.md"
+  assert_file_exists "./docs/PROJECT_PLAN.md"
+  assert_file_exists "./docs/adr/0001-record-architecture-decisions.md"
+  # No --full docs
+  assert_file_missing "./docs/RISK_REGISTER.md"
+  assert_file_missing "./docs/EVALS_PLAN.md"
+}
+
+test_e2e_full_mode() {
+  echo "test_e2e_full_mode:"
+  setup_tmp_repo
+  export SF_COMPOSE_PROBE_PATHS="/nonexistent"
+  run_full_pipeline_cli
+  sf_docs_derive --full
+  assert_file_exists "./docs/RISK_REGISTER.md"
+  assert_file_exists "./docs/TEST_STRATEGY.md"
+  assert_file_exists "./docs/CUTOVER_PLAN.md"
+  # LLM-gated still skipped (this project says no LLMs)
+  assert_file_missing "./docs/EVALS_PLAN.md"
+}
+
+test_e2e_fresh_repo_cli
+test_e2e_full_mode
+report_results
