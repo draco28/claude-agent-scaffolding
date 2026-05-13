@@ -187,9 +187,40 @@ test_e2e_resume_mid_onboarding() {
   assert_eq "completed after resume" "complete" "$status"
 }
 
+test_e2e_with_composition_mocked() {
+  echo "test_e2e_with_composition_mocked:"
+  setup_tmp_repo
+  # Fake-install all three cross-cutting plugins
+  mkdir -p "$TMP_DIR/fake-plugins/ai-mentor-x"
+  : > "$TMP_DIR/fake-plugins/ai-mentor-x/state.json"
+  mkdir -p "$TMP_DIR/fake-plugins/architect-critic-y"
+  : > "$TMP_DIR/fake-plugins/architect-critic-y/principles.md"
+  mkdir -p "$TMP_DIR/fake-plugins/superpowers-z/skills/brainstorming"
+  : > "$TMP_DIR/fake-plugins/superpowers-z/skills/brainstorming/SKILL.md"
+  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
+
+  sf_compose_refresh
+  run_full_pipeline_cli
+
+  # CLAUDE.md should mention all three integrations
+  assert_file_contains "./CLAUDE.md" "z2-decide"
+  assert_file_contains "./CLAUDE.md" "/critique"
+  assert_file_contains "./CLAUDE.md" "superpowers"
+
+  # Mentor hint emits at Phase 5 + 7
+  local hint5 hint7 hint2
+  hint5="$(sf_compose_mentor_hint 5)"
+  hint7="$(sf_compose_mentor_hint 7)"
+  hint2="$(sf_compose_mentor_hint 2)"
+  if [[ -n "$hint5" ]]; then PASS=$((PASS+1)); echo "  ✓ Phase 5 mentor hint emitted"; else FAIL=$((FAIL+1)); echo "  ✗ no Phase 5 mentor hint"; fi
+  if [[ -n "$hint7" ]]; then PASS=$((PASS+1)); echo "  ✓ Phase 7 mentor hint emitted"; else FAIL=$((FAIL+1)); echo "  ✗ no Phase 7 mentor hint"; fi
+  assert_eq "no Phase 2 hint" "" "$hint2"
+}
+
 test_e2e_fresh_repo_cli
 test_e2e_full_mode
 test_e2e_existing_repo_preserves_user_files
 test_e2e_regenerate_overwrites_docs
 test_e2e_resume_mid_onboarding
+test_e2e_with_composition_mocked
 report_results
