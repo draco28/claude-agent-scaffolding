@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Mock codex CLI for hermetic tests.
+# Reads stdin (and ignores it). Echoes the JSON file at $MOCK_CODEX_OUTPUT to stdout.
+# Exits 0 on success, 1 if MOCK_CODEX_OUTPUT not set or file missing.
+
+cat > /dev/null   # consume stdin
+
+if [[ -z "${MOCK_CODEX_OUTPUT:-}" ]]; then
+  echo "mock-codex: MOCK_CODEX_OUTPUT not set" >&2
+  exit 1
+fi
+
+if [[ ! -f "$MOCK_CODEX_OUTPUT" ]]; then
+  echo "mock-codex: payload not found: $MOCK_CODEX_OUTPUT" >&2
+  exit 1
+fi
+
+cat "$MOCK_CODEX_OUTPUT"
+exit 0
