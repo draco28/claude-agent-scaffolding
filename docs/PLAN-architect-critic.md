@@ -22,7 +22,7 @@
 |---|---|---|---|---|
 | A · plugin scaffold | ✅ done | TA.1–TA.5 | 0 (helpers seeded) | (close commit below) |
 | B · state + principles + inbox | ✅ done | TB.1–TB.3 | 78 | (close commit below) |
-| C · slash command bodies | ⏸ pending | TC.1–TC.5 | — | — |
+| C · slash command bodies | ✅ done | TC.1–TC.5 (+2 fix-ups) | 103 | (close commit below) |
 | D · codex + consolidator + scorer + outbox + cost | ⏸ pending | TD.1–TD.6 | — | — |
 | E · auto-promotion (FULL) | ⏸ pending | TE.1–TE.7 | — | — |
 | F · hooks + scaffold-onboard delta (OQ-2) | ⏸ pending | TF.1–TF.5 | — | — |
