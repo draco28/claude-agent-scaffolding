@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# test-consolidator.sh — unit tests for lib/consolidator.sh
+# test-consolidator.sh — unit tests for lib/consolidator.sh + lib/cost.sh
 # ~15 tests covering: empty+empty, claude-only, no-overlap, exact-match dedup,
 # agreed-by-both, divergences (claude flagged / codex flagged), gaps concat,
 # adversaries_used, and edge cases.
+# +2 cost tests: ac_cost_compute + ac_cost_print (folded in per TD.5 plan).
 
 set -u
 
@@ -15,6 +16,8 @@ source "$SCRIPT_DIR/_helpers.sh"
 source "$PLUGIN_ROOT/lib/_helpers.sh"
 # shellcheck source=../lib/consolidator.sh
 source "$PLUGIN_ROOT/lib/consolidator.sh"
+# shellcheck source=../lib/cost.sh
+source "$PLUGIN_ROOT/lib/cost.sh"
 
 echo "=== test-consolidator.sh ==="
 
@@ -411,5 +414,46 @@ echo "-- 15. multi-challenge: 2+2 with 1 shared → 3 total --"
   fi
 )
 if [[ $? -eq 0 ]]; then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); fi
+
+# ---------------------------------------------------------------------------
+# 16. ac_cost_compute: 1000 in + 1000 out at default rates → 0.020
+#     (1000/1000 * 0.005) + (1000/1000 * 0.015) = 0.005 + 0.015 = 0.020
+# ---------------------------------------------------------------------------
+echo ""
+echo "-- 16. ac_cost_compute: 1000 in + 1000 out → 0.020 --"
+(
+  result=$(ac_cost_compute 1000 1000 2>/dev/null)
+  # Strip any leading zeros variation; normalize to compare floating point
+  expected="0.020"
+  # Accept either "0.020" or "0.02" (trailing zero handling may vary)
+  if [[ "$result" == "0.020" || "$result" == "0.02" ]]; then
+    echo "  ✓ ac_cost_compute 1000+1000 → $result (expected ~$expected)"
+  else
+    echo "  ✗ expected 0.020 (or 0.02), got '$result'"; exit 1
+  fi
+)
+if [[ $? -eq 0 ]]; then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); fi
+
+# ---------------------------------------------------------------------------
+# 17. ac_cost_print: known costs → formatted line per SPEC OQ-3
+#     Format: ~$<total> spent on this audit (codex: $<codex>, claude-self: $<claude>)
+# ---------------------------------------------------------------------------
+echo ""
+echo "-- 17. ac_cost_print: formatted line per SPEC OQ-3 --"
+(
+  result=$(ac_cost_print "0.12" "0" 2>/dev/null)
+  # Must contain total, codex, and claude-self fields
+  if echo "$result" | grep -q "codex:" && echo "$result" | grep -q "claude-self:"; then
+    echo "  ✓ ac_cost_print output contains codex: and claude-self: labels"
+  else
+    echo "  ✗ expected 'codex:' and 'claude-self:' in output, got: '$result'"; exit 1
+  fi
+  if echo "$result" | grep -q "0.12"; then
+    echo "  ✓ ac_cost_print output contains codex cost 0.12"
+  else
+    echo "  ✗ expected '0.12' in output, got: '$result'"; exit 1
+  fi
+)
+if [[ $? -eq 0 ]]; then PASS=$((PASS+2)); else FAIL=$((FAIL+2)); fi
 
 report_results
