@@ -47,7 +47,8 @@ fi
 # ── Render recent runs table ────────────────────────────────────────────────
 echo "=== Recent runs (most recent first, limit ${LIMIT}) ==="
 
-RECENT_RUNS="$(printf "%s\n" "$STATE" | jq -r ".recent_runs[] | @json" | tac)"
+# Slice last LIMIT runs and reverse in jq (macOS-portable, no tac needed, limit enforced in jq)
+RECENT_RUNS="$(printf "%s\n" "$STATE" | jq -r ".recent_runs[-${LIMIT}:] | reverse[] | @json")"
 
 if [[ -z "$RECENT_RUNS" ]]; then
   echo "(no runs yet)"
@@ -64,7 +65,6 @@ echo "├────────────────────┼──�
 
 COUNT=0
 printf "%s\n" "$RECENT_RUNS" | while read -r line; do
-  [[ $COUNT -ge $LIMIT ]] && break
   COUNT=$((COUNT + 1))
 
   # Parse each run JSON
