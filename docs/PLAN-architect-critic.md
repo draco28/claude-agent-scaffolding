@@ -21,7 +21,7 @@
 | Phase | Status | Tasks | Cumulative tests | Phase-close commit |
 |---|---|---|---|---|
 | A · plugin scaffold | ✅ done | TA.1–TA.5 | 0 (helpers seeded) | (close commit below) |
-| B · state + principles + inbox | ⏸ pending | TB.1–TB.3 | — | — |
+| B · state + principles + inbox | ✅ done | TB.1–TB.3 | 78 | (close commit below) |
 | C · slash command bodies | ⏸ pending | TC.1–TC.5 | — | — |
 | D · codex + consolidator + scorer + outbox + cost | ⏸ pending | TD.1–TD.6 | — | — |
 | E · auto-promotion (FULL) | ⏸ pending | TE.1–TE.7 | — | — |
