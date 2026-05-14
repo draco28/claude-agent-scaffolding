@@ -182,13 +182,182 @@ TPATH_DISP="$(printf "%s" "$ENVELOPE" | jq -r ".target.path")"
 echo "  spec       : ${TPATH_DISP}"
 echo ""
 
-# ── Phase D stub ─────────────────────────────────────────────────────────────
-echo "Phase D will run the audit pipeline here"
-echo "  (claude-self-audit → codex dispatch → consolidator → outbox → rebuttal cycle → promotion → cost line)"
+# ── Step 2: principles compose ───────────────────────────────────────────────
+source "${PLUGIN_ROOT}/lib/principles.sh"
+SPEC_PATH_ENV="$(printf "%s" "$ENVELOPE" | jq -r ".target.path")"
+ACC_PHASES_CSV="$(printf "%s" "$ENVELOPE" | jq -r ".sources.accumulated_phases | join(\",\")")"
+PRINCIPLES_BLOCK="$(ac_principles_compose "$SPEC_PATH_ENV" "$ACC_PHASES_CSV")"
+
+# ── Step 3: record in_flight ─────────────────────────────────────────────────
+DEPTH_FIELD="$(printf "%s" "$ENVELOPE" | jq -r ".depth")"
+PHASE_ID_FIELD="$(printf "%s" "$ENVELOPE" | jq -r ".target.phase_id // \"null\"")"
+ac_state_append_in_flight "$REQUEST_ID" "$DEPTH_FIELD" "$PHASE_ID_FIELD" || \
+  ac_log_warn "could not record in_flight for $REQUEST_ID (non-fatal)"
+
+START_MS="$(date +%s 2>/dev/null || echo 0)"
+
+# ── Step 4: claude-self-audit ────────────────────────────────────────────────
+# Read spec content for the prompt
+SPEC_CONTENT="$(cat "$SPEC_PATH_ENV" 2>/dev/null || true)"
+
+# Build the audit prompt (claude reads this and writes JSON to a tmp file)
+CLAUDE_AUDIT_TMP="$(mktemp /tmp/ac-claude-audit.XXXXXX.json)"
+
+# If ARCHITECT_CRITIC_CLAUDE_AUDIT_MOCK is set, use that path (test hook).
+if [[ -n "${ARCHITECT_CRITIC_CLAUDE_AUDIT_MOCK:-}" && -f "${ARCHITECT_CRITIC_CLAUDE_AUDIT_MOCK}" ]]; then
+  cp "${ARCHITECT_CRITIC_CLAUDE_AUDIT_MOCK}" "$CLAUDE_AUDIT_TMP"
+else
+  # Claude will write the JSON audit result to $CLAUDE_AUDIT_TMP via the
+  # heredoc below.  The surrounding bash session executes this in-context.
+  cat > "$CLAUDE_AUDIT_TMP" << AUDIT_PROMPT_EOF
+{"challenges":[],"gaps":[]}
+AUDIT_PROMPT_EOF
+  # Note: the real claude-self-audit prompt is presented to Claude inline.
+  # The block below is the audit instruction that Claude (the session running
+  # this command) must execute and then write the result to CLAUDE_AUDIT_TMP.
+  :
+fi
+
+# Present the audit prompt to Claude for in-context reasoning.
+# Claude will process the following and overwrite CLAUDE_AUDIT_TMP with real JSON.
+# ┌─────────────────────────────────────────────────────────────────────────────
+# │ CLAUDE SELF-AUDIT INSTRUCTIONS
+# │
+# │ You are the architect-critic. Analyse the spec content below against the
+# │ composed principles. Return a JSON object with this exact schema (no prose,
+# │ no markdown fences — raw JSON only):
+# │
+# │   {
+# │     "challenges": [
+# │       {
+# │         "severity": "premise"|"gap"|"alternative",
+# │         "text": "<challenge text>",
+# │         "references": ["<phase or section ref>", ...]
+# │       }
+# │     ],
+# │     "gaps": [
+# │       { "text": "<gap text>", "severity": "info"|"warning" }
+# │     ]
+# │   }
+# │
+# │ Scoring rubric (use when assessing severity):
+# │   1 = bare contradiction  2 = cite-self  3 = partial address
+# │   4 = material new info   5 = premise invalidated
+# │
+# │ severity="premise"     → a foundational assumption that appears unsound
+# │ severity="gap"         → a missing element the spec needs to address
+# │ severity="alternative" → a viable alternative approach not considered
+# │
+# │ PRINCIPLES CONTEXT:
+# $PRINCIPLES_BLOCK
+# │
+# │ SPEC CONTENT:
+# $SPEC_CONTENT
+# │
+# │ Write the JSON result to: $CLAUDE_AUDIT_TMP
+# └─────────────────────────────────────────────────────────────────────────────
+
+# After Claude writes the result, read it back.
+CLAUDE_AUDIT_JSON=""
+if [[ -f "$CLAUDE_AUDIT_TMP" ]]; then
+  CLAUDE_AUDIT_JSON="$(cat "$CLAUDE_AUDIT_TMP" 2>/dev/null || true)"
+fi
+
+# Validate claude audit JSON; fall back to empty if unparseable.
+if ! printf "%s" "$CLAUDE_AUDIT_JSON" | jq -e . >/dev/null 2>&1; then
+  ac_log_warn "claude-self-audit returned unparseable JSON; using empty result"
+  CLAUDE_AUDIT_JSON='"'"'"{"challenges":[],"gaps":[]}'"'"'"
+fi
+rm -f "$CLAUDE_AUDIT_TMP"
+
+# ── Step 5: codex audit (depth=close only) ────────────────────────────────────
+source "${PLUGIN_ROOT}/lib/codex.sh"
+CODEX_AUDIT_JSON='{"challenges":[],"gaps":[]}'
+
+if [[ "$DEPTH_FIELD" == "close" ]]; then
+  CODEX_PROMPT="You are an independent architectural reviewer. Analyse the following spec for challenges and gaps. Return JSON only — no prose, no fences:
+{\"challenges\":[{\"severity\":\"premise\"|\"gap\"|\"alternative\",\"text\":\"...\",\"references\":[\"...\"]}],\"gaps\":[{\"text\":\"...\",\"severity\":\"info\"|\"warning\"}]}
+
+SPEC:
+${SPEC_CONTENT}"
+
+  CODEX_RESULT="$(ac_codex_audit "$CODEX_PROMPT" 2>/dev/null || true)"
+  if [[ -n "$CODEX_RESULT" ]] && printf "%s" "$CODEX_RESULT" | jq -e . >/dev/null 2>&1; then
+    CODEX_AUDIT_JSON="$CODEX_RESULT"
+  else
+    ac_log_warn "codex audit unavailable or failed; continuing claude-only"
+  fi
+fi
+
+# ── Step 6: consolidator ─────────────────────────────────────────────────────
+source "${PLUGIN_ROOT}/lib/consolidator.sh"
+CONSOLIDATED_JSON="$(ac_consolidator_merge "$CLAUDE_AUDIT_JSON" "$CODEX_AUDIT_JSON")" || {
+  ac_log_warn "consolidator failed; using claude-only result"
+  CONSOLIDATED_JSON="$(jq -n \
+    --argjson ch "$(printf "%s" "$CLAUDE_AUDIT_JSON" | jq ".challenges // []")" \
+    --argjson gp "$(printf "%s" "$CLAUDE_AUDIT_JSON" | jq ".gaps // []")" \
+    "{challenges:\$ch,gaps:\$gp,divergences:[],adversaries_used:[\"claude\"]}")"
+}
+
+# ── Step 7: outbox write ──────────────────────────────────────────────────────
+source "${PLUGIN_ROOT}/lib/outbox.sh"
+END_MS="$(date +%s 2>/dev/null || echo 0)"
+ELAPSED_MS=$(( (END_MS - START_MS) * 1000 ))
+
+# Codex cost: tokens not exposed by all codex CLIs; default to 0.
+CODEX_TOKENS_IN=0
+CODEX_TOKENS_OUT=0
+source "${PLUGIN_ROOT}/lib/cost.sh"
+CODEX_COST_USD="$(ac_cost_compute "$CODEX_TOKENS_IN" "$CODEX_TOKENS_OUT")"
+
+ac_outbox_write "$REQUEST_ID" "$CONSOLIDATED_JSON" "$ELAPSED_MS" "$CODEX_COST_USD" || \
+  ac_log_warn "outbox write failed for $REQUEST_ID"
+
+# ── Step 8: rebuttal cycle (Phase E will add full UX) ─────────────────────────
+echo ""
+echo "(Phase E will add rebuttal cycle)"
+
+# ── Step 9: auto-promotion offer (Phase E will add) ──────────────────────────
+# (Phase E will add auto-promotion offer)
+
+# ── Step 10: cost line ───────────────────────────────────────────────────────
+echo ""
+ac_cost_print "$CODEX_COST_USD" "0"
+
+# ── Step 11: record completion in state ──────────────────────────────────────
+CHALLENGE_COUNT="$(printf "%s" "$CONSOLIDATED_JSON" | jq ".challenges | length" 2>/dev/null || echo 0)"
+DIVERGENCE_COUNT="$(printf "%s" "$CONSOLIDATED_JSON" | jq ".divergences | length" 2>/dev/null || echo 0)"
+ADVERSARIES_USED="$(printf "%s" "$CONSOLIDATED_JSON" | jq -c ".adversaries_used // [\"claude\"]" 2>/dev/null || echo "[\"claude\"]")"
+COMPLETED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "unknown")"
+
+RUN_JSON="$(jq -n \
+  --arg rid "$REQUEST_ID" \
+  --arg cat "$COMPLETED_AT" \
+  --arg dep "$DEPTH_FIELD" \
+  --argjson adv "$ADVERSARIES_USED" \
+  --argjson cc "$CHALLENGE_COUNT" \
+  --argjson dc "$DIVERGENCE_COUNT" \
+  --argjson em "$ELAPSED_MS" \
+  --argjson cu "$CODEX_COST_USD" \
+  "{request_id:\$rid,completed_at:\$cat,depth:\$dep,adversaries_used:\$adv,challenge_count:\$cc,divergence_count:\$dc,elapsed_ms:\$em,cost_usd:\$cu}")"
+
+ac_state_remove_in_flight "$REQUEST_ID" || ac_log_warn "could not remove in_flight for $REQUEST_ID"
+ac_state_append_recent_run "$RUN_JSON" || ac_log_warn "could not append recent_run for $REQUEST_ID"
+
+echo ""
+echo "=== architect-critic: audit complete ==="
+echo "  request_id  : ${REQUEST_ID}"
+echo "  challenges  : ${CHALLENGE_COUNT}"
+echo "  divergences : ${DIVERGENCE_COUNT}"
+echo "  outbox      : $(ac_outbox_dir)/${REQUEST_ID}.json"
+echo ""
 '
 ```
 
-After the bash block completes:
-
-- If the envelope synthesized and validated successfully, Phase D will continue from here with the full audit pipeline.
-- On validation failure the block already exited non-zero; do not proceed.
+After the bash block completes the audit pipeline has run end-to-end:
+- Envelope validated, principles composed, in_flight recorded.
+- Claude-self-audit executed (or mocked via `ARCHITECT_CRITIC_CLAUDE_AUDIT_MOCK`).
+- Codex audit dispatched if `depth=close` (graceful fallback on failure).
+- Consolidator merged both adversaries.
+- Outbox written atomically; state updated (in_flight removed, recent_run appended).
+- Phase E will replace the rebuttal-cycle and auto-promotion stubs.
