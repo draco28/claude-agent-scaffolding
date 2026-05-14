@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "claude-agent-scaffolding",
-  "description": "Personal plugin marketplace: AI Mentor (cognitive partner) and future project-scaffolding plugin",
+  "description": "Personal plugin marketplace: AI Mentor (cognitive partner), scaffold-onboard (run-once project bootstrap), and scaffold (slice-driven implementation workflow).",
   "owner": {
     "name": "Pras"
   },
@@ -11,6 +11,12 @@
       "description": "Cognitive partner — mechanically enforces spotter mode (Curve 2) via PreToolUse hook. Pillar 3 (Gym: /z2-decide, /z2-build, /locked, /quiz) + Pillar 4 (Fool: /eli10, /fool).",
       "category": "productivity",
       "source": "./ai-mentor"
+    },
+    {
+      "name": "scaffold-onboard",
+      "description": "Project onboarding via 10-phase guided conversation. Authors MASTER-SPEC.md as source of truth; derives 11-file memory-bank, tiered CLAUDE.md router, and 5/14 governance docs. Soft-composes with ai-mentor (cognitive mode) and architect-critic (anti-sycophancy review). Run-once per project; complements the `scaffold` plugin which owns slice-driven implementation.",
+      "category": "workflow",
+      "source": "./scaffold-onboard"
     },
     {
       "name": "scaffold",
