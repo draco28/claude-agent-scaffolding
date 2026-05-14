@@ -10,29 +10,29 @@
 
 ---
 
-## Implementation Status (as of 2026-05-13)
+## Implementation Status — v0.1.0 SHIPPED 2026-05-14
 
-> Read this section first when resuming after a context compaction. It tells you exactly what's built, what's left, and where to pick up.
+> All 8 phases complete. This section preserves the final state for archaeology and a v0.2 baseline.
 
-**Branch:** `implementation-scaffold-onboard` (forked from `main` at commit `7e81c1e`). Never merged. 45 commits ahead of main.
+**Release tag:** `scaffold-onboard-v0.1.0` → commit `ab2e99a docs: surface scaffold-onboard in root README (Phase H)` on `main`. Pushed to `https://github.com/draco28/claude-agent-scaffolding`. Installable via `/plugin install scaffold-onboard@claude-agent-scaffolding`.
 
-**Phases complete: A · B · C · D · E (60 of ~75 plan steps).**
+**Build history:** Feature branch `implementation-scaffold-onboard` (forked from `main` at `7e81c1e`, fast-forward-merged to `main` post-Phase H, then deleted locally). 68 commits total on main since fork point (2 setup + 66 implementation).
 
-| Phase | Status | Tasks | Tests added | Cumulative tests | Final commit |
-|---|---|---|---|---|---|
-| A · plugin scaffold | ✅ done | TA.1–TA.5 + polish | 0 (test helpers seeded) | 0 | `9913bbf` |
-| B · state + parser + render | ✅ done | TB.1–TB.11 | 28 | 28 | `6edc8cc` |
-| portability backport | ✅ done | (doc edit) | — | 28 | `936a41d` |
-| C · `/onboard` + MASTER-SPEC | ✅ done | TC.1–TC.10 | +18 | 46 | `ef1d77e` |
-| D · `/scaffold-project` + memory-bank | ✅ done | TD.1–TD.9 + consistency fix | +22 | 68 | `33767f7` |
-| E · `/scaffold-docs` + governance | ✅ done | TE.1–TE.7 | +23 | 91 | `92fb618` |
-| F · cross-cutting (compose + hook + critic handshake) | ⬜ pending | TF.1–TF.9 | target ~26 | target ~117 | — |
-| G · E2E + polish | ⬜ pending | TG.1–TG.6 | target ~25 | target ~142 | — |
-| H · v0.1.0 publish | ⬜ pending | TH.1–TH.3 | — | — | — |
+**Phase summary:**
 
-**Last commit before compaction:** `92fb618 scaffold-onboard: Phase E complete — /scaffold-docs end-to-end`
+| Phase | Status | Tasks | Cumulative tests | Phase-close commit |
+|---|---|---|---|---|
+| A · plugin scaffold | ✅ done | TA.1–TA.5 + polish | 0 (helpers seeded) | `9913bbf` |
+| B · state + parser + render | ✅ done | TB.1–TB.11 | 28 | `6edc8cc` |
+| portability backport | ✅ done | (doc edit) | 28 | `936a41d` |
+| C · `/onboard` + MASTER-SPEC | ✅ done | TC.1–TC.10 | 46 | `ef1d77e` |
+| D · `/scaffold-project` + memory-bank | ✅ done | TD.1–TD.9 + fix | 68 | `33767f7` |
+| E · `/scaffold-docs` + governance | ✅ done | TE.1–TE.7 | 91 | `92fb618` |
+| F · cross-cutting (compose + hook + critic handshake) | ✅ done | TF.1–TF.9 | 118 | `b9f1c44` |
+| G · E2E + polish + hardening | ✅ done | TG.1–TG.6 (incl. 3 hardening commits) | 163 | `4bdef92` |
+| H · v0.1.0 publish | ✅ done | TH.1–TH.3 | 163 | `ab2e99a` (release tip) |
 
-**Test suite status (run `bash scaffold-onboard/tests/test-*.sh` to verify):**
+**Final test status — 163 passed across 7 bash suites (~16s full regression):**
 
 ```
 test-state.sh        23 passed, 0 failed
@@ -40,33 +40,35 @@ test-parser.sh       13 passed, 0 failed
 test-render.sh       10 passed, 0 failed
 test-memory-bank.sh  22 passed, 0 failed
 test-docs.sh         23 passed, 0 failed
+test-compose.sh      31 passed, 0 failed
+test-e2e.sh          41 passed, 0 failed
                    ───────────────────
-                     91 passed
+                    163 passed
 ```
 
-**What's built end-to-end:**
-- Full onboarding pipeline: `/onboard` runs the 10-phase 56-question conversation, authors `MASTER-SPEC.md` + `EXECUTIVE-SUMMARY.md`, persists state atomically with lock-file refusal
-- Deterministic derivation: `/scaffold-project` writes 11 memory-bank files (9 derived + 2 live seeded + 1 static), `CLAUDE.md` with Tier 0 preload + branch routing + plugin-awareness `{{#if}}` blocks, and `.claude/settings.json`
-- Governance docs: `/scaffold-docs [--full] [--regenerate]` writes 5 default docs (PRD, SRS, BACKLOG, PROJECT_PLAN, ADR-0001) or 14 with `--full` (3 LLM-gated by Phase 9.3.1 = "yes")
-- All MASTER-SPEC parsing, validation, template rendering, state CRUD, and live-vs-derived preservation logic in place
+**What's shipped end-to-end:**
+- Full onboarding pipeline: `/onboard` runs the 10-phase 56-question conversation (54-question runtime path), authors `MASTER-SPEC.md` + `EXECUTIVE-SUMMARY.md`, persists state atomically with lock-file refusal.
+- Deterministic derivation: `/scaffold-project` writes 11 memory-bank files (9 derived + 2 live seeded + 1 static WORKFLOW), `CLAUDE.md` with Tier 0 preload + branch routing + plugin-awareness `{{#if has_ai_mentor}}` / `{{#if has_architect_critic}}` / `{{#if has_superpowers}}` blocks, and `.claude/settings.json`.
+- Governance docs: `/scaffold-docs [--full] [--regenerate]` writes 5 default docs or 14 with `--full` (3 LLM-gated by Phase 9.3.1 = "yes").
+- Cross-cutting integration (Phase F): `lib/compose.sh` with probe-path detection for `ai-mentor` / `architect-critic` / `superpowers`, `composition.json` caching with user-override toggles preserved across refresh, SessionStart hook (source-aware: refresh on startup/clear, preserve on resume/compact), mentor + brainstorming hint emitters at Phase 5/7, architect-critic file-based handshake per SPEC §8.3.
+- Phase G hardening: jq-then-mv writes guarded against partial failure, critic `request_id` seeded with `$$.$RANDOM` entropy, file-lock protection on composition.json via `sf_compose_lock_*` helpers.
+- E2E coverage on fresh + existing repos, resume after interruption, cross-cutting composition mocked (TG.1-TG.4); root README + marketplace.json + plugin manifest all wired for publish (TH.1-TH.3).
 
-**What remains:**
-- **Phase F (cross-cutting integration, 9 tasks)** — `lib/compose.sh` with `SF_COMPOSE_PROBE_PATHS`-overridable plugin detection, `composition.json` caching with user-override toggles preserved across refresh, the real `SessionStart` hook body, ai-mentor + brainstorming hint emitters keyed to Phase 5/7, architect-critic file-based inbox/outbox handshake (`sf_compose_build_critic_request` + `sf_compose_read_critic_response`). The `hooks-handlers/session-start.sh` is currently a Phase A stub that just `exit 0`. The `lib/compose.sh` file is currently a Phase A skeleton that only sources `_helpers.sh`.
-- **Phase G (E2E + polish, 6 tasks)** — `tests/test-e2e.sh` exercising the full pipeline on fresh + existing repos, resume after interruption, and composition mocked, plus README polish and Phase G close commit.
-- **Phase H (v0.1.0 publish, 3 tasks)** — verify manifest version, add `scaffold-onboard` entry to root `.claude-plugin/marketplace.json`, update root `README.md`, tag `scaffold-onboard-v0.1.0`, push.
-
-**Where to resume:** Task TF.1 — `lib/compose.sh` probe-path discovery + ai-mentor detection. See PLAN §Phase F (after this section) for the verbatim task text.
-
-**Workflow used to date:**
-- `superpowers:subagent-driven-development` skill controlling execution
-- Each task: dispatch implementer subagent (with full task text + context + TDD discipline in prompt) → combined spec+quality review subagent → mark complete → next
-- Pure template tasks done inline by orchestrator (cheaper than a subagent for fixed-content writes)
-- haiku model for stubs/reviews, sonnet for TDD logic
+**Workflow used (subagent-driven development):**
+- `superpowers:subagent-driven-development` pattern: one implementer subagent per task (verbatim PLAN body + full context + TDD discipline) → combined spec+quality reviewer subagent (independent Read of PLAN, judges against implementer summary + git diff) → mark complete → next.
+- Sonnet model for TDD logic, haiku for reviews and stubs/templates.
+- Pure template tasks (TF.9 CHANGELOG, TG.5 README, TH.1-2 inline) handled directly by orchestrator without subagent dispatch.
+- 30+ subagent dispatches across Phases F–H of this build, zero reviewer-blocked tasks, zero spec violations.
 
 **Adaptations applied throughout (codified in Portability notes section):**
 1. BSD awk `sub()` chains instead of gawk 3-arg `match($0, /…/, arr)` — applied in parser.sh phase-marker extraction, parser.sh subsection-id extraction, render.sh `{{#if}}` block awk script, state.sh phases.yaml reader.
 2. bash 3.2 parallel indexed arrays instead of `declare -A` — applied in render.sh's variable map (with `_lookup_var` helper) and the awk-via-ENVIRON pattern for passing var maps into awk.
-3. `project_name` derivation parses the prefix-before-em-dash from answer 1.1.1 (with `basename "$PWD"` fallback) — applied in `sf_master_spec_update_phase` (TC.8), `sf_claude_md_generate` (TD.7), and `_docs_args` (TE.4). The plan's original `project_name=$(basename "$PWD")` would have given "repo" in test fixtures; this adaptation respects the user's actual project name.
+3. `project_name` derivation parses the prefix-before-em-dash from answer 1.1.1 (with `basename "$PWD"` fallback) — applied in `sf_master_spec_update_phase` (TC.8), `sf_claude_md_generate` (TD.7), and `_docs_args` (TE.4).
+
+**v0.2 candidates (deferred from v0.1):**
+- **Architect-critic plugin itself** — scaffold-onboard implements the file-based contract; the counterparty plugin remains to be designed and built. SPEC §9 (Q1–Q5) settles the design intent but `docs/SPEC-architect-critic.md` and `docs/PLAN-architect-critic.md` are not yet authored.
+- **Windows support** — currently macOS + Linux only; deferred per SPEC §15.
+- **Test parallelization** — full regression at ~16s wall-clock (dominated by compose's 3.2s polling + e2e's 9.8s pipeline runs). Fine for v0.1; may warrant parallelization if v0.2 adds more polling or pipeline tests.
 
 ---
 
