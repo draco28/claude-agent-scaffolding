@@ -2,8 +2,23 @@
 # Mock codex CLI for hermetic tests.
 # Reads stdin (and ignores it). Echoes the JSON file at $MOCK_CODEX_OUTPUT to stdout.
 # Exits 0 on success, 1 if MOCK_CODEX_OUTPUT not set or file missing.
+#
+# Env vars honored:
+#   MOCK_CODEX_OUTPUT     path to JSON payload file to echo (required)
+#   MOCK_CODEX_SLEEP      seconds to sleep before echoing (optional, for timeout tests)
+#   MOCK_CODEX_EXIT_CODE  exit with this code instead of 0 (optional, for non-zero exit tests)
 
 cat > /dev/null   # consume stdin
+
+# Honor sleep before doing anything else (for timeout testing)
+if [[ -n "${MOCK_CODEX_SLEEP:-}" ]]; then
+  sleep "${MOCK_CODEX_SLEEP}"
+fi
+
+# Honor custom exit code (for non-zero exit testing)
+if [[ -n "${MOCK_CODEX_EXIT_CODE:-}" ]]; then
+  exit "${MOCK_CODEX_EXIT_CODE}"
+fi
 
 if [[ -z "${MOCK_CODEX_OUTPUT:-}" ]]; then
   echo "mock-codex: MOCK_CODEX_OUTPUT not set" >&2

@@ -11,6 +11,24 @@ Composes with `scaffold-onboard` via file-based JSON IPC: at Phase 5/7 recap and
 - `/promote-principle "<text>" [--scope user|project]` — manually promote a principle
 - `/principles-list` — render the merged principle set the next /critique would see
 
+## Configuration
+
+### Codex CLI timeout
+
+`lib/codex.sh` dispatches codex as a background subprocess using a portable bash-only
+timeout (background subshell + kill — no dependency on GNU `timeout(1)` or `gtimeout`).
+
+Default timeout: **180 seconds**.
+
+Override via environment variable:
+
+```bash
+export ARCHITECT_CRITIC_CODEX_TIMEOUT=60   # shorter timeout for slow networks
+```
+
+On any codex failure (absent binary, timeout, non-zero exit, malformed JSON output),
+`/critique` falls back to claude-only with a warning and sets `adversaries_used=["claude"]`.
+
 ## Status
 
 v0.1.0 — initial release.
