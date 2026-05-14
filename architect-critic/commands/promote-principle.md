@@ -107,18 +107,13 @@ ac_lock_acquire "$(ac_data_dir)/state.lock" || {
 
 # Append to principle_promotions array in state.json
 STATE_FILE="$(ac_state_path)"
-if ! jq \
+ac_guarded_jq_write "$STATE_FILE" \
   --arg ts "$TIMESTAMP" \
   --arg src "manual" \
   --arg txt "$TEXT" \
   --arg scp "$SCOPE" \
   ".principle_promotions += [{\"timestamp\":\$ts,\"source\":\$src,\"text\":\$txt,\"scope\":\$scp}]" \
-  "$STATE_FILE" > "${STATE_FILE}.tmp"; then
-  ac_log_warn "could not record promotion in state.json"
-  rm -f "${STATE_FILE}.tmp"
-else
-  mv "${STATE_FILE}.tmp" "$STATE_FILE"
-fi
+  "$STATE_FILE" || ac_log_warn "could not record promotion in state.json"
 
 ac_lock_release "$(ac_data_dir)/state.lock"
 
