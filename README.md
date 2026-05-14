@@ -6,16 +6,18 @@ Personal Claude Code plugin marketplace.
 
 | Plugin | Version | Scope | Purpose |
 |---|---|---|---|
-| [`ai-mentor`](./ai-mentor/) | v1.1.0 | User-level | Cognitive partner. Pillar 3 (Gym/spotter) with two Curve-2 sub-modes (`/z2-decide` and `/z2-build`) + Pillar 4 (Fool/beginner's mind). Mechanically enforces spotter mode via PreToolUse hook + state file. Replaces the fragile pair-program plugin. |
-| [`scaffold`](./scaffold/) | v1.0.0 | Project-level (state user-global) | Project workflow plugin. Bootstrap or audit any repo, run slice-driven 5-phase workflow, manage living governance (ADRs, CHANGELOG, runbooks), per-repo memory bank with semantic search via Ollama. Worktree-safe. 18 slash commands + 10 MCP tools. |
+| [`ai-mentor`](./ai-mentor/) | v1.3.0 | User-level | Cognitive partner. Pillar 3 (Gym/spotter) with two Curve-2 sub-modes (`/z2-decide` and `/z2-build`) + Pillar 4 (Fool/beginner's mind). Mechanically enforces spotter mode via PreToolUse hook + state file. |
+| [`scaffold-onboard`](./scaffold-onboard/) | v0.1.0 | Project-level (run-once) | Onboarding plugin. 10-phase guided conversation authors `MASTER-SPEC.md`; deterministic derivation produces an 11-file memory-bank, a tiered `CLAUDE.md` router, and 5/14 governance docs. Soft-composes with ai-mentor + architect-critic. |
+| [`scaffold`](./scaffold/) | v1.0.0 | Project-level (continuous) | Implementation plugin. Slice-driven 5-phase workflow, living governance (ADRs, CHANGELOG, runbooks), per-repo memory bank with semantic search. 18 slash commands + 10 MCP tools. |
 
-The two plugins are designed to **compose without overlap**: `ai-mentor` enforces *cognitive mode* (when AI types vs when you do); `scaffold` tracks *workflow phase* (which step of a slice you're on). Disjoint slash command namespaces, distinct state paths.
+The three plugins are designed to **compose without overlap**: `ai-mentor` enforces *cognitive mode* (when AI types vs when you do); `scaffold-onboard` runs once per project to author the source-of-truth spec and derive its scaffolding; `scaffold` owns the continuous slice-by-slice implementation phase. Disjoint slash command namespaces, distinct state paths.
 
 ## Install
 
 ```
 /plugin marketplace add github:draco28/claude-agent-scaffolding
 /plugin install ai-mentor@claude-agent-scaffolding
+/plugin install scaffold-onboard@claude-agent-scaffolding
 /plugin install scaffold@claude-agent-scaffolding
 ```
 
@@ -24,6 +26,7 @@ For local development:
 ```
 /plugin marketplace add /home/pras/personal/claude-agent-scaffolding
 /plugin install ai-mentor@claude-agent-scaffolding
+/plugin install scaffold-onboard@claude-agent-scaffolding
 /plugin install scaffold@claude-agent-scaffolding
 ```
 
@@ -65,11 +68,14 @@ The MCP memory bank exposes `record_decision`, `record_pattern`, `record_note`, 
 ```
 .
 ├── .claude-plugin/marketplace.json    # marketplace manifest
-├── ai-mentor/                         # ai-mentor plugin (v1.1.0)
+├── ai-mentor/                         # ai-mentor plugin (v1.3.0)
+├── scaffold-onboard/                  # scaffold-onboard plugin (v0.1.0)
 ├── scaffold/                          # scaffold plugin (v1.0.0)
 ├── docs/
 │   ├── SPEC-ai-mentor.md              # ai-mentor spec (v1.1 amendments)
 │   ├── SPEC-scaffold.md               # scaffold spec (v1.0 amendments)
+│   ├── SPEC-scaffold-onboard.md       # scaffold-onboard spec (v0.1)
+│   ├── PLAN-scaffold-onboard.md       # scaffold-onboard implementation plan (v0.1)
 │   └── archive/SPEC-v1.md             # historical 5-plugin design (pre-pivot)
 ├── README.md
 └── LICENSE
@@ -77,7 +83,7 @@ The MCP memory bank exposes `record_decision`, `record_pattern`, `record_note`, 
 
 ## Platforms
 
-Linux and macOS. Windows is deferred for both plugins (would require porting bash to PowerShell and the MCP launcher script).
+Linux and macOS. Windows is deferred for all plugins (would require porting bash to PowerShell and the MCP launcher script).
 
 `scaffold`'s MCP memory bank requires Python 3.11+ at install time and (optionally) Ollama running for semantic search. Falls back to FTS5 keyword search when Ollama is unavailable.
 
