@@ -168,4 +168,23 @@ CR_SIGNAL="$(printf '%s' "$CR_RESULT" | jq -r '.[0].signal')"
 assert_eq "5-prior signal = cross-run" "cross-run" "$CR_SIGNAL"
 
 # ---------------------------------------------------------------------------
+# Tests for ac_promotion_synthesize (TE.3)
+# ---------------------------------------------------------------------------
+
+echo ""
+echo "--- synthesize: mock env var → returns mock string directly ---"
+
+ARCHITECT_CRITIC_PROMOTION_MOCK="my fixed principle" \
+  SYNTH_RESULT="$(ARCHITECT_CRITIC_PROMOTION_MOCK="my fixed principle" ac_promotion_synthesize '{"addresses":[]}')"
+assert_eq "mock env var → mocked principle returned" "my fixed principle" "$SYNTH_RESULT"
+
+echo ""
+echo "--- synthesize: no mock → returns prompt-text starting with 'You are summarizing' ---"
+
+unset ARCHITECT_CRITIC_PROMOTION_MOCK
+SYNTH_RESULT="$(ac_promotion_synthesize '{"addresses":[]}')"
+SYNTH_PREFIX="${SYNTH_RESULT:0:23}"
+assert_eq "no mock → prompt starts with 'You are summarizing'" "You are summarizing" "${SYNTH_PREFIX:0:19}"
+
+# ---------------------------------------------------------------------------
 report_results

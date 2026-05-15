@@ -255,3 +255,26 @@ ac_promotion_cross_run_candidates() {
 
   printf '%s' "$candidates"
 }
+
+# ac_promotion_synthesize <cluster_json>
+#
+# Emits either the canned mock principle (when ARCHITECT_CRITIC_PROMOTION_MOCK is set,
+# for tests) or the claude-reasoning prompt text Claude would use to synthesize a
+# one-line principle from the cluster. Per SPEC §7.2 step 3 — the actual claude-
+# reasoning is invoked from /critique's body in Phase E TE.5; this lib just
+# builds the prompt string.
+ac_promotion_synthesize() {
+  local cluster_json="$1"
+  if [[ -n "${ARCHITECT_CRITIC_PROMOTION_MOCK:-}" ]]; then
+    printf '%s' "$ARCHITECT_CRITIC_PROMOTION_MOCK"
+    return 0
+  fi
+  local addresses
+  addresses="$(printf '%s' "$cluster_json" | jq -r '[.addresses[]?.text // .addresses[]?] | map(select(. != null)) | map("  - " + tostring) | join("\n")')"
+  cat <<EOF
+You are summarizing a recurring critique theme into one short prescriptive principle.
+Challenges:
+${addresses}
+Return a single line, imperative voice, ≤120 chars, no preamble.
+EOF
+}
