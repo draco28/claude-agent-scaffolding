@@ -139,3 +139,119 @@ ac_promotion_within_run_candidates() {
 
   printf '%s' "$candidates"
 }
+
+# ---------------------------------------------------------------------------
+# ac_promotion_cross_run_candidates CURRENT_CHALLENGES_JSON
+#
+# Input:  JSON array of challenge objects from the current run.
+# Output: JSON array of candidate objects with signal:"cross-run".
+#
+# Algorithm:
+#   For each challenge in current_challenges_json, compute its topic via
+#   ac_promotion_topic. Count how many challenges in recent_runs[0..19]
+#   share that topic. Current challenge counts as 1; if total >= 3 (i.e.
+#   >= 2 prior matches), emit a candidate.
+#
+# Portability: bash 3.2 + jq; uses parallel arrays for topic counting.
+# ---------------------------------------------------------------------------
+ac_promotion_cross_run_candidates() {
+  local current_challenges_json="$1"
+
+  # Fast path: empty current challenges
+  local cur_count
+  cur_count="$(printf '%s' "$current_challenges_json" | jq 'length')"
+  if [[ "$cur_count" -eq 0 ]]; then
+    printf '[]'
+    return 0
+  fi
+
+  # Read recent_runs from state (up to 20 entries)
+  local state_json
+  state_json="$(ac_state_read)"
+
+  # Build a list of all challenges from recent_runs as one JSON array.
+  # Each recent_run may have a .challenges field (array).
+  local prior_challenges_json
+  prior_challenges_json="$(printf '%s' "$state_json" | jq '[.recent_runs[0:20][].challenges[]?]')"
+
+  local prior_count
+  prior_count="$(printf '%s' "$prior_challenges_json" | jq 'length')"
+
+  # Compute topic for each current challenge; store in parallel arrays
+  local _cur_topics=()
+  local _cur_jsons=()
+  local i=0
+  while [[ $i -lt $cur_count ]]; do
+    local c_json
+    c_json="$(printf '%s' "$current_challenges_json" | jq -c ".[$i]")"
+    local topic
+    topic="$(ac_promotion_topic "$c_json")"
+    _cur_topics+=("$topic")
+    _cur_jsons+=("$c_json")
+    i=$((i + 1))
+  done
+
+  # For each unique current topic, count prior matches
+  # Use parallel arrays: _lookup_keys[], _lookup_counts[]
+  local _lookup_keys=()
+  local _lookup_counts=()
+
+  # Count prior challenges per topic
+  local j=0
+  while [[ $j -lt $prior_count ]]; do
+    local p_json
+    p_json="$(printf '%s' "$prior_challenges_json" | jq -c ".[$j]")"
+    local p_topic
+    p_topic="$(ac_promotion_topic "$p_json")"
+
+    # Find if topic already in lookup
+    local found=0
+    local k=0
+    while [[ $k -lt ${#_lookup_keys[@]} ]]; do
+      if [[ "${_lookup_keys[$k]}" == "$p_topic" ]]; then
+        _lookup_counts[$k]=$(( _lookup_counts[$k] + 1 ))
+        found=1
+        break
+      fi
+      k=$((k + 1))
+    done
+    if [[ $found -eq 0 ]]; then
+      _lookup_keys+=("$p_topic")
+      _lookup_counts+=(1)
+    fi
+    j=$((j + 1))
+  done
+
+  # For each current challenge topic, look up prior count; if total >= 3, emit candidate
+  local candidates="[]"
+  local i=0
+  while [[ $i -lt $cur_count ]]; do
+    local topic="${_cur_topics[$i]}"
+    local c_json="${_cur_jsons[$i]}"
+
+    local prior_match=0
+    local k=0
+    while [[ $k -lt ${#_lookup_keys[@]} ]]; do
+      if [[ "${_lookup_keys[$k]}" == "$topic" ]]; then
+        prior_match="${_lookup_counts[$k]}"
+        break
+      fi
+      k=$((k + 1))
+    done
+
+    # current counts as 1; total = 1 + prior_match; need >= 3
+    local total=$(( 1 + prior_match ))
+    if [[ $total -ge 3 ]]; then
+      local candidate
+      candidate="$(jq -n \
+        --arg text "Recurring theme (principle to be synthesized)" \
+        --argjson addresses "[$c_json]" \
+        --arg signal "cross-run" \
+        '{text: $text, addresses: $addresses, signal: $signal}')"
+      candidates="$(printf '%s' "$candidates" | jq --argjson cand "$candidate" '. + [$cand]')"
+    fi
+    i=$((i + 1))
+  done
+
+  printf '%s' "$candidates"
+}
