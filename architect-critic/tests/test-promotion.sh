@@ -187,4 +187,57 @@ SYNTH_PREFIX="${SYNTH_RESULT:0:23}"
 assert_eq "no mock → prompt starts with 'You are summarizing'" "You are summarizing" "${SYNTH_PREFIX:0:19}"
 
 # ---------------------------------------------------------------------------
+# Tests for ac_promotion_filter_suppressed + ac_promotion_record_candidates +
+# ac_promotion_record_decline (TE.4)
+# ---------------------------------------------------------------------------
+
+echo ""
+echo "--- filter_suppressed: not-suppressed passes through ---"
+setup_tmp_repo > /dev/null
+ac_state_init
+CANDS='[{"text":"Prefer composition","addresses":[],"signal":"within-run"}]'
+FILTERED="$(ac_promotion_filter_suppressed "$CANDS")"
+FILTERED_LEN="$(printf '%s' "$FILTERED" | jq 'length')"
+assert_eq "not-suppressed → 1 candidate passes" "1" "$FILTERED_LEN"
+
+echo ""
+echo "--- filter_suppressed: suppressed (suppress_until > now) dropped ---"
+FUTURE="$(date -u -v+1d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "+1 day" +"%Y-%m-%dT%H:%M:%SZ")"
+ac_state_append_declined "Prefer composition" "$FUTURE"
+FILTERED="$(ac_promotion_filter_suppressed "$CANDS")"
+FILTERED_LEN="$(printf '%s' "$FILTERED" | jq 'length')"
+assert_eq "suppressed candidate dropped" "0" "$FILTERED_LEN"
+
+echo ""
+echo "--- filter_suppressed: expired suppression (suppress_until < now) re-offered ---"
+setup_tmp_repo > /dev/null
+ac_state_init
+PAST="$(date -u -v-1d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "-1 day" +"%Y-%m-%dT%H:%M:%SZ")"
+ac_state_append_declined "Prefer composition" "$PAST"
+FILTERED="$(ac_promotion_filter_suppressed "$CANDS")"
+FILTERED_LEN="$(printf '%s' "$FILTERED" | jq 'length')"
+assert_eq "expired suppression → candidate re-offered" "1" "$FILTERED_LEN"
+
+echo ""
+echo "--- record_decline: appends with ~30d suppress_until ---"
+setup_tmp_repo > /dev/null
+ac_state_init
+ac_promotion_record_decline "Avoid premature optimization"
+SUPPRESS_UNTIL="$(ac_state_read | jq -r '.declined_candidates[0].suppress_until')"
+# Just confirm it's a valid ISO timestamp ~30 days from now (not strict equality)
+[[ "$SUPPRESS_UNTIL" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]
+assert_eq "decline records ISO timestamp" "0" "$?"
+DECLINE_TEXT="$(ac_state_read | jq -r '.declined_candidates[0].text')"
+assert_eq "decline text recorded" "Avoid premature optimization" "$DECLINE_TEXT"
+
+echo ""
+echo "--- record_candidates: writes to candidate_promotions ---"
+setup_tmp_repo > /dev/null
+ac_state_init
+CANDS='[{"text":"Test principle","addresses":[],"signal":"within-run"}]'
+ac_promotion_record_candidates "$CANDS"
+RECORDED="$(ac_state_read | jq -c '.candidate_promotions')"
+assert_eq "candidate_promotions written" "$CANDS" "$RECORDED"
+
+# ---------------------------------------------------------------------------
 report_results

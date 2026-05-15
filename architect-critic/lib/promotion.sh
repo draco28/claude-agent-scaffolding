@@ -278,3 +278,63 @@ ${addresses}
 Return a single line, imperative voice, ≤120 chars, no preamble.
 EOF
 }
+
+# ac_promotion_filter_suppressed <candidates_json>
+#
+# Drops any candidate matching a declined_candidates entry where suppress_until > now.
+# Per SPEC §7.2 step 4 (30-day suppression window).
+ac_promotion_filter_suppressed() {
+  local candidates_json="$1"
+  local now_iso
+  now_iso="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  local state_json
+  state_json="$(ac_state_read 2>/dev/null || echo '{"declined_candidates":[]}')"
+  printf '%s' "$candidates_json" | jq \
+    --argjson state "$state_json" \
+    --arg now "$now_iso" \
+    '
+    . as $cands |
+    ($state.declined_candidates // []) as $declined |
+    [$cands[] | . as $c |
+      select(
+        ([$declined[] | select(.text == $c.text and .suppress_until > $now)] | length) == 0
+      )
+    ]
+    '
+}
+
+# ac_promotion_record_candidates <candidates_json>
+#
+# Writes candidates to state.json's candidate_promotions field (replaces existing).
+# Per SPEC §7.2 step 5.
+ac_promotion_record_candidates() {
+  local candidates_json="$1"
+  local state_file lock_path
+  state_file="$(ac_state_path)"
+  lock_path="$(ac_data_dir)/state.lock"
+  ac_lock_acquire "$lock_path" || { ac_log_error "could not acquire state.lock"; return 1; }
+  ac_guarded_jq_write "$state_file" \
+    --argjson cands "$candidates_json" \
+    '. + {candidate_promotions: $cands}' \
+    "$state_file"
+  local rc=$?
+  ac_lock_release "$lock_path"
+  return $rc
+}
+
+# ac_promotion_record_decline <text>
+#
+# Appends a decline entry to declined_candidates with suppress_until = now + 30 days.
+# Per SPEC §7.2 step 4 / OQ-1 30-day suppression. Delegates to ac_state_append_declined
+# (which already provides the locking + atomic write) for the actual append.
+ac_promotion_record_decline() {
+  local text="$1"
+  local suppress_until
+  # +30 days; macOS BSD date vs GNU date differ; try BSD form first, fall back to GNU.
+  if suppress_until="$(date -u -v+30d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null)"; then
+    :
+  else
+    suppress_until="$(date -u -d "+30 days" +"%Y-%m-%dT%H:%M:%SZ")"
+  fi
+  ac_state_append_declined "$text" "$suppress_until"
+}
