@@ -1,6 +1,6 @@
 {
   "name": "architect-critic",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Anti-sycophancy reviewer. /critique runs claude-self-audit + (optionally) codex fresh-frame audit, consolidates into challenges/gaps/divergences, presents interactively with T=4 concession scoring, auto-promotes recurring patterns to user-global principles.md. File-based IPC counterparty to scaffold-onboard at Phase 5/7/close.",
   "author": { "name": "Pras" },
   "category": "workflow"

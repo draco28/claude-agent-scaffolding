@@ -7,7 +7,8 @@ ac_principles_path() {
   echo "$(ac_data_dir)/principles.md"
 }
 
-# Seed principles.md from the plugin template if it does not already exist.
+# Seed principles.md from the FULL plugin template (with example commented
+# principles) if it does not already exist. Used at plugin install time only.
 # Reads CLAUDE_PLUGIN_ROOT to locate templates/principles.md.
 ac_principles_seed() {
   local dest
@@ -26,6 +27,35 @@ ac_principles_seed() {
   cp "$template" "$dest"
 }
 
+# Seed principles.md with a MINIMAL placeholder (preamble + empty "Your
+# principles" section — NO commented example principles).
+#
+# Used at runtime re-seed (when the user has deleted principles.md between
+# runs). Per SPEC G5 ("Principles file is user-owned"), the critic must not
+# silently restore example principles the user already saw and chose to delete
+# — that would violate the user-owned guarantee. The full example set is for
+# first-install only; runtime re-seed gets the minimal placeholder.
+ac_principles_seed_minimal() {
+  local dest
+  dest="$(ac_principles_path)"
+  if [[ -f "$dest" ]]; then
+    return 0
+  fi
+  mkdir -p "$(dirname "$dest")"
+  cat > "$dest" <<'EOF'
+# Architect-critic principles
+
+This file is yours. The architect-critic loads it as the user-global principles set every audit.
+Each line that doesn't begin with `#` is treated as an active principle. Edit freely; the critic
+never overwrites your edits — it only appends via /promote-principle (manual) or auto-promotion
+(with your consent).
+
+## Your principles
+
+(empty — add yours here, one per line, or run /promote-principle from any session)
+EOF
+}
+
 # Load user-global principles from principles.md.
 # - Strips lines starting with "# " (both headers AND inline comments per §6.4).
 # - Strips trailing "[promoted YYYY-MM-DD source:......]" annotations.
@@ -35,9 +65,12 @@ ac_principles_load_user_global() {
   local pfile
   pfile="$(ac_principles_path)"
   if [[ ! -f "$pfile" ]]; then
-    # Re-seed from template on missing (Phase E TE.7) — per SPEC §11 edge case.
-    ac_log_info "principles.md missing — re-seeding from template"
-    ac_principles_seed
+    # Re-seed MINIMAL (preamble only, no examples) on runtime missing — per
+    # SPEC §11 edge case + G5 user-owned guarantee. The full example template
+    # is install-time only; runtime re-seed must NOT silently restore examples
+    # the user has already deleted (v0.1.3 correctness fix).
+    ac_log_info "principles.md missing — re-seeding minimal placeholder (no examples)"
+    ac_principles_seed_minimal
     [[ ! -f "$pfile" ]] && return 0
   fi
   awk '

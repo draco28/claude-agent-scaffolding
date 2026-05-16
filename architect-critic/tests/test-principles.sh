@@ -207,4 +207,34 @@ echo ""
 echo "--- TE.7: re-seeded principles.md has the canonical preamble line ---"
 assert_file_contains "$PFILE" "This file is yours"
 
+# ---------------------------------------------------------------------------
+# v0.1.3 regression: runtime re-seed MUST be minimal (no example principles).
+# Per G5: principles file is user-owned; the critic must not silently restore
+# example principles the user has already deleted.
+# ---------------------------------------------------------------------------
+
+echo ""
+echo "--- v0.1.3: runtime re-seed is MINIMAL (no commented example principles) ---"
+setup_tmp_repo > /dev/null
+export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
+PFILE="$(ac_principles_path)"
+rm -f "$PFILE"
+ac_principles_load_user_global > /dev/null 2>&1 || true
+assert_file_exists "$PFILE"
+
+# The full template has 7 commented examples ("# Prefer explicit ...", etc.).
+# Runtime re-seed should NOT include any of them.
+if grep -q "^# Prefer explicit over implicit" "$PFILE" 2>/dev/null; then
+  echo "  ✗ runtime re-seed leaked example principles (G5 violation)"; FAIL=$((FAIL+1))
+else
+  echo "  ✓ runtime re-seed contains no example principles (G5 preserved)"; PASS=$((PASS+1))
+fi
+
+# But the explicit install-time seed SHOULD still include them.
+setup_tmp_repo > /dev/null
+export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
+PFILE="$(ac_principles_path)"
+ac_principles_seed   # install-time path
+assert_file_contains "$PFILE" "Prefer explicit over implicit"
+
 report_results

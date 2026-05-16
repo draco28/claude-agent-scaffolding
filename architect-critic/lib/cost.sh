@@ -2,11 +2,15 @@
 # lib/cost.sh — post-run cost computation + formatted output line
 # Part of architect-critic plugin (Phase D, TD.5).
 #
-# Rate-card constants — as of 2026-05; update when model pricing changes.
+# Rate-card constants — update when model pricing changes.
 # These are placeholder rates for the codex model; verify current pricing at
-# https://openai.com/pricing before each release.
-readonly AC_COST_CODEX_IN_PER_1K=0.005   # USD per 1K input tokens
-readonly AC_COST_CODEX_OUT_PER_1K=0.015  # USD per 1K output tokens
+# https://openai.com/pricing and bump AC_COST_RATE_CARD_UPDATED on each refresh.
+# NOTE: defined as plain (non-readonly) so tests can override; production code
+# treats these as effectively immutable.
+: "${AC_COST_CODEX_IN_PER_1K:=0.005}"               # USD per 1K input tokens
+: "${AC_COST_CODEX_OUT_PER_1K:=0.015}"              # USD per 1K output tokens
+: "${AC_COST_RATE_CARD_UPDATED:=2026-05-01}"        # ISO date when rates last verified
+: "${AC_COST_STALENESS_DAYS:=180}"                  # Warn in cost line if older than this
 
 # ac_cost_compute <codex_tokens_in> <codex_tokens_out>
 # Computes total codex cost in USD using the static rate-card above.
@@ -74,8 +78,32 @@ ac_cost_print() {
     total=$(printf '%d.%06d\n' "$whole" "$frac" | sed 's/\([0-9]*\.[0-9][0-9][0-9]\)[0-9]*/\1/')
   fi
 
-  printf '~$%s spent on this audit (codex: $%s, claude-self: $%s)\n' \
-    "$total" "$codex_cost" "$claude_cost"
+  local stale_suffix=""
+  if _ac_cost_rate_card_stale; then
+    stale_suffix=" (rates from ${AC_COST_RATE_CARD_UPDATED} — may be stale; see lib/cost.sh)"
+  fi
+
+  printf '~$%s spent on this audit (codex: $%s, claude-self: $%s)%s\n' \
+    "$total" "$codex_cost" "$claude_cost" "$stale_suffix"
+}
+
+# _ac_cost_rate_card_stale
+# Returns 0 (true) if AC_COST_RATE_CARD_UPDATED is older than
+# AC_COST_STALENESS_DAYS days; 1 (false) otherwise. Portable across BSD
+# (macOS) and GNU (Linux) date utilities.
+_ac_cost_rate_card_stale() {
+  local now_epoch updated_epoch diff_days
+  now_epoch="$(date -u +%s 2>/dev/null)" || return 1
+  # BSD date first; fall back to GNU.
+  if updated_epoch="$(date -u -j -f "%Y-%m-%d" "$AC_COST_RATE_CARD_UPDATED" +%s 2>/dev/null)"; then
+    :
+  elif updated_epoch="$(date -u -d "$AC_COST_RATE_CARD_UPDATED" +%s 2>/dev/null)"; then
+    :
+  else
+    return 1   # cannot parse — assume not stale rather than spam warnings
+  fi
+  diff_days=$(( (now_epoch - updated_epoch) / 86400 ))
+  [[ "$diff_days" -gt "$AC_COST_STALENESS_DAYS" ]]
 }
 
 # _ac_cost_to_micro <float_string>

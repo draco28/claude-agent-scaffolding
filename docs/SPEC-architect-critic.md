@@ -807,6 +807,7 @@ If real-world use surfaces friction, the most likely v0.2 candidates are:
 - **D2 follow-up:** semantic / fuzzy similarity in the consolidator (currently exact-match only).
 - **OQ-1 follow-up:** cross-project pattern detection (currently per-user-installation, not per-team).
 - Windows support (currently macOS + Linux only).
+- **Q4 follow-up — distinct outcomes for score 4 vs score 5 (surfaced via self-audit 2026-05-16):** the rubric collapses "material new info" (score 4) and "premise invalidated" (score 5) into the same `concede` action, losing the second-order signal that the *critic itself* was off-base. Worth distinguishing: score 5 might set `critic_invalid: true` on the challenge in state.json, suppress similar-topic candidates for longer than the standard 30-day decline window (e.g., 90 days), and feed back into pattern-detection as a negative signal ("the critic is overfitting on topic X"). Requires Q4 amendment in `docs/SPEC-scaffold-onboard.md` §9 (Q4 is interface-defining and inherited from scaffold-onboard); cross-plugin coordination + brainstorm needed. Not a patch-release change.
 
 ---
 

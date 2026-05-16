@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.3] — 2026-05-16
+
+### Fixed
+- **G5 user-owned guarantee:** runtime re-seed of principles.md no longer silently restores the 7 commented example principles when the user has deleted the file. The full template (with examples) is now install-time only; runtime re-seed writes a minimal placeholder (preamble + empty `## Your principles` section). New function `ac_principles_seed_minimal()` in `lib/principles.sh`; `ac_principles_load_user_global` switched to use it on missing-file path. Adds 3 regression tests in `test-principles.sh` covering both runtime-minimal and install-full paths. (Issue #1 surfaced by a v0.1.2 self-audit of SPEC §11 vs §3 G5.)
+
+### Added
+- **Rate-card staleness signal in cost line (OQ-3 polish):** `lib/cost.sh` now tracks `AC_COST_RATE_CARD_UPDATED` (default `2026-05-01`) + `AC_COST_STALENESS_DAYS` (default 180). When the rate-card is older than the threshold, `ac_cost_print` appends ` (rates from YYYY-MM-DD — may be stale; see lib/cost.sh)` to the cost line. Constants are no longer `readonly` so tests can override; production code treats them as immutable by convention. Portable across BSD (macOS) and GNU (Linux) date parsing. Adds 2 regression tests in `test-consolidator.sh`. (Issue #2 surfaced by the same self-audit.)
+
+### Deferred to v0.2
+- **Q4 rubric — distinct outcomes for score 4 vs score 5.** Currently both ≥4 collapse to `concede`; v0.1.0–v0.1.3 honor scaffold-onboard's inherited Q4 ("single threshold, not adaptive"). Score 5 ("premise invalidated") is a stronger signal — the *critic itself* was wrong, not just that the user added new info — and arguably warrants a distinct outcome (e.g., mark challenge as `critic_invalid`, longer suppression than the 30-day decline window). Requires Q4 amendment in `docs/SPEC-scaffold-onboard.md` §9 (cross-plugin coordination) + brainstorm session. See SPEC-architect-critic.md §15 for v0.2 candidates.
+
 ## [0.1.2] — 2026-05-16
 
 ### Fixed
