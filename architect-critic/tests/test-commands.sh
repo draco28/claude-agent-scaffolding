@@ -324,4 +324,22 @@ echo "$out12" | grep -q "Project governance" \
   || { FAIL=$((FAIL+1)); echo "  ✗ Project governance section missing"; }
 
 # ---------------------------------------------------------------------------
+# TF.5: /critique-list cost column rendering (Phase F)
+# ---------------------------------------------------------------------------
+echo ""
+echo "TF.5: /critique-list renders cost column from recent_runs[].cost_usd"
+setup_tmp_repo > /dev/null
+export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
+source "$PLUGIN_ROOT/lib/_helpers.sh"
+source "$PLUGIN_ROOT/lib/state.sh"
+ac_state_init
+ac_state_append_recent_run '{"request_id":"crit-cost-test","completed_at":"2026-05-15T10:00:00Z","depth":"close","adversaries_used":["claude","codex"],"challenge_count":2,"divergence_count":1,"elapsed_ms":4500,"cost_usd":"0.18"}'
+
+out_tf5="$(run_command critique-list 2>/dev/null)"
+# Cost column should show the value (formatted to 2dp).
+echo "$out_tf5" | grep -q "0.18" \
+  && PASS=$((PASS+1)) && echo "  ✓ cost_usd value (0.18) appears in output" \
+  || { FAIL=$((FAIL+1)); echo "  ✗ cost_usd value missing from output. got: $out_tf5"; }
+
+# ---------------------------------------------------------------------------
 report_results
