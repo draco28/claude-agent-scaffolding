@@ -9,8 +9,9 @@ Personal Claude Code plugin marketplace.
 | [`ai-mentor`](./ai-mentor/) | v1.3.0 | User-level | Cognitive partner. Pillar 3 (Gym/spotter) with two Curve-2 sub-modes (`/z2-decide` and `/z2-build`) + Pillar 4 (Fool/beginner's mind). Mechanically enforces spotter mode via PreToolUse hook + state file. |
 | [`scaffold-onboard`](./scaffold-onboard/) | v0.1.0 | Project-level (run-once) | Onboarding plugin. 10-phase guided conversation authors `MASTER-SPEC.md`; deterministic derivation produces an 11-file memory-bank, a tiered `CLAUDE.md` router, and 5/14 governance docs. Soft-composes with ai-mentor + architect-critic. |
 | [`scaffold`](./scaffold/) | v1.0.0 | Project-level (continuous) | Implementation plugin. Slice-driven 5-phase workflow, living governance (ADRs, CHANGELOG, runbooks), per-repo memory bank with semantic search. 18 slash commands + 10 MCP tools. |
+| [`architect-critic`](./architect-critic/) | v0.1.0 | User-level | Anti-sycophancy reviewer. `/critique` runs claude-self-audit + (optionally) codex fresh-frame audit, consolidates challenges/gaps/divergences, presents interactively with T=4 concession scoring (1–5 rubric). Auto-promotes recurring patterns to user-global `principles.md` (30-day decline suppression). File-IPC counterparty to scaffold-onboard at Phase 5/7 + MASTER-SPEC close; standalone-invocable in any session. |
 
-The three plugins are designed to **compose without overlap**: `ai-mentor` enforces *cognitive mode* (when AI types vs when you do); `scaffold-onboard` runs once per project to author the source-of-truth spec and derive its scaffolding; `scaffold` owns the continuous slice-by-slice implementation phase. Disjoint slash command namespaces, distinct state paths.
+The four plugins are designed to **compose without overlap**: `ai-mentor` enforces *cognitive mode* (when AI types vs when you do); `scaffold-onboard` runs once per project to author the source-of-truth spec and derive its scaffolding; `scaffold` owns the continuous slice-by-slice implementation phase; `architect-critic` provides anti-sycophancy reviews on demand or as part of scaffold-onboard's Phase 5/7/close gates. Disjoint slash command namespaces, distinct state paths.
 
 ## Install
 
@@ -19,6 +20,7 @@ The three plugins are designed to **compose without overlap**: `ai-mentor` enfor
 /plugin install ai-mentor@claude-agent-scaffolding
 /plugin install scaffold-onboard@claude-agent-scaffolding
 /plugin install scaffold@claude-agent-scaffolding
+/plugin install architect-critic@claude-agent-scaffolding
 ```
 
 For local development:
@@ -28,6 +30,7 @@ For local development:
 /plugin install ai-mentor@claude-agent-scaffolding
 /plugin install scaffold-onboard@claude-agent-scaffolding
 /plugin install scaffold@claude-agent-scaffolding
+/plugin install architect-critic@claude-agent-scaffolding
 ```
 
 ## Quick start with `scaffold`
