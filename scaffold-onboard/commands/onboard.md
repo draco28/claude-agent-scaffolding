@@ -1,7 +1,7 @@
 ---
 description: Guided 10-phase onboarding conversation that authors MASTER-SPEC.md as source of truth for this project.
 argument-hint: ""
-allowed-tools: Bash(bash:*), Read, Write, Edit
+allowed-tools: Bash(bash:*), Read, Write, Edit, SlashCommand
 ---
 
 Run the onboarding setup block, then conduct the per-phase conversation per the protocol below.
