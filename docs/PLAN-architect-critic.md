@@ -10,7 +10,17 @@
 
 ---
 
-## Implementation Status — Phase A pending
+## Implementation Status — v0.1.0 SHIPPED 2026-05-16
+
+> All 8 phases A–H complete. This section preserves the final state for archaeology and a v0.2 baseline.
+
+**Release tag:** `architect-critic-v0.1.0` (pending push to origin pending user confirmation). Branch `implementation-architect-critic` ready to fast-forward merge to `main`.
+
+**Final regression: 244 architect-critic tests + 163 scaffold-onboard tests (regression-green per HANDOFF §7) = 407 total across both plugins.**
+
+**Build history:** Branch `implementation-architect-critic` forked from `main` at `67fd0b6` (PLAN commit). Phase-by-phase TDD subagent dispatches for Phases B–D logic-bearing work; main-session-inline for Phases A and E–H (after agent runtime instability — 2 socket-close + 1 stream-timeout events in TE.1/TE.3/TD.6 reviewer dispatches; pragmatic switch to inline execution when subagent retries cost more tokens than the work itself).
+
+
 
 > Update this section after each phase-close. This is the canonical resume point for compaction recovery and fresh-session pickup.
 
@@ -27,7 +37,7 @@
 | E · auto-promotion (FULL) | ✅ done | TE.1–TE.7 | 216 | (close commit below) |
 | F · hooks + scaffold-onboard delta (OQ-2) | ✅ done | TF.1, TF.2, TF.4, TF.5 (TF.3 N/A) | 219 | (close commit below) |
 | G · E2E + polish + hardening | ✅ done | TG.1–TG.5 (TG.5 doc-only; shellcheck unavailable on host) | 244 | (close commit below) |
-| H · v0.1.0 publish | ⏸ pending | TH.1–TH.3 | — | — |
+| H · v0.1.0 publish | ✅ done (push gated) | TH.1–TH.3 | 244 | (close commit + tag pending) |
 
 **Total tasks:** 39 (consolidated from the meta-plan's ~67-task estimate; each task is atomic — one commit per task — but spans multiple sub-libraries where they share a test suite). The implementer subagent can split a task into smaller intra-task TDD increments (red→green per function, then one task-close commit). **Target test count:** ~120–160 across 10 bash suites.
 

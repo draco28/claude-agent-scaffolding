@@ -1,6 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.0] — 2026-05-16
+
+Initial release. **244 tests passing across 10 bash suites** (full regression < 30s); scaffold-onboard's 163 contract tests remain green (regression check per HANDOFF §7).
+
+Built on branch `implementation-architect-critic` over Phases A–H per `docs/PLAN-architect-critic.md`. The build was subagent-driven for logic-bearing phases (B → D) and main-session-inline for scaffold/integration phases (A, E → H) after agent runtime instability surfaced in mid-flight. See `docs/SPEC-architect-critic.md` and the brainstorm transcript in `.superpowers/brainstorm/56102-1778732670/` for the design.
+
+### Added (Phases A → G — see [Unreleased] notes below for the per-phase breakdown)
 
 ### Added
 - **Phase A — plugin scaffold:** plugin.json manifest, LICENSE (MIT), README skeleton, CHANGELOG, 4 command stubs (`/critique`, `/critique-list`, `/promote-principle`, `/principles-list`), SessionStart hook stub, `lib/_helpers.sh` (logging + jq-then-mv guard + lock-file pattern), 9 empty lib stubs ready for Phase B–E, `templates/principles.md` seed (D3 stub-with-examples per SPEC §6.4), test infrastructure (`tests/_helpers.sh` with assert_*, setup_tmp_repo, setup_mock_codex), mock-codex PATH-override fixture + 3 canned codex payloads + tiny MASTER-SPEC fixture.
