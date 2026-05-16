@@ -9,7 +9,9 @@ allowed-tools: Bash, Read, Edit
 Promote a principle text to the user-global or project-scoped principles file, with atomic append and state.json recording.
 
 ```bash
-bash -c '
+# $ARGUMENTS bridge — Claude Code substitutes $N at template time, so we parse
+# from the raw arg string instead of bash positionals (v0.1.1 bug fix).
+RAW_ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
 set -u
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT}"
@@ -18,16 +20,19 @@ source "${PLUGIN_ROOT}/lib/_helpers.sh"
 source "${PLUGIN_ROOT}/lib/state.sh"
 
 # ── Argument parsing ────────────────────────────────────────────────────────
-TEXT=""
-SCOPE="user"
+RAW_ARGS="${RAW_ARGS_FROM_CLAUDE:-}"
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --scope)     SCOPE="$2"; shift 2 ;;
-    --scope=*)   SCOPE="${1#--scope=}"; shift ;;
-    *)           TEXT="$1"; shift ;;
-  esac
-done
+# Scope: extract --scope value (default user)
+SCOPE="$(printf "%s" "$RAW_ARGS" | sed -nE "s|.*--scope[= ]+([a-zA-Z]+).*|\\1|p" | head -1)"
+[[ -z "$SCOPE" ]] && SCOPE="user"
+
+# Text: strip the --scope flag+value, take the remainder (first quoted segment
+# or everything that is not a flag). User typically types: /promote-principle "..." --scope X
+TEXT="$(printf "%s" "$RAW_ARGS" | sed -E "s|--scope[= ]+[a-zA-Z]+||" | sed -E "s|^[[:space:]]+||; s|[[:space:]]+$||")"
+
+# Strip outer quotes if present
+TEXT="${TEXT#\"}"
+TEXT="${TEXT%\"}"
 
 # ── Validation ────────────────────────────────────────────────────────────
 if [[ -z "$TEXT" ]]; then
@@ -35,8 +40,9 @@ if [[ -z "$TEXT" ]]; then
   exit 1
 fi
 
-# Check single-line (no newlines)
-if [[ "$TEXT" == *$'\n'* ]]; then
+# Check single-line (no newlines). Use wc -l rather than $'\n' ANSI-C
+# quoting, which would break the outer bash -c single-quoting (v0.1.2 fix).
+if [[ "$(printf "%s" "$TEXT" | wc -l | tr -d " ")" != "0" ]]; then
   ac_log_error "principle must be a single line"
   exit 1
 fi

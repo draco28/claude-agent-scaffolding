@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.2] — 2026-05-16
+
+### Fixed
+- **Critical: slash command argument parsing was broken in v0.1.0/0.1.1.** Claude Code substitutes `$N` positional variables at slash-command template-render time, BEFORE bash sees the script. Our v0.1.0 command bodies used `case "$1" in ... --spec) SPEC_ARG="$2"` patterns where bash's runtime `$1`/`$2` were intended — but Claude Code substituted them at render time with the user's args, baking a fixed string into the source. Manual `/critique --spec PATH` therefore always missed the flag and fell back to `./MASTER-SPEC.md`. Same bug in `/critique-list --limit N` and `/promote-principle "<text>" --scope X`.
+- **Fix:** all three commands now bridge `$ARGUMENTS` (the raw arg string Claude Code DOES substitute correctly) into bash via env var (`RAW_ARGS_FROM_CLAUDE`), then extract individual flags via `sed -nE "s|.*--flag[= ]+([^ ]+).*|\\1|p"` patterns that never reference bash positionals. `/critique` also strips a leading `@` from `--spec` values (Claude Code's file-reference syntax).
+- **Companion fix:** `/promote-principle` validation no longer uses `*$'\n'*` ANSI-C newline check (the `'` characters terminated the outer `bash -c '...'` single-quoting); now uses `wc -l` instead.
+- **Tests:** `test-commands.sh` `run_command` helper updated to simulate Claude Code's `$ARGUMENTS` substitution by rendering the full bash block + replacing `$ARGUMENTS` before exec. 244/244 tests green.
+
 ## [0.1.1] — 2026-05-16
 
 ### Added

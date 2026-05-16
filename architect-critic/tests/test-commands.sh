@@ -17,15 +17,13 @@ source "$TESTS_DIR/_helpers.sh"
 # Command bodies use: bash -c '...script...'
 # We strip the first line (bash -c ') and last line (') to get the raw script.
 # ---------------------------------------------------------------------------
-extract_inner_script() {
+extract_full_bash_block() {
   local mdfile="$1"
-  # Step 1: extract the bash block (content between ```bash and ```)
-  # Step 2: strip the first line (bash -c ') and last line (closing ')
   awk '
     /^```bash$/ { in_block=1; next }
     /^```$/     { if (in_block) { in_block=0 } }
     in_block    { print }
-  ' "$mdfile" | sed '1d; $d'
+  ' "$mdfile"
 }
 
 # ---------------------------------------------------------------------------
@@ -33,13 +31,24 @@ extract_inner_script() {
 # Env vars CLAUDE_PLUGIN_ROOT + CLAUDE_PLUGIN_DATA must already be exported.
 # Usage: run_command <cmd-basename> [args...]
 # Returns exit code of the inner script; stdout/stderr passed through.
+#
+# Strategy (v0.1.2): command bodies use `$ARGUMENTS` for their raw arg string
+# (Claude Code substitutes at template render time). Tests simulate that by
+# setting RAW_ARGS_FROM_CLAUDE env var — the command body env-var-bridges this
+# into the inner bash -c block, sidestepping Claude Code's $N substitution.
 # ---------------------------------------------------------------------------
 run_command() {
   local cmd_name="$1"; shift
+  local raw_args="$*"
   local script
-  script="$(extract_inner_script "$PLUGIN_ROOT/commands/${cmd_name}.md")"
-  # Pass remaining args as positional parameters ($1, $2, ...) to the script.
-  bash -c "$script" bash "$@"
+  script="$(extract_full_bash_block "$PLUGIN_ROOT/commands/${cmd_name}.md")"
+  # Substitute $ARGUMENTS with the actual raw args string (template render sim).
+  # Use a control char as delimiter to avoid escaping concerns.
+  local rendered
+  rendered="$(printf "%s" "$script" | awk -v args="$raw_args" '
+    { gsub(/\$ARGUMENTS/, args); print }
+  ')"
+  bash -c "$rendered"
 }
 
 # ---------------------------------------------------------------------------

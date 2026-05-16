@@ -9,7 +9,9 @@ allowed-tools: Bash, Read
 Display the recent runs from state.json with a formatted table, plus any in-flight markers.
 
 ```bash
-bash -c '
+# $ARGUMENTS bridge — Claude Code substitutes $N at template time, so we parse
+# from the raw arg string instead of bash positionals (v0.1.1 bug fix).
+RAW_ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
 set -u
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT}"
@@ -18,15 +20,9 @@ source "${PLUGIN_ROOT}/lib/_helpers.sh"
 source "${PLUGIN_ROOT}/lib/state.sh"
 
 # ── Argument parsing ────────────────────────────────────────────────────────
-LIMIT=10
-
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --limit)     LIMIT="$2";  shift 2 ;;
-    --limit=*)   LIMIT="${1#--limit=}"; shift ;;
-    *)           ac_log_warn "unknown arg: $1"; shift ;;
-  esac
-done
+RAW_ARGS="${RAW_ARGS_FROM_CLAUDE:-}"
+LIMIT="$(printf "%s" "$RAW_ARGS" | sed -nE "s|.*--limit[= ]+([0-9]+).*|\\1|p" | head -1)"
+[[ -z "$LIMIT" ]] && LIMIT=10
 
 # ── Bootstrap ──────────────────────────────────────────────────────────────
 ac_state_init

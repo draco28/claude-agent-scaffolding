@@ -9,7 +9,11 @@ allowed-tools: Bash, Read, Edit, SlashCommand
 Run the envelope synthesis + validation block, then proceed to the audit pipeline.
 
 ```bash
-bash -c '
+# $ARGUMENTS is substituted by Claude Code at template-render time with the
+# raw arg string the user typed. Pass it into bash via env var so the inner
+# single-quoted bash -c body can reference it as $RAW_ARGS without colliding
+# with $1/$2/etc. (which Claude Code also tries to substitute).
+RAW_ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
 set -u
 
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT}"
@@ -20,26 +24,29 @@ source "${PLUGIN_ROOT}/lib/principles.sh"
 source "${PLUGIN_ROOT}/lib/inbox.sh"
 
 # ── Argument parsing ────────────────────────────────────────────────────────
-# Positional: $1 = request_id (optional, programmatic mode)
-# Named: --phase N, --depth D, --spec PATH
+# Note: Claude Code substitutes $1/$2/etc. at slash-command-template render
+# time, BEFORE bash sees the script (this bit us in v0.1.1). Parse args
+# instead by extracting from $ARGUMENTS (the raw arg string) using sed/grep
+# patterns that never reference positional $N.
+
+RAW_ARGS="${RAW_ARGS_FROM_CLAUDE:-}"
 
 REQUEST_ID=""
 PHASE_ARG=""
 DEPTH_ARG=""
 SPEC_ARG=""
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --phase)   PHASE_ARG="$2";  shift 2 ;;
-    --depth)   DEPTH_ARG="$2";  shift 2 ;;
-    --spec)    SPEC_ARG="$2";   shift 2 ;;
-    --phase=*) PHASE_ARG="${1#--phase=}"; shift ;;
-    --depth=*) DEPTH_ARG="${1#--depth=}"; shift ;;
-    --spec=*)  SPEC_ARG="${1#--spec=}";   shift ;;
-    crit-*)    REQUEST_ID="$1";  shift ;;
-    *)         ac_log_warn "unknown arg: $1"; shift ;;
-  esac
-done
+# Strip leading @ from --spec values (Claude Code uses @path to load file content
+# into conversation context; the leading @ should be stripped before fs access).
+_extract_flag() {
+  local flag="$1"
+  printf "%s" "$RAW_ARGS" | sed -nE "s|.*${flag}[= ]+([^ ]+).*|\\1|p" | head -1 | sed "s|^@||"
+}
+
+SPEC_ARG="$(_extract_flag '--spec')"
+PHASE_ARG="$(_extract_flag '--phase')"
+DEPTH_ARG="$(_extract_flag '--depth')"
+REQUEST_ID="$(printf "%s" "$RAW_ARGS" | grep -oE "crit-[a-zA-Z0-9._-]+" | head -1 || true)"
 
 INBOX_DIR="$(ac_inbox_dir)"
 
