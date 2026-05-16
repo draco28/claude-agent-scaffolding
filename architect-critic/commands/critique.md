@@ -313,12 +313,106 @@ CODEX_COST_USD="$(ac_cost_compute "$CODEX_TOKENS_IN" "$CODEX_TOKENS_OUT")"
 ac_outbox_write "$REQUEST_ID" "$CONSOLIDATED_JSON" "$ELAPSED_MS" "$CODEX_COST_USD" || \
   ac_log_warn "outbox write failed for $REQUEST_ID"
 
-# ── Step 8: rebuttal cycle (Phase E will add full UX) ─────────────────────────
-echo ""
-echo "(Phase E will add rebuttal cycle)"
+# ── Step 8: rebuttal cycle ───────────────────────────────────────────────────
+source "${PLUGIN_ROOT}/lib/scorer.sh"
+CHALLENGES_ARR="$(printf "%s" "$CONSOLIDATED_JSON" | jq -c ".challenges[]?" 2>/dev/null)"
+if [[ -z "$CHALLENGES_ARR" ]]; then
+  echo ""
+  echo "No challenges. Spec passes premise audit at this depth."
+elif [[ -t 0 ]] || [[ -n "${ARCHITECT_CRITIC_REBUT_INPUT:-}" ]]; then
+  echo ""
+  echo "=== Rebuttal cycle ==="
+  while IFS= read -r ch_json; do
+    [[ -z "$ch_json" ]] && continue
+    ch_text="$(printf "%s" "$ch_json" | jq -r .text)"
+    ch_sev="$(printf "%s" "$ch_json" | jq -r .severity)"
+    ch_refs="$(printf "%s" "$ch_json" | jq -r ".references | join(\", \")")"
+    echo ""
+    echo "[${ch_sev}] ${ch_text}"
+    [[ -n "$ch_refs" ]] && echo "  refs: ${ch_refs}"
+    while true; do
+      printf "  Your response (accept | edit | note | <rebuttal>): "
+      IFS= read -r rebut || break 2
+      case "$rebut" in
+        accept|edit|note|"")
+          echo "  → recorded as: ${rebut:-accept}"
+          break
+          ;;
+        *)
+          score="$(ac_scorer_score_rebuttal "$ch_text" "$rebut")"
+          decision="$(ac_scorer_decide "$score")"
+          if [[ "$decision" == "concede" ]]; then
+            echo "  → Acknowledged — your rebuttal addresses this (score=${score})."
+            break
+          else
+            echo "  → That doesn'\''t address it (score=${score}). The challenge stands."
+            break
+          fi
+          ;;
+      esac
+    done
+  done < <(printf "%s\n" "$CHALLENGES_ARR")
+else
+  echo ""
+  echo "(non-interactive session — skipping rebuttal cycle)"
+fi
 
-# ── Step 9: auto-promotion offer (Phase E will add) ──────────────────────────
-# (Phase E will add auto-promotion offer)
+# ── Step 9: auto-promotion offer ─────────────────────────────────────────────
+source "${PLUGIN_ROOT}/lib/promotion.sh"
+CURRENT_CH="$(printf "%s" "$CONSOLIDATED_JSON" | jq -c ".challenges // []")"
+WR_CANDS="$(ac_promotion_within_run_candidates "$CURRENT_CH" 2>/dev/null || echo "[]")"
+CR_CANDS="$(ac_promotion_cross_run_candidates "$CURRENT_CH" 2>/dev/null || echo "[]")"
+ALL_CANDS="$(jq -n --argjson w "$WR_CANDS" --argjson c "$CR_CANDS" "\$w + \$c")"
+ALL_CANDS="$(ac_promotion_filter_suppressed "$ALL_CANDS" 2>/dev/null || echo "[]")"
+ac_promotion_record_candidates "$ALL_CANDS" 2>/dev/null || true
+
+CAND_COUNT="$(printf "%s" "$ALL_CANDS" | jq "length" 2>/dev/null || echo 0)"
+if [[ "$CAND_COUNT" -gt 0 ]] && { [[ -t 0 ]] || [[ -n "${ARCHITECT_CRITIC_OFFER_INPUT:-}" ]]; }; then
+  echo ""
+  echo "=== Auto-promotion offer ==="
+  while IFS= read -r cand_json; do
+    [[ -z "$cand_json" ]] && continue
+    cand_text="$(printf "%s" "$cand_json" | jq -r .text)"
+    if [[ -n "${ARCHITECT_CRITIC_PROMOTION_MOCK:-}" ]]; then
+      cand_text="$ARCHITECT_CRITIC_PROMOTION_MOCK"
+    fi
+    echo ""
+    echo "I noticed a pattern across recent runs:"
+    echo "  \"${cand_text}\""
+    printf "Add to principles.md? [y]es / [n]o / [e]dit: "
+    IFS= read -r ans || break
+    case "$ans" in
+      y|Y|yes)
+        ac_state_append_promotion "auto" "$cand_text" "user" || true
+        PFILE="$(ac_principles_path)"
+        printf "%s [promoted %s source:auto]\n" "$cand_text" "$(date -u +%Y-%m-%d)" >> "$PFILE"
+        echo "  → promoted to principles.md"
+        ;;
+      n|N|no)
+        ac_promotion_record_decline "$cand_text" || true
+        echo "  → declined (suppressed for 30 days)"
+        ;;
+      e|E|edit)
+        TMP="$(mktemp)"
+        printf "%s\n" "$cand_text" > "$TMP"
+        "${EDITOR:-true}" "$TMP" 2>/dev/null || true
+        edited="$(head -1 "$TMP")"
+        rm -f "$TMP"
+        if [[ -n "$edited" ]]; then
+          ac_state_append_promotion "auto" "$edited" "user" || true
+          PFILE="$(ac_principles_path)"
+          printf "%s [promoted %s source:auto]\n" "$edited" "$(date -u +%Y-%m-%d)" >> "$PFILE"
+          echo "  → promoted (edited) to principles.md"
+        else
+          echo "  → cancelled"
+        fi
+        ;;
+    esac
+  done < <(printf "%s\n" "$(printf "%s" "$ALL_CANDS" | jq -c ".[]")")
+elif [[ "$CAND_COUNT" -gt 0 ]]; then
+  echo ""
+  echo "(non-interactive — ${CAND_COUNT} promotion candidate(s) recorded but not offered)"
+fi
 
 # ── Step 10: cost line ───────────────────────────────────────────────────────
 echo ""

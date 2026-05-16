@@ -240,4 +240,53 @@ RECORDED="$(ac_state_read | jq -c '.candidate_promotions')"
 assert_eq "candidate_promotions written" "$CANDS" "$RECORDED"
 
 # ---------------------------------------------------------------------------
+# Integration tests for /critique Phase E wiring (TE.5 + TE.6 — auto-promotion
+# offer + rebuttal cycle). These verify the lib-function compositions used by
+# the /critique body work end-to-end. Full interactive UX exercise lives in
+# Phase G's test-e2e.sh.
+# ---------------------------------------------------------------------------
+
+echo ""
+echo "--- TE.5 integration: within+cross+filter compose for candidate scan ---"
+setup_tmp_repo > /dev/null
+ac_state_init
+# Seed two same-topic challenges in current run
+CURRENT='[{"severity":"premise","text":"Missing rollback path","references":["Phase 5.2"]},{"severity":"gap","text":"Missing rollback strategy","references":["Phase 5.2"]}]'
+WR="$(ac_promotion_within_run_candidates "$CURRENT")"
+CR="$(ac_promotion_cross_run_candidates "$CURRENT")"
+ALL="$(jq -n --argjson w "$WR" --argjson c "$CR" '$w + $c')"
+ALL="$(ac_promotion_filter_suppressed "$ALL")"
+ALL_LEN="$(printf '%s' "$ALL" | jq 'length')"
+assert_eq "compose produces ≥1 candidate" "1" "$ALL_LEN"
+
+echo ""
+echo "--- TE.5 integration: record_candidates persists, /critique-list would surface ---"
+ac_promotion_record_candidates "$ALL"
+RECORDED_LEN="$(ac_state_read | jq '.candidate_promotions | length')"
+assert_eq "candidate_promotions persisted" "1" "$RECORDED_LEN"
+
+echo ""
+echo "--- TE.5 integration: y-path → ac_state_append_promotion records {source:auto, scope:user} ---"
+setup_tmp_repo > /dev/null
+ac_state_init
+ac_state_append_promotion "auto" "Push validation to system boundaries" "user"
+PROMO_SOURCE="$(ac_state_read | jq -r '.principle_promotions[0].source')"
+PROMO_SCOPE="$(ac_state_read | jq -r '.principle_promotions[0].scope')"
+assert_eq "auto promotion source recorded" "auto" "$PROMO_SOURCE"
+assert_eq "auto promotion scope=user recorded" "user" "$PROMO_SCOPE"
+
+echo ""
+echo "--- TE.6 integration: rebuttal scorer concedes at ≥4 ---"
+source "$SCRIPT_DIR/../lib/scorer.sh"
+ARCHITECT_CRITIC_SCORER_MOCK=4 SCORE="$(ac_scorer_score_rebuttal "Some challenge" "rebuttal text here that adds material new info")"
+DECISION="$(ac_scorer_decide "$SCORE")"
+assert_eq "rebut score ≥4 → concede" "concede" "$DECISION"
+
+echo ""
+echo "--- TE.6 integration: rebuttal scorer restates at <4 ---"
+ARCHITECT_CRITIC_SCORER_MOCK=2 SCORE="$(ac_scorer_score_rebuttal "Some challenge" "rebuttal text")"
+DECISION="$(ac_scorer_decide "$SCORE")"
+assert_eq "rebut score <4 → restate" "restate" "$DECISION"
+
+# ---------------------------------------------------------------------------
 report_results
