@@ -25,7 +25,7 @@
 | C · slash command bodies | ✅ done | TC.1–TC.5 (+2 fix-ups) | 103 | (close commit below) |
 | D · codex + consolidator + scorer + outbox + cost | ✅ done | TD.1–TD.6 | 184 | (close commit below) |
 | E · auto-promotion (FULL) | ✅ done | TE.1–TE.7 | 216 | (close commit below) |
-| F · hooks + scaffold-onboard delta (OQ-2) | ⏸ pending | TF.1–TF.5 | — | — |
+| F · hooks + scaffold-onboard delta (OQ-2) | ✅ done | TF.1, TF.2, TF.4, TF.5 (TF.3 N/A) | 219 | (close commit below) |
 | G · E2E + polish + hardening | ⏸ pending | TG.1–TG.5 | — | — |
 | H · v0.1.0 publish | ⏸ pending | TH.1–TH.3 | — | — |
 
