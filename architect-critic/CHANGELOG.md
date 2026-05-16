@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.1] — 2026-05-16
 
 ### Added
 - `argument-hint:` frontmatter on all 4 commands so the slash-command picker shows expected flags (`/critique [--phase N] [--depth ...] [--spec PATH]`, `/critique-list [--limit N]`, `/promote-principle "<text>" [--scope user|project]`). Polish on top of v0.1.0; no behavioral change.
