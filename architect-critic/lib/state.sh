@@ -8,7 +8,9 @@ ac_state_path() {
 }
 
 # Initialise state.json with an empty schema if it does not already exist.
-# If file exists (any schema_version), leave it untouched.
+# If file exists (any schema_version), leave it untouched. When the on-disk
+# schema_version is higher than what this build knows (1), log info and preserve
+# — forward-compatibility tolerance (Phase F TF.4).
 ac_state_init() {
   local state_file
   state_file="$(ac_state_path)"
@@ -17,6 +19,12 @@ ac_state_init() {
   if [[ ! -f "$state_file" ]]; then
     mkdir -p "$data_dir"
     printf '%s\n' '{"schema_version":1,"in_flight":[],"recent_runs":[],"principle_promotions":[],"candidate_promotions":[],"declined_candidates":[]}' > "$state_file"
+  else
+    local on_disk_ver
+    on_disk_ver="$(jq -r '.schema_version // 0' "$state_file" 2>/dev/null || echo 0)"
+    if [[ "$on_disk_ver" -gt 1 ]] 2>/dev/null; then
+      ac_log_info "state.json has future schema_version=${on_disk_ver}; preserving without modification"
+    fi
   fi
 }
 

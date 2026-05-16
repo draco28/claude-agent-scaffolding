@@ -215,6 +215,19 @@ remaining="$(jq '.in_flight | length' "$state_file")"
 assert_eq "stale in_flight cleared" "0" "$remaining"
 
 echo ""
+echo "--- TF.4: ac_state_init preserves on-disk state.json with future schema_version ---"
+setup_tmp_repo > /dev/null
+mkdir -p "$(ac_data_dir)"
+state_file="$(ac_state_path)"
+printf '%s\n' '{"schema_version":2,"in_flight":[],"future_field":"x"}' > "$state_file"
+ac_state_init 2>&1 | grep -q "future schema_version=2"
+assert_eq "future schema_version logs info" "0" "$?"
+preserved_ver="$(jq '.schema_version' "$state_file")"
+assert_eq "future schema preserved" "2" "$preserved_ver"
+preserved_future="$(jq -r '.future_field' "$state_file")"
+assert_eq "future field preserved" "x" "$preserved_future"
+
+echo ""
 echo "--- T17: housekeeping preserves recent in_flight entries ---"
 setup_tmp_repo > /dev/null
 ac_state_init
