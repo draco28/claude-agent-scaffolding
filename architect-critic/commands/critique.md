@@ -1,5 +1,6 @@
 ---
 description: Run an architect-critic audit on a spec or plan with claude-self-audit + (optionally) codex fresh-frame review
+argument-hint: "[--phase N] [--depth premise-audit|close] [--spec PATH]"
 allowed-tools: Bash, Read, Edit, SlashCommand
 ---
 
