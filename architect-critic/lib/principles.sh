@@ -35,7 +35,10 @@ ac_principles_load_user_global() {
   local pfile
   pfile="$(ac_principles_path)"
   if [[ ! -f "$pfile" ]]; then
-    return 0
+    # Re-seed from template on missing (Phase E TE.7) — per SPEC §11 edge case.
+    ac_log_info "principles.md missing — re-seeding from template"
+    ac_principles_seed
+    [[ ! -f "$pfile" ]] && return 0
   fi
   awk '
     /^# / { next }              # skip header / comment lines (§6.4 rule 1+2)

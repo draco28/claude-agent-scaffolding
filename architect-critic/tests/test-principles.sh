@@ -189,4 +189,22 @@ assert_eq "project patterns section header present" "0" "$?"
 echo "$output" | grep -q "Project governance"
 assert_eq "governance section absent when file missing" "1" "$?"
 
+# ---------------------------------------------------------------------------
+# TE.7: principles.md re-seed on missing (Phase E edge case)
+# ---------------------------------------------------------------------------
+
+echo ""
+echo "--- TE.7: load_user_global re-seeds when principles.md missing ---"
+setup_tmp_repo > /dev/null
+export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
+PFILE="$(ac_principles_path)"
+rm -f "$PFILE"
+assert_file_missing "$PFILE"
+ac_principles_load_user_global > /dev/null 2>&1 || true
+assert_file_exists "$PFILE"
+
+echo ""
+echo "--- TE.7: re-seeded principles.md has the canonical preamble line ---"
+assert_file_contains "$PFILE" "This file is yours"
+
 report_results
