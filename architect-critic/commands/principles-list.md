@@ -1,5 +1,6 @@
 ---
 description: Render the merged principles set from user-global, project context, patterns, and governance sources
+argument-hint: ""
 allowed-tools: Bash, Read
 ---
 

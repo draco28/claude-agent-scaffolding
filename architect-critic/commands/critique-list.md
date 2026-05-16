@@ -1,5 +1,6 @@
 ---
 description: Show recent /critique runs and pending in-flight requests with elapsed time, adversaries used, challenge counts, and cost
+argument-hint: "[--limit N]"
 allowed-tools: Bash, Read
 ---
 

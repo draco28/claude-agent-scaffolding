@@ -1,5 +1,6 @@
 ---
 description: Manually promote a principle to your user-global or project-scoped principles file
+argument-hint: "\"<principle text>\" [--scope user|project]"
 allowed-tools: Bash, Read, Edit
 ---
 
