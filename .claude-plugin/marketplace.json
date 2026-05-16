@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "claude-agent-scaffolding",
-  "description": "Personal plugin marketplace: AI Mentor (cognitive partner), scaffold-onboard (run-once project bootstrap), and scaffold (slice-driven implementation workflow).",
+  "description": "Personal plugin marketplace: AI Mentor (cognitive partner), scaffold-onboard (run-once project bootstrap), scaffold (slice-driven implementation workflow), and architect-critic (anti-sycophancy reviewer with auto-promotion).",
   "owner": {
     "name": "Pras"
   },
@@ -23,6 +23,12 @@
       "description": "Project-level workflow plugin. Bootstrap or audit any repo, run slice-driven 5-phase workflow (spec → contract → scaffold → implement → verify), manage living governance (ADRs, CHANGELOG, runbooks), and search a per-repo memory bank via Ollama-backed semantic recall (FTS5 fallback). Worktree-safe: state lives outside the working tree so parallel branches inherit/fork cleanly. 18 slash commands + 10 MCP tools.",
       "category": "workflow",
       "source": "./scaffold"
+    },
+    {
+      "name": "architect-critic",
+      "description": "Anti-sycophancy reviewer. /critique runs claude-self-audit + (optionally) codex fresh-frame audit, consolidates into challenges/gaps/divergences, presents interactively with T=4 concession scoring (1–5 rubric), auto-promotes recurring patterns to user-global principles.md (with 30-day decline suppression). File-based IPC counterparty to scaffold-onboard at Phase 5/7 + MASTER-SPEC close; standalone-invocable in any session via /critique.",
+      "category": "workflow",
+      "source": "./architect-critic"
     }
   ]
 }
