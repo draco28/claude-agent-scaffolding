@@ -26,7 +26,7 @@
 | D · codex + consolidator + scorer + outbox + cost | ✅ done | TD.1–TD.6 | 184 | (close commit below) |
 | E · auto-promotion (FULL) | ✅ done | TE.1–TE.7 | 216 | (close commit below) |
 | F · hooks + scaffold-onboard delta (OQ-2) | ✅ done | TF.1, TF.2, TF.4, TF.5 (TF.3 N/A) | 219 | (close commit below) |
-| G · E2E + polish + hardening | ⏸ pending | TG.1–TG.5 | — | — |
+| G · E2E + polish + hardening | ✅ done | TG.1–TG.5 (TG.5 doc-only; shellcheck unavailable on host) | 244 | (close commit below) |
 | H · v0.1.0 publish | ⏸ pending | TH.1–TH.3 | — | — |
 
 **Total tasks:** 39 (consolidated from the meta-plan's ~67-task estimate; each task is atomic — one commit per task — but spans multiple sub-libraries where they share a test suite). The implementer subagent can split a task into smaller intra-task TDD increments (red→green per function, then one task-close commit). **Target test count:** ~120–160 across 10 bash suites.
