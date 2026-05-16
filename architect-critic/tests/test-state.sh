@@ -192,4 +192,41 @@ new_ver="$(jq '.schema_version' "$state_file")"
 assert_eq "write_field updates schema_version to 2" "2" "$new_ver"
 
 # ---------------------------------------------------------------------------
+# Phase F TF.1: SessionStart housekeeping hook
+# ---------------------------------------------------------------------------
+
+HOOK_HANDLER="$(cd "$TESTS_DIR/../hooks-handlers" && pwd)/session-start.sh"
+
+echo ""
+echo "=== TF.1: SessionStart housekeeping ==="
+
+echo ""
+echo "--- T16: housekeeping clears in_flight entries older than 24h ---"
+setup_tmp_repo > /dev/null
+ac_state_init
+export CLAUDE_PLUGIN_ROOT="$(cd "$TESTS_DIR/.." && pwd)"
+# Inject a stale entry directly via jq write
+state_file="$(ac_state_path)"
+ac_lock_acquire "$(ac_data_dir)/state.lock"
+jq '.in_flight = [{"request_id":"stale-old","started_at":"2020-01-01T00:00:00Z","depth":"close","phase_id":null}]' "$state_file" > "$state_file.tmp" && mv "$state_file.tmp" "$state_file"
+ac_lock_release "$(ac_data_dir)/state.lock"
+bash "$HOOK_HANDLER" > /dev/null 2>&1
+remaining="$(jq '.in_flight | length' "$state_file")"
+assert_eq "stale in_flight cleared" "0" "$remaining"
+
+echo ""
+echo "--- T17: housekeeping preserves recent in_flight entries ---"
+setup_tmp_repo > /dev/null
+ac_state_init
+export CLAUDE_PLUGIN_ROOT="$(cd "$TESTS_DIR/.." && pwd)"
+now_iso="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+state_file="$(ac_state_path)"
+ac_lock_acquire "$(ac_data_dir)/state.lock"
+jq --arg now "$now_iso" '.in_flight = [{"request_id":"fresh","started_at":$now,"depth":"close","phase_id":null}]' "$state_file" > "$state_file.tmp" && mv "$state_file.tmp" "$state_file"
+ac_lock_release "$(ac_data_dir)/state.lock"
+bash "$HOOK_HANDLER" > /dev/null 2>&1
+remaining="$(jq '.in_flight | length' "$state_file")"
+assert_eq "fresh in_flight preserved" "1" "$remaining"
+
+# ---------------------------------------------------------------------------
 report_results
