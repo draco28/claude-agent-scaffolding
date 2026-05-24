@@ -685,15 +685,13 @@ sf_compose_detect_architect_critic() {
     for skill_md in "$cache"/*/architect-critic/*/skills/critiquing-spec/SKILL.md; do
       [[ -f "$skill_md" ]] && { echo "v0.2"; return 0; }
     done
-    # v0.1.3 fallback: legacy critique skill (during migration window)
-    for skill_md in "$cache"/*/architect-critic/*/skills/critique/SKILL.md; do
-      [[ -f "$skill_md" ]] && { echo "v0.1.3"; return 0; }
-    done
   done
   echo "absent"
   return 1
 }
 ```
+
+**Why no v0.1.3 fallback:** verified via git history — architect-critic v0.1.3 shipped with ZERO skills directory (purely slash-command + bash orchestration). The `Skill(architect-critic:critique)` grammar can never resolve against v0.1.3. Combined with v0.2's hard breaking change (no backward compat per its SPEC §3 NG1), the cleanest contract is binary: detect v0.2 → invoke; detect absent → warn-and-skip.
 
 scaffold-onboard composition.json no longer carries an `architect-critic` entry. Detection happens at skill-invocation time (lazy; per-skill-call) via filesystem probe. Probe is cheap (<5ms typical).
 
@@ -703,42 +701,42 @@ Skills (5.1 + 5.4) include at the relevant moment:
 
 ```markdown
 At <critic moment>:
-  1. Read composition.json. Check `plugins.architect-critic.installed`.
-  2. If false: emit warning "[scaffold-onboard] architect-critic not installed;
+  1. Detect architect-critic via filesystem probe per §12.2 (`sf_compose_detect_architect_critic`). Returns "v0.2" | "absent".
+     Note: this is NOT a composition.json read — per ac v0.2 settlement #1, architect-critic detection is filesystem-only. The composition.json file scaffold-onboard maintains for ai-mentor + superpowers detection does not carry an architect-critic entry in v0.2.
+  2. If "absent": emit warning "[scaffold-onboard] architect-critic not installed;
      skipping <moment-name>. Install via /plugin install architect-critic for
      adversarial review at this phase." Continue.
-  3. If true: select critic skill per §12.4 (handles v0.2 + v0.1.3 fallback).
-  4. Invoke selected critic skill with target + depth args.
+  3. If "v0.2": invoke critiquing-spec skill per §12.4.
+  4. Invoke architect-critic:critiquing-spec with target + depth args.
   5. architect-critic skill runs its challenge-resolution loop (it manages this internally).
   6. When control returns: continue with next phase / step.
 ```
 
 **Drops:** `sf_compose_build_critic_request` + `sf_compose_read_critic_response` from lib/compose.sh. All inbox/outbox file ops removed. The composition probe stays.
 
-### 12.4 Critic skill name resolution + paired-release contract (NEW per C7 + ac v0.2 settlement #7)
+### 12.4 Critic skill invocation + paired-release contract (REVISED 2026-05-24)
 
-architect-critic v0.2 ships with a dedicated `critiquing-spec` skill (per ac v0.2 settlement #13 — gerund naming convention). scaffold-onboard v0.2 is a **gated paired release** with architect-critic v0.2 (per ac v0.2 settlement #7 — "scaffold-onboard v0.2 must ship with matching skill-invocation contract").
+architect-critic v0.2 shipped 2026-05-24 with a dedicated `critiquing-spec` skill (per ac v0.2 settlement #13 — gerund naming convention). scaffold-onboard v0.2 is a **gated paired release** with architect-critic v0.2 (per ac v0.2 settlement #7).
+
+**REVISED:** the original draft of this section had a v0.1.3 transitional fallback. Verified via git history that v0.1.3 architect-critic shipped with zero skills directory (purely slash-command + bash), so `Skill(architect-critic:critique)` never resolves. v0.1.3 fallback removed.
 
 Resolution logic:
 
 ```
 1. Filesystem probe per §12.2: sf_compose_detect_architect_critic
-   - Returns "v0.2" | "v0.1.3" | "absent"
+   - Returns "v0.2" | "absent"
 2. If "v0.2":
      invoke Skill(architect-critic:critiquing-spec) with --spec PATH + --phase N + --depth (premise-audit|close)
      Note: ac v0.2 has Codex opt-in per audit (settlement #6); scaffold-onboard requests close depth at MASTER-SPEC + /plan-roadmap moments by passing --depth close in args
-3. If "v0.1.3" (transitional fallback during user upgrade window):
-     emit deprecation hint "scaffold-onboard v0.2 paired-releases with architect-critic v0.2; you're on v0.1.3. Run /plugin update architect-critic for full functionality."
-     invoke Skill(architect-critic:critique) with same args (v0.1.3 accepts --spec/--phase/--depth via $ARGUMENTS bridge)
-4. If "absent":
-     warn-and-skip per §12.3 step 2; user can install + retry
+3. If "absent":
+     warn-and-skip per §12.3 step 2; user can install architect-critic v0.2+ and retry
 ```
 
 **Argument vocabulary alignment:** target = `master-spec-phase` | `master-spec-full` | `roadmap`. Depth = `premise-audit` | `close`. Adversaries inferred from depth per ac v0.2 settlement #6 (premise-audit = claude-only; close = claude + codex when user opts in via --close).
 
-**Schema-version coupling:** scaffold-onboard v0.2's CHANGELOG documents the paired release; user `/plugin update` of one without the other surfaces the deprecation hint above. Both plugins increment major version together at the v0.2 release.
+**Schema-version coupling:** scaffold-onboard v0.2's CHANGELOG documents the paired release. Users on architect-critic v0.1.3 who upgrade scaffold-onboard get the "absent" warning at critic moments and a hint to install architect-critic v0.2+.
 
-Build sequence note: Phase 6 (subagent pressure tests) explicitly tests BOTH critic invocation paths via fixture filesystem layouts (mock the architect-critic cache dirs).
+Build sequence note: Phase 6 (subagent pressure tests) tests the binary path (v0.2 present vs absent) via fixture filesystem layouts (mock the architect-critic cache dirs).
 
 ---
 
@@ -933,8 +931,8 @@ Phase-close commit format: `scaffold-onboard: <description> (v0.2 Phase X)` — 
 | R1 hierarchy authoring exhausts users (90 min too long) | Medium | High (adoption) | Hard checkpoint after R1.A; explicit "resume tomorrow" prompts; subagent pressure test for fatigue patterns |
 | R2 DSL doesn't fit users' real rules (4 types insufficient) | Medium | Medium | Extensibility built in (§8.5); warn-and-skip on unknown types; v0.3 adds types per user feedback |
 | Manifest routing diverges from workspace-init's helper | Low | Medium | scaffold-onboard sources mi_manifest_resolve directly; integration test asserts cross-plugin contract |
-| Critic-skill invocation pattern fails when architect-critic v0.2 ships with different surface | High | Medium | Coordinate via shared HANDOFF doc for architect-critic v0.2; align target/depth/adversaries vocab |
-| PROJECT_PLAN.md filename collision breaks v0.1.0 users on regenerate | Low | Low | Rename to PROJECT_TIMELINE.md; preserve old file via `sf_docs_preserve_user_files` logic; documented in MIGRATION doc |
+| ~~Critic-skill invocation pattern fails when architect-critic v0.2 ships with different surface~~ RESOLVED | — | — | architect-critic v0.2 shipped 2026-05-24 with `critiquing-spec` skill; §12.4 simplified to binary v0.2-or-absent invocation. Verify vocab alignment during Phase 7 integration testing. |
+| ~~PROJECT_PLAN.md filename collision breaks v0.1.0 users on regenerate~~ RESOLVED | — | — | Resolved at §13.5 by naming the new R1 doc `ROADMAP.md`; v0.1.0's `/scaffold-docs` PROJECT_PLAN.md output unchanged; zero collision. |
 | Tier 0 marker race condition double-emits | Low | Negligible | Acceptable; microsecond race; net cost is ~600 tokens once per session |
 | Subagent reliability degrades during Phase 6 pressure tests | High | Medium | Inline pivot per `feedback_subagent_vs_inline_threshold` if subagents reliably fail |
 
@@ -1031,7 +1029,12 @@ Phase-close commit format: `scaffold-onboard: <description> (v0.2 Phase X)` — 
   - 4 deferred to OQ8-OQ11
 - **2026-05-24 — DRAFT v3** aligned with locked architect-critic v0.2 settlements (memory: project_architect_critic_v02_grill_settlements):
   - §4.1 + §12.2 — architect-critic detection moves from composition.json to filesystem probe (per ac v0.2 settlement #1)
-  - §12.4 — paired-release contract; ac v0.2 is the primary target; v0.1.3 retained as transitional fallback
+  - §12.4 — paired-release contract; ac v0.2 is the primary target (v0.1.3 transitional fallback was added here but later removed in the 2026-05-24 drift-resolution pass below — v0.1.3 had no skills directory, so the fallback could never resolve)
   - §4.1 + §5.2 — ai-mentor invocation updated for v2.0 surface (grill-me replaces z2-decide; aligned with [project_ai_mentor_v2_grill_settlements])
+- **2026-05-24 — Phase 3 drift-resolution pass** (post architect-critic v0.2 ship; scaffold-onboard build paused at Phase 0):
+  - §12.2 — removed dead v0.1.3 fallback probe (verified via git history: v0.1.3 had zero skills directory; `Skill(architect-critic:critique)` would never resolve)
+  - §12.3 — invocation pattern simplified to binary v0.2-or-absent; v0.1.3 branch removed
+  - §12.4 — paired-release contract simplified; removed dead transitional v0.1.3 fallback; binary detection (v0.2 present → invoke; absent → warn-and-skip)
+  - §17 — two stale risks marked RESOLVED: PROJECT_PLAN.md collision (resolved at §13.5 by ROADMAP rename); critic-skill invocation pattern mismatch (resolved by ac v0.2 ship)
   - Eval harness via Agent dispatch from Claude Code session (per [feedback_claude_code_sessions_only]) — see PLAN Phase 0
 - Pending: user lock-in → Stage B implementation.

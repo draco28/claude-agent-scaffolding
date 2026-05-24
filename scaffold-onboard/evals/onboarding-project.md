@@ -162,6 +162,6 @@ The full eval is GREEN when all 5 scenarios PASS.
 ## Out of scope for this eval
 
 - Multi-session interrupts (covered separately in `evals/scaffolding-memory-bank.md` resume tests)
-- v0.1.3 architect-critic fallback path — covered by Phase 6 subagent pressure tests (PLAN T6.1), not here
+- architect-critic v0.1.3 fallback path — removed from SPEC §12 in the 2026-05-24 drift-resolution pass (v0.1.3 had no skills directory, so the fallback was dead code). Detection is now binary v0.2-present vs absent; only the latter case is tested in S5
 - Single-repo vs manifest-mode routing distinction at Phase 10 close — covered by integration tests (PLAN T7.1)
 - ai-mentor + superpowers composition (orthogonal; this eval keeps them absent to isolate the onboarding-project skill behavior)
