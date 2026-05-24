@@ -204,10 +204,10 @@ The invocation is **synchronous** (no background mode, no async polling — thos
 
 `ADVERSARIAL_PROMPT` is a string you construct that includes: (a) the full artifact content, (b) the merged principles, (c) instructions to produce the same JSON schema as Step 5, (d) explicit instruction to be adversarial — *"surface the strongest single-paragraph counter-arguments to this spec; do not be polite, do not soften, do not assume the author is correct"*.
 
-The implementation lives at `lib/codex.sh:ac_codex_run_audit` — you can call that helper rather than re-constructing the invocation inline:
+The implementation lives at `lib/codex.sh:ac_codex_run_audit` — you can call that helper rather than re-constructing the invocation inline. Signature: `ac_codex_run_audit <prompt> <output_dir> [--model NAME] [--timeout SECS]`. The helper computes its own `REQ_ID` and writes the parsed JSON to stdout; the raw `--output-last-message` file lands in `<output_dir>/codex-audit-<req-id>.json`.
 
 ```bash
-bash -c 'source "${CLAUDE_PLUGIN_ROOT}/lib/codex.sh" && ac_codex_run_audit "$REQ_ID" "$ARTIFACT_PATH" "$PRINCIPLES_PATH" "$MODEL_OVERRIDE"'
+bash -c 'source "${CLAUDE_PLUGIN_ROOT}/lib/codex.sh" && ac_codex_run_audit "$ADVERSARIAL_PROMPT" "$TMP" ${MODEL_OVERRIDE:+--model "$MODEL_OVERRIDE"}'
 ```
 
 **Timeout handling.** If the helper returns a timeout indicator, surface it as a normal turn message:
