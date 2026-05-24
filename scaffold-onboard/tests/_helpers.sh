@@ -100,6 +100,71 @@ setup_tmp_repo() {
   git config user.name  "Test"
 }
 
+# setup_tmp_workspace_init creates a dual-repo workspace under TMP_DIR:
+#   <TMP_DIR>/<project>-ai/.workspace/pairing.json
+#   <TMP_DIR>/<project>/
+# Exports globals: TMP_AI_WORKSPACE, TMP_CANONICAL, TMP_MANIFEST.
+# Project name defaults to "foo"; project_type to "personal".
+# Args: $1 — project name (default: foo)
+#       $2 — project type (default: personal)
+#       $3 — include_roadmap_routing (default: yes; "no" omits routing.roadmap)
+# Supports tests T3.1, T7.1, and others.
+setup_tmp_workspace_init() {
+  local project="${1:-foo}"
+  local project_type="${2:-personal}"
+  local include_roadmap="${3:-yes}"
+  TMP_DIR="$(mktemp -d -t scaffold-onboard-test.XXXXXX)"
+  export CLAUDE_PLUGIN_DATA="$TMP_DIR/plugin-data"
+  mkdir -p "$CLAUDE_PLUGIN_DATA"
+  TMP_AI_WORKSPACE="$TMP_DIR/${project}-ai"
+  TMP_CANONICAL="$TMP_DIR/${project}"
+  mkdir -p "$TMP_AI_WORKSPACE/.workspace" "$TMP_CANONICAL"
+  TMP_MANIFEST="$TMP_AI_WORKSPACE/.workspace/pairing.json"
+  if [[ "$include_roadmap" == "yes" ]]; then
+    cat > "$TMP_MANIFEST" <<EOF
+{
+  "schema_version": "1.0",
+  "topology": "dual-repo",
+  "ai_workspace": { "root": "${TMP_AI_WORKSPACE}", "name": "${project}-ai" },
+  "canonical":    { "root": "${TMP_CANONICAL}",    "name": "${project}", "default_branch": "main" },
+  "routing": {
+    "master_spec":              "ai_workspace",
+    "executive_summary":        "canonical",
+    "memory_bank":              "ai_workspace",
+    "claude_md":                "ai_workspace",
+    "agents_md":                "ai_workspace",
+    "scaffold_project_outputs": "ai_workspace",
+    "backlog":                  "canonical",
+    "project_plan":             "canonical",
+    "roadmap":                  "canonical",
+    "prd":                      "canonical",
+    "srs":                      "canonical",
+    "product_adrs":             "canonical",
+    "process_adrs":             "ai_workspace",
+    "sprint_specs":             "ai_workspace",
+    "implementation_handoffs":  "ai_workspace",
+    "brainstorm_artifacts":     "ai_workspace"
+  },
+  "git_policy": { "project_type": "${project_type}" }
+}
+EOF
+  else
+    cat > "$TMP_MANIFEST" <<EOF
+{
+  "schema_version": "1.0",
+  "topology": "dual-repo",
+  "ai_workspace": { "root": "${TMP_AI_WORKSPACE}", "name": "${project}-ai" },
+  "canonical":    { "root": "${TMP_CANONICAL}",    "name": "${project}", "default_branch": "main" },
+  "routing": {
+    "master_spec": "ai_workspace",
+    "prd":         "canonical"
+  },
+  "git_policy": { "project_type": "${project_type}" }
+}
+EOF
+  fi
+}
+
 cleanup() {
   if [[ -n "$TMP_DIR" && -d "$TMP_DIR" ]]; then
     rm -rf "$TMP_DIR"
