@@ -2,6 +2,46 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [Unreleased] — v0.2.0 in progress
+
+### Added
+- **7 skills under `skills/<name>/SKILL.md`** (structural skill-first per SPEC §4.3): `onboarding-project`, `scaffolding-memory-bank`, `scaffolding-governance-docs`, `planning-project-roadmap`, `authoring-machine-checkable-rules`, `authoring-vertical-slice-demo`, `validating-master-spec`. Each ≤500 lines. Slash commands become thin Skill-tool dispatchers via `$ARGUMENTS` env-var bridge.
+- **16 reference sub-docs** under `skills/<name>/references/` providing worked examples + edge cases + extensibility notes.
+- **7 behavior eval docs** under `evals/` covering the 7 skills (Phase 0 — Agent-dispatch harness per [feedback_claude_code_sessions_only]).
+- **R1 — Phase → Sprint → Vertical Slice hierarchy** via new `/plan-roadmap` slash command + `planning-project-roadmap` skill. Outputs `ROADMAP.md` (NEW; does NOT collide with v0.1.0's `PROJECT_PLAN.md` which is preserved unchanged). State at `${CLAUDE_PLUGIN_DATA}/project-roadmap.json` with schema versioning + mutations array. 5 re-run modes. Size-class adaptation: >50 nodes triggers continue/split/reduce prompt; >100 biases toward split. Time-budget: 60-min advisory + 90-min warn-only.
+- **R2 — machine-checkable rules DSL** via `authoring-machine-checkable-rules` skill + `lib/rules.sh`. HTML-sentinel format. 4 v0.2 types: `banned_imports`, `coverage_floor`, `style_invariants`, `required_pattern`. Extensibility: unknown types warn-and-skip per SPEC §8.5. Rules live in `.claude/memory-bank/03-code-patterns.md` `## Machine-checkable rules` section.
+- **R3 — `auto:`/`user:` demo criteria grammar** per scaffold-dev SPEC §14.1 via `authoring-vertical-slice-demo` skill + `lib/demo-criteria.sh`. Literal U+2192 (→) arrow. Dual storage target (state-file during R1.C; markdown post-R1.C). Idempotent append.
+- **Manifest-aware output routing** per SPEC §10 via new `lib/routing.sh`. `sf_resolve_output_path` resolves to ai_workspace or canonical per workspace-init's pairing.json `routing.*` table. Cross-plugin sourcing of `mi_manifest_resolve` with local fallback. Single-repo fallback preserved.
+- **Tier 0 marker protocol** for hook coordination with scaffold-dev (SPEC §11). Marker at `${TMPDIR}/claude-code-tier0-${CLAUDE_SESSION_ID}` — first-write-wins. Measured ~2.5ms typical (50ms budget).
+- **`/plan-roadmap` slash command** + updated `/onboard`, `/scaffold-project`, `/scaffold-docs` wired to Skills via `$ARGUMENTS` bridge.
+- **Karpathy behavioral discipline section** opt-in for CLAUDE.md (SPEC §14): 4 principles, verbatim attribution `Behavioral guidelines inspired by Karpathy's observations (Chang, 2026; MIT)`. Gated by `state.answers["phase_10.4.include_karpathy"]`.
+- **lib/roadmap.sh, lib/rules.sh, lib/demo-criteria.sh, lib/routing.sh** — 4 new lib modules supporting R1/R2/R3 + routing.
+- **5 new test suites** — `test-roadmap.sh` (34), `test-rules.sh` (30), `test-demo-criteria.sh` (27), `test-manifest-routing.sh` (14), `test-hook-marker.sh` (12).
+- **229 net new tests across 12 suites** (392 total).
+
+### Changed
+- **`lib/compose.sh` refactor** — architect-critic detection moves from composition.json to filesystem probe per SPEC §12.2. composition.json no longer carries `plugins.architect-critic` entry; ai-mentor + superpowers probe behavior preserved. Detection is BINARY (v0.2-present-or-absent) — no v0.1.3 fallback.
+- **`hooks-handlers/session-start.sh`** — extended with marker-aware Tier 0 protocol (preserves all v0.1.0 source-aware refresh logic).
+- **`templates/memory-bank/03-code-patterns.md.tmpl`** — adds `## Machine-checkable rules` section heading seeded empty (R2 contract).
+- **Slash commands** wrapped to invoke skills via `Skill(scaffold-onboard:<name>)` instead of inlining bash. Args via `$ARGUMENTS` env-var bridge.
+
+### Removed (BREAKING — IPC contract)
+- **`sf_compose_build_critic_request`** function from `lib/compose.sh` (was lines 257-339 in v0.1.0).
+- **`sf_compose_read_critic_response`** function from `lib/compose.sh` (was lines 344-363 in v0.1.0).
+- **inbox/outbox** file-IPC paths under `${CLAUDE_PLUGIN_DATA}/architect-critic/` no longer created or used.
+- **15 IPC tests** from `test-compose.sh` (v0.1.0: 31 → v0.2: 24; -7 net in this suite, +8 new for filesystem-probe critic detection + skill-marker assertions).
+- Migration: architect-critic v0.1.x users see "absent" warning at critic moments after upgrading scaffold-onboard. Install architect-critic v0.2+ to restore adversarial review (paired-release contract per SPEC §12.4).
+
+### Composition
+- **architect-critic v0.2+** — invoked via `Skill(architect-critic:critiquing-spec)` at Phase 5, Phase 7, MASTER-SPEC close, and `/plan-roadmap` close. Filesystem-probe detection (no shared registry per ac v0.2 settlement #1).
+- **ai-mentor v2.0+** — invocation surface updated.
+- **workspace-init** — manifest consumed for routing; forward-compatible with v0.1 manifests missing `roadmap` routing key (defaults to canonical).
+
+### Contract (scaffold-dev v0.1 consumer)
+- **R1** — ROADMAP.md hierarchy parseable per SPEC §7.1 + scaffold-dev §16.2
+- **R2** — rules consumable by `implementation-checking` skill per SPEC §8.4
+- **R3** — criteria parseable by `closing-vertical-slice` skill per SPEC §9.3
+
 ## [0.1.0] — 2026-05-14
 
 ### Added
