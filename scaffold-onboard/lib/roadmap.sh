@@ -1,0 +1,443 @@
+#!/usr/bin/env bash
+# scaffold-onboard/lib/roadmap.sh
+#
+# Project roadmap state CRUD + ROADMAP.md rendering.
+# Per SPEC §7 (scaffold-onboard v0.2) + PLAN T3.2.
+#
+# State file: ${CLAUDE_PLUGIN_DATA}/project-roadmap.json (separate from
+# onboarding-state.json). Schema per SPEC §7.2:
+#   {
+#     "schema_version": "1",
+#     "started_at": "<ISO-8601>",
+#     "checkpoint":  "R1.A | R1.A-complete | R1.B | ... | R1.C-complete",
+#     "elapsed_min": <int>,
+#     "project_name": "<string>",
+#     "phases":          [{id, name, horizon, summary}, ...],
+#     "sprints":         [{phase_id, id, name, goal, vs_count_estimate}, ...],
+#     "vertical_slices": [{sprint_id, id, name, summary, demo_criteria: []}, ...],
+#     "mutations":       [{timestamp, mode, target, note}, ...]
+#   }
+#
+# Function naming follows the SKILL.md body's expected vocabulary (committed
+# in 1a4f10a). PLAN T3.2's slightly different names (sf_roadmap_init,
+# sf_roadmap_get_checkpoint, sf_roadmap_count_nodes, sf_roadmap_add_mutation)
+# are exposed as aliases at the bottom for that contract.
+#
+# Bash 3.2-compatible (macOS): no `declare -A`, no GNU-only flags.
+
+set -u
+
+# Source helpers + routing (routing provides sf_resolve_output_path).
+_sf_roadmap_source_deps() {
+  local here
+  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  # shellcheck disable=SC1090
+  [[ -f "$here/_helpers.sh" ]] && source "$here/_helpers.sh"
+  # shellcheck disable=SC1090
+  [[ -f "$here/routing.sh"  ]] && source "$here/routing.sh"
+}
+_sf_roadmap_source_deps
+
+# ----------------------------------------------------------------------------
+# State file path
+# ----------------------------------------------------------------------------
+sf_roadmap_state_path() {
+  echo "$(sf_data_dir)/project-roadmap.json"
+}
+
+# ----------------------------------------------------------------------------
+# Initialize state file
+# ----------------------------------------------------------------------------
+# Args: $1 — project name (string)
+sf_roadmap_state_init() {
+  local project_name="${1:-}"
+  local path
+  path="$(sf_roadmap_state_path)"
+  mkdir -p "$(dirname "$path")"
+  local now
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  # Use jq to construct so we get correctly-formed JSON (and proper escaping).
+  jq -n \
+    --arg now  "$now" \
+    --arg name "$project_name" \
+    '{
+      schema_version: "1",
+      started_at: $now,
+      checkpoint: "R1.A",
+      elapsed_min: 0,
+      project_name: $name,
+      phases: [],
+      sprints: [],
+      vertical_slices: [],
+      mutations: []
+    }' > "$path"
+}
+
+# ----------------------------------------------------------------------------
+# Internal: atomic jq-driven update of the state file.
+# Args: $1 — jq filter string
+#       remaining args passed through as --arg pairs (already prepared by
+#       caller; e.g., "--arg" "k" "v" "--argjson" "n" "5")
+# ----------------------------------------------------------------------------
+_sf_roadmap_atomic() {
+  local filter="$1"; shift
+  local path
+  path="$(sf_roadmap_state_path)"
+  if [[ ! -f "$path" ]]; then
+    sf_log_error "roadmap state file missing: $path (call sf_roadmap_state_init first)"
+    return 1
+  fi
+  local tmp
+  tmp="$(mktemp "${path}.XXXXXX")"
+  if jq "$@" "$filter" "$path" > "$tmp"; then
+    mv "$tmp" "$path"
+  else
+    rm -f "$tmp"
+    sf_log_error "jq update failed; state unchanged"
+    return 1
+  fi
+}
+
+# ----------------------------------------------------------------------------
+# Checkpoint accessors
+# ----------------------------------------------------------------------------
+sf_roadmap_read_checkpoint() {
+  local path
+  path="$(sf_roadmap_state_path)"
+  if [[ ! -f "$path" ]]; then
+    echo ""
+    return 1
+  fi
+  jq -r '.checkpoint // ""' "$path"
+}
+
+sf_roadmap_set_checkpoint() {
+  local value="$1"
+  _sf_roadmap_atomic '.checkpoint = $v' --arg v "$value"
+}
+
+# ----------------------------------------------------------------------------
+# Phase / sprint / slice writers (idempotent by id).
+# Each is a list-upsert: if an entry with the same id exists, update in place;
+# else append. Order is preserved (insertion order for new entries).
+# ----------------------------------------------------------------------------
+
+# Args: phase_id (int) name horizon summary
+sf_roadmap_write_phase() {
+  local id="$1" name="$2" horizon="$3" summary="$4"
+  _sf_roadmap_atomic '
+    . as $root
+    | ($root.phases | map(.id) | index($id_num)) as $idx
+    | if $idx == null
+      then .phases += [{id: $id_num, name: $name, horizon: $horizon, summary: $summary}]
+      else .phases[$idx] = {id: $id_num, name: $name, horizon: $horizon, summary: $summary}
+      end
+  ' \
+    --argjson id_num "$id" \
+    --arg name    "$name" \
+    --arg horizon "$horizon" \
+    --arg summary "$summary"
+}
+
+# Args: sprint_id ("1.1") phase_id (int) name goal [vs_count_estimate]
+sf_roadmap_write_sprint() {
+  local sprint_id="$1" phase_id="$2" name="$3" goal="$4"
+  local vs_estimate="${5:-0}"
+  _sf_roadmap_atomic '
+    . as $root
+    | ($root.sprints | map(.id) | index($sid)) as $idx
+    | (if $idx == null
+       then .sprints += [{phase_id: $pid_num, id: $sid, name: $name, goal: $goal, vs_count_estimate: $vs_num}]
+       else .sprints[$idx] = {phase_id: $pid_num, id: $sid, name: $name, goal: $goal, vs_count_estimate: $vs_num}
+       end)
+  ' \
+    --arg sid     "$sprint_id" \
+    --argjson pid_num "$phase_id" \
+    --arg name    "$name" \
+    --arg goal    "$goal" \
+    --argjson vs_num "$vs_estimate"
+}
+
+# Args: slice_id ("VS-1.1.1") sprint_id ("1.1") name summary
+sf_roadmap_write_slice() {
+  local slice_id="$1" sprint_id="$2" name="$3" summary="$4"
+  _sf_roadmap_atomic '
+    . as $root
+    | ($root.vertical_slices | map(.id) | index($vid)) as $idx
+    | (if $idx == null
+       then .vertical_slices += [{sprint_id: $sid, id: $vid, name: $name, summary: $summary, demo_criteria: []}]
+       else .vertical_slices[$idx] = (.vertical_slices[$idx]
+            | .sprint_id = $sid | .id = $vid | .name = $name | .summary = $summary)
+       end)
+  ' \
+    --arg vid     "$slice_id" \
+    --arg sid     "$sprint_id" \
+    --arg name    "$name" \
+    --arg summary "$summary"
+}
+
+# ----------------------------------------------------------------------------
+# Mutations array
+# ----------------------------------------------------------------------------
+# Args: mode (add-phase|add-sprint|add-slice|refine-slice|reorganize) target note
+sf_roadmap_add_mutation() {
+  local mode="$1" target="$2" note="$3"
+  local now
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  _sf_roadmap_atomic '
+    .mutations += [{timestamp: $ts, mode: $mode, target: $target, note: $note}]
+  ' \
+    --arg ts     "$now" \
+    --arg mode   "$mode" \
+    --arg target "$target" \
+    --arg note   "$note"
+}
+
+# Alias matching SKILL.md's "append_mutation" vocabulary.
+sf_roadmap_append_mutation() {
+  sf_roadmap_add_mutation "$@"
+}
+
+# ----------------------------------------------------------------------------
+# Node count + size class
+# ----------------------------------------------------------------------------
+# Returns the total number of authored hierarchy nodes
+# (phases + sprints + vertical_slices).
+sf_roadmap_count_nodes() {
+  local path
+  path="$(sf_roadmap_state_path)"
+  if [[ ! -f "$path" ]]; then
+    echo 0
+    return 0
+  fi
+  jq -r '(.phases | length) + (.sprints | length) + (.vertical_slices | length)' "$path"
+}
+
+# Alias matching SKILL.md's "_estimate" vocabulary. Same semantics as
+# count_nodes for the authored-state path; the SKILL surface calls this at
+# R1.A close (where only phases exist) and expects an authored-node count
+# (the skill body multiplies by SPEC-recommended avg sprints/slices itself
+# to surface an estimate — see SKILL.md §6 line 211).
+sf_roadmap_count_nodes_estimate() {
+  sf_roadmap_count_nodes
+}
+
+# Size-class classification per SPEC §7.3:
+#   ≤50  → "normal"
+#   51-100 → "large"   (surface continue/split/reduce prompt)
+#   >100 → "split"     (recommended split-into-product-epics)
+sf_roadmap_size_class() {
+  local n
+  n="$(sf_roadmap_count_nodes)"
+  if [[ "$n" -le 50 ]]; then
+    echo "normal"
+  elif [[ "$n" -le 100 ]]; then
+    echo "large"
+  else
+    echo "split"
+  fi
+}
+
+# ----------------------------------------------------------------------------
+# Re-run mode detection (per SPEC §7.5)
+# ----------------------------------------------------------------------------
+# Args: parsed CLI flags ("--add-phase", "--add-sprint", "--add-slice",
+#       "--refine-slice", "--reorganize"). Trailing flag-arguments (phase id,
+#       sprint id, etc.) are accepted but not validated here.
+# Echoes one of: initial | add-phase | add-sprint | add-slice | refine-slice | reorganize
+# Returns:
+#   0 — mode echoed
+#   1 — defensive reject (e.g., --reorganize with no prior state)
+sf_roadmap_detect_rerun_mode() {
+  local state_exists=0
+  local path
+  path="$(sf_roadmap_state_path)"
+  [[ -f "$path" ]] && state_exists=1
+
+  # Scan args for the first recognized mode flag.
+  local mode_flag=""
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --add-phase|--add-sprint|--add-slice|--refine-slice|--reorganize)
+        mode_flag="$arg"
+        break
+        ;;
+    esac
+  done
+
+  if [[ -z "$mode_flag" ]]; then
+    # No mode flag. Defensive default: "initial" (skill body re-prompts user
+    # for disambiguation when state already exists).
+    echo "initial"
+    return 0
+  fi
+
+  # Mode flag present. --reorganize requires existing state.
+  if [[ "$mode_flag" == "--reorganize" && "$state_exists" == "0" ]]; then
+    sf_log_warn "--reorganize requires prior project-roadmap.json state; refusing"
+    return 1
+  fi
+
+  # Strip leading "--" → mode name.
+  echo "${mode_flag#--}"
+}
+
+# Roadmap state mode (parallel to lib/state.sh's sf_state_mode for the
+# onboarding state file). Returns one of: new | resume | rerun.
+sf_roadmap_state_mode() {
+  local path
+  path="$(sf_roadmap_state_path)"
+  if [[ ! -f "$path" ]]; then
+    echo "new"
+    return 0
+  fi
+  local cp
+  cp="$(jq -r '.checkpoint // ""' "$path")"
+  if [[ "$cp" == "R1.C-complete" ]]; then
+    echo "rerun"
+  else
+    echo "resume"
+  fi
+}
+
+# ----------------------------------------------------------------------------
+# Elapsed-minutes calculator (started_at → now, integer minutes).
+# ----------------------------------------------------------------------------
+sf_roadmap_read_elapsed() {
+  local path
+  path="$(sf_roadmap_state_path)"
+  if [[ ! -f "$path" ]]; then
+    echo 0
+    return 1
+  fi
+  local started
+  started="$(jq -r '.started_at // ""' "$path")"
+  if [[ -z "$started" ]]; then
+    echo 0
+    return 0
+  fi
+  # Parse ISO-8601 UTC timestamp on macOS BSD date and Linux GNU date.
+  local started_epoch now_epoch
+  if started_epoch="$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$started" "+%s" 2>/dev/null)"; then
+    : # BSD date succeeded
+  elif started_epoch="$(date -u -d "$started" +%s 2>/dev/null)"; then
+    : # GNU date succeeded
+  else
+    echo 0
+    return 1
+  fi
+  now_epoch="$(date -u +%s)"
+  echo $(( (now_epoch - started_epoch) / 60 ))
+}
+
+# ----------------------------------------------------------------------------
+# ROADMAP.md renderer (per SPEC §7.1)
+# ----------------------------------------------------------------------------
+# Reads project-roadmap.json and emits markdown to the manifest-resolved
+# path (sf_resolve_output_path "roadmap" "ROADMAP.md"). Idempotent:
+# re-rendering the same state produces a byte-identical file.
+#
+# Idempotent re-render note (per SPEC §13.3 backcompat principle): for v0.2
+# the renderer is **fully deterministic over state JSON** — re-running with
+# unchanged state produces byte-identical output. Preserving user-edited
+# inline content (i.e., partial-overwrite of existing ROADMAP.md) is deferred
+# to v0.3; in v0.2, users who want freeform context appended to ROADMAP.md
+# should keep it in a separate file or wrap it outside the rendered region.
+sf_roadmap_render() {
+  local out_path
+  out_path="$(sf_resolve_output_path "roadmap" "ROADMAP.md")"
+  local state_path
+  state_path="$(sf_roadmap_state_path)"
+  if [[ ! -f "$state_path" ]]; then
+    sf_log_error "roadmap state missing: $state_path"
+    return 1
+  fi
+
+  mkdir -p "$(dirname "$out_path")"
+  local tmp
+  tmp="$(mktemp "${out_path}.XXXXXX")"
+
+  _sf_roadmap_render_to_stdout "$state_path" > "$tmp"
+  mv "$tmp" "$out_path"
+}
+
+# Internal: emit roadmap markdown for a given state file to stdout.
+_sf_roadmap_render_to_stdout() {
+  local state_path="$1"
+
+  local project_name today
+  project_name="$(jq -r '.project_name // "<project>"' "$state_path")"
+  # Use started_at's date prefix for the "Derived on" line so re-renders are
+  # idempotent (not "today's date"). Falls back to the ISO date of started_at.
+  today="$(jq -r '(.started_at // "") | split("T")[0]' "$state_path")"
+  [[ -z "$today" || "$today" == "null" ]] && today="$(date -u +%Y-%m-%d)"
+
+  printf '# ROADMAP — %s\n\n' "$project_name"
+  printf '> Derived from MASTER-SPEC.md by `/plan-roadmap` on %s.\n' "$today"
+  printf '> Co-edited by user + scaffold-dev orchestrator over time.\n\n'
+  printf '## Roadmap overview\n\n'
+  printf '<3-paragraph summary of project shape, with 3-timelines framing>\n\n'
+
+  # Iterate phases in array order. For each phase: walk its sprints in array
+  # order; for each sprint: walk its slices in array order.
+  local phase_count
+  phase_count="$(jq -r '.phases | length' "$state_path")"
+  local i j k
+  for (( i = 0; i < phase_count; i++ )); do
+    local p_id p_name p_horizon p_summary
+    p_id="$(jq -r --argjson i "$i" '.phases[$i].id' "$state_path")"
+    p_name="$(jq -r --argjson i "$i" '.phases[$i].name' "$state_path")"
+    p_horizon="$(jq -r --argjson i "$i" '.phases[$i].horizon' "$state_path")"
+    p_summary="$(jq -r --argjson i "$i" '.phases[$i].summary' "$state_path")"
+
+    printf '## Phase %s: %s — %s\n\n' "$p_id" "$p_name" "$p_horizon"
+    printf '%s\n\n' "$p_summary"
+
+    # Sprints belonging to this phase (phase_id matches).
+    local sprint_count
+    sprint_count="$(jq -r --argjson pid "$p_id" '[.sprints[] | select(.phase_id == $pid)] | length' "$state_path")"
+    for (( j = 0; j < sprint_count; j++ )); do
+      local s_id s_name s_goal
+      s_id="$(jq -r --argjson pid "$p_id" --argjson j "$j" '[.sprints[] | select(.phase_id == $pid)] [$j].id' "$state_path")"
+      s_name="$(jq -r --argjson pid "$p_id" --argjson j "$j" '[.sprints[] | select(.phase_id == $pid)] [$j].name' "$state_path")"
+      s_goal="$(jq -r --argjson pid "$p_id" --argjson j "$j" '[.sprints[] | select(.phase_id == $pid)] [$j].goal' "$state_path")"
+
+      printf '### Sprint %s: %s\n\n' "$s_id" "$s_name"
+      printf '%s\n\n' "$s_goal"
+
+      # Slices belonging to this sprint (sprint_id matches).
+      local slice_count
+      slice_count="$(jq -r --arg sid "$s_id" '[.vertical_slices[] | select(.sprint_id == $sid)] | length' "$state_path")"
+      for (( k = 0; k < slice_count; k++ )); do
+        local v_id v_name v_summary
+        v_id="$(jq -r --arg sid "$s_id" --argjson k "$k" '[.vertical_slices[] | select(.sprint_id == $sid)] [$k].id' "$state_path")"
+        v_name="$(jq -r --arg sid "$s_id" --argjson k "$k" '[.vertical_slices[] | select(.sprint_id == $sid)] [$k].name' "$state_path")"
+        v_summary="$(jq -r --arg sid "$s_id" --argjson k "$k" '[.vertical_slices[] | select(.sprint_id == $sid)] [$k].summary' "$state_path")"
+
+        printf '#### %s: %s\n\n' "$v_id" "$v_name"
+        printf '%s\n\n' "$v_summary"
+
+        # Demo criteria block (always emit the heading; lines if present).
+        printf '##### Demo criteria\n\n'
+        local crit_count
+        crit_count="$(jq -r --arg sid "$s_id" --argjson k "$k" '[.vertical_slices[] | select(.sprint_id == $sid)] [$k].demo_criteria | length' "$state_path")"
+        if [[ "$crit_count" -gt 0 ]]; then
+          jq -r --arg sid "$s_id" --argjson k "$k" \
+            '[.vertical_slices[] | select(.sprint_id == $sid)] [$k].demo_criteria[] | "- [ ] " + .' \
+            "$state_path"
+        else
+          printf -- '- [ ] auto: <command> → expected: <exit code 0 | pattern>\n'
+          printf -- '- [ ] user: <action> → expected: <observable outcome>\n'
+        fi
+        printf '\n'
+      done
+    done
+  done
+}
+
+# ----------------------------------------------------------------------------
+# PLAN T3.2 contract aliases (preserve both naming conventions)
+# ----------------------------------------------------------------------------
+sf_roadmap_init()           { sf_roadmap_state_init "$@"; }
+sf_roadmap_get_checkpoint() { sf_roadmap_read_checkpoint "$@"; }
