@@ -274,6 +274,82 @@ test_e2e_onboarding_project_skill_present() {
   fi
 }
 
+test_e2e_scaffolding_memory_bank_skill_present() {
+  echo "test_e2e_scaffolding_memory_bank_skill_present:"
+  local skill_path="$PLUGIN_ROOT/skills/scaffolding-memory-bank/SKILL.md"
+
+  # 1. SKILL.md exists
+  assert_file_exists "$skill_path"
+  if [[ ! -f "$skill_path" ]]; then
+    return
+  fi
+
+  # 2. Valid YAML frontmatter: starts with ---, has name: scaffolding-memory-bank, has non-empty description
+  local first_line
+  first_line="$(head -n1 "$skill_path")"
+  assert_eq "frontmatter opens with ---" "---" "$first_line"
+
+  if grep -qE '^name:[[:space:]]*scaffolding-memory-bank[[:space:]]*$' "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') frontmatter has name: scaffolding-memory-bank"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') frontmatter missing 'name: scaffolding-memory-bank'"
+  fi
+
+  # Description must be non-empty
+  if awk '/^---$/{c++; next} c==1 && /^description:[[:space:]]*[^[:space:]]/{found=1} END{exit !found}' "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') frontmatter has non-empty description"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') frontmatter description missing or empty"
+  fi
+
+  # 3. Description contains at least 3 of the trigger phrases
+  local desc_block
+  desc_block="$(awk '/^---$/{c++; next} c==1' "$skill_path")"
+  local hits=0
+  for phrase in "memory bank" "scaffold-project" "derive" "set up project memory"; do
+    if echo "$desc_block" | grep -qiF "$phrase"; then
+      hits=$((hits+1))
+    fi
+  done
+  if [[ "$hits" -ge 3 ]]; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') description contains $hits/4 trigger phrases (≥3)"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') description contains only $hits/4 trigger phrases (need ≥3)"
+  fi
+
+  # 4. Body mentions ## Machine-checkable rules (R2 seeding marker)
+  assert_file_contains "$skill_path" "## Machine-checkable rules"
+
+  # 5. Body contains verbatim Karpathy attribution (literal string match; parens would break regex)
+  if grep -qF "Behavioral guidelines inspired by Karpathy's observations (Chang, 2026; MIT)" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') skill body contains verbatim Karpathy attribution"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') skill body missing verbatim Karpathy attribution"
+  fi
+
+  # 6. Body references sf_resolve_output_path (manifest routing helper)
+  assert_file_contains "$skill_path" "sf_resolve_output_path"
+
+  # 7. Body references architect-critic:critiquing-spec (not legacy :critique)
+  assert_file_contains "$skill_path" "architect-critic:critiquing-spec"
+
+  # 8. Body does NOT contain v0.1.3 (drift-resolution sanity)
+  if grep -qF "v0.1.3" "$skill_path"; then
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') skill body contains forbidden 'v0.1.3' reference"
+  else
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') skill body has no 'v0.1.3' references"
+  fi
+
+  # 9. Body uses HTML-sentinel mcrule format (`<!-- mcrule:start`) if it shows any rule example —
+  #    OR contains zero mcrule examples (this skill SEEDS the section, does NOT author rules).
+  #    Forbid the fenced-block alternative (a bare ```mcrule fence) per SPEC §8.2.
+  if grep -qE '^```[[:space:]]*mcrule' "$skill_path"; then
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') skill body uses fenced-block mcrule format (rejected by SPEC §8.2)"
+  else
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') skill body avoids fenced-block mcrule format"
+  fi
+}
+
 test_e2e_fresh_repo_cli
 test_e2e_full_mode
 test_e2e_existing_repo_preserves_user_files
@@ -281,4 +357,5 @@ test_e2e_regenerate_overwrites_docs
 test_e2e_resume_mid_onboarding
 test_e2e_with_composition_mocked
 test_e2e_onboarding_project_skill_present
+test_e2e_scaffolding_memory_bank_skill_present
 report_results
