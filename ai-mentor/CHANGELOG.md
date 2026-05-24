@@ -71,6 +71,19 @@ All 4 wrappers use `$ARGUMENTS` env-var bridge (not `$1`/`$2` positional) per th
 - `.claude-plugin/marketplace.json` — ai-mentor entry description updated to v2.0.
 - Root `README.md` — ai-mentor plugin table row to v2.0.0; "Quick start with ai-mentor" rewritten for natural-language + slash invocation; "compose without overlap" line reframed (was "enforces cognitive mode" → now "decision-making mentor surfaces"); layout section bumped.
 
+### Verified (Phase 7 — automated checks)
+- `bash ai-mentor/tests/test-frontmatter-lint.sh` — GREEN 36/36 (4 skills × 9 checks).
+- Plugin layout matches SPEC §3 (4 skills, 4 commands, 4 test files, README + CHANGELOG + LICENSE + plugin.json).
+- No residual functional references to deleted surfaces in `skills/` or `commands/` (Historian persona examples in `council/SKILL.md` + `council/personas.md` quote `PreToolUse` as historical context — intentional, not active feature usage).
+- Manual smoke per SPEC §9 DoD: deferred to user, run from a fresh Claude Code session post-tag.
+
+### Housekeeping (Phase 7)
+- Added deprecation banner to `docs/SPEC-ai-mentor.md` (v1.3 SPEC, superseded by `docs/SPEC-ai-mentor-v2.md`).
+- Added supersession banner to `docs/HANDOFF-ai-mentor-v14-spec.md` (v1.4 plan reshaped into v2.0 via Phase A grill-me session).
+- Updated project memory: `project_thinking_discipline_content.md` reflects v2.0 reality (cognitive-discipline content folded into grill-me, not standalone skills).
+- Updated project memory: `project_skill_first_retrofit_queue.md` marks ai-mentor done (shipped as v2.0 scope-cut, not skill-first retrofit); 3 plugins remain on queue.
+- New project memory: `project_ai_mentor_v2_grill_settlements.md` captures the 11 grill-session decisions for future-session continuity.
+
 ### Migration from 1.x
 - `~/.claude/ai-mentor/state.json` is no longer used. Safe to delete manually.
 - Slash commands `/z1`, `/z2-decide`, `/z2-build`, `/locked`, `/quiz`, `/improve` will return "command not found". Intentional.

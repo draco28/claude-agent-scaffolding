@@ -338,7 +338,7 @@ vs. v1.3.0's 28 tests (which covered state.sh + hooks — both gone). Net: simil
 - [x] Phase 4 — The Council added (5 personas with Historian codebase variant; SKILL.md + personas.md split; 36/36 lint GREEN)
 - [x] Phase 5 — 4 slash command wrappers (grill-me, eli10, fool, council; all ≤10 lines body; `$ARGUMENTS` env-var bridge)
 - [x] Phase 6 — Metadata + docs rewrite (plugin.json 2.0.0; ai-mentor README full rewrite; marketplace.json + root README updated)
-- [ ] Phase 7 — Verification + v2.0.0 release
+- [~] Phase 7 — Verification + v2.0.0 release (automated verification + housekeeping DONE; tag/push/merge-to-main pending user confirmation; manual smoke per SPEC §9 DoD deferred to user)
 
 ---
 
