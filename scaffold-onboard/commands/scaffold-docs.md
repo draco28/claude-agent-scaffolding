@@ -1,41 +1,32 @@
 ---
-description: Derive governance docs (PRD, SRS, BACKLOG, PROJECT_PLAN, ADR-0001) from MASTER-SPEC.md. --full adds 9 more; --regenerate overwrites existing.
+description: Derive governance docs (PRD/SRS/BACKLOG/PROJECT_PLAN/ADR-0001 + optional --full extensions) from MASTER-SPEC.md
 argument-hint: "[--full] [--regenerate]"
-allowed-tools: Bash(bash:*)
+allowed-tools: Bash(bash:*), Read, Write, Edit, SlashCommand
 ---
 
+Parse flags from `$ARGUMENTS` using the env-var bridge (no positional `$1`/`$2`/`$N`),
+then invoke the `scaffold-onboard:scaffolding-governance-docs` skill. The skill
+body owns MASTER-SPEC validation, base + --full doc derivation, and ADR-0001
+emission per scaffold-onboard SPEC §5.3. PROJECT_PLAN.md output is unchanged
+from v0.1.0 (no rename — per SPEC §5.3 + §13.5; R1 hierarchy lives in
+ROADMAP.md authored by /plan-roadmap).
+
 ```bash
-bash -c '
-set -u
-source "${CLAUDE_PLUGIN_ROOT}/lib/_helpers.sh"
-source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"
-source "${CLAUDE_PLUGIN_ROOT}/lib/parser.sh"
-source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"
-source "${CLAUDE_PLUGIN_ROOT}/lib/docs.sh"
+ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
+  set -u
+  ARGS="${ARGS_FROM_CLAUDE:-}"
+  FULL=$(printf "%s" "$ARGS" | grep -oE -- "--full" | head -1 || true)
+  REGEN=$(printf "%s" "$ARGS" | grep -oE -- "--regenerate" | head -1 || true)
 
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
-if [[ -z "$REPO_ROOT" ]]; then
-  echo "scaffold-onboard: not inside a git repo."
-  exit 1
-fi
-cd "$REPO_ROOT"
-
-if ! sf_spec_validate ./MASTER-SPEC.md; then
-  exit 1
-fi
-
-FLAGS=()
-[[ "$1" == "--full" || "$2" == "--full" ]] && FLAGS+=("--full")
-[[ "$1" == "--regenerate" || "$2" == "--regenerate" ]] && FLAGS+=("--regenerate")
-
-echo "scaffold-docs: deriving governance docs (flags: ${FLAGS[*]:-default})..."
-sf_docs_derive "${FLAGS[@]}"
-
-echo ""
-echo "scaffold-docs: done."
-echo ""
-ls -1 docs/ docs/adr/ 2>/dev/null | head -30
-' -- "${1:-}" "${2:-}"
+  echo "scaffold-docs: ARGS=${ARGS:-<none>}"
+  echo "scaffold-docs: FULL=${FULL:-<unset>}"
+  echo "scaffold-docs: REGENERATE=${REGEN:-<unset>}"
+'
 ```
 
-After running, summarize: how many docs were written, how many preserved, whether LLM-gated docs were generated or skipped.
+Now invoke the skill in-conversation:
+
+**`Skill(scaffold-onboard:scaffolding-governance-docs)`** — pass the parsed flags
+above. The skill body handles `--full` (emit the 9 extension docs in addition
+to the 5 base), `--regenerate` (overwrite existing docs after confirmation),
+and the default no-flag case (idempotent base-doc derivation).
