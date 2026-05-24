@@ -37,6 +37,14 @@ v1.3 was pure-bash (state.sh + hook handlers); v2.0 is pure-skill-markdown with 
 - `skills/grill-me/SKILL.md` frontmatter cleaned to v2.0 contract (name + description only; 867/1024 chars; no `version`, no `when_to_use`). v1.3 references to deleted `/quiz` and `/z2-decide` removed.
 - `test-frontmatter-lint.sh` goes from 6/9 (Phase 1 RED) to 9/9 GREEN.
 
+### Added (Phase 3 — eli10 + fool promoted to skills)
+- `skills/eli10/SKILL.md` — re-explanation skill at descending levels (ELI10 → ELI5 → ELI3). Re-invokable via `Want me to make it simpler?` prompt. Description 621/1024 chars.
+- `skills/fool/SKILL.md` — sticky beginner's-mind mode for the conversation. Distinguishes from eli10 (eli10 = retroactive single-answer simplification; fool = prospective conversation-wide baseline). Description 639/1024 chars.
+- Both skills include defensive negative-fixture clauses (eli10 NOT for first-pass explanations or code walkthroughs; fool NOT for "rewrite from scratch" code intent) to prevent over-firing on ambiguous triggers.
+
+### Test status after Phase 3
+- `test-frontmatter-lint.sh` — GREEN 27/27 across 3 skills (grill-me + eli10 + fool).
+
 ### Migration from 1.x
 - `~/.claude/ai-mentor/state.json` is no longer used. Safe to delete manually.
 - Slash commands `/z1`, `/z2-decide`, `/z2-build`, `/locked`, `/quiz`, `/improve` will return "command not found". Intentional.

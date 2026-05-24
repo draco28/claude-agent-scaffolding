@@ -334,7 +334,7 @@ vs. v1.3.0's 28 tests (which covered state.sh + hooks — both gone). Net: simil
 - [x] Phase 0 — Aggressive deletion baseline (branch `implementation-ai-mentor-v2`)
 - [x] Phase 1 — RED test fixtures (hybrid bash + markdown approach; frontmatter lint failing as predicted on v1.3 grill-me)
 - [x] Phase 2 — grill-me refined (CORE explicit; 4 escape valves in `escape-valves.md`; frontmatter lint GREEN 9/9)
-- [ ] Phase 3 — eli10 + fool promoted
+- [x] Phase 3 — eli10 + fool promoted (2 parallel subagents; 27/27 lint GREEN; defensive negative-fixture clauses added by both subagents)
 - [ ] Phase 4 — The Council added
 - [ ] Phase 5 — 4 slash command wrappers
 - [ ] Phase 6 — Metadata + docs rewrite
