@@ -84,6 +84,18 @@ All 4 wrappers use `$ARGUMENTS` env-var bridge (not `$1`/`$2` positional) per th
 - Updated project memory: `project_skill_first_retrofit_queue.md` marks ai-mentor done (shipped as v2.0 scope-cut, not skill-first retrofit); 3 plugins remain on queue.
 - New project memory: `project_ai_mentor_v2_grill_settlements.md` captures the 11 grill-session decisions for future-session continuity.
 
+### Smoke tested (Phase 7, post-release)
+Six of eight DoD scenarios actively validated in a Claude Code session against the installed v2.0.0:
+- **#2** eli10 auto-invoked on "explain this simpler" without slash command; produced ELI10-level helper-friends analogy.
+- **#4** council fired on "council me on..."; produced 5 markdown-headed sections in exact order with distinguishable in-character voices.
+- **#8** Historian quoted real commit SHAs (`2ccbc7d`, `b0a9bc9`) from this repo's git history; codebase-grounding behavior confirmed.
+- **#1** grill-me activated on "grill me on..."; CORE-flavored posture (curious, not adversarial); ONE question per turn rule held.
+- **#5** separating-concerns escape valve fired correctly on a tangled answer ("can't answer cleanly because every piece touches every other"); pause + split + name-the-5-concerns reframe produced; grilling resumed on the root concern.
+- **#6** widening-confidence-interval escape valve fired correctly on a paralysis-flavored answer ("need to be 100% sure"); 60/40 framing + interval-widening reframe produced; reversibility pressure-test added.
+- **#3** fool + **#7** slash command paths: not actively triggered; acceptable to ship (fool follows same auto-invocation pattern as eli10 which passed; slash commands are zero-logic thin wrappers).
+
+Future-monitoring concerns (not blockers): escape-valve false-positive rate under organic conversation; Historian greenfield path (only priors-rich tested this round); council ↔ grill-me composition feel when run together (worked for testing; flag if production use feels conflicted).
+
 ### Migration from 1.x
 - `~/.claude/ai-mentor/state.json` is no longer used. Safe to delete manually.
 - Slash commands `/z1`, `/z2-decide`, `/z2-build`, `/locked`, `/quiz`, `/improve` will return "command not found". Intentional.
