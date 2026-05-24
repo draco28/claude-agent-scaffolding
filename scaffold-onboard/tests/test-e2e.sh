@@ -547,6 +547,122 @@ test_e2e_planning_project_roadmap_skill_present() {
   fi
 }
 
+test_e2e_authoring_mcrules_skill_present() {
+  echo "test_e2e_authoring_mcrules_skill_present:"
+  local skill_path="$PLUGIN_ROOT/skills/authoring-machine-checkable-rules/SKILL.md"
+
+  # 1. SKILL.md exists
+  assert_file_exists "$skill_path"
+  if [[ ! -f "$skill_path" ]]; then
+    return
+  fi
+
+  # 2. Valid YAML frontmatter: starts with ---, has name: authoring-machine-checkable-rules, has non-empty description
+  local first_line
+  first_line="$(head -n1 "$skill_path")"
+  assert_eq "frontmatter opens with ---" "---" "$first_line"
+
+  if grep -qE '^name:[[:space:]]*authoring-machine-checkable-rules[[:space:]]*$' "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') frontmatter has name: authoring-machine-checkable-rules"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') frontmatter missing 'name: authoring-machine-checkable-rules'"
+  fi
+
+  # Description must be non-empty
+  if awk '/^---$/{c++; next} c==1 && /^description:[[:space:]]*[^[:space:]]/{found=1} END{exit !found}' "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') frontmatter has non-empty description"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') frontmatter description missing or empty"
+  fi
+
+  # 3. Description contains at least 3 trigger phrases (matching SPEC §5.5 triggers)
+  local desc_block
+  desc_block="$(awk '/^---$/{c++; next} c==1' "$skill_path")"
+  local hits=0
+  for phrase in "machine-checkable" "add a project rule" "mcrule" "rule"; do
+    if echo "$desc_block" | grep -qiF "$phrase"; then
+      hits=$((hits+1))
+    fi
+  done
+  if [[ "$hits" -ge 3 ]]; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') description contains $hits/4 trigger phrases (≥3)"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') description contains only $hits/4 trigger phrases (need ≥3)"
+  fi
+
+  # 4. Body contains all 4 rule type names literally (use -qF — names have underscores)
+  local rule_type_hits=0
+  for rt in "banned_imports" "coverage_floor" "style_invariants" "required_pattern"; do
+    if grep -qF "$rt" "$skill_path"; then
+      rule_type_hits=$((rule_type_hits+1))
+    fi
+  done
+  if [[ "$rule_type_hits" -eq 4 ]]; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body names all 4 v0.2 rule types"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body names only $rule_type_hits/4 rule types"
+  fi
+
+  # 5. Body contains HTML-sentinel start marker (use -qF for the literal HTML comment)
+  if grep -qF "<!-- mcrule:start" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body contains HTML-sentinel <!-- mcrule:start grammar"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing HTML-sentinel <!-- mcrule:start grammar"
+  fi
+
+  # 6. Body does NOT use a fenced ```mcrule code-fence as actual DSL grammar.
+  #    Anti-pattern / rejected-alternative mentions are allowed IFF flagged as such
+  #    (parallel to test #9's PROJECT_PLAN.md pattern in the planning-roadmap test).
+  if grep -qF '```mcrule' "$skill_path"; then
+    if grep -F '```mcrule' "$skill_path" | grep -qiE "reject|anti-pattern|do not|never|NOT |invisible|draft.*reject|alternative.*reject"; then
+      PASS=$((PASS+1)); echo "  $(_color_pass '✓') fenced \`\`\`mcrule appears only inside rejected-alternative disclaimer"
+    else
+      FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body contains fenced \`\`\`mcrule grammar without anti-pattern flag"
+    fi
+  else
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body has no fenced \`\`\`mcrule grammar references"
+  fi
+
+  # 7. Body references sf_rules_validate_block (single-block validator — NOT sf_rules_parse for write-validation)
+  if grep -qF "sf_rules_validate_block" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body references sf_rules_validate_block (single-block validator)"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing sf_rules_validate_block reference"
+  fi
+
+  # 8. Body references manifest-aware routing for memory_bank → 03-code-patterns.md
+  if grep -qF "sf_resolve_output_path" "$skill_path" && \
+     grep -qF "memory_bank" "$skill_path" && \
+     grep -qF "03-code-patterns.md" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body references sf_resolve_output_path + memory_bank + 03-code-patterns.md"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing manifest routing pieces (sf_resolve_output_path / memory_bank / 03-code-patterns.md)"
+  fi
+
+  # 9. Body documents extensibility / warn-and-skip on unknown types (§8.5)
+  if grep -qiE "warn.*(skip|unknown)|unknown.*(warn|skip)|skip.*unknown" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body documents warn-and-skip on unknown rule types"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing warn-and-skip / unknown-type extensibility language"
+  fi
+
+  # 10. Body does NOT contain v0.1.3 (drift sanity)
+  if grep -qF "v0.1.3" "$skill_path"; then
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') skill body contains forbidden 'v0.1.3' reference"
+  else
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') skill body has no 'v0.1.3' references"
+  fi
+
+  # 11. Body contains at least one fully-worked example per rule type (count ≥4 <!-- mcrule:start instances)
+  local mcrule_start_count
+  mcrule_start_count="$(grep -cF '<!-- mcrule:start' "$skill_path" || true)"
+  if [[ "$mcrule_start_count" -ge 4 ]]; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body has $mcrule_start_count <!-- mcrule:start examples (≥4 expected)"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body has only $mcrule_start_count <!-- mcrule:start examples (need ≥4)"
+  fi
+}
+
 test_e2e_fresh_repo_cli
 test_e2e_full_mode
 test_e2e_existing_repo_preserves_user_files
@@ -557,4 +673,5 @@ test_e2e_onboarding_project_skill_present
 test_e2e_scaffolding_memory_bank_skill_present
 test_e2e_scaffolding_governance_docs_skill_present
 test_e2e_planning_project_roadmap_skill_present
+test_e2e_authoring_mcrules_skill_present
 report_results
