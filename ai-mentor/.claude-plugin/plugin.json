@@ -1,7 +1,7 @@
 {
   "name": "ai-mentor",
-  "version": "1.3.0",
-  "description": "Cognitive partner — mechanically enforces spotter mode (Curve 2) via PreToolUse hook + state file. Pillar 3 (Gym: /z2-decide /z2-build /locked /quiz) and Pillar 4 (Fool: /eli10 /fool). Replaces the fragile pair-program plugin.",
+  "version": "2.0.0",
+  "description": "Decision-making mentor for project work. Four surfaces: grill-me (one-question-at-a-time plan interrogation with CORE posture + 4 cognitive-discipline escape valves), council (5-persona multi-angle idea validation, Karpathy LLM Council pattern with codebase-aware Historian), eli10 (repeatable simplification), fool (sticky beginner's-mind mode). Skill-first; no hooks, no state machinery.",
   "author": {
     "name": "Pras"
   }

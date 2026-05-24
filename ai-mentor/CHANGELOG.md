@@ -6,7 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-## [2.0.0] — TBD
+## [2.0.0] — 2026-05-24
 
 **Breaking change.** Scope-cut release: ai-mentor now ships only the surfaces the user actually invokes. See `docs/SPEC-ai-mentor-v2.md` for design rationale and `docs/PLAN-ai-mentor-v2.md` for the 8-phase implementation breakdown.
 
@@ -64,6 +64,12 @@ v1.3 was pure-bash (state.sh + hook handlers); v2.0 is pure-skill-markdown with 
 - `commands/fool.md` — rewritten as thin `$ARGUMENTS` wrapper over the fool skill (v1.3 had full behavior inline; v2.0 delegates to skill body).
 
 All 4 wrappers use `$ARGUMENTS` env-var bridge (not `$1`/`$2` positional) per the slash-command template-render fix. Each wrapper is ≤10 lines of body content.
+
+### Changed (Phase 6 — metadata + docs rewrite)
+- `plugin.json` version bumped to 2.0.0; description rewritten to reflect v2.0 surfaces.
+- `README.md` (plugin) — full rewrite. New 4-surface table, "what's inside each skill" briefs, install/migration guidance for v1.x users, hybrid-test approach, composition notes.
+- `.claude-plugin/marketplace.json` — ai-mentor entry description updated to v2.0.
+- Root `README.md` — ai-mentor plugin table row to v2.0.0; "Quick start with ai-mentor" rewritten for natural-language + slash invocation; "compose without overlap" line reframed (was "enforces cognitive mode" → now "decision-making mentor surfaces"); layout section bumped.
 
 ### Migration from 1.x
 - `~/.claude/ai-mentor/state.json` is no longer used. Safe to delete manually.

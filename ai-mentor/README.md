@@ -1,80 +1,72 @@
 # ai-mentor
 
-Cognitive-partner Claude Code plugin. Replaces the fragile `pair-program` plugin with **mechanical enforcement** of spotter mode.
+> Decision-making mentor for project work. The user owns the decisions; ai-mentor provides the prompts, simplifications, interrogations, and perspectives that make decisions sharper. AI never decides for the user; AI helps the user decide.
 
-## What it does
+**v2.0.0** is a scope-cut release. v1.x shipped a 4-pillar cognitive-partner framework with mechanical edit-blocking hooks, a quiz protocol, prompt rewriting, and ~620 tokens of per-session protocol injection. In ~12 months of v1.x use, only one surface (`grill-me`) actually earned its keep. v2.0 deletes everything that didn't, sharpens `grill-me` with cognitive-discipline content, promotes the two simpler surfaces that still see use, and adds one new surface (`council`) for multi-angle idea validation.
 
-The plugin treats two kinds of work differently:
+See [`docs/SPEC-ai-mentor-v2.md`](../docs/SPEC-ai-mentor-v2.md) for full design rationale and [`docs/PLAN-ai-mentor-v2.md`](../docs/PLAN-ai-mentor-v2.md) for the 8-phase implementation breakdown.
 
-- **Curve 1** (capped payoff — boilerplate, glue, mechanical tasks): AI does it for you. No friction.
-- **Curve 2** (uncapped payoff — decisions, architecture, learning): AI is a *spotter* — it adds friction so you do the rep yourself.
+## The four surfaces
 
-A `PreToolUse` hook physically blocks `Edit` / `Write` / `NotebookEdit` when you're in Curve 2 mode, unless you signal an override. State lives in `~/.claude/ai-mentor/state.json`.
-
-## Two sub-modes for Curve 2
-
-| Mode | Use case | Hook unblocks when |
+| Skill | Shape | When it fires |
 |---|---|---|
-| `/z2-decide` | Daily/work coding — you make the decisions, AI implements | You run `/locked` to signal decisions are finalized |
-| `/z2-build` | Personal/learning — you type the code yourself, AI hints | Inline override phrases ("show me", "skip to solution") in your message |
+| **`grill-me`** | Interactive, one question at a time, walks the decision tree | "grill me on this plan", "pressure-test this", "challenge my design", "poke holes", "what am I missing" |
+| **`council`** | One-shot, 5 advisor personas in a single response, Chairman-synthesis at end | "council me on this", "is this a good idea?", "validate this from multiple angles", "should I do X?" |
+| **`eli10`** | Re-explain the current topic simpler (ELI10 → ELI5 → ELI3) | "explain in simpler terms", "I don't get it", "make it simpler", "too complex" |
+| **`fool`** | Sticky beginner's-mind mode for the whole conversation | "consider me a beginner", "no jargon", "beginner's mind", "explain like I'm new to this" |
 
-## Slash commands
+All four auto-invoke on natural-language triggers — no slash command required. Slash commands (`/grill-me`, `/council`, `/eli10`, `/fool`) exist as explicit handles for the moments you want to be unambiguous.
 
-| Command | Effect |
-|---|---|
-| `/z1` | Pure delegation — hook is no-op. AI works freely. |
-| `/z2-decide` | Curve 2 / decide mode — block edits until `/locked`. |
-| `/z2-build` | Curve 2 / build mode — block edits unless inline override. |
-| `/locked` (alias `/implement`) | Decisions locked; flip to Z1 and let AI implement. |
-| `/quiz l1`..`l4` | Socratic quiz mode at depth (high-school → college → exec → adversarial). |
-| `/quiz off` | Exit quiz mode. |
-| `/eli10` | Explain Like I'm 10 — repeatable for further simplification. |
-| `/fool` | Beginner's-mind mode — no-jargon ground-truth explanations. |
-| `/improve <draft>` | Rewrite a vague natural-language prompt into a structured coding-agent prompt. Pass-through for already-well-formed drafts. Always asks for confirmation before acting on the rewrite. |
+## What's inside each skill
 
-## Sibling skills (auto-triggered, no slash command)
+**`grill-me`** — Senior-peer interrogation with **CORE posture** (Curiosity → Objectivity → Reassurance → Empathy). One question per turn, surface don't lecture, recommend only when asked, explore before asking. Walks 7 categories: requirements & users, assumptions, edge cases & failure modes, trade-offs, operability, composition, reversibility. Detects stuck-state mid-grill and applies one of 4 **escape valves** (`separating-concerns`, `widening-confidence-interval`, `asking-identity-question`, `widening-time-horizon`) before resuming. Exits with a "Locked / Open / Worth re-checking" summary.
 
-| Skill | Trigger phrases | What it does |
-|---|---|---|
-| `grill-me` | "grill me", "stress-test this", "challenge my design", "poke holes", "what am I missing", "play devil's advocate", "tear this apart" | Interrogates a plan or design one question at a time. Walks the design tree across seven categories (requirements / assumptions / edge cases / trade-offs / operability / composition / reversibility), exits cleanly on user signal or convergence with a summary of locked decisions and open issues. Distinct from `/quiz` — `/quiz` tests known material; `grill-me` surfaces unmade decisions. |
+**`council`** — Karpathy's LLM Council pattern, with one variant: the canonical "Expansionist" persona is replaced by **The Historian**, a codebase-aware seat that greps your git history and quotes specific commits/files. The five personas (in fixed order: Contrarian, First Principles Thinker, Outsider, Executor, Historian) each give a 2-3 paragraph in-character take on your idea, then prompt you (as Chairman) for synthesis.
 
-## Override grammar (in `/z2-build`)
+**`eli10`** — Re-explanation, not first-explanation. Assumes there's a current topic on the table. Each re-invocation drops a level: ELI10 (concrete analogies, short sentences) → ELI5 (story shape, no abstractions) → ELI3 (everyday objects only, two sentences max). Ends with `Want me to make it simpler?` so you can re-invoke without remembering the slash command.
 
-Phrases in your most recent message that unblock the hook for the next edit:
-
-- `z1`, `just write it`, `just do it`
-- `skip to solution`, `show me`, `just show me the code`
-- `/locked` (treat as one-shot transactional unblock)
+**`fool`** — Sticky mode lasting the whole conversation. No assumed background, surface vocabulary as introduced, welcome obvious questions, model the same beginner's mind yourself. Distinct from `eli10`: `eli10` is retroactive single-answer simplification; `fool` is prospective conversation-wide baseline.
 
 ## Install
 
 ```
-/plugin marketplace add github:<user>/claude-agent-scaffolding
+/plugin marketplace add github:draco28/claude-agent-scaffolding
 /plugin install ai-mentor@claude-agent-scaffolding
 ```
 
-## Subagent scope
+For local development:
 
-The PreToolUse hook fires on the main session's edits, not on subagent tool calls. Treat zone enforcement as a discipline on the main agent. In `/z2-decide` or `/z2-build`, the main agent's protocol already discourages spawning implementation subagents that would bypass the spotter; if you genuinely need one, run `/z1` or `/locked` first. See SKILL.md for the full rationale.
+```
+/plugin marketplace add /Volumes/master_ssd/projects/claude-agent-scaffolding
+/plugin install ai-mentor@claude-agent-scaffolding
+```
 
-## Platforms
+## Migrating from v1.x
 
-**Linux and macOS only.** Hook scripts are bash + `jq`; no PowerShell / `.bat` flavor ships. Windows support is deferred (would require porting `lib/state.sh` and the two hook handlers). Track at SPEC `B3`.
+v2.0 is a breaking change. If you were on v1.x:
 
-## Dependencies
-
-- bash (POSIX)
-- `jq` (for parsing the transcript file and state JSON)
-
-If `jq` is missing, the hook fails open — edits are allowed but enforcement is disabled. The plugin never bricks your Claude Code session.
+- **Removed surfaces**: `/z1`, `/z2-decide`, `/z2-build`, `/locked` (zone enforcement); `/quiz` (Socratic quiz); `/improve` (prompt rewriter). Hooks (`PreToolUse`, `SessionStart`) and state file (`state.json`) are gone with them. Slash commands return "command not found" — intentional.
+- **No data migration needed**. `~/.claude/ai-mentor/state.json` is no longer used; safe to delete manually.
+- **What survives**: `grill-me` (refined), `eli10` (promoted to skill, slash kept), `fool` (promoted to skill, slash kept). All three behave as before, with `eli10` and `fool` now auto-invoking on natural-language triggers in addition to their slash commands.
+- **What's new**: `council` skill.
 
 ## Tests
 
-`bash ai-mentor/tests/test-hooks.sh` runs 28 hook regression tests in isolation (tempfile state, never touches your real plugin data). See `tests/README.md` for details.
+```
+bash ai-mentor/tests/test-frontmatter-lint.sh
+```
 
-## State location
+Bash automation verifies the v2.0 frontmatter contract (2 fields only, ≤1024 chars, no `version`, no `when_to_use`, kebab-case names). No `jq`/`yq` dependencies; bash 3.2+ and `awk` only.
 
-`${CLAUDE_PLUGIN_DATA}/state.json` (resolves to `~/.claude/plugins/data/ai-mentor-claude-agent-scaffolding/state.json` on most installs). Survives plugin updates. If `${CLAUDE_PLUGIN_DATA}` is unavailable in the hook context, falls back to `~/.claude/ai-mentor/state.json`. State resets to `ambient` on `startup` and `clear` SessionStart sources; preserved through `resume` and `compact`.
+LLM-behavior fixtures (skill auto-invocation, grill-me escape valves, council 5-persona output) live in markdown checklists at `tests/test-skill-triggers.md`, `tests/test-grill-escape-valves.md`, `tests/test-council-personas.md`. Walk them by hand in a fresh Claude session, or paste into a Claude Code session and ask it to run each fixture. See [`tests/README.md`](./tests/README.md) for the full hybrid-test rationale.
+
+## Composition with other plugins
+
+ai-mentor stays orthogonal — no manifest dependencies, no shared state. Other plugins (scaffold-onboard, architect-critic, scaffold) probe for ai-mentor's surfaces via natural-language invocation in their own workflows; ai-mentor itself doesn't probe back. Don't run `grill-me` and `council` in the same session (different interaction shapes — pick one).
+
+## Platforms
+
+Linux and macOS. The only bash code that ships is the optional `tests/test-frontmatter-lint.sh` lint, which is POSIX-friendly. Windows works for the skills and commands themselves; only the test script needs a bash shell.
 
 ## License
 
