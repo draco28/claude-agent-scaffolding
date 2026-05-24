@@ -28,16 +28,18 @@ State (relevant portion for suppression):
 
 ```json
 {
-  "schema_version": 1,
-  "in_flight": [],
+  "schema_version": 2,
   "recent_runs": [],
   "principle_promotions": [],
   "candidate_promotions": [],
-  "declined_candidates": [
+  "declined_candidates": [],
+  "auto_promote_suppressions": [
     {
+      "fingerprint": "sha256-of-dont-add-fallbacks-for-scenarios-that-cant-happen",
       "text": "Don't add fallbacks for scenarios that can't happen",
-      "declined_at": "2026-05-15T10:22:00Z",
-      "suppress_until": "2026-06-14T10:22:00Z"
+      "suppressed_at": "2026-05-15T10:22:00Z",
+      "expires_at": "2026-06-14T10:22:00Z",
+      "reason_score": 4
     }
   ]
 }
