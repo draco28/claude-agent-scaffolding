@@ -19,6 +19,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `skills/ai-mentor/SKILL.md` — 171-line zone reference (~80% obsolete; surviving framing moves to README in Phase 6).
 - `tests/test-hooks.sh` — 28 regression tests for state + hooks (both gone).
 
+### Added (Phase 1 — RED test scaffolding)
+- `tests/test-frontmatter-lint.sh` — bash automation for the v2.0 frontmatter contract (`name`+`description` only, ≤1024 chars, no `version`, no `when_to_use`, `name` kebab-case). POSIX-friendly (bash 3.2+, awk only — no jq/yq).
+- `tests/test-skill-triggers.md` — 18 markdown fixtures for skill auto-invocation (grill-me / eli10 / fool / council, including negative tests like "let's grill chicken").
+- `tests/test-grill-escape-valves.md` — 4 stuck-state fixtures (tangled / paralyzed / tactical-framing / no-timescale) for grill-me's cognitive-discipline escape valves.
+- `tests/test-council-personas.md` — 10 fixtures for The Council output (5-persona structure + in-character markers + Historian greenfield vs priors-rich context modes).
+- Rewrote `tests/README.md` documenting the hybrid test approach: bash automates the cheap structural checks; markdown checklists capture LLM-behavior fixtures honestly. `claude --print` automation noted as future work post-v2.0.
+
+### Testing approach (v2.0)
+v1.3 was pure-bash (state.sh + hook handlers); v2.0 is pure-skill-markdown with no bash code at all. The test surface changes fundamentally — most of the contract lives in LLM behavior, which bash can't natively dispatch. Picked **hybrid Option C**: bash automates the deterministic checks (~80% of the v2.0 contract is actually structural), markdown checklists capture the LLM-behavior fixtures without overclaiming automation.
+
 ### Migration from 1.x
 - `~/.claude/ai-mentor/state.json` is no longer used. Safe to delete manually.
 - Slash commands `/z1`, `/z2-decide`, `/z2-build`, `/locked`, `/quiz`, `/improve` will return "command not found". Intentional.
