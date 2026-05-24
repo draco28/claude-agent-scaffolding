@@ -793,6 +793,98 @@ test_e2e_authoring_vs_demo_skill_present() {
   fi
 }
 
+test_e2e_validating_master_spec_skill_present() {
+  echo "test_e2e_validating_master_spec_skill_present:"
+  local skill_path="$PLUGIN_ROOT/skills/validating-master-spec/SKILL.md"
+
+  # 1. SKILL.md exists
+  assert_file_exists "$skill_path"
+  if [[ ! -f "$skill_path" ]]; then
+    return
+  fi
+
+  # 2. Valid YAML frontmatter: starts with ---, has name: validating-master-spec, non-empty description
+  local first_line
+  first_line="$(head -n1 "$skill_path")"
+  assert_eq "frontmatter opens with ---" "---" "$first_line"
+
+  if grep -qE '^name:[[:space:]]*validating-master-spec[[:space:]]*$' "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') frontmatter has name: validating-master-spec"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') frontmatter missing 'name: validating-master-spec'"
+  fi
+
+  if awk '/^---$/{c++; next} c==1 && /^description:[[:space:]]*[^[:space:]]/{found=1} END{exit !found}' "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') frontmatter has non-empty description"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') frontmatter description missing or empty"
+  fi
+
+  # 3. Description contains at least 3 trigger phrases (per SPEC §5.7)
+  local desc_block
+  desc_block="$(awk '/^---$/{c++; next} c==1' "$skill_path")"
+  local hits=0
+  for phrase in "validate" "MASTER-SPEC" "ready for derivation" "check the spec"; do
+    if echo "$desc_block" | grep -qiF "$phrase"; then
+      hits=$((hits+1))
+    fi
+  done
+  if [[ "$hits" -ge 3 ]]; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') description contains $hits/4 trigger phrases (≥3)"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') description contains only $hits/4 trigger phrases (need ≥3)"
+  fi
+
+  # 4. Body contains the VERBATIM success message from SPEC §5.7
+  if grep -qF "MASTER-SPEC valid. Ready for \`/scaffold-project\` and \`/scaffold-docs\`." "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body contains verbatim success message"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing verbatim success message 'MASTER-SPEC valid. Ready for \`/scaffold-project\` and \`/scaffold-docs\`.'"
+  fi
+
+  # 5. Body references sf_spec_validate (lib/parser.sh helper)
+  if grep -qF "sf_spec_validate" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body references sf_spec_validate (lib/parser.sh)"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing sf_spec_validate reference"
+  fi
+
+  # 6. Body references sf_resolve_output_path (manifest-aware routing)
+  if grep -qF "sf_resolve_output_path" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body references sf_resolve_output_path (routing)"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing sf_resolve_output_path reference"
+  fi
+
+  # 7. Body cites v0.1.0 SPEC §6.5 OR lib/parser.sh as authority for the 7 validation rules
+  if grep -qE "(v0\.1\.0[^,]*§6\.5|§6\.5[^,]*v0\.1\.0|lib/parser\.sh)" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body cites v0.1.0 SPEC §6.5 or lib/parser.sh as authority"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing authority citation for 7 validation rules"
+  fi
+
+  # 8. Body documents error format with line number + remediation hint
+  if grep -qiE "line number" "$skill_path" && grep -qiE "remediation" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body documents error format (line number + remediation)"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing error format docs (need line number + remediation)"
+  fi
+
+  # 9. Body does NOT contain v0.1.3 (drift sanity)
+  if grep -qF "v0.1.3" "$skill_path"; then
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') skill body contains forbidden 'v0.1.3' reference"
+  else
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') skill body has no 'v0.1.3' references"
+  fi
+
+  # 10. Body references the phase marker HTML-comment syntax (for S3 remediation hint context)
+  if grep -qF "<!-- master-spec:phase id=" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body references phase marker syntax '<!-- master-spec:phase id='"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing phase marker syntax reference"
+  fi
+}
+
 test_e2e_fresh_repo_cli
 test_e2e_full_mode
 test_e2e_existing_repo_preserves_user_files
@@ -805,4 +897,5 @@ test_e2e_scaffolding_governance_docs_skill_present
 test_e2e_planning_project_roadmap_skill_present
 test_e2e_authoring_mcrules_skill_present
 test_e2e_authoring_vs_demo_skill_present
+test_e2e_validating_master_spec_skill_present
 report_results
