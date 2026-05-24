@@ -55,6 +55,16 @@ v1.3 was pure-bash (state.sh + hook handlers); v2.0 is pure-skill-markdown with 
 - `test-frontmatter-lint.sh` — GREEN 36/36 across 4 skills (grill-me + eli10 + fool + council).
 - All structural fixtures in `test-council-personas.md` + `test-skill-triggers.md` (council section) should pass once Phase 5 slash wrappers land; manual fixture walks scheduled for Phase 7.
 
+### Added (Phase 5 — slash command wrappers)
+- `commands/grill-me.md` (NEW) — thin `$ARGUMENTS` wrapper invoking the grill-me skill. Argument-hint: `[plan or design to grill]`.
+- `commands/council.md` (NEW) — thin `$ARGUMENTS` wrapper invoking the council skill. Argument-hint: `[idea or decision to validate]`.
+
+### Changed (Phase 5)
+- `commands/eli10.md` — rewritten as thin `$ARGUMENTS` wrapper over the eli10 skill (v1.3 had full behavior inline; v2.0 delegates to skill body).
+- `commands/fool.md` — rewritten as thin `$ARGUMENTS` wrapper over the fool skill (v1.3 had full behavior inline; v2.0 delegates to skill body).
+
+All 4 wrappers use `$ARGUMENTS` env-var bridge (not `$1`/`$2` positional) per the slash-command template-render fix. Each wrapper is ≤10 lines of body content.
+
 ### Migration from 1.x
 - `~/.claude/ai-mentor/state.json` is no longer used. Safe to delete manually.
 - Slash commands `/z1`, `/z2-decide`, `/z2-build`, `/locked`, `/quiz`, `/improve` will return "command not found". Intentional.
