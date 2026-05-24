@@ -5,14 +5,15 @@
 set -u
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+TESTS_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PLUGIN_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # shellcheck source=tests/_helpers.sh
-source "$SCRIPT_DIR/_helpers.sh"
+source "$TESTS_DIR/_helpers.sh"
 source "$PLUGIN_ROOT/lib/_helpers.sh"
 source "$PLUGIN_ROOT/lib/scorer.sh"
 
-SPEC_PATH="$SCRIPT_DIR/fixtures/master-specs/tiny-spec.md"
+SPEC_PATH="$TESTS_DIR/fixtures/master-specs/tiny-spec.md"
 
 echo "=== test-scorer.sh ==="
 
