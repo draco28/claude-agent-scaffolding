@@ -1,9 +1,14 @@
 {
   "name": "scaffold-onboard",
-  "version": "0.1.0",
-  "description": "Project onboarding via 10-phase guided conversation. Authors MASTER-SPEC.md as source of truth; derives 11-file memory-bank and 5/14 governance docs. Composes with ai-mentor (cognitive mode) and architect-critic (anti-sycophancy reviews) at Phase 5, Phase 7, and MASTER-SPEC close.",
+  "version": "0.2.0",
+  "description": "Project onboarding via skill-first composition. Authors MASTER-SPEC + project roadmap (Phase → Sprint → Vertical Slice) + machine-checkable rules + demo criteria. Composes with workspace-init (manifest routing), ai-mentor (cognitive mode), architect-critic (in-conversation review), superpowers (workflow).",
   "author": {
     "name": "Pras"
   },
-  "category": "workflow"
+  "category": "workflow",
+  "composition": {
+    "consumes": ["workspace-init.manifest"],
+    "invokes": ["architect-critic:critiquing-spec", "ai-mentor:grill-me"],
+    "produces": ["MASTER-SPEC.md", "EXECUTIVE-SUMMARY.md", "memory-bank/*", "CLAUDE.md", "governance-docs/*", "ROADMAP.md"]
+  }
 }
