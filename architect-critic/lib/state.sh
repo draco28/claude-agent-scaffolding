@@ -1,16 +1,29 @@
 #!/usr/bin/env bash
-# lib/state.sh — state.json CRUD for architect-critic (Phase B, Task TB.1)
+# lib/state.sh — state.json CRUD for architect-critic (schema v2, Phase 3)
 # macOS bash 3.2 portable; no declare -A; explicit lock release before each return.
+#
+# Schema v2 (SPEC §6.1):
+#   {
+#     "schema_version": 2,
+#     "recent_runs": [ {request_id, completed_at, depth, adversaries_used[],
+#                       challenge_count, concessions, skill_invoked, elapsed_ms} ],
+#     "principle_promotions": [...],
+#     "candidate_promotions": [...],
+#     "declined_candidates": [...],
+#     "auto_promote_suppressions": [ {fingerprint, suppressed_at, expires_at, reason_score} ]
+#   }
+# v2 changes vs v1: drops the per-request in-flight tracker and per-run USD field;
+# adds concessions + skill_invoked to recent_runs; adds auto_promote_suppressions[].
 
 # Returns the absolute path to state.json.
 ac_state_path() {
   echo "$(ac_data_dir)/state.json"
 }
 
-# Initialise state.json with an empty schema if it does not already exist.
+# Initialise state.json with an empty schema v2 if it does not already exist.
 # If file exists (any schema_version), leave it untouched. When the on-disk
-# schema_version is higher than what this build knows (1), log info and preserve
-# — forward-compatibility tolerance (Phase F TF.4).
+# schema_version is higher than what this build knows (2), log info and preserve
+# — forward-compatibility tolerance.
 ac_state_init() {
   local state_file
   state_file="$(ac_state_path)"
@@ -18,11 +31,11 @@ ac_state_init() {
   data_dir="$(ac_data_dir)"
   if [[ ! -f "$state_file" ]]; then
     mkdir -p "$data_dir"
-    printf '%s\n' '{"schema_version":1,"in_flight":[],"recent_runs":[],"principle_promotions":[],"candidate_promotions":[],"declined_candidates":[]}' > "$state_file"
+    printf '%s\n' '{"schema_version":2,"recent_runs":[],"principle_promotions":[],"candidate_promotions":[],"declined_candidates":[],"auto_promote_suppressions":[]}' > "$state_file"
   else
     local on_disk_ver
     on_disk_ver="$(jq -r '.schema_version // 0' "$state_file" 2>/dev/null || echo 0)"
-    if [[ "$on_disk_ver" -gt 1 ]] 2>/dev/null; then
+    if [[ "$on_disk_ver" -gt 2 ]] 2>/dev/null; then
       ac_log_info "state.json has future schema_version=${on_disk_ver}; preserving without modification"
     fi
   fi
@@ -53,69 +66,42 @@ ac_state_write_field() {
   return $rc
 }
 
-# Append an in_flight marker to state.json.
-# Args: <request_id> <depth> <phase_id|null>
-# phase_id should be passed as a JSON-compatible value: an integer string or the literal "null".
-ac_state_append_in_flight() {
+# Append a completed run to recent_runs (schema v2), then trim to the last 20 entries.
+# Args: <request_id> <depth> <adversaries_used_json> <challenge_count> <concessions> <skill_invoked> <elapsed_ms>
+#   adversaries_used_json: a JSON array literal, e.g. '["claude"]' or '["claude","codex"]'
+ac_state_append_run() {
   local request_id="$1"
   local depth="$2"
-  local phase_id_raw="$3"
-  local state_file lock_path started_at
+  local adversaries_json="$3"
+  local challenge_count="$4"
+  local concessions="$5"
+  local skill_invoked="$6"
+  local elapsed_ms="$7"
+  local state_file lock_path completed_at
   state_file="$(ac_state_path)"
   lock_path="$(ac_data_dir)/state.lock"
-  started_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")"
-
-  # Determine if phase_id is the literal string "null" or an integer
-  local phase_id_json
-  if [[ "$phase_id_raw" == "null" ]]; then
-    phase_id_json="null"
-  else
-    phase_id_json="$phase_id_raw"
-  fi
+  completed_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
   ac_lock_acquire "$lock_path" || return 1
   ac_guarded_jq_write "$state_file" \
     --arg rid "$request_id" \
+    --arg cat "$completed_at" \
     --arg dep "$depth" \
-    --arg sat "$started_at" \
-    --argjson pid "$phase_id_json" \
-    '.in_flight += [{"request_id":$rid,"started_at":$sat,"depth":$dep,"phase_id":$pid}]' \
-    "$state_file"
-  local rc=$?
-  ac_lock_release "$lock_path"
-  return $rc
-}
-
-# Remove an in_flight entry by request_id.
-# Args: <request_id>
-ac_state_remove_in_flight() {
-  local request_id="$1"
-  local state_file lock_path
-  state_file="$(ac_state_path)"
-  lock_path="$(ac_data_dir)/state.lock"
-
-  ac_lock_acquire "$lock_path" || return 1
-  ac_guarded_jq_write "$state_file" \
-    --arg rid "$request_id" \
-    '.in_flight = [.in_flight[] | select(.request_id != $rid)]' \
-    "$state_file"
-  local rc=$?
-  ac_lock_release "$lock_path"
-  return $rc
-}
-
-# Append a completed run to recent_runs, then trim to the last 20 entries.
-# Args: <run_json>  (a valid JSON object matching the recent_runs schema)
-ac_state_append_recent_run() {
-  local run_json="$1"
-  local state_file lock_path
-  state_file="$(ac_state_path)"
-  lock_path="$(ac_data_dir)/state.lock"
-
-  ac_lock_acquire "$lock_path" || return 1
-  ac_guarded_jq_write "$state_file" \
-    --argjson run "$run_json" \
-    '.recent_runs = ((.recent_runs + [$run]) | if length > 20 then .[-20:] else . end)' \
+    --argjson adv "$adversaries_json" \
+    --argjson cc "$challenge_count" \
+    --argjson con "$concessions" \
+    --arg skl "$skill_invoked" \
+    --argjson elm "$elapsed_ms" \
+    '.recent_runs = ((.recent_runs + [{
+       "request_id": $rid,
+       "completed_at": $cat,
+       "depth": $dep,
+       "adversaries_used": $adv,
+       "challenge_count": $cc,
+       "concessions": $con,
+       "skill_invoked": $skl,
+       "elapsed_ms": $elm
+     }]) | if length > 20 then .[-20:] else . end)' \
     "$state_file"
   local rc=$?
   ac_lock_release "$lock_path"
@@ -165,6 +151,49 @@ ac_state_append_declined() {
     --arg da "$declined_at" \
     --arg su "$suppress_until" \
     '.declined_candidates += [{"text":$txt,"declined_at":$da,"suppress_until":$su}]' \
+    "$state_file"
+  local rc=$?
+  ac_lock_release "$lock_path"
+  return $rc
+}
+
+# Append an auto-promote suppression entry by fingerprint.
+# Args: <fingerprint> <reason_score>
+#   fingerprint: opaque string identifying the candidate (caller computes SHA-256)
+#   reason_score: integer 4 → 30-day window; 5 → 90-day window
+# Uses BSD date arithmetic (date -u -v+30d) for macOS portability.
+ac_state_add_suppression() {
+  local fingerprint="$1"
+  local reason_score="$2"
+  local state_file lock_path suppressed_at expires_at days
+  state_file="$(ac_state_path)"
+  lock_path="$(ac_data_dir)/state.lock"
+  suppressed_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+  case "$reason_score" in
+    5) days=90 ;;
+    4) days=30 ;;
+    *)
+      ac_log_warn "ac_state_add_suppression: reason_score=$reason_score not in {4,5}; defaulting to 30-day window"
+      days=30
+      ;;
+  esac
+
+  # BSD date: parse suppressed_at then add N days. -j = no set, -f = input format.
+  expires_at="$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$suppressed_at" "-v+${days}d" +"%Y-%m-%dT%H:%M:%SZ")"
+
+  ac_lock_acquire "$lock_path" || return 1
+  ac_guarded_jq_write "$state_file" \
+    --arg fp "$fingerprint" \
+    --arg sa "$suppressed_at" \
+    --arg ea "$expires_at" \
+    --argjson rs "$reason_score" \
+    '.auto_promote_suppressions += [{
+       "fingerprint": $fp,
+       "suppressed_at": $sa,
+       "expires_at": $ea,
+       "reason_score": $rs
+     }]' \
     "$state_file"
   local rc=$?
   ac_lock_release "$lock_path"
