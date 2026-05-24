@@ -2,10 +2,11 @@
 # test-principles.sh — tests for lib/principles.sh (Phase B, Task TB.2)
 set -u
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PLUGIN_ROOT="$(cd "$TESTS_DIR/.." && pwd)"
+SCRIPT_DIR="$TESTS_DIR"  # backward-compat for fixtures path below
 
-source "$SCRIPT_DIR/_helpers.sh"
+source "$TESTS_DIR/_helpers.sh"
 source "$PLUGIN_ROOT/lib/_helpers.sh"
 source "$PLUGIN_ROOT/lib/principles.sh"
 
@@ -236,5 +237,206 @@ export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
 PFILE="$(ac_principles_path)"
 ac_principles_seed   # install-time path
 assert_file_contains "$PFILE" "Prefer explicit over implicit"
+
+# ===========================================================================
+# v0.2 Phase 3.2: shipped-default tag + merge order (HTML-comment contract)
+# ===========================================================================
+
+echo ""
+echo "=== v0.2 Phase 3.2: shipped-default + merge order ==="
+
+# Helper: write a user-global principles.md with one user-promoted principle
+# (HTML-comment-tagged) and (optionally) a project-scoped principles.md.
+_v02_setup_user_global() {
+  local pfile
+  pfile="$(ac_principles_user_path)"
+  mkdir -p "$(dirname "$pfile")"
+  cat > "$pfile" <<'EOF'
+# Architect-critic principles (user-global)
+
+## Your principles (user-promoted)
+
+<!-- source: user-promoted, promoted_at: 2026-05-22T10:00:00Z, principle_id: pp-user1 -->
+- **User promoted principle one:** explicit beats implicit in all configs.
+EOF
+}
+
+_v02_setup_project() {
+  local pfile
+  pfile="$(ac_principles_project_path)"
+  [[ -z "$pfile" ]] && return 0
+  mkdir -p "$(dirname "$pfile")"
+  cat > "$pfile" <<'EOF'
+# Architect-critic principles (project)
+
+## Project principles (scope=project)
+
+<!-- source: project, promoted_at: 2026-05-23T11:00:00Z, principle_id: pp-proj1 -->
+- **Project principle one:** YAML uses 2-space indent in this repo.
+EOF
+}
+
+# Override HOME to the per-test tmp dir so user-global path is isolated.
+_v02_isolate_home() {
+  export HOME="$TMP_DIR/home"
+  mkdir -p "$HOME/.claude/architect-critic"
+}
+
+# ---------------------------------------------------------------------------
+# v0.2 T1: parse HTML comment meta keys (source / principle_id / promoted_at)
+# ---------------------------------------------------------------------------
+echo "--- v0.2 T1: ac_principles_parse_meta extracts keys correctly ---"
+setup_tmp_repo > /dev/null
+_v02_isolate_home
+tmp_meta_file="$TMP_DIR/meta-fixture.md"
+cat > "$tmp_meta_file" <<'EOF'
+# header
+
+<!-- source: user-promoted, promoted_at: 2026-05-22T10:00:00Z, principle_id: pp-abc123 -->
+- **Some user principle:** body text here.
+
+<!-- source: shipped-default, principle_id: pp-ghost-notes -->
+- **Ghost notes:** Look for what is absent.
+EOF
+
+meta_out="$(ac_principles_parse_meta "$tmp_meta_file")"
+# Expect 2 JSON lines
+line_count="$(printf '%s\n' "$meta_out" | grep -c '^{')"
+assert_eq "parse_meta emits 2 JSON lines for 2 principles" "2" "$line_count"
+
+src1="$(printf '%s\n' "$meta_out" | sed -n '1p' | jq -r '.source')"
+assert_eq "parse_meta first source=user-promoted" "user-promoted" "$src1"
+
+pid1="$(printf '%s\n' "$meta_out" | sed -n '1p' | jq -r '.principle_id')"
+assert_eq "parse_meta first principle_id=pp-abc123" "pp-abc123" "$pid1"
+
+prom1="$(printf '%s\n' "$meta_out" | sed -n '1p' | jq -r '.promoted_at')"
+assert_eq "parse_meta first promoted_at" "2026-05-22T10:00:00Z" "$prom1"
+
+src2="$(printf '%s\n' "$meta_out" | sed -n '2p' | jq -r '.source')"
+assert_eq "parse_meta second source=shipped-default" "shipped-default" "$src2"
+
+pid2="$(printf '%s\n' "$meta_out" | sed -n '2p' | jq -r '.principle_id')"
+assert_eq "parse_meta second principle_id=pp-ghost-notes" "pp-ghost-notes" "$pid2"
+
+# ---------------------------------------------------------------------------
+# v0.2 T2: shipped defaults preserved on merge
+# ---------------------------------------------------------------------------
+echo "--- v0.2 T2: ac_principles_merge preserves shipped defaults ---"
+setup_tmp_repo > /dev/null
+_v02_isolate_home
+export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
+_v02_setup_user_global
+
+merged="$(ac_principles_merge)"
+# Must include both shipped-default IDs (pp-ghost-notes + pp-core-protocol).
+echo "$merged" | jq -r '.[].principle_id' | grep -q '^pp-ghost-notes$'
+assert_eq "merge includes pp-ghost-notes" "0" "$?"
+
+echo "$merged" | jq -r '.[].principle_id' | grep -q '^pp-core-protocol$'
+assert_eq "merge includes pp-core-protocol" "0" "$?"
+
+# And the user-promoted entry is also in the merge.
+echo "$merged" | jq -r '.[].principle_id' | grep -q '^pp-user1$'
+assert_eq "merge includes user-promoted pp-user1" "0" "$?"
+
+# ---------------------------------------------------------------------------
+# v0.2 T3a: filter by source = shipped
+# ---------------------------------------------------------------------------
+echo "--- v0.2 T3a: ac_principles_filter_by_source shipped ---"
+setup_tmp_repo > /dev/null
+_v02_isolate_home
+export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
+_v02_setup_user_global
+_v02_setup_project
+
+shipped_only="$(ac_principles_filter_by_source shipped)"
+shipped_count="$(echo "$shipped_only" | jq 'length')"
+# templates/principles.md ships 2 shipped-default principles.
+assert_eq "shipped filter returns 2 entries" "2" "$shipped_count"
+non_shipped="$(echo "$shipped_only" | jq -r '[.[] | select(.source != "shipped-default")] | length')"
+assert_eq "shipped filter contains only shipped-default" "0" "$non_shipped"
+
+# ---------------------------------------------------------------------------
+# v0.2 T3b: filter by source = user
+# ---------------------------------------------------------------------------
+echo "--- v0.2 T3b: ac_principles_filter_by_source user ---"
+user_only="$(ac_principles_filter_by_source user)"
+user_count="$(echo "$user_only" | jq 'length')"
+assert_eq "user filter returns 1 entry" "1" "$user_count"
+user_src="$(echo "$user_only" | jq -r '.[0].source')"
+assert_eq "user filter source=user-promoted" "user-promoted" "$user_src"
+
+# ---------------------------------------------------------------------------
+# v0.2 T3c: filter by source = project
+# ---------------------------------------------------------------------------
+echo "--- v0.2 T3c: ac_principles_filter_by_source project ---"
+project_only="$(ac_principles_filter_by_source project)"
+project_count="$(echo "$project_only" | jq 'length')"
+assert_eq "project filter returns 1 entry" "1" "$project_count"
+project_src="$(echo "$project_only" | jq -r '.[0].source')"
+assert_eq "project filter source=project" "project" "$project_src"
+
+# ---------------------------------------------------------------------------
+# v0.2 T4: user-promoted appears below shipped in display order
+# ---------------------------------------------------------------------------
+echo "--- v0.2 T4: user-promoted appears below shipped in display order ---"
+merged="$(ac_principles_merge)"
+ids="$(echo "$merged" | jq -r '.[].principle_id')"
+# Position of pp-ghost-notes must come before pp-user1.
+ghost_pos="$(echo "$ids" | grep -n '^pp-ghost-notes$' | cut -d: -f1)"
+user_pos="$(echo "$ids" | grep -n '^pp-user1$' | cut -d: -f1)"
+if [[ "$ghost_pos" -lt "$user_pos" ]]; then
+  echo "  ✓ pp-ghost-notes precedes pp-user1 (shipped before user-promoted)"; PASS=$((PASS+1))
+else
+  echo "  ✗ ordering broken: ghost_pos=$ghost_pos user_pos=$user_pos"; FAIL=$((FAIL+1))
+fi
+
+# Project should come after user-promoted.
+proj_pos="$(echo "$ids" | grep -n '^pp-proj1$' | cut -d: -f1)"
+if [[ "$user_pos" -lt "$proj_pos" ]]; then
+  echo "  ✓ pp-user1 precedes pp-proj1 (user-promoted before project)"; PASS=$((PASS+1))
+else
+  echo "  ✗ ordering broken: user_pos=$user_pos proj_pos=$proj_pos"; FAIL=$((FAIL+1))
+fi
+
+# ---------------------------------------------------------------------------
+# v0.2 T5: project overrides user with same principle_id (last-source-wins)
+# ---------------------------------------------------------------------------
+echo "--- v0.2 T5: project overrides user with same principle_id ---"
+setup_tmp_repo > /dev/null
+_v02_isolate_home
+export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
+
+# User-global pp-foo
+upath="$(ac_principles_user_path)"
+mkdir -p "$(dirname "$upath")"
+cat > "$upath" <<'EOF'
+## Your principles (user-promoted)
+
+<!-- source: user-promoted, promoted_at: 2026-05-20T10:00:00Z, principle_id: pp-foo -->
+- **Foo (user version):** original text from user-global.
+EOF
+
+# Project pp-foo (same id, different text)
+ppath="$(ac_principles_project_path)"
+mkdir -p "$(dirname "$ppath")"
+cat > "$ppath" <<'EOF'
+## Project principles (scope=project)
+
+<!-- source: project, promoted_at: 2026-05-23T11:00:00Z, principle_id: pp-foo -->
+- **Foo (project override):** project-scoped replacement text.
+EOF
+
+merged="$(ac_principles_merge)"
+# Expect only ONE pp-foo entry, with source=project.
+foo_count="$(echo "$merged" | jq '[.[] | select(.principle_id == "pp-foo")] | length')"
+assert_eq "pp-foo deduplicated to single entry" "1" "$foo_count"
+
+foo_src="$(echo "$merged" | jq -r '.[] | select(.principle_id == "pp-foo") | .source')"
+assert_eq "pp-foo final source=project (project wins)" "project" "$foo_src"
+
+foo_override="$(echo "$merged" | jq -r '.[] | select(.principle_id == "pp-foo") | .overrides_source')"
+assert_eq "pp-foo carries overrides_source=user-promoted annotation" "user-promoted" "$foo_override"
 
 report_results
