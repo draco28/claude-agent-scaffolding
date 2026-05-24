@@ -1,5 +1,47 @@
 # Changelog
 
+## v0.2.0 — 2026-05-24 (BREAKING)
+
+**Architecture:** ground-up retrofit to skill-first. 4 skills (gerund-named) replace the v0.1.3 bash-orchestrates-Claude approach. Slash commands become thin `$ARGUMENTS` wrappers. File-IPC inbox/outbox protocol removed.
+
+### Breaking changes
+
+- **Inbox/outbox file-IPC protocol removed.** Consumer plugins must invoke skills in-conversation. `scaffold-onboard v0.2+` required for in-conversation handoff (v0.1.x scaffold-onboard will not work with architect-critic v0.2).
+- **state.json schema v1 → v2**: drop `in_flight` array (no async); drop `cost_usd` from `recent_runs[]`; add `concessions`, `skill_invoked`, `auto_promote_suppressions[]`. First-run migration auto-renames the v0.1.x file to `state.json.v0.1.3.bak` (timestamped on collision).
+- **`cost_usd` reporting removed entirely.** Field gone from schema; `lib/cost.sh` deleted; per-audit cost line no longer surfaced.
+- **`--depth` flag renamed to `--close`** (semantic clarity: depth is binary shallow/close, not an enum).
+- **Codex CLI 0.125+ required** for adversarial fresh-frame audit (uses `--json --output-schema --output-last-message --ignore-rules`). v0.1.3 prose-parsing fallback removed.
+
+### Added
+
+- **4 skills (gerund-named):** `critiquing-spec`, `reviewing-critique-history`, `listing-principles`, `promoting-principle`. Each lives in `skills/<name>/SKILL.md` as markdown Claude reads + acts on.
+- **Ghost notes principle** (Wald survivor-bias insight — look for what is *absent*) + **CORE protocol** (Curiosity / Objectivity / Reassurance / Empathy — rebuttal tone) as shipped-default principles in `templates/principles.md`. Auto-prepended to existing user principles on first-run migration.
+- **Full auto-promotion machinery** (was design-intent in v0.1.3): vote-recurrence with T=4 threshold + supplementary instinct-style consecutive-runs signal (N=3 default) + suppression windows (30-day for score-4 declines, 90-day for score-5).
+- **LLM-as-judge eval harness** (`tests/eval/`): 4 skills × 5 fixtures × 2 Agent dispatches per full run. Runs from a Claude Code session via `tests/eval/RUNBOOK.md`. No API wrapper.
+- **SessionStart fail-open ambient status hook** (~50 tokens; never blocks).
+- **`lib/migration.sh`** — first-run v0.1.x → v0.2 migration: state backup, inbox/outbox moved to `legacy-v0.1.x/`, shipped defaults prepended to principles.md preserving user content.
+
+### Fixed (GitHub issue #1 — all 8 bugs)
+
+- **#1** `$N` substitution corrupting slash-command args — all commands now use `$ARGUMENTS` env-var bridge exclusively (per `[[feedback_slash_command_dollar_n_bug]]`); none of the 4 commands use bare `$1`/`$2` positionals.
+- **#2** silent no-op claude-self-audit — audit logic moved into skill body (`skills/critiquing-spec/SKILL.md` Step 5); Claude executes the audit in-conversation, not via `bash -c` wrapper.
+- **#3** hard-fail without MASTER-SPEC.md — discovery order: explicit arg → manifest `well_known_paths.master_spec` → restricted `SPEC*`/`PLAN*` glob (never `*.md`) → `AskUserQuestion` fallback.
+- **#4** rebuttal cycle silently skipped non-TTY — rebuttals handled via Claude's native turn flow; no `bash read`.
+- **#5** codex availability not surfaced to user — skill body explicitly checks `command -v codex` and reports status ("Codex detected", "Codex not installed", "Codex available but depth=shallow") before audit runs.
+- **#6** `cost_usd` always zero — field removed entirely from schema + state.sh + UI.
+- **#7** README missing standalone-use guidance — added Standalone Use section.
+- **#8** `project_class=unknown` consequence undocumented — documented in `skills/critiquing-spec/SKILL.md` + `README.md`.
+
+### Removed
+
+- `lib/inbox.sh`, `lib/outbox.sh`, `lib/cost.sh` and their tests.
+- `tests/test-commands.sh`, `tests/test-e2e.sh` (v0.1.3 file-IPC test scaffolding; superseded by `tests/integration/`).
+- Inbox/outbox runtime directories (handled by migration).
+
+### Internal
+
+- Test layout restructured: `tests/unit/` (~197 assertions), `tests/integration/` (bug repros, migration smoke, subagent pressure, consumer-plugin SKIP-with-TODO tests), `tests/eval/` (LLM-as-judge harness).
+
 ## [0.1.3] — 2026-05-16
 
 ### Fixed

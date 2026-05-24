@@ -26,7 +26,7 @@
     },
     {
       "name": "architect-critic",
-      "description": "Anti-sycophancy reviewer. /critique runs claude-self-audit + (optionally) codex fresh-frame audit, consolidates into challenges/gaps/divergences, presents interactively with T=4 concession scoring (1–5 rubric), auto-promotes recurring patterns to user-global principles.md (with 30-day decline suppression). File-based IPC counterparty to scaffold-onboard at Phase 5/7 + MASTER-SPEC close; standalone-invocable in any session via /critique.",
+      "description": "Anti-sycophancy reviewer (v0.2 skill-first). 4 skills auto-invoke on natural-language triggers: critiquing-spec (audit + sequential rebuttal with T=4 concession scoring), reviewing-critique-history, listing-principles, promoting-principle. Ships ghost-notes (Wald survivor-bias) + CORE protocol (Curiosity/Objectivity/Reassurance/Empathy) as default principles. Full auto-promotion: vote-recurrence T=4 + instinct N=3 consecutive + 30/90-day suppression. Codex 0.125+ adversarial fresh-frame at close-depth. Standalone-invocable; consumer plugins (scaffold-onboard v0.2+, scaffold-dev v0.1+) invoke skills in-conversation (no file IPC).",
       "category": "workflow",
       "source": "./architect-critic"
     }
