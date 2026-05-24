@@ -1,55 +1,28 @@
 ---
-description: Derive .claude/memory-bank/ (11 files) and CLAUDE.md from MASTER-SPEC.md. Deterministic and idempotent. Use --force to overwrite live files.
-argument-hint: "[--force]"
-allowed-tools: Bash(bash:*)
+description: Derive memory-bank + CLAUDE.md + .claude/settings.json from MASTER-SPEC.md
+argument-hint: "[--regenerate]"
+allowed-tools: Bash(bash:*), Read, Write, Edit, SlashCommand
 ---
 
-Validate MASTER-SPEC.md, then run the deterministic derivation pipeline.
+Parse flags from `$ARGUMENTS` using the env-var bridge (no positional `$1`/`$2`/`$N`),
+then invoke the `scaffold-onboard:scaffolding-memory-bank` skill. The skill body
+owns MASTER-SPEC validation, the 11-file memory-bank derivation, CLAUDE.md
+generation, and `.claude/settings.json` emission per scaffold-onboard SPEC §5.2.
 
 ```bash
-bash -c '
-set -u
-source "${CLAUDE_PLUGIN_ROOT}/lib/_helpers.sh"
-source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"
-source "${CLAUDE_PLUGIN_ROOT}/lib/parser.sh"
-source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"
-source "${CLAUDE_PLUGIN_ROOT}/lib/memory-bank.sh"
+ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
+  set -u
+  ARGS="${ARGS_FROM_CLAUDE:-}"
+  REGEN=$(printf "%s" "$ARGS" | grep -oE -- "--regenerate" | head -1 || true)
 
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
-if [[ -z "$REPO_ROOT" ]]; then
-  echo "scaffold-onboard: not inside a git repo."
-  exit 1
-fi
-cd "$REPO_ROOT"
-
-FORCE=""
-if [[ "${1:-}" == "--force" ]]; then
-  FORCE="--force"
-  echo "scaffold-project: --force passed; live files WILL be overwritten."
-  echo "Continue? Type yes to proceed: "
-  read -r REPLY
-  [[ "$REPLY" == "yes" ]] || { echo "Cancelled."; exit 0; }
-fi
-
-if ! sf_spec_validate ./MASTER-SPEC.md; then
-  exit 1
-fi
-
-echo "scaffold-project: deriving memory-bank..."
-sf_memory_bank_derive $FORCE
-echo "scaffold-project: generating CLAUDE.md..."
-sf_claude_md_generate
-echo "scaffold-project: writing .claude/settings.json..."
-sf_claude_settings_generate
-
-echo ""
-echo "scaffold-project: done."
-echo "  memory-bank: .claude/memory-bank/ (11 files)"
-echo "  router:      CLAUDE.md"
-echo "  settings:    .claude/settings.json"
-echo ""
-echo "Next: /scaffold-docs (governance docs) or /slice-new (start first slice via the scaffold plugin)."
-' -- "$1"
+  echo "scaffold-project: ARGS=${ARGS:-<none>}"
+  echo "scaffold-project: REGENERATE=${REGEN:-<unset>}"
+'
 ```
 
-After running, summarize in 1-2 sentences: which files were created vs preserved. If `--force` was passed, note that live files were reset. Otherwise mention that `05-active-context.md` and `06-progress.md` were preserved across the run.
+Now invoke the skill in-conversation:
+
+**`Skill(scaffold-onboard:scaffolding-memory-bank)`** — pass the parsed flags
+above. The skill body handles `--regenerate` (overwrite live files including
+`05-active-context.md` / `06-progress.md` after confirmation) and the default
+no-flag case (idempotent derivation that preserves live state files).
