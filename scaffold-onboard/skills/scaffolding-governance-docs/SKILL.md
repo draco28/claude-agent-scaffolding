@@ -1,0 +1,216 @@
+---
+name: scaffolding-governance-docs
+description: Deterministically derive governance documents (PRD, SRS, BACKLOG, PROJECT_PLAN, ADR-0001 + nine optional `--full` artifacts) from MASTER-SPEC.md. Use this when the user wants to scaffold governance docs, generate PRD/SRS, run /scaffold-docs, derive BACKLOG/ADRs, or regenerate the governance-doc bundle after MASTER-SPEC changes. Routes each doc per the workspace-init manifest (canonical for product-facing docs; ai_workspace for process ADRs); preserves v0.1.0's PROJECT_PLAN.md as a Phase-2-Strategy-derived timeline — never the R1 Phase→Sprint→Vertical-Slice hierarchy, which is a separate file (ROADMAP.md) emitted by the planning-project-roadmap skill.
+---
+
+# scaffolding-governance-docs
+
+You wrap scaffold-onboard's v0.1.0 governance-doc derivation pipeline (`/scaffold-docs` → 5 default + up to 9 `--full` artifacts) and add two v0.2-specific responsibilities: **manifest-aware per-doc routing** (different logical names route to canonical vs ai_workspace per SPEC §10.1) and **lane discipline against the new R1 roadmap doc** (`ROADMAP.md` is a separate file authored by a different skill — this skill must not touch it, and its own `PROJECT_PLAN.md` output must remain the v0.1.0 timeline doc unchanged).
+
+Bash helpers in `lib/docs.sh`, `lib/render.sh`, `lib/routing.sh`, and `lib/parser.sh` do the I/O: template rendering, atomic writes, manifest resolution, MASTER-SPEC validation, LLM-gate evaluation. The judgment work — refusing to derive from an invalid spec, surfacing the per-doc destinations to the user, deciding when `--regenerate` is too destructive — happens here, in conversation.
+
+---
+
+## 1. Overview
+
+When invoked, you read `MASTER-SPEC.md`, validate it with `sf_spec_validate`, and emit the v0.1.0 governance-doc bundle. The default set is 5 docs: `PRD.md`, `SRS.md`, `BACKLOG.md`, `PROJECT_PLAN.md`, and `ADR-0001.md`. With `--full` you also emit 9 additional docs (`RISK_REGISTER.md`, `THREAT_MODEL.md`, `TEST_STRATEGY.md`, `DEFINITION_OF_DONE.md`, `CUTOVER_PLAN.md`, `DEMO_RUNBOOK.md`, plus three LLM-gated ones — `EVALS_PLAN.md`, `MODEL_CARD.md`, `PROMPT_GOVERNANCE.md` — emitted only when the Phase 9.3.1 answer is `yes`). The doc *contents* are byte-identical to v0.1.0 where the routing destination matches cwd; what's new is per-doc routing through `sf_resolve_output_path`.
+
+---
+
+## 2. When to use
+
+**Trigger phrases (description-match):**
+
+- `/scaffold-docs` (slash command — see §8 for the `$ARGUMENTS` env-var bridge)
+- "scaffold governance docs", "generate PRD", "generate SRS", "derive governance docs"
+- "regenerate PRD/SRS/BACKLOG", "rebuild governance bundle from MASTER-SPEC"
+- "author ADR-0001", "set up the BACKLOG", "derive PROJECT_PLAN from MASTER-SPEC"
+
+**Do NOT auto-invoke when:**
+
+- `MASTER-SPEC.md` does not exist yet, or `sf_spec_validate` reports it as invalid. Governance docs are derived FROM MASTER-SPEC; without a valid spec there is nothing to derive. Route the user to `Skill(scaffold-onboard:onboarding-project)` (or `/onboard`) and stop.
+- The user wants to author the **R1 Phase → Sprint → Vertical-Slice hierarchy** — that is *not* a governance doc and *not* `PROJECT_PLAN.md`. It belongs to `scaffold-onboard:planning-project-roadmap` (SPEC §5.4), reached via `/plan-roadmap`. The R1 doc is named `ROADMAP.md`, lives at a different routing destination, and is owned by a different skill. See §5 below for the explicit lane boundary.
+- The user wants memory-bank / CLAUDE.md derivation — that's `scaffold-onboard:scaffolding-memory-bank` (SPEC §5.2) reached via `/scaffold-project`.
+- The user wants to validate-only an existing MASTER-SPEC — that's `scaffold-onboard:validating-master-spec` (SPEC §5.7).
+- The user wants to author or edit machine-checkable rules — that's `scaffold-onboard:authoring-machine-checkable-rules` (SPEC §5.5). This skill never touches `03-code-patterns.md`.
+
+If the user types something ambiguous like "set up the project plan" and MASTER-SPEC exists, ask: *"Do you mean the v0.1.0 Phase-2-Strategy-derived timeline doc (`PROJECT_PLAN.md`, emitted by `/scaffold-docs`), or the new Phase → Sprint → Vertical-Slice hierarchy (`ROADMAP.md`, emitted by `/plan-roadmap`)?"* — they're two different files with two different owners.
+
+---
+
+## 3. Prerequisites
+
+Before any derivation step:
+
+1. **MASTER-SPEC.md must exist** at the routing destination. Resolve via `sf_resolve_output_path master_spec MASTER-SPEC.md` and confirm the file is present. If absent, surface the routing prompt from §2 and stop.
+2. **MASTER-SPEC.md must validate.** Call `sf_spec_validate <path>` (lib/parser.sh — unchanged from v0.1.0). Non-zero exit means the spec is malformed (missing phase header, broken YAML frontmatter, unknown project_class enum, etc.). Surface the validator's stderr verbatim to the user and stop — do not attempt to derive from a broken spec; templates will silently emit `{{placeholder}}` artifacts that look complete but aren't.
+3. **State file present (recommended).** `${CLAUDE_PLUGIN_DATA}/onboarding-state.json` provides the gate answers that drive conditional template substitution (project_class branches, the LLM gate at Phase 9.3.1). If the state file is absent (user hand-authored MASTER-SPEC outside `/onboard`), proceed with conservative defaults: treat Phase 9.3.1 as `no` (no LLM-gated docs) and surface one warning: *"No onboarding state file found — proceeding with conservative defaults. Re-run after `/onboard` to enable LLM-gated `--full` docs."*
+
+---
+
+## 4. Default (5 docs) vs `--full` (14 docs)
+
+The v0.1.0 derivation logic is preserved verbatim — your job is to call `sf_docs_derive` (lib/docs.sh) with the right flags. The doc catalog:
+
+### 4.1 Default set (always emitted) — 5 docs
+
+| File | Source | Routing logical name |
+|---|---|---|
+| `PRD.md` | `templates/docs-minimal/PRD.md.tmpl` | `prd` → canonical |
+| `SRS.md` | `templates/docs-minimal/SRS.md.tmpl` | `srs` → canonical |
+| `BACKLOG.md` | `templates/docs-minimal/BACKLOG.md.tmpl` | `backlog` → canonical |
+| `PROJECT_PLAN.md` | `templates/docs-minimal/PROJECT_PLAN.md.tmpl` | `project_plan` → canonical |
+| `ADR-0001.md` (initial architecture decision) | `templates/docs-minimal/adr/0001-record-architecture-decisions.md.tmpl` | `product_adrs` → canonical |
+
+### 4.2 `--full` adds 9 more docs
+
+Six are always-on under `--full` (no LLM gate):
+
+| File | Source | Routing logical name |
+|---|---|---|
+| `RISK_REGISTER.md` | `templates/docs-full/RISK_REGISTER.md.tmpl` | `product_adrs` → canonical |
+| `THREAT_MODEL.md` | `templates/docs-full/THREAT_MODEL.md.tmpl` | `product_adrs` → canonical |
+| `TEST_STRATEGY.md` | `templates/docs-full/TEST_STRATEGY.md.tmpl` | `product_adrs` → canonical |
+| `DEFINITION_OF_DONE.md` | `templates/docs-full/DEFINITION_OF_DONE.md.tmpl` | `process_adrs` → ai_workspace |
+| `CUTOVER_PLAN.md` | `templates/docs-full/CUTOVER_PLAN.md.tmpl` | `product_adrs` → canonical |
+| `DEMO_RUNBOOK.md` | `templates/docs-full/DEMO_RUNBOOK.md.tmpl` | `process_adrs` → ai_workspace |
+
+Three are **LLM-gated** by the Phase 9.3.1 answer (`uses_llm = "yes"` or `"true"`); emitted only when the gate passes:
+
+| File | Source | Routing logical name | Gate |
+|---|---|---|---|
+| `EVALS_PLAN.md` | `templates/docs-full/EVALS_PLAN.md.tmpl` | `product_adrs` → canonical | Phase 9.3.1 == yes |
+| `MODEL_CARD.md` | `templates/docs-full/MODEL_CARD.md.tmpl` | `product_adrs` → canonical | Phase 9.3.1 == yes |
+| `PROMPT_GOVERNANCE.md` | `templates/docs-full/PROMPT_GOVERNANCE.md.tmpl` | `process_adrs` → ai_workspace | Phase 9.3.1 == yes |
+
+When the LLM gate fails (Phase 9.3.1 != yes), `sf_docs_derive` logs `LLM-gated --full docs skipped (phase 9.3.1 != yes)` and emits nothing for those three. Surface this skip-with-reason to the user so silent omission is visible — silent omission of LLM-gated docs is the failure mode the v0.2 eval scenario S2 explicitly checks for.
+
+The exact `--full` doc-set classification (which 3 are LLM-gated) is owned by `sf_docs_derive` in `lib/docs.sh` — keep this body and that helper aligned. If `lib/docs.sh` adds a new always-on doc in a point release, update §4.2 in the same patch.
+
+---
+
+## 5. Critical: `PROJECT_PLAN.md` is the v0.1.0 timeline doc, UNCHANGED
+
+This is the most important constraint in this skill body. Read it carefully.
+
+**`PROJECT_PLAN.md` is preserved byte-for-byte from v0.1.0.** It is a **Phase-2-Strategy-derived timeline document** (milestones, dates / horizons, resources, risks summary) — exactly the v0.1.0 template, exactly the v0.1.0 content shape. The v0.2 retrofit does not rename it, does not change its template, does not extend its content. v0.1.0 users who have an existing `PROJECT_PLAN.md` in their canonical repo see no surface change.
+
+**`ROADMAP.md` is a SEPARATE file owned by a DIFFERENT skill.** The R1 Phase → Sprint → Vertical-Slice hierarchy doc introduced in v0.2 is named `ROADMAP.md`, not `PROJECT_PLAN.md`. It is emitted by `scaffold-onboard:planning-project-roadmap` (SPEC §5.4) when the user runs `/plan-roadmap`. It has its own routing logical name (`roadmap`), its own state file (`${CLAUDE_PLUGIN_DATA}/project-roadmap.json`), its own template (`templates/roadmap/ROADMAP.md.tmpl`), and its own architect-critic moment.
+
+**Why this matters.** The v0.1.0 `PROJECT_PLAN.md` filename was nearly reused for the v0.2 R1 hierarchy doc, and that collision was caught during the v0.2 SPEC's architect-critic pass (challenges C3 + C14; resolved at SPEC §13.5). Reusing the filename would have silently overwritten v0.1.0 users' Phase-2 timeline docs on `/scaffold-docs --regenerate`. The rename to `ROADMAP.md` is load-bearing.
+
+**Concretely, this skill MUST NOT do any of the following:**
+
+- Emit a Phase → Sprint → Vertical-Slice hierarchy structure into `PROJECT_PLAN.md` — no headings shaped like `Phase 1: <name>`, no sub-headings shaped like `Sprint 1.1:`, no slice IDs (e.g., the hierarchy convention IDs are NOT emitted here — those belong in `ROADMAP.md`).
+- Emit `auto:` or `user:` demo-criteria grammar into `PROJECT_PLAN.md` — those are R3 grammar (SPEC §9) owned by `authoring-vertical-slice-demo`, writing into `ROADMAP.md`.
+- Rename `PROJECT_PLAN.md` to `ROADMAP.md`, or vice-versa. The filenames carry independent meaning.
+- Write a `ROADMAP.md` from this skill at all. `ROADMAP.md` is `planning-project-roadmap`'s territory; running `/scaffold-docs` (with or without `--full`) must not produce a `ROADMAP.md`.
+- Read or mutate `${CLAUDE_PLUGIN_DATA}/project-roadmap.json`. That state file belongs to a different skill.
+
+If the user asks during `/scaffold-docs` whether the R1 hierarchy will be authored, answer: *"No — `/scaffold-docs` emits the v0.1.0 governance bundle (PRD / SRS / BACKLOG / PROJECT_PLAN / ADR-0001). The Phase → Sprint → Vertical-Slice hierarchy lives in `ROADMAP.md` and is authored interactively by `/plan-roadmap` after onboarding closes."*
+
+---
+
+## 6. Manifest-aware output routing (NEW in v0.2)
+
+Per SPEC §10.1, this skill produces 6 logical-name destinations across its 5 default + 9 full docs:
+
+| Logical name | Default destination | Docs emitted by this skill |
+|---|---|---|
+| `prd` | `canonical` | `PRD.md` |
+| `srs` | `canonical` | `SRS.md` |
+| `backlog` | `canonical` | `BACKLOG.md` |
+| `project_plan` | `canonical` | `PROJECT_PLAN.md` (v0.1.0 timeline doc — see §5) |
+| `product_adrs` | `canonical` | `ADR-0001.md`, `RISK_REGISTER.md`, `THREAT_MODEL.md`, `TEST_STRATEGY.md`, `CUTOVER_PLAN.md`, `EVALS_PLAN.md`, `MODEL_CARD.md` |
+| `process_adrs` | `ai_workspace` | `DEFINITION_OF_DONE.md`, `DEMO_RUNBOOK.md`, `PROMPT_GOVERNANCE.md` |
+
+**Helper:** `sf_resolve_output_path <logical_name> <relative_path>` (lib/routing.sh):
+
+```
+prd_path="$(sf_resolve_output_path prd docs/PRD.md)"
+backlog_path="$(sf_resolve_output_path backlog docs/BACKLOG.md)"
+project_plan_path="$(sf_resolve_output_path project_plan docs/PROJECT_PLAN.md)"
+adr_path="$(sf_resolve_output_path product_adrs docs/adr/0001-record-architecture-decisions.md)"
+dod_path="$(sf_resolve_output_path process_adrs docs/DEFINITION_OF_DONE.md)"
+```
+
+Resolution behavior (identical across all six logical names):
+
+- **Manifest present** (walked up from `pwd` to find `.workspace/pairing.json`): returns the absolute path with the destination's root expanded (e.g., `<canonical-repo>/docs/PRD.md` for `prd`; `<ai-workspace>/docs/DEFINITION_OF_DONE.md` for `process_adrs`).
+- **Manifest absent** (single-repo mode): returns `$(pwd)/<relative_path>` — exactly v0.1.0 behavior. v0.1.0 byte-identical regression tests pass through this fallback.
+- **Manifest present but logical name missing** from `routing.*`: helper warns once and falls back to `$(pwd)/<relative_path>`. Forward-compatible with workspace-init manifests that pre-date a logical-name addition.
+
+Always route through `sf_resolve_output_path` — never hardcode `docs/PRD.md` or `docs/adr/...` against `$(pwd)` directly. The v0.1.0 `sf_docs_derive` helper writes relative to `$(pwd)`; in v0.2, prefer wrapping each per-doc write at the resolved destination (or `pushd "$(sf_resolve_output_path <ln> .)" && sf_docs_derive_one ... && popd` if the helper grows a per-doc surface). Treat the helper as the single point of truth.
+
+**Lane discipline:** every doc this skill emits must resolve through one of the 6 logical names listed above. The skill must NOT use the `roadmap` logical name — that belongs to `planning-project-roadmap` (per §5).
+
+---
+
+## 7. Composition awareness
+
+This skill is downstream of `/onboard`'s MASTER-SPEC close, where the close-depth architect-critic already ran. **This skill does not invoke architect-critic itself.** That's a deliberate choice in SPEC §12.1: only 4 critic moments exist (Phase 5, Phase 7, MASTER-SPEC close, `/plan-roadmap` close); governance-doc derivation is a deterministic transformation after the spec is locked.
+
+If during derivation the user surfaces an architectural concern (e.g., "I think the PRD's `Out of scope` section needs another pass"), suggest: *"Want adversarial review on this section? Re-run `/onboard --resume` to revisit Phase 5/7 with the critic, or run `Skill(architect-critic:critiquing-spec)` directly with `target=master-spec-phase` against the relevant MASTER-SPEC phase."* — but do not invoke the critic from inside this skill body. Use `Skill(architect-critic:critiquing-spec)` if invoked, not the legacy `Skill(architect-critic:critique)` slash-command-shaped name (removed in architect-critic v0.2 per its SPEC §3 NG1).
+
+ai-mentor + superpowers composition is similarly out of scope for this skill — they're upstream context, not consumed during deterministic derivation.
+
+---
+
+## 8. Slash-command interaction (`/scaffold-docs` via `$ARGUMENTS` bridge)
+
+The `/scaffold-docs` slash command wrapper (`commands/scaffold-docs.md`) exports the raw arg string as `$ARGUMENTS` (env-var bridge per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. in command bodies at template-render time, silently corrupting bash positionals).
+
+Supported flags:
+
+- *(no flag)* — derive the 5 default docs; skip the 9 `--full` docs; preserve any existing files in the routing destinations (existing files are never overwritten without `--regenerate`); route via manifest if present, else `$(pwd)`.
+- `--full` — derive the 5 default docs PLUS the 9 `--full` docs (6 always-on + 3 LLM-gated by Phase 9.3.1).
+- `--regenerate` — overwrite existing docs at their resolved destinations. Always asks confirmation first, listing the absolute paths that will be clobbered. Preserves user customization is the v0.1.0 default; `--regenerate` is the explicit opt-in.
+- `--full --regenerate` — combine both.
+
+Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly. If `$ARGUMENTS` contains a flag this skill doesn't recognize, surface a one-line error listing the supported flags and stop — do not silently ignore.
+
+---
+
+## 9. Bash bookkeeping helpers (the bookkeeping-vs-judgment line)
+
+This skill never bash-orchestrates the judgment work (whether to refuse derivation on a thin spec, how to phrase the routing destination prompt, whether to surface the LLM-gate skip). It calls helpers for I/O and templating only.
+
+**Doc derivation (lib/docs.sh):** `sf_docs_derive` (with optional `--full` and `--regenerate`), `_docs_args` (internal — builds the substitution arg list from state).
+
+**Rendering (lib/render.sh):** `sf_render` (generic template substitution — used by `sf_docs_derive`; rarely called directly from this skill).
+
+**Routing (lib/routing.sh):** `sf_resolve_output_path`, `sf_discover_manifest`.
+
+**Validation (lib/parser.sh):** `sf_spec_validate`.
+
+**State (lib/state.sh):** `sf_state_read_answer` (read Phase 9.3.1 for the LLM gate), `sf_state_gate_passes` (re-used inside `_docs_args` to set the branching gate flags — you don't call it directly here).
+
+These are pseudocode references — the implementations live in their respective lib files. macOS-portable patterns (BSD awk, bash 3.2) are required for any inline snippets; prefer calling the helpers over re-inlining shell.
+
+---
+
+## 10. Anti-patterns (do not do these)
+
+- **Emitting a Phase → Sprint → Vertical-Slice hierarchy into `PROJECT_PLAN.md`.** The structure described in SPEC §7.1 (`Phase N:` / `Sprint N.M:` / slice IDs / `Demo criteria` blocks) is NOT emitted by this skill anywhere — least of all in `PROJECT_PLAN.md`. That structure lives in `ROADMAP.md`, authored by `planning-project-roadmap`. Eval scenario S3 explicitly fails on any hierarchy leakage into `PROJECT_PLAN.md`. (Example identifier `VS-1.1.1` is NOT emitted by this skill — referenced here only to name the boundary.)
+- **Renaming `PROJECT_PLAN.md` to `ROADMAP.md`** (or vice-versa). v0.1.0 users depend on `PROJECT_PLAN.md` continuing to exist with v0.1.0 content; v0.2 introduced `ROADMAP.md` as a separate file precisely to avoid this collision.
+- **Touching `ROADMAP.md` from this skill.** Never read it, never write it, never mutate `${CLAUDE_PLUGIN_DATA}/project-roadmap.json`. That's `planning-project-roadmap`'s territory.
+- **Emitting `auto:`/`user:` demo-criteria grammar into any doc this skill writes.** That grammar (SPEC §9) belongs in `ROADMAP.md` slice blocks, written by `authoring-vertical-slice-demo`. None of the 14 governance docs contain demo-criteria.
+- **Skipping `sf_spec_validate`.** A malformed MASTER-SPEC silently emits `{{placeholder}}` artifacts that look complete but are broken. Validate up-front; refuse to proceed on non-zero exit.
+- **Hardcoding `docs/PRD.md` against `$(pwd)`** (or any other doc filename). Always route via `sf_resolve_output_path <logical_name> <relative_path>`. v0.1.0 byte-identical behavior in single-repo mode falls out of the helper's fallback; cross-repo routing in workspace-init mode requires the helper.
+- **Silently emitting the 3 LLM-gated docs when Phase 9.3.1 != yes** — or, conversely, silently skipping them without a visible reason. The skip-with-reason is the contract (eval S2): if the gate fails, surface the gate name and the answer that didn't satisfy it.
+- **Overwriting existing docs without `--regenerate`.** Even on a fresh run, if the user pre-authored their own `PRD.md`, the v0.1.0 helper preserves it. Don't undo that. `--regenerate` is the explicit opt-in for clobber.
+- **Invoking architect-critic from this skill.** Governance-doc derivation is a downstream, deterministic transformation. The critic moments are upstream (in `onboarding-project`) and in `planning-project-roadmap` — not here. If you find yourself reaching for `Skill(architect-critic:...)`, you're outside this skill's lane.
+- **Calling `Skill(architect-critic:critique)`** (the legacy v0.1.x slash-command-shaped name). If a future iteration of this skill grows a critic moment, use `Skill(architect-critic:critiquing-spec)` — the v0.2 skill.
+
+---
+
+## 11. Notes on tool boundaries
+
+- **You** (Claude reading this skill body) make every judgment call: whether MASTER-SPEC is too thin to derive from, how to phrase the routing prompt across 6 logical destinations, whether to surface the LLM-gate skip-with-reason, when to refuse `--regenerate` against user-customized files.
+- **Bash helpers** (`lib/*.sh`) handle pure I/O: template substitution, atomic writes, manifest resolution, validation probes, state reads.
+- **`onboarding-project`** owns MASTER-SPEC authoring upstream of you; you only READ MASTER-SPEC.
+- **`planning-project-roadmap`** owns `ROADMAP.md` and the R1 hierarchy; you never read or write those.
+- **`authoring-machine-checkable-rules`** owns rule authoring in `03-code-patterns.md`; you never touch that file.
+- **The user** is the final authority. For destructive operations (`--regenerate` against pre-existing user-authored governance docs), require explicit confirmation listing the absolute paths that will be clobbered.
+
+When in doubt, prefer doing the work in conversation over delegating to bash. v0.1.x got this wrong — `/scaffold-docs` lived almost entirely inside `bash -c` blocks Claude never read; v0.2 corrects that by making this skill body the readable orchestration layer and keeping bash to bookkeeping.

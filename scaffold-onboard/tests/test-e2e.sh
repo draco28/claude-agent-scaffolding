@@ -350,6 +350,87 @@ test_e2e_scaffolding_memory_bank_skill_present() {
   fi
 }
 
+test_e2e_scaffolding_governance_docs_skill_present() {
+  echo "test_e2e_scaffolding_governance_docs_skill_present:"
+  local skill_path="$PLUGIN_ROOT/skills/scaffolding-governance-docs/SKILL.md"
+
+  # 1. SKILL.md exists
+  assert_file_exists "$skill_path"
+  if [[ ! -f "$skill_path" ]]; then
+    return
+  fi
+
+  # 2. Valid YAML frontmatter: starts with ---, has name: scaffolding-governance-docs, has non-empty description
+  local first_line
+  first_line="$(head -n1 "$skill_path")"
+  assert_eq "frontmatter opens with ---" "---" "$first_line"
+
+  if grep -qE '^name:[[:space:]]*scaffolding-governance-docs[[:space:]]*$' "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') frontmatter has name: scaffolding-governance-docs"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') frontmatter missing 'name: scaffolding-governance-docs'"
+  fi
+
+  # Description must be non-empty
+  if awk '/^---$/{c++; next} c==1 && /^description:[[:space:]]*[^[:space:]]/{found=1} END{exit !found}' "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') frontmatter has non-empty description"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') frontmatter description missing or empty"
+  fi
+
+  # 3. Description contains at least 3 trigger phrases (governance, scaffold-docs, PRD, SRS)
+  local desc_block
+  desc_block="$(awk '/^---$/{c++; next} c==1' "$skill_path")"
+  local hits=0
+  for phrase in "governance" "scaffold-docs" "PRD" "SRS"; do
+    if echo "$desc_block" | grep -qF "$phrase"; then
+      hits=$((hits+1))
+    fi
+  done
+  if [[ "$hits" -ge 3 ]]; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') description contains $hits/4 trigger phrases (≥3)"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') description contains only $hits/4 trigger phrases (need ≥3)"
+  fi
+
+  # 4. Body explicitly states PROJECT_PLAN.md is UNCHANGED from v0.1.0 — search literal pair
+  if grep -qF "PROJECT_PLAN.md" "$skill_path" && \
+     ( grep -qF "unchanged" "$skill_path" || grep -qF "v0.1.0" "$skill_path" ); then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body references PROJECT_PLAN.md + unchanged/v0.1.0"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing PROJECT_PLAN.md / unchanged / v0.1.0 references"
+  fi
+
+  # 5. Body references ROADMAP.md as separate file from a different skill
+  assert_file_contains "$skill_path" "ROADMAP.md"
+  assert_file_contains "$skill_path" "planning-project-roadmap"
+
+  # 6. Body references sf_resolve_output_path (manifest routing helper)
+  assert_file_contains "$skill_path" "sf_resolve_output_path"
+
+  # 7. Body does NOT contain v0.1.3 (drift sanity)
+  if grep -qF "v0.1.3" "$skill_path"; then
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') skill body contains forbidden 'v0.1.3' reference"
+  else
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') skill body has no 'v0.1.3' references"
+  fi
+
+  # 8. Body does NOT emit Phase→Sprint→VS hierarchy structure into PROJECT_PLAN.md.
+  #    We allow the substring "VS-1.1.1" in this body only inside an explicit
+  #    "NOT emitted here" / "do not emit" disclaimer. Detect via co-occurrence on
+  #    the same line of an anti-pattern marker. If "VS-1.1.1" appears at all,
+  #    require it to be on a line that also names this exclusion intent.
+  if grep -qF "VS-1.1.1" "$skill_path"; then
+    if grep -F "VS-1.1.1" "$skill_path" | grep -qiE "NOT emit|do not emit|never emit|not.*this skill|not authored by this skill"; then
+      PASS=$((PASS+1)); echo "  $(_color_pass '✓') VS-1.1.1 appears only inside NOT-emitted disclaimer"
+    else
+      FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') VS-1.1.1 appears outside an explicit NOT-emitted disclaimer"
+    fi
+  else
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') no VS-1.1.1 hierarchy example in body"
+  fi
+}
+
 test_e2e_fresh_repo_cli
 test_e2e_full_mode
 test_e2e_existing_repo_preserves_user_files
@@ -358,4 +439,5 @@ test_e2e_resume_mid_onboarding
 test_e2e_with_composition_mocked
 test_e2e_onboarding_project_skill_present
 test_e2e_scaffolding_memory_bank_skill_present
+test_e2e_scaffolding_governance_docs_skill_present
 report_results
