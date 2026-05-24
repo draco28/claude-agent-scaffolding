@@ -1,5 +1,7 @@
 # SPEC: AI Mentor Plugin
 
+> **⚠ DEPRECATED — kept for v1.x history only.** Superseded by [`docs/SPEC-ai-mentor-v2.md`](./SPEC-ai-mentor-v2.md) (2026-05-24). ai-mentor v2.0 is a breaking **scope-cut** release that removes the zone surfaces (`/z1`, `/z2-decide`, `/z2-build`, `/locked`), `/quiz`, `/improve`, the PreToolUse + SessionStart hooks, and `state.json`. It ships 4 skills (`grill-me` refined, `eli10`, `fool`, `council`) — no hooks, no state machinery. Refer to the v2 SPEC for the current implementation contract; this v1.x SPEC remains for historical traceability.
+
 **Status:** v1.1.0 shipped (2026-04-26). v1.2 amendments tracked at the top of this doc.
 **Owner:** Praveen Kumar Singh
 **Distribution:** User-level — installed once globally via this marketplace; applies to *every* task and *every* project.

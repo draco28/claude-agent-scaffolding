@@ -6,6 +6,88 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-05-24
+
+**Breaking change.** Scope-cut release: ai-mentor now ships only the surfaces the user actually invokes. See `docs/SPEC-ai-mentor-v2.md` for design rationale and `docs/PLAN-ai-mentor-v2.md` for the 8-phase implementation breakdown.
+
+### Removed (Phase 0)
+- `commands/z1.md`, `commands/z2-decide.md`, `commands/z2-build.md`, `commands/locked.md` — zone enforcement surfaces (unused).
+- `commands/quiz.md` — Socratic quiz protocol (unused).
+- `commands/improve.md` — prompt rewriter (unused).
+- `hooks/` and `hooks-handlers/` directories — `PreToolUse` + `SessionStart` hooks (zone enforcement + 620-token per-session injection). Without zones, both are dead weight.
+- `lib/state.sh` and `~/.claude/ai-mentor/state.json` — zone/submode/quiz_level persistence (no surviving consumer).
+- `skills/ai-mentor/SKILL.md` — 171-line zone reference (~80% obsolete; surviving framing moves to README in Phase 6).
+- `tests/test-hooks.sh` — 28 regression tests for state + hooks (both gone).
+
+### Added (Phase 1 — RED test scaffolding)
+- `tests/test-frontmatter-lint.sh` — bash automation for the v2.0 frontmatter contract (`name`+`description` only, ≤1024 chars, no `version`, no `when_to_use`, `name` kebab-case). POSIX-friendly (bash 3.2+, awk only — no jq/yq).
+- `tests/test-skill-triggers.md` — 18 markdown fixtures for skill auto-invocation (grill-me / eli10 / fool / council, including negative tests like "let's grill chicken").
+- `tests/test-grill-escape-valves.md` — 4 stuck-state fixtures (tangled / paralyzed / tactical-framing / no-timescale) for grill-me's cognitive-discipline escape valves.
+- `tests/test-council-personas.md` — 10 fixtures for The Council output (5-persona structure + in-character markers + Historian greenfield vs priors-rich context modes).
+- Rewrote `tests/README.md` documenting the hybrid test approach: bash automates the cheap structural checks; markdown checklists capture LLM-behavior fixtures honestly. `claude --print` automation noted as future work post-v2.0.
+
+### Testing approach (v2.0)
+v1.3 was pure-bash (state.sh + hook handlers); v2.0 is pure-skill-markdown with no bash code at all. The test surface changes fundamentally — most of the contract lives in LLM behavior, which bash can't natively dispatch. Picked **hybrid Option C**: bash automates the deterministic checks (~80% of the v2.0 contract is actually structural), markdown checklists capture the LLM-behavior fixtures without overclaiming automation.
+
+### Added (Phase 2 — grill-me refinement)
+- `skills/grill-me/SKILL.md` — CORE protocol posture made explicit (Curiosity → Objectivity → Reassurance → Empathy; from `.claude/ghost-notes.md` principle #3). 4 cognitive-discipline escape valves folded in: separating-concerns, widening-confidence-interval, asking-identity-question, widening-time-horizon. Each fires once when a stuck-state cue appears mid-grill, then resumes grilling.
+- `skills/grill-me/escape-valves.md` — sibling reference doc with diagnostic cues, reframes, and example responses per escape valve.
+
+### Changed (Phase 2)
+- `skills/grill-me/SKILL.md` frontmatter cleaned to v2.0 contract (name + description only; 867/1024 chars; no `version`, no `when_to_use`). v1.3 references to deleted `/quiz` and `/z2-decide` removed.
+- `test-frontmatter-lint.sh` goes from 6/9 (Phase 1 RED) to 9/9 GREEN.
+
+### Added (Phase 3 — eli10 + fool promoted to skills)
+- `skills/eli10/SKILL.md` — re-explanation skill at descending levels (ELI10 → ELI5 → ELI3). Re-invokable via `Want me to make it simpler?` prompt. Description 621/1024 chars.
+- `skills/fool/SKILL.md` — sticky beginner's-mind mode for the conversation. Distinguishes from eli10 (eli10 = retroactive single-answer simplification; fool = prospective conversation-wide baseline). Description 639/1024 chars.
+- Both skills include defensive negative-fixture clauses (eli10 NOT for first-pass explanations or code walkthroughs; fool NOT for "rewrite from scratch" code intent) to prevent over-firing on ambiguous triggers.
+
+### Test status after Phase 3
+- `test-frontmatter-lint.sh` — GREEN 27/27 across 3 skills (grill-me + eli10 + fool).
+
+### Added (Phase 4 — The Council, NEW skill)
+- `skills/council/SKILL.md` — 5-persona multi-angle idea validation (Karpathy LLM Council pattern, codebase-aware Historian variant replacing canonical Expansionist). One-shot 5-voices format vs grill-me's interactive 1-question-at-a-time. Description 858/1024 chars.
+- `skills/council/personas.md` — full persona briefs (voice, hunt, opening moves, verbal tics) for The Contrarian, The First Principles Thinker, The Outsider, The Executor, The Historian (~1138 words).
+- The Historian persona runs `git log` + `git log -S '<pattern>'` + Glob before composing its take. Quotes specific commits/files when priors exist; degrades gracefully on greenfield with literal "no priors found in this codebase" phrasing + pivot to "what's making you reach for THIS pattern over standard alternatives".
+- Chairman synthesis prompt at the end of every Council invocation (`**Chairman, your synthesis?**`) — user either writes their own verdict or asks Claude to propose one. No pre-synthesis, no peer-review (peer-review deferred to a future version per SPEC §10).
+
+### Test status after Phase 4
+- `test-frontmatter-lint.sh` — GREEN 36/36 across 4 skills (grill-me + eli10 + fool + council).
+- All structural fixtures in `test-council-personas.md` + `test-skill-triggers.md` (council section) should pass once Phase 5 slash wrappers land; manual fixture walks scheduled for Phase 7.
+
+### Added (Phase 5 — slash command wrappers)
+- `commands/grill-me.md` (NEW) — thin `$ARGUMENTS` wrapper invoking the grill-me skill. Argument-hint: `[plan or design to grill]`.
+- `commands/council.md` (NEW) — thin `$ARGUMENTS` wrapper invoking the council skill. Argument-hint: `[idea or decision to validate]`.
+
+### Changed (Phase 5)
+- `commands/eli10.md` — rewritten as thin `$ARGUMENTS` wrapper over the eli10 skill (v1.3 had full behavior inline; v2.0 delegates to skill body).
+- `commands/fool.md` — rewritten as thin `$ARGUMENTS` wrapper over the fool skill (v1.3 had full behavior inline; v2.0 delegates to skill body).
+
+All 4 wrappers use `$ARGUMENTS` env-var bridge (not `$1`/`$2` positional) per the slash-command template-render fix. Each wrapper is ≤10 lines of body content.
+
+### Changed (Phase 6 — metadata + docs rewrite)
+- `plugin.json` version bumped to 2.0.0; description rewritten to reflect v2.0 surfaces.
+- `README.md` (plugin) — full rewrite. New 4-surface table, "what's inside each skill" briefs, install/migration guidance for v1.x users, hybrid-test approach, composition notes.
+- `.claude-plugin/marketplace.json` — ai-mentor entry description updated to v2.0.
+- Root `README.md` — ai-mentor plugin table row to v2.0.0; "Quick start with ai-mentor" rewritten for natural-language + slash invocation; "compose without overlap" line reframed (was "enforces cognitive mode" → now "decision-making mentor surfaces"); layout section bumped.
+
+### Verified (Phase 7 — automated checks)
+- `bash ai-mentor/tests/test-frontmatter-lint.sh` — GREEN 36/36 (4 skills × 9 checks).
+- Plugin layout matches SPEC §3 (4 skills, 4 commands, 4 test files, README + CHANGELOG + LICENSE + plugin.json).
+- No residual functional references to deleted surfaces in `skills/` or `commands/` (Historian persona examples in `council/SKILL.md` + `council/personas.md` quote `PreToolUse` as historical context — intentional, not active feature usage).
+- Manual smoke per SPEC §9 DoD: deferred to user, run from a fresh Claude Code session post-tag.
+
+### Housekeeping (Phase 7)
+- Added deprecation banner to `docs/SPEC-ai-mentor.md` (v1.3 SPEC, superseded by `docs/SPEC-ai-mentor-v2.md`).
+- Added supersession banner to `docs/HANDOFF-ai-mentor-v14-spec.md` (v1.4 plan reshaped into v2.0 via Phase A grill-me session).
+- Updated project memory: `project_thinking_discipline_content.md` reflects v2.0 reality (cognitive-discipline content folded into grill-me, not standalone skills).
+- Updated project memory: `project_skill_first_retrofit_queue.md` marks ai-mentor done (shipped as v2.0 scope-cut, not skill-first retrofit); 3 plugins remain on queue.
+- New project memory: `project_ai_mentor_v2_grill_settlements.md` captures the 11 grill-session decisions for future-session continuity.
+
+### Migration from 1.x
+- `~/.claude/ai-mentor/state.json` is no longer used. Safe to delete manually.
+- Slash commands `/z1`, `/z2-decide`, `/z2-build`, `/locked`, `/quiz`, `/improve` will return "command not found". Intentional.
+
 ## [1.3.0] — 2026-05-03
 
 ### Added

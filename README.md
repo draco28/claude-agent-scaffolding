@@ -6,12 +6,12 @@ Personal Claude Code plugin marketplace.
 
 | Plugin | Version | Scope | Purpose |
 |---|---|---|---|
-| [`ai-mentor`](./ai-mentor/) | v1.3.0 | User-level | Cognitive partner. Pillar 3 (Gym/spotter) with two Curve-2 sub-modes (`/z2-decide` and `/z2-build`) + Pillar 4 (Fool/beginner's mind). Mechanically enforces spotter mode via PreToolUse hook + state file. |
+| [`ai-mentor`](./ai-mentor/) | v2.0.0 | User-level | Decision-making mentor. Four auto-invocable skills: `grill-me` (one-question-at-a-time plan interrogation with CORE posture + 4 cognitive-discipline escape valves), `council` (5-persona multi-angle idea validation, Karpathy LLM Council pattern with codebase-aware Historian), `eli10` (repeatable simplification), `fool` (sticky beginner's-mind mode). Skill-first; no hooks, no state machinery. |
 | [`scaffold-onboard`](./scaffold-onboard/) | v0.1.0 | Project-level (run-once) | Onboarding plugin. 10-phase guided conversation authors `MASTER-SPEC.md`; deterministic derivation produces an 11-file memory-bank, a tiered `CLAUDE.md` router, and 5/14 governance docs. Soft-composes with ai-mentor + architect-critic. |
 | [`scaffold`](./scaffold/) | v1.0.0 | Project-level (continuous) | Implementation plugin. Slice-driven 5-phase workflow, living governance (ADRs, CHANGELOG, runbooks), per-repo memory bank with semantic search. 18 slash commands + 10 MCP tools. |
 | [`architect-critic`](./architect-critic/) | v0.1.0 | User-level | Anti-sycophancy reviewer. `/critique` runs claude-self-audit + (optionally) codex fresh-frame audit, consolidates challenges/gaps/divergences, presents interactively with T=4 concession scoring (1–5 rubric). Auto-promotes recurring patterns to user-global `principles.md` (30-day decline suppression). File-IPC counterparty to scaffold-onboard at Phase 5/7 + MASTER-SPEC close; standalone-invocable in any session. |
 
-The four plugins are designed to **compose without overlap**: `ai-mentor` enforces *cognitive mode* (when AI types vs when you do); `scaffold-onboard` runs once per project to author the source-of-truth spec and derive its scaffolding; `scaffold` owns the continuous slice-by-slice implementation phase; `architect-critic` provides anti-sycophancy reviews on demand or as part of scaffold-onboard's Phase 5/7/close gates. Disjoint slash command namespaces, distinct state paths.
+The four plugins are designed to **compose without overlap**: `ai-mentor` provides decision-making mentor surfaces (interrogation, multi-angle validation, simplification, beginner's mind); `scaffold-onboard` runs once per project to author the source-of-truth spec and derive its scaffolding; `scaffold` owns the continuous slice-by-slice implementation phase; `architect-critic` provides anti-sycophancy reviews on demand or as part of scaffold-onboard's Phase 5/7/close gates. Disjoint slash command namespaces, distinct state paths.
 
 ## Install
 
@@ -54,24 +54,32 @@ The MCP memory bank exposes `record_decision`, `record_pattern`, `record_note`, 
 
 ## Quick start with `ai-mentor`
 
+All four skills auto-invoke on natural-language triggers — no slash command required. Examples:
+
 ```
-/z1                            # pure delegation; AI does everything (default ambient)
-/z2-decide                     # Curve 2: AI is spotter on architectural thinking;
-                               #          PreToolUse hook blocks edits until /locked
-/locked                        # signal decisions are final; AI implements
-/z2-build                      # Curve 2: AI gives progressive hints; YOU type the code
-                               #          override per-edit with "show me" / "skip to solution"
-/eli10                         # Explain Like I'm 10 (re-invocable to simplify further)
-/quiz l3                       # Socratic quiz at executive-interview depth
-/fool                          # beginner's-mind mode for the conversation
+"grill me on this plan"            # → grill-me (one question at a time, walks the tree)
+"council me on this idea"          # → council (5 personas attack from different angles)
+"explain in simpler terms"         # → eli10 (re-explain at 10-year-old level; repeatable)
+"consider me a beginner here"      # → fool (sticky beginner's-mind mode for the conversation)
 ```
+
+Slash commands are also available as explicit handles when you want to be unambiguous:
+
+```
+/grill-me <plan or design>
+/council <idea or decision>
+/eli10 [topic]
+/fool
+```
+
+Don't run `/grill-me` and `/council` in the same session — different interaction shapes (1-question interactive vs 5-voices one-shot); pick one.
 
 ## Layout
 
 ```
 .
 ├── .claude-plugin/marketplace.json    # marketplace manifest
-├── ai-mentor/                         # ai-mentor plugin (v1.3.0)
+├── ai-mentor/                         # ai-mentor plugin (v2.0.0)
 ├── scaffold-onboard/                  # scaffold-onboard plugin (v0.1.0)
 ├── scaffold/                          # scaffold plugin (v1.0.0)
 ├── docs/

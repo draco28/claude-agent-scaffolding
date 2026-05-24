@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "ai-mentor",
-      "description": "Cognitive partner — mechanically enforces spotter mode (Curve 2) via PreToolUse hook. Pillar 3 (Gym: /z2-decide, /z2-build, /locked, /quiz) + Pillar 4 (Fool: /eli10, /fool).",
+      "description": "Decision-making mentor. Four skills auto-invoke on natural-language triggers: grill-me (one-question-at-a-time plan interrogation with CORE posture + 4 cognitive-discipline escape valves), council (5-persona multi-angle idea validation, Karpathy LLM Council pattern with codebase-aware Historian), eli10 (repeatable simplification), fool (sticky beginner's-mind mode). Skill-first; no hooks, no state.",
       "category": "productivity",
       "source": "./ai-mentor"
     },
