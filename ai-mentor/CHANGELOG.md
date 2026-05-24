@@ -45,6 +45,16 @@ v1.3 was pure-bash (state.sh + hook handlers); v2.0 is pure-skill-markdown with 
 ### Test status after Phase 3
 - `test-frontmatter-lint.sh` — GREEN 27/27 across 3 skills (grill-me + eli10 + fool).
 
+### Added (Phase 4 — The Council, NEW skill)
+- `skills/council/SKILL.md` — 5-persona multi-angle idea validation (Karpathy LLM Council pattern, codebase-aware Historian variant replacing canonical Expansionist). One-shot 5-voices format vs grill-me's interactive 1-question-at-a-time. Description 858/1024 chars.
+- `skills/council/personas.md` — full persona briefs (voice, hunt, opening moves, verbal tics) for The Contrarian, The First Principles Thinker, The Outsider, The Executor, The Historian (~1138 words).
+- The Historian persona runs `git log` + `git log -S '<pattern>'` + Glob before composing its take. Quotes specific commits/files when priors exist; degrades gracefully on greenfield with literal "no priors found in this codebase" phrasing + pivot to "what's making you reach for THIS pattern over standard alternatives".
+- Chairman synthesis prompt at the end of every Council invocation (`**Chairman, your synthesis?**`) — user either writes their own verdict or asks Claude to propose one. No pre-synthesis, no peer-review (peer-review deferred to a future version per SPEC §10).
+
+### Test status after Phase 4
+- `test-frontmatter-lint.sh` — GREEN 36/36 across 4 skills (grill-me + eli10 + fool + council).
+- All structural fixtures in `test-council-personas.md` + `test-skill-triggers.md` (council section) should pass once Phase 5 slash wrappers land; manual fixture walks scheduled for Phase 7.
+
 ### Migration from 1.x
 - `~/.claude/ai-mentor/state.json` is no longer used. Safe to delete manually.
 - Slash commands `/z1`, `/z2-decide`, `/z2-build`, `/locked`, `/quiz`, `/improve` will return "command not found". Intentional.
