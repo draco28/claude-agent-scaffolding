@@ -431,6 +431,122 @@ test_e2e_scaffolding_governance_docs_skill_present() {
   fi
 }
 
+test_e2e_planning_project_roadmap_skill_present() {
+  echo "test_e2e_planning_project_roadmap_skill_present:"
+  local skill_path="$PLUGIN_ROOT/skills/planning-project-roadmap/SKILL.md"
+
+  # 1. SKILL.md exists
+  assert_file_exists "$skill_path"
+  if [[ ! -f "$skill_path" ]]; then
+    return
+  fi
+
+  # 2. Valid YAML frontmatter: starts with ---, has name: planning-project-roadmap, has non-empty description
+  local first_line
+  first_line="$(head -n1 "$skill_path")"
+  assert_eq "frontmatter opens with ---" "---" "$first_line"
+
+  if grep -qE '^name:[[:space:]]*planning-project-roadmap[[:space:]]*$' "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') frontmatter has name: planning-project-roadmap"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') frontmatter missing 'name: planning-project-roadmap'"
+  fi
+
+  # Description must be non-empty
+  if awk '/^---$/{c++; next} c==1 && /^description:[[:space:]]*[^[:space:]]/{found=1} END{exit !found}' "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') frontmatter has non-empty description"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') frontmatter description missing or empty"
+  fi
+
+  # 3. Description contains at least 3 trigger phrases
+  local desc_block
+  desc_block="$(awk '/^---$/{c++; next} c==1' "$skill_path")"
+  local hits=0
+  for phrase in "plan-roadmap" "decompose into sprints" "author project roadmap" "what comes after onboarding"; do
+    if echo "$desc_block" | grep -qiF "$phrase"; then
+      hits=$((hits+1))
+    fi
+  done
+  if [[ "$hits" -ge 3 ]]; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') description contains $hits/4 trigger phrases (≥3)"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') description contains only $hits/4 trigger phrases (need ≥3)"
+  fi
+
+  # 4. Body contains R1.A verbatim 3-timelines prompt (use grep -qF for em-dash + punctuation)
+  if grep -qF "Your Phases are your visionary horizon" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body contains verbatim R1.A 3-timelines prompt"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing verbatim R1.A 3-timelines prompt"
+  fi
+
+  # 5. Body contains R1.B verbatim 3-timelines prompt
+  if grep -qF "Sprints are your value-building windows" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body contains verbatim R1.B 3-timelines prompt"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing verbatim R1.B 3-timelines prompt"
+  fi
+
+  # 6. Body contains R1.C verbatim 3-timelines prompt
+  if grep -qF "Vertical slices are your visibility cycles" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body contains verbatim R1.C 3-timelines prompt"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing verbatim R1.C 3-timelines prompt"
+  fi
+
+  # 7. Body references all 5 re-run modes by name (use -- separator since patterns start with --)
+  local re_run_hits=0
+  for mode in "--add-phase" "--add-sprint" "--add-slice" "--refine-slice" "--reorganize"; do
+    if grep -qF -- "$mode" "$skill_path"; then
+      re_run_hits=$((re_run_hits+1))
+    fi
+  done
+  if [[ "$re_run_hits" -eq 5 ]]; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body references all 5 re-run modes"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body references only $re_run_hits/5 re-run modes"
+  fi
+
+  # 8. Body references ROADMAP.md (output filename)
+  assert_file_contains "$skill_path" "ROADMAP.md"
+
+  # 9. Body does NOT use PROJECT_PLAN.md as the R1 output — if present, must be flagged as anti-pattern
+  if grep -qF "PROJECT_PLAN.md" "$skill_path"; then
+    # Allowed only on lines that include anti-pattern / NOT / do not / never / different file language
+    if grep -F "PROJECT_PLAN.md" "$skill_path" | grep -qiE "NOT |do not|never|different file|not.*R1|not the R1|anti-pattern|unchanged|v0.1.0|separate"; then
+      PASS=$((PASS+1)); echo "  $(_color_pass '✓') PROJECT_PLAN.md appears only inside anti-pattern / unchanged disclaimer"
+    else
+      FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') PROJECT_PLAN.md appears as R1 output without anti-pattern flag"
+    fi
+  else
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body does not reference PROJECT_PLAN.md"
+  fi
+
+  # 10. Body references sf_resolve_output_path (manifest routing)
+  assert_file_contains "$skill_path" "sf_resolve_output_path"
+
+  # 11. Body references architect-critic:critiquing-spec (critic invocation)
+  assert_file_contains "$skill_path" "architect-critic:critiquing-spec"
+
+  # 12. Body does NOT contain v0.1.3 (drift sanity)
+  if grep -qF "v0.1.3" "$skill_path"; then
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') skill body contains forbidden 'v0.1.3' reference"
+  else
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') skill body has no 'v0.1.3' references"
+  fi
+
+  # 13. Body documents state checkpoint field with R1.A/B/C sub-phases
+  if grep -qF "checkpoint" "$skill_path" && \
+     grep -qF "R1.A" "$skill_path" && \
+     grep -qF "R1.B" "$skill_path" && \
+     grep -qF "R1.C" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body documents checkpoint field + R1.A/B/C sub-phases"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing checkpoint field or R1.A/B/C sub-phase references"
+  fi
+}
+
 test_e2e_fresh_repo_cli
 test_e2e_full_mode
 test_e2e_existing_repo_preserves_user_files
@@ -440,4 +556,5 @@ test_e2e_with_composition_mocked
 test_e2e_onboarding_project_skill_present
 test_e2e_scaffolding_memory_bank_skill_present
 test_e2e_scaffolding_governance_docs_skill_present
+test_e2e_planning_project_roadmap_skill_present
 report_results
