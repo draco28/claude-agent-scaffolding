@@ -75,8 +75,8 @@ Each scenario is executed inside a single Claude Code subscription session by an
 - Skill triggers on `/scaffold-docs --full` (slash command resolves through the wrapper; `$ARGUMENTS` carries `--full`).
 - Skill validates MASTER-SPEC.md (via `sf_spec_validate`); validation succeeds.
 - Skill emits the 5 default docs (per S1) PLUS the 9 `--full`-gated docs per SPEC §5.3, for 14 total.
-- The 9 additional docs include (per §5.3 enumeration): `RISK_REGISTER.md`, `TEST_STRATEGY.md`, `CUTOVER_PLAN.md`, `EVALS_PLAN.md`, plus 5 additional governance artifacts as enumerated in the skill body per the doc catalog (e.g., `ADR-0002.md` and beyond, `STAKEHOLDER_MAP.md`, `GLOSSARY.md`, `COMPLIANCE_NOTES.md`, `RELEASE_PLAN.md` — exact filenames per the skill's documented `--full` catalog).
-- Of the 9 `--full` docs, 3 are LLM-gated per Phase 9.3.1 of the build sequence (the LLM-content-heavy ones, e.g., `RISK_REGISTER.md`, `EVALS_PLAN.md`, `CUTOVER_PLAN.md` — final assignment per skill body). When the LLM-gating condition is satisfied in this fixture (MASTER-SPEC has the required source sections populated), all 3 SHOULD emit; when not satisfied, the skill MUST emit a skip-with-reason marker rather than silently omit.
+- The 9 additional docs (per `lib/docs.sh` v0.1.0 — authoritative): 6 always-on (`RISK_REGISTER.md`, `THREAT_MODEL.md`, `TEST_STRATEGY.md`, `DEFINITION_OF_DONE.md`, `CUTOVER_PLAN.md`, `DEMO_RUNBOOK.md`) + 3 LLM-gated by Phase 9.3.1 answer (`EVALS_PLAN.md`, `MODEL_CARD.md`, `PROMPT_GOVERNANCE.md`).
+- Of the 9 `--full` docs, 3 are LLM-gated by Phase 9.3.1 answer: `EVALS_PLAN.md`, `MODEL_CARD.md`, `PROMPT_GOVERNANCE.md`. When Phase 9.3.1 = "yes" in the fixture state, all 3 SHOULD emit; when "no", the skill MUST emit a skip-with-reason marker for each rather than silently omit.
 - Skill does NOT emit `ROADMAP.md` even under `--full` (still §5.4's responsibility).
 - Skill writes outputs to cwd (single-repo fallback).
 
