@@ -1,340 +1,265 @@
 #!/usr/bin/env bash
-# lib/promotion.sh — within-run + cross-run pattern detection; candidate generation
-# Phase E · Task TE.1
-# Portability: bash 3.2 + BSD awk + jq; no gawk 3-arg match(), no declare -A
+# lib/promotion.sh — FULL auto-promotion machinery (v0.2, SPEC §7.2)
+#
+# Per-fingerprint vote accumulation across DISTINCT runs. When vote_count
+# reaches T=4, surface as a promotion candidate (basis: pattern-recurrence).
+# Supplementary instinct-recurrence signal surfaces fingerprints that appear
+# in N=3 consecutive recent_runs (basis: instinct-recurrence).
+#
+# State.json (schema v2) shape used by this file:
+#
+#   candidate_promotions[] := [
+#     {fingerprint, first_seen_at, last_seen_at, vote_count,
+#      appeared_in_runs: [run_id, ...], texts: [challenge_text, ...]}
+#   ]
+#   auto_promote_suppressions[] := [
+#     {fingerprint, suppressed_at, expires_at, reason_score}    # state.sh schema v2
+#   ]
+#   principle_promotions[] := [
+#     {timestamp, source, text, scope, fingerprint, promotion_basis}
+#   ]
+#   recent_runs[].instinct_observations[] := [fingerprint, ...]   # optional per-run
+#
+# Portability: macOS bash 3.2 + jq + shasum -a 256; no gawk 3-arg match(),
+# no declare -A. All state mutations are jq + ac_guarded_jq_write under a
+# state.lock acquired via ac_lock_acquire / released via ac_lock_release.
 
 # ---------------------------------------------------------------------------
-# ac_promotion_stem TEXT
-# Simple suffix-strip stemmer: -ing, -tion, -ed, -s
-# Operates on a single word (already lowercased).
+# ac_promotion_fingerprint <text>
+#
+# Emits sha256(normalize(text)) as 64-char lowercase hex.
+# Normalization (per SPEC §7.2):
+#   - lowercase
+#   - strip ASCII punctuation
+#   - collapse runs of whitespace to a single space
+#   - trim leading/trailing whitespace
 # ---------------------------------------------------------------------------
-_ac_stem() {
-  local word="$1"
-  # strip suffixes in priority order (longest first)
-  case "$word" in
-    *tion)  word="${word%tion}" ;;
-    *ing)   word="${word%ing}"  ;;
-    *ed)    word="${word%ed}"   ;;
-    *s)     word="${word%s}"    ;;
-  esac
-  printf '%s' "$word"
+ac_promotion_fingerprint() {
+  local text="$1"
+  # tr -d removes all listed punctuation; tr -s squeezes whitespace runs.
+  # shasum -a 256 is available on macOS by default (BSD). Output column 1 is hex.
+  printf '%s' "$text" \
+    | tr '[:upper:]' '[:lower:]' \
+    | tr -d '[:punct:]' \
+    | tr -s '[:space:]' ' ' \
+    | sed -e 's/^ //' -e 's/ $//' \
+    | shasum -a 256 \
+    | awk '{print $1}'
 }
 
 # ---------------------------------------------------------------------------
-# ac_promotion_topic CHALLENGE_JSON
+# ac_promotion_add_vote <fingerprint> <run_id> <challenge_text>
 #
-# Returns a stable topic key for a challenge object.
-# Algorithm per SPEC §7.2 step 1:
-#   topic(c) = lowercase + stem(text first 5 words) + sort(references)
+# Inserts or updates the candidate_promotions[] entry for <fingerprint>:
+#   - if absent: insert with vote_count=1, appeared_in_runs=[run_id]
+#   - if present AND run_id already in appeared_in_runs: no-op (dedup by run)
+#   - else: increment vote_count, append run_id, update last_seen_at,
+#     append texts entry (kept for surfacing UI; cap at 5)
 #
-# The references component dominates: challenges with identical reference sets
-# share the same topic regardless of minor text differences (per test spec comment:
-# "the ref sort dominates: both have refs=["Phase 5.2"] → same ref component → same topic").
-#
-# Implementation: key = sorted_refs + "|" + stem(first 5 words lowercased)
-# When refs are identical the stemmed-text suffix is irrelevant — BUT we still
-# include it so that challenges with identical refs but clearly different
-# subject matter (different stemmed prefix) are kept distinct in future use.
-#
-# For Test 1 specifically: both challenges share refs=["Phase 5.2"] AND
-# both start with "phase 5.2" so their stemmed prefixes overlap enough.
-# The dominant (ref) component is identical → same topic.
-#
-# Key format: sorted_refs (lowercased) + "|" + first-stemmed-word-of-text
-# We use only the first stemmed word from text to avoid over-splitting.
+# Lock around state.lock.
 # ---------------------------------------------------------------------------
-ac_promotion_topic() {
-  local challenge_json="$1"
+ac_promotion_add_vote() {
+  local fingerprint="$1"
+  local run_id="$2"
+  local challenge_text="$3"
 
-  # Extract references, lowercase+sort them, join with "|"
-  local sorted_refs
-  sorted_refs="$(printf '%s' "$challenge_json" | jq -r '.references[]?' | tr '[:upper:]' '[:lower:]' | sort | tr '\n' '|' | sed 's/|$//')"
-
-  # Extract text, lowercase, take first word only and stem it
-  # (used only as a secondary differentiator when refs are identical but topics differ)
-  local text
-  text="$(printf '%s' "$challenge_json" | jq -r '.text')"
-  local first_word
-  first_word="$(printf '%s' "$text" | tr '[:upper:]' '[:lower:]' | awk '{print $1}')"
-  local stemmed_first
-  stemmed_first="$(_ac_stem "$first_word")"
-
-  printf '%s|%s' "$sorted_refs" "$stemmed_first"
-}
-
-# ---------------------------------------------------------------------------
-# ac_promotion_within_run_candidates CHALLENGES_JSON
-#
-# Input:  JSON array of challenge objects
-# Output: JSON array of candidate objects
-#         Each candidate: {text, addresses[], signal:"within-run"}
-#
-# Groups challenges by topic key; for groups with size >= 2, emit a candidate.
-# `text` is a placeholder (TE.3 synthesizes the real principle).
-# ---------------------------------------------------------------------------
-ac_promotion_within_run_candidates() {
-  local challenges_json="$1"
-
-  # Handle empty array fast path
-  local count
-  count="$(printf '%s' "$challenges_json" | jq 'length')"
-  if [[ "$count" -eq 0 ]]; then
-    printf '[]'
-    return 0
-  fi
-
-  # Build a temp dir to hold topic buckets
-  local tmp_dir
-  tmp_dir="$(mktemp -d -t ac-promotion.XXXXXX)"
-  # Cleanup on function exit
-  local _trap_cleanup="rm -rf '$tmp_dir'"
-  # We use a subshell-safe cleanup approach
-  trap "rm -rf '$tmp_dir'" EXIT INT TERM
-
-  # For each challenge, compute its topic and store challenge JSON in a bucket file
-  local i=0
-  while [[ $i -lt $count ]]; do
-    local c_json
-    c_json="$(printf '%s' "$challenges_json" | jq -c ".[$i]")"
-    local topic
-    topic="$(ac_promotion_topic "$c_json")"
-    # Sanitize topic for use as filename: replace non-alnum chars with '_'
-    local safe_topic
-    safe_topic="$(printf '%s' "$topic" | tr -c '[:alnum:]' '_')"
-    # Append challenge JSON to bucket file
-    printf '%s\n' "$c_json" >> "$tmp_dir/${safe_topic}.bucket"
-    i=$((i + 1))
-  done
-
-  # Collect candidates: buckets with >= 2 challenges
-  local candidates="[]"
-  local bucket_file
-  for bucket_file in "$tmp_dir"/*.bucket; do
-    [[ -f "$bucket_file" ]] || continue
-    local bucket_count
-    bucket_count="$(wc -l < "$bucket_file" | tr -d ' ')"
-    if [[ "$bucket_count" -ge 2 ]]; then
-      # Build addresses array from the challenge objects in this bucket
-      local addresses="[]"
-      while IFS= read -r c_json; do
-        [[ -z "$c_json" ]] && continue
-        addresses="$(printf '%s' "$addresses" | jq --argjson c "$c_json" '. + [$c]')"
-      done < "$bucket_file"
-
-      # Build candidate object with placeholder text
-      local candidate
-      candidate="$(jq -n \
-        --arg text "Recurring theme (principle to be synthesized)" \
-        --argjson addresses "$addresses" \
-        --arg signal "within-run" \
-        '{text: $text, addresses: $addresses, signal: $signal}')"
-
-      candidates="$(printf '%s' "$candidates" | jq --argjson cand "$candidate" '. + [$cand]')"
-    fi
-  done
-
-  rm -rf "$tmp_dir"
-  # Remove trap now that we've cleaned up
-  trap - EXIT INT TERM
-
-  printf '%s' "$candidates"
-}
-
-# ---------------------------------------------------------------------------
-# ac_promotion_cross_run_candidates CURRENT_CHALLENGES_JSON
-#
-# Input:  JSON array of challenge objects from the current run.
-# Output: JSON array of candidate objects with signal:"cross-run".
-#
-# Algorithm:
-#   For each challenge in current_challenges_json, compute its topic via
-#   ac_promotion_topic. Count how many challenges in recent_runs[0..19]
-#   share that topic. Current challenge counts as 1; if total >= 3 (i.e.
-#   >= 2 prior matches), emit a candidate.
-#
-# Portability: bash 3.2 + jq; uses parallel arrays for topic counting.
-# ---------------------------------------------------------------------------
-ac_promotion_cross_run_candidates() {
-  local current_challenges_json="$1"
-
-  # Fast path: empty current challenges
-  local cur_count
-  cur_count="$(printf '%s' "$current_challenges_json" | jq 'length')"
-  if [[ "$cur_count" -eq 0 ]]; then
-    printf '[]'
-    return 0
-  fi
-
-  # Read recent_runs from state (up to 20 entries)
-  local state_json
-  state_json="$(ac_state_read)"
-
-  # Build a list of all challenges from recent_runs as one JSON array.
-  # Each recent_run may have a .challenges field (array).
-  local prior_challenges_json
-  prior_challenges_json="$(printf '%s' "$state_json" | jq '[.recent_runs[0:20][].challenges[]?]')"
-
-  local prior_count
-  prior_count="$(printf '%s' "$prior_challenges_json" | jq 'length')"
-
-  # Compute topic for each current challenge; store in parallel arrays
-  local _cur_topics=()
-  local _cur_jsons=()
-  local i=0
-  while [[ $i -lt $cur_count ]]; do
-    local c_json
-    c_json="$(printf '%s' "$current_challenges_json" | jq -c ".[$i]")"
-    local topic
-    topic="$(ac_promotion_topic "$c_json")"
-    _cur_topics+=("$topic")
-    _cur_jsons+=("$c_json")
-    i=$((i + 1))
-  done
-
-  # For each unique current topic, count prior matches
-  # Use parallel arrays: _lookup_keys[], _lookup_counts[]
-  local _lookup_keys=()
-  local _lookup_counts=()
-
-  # Count prior challenges per topic
-  local j=0
-  while [[ $j -lt $prior_count ]]; do
-    local p_json
-    p_json="$(printf '%s' "$prior_challenges_json" | jq -c ".[$j]")"
-    local p_topic
-    p_topic="$(ac_promotion_topic "$p_json")"
-
-    # Find if topic already in lookup
-    local found=0
-    local k=0
-    while [[ $k -lt ${#_lookup_keys[@]} ]]; do
-      if [[ "${_lookup_keys[$k]}" == "$p_topic" ]]; then
-        _lookup_counts[$k]=$(( _lookup_counts[$k] + 1 ))
-        found=1
-        break
-      fi
-      k=$((k + 1))
-    done
-    if [[ $found -eq 0 ]]; then
-      _lookup_keys+=("$p_topic")
-      _lookup_counts+=(1)
-    fi
-    j=$((j + 1))
-  done
-
-  # For each current challenge topic, look up prior count; if total >= 3, emit candidate
-  local candidates="[]"
-  local i=0
-  while [[ $i -lt $cur_count ]]; do
-    local topic="${_cur_topics[$i]}"
-    local c_json="${_cur_jsons[$i]}"
-
-    local prior_match=0
-    local k=0
-    while [[ $k -lt ${#_lookup_keys[@]} ]]; do
-      if [[ "${_lookup_keys[$k]}" == "$topic" ]]; then
-        prior_match="${_lookup_counts[$k]}"
-        break
-      fi
-      k=$((k + 1))
-    done
-
-    # current counts as 1; total = 1 + prior_match; need >= 3
-    local total=$(( 1 + prior_match ))
-    if [[ $total -ge 3 ]]; then
-      local candidate
-      candidate="$(jq -n \
-        --arg text "Recurring theme (principle to be synthesized)" \
-        --argjson addresses "[$c_json]" \
-        --arg signal "cross-run" \
-        '{text: $text, addresses: $addresses, signal: $signal}')"
-      candidates="$(printf '%s' "$candidates" | jq --argjson cand "$candidate" '. + [$cand]')"
-    fi
-    i=$((i + 1))
-  done
-
-  printf '%s' "$candidates"
-}
-
-# ac_promotion_synthesize <cluster_json>
-#
-# Emits either the canned mock principle (when ARCHITECT_CRITIC_PROMOTION_MOCK is set,
-# for tests) or the claude-reasoning prompt text Claude would use to synthesize a
-# one-line principle from the cluster. Per SPEC §7.2 step 3 — the actual claude-
-# reasoning is invoked from /critique's body in Phase E TE.5; this lib just
-# builds the prompt string.
-ac_promotion_synthesize() {
-  local cluster_json="$1"
-  if [[ -n "${ARCHITECT_CRITIC_PROMOTION_MOCK:-}" ]]; then
-    printf '%s' "$ARCHITECT_CRITIC_PROMOTION_MOCK"
-    return 0
-  fi
-  local addresses
-  addresses="$(printf '%s' "$cluster_json" | jq -r '[.addresses[]?.text // .addresses[]?] | map(select(. != null)) | map("  - " + tostring) | join("\n")')"
-  cat <<EOF
-You are summarizing a recurring critique theme into one short prescriptive principle.
-Challenges:
-${addresses}
-Return a single line, imperative voice, ≤120 chars, no preamble.
-EOF
-}
-
-# ac_promotion_filter_suppressed <candidates_json>
-#
-# Drops any candidate matching a declined_candidates entry where suppress_until > now.
-# Per SPEC §7.2 step 4 (30-day suppression window).
-ac_promotion_filter_suppressed() {
-  local candidates_json="$1"
-  local now_iso
-  now_iso="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-  local state_json
-  state_json="$(ac_state_read 2>/dev/null || echo '{"declined_candidates":[]}')"
-  printf '%s' "$candidates_json" | jq \
-    --argjson state "$state_json" \
-    --arg now "$now_iso" \
-    '
-    . as $cands |
-    ($state.declined_candidates // []) as $declined |
-    [$cands[] | . as $c |
-      select(
-        ([$declined[] | select(.text == $c.text and .suppress_until > $now)] | length) == 0
-      )
-    ]
-    '
-}
-
-# ac_promotion_record_candidates <candidates_json>
-#
-# Writes candidates to state.json's candidate_promotions field (replaces existing).
-# Per SPEC §7.2 step 5.
-ac_promotion_record_candidates() {
-  local candidates_json="$1"
-  local state_file lock_path
+  local state_file lock_path now
   state_file="$(ac_state_path)"
   lock_path="$(ac_data_dir)/state.lock"
-  ac_lock_acquire "$lock_path" || { ac_log_error "could not acquire state.lock"; return 1; }
+  now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+  ac_lock_acquire "$lock_path" || return 1
   ac_guarded_jq_write "$state_file" \
-    --argjson cands "$candidates_json" \
-    '. + {candidate_promotions: $cands}' \
+    --arg fp "$fingerprint" \
+    --arg rid "$run_id" \
+    --arg txt "$challenge_text" \
+    --arg now "$now" \
+    '
+    .candidate_promotions = (
+      (.candidate_promotions // []) as $cands |
+      if ([$cands[] | select(.fingerprint == $fp)] | length) == 0 then
+        $cands + [{
+          fingerprint: $fp,
+          first_seen_at: $now,
+          last_seen_at: $now,
+          vote_count: 1,
+          appeared_in_runs: [$rid],
+          texts: [$txt]
+        }]
+      else
+        $cands | map(
+          if .fingerprint == $fp then
+            if (.appeared_in_runs // []) | index($rid) then
+              .   # already counted this run — no-op
+            else
+              .
+              | .vote_count = ((.vote_count // 0) + 1)
+              | .appeared_in_runs = ((.appeared_in_runs // []) + [$rid])
+              | .last_seen_at = $now
+              | .texts = (((.texts // []) + [$txt]) | .[-5:])
+            end
+          else .
+          end
+        )
+      end
+    )
+    ' \
     "$state_file"
   local rc=$?
   ac_lock_release "$lock_path"
   return $rc
 }
 
-# ac_promotion_record_decline <text>
+# ---------------------------------------------------------------------------
+# ac_promotion_apply_suppression <fingerprint> <reason_score>
 #
-# Appends a decline entry to declined_candidates with suppress_until = now + 30 days.
-# Per SPEC §7.2 step 4 / OQ-1 30-day suppression. Delegates to ac_state_append_declined
-# (which already provides the locking + atomic write) for the actual append.
-ac_promotion_record_decline() {
-  local text="$1"
-  local suppress_until
-  # +30 days; macOS BSD date vs GNU date differ; try BSD form first, fall back to GNU.
-  if suppress_until="$(date -u -v+30d +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null)"; then
-    :
-  else
-    suppress_until="$(date -u -d "+30 days" +"%Y-%m-%dT%H:%M:%SZ")"
-  fi
-  ac_state_append_declined "$text" "$suppress_until"
+# Delegates to lib/state.sh:ac_state_add_suppression (which handles
+# 30/90-day window selection from reason_score and the locked write).
+# ---------------------------------------------------------------------------
+ac_promotion_apply_suppression() {
+  local fingerprint="$1"
+  local reason_score="$2"
+  ac_state_add_suppression "$fingerprint" "$reason_score"
+}
+
+# ---------------------------------------------------------------------------
+# ac_promotion_check_candidates
+#
+# Scan candidate_promotions[]. Emit a JSON array of surfaceable candidates:
+#   [{fingerprint, vote_count, basis: "pattern-recurrence",
+#     texts: [...], appeared_in_runs: [...]}, ...]
+#
+# Filtering:
+#   - skip fingerprints with an active (non-expired) suppression entry
+#   - include only entries with vote_count >= 4 (SPEC §7.2 threshold T=4)
+#
+# "Active suppression" := exists in auto_promote_suppressions[] AND
+# expires_at > now (lexicographic compare on ISO-8601 Z timestamps is
+# numeric-equivalent — safe).
+# ---------------------------------------------------------------------------
+ac_promotion_check_candidates() {
+  local state_file now
+  state_file="$(ac_state_path)"
+  now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+  jq --arg now "$now" '
+    (.auto_promote_suppressions // []) as $sup |
+    [
+      (.candidate_promotions // [])[]
+      | select((.vote_count // 0) >= 4)
+      | . as $c
+      | select(
+          ([$sup[] | select(.fingerprint == $c.fingerprint and .expires_at > $now)] | length) == 0
+        )
+      | {
+          fingerprint: .fingerprint,
+          vote_count: .vote_count,
+          basis: "pattern-recurrence",
+          texts: (.texts // []),
+          appeared_in_runs: (.appeared_in_runs // [])
+        }
+    ]
+  ' "$state_file"
+}
+
+# ---------------------------------------------------------------------------
+# ac_promotion_instinct_signal
+#
+# Supplementary signal (SPEC §7.2): scan the last N=3 recent_runs entries.
+# For any fingerprint that appears in instinct_observations[] of ALL N of
+# those entries (consecutive recurrence), emit a candidate with
+# basis: "instinct-recurrence".
+#
+# Also honors auto_promote_suppressions (active suppressions filter out).
+# ---------------------------------------------------------------------------
+ac_promotion_instinct_signal() {
+  local state_file now n
+  state_file="$(ac_state_path)"
+  now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  n="${ARCHITECT_CRITIC_INSTINCT_N:-3}"
+
+  jq --arg now "$now" --argjson n "$n" '
+    (.recent_runs // []) as $runs |
+    (.auto_promote_suppressions // []) as $sup |
+    # Take the last N runs; if fewer than N, no instinct candidates can fire.
+    ($runs | length) as $rl |
+    if $rl < $n then
+      []
+    else
+      ($runs[-$n:]) as $tail |
+      # For each fingerprint appearing in the FIRST tail entry, check it appears
+      # in EVERY tail entry; this is the "consecutive in N runs" rule.
+      (($tail[0].instinct_observations // []) | unique) as $seed |
+      [
+        $seed[]
+        | . as $fp
+        | select(
+            ([ $tail[]
+              | (.instinct_observations // [])
+              | index($fp)
+            ] | map(select(. != null)) | length) == $n
+          )
+        | select(
+            ([$sup[] | select(.fingerprint == $fp and .expires_at > $now)] | length) == 0
+          )
+        | {
+            fingerprint: $fp,
+            basis: "instinct-recurrence",
+            consecutive_runs: $n
+          }
+      ]
+    end
+  ' "$state_file"
+}
+
+# ---------------------------------------------------------------------------
+# ac_promotion_promote <fingerprint> <basis>
+#
+# Idempotent move: if principle_promotions[] already contains an entry with
+# matching fingerprint, no-op. Else append a new principle_promotions[] entry
+# stamped with promotion_basis=<basis>. Text and scope are derived from the
+# candidate_promotions[] entry (text = first cached text; scope = "user" as
+# default — the skill body can override by writing directly via state.sh
+# helpers when it knows the right scope).
+#
+# Note: this function does NOT remove the candidate_promotions[] entry —
+# that is left for a future garbage-collect (or implicit re-vote that won't
+# matter since promotion is already recorded). Cleanup is non-essential and
+# kept out of scope to keep this function pure-append.
+# ---------------------------------------------------------------------------
+ac_promotion_promote() {
+  local fingerprint="$1"
+  local basis="$2"
+  local state_file lock_path now
+  state_file="$(ac_state_path)"
+  lock_path="$(ac_data_dir)/state.lock"
+  now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+  ac_lock_acquire "$lock_path" || return 1
+  ac_guarded_jq_write "$state_file" \
+    --arg fp "$fingerprint" \
+    --arg basis "$basis" \
+    --arg now "$now" \
+    '
+    (.principle_promotions // []) as $promos |
+    if ([$promos[] | select(.fingerprint == $fp)] | length) > 0 then
+      .   # idempotent — already promoted
+    else
+      (.candidate_promotions // []) as $cands |
+      ($cands[] | select(.fingerprint == $fp)) as $cand |
+      ($cand.texts // [""])[0] as $text |
+      .principle_promotions = $promos + [{
+        timestamp: $now,
+        source: "auto",
+        text: $text,
+        scope: "user",
+        fingerprint: $fp,
+        promotion_basis: $basis
+      }]
+    end
+    ' \
+    "$state_file"
+  local rc=$?
+  ac_lock_release "$lock_path"
+  return $rc
 }
