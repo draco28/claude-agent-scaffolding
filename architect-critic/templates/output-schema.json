@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "challenges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "text": { "type": "string" },
+          "severity": { "enum": ["premise", "gap", "alternative"] },
+          "rationale": { "type": "string" },
+          "principle_applied": { "type": "string" }
+        },
+        "required": ["text", "severity", "rationale"]
+      }
+    },
+    "divergences": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": ["challenges"]
+}

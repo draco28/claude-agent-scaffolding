@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+# tests/unit/test-state.sh — tests for lib/state.sh (schema v2, Phase 3)
+# Covers: init at schema v2, recent_runs with concessions/skill_invoked (no cost_usd),
+# auto_promote_suppressions with 30/90-day windows, promotions, declined, locks.
+
+set -u
+
+# tests/unit/test-state.sh — TESTS_DIR points to tests/ (parent of unit/)
+TESTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+LIB_DIR="$(cd "$TESTS_DIR/../lib" && pwd)"
+
+source "$TESTS_DIR/_helpers.sh"
+source "$LIB_DIR/_helpers.sh"
+source "$LIB_DIR/state.sh"
+
+# ---------------------------------------------------------------------------
+# Setup
+# ---------------------------------------------------------------------------
+setup_tmp_repo
+
+# ---------------------------------------------------------------------------
+# T1: ac_state_path returns expected path
+# ---------------------------------------------------------------------------
+echo "T1: ac_state_path"
+expected_path="$(ac_data_dir)/state.json"
+actual_path="$(ac_state_path)"
+assert_eq "ac_state_path returns data-dir/state.json" "$expected_path" "$actual_path"
+
+# ---------------------------------------------------------------------------
+# T2: schema_v2_init — fresh init writes schema_version: 2
+# ---------------------------------------------------------------------------
+echo "T2: schema_v2_init"
+state_file="$(ac_state_path)"
+assert_file_missing "$state_file"
+ac_state_init
+assert_file_exists "$state_file"
+schema_ver="$(jq '.schema_version' "$state_file")"
+assert_eq "schema_version=2" "2" "$schema_ver"
+
+# ---------------------------------------------------------------------------
+# T3: init empty arrays for all required keys (incl. auto_promote_suppressions)
+# ---------------------------------------------------------------------------
+echo "T3: ac_state_init empty arrays"
+recent_runs_len="$(jq '.recent_runs | length' "$state_file")"
+promotions_len="$(jq '.principle_promotions | length' "$state_file")"
+candidates_len="$(jq '.candidate_promotions | length' "$state_file")"
+declined_len="$(jq '.declined_candidates | length' "$state_file")"
+suppressions_len="$(jq '.auto_promote_suppressions | length' "$state_file")"
+assert_eq "recent_runs starts empty" "0" "$recent_runs_len"
+assert_eq "principle_promotions starts empty" "0" "$promotions_len"
+assert_eq "candidate_promotions starts empty" "0" "$candidates_len"
+assert_eq "declined_candidates starts empty" "0" "$declined_len"
+assert_eq "auto_promote_suppressions starts empty" "0" "$suppressions_len"
+
+# ---------------------------------------------------------------------------
+# T4: test_no_in_flight_field — fresh state.json does not contain in_flight
+# ---------------------------------------------------------------------------
+echo "T4: no in_flight field"
+has_in_flight="$(jq 'has("in_flight")' "$state_file")"
+assert_eq "fresh state.json has no in_flight key" "false" "$has_in_flight"
+
+# ---------------------------------------------------------------------------
+# T5: ac_state_init does NOT overwrite an existing state.json
+# ---------------------------------------------------------------------------
+echo "T5: ac_state_init does not overwrite"
+jq '.schema_version = 99' "$state_file" > "${state_file}.tmp" && mv "${state_file}.tmp" "$state_file"
+ac_state_init
+ver_after="$(jq '.schema_version' "$state_file")"
+assert_eq "init does not overwrite existing state" "99" "$ver_after"
+# restore to v2 for remaining tests
+jq '.schema_version = 2' "$state_file" > "${state_file}.tmp" && mv "${state_file}.tmp" "$state_file"
+
+# ---------------------------------------------------------------------------
+# T6: ac_state_read outputs valid JSON
+# ---------------------------------------------------------------------------
+echo "T6: ac_state_read"
+read_output="$(ac_state_read | jq '.schema_version')"
+assert_eq "ac_state_read emits parseable JSON" "2" "$read_output"
+
+# ---------------------------------------------------------------------------
+# T7: ac_state_append_run — schema v2 row with concessions + skill_invoked, no cost_usd
+# ---------------------------------------------------------------------------
+echo "T7: ac_state_append_run (schema v2)"
+ac_state_append_run "crit-2026-05-24T10:00:00Z-close-abc123" "close" '["claude","codex"]' 8 2 "critiquing-spec" 65000
+runs_len="$(jq '.recent_runs | length' "$state_file")"
+assert_eq "recent_runs has 1 entry after append" "1" "$runs_len"
+rid="$(jq -r '.recent_runs[0].request_id' "$state_file")"
+assert_eq "recent_runs[0].request_id" "crit-2026-05-24T10:00:00Z-close-abc123" "$rid"
+depth="$(jq -r '.recent_runs[0].depth' "$state_file")"
+assert_eq "recent_runs[0].depth" "close" "$depth"
+adv_count="$(jq '.recent_runs[0].adversaries_used | length' "$state_file")"
+assert_eq "recent_runs[0].adversaries_used length=2" "2" "$adv_count"
+ch_count="$(jq '.recent_runs[0].challenge_count' "$state_file")"
+assert_eq "recent_runs[0].challenge_count=8" "8" "$ch_count"
+elapsed="$(jq '.recent_runs[0].elapsed_ms' "$state_file")"
+assert_eq "recent_runs[0].elapsed_ms=65000" "65000" "$elapsed"
+
+# concessions field present
+echo "T7b: test_concessions_field_in_recent_runs"
+concessions="$(jq '.recent_runs[0].concessions' "$state_file")"
+assert_eq "recent_runs[0].concessions=2" "2" "$concessions"
+
+# skill_invoked field present
+echo "T7c: test_skill_invoked_field_in_recent_runs"
+skill="$(jq -r '.recent_runs[0].skill_invoked' "$state_file")"
+assert_eq "recent_runs[0].skill_invoked=critiquing-spec" "critiquing-spec" "$skill"
+
+# No cost_usd
+echo "T7d: test_no_cost_usd_field"
+has_cost="$(jq '.recent_runs[0] | has("cost_usd")' "$state_file")"
+assert_eq "recent_runs[0] has no cost_usd key" "false" "$has_cost"
+
+# ---------------------------------------------------------------------------
+# T8: recent_runs cap at 20 entries (drops oldest)
+# ---------------------------------------------------------------------------
+echo "T8: recent_runs cap at 20"
+for i in $(seq 1 20); do
+  ac_state_append_run "crit-cap-${i}" "close" '["claude"]' 1 0 "critiquing-spec" 100
+done
+cap_len="$(jq '.recent_runs | length' "$state_file")"
+assert_eq "recent_runs capped at 20" "20" "$cap_len"
+last_id="$(jq -r '.recent_runs[-1].request_id' "$state_file")"
+assert_eq "most recent entry is crit-cap-20" "crit-cap-20" "$last_id"
+# Verify original entry crit-2026-...-abc123 was dropped
+has_first="$(jq -r '[.recent_runs[].request_id] | index("crit-2026-05-24T10:00:00Z-close-abc123")' "$state_file")"
+assert_eq "original entry was dropped after 20+1 appends" "null" "$has_first"
+
+# ---------------------------------------------------------------------------
+# T9: ac_state_append_promotion adds a principle_promotion entry
+# ---------------------------------------------------------------------------
+echo "T9: ac_state_append_promotion"
+ac_state_append_promotion "auto" "Always document rollback paths" "user"
+promo_len="$(jq '.principle_promotions | length' "$state_file")"
+assert_eq "principle_promotions has 1 entry" "1" "$promo_len"
+promo_text="$(jq -r '.principle_promotions[0].text' "$state_file")"
+assert_eq "principle_promotions[0].text" "Always document rollback paths" "$promo_text"
+promo_src="$(jq -r '.principle_promotions[0].source' "$state_file")"
+assert_eq "principle_promotions[0].source" "auto" "$promo_src"
+promo_scope="$(jq -r '.principle_promotions[0].scope' "$state_file")"
+assert_eq "principle_promotions[0].scope" "user" "$promo_scope"
+
+# ---------------------------------------------------------------------------
+# T10: ac_state_append_declined adds a declined_candidates entry
+# ---------------------------------------------------------------------------
+echo "T10: ac_state_append_declined"
+suppress_ts="2026-06-14T00:00:00Z"
+ac_state_append_declined "Prefer explicit config" "$suppress_ts"
+declined_len="$(jq '.declined_candidates | length' "$state_file")"
+assert_eq "declined_candidates has 1 entry" "1" "$declined_len"
+declined_text="$(jq -r '.declined_candidates[0].text' "$state_file")"
+assert_eq "declined_candidates[0].text" "Prefer explicit config" "$declined_text"
+declined_sup="$(jq -r '.declined_candidates[0].suppress_until' "$state_file")"
+assert_eq "declined_candidates[0].suppress_until" "$suppress_ts" "$declined_sup"
+
+# ---------------------------------------------------------------------------
+# T11: lock file is created and released
+# ---------------------------------------------------------------------------
+echo "T11: lock file acquire and release"
+lock_path="$(ac_data_dir)/state.lock"
+assert_file_missing "$lock_path"
+ac_lock_acquire "$lock_path"
+assert_file_exists "$lock_path"
+ac_lock_release "$lock_path"
+assert_file_missing "$lock_path"
+
+# ---------------------------------------------------------------------------
+# T12: second ac_lock_acquire fails when lock is held
+# ---------------------------------------------------------------------------
+echo "T12: concurrent lock refusal"
+ac_lock_acquire "$lock_path"
+( set -o noclobber; > "$lock_path" ) 2>/dev/null
+second_rc=$?
+assert_eq "noclobber fails when lock held" "1" "$second_rc"
+ac_lock_release "$lock_path"
+
+# ---------------------------------------------------------------------------
+# T13: ac_state_write_field updates a scalar field atomically
+# ---------------------------------------------------------------------------
+echo "T13: ac_state_write_field"
+ac_state_write_field ".schema_version" "2"
+new_ver="$(jq '.schema_version' "$state_file")"
+assert_eq "write_field updates schema_version to 2" "2" "$new_ver"
+
+# ---------------------------------------------------------------------------
+# T14: ac_state_init preserves on-disk state.json with future schema_version (>2)
+# ---------------------------------------------------------------------------
+echo "T14: future schema preserved"
+setup_tmp_repo > /dev/null
+mkdir -p "$(ac_data_dir)"
+state_file="$(ac_state_path)"
+printf '%s\n' '{"schema_version":3,"recent_runs":[],"future_field":"x"}' > "$state_file"
+ac_state_init 2>&1 | grep -q "future schema_version=3"
+assert_eq "future schema_version logs info" "0" "$?"
+preserved_ver="$(jq '.schema_version' "$state_file")"
+assert_eq "future schema preserved" "3" "$preserved_ver"
+preserved_future="$(jq -r '.future_field' "$state_file")"
+assert_eq "future field preserved" "x" "$preserved_future"
+
+# ---------------------------------------------------------------------------
+# T15: test_auto_promote_suppressions_30day — reason_score=4 → 30-day window
+# ---------------------------------------------------------------------------
+echo "T15: auto_promote_suppressions 30-day window (reason_score=4)"
+setup_tmp_repo > /dev/null
+ac_state_init
+state_file="$(ac_state_path)"
+fp_30="abc123def456abc123def456abc123def456abc123def456abc123def4560030"
+ac_state_add_suppression "$fp_30" 4
+sup_len="$(jq '.auto_promote_suppressions | length' "$state_file")"
+assert_eq "auto_promote_suppressions has 1 entry" "1" "$sup_len"
+stored_fp="$(jq -r '.auto_promote_suppressions[0].fingerprint' "$state_file")"
+assert_eq "fingerprint stored" "$fp_30" "$stored_fp"
+stored_score="$(jq '.auto_promote_suppressions[0].reason_score' "$state_file")"
+assert_eq "reason_score=4 stored" "4" "$stored_score"
+suppressed_at="$(jq -r '.auto_promote_suppressions[0].suppressed_at' "$state_file")"
+expires_at="$(jq -r '.auto_promote_suppressions[0].expires_at' "$state_file")"
+# Verify expires_at is exactly suppressed_at + 30 days (BSD date math).
+expected_expires="$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$suppressed_at" -v+30d +"%Y-%m-%dT%H:%M:%SZ")"
+assert_eq "expires_at = suppressed_at + 30d for reason_score=4" "$expected_expires" "$expires_at"
+
+# ---------------------------------------------------------------------------
+# T16: test_auto_promote_suppressions_90day — reason_score=5 → 90-day window
+# ---------------------------------------------------------------------------
+echo "T16: auto_promote_suppressions 90-day window (reason_score=5)"
+fp_90="999888777666555444333222111000fedcba9876543210fedcba9876543210ff"
+ac_state_add_suppression "$fp_90" 5
+sup_len="$(jq '.auto_promote_suppressions | length' "$state_file")"
+assert_eq "auto_promote_suppressions has 2 entries" "2" "$sup_len"
+stored_fp_90="$(jq -r '.auto_promote_suppressions[1].fingerprint' "$state_file")"
+assert_eq "fingerprint 90d stored" "$fp_90" "$stored_fp_90"
+stored_score_90="$(jq '.auto_promote_suppressions[1].reason_score' "$state_file")"
+assert_eq "reason_score=5 stored" "5" "$stored_score_90"
+sup_at_90="$(jq -r '.auto_promote_suppressions[1].suppressed_at' "$state_file")"
+exp_at_90="$(jq -r '.auto_promote_suppressions[1].expires_at' "$state_file")"
+expected_expires_90="$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$sup_at_90" -v+90d +"%Y-%m-%dT%H:%M:%SZ")"
+assert_eq "expires_at = suppressed_at + 90d for reason_score=5" "$expected_expires_90" "$exp_at_90"
+
+# ---------------------------------------------------------------------------
+report_results

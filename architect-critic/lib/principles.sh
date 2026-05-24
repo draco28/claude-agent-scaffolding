@@ -7,6 +7,246 @@ ac_principles_path() {
   echo "$(ac_data_dir)/principles.md"
 }
 
+# v0.2 — Source-resolution helpers for the 3-source principles model.
+#
+# The v0.2 contract recognizes three principal sources (plus optional
+# memory-bank patterns). Each source is rendered in this fixed display order
+# in the merged view:
+#
+#   shipped-default  →  user-promoted  →  project  [→  memory-bank]
+#
+# Each principle block in a principles.md file is preceded by an HTML comment
+# of the form:
+#
+#   <!-- source: <source>, principle_id: <pp-id>[, promoted_at: <ISO8601>] -->
+#   - **Title:** body text...
+#
+# These helpers expose the *paths* to each source. Existence is not asserted;
+# callers (or `ac_principles_merge`) skip missing files silently.
+
+# Returns the path to the shipped-default principles template. Resolved
+# relative to this lib file's parent dir so it works regardless of
+# $CLAUDE_PLUGIN_ROOT being set (test isolation).
+ac_principles_shipped_path() {
+  local self_dir
+  self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  echo "$self_dir/templates/principles.md"
+}
+
+# Returns the user-global principles path under $HOME.
+# Honors $HOME overrides (so tests can sandbox via _v02_isolate_home).
+ac_principles_user_path() {
+  echo "$HOME/.claude/architect-critic/principles.md"
+}
+
+# Returns the project-scoped principles path (under git toplevel) or empty
+# if cwd is not inside a git repo.
+ac_principles_project_path() {
+  local top
+  top="$(git rev-parse --show-toplevel 2>/dev/null)"
+  if [[ -z "$top" ]]; then
+    return 0
+  fi
+  echo "$top/.claude/architect-critic/principles.md"
+}
+
+# Parse a principles.md file and emit one JSON line per principle block.
+# Block format expected:
+#   <!-- source: ..., principle_id: ..., promoted_at: ... -->
+#   - **Title:** body text
+#
+# Output fields per line: source, principle_id, promoted_at, text.
+# Missing meta keys default to empty string. Missing/blank principle lines
+# (no `-` line after a comment) get text="".
+#
+# macOS bash 3.2 + BSD awk portable. Uses awk to find HTML comments and the
+# following non-blank line as the principle text.
+ac_principles_parse_meta() {
+  local file="$1"
+  [[ ! -f "$file" ]] && return 0
+
+  awk '
+    function extract_kv(comment, key,   v, pat) {
+      # Extract value for "<key>:" up to the next comma or end-of-comment.
+      pat = key ":[[:space:]]*"
+      if (match(comment, pat) == 0) return ""
+      v = substr(comment, RSTART + RLENGTH)
+      # Trim leading whitespace
+      sub(/^[[:space:]]+/, "", v)
+      # Cut at comma or trailing "-->"
+      sub(/[[:space:]]*,.*$/, "", v)
+      sub(/[[:space:]]*-->.*$/, "", v)
+      sub(/[[:space:]]+$/, "", v)
+      return v
+    }
+    function json_escape(s,   r) {
+      r = s
+      gsub(/\\/, "\\\\", r)
+      gsub(/"/, "\\\"", r)
+      gsub(/\t/, "\\t", r)
+      gsub(/\r/, "\\r", r)
+      gsub(/\n/, "\\n", r)
+      return r
+    }
+    /<!--[[:space:]]*source:/ {
+      comment = $0
+      src = extract_kv(comment, "source")
+      pid = extract_kv(comment, "principle_id")
+      pat = extract_kv(comment, "promoted_at")
+      # Now read forward until we find the principle line (starts with "-").
+      text = ""
+      while ((getline nextline) > 0) {
+        if (nextline ~ /^[[:space:]]*$/) continue
+        if (nextline ~ /^[[:space:]]*<!--/) {
+          # Hit the next meta comment without a principle line in between.
+          # Emit current meta with empty text, then re-process this line.
+          break
+        }
+        if (nextline ~ /^[[:space:]]*-/) {
+          text = nextline
+          # Strip leading "- " and any "  " indentation
+          sub(/^[[:space:]]*-[[:space:]]*/, "", text)
+          break
+        }
+        # Other lines (e.g. paragraph continuation) — keep scanning.
+      }
+      printf "{\"source\":\"%s\",\"principle_id\":\"%s\",\"promoted_at\":\"%s\",\"text\":\"%s\"}\n", \
+        json_escape(src), json_escape(pid), json_escape(pat), json_escape(text)
+      # If the line we read was a new meta comment, re-process it.
+      if (nextline ~ /^[[:space:]]*<!--[[:space:]]*source:/) {
+        $0 = nextline
+        # Fall through into the next iteration via a re-evaluation hack:
+        # awk does not let us "rewind", so duplicate the parse here.
+        comment = $0
+        src = extract_kv(comment, "source")
+        pid = extract_kv(comment, "principle_id")
+        pat = extract_kv(comment, "promoted_at")
+        text = ""
+        while ((getline nextline2) > 0) {
+          if (nextline2 ~ /^[[:space:]]*$/) continue
+          if (nextline2 ~ /^[[:space:]]*<!--/) break
+          if (nextline2 ~ /^[[:space:]]*-/) {
+            text = nextline2
+            sub(/^[[:space:]]*-[[:space:]]*/, "", text)
+            break
+          }
+        }
+        printf "{\"source\":\"%s\",\"principle_id\":\"%s\",\"promoted_at\":\"%s\",\"text\":\"%s\"}\n", \
+          json_escape(src), json_escape(pid), json_escape(pat), json_escape(text)
+      }
+    }
+  ' "$file"
+}
+
+# Merge shipped + user + project (+ optional memory-bank patterns) into a
+# single JSON array of principle objects, in display order:
+#
+#   shipped-default  →  user-promoted  →  project  →  memory-bank
+#
+# Duplicate principle_id: last-source-wins. The winning entry gets an
+# `overrides_source` field naming the displaced source. The displaced entry
+# is dropped from the array.
+#
+# Memory-bank source is only included if $ARCHITECT_CRITIC_MEMORY_BANK_PATH
+# is set and the file exists. Each memory-bank line that begins with "- "
+# becomes a synthetic principle with source=memory-bank (no principle_id).
+ac_principles_merge() {
+  local tmp
+  tmp="$(mktemp -t ac-principles-merge.XXXXXX)" || return 1
+
+  {
+    # 1. Shipped defaults — always present
+    local shipped
+    shipped="$(ac_principles_shipped_path)"
+    [[ -f "$shipped" ]] && ac_principles_parse_meta "$shipped"
+
+    # 2. User-global
+    local user
+    user="$(ac_principles_user_path)"
+    [[ -f "$user" ]] && ac_principles_parse_meta "$user"
+
+    # 3. Project-scoped
+    local proj
+    proj="$(ac_principles_project_path)"
+    [[ -n "$proj" && -f "$proj" ]] && ac_principles_parse_meta "$proj"
+
+    # 4. Memory-bank patterns (optional, opt-in via env var)
+    local mb="${ARCHITECT_CRITIC_MEMORY_BANK_PATH:-}"
+    if [[ -n "$mb" && -f "$mb" ]]; then
+      while IFS= read -r line; do
+        # Strip leading "- " and skip non-bullet lines
+        case "$line" in
+          -\ *)
+            local text="${line#- }"
+            # JSON-escape minimal
+            text="${text//\\/\\\\}"
+            text="${text//\"/\\\"}"
+            printf '{"source":"memory-bank","principle_id":"","promoted_at":"","text":"%s"}\n' "$text"
+            ;;
+        esac
+      done < "$mb"
+    fi
+  } > "$tmp"
+
+  # Apply last-wins dedup by principle_id (skipping empty ids — those can't
+  # collide). Build the final array with jq.
+  jq -s '
+    # Drop placeholder/documentation entries:
+    #   - principle_id missing the canonical "pp-" prefix, AND
+    #   - synthetic memory-bank entries (which legitimately have no id) are kept
+    # Also drop entries with empty text (no principle bullet followed the meta).
+    map(select(
+      (.source == "memory-bank") or
+      (((.principle_id // "") | startswith("pp-")) and ((.text // "") != ""))
+    ))
+    # Then: display-order list with dedup-by-principle_id (last wins).
+    # Track displaced source on the winner via overrides_source.
+    | reduce .[] as $p (
+      [];
+      if ($p.principle_id // "") == "" then
+        . + [$p]
+      else
+        ((map(.principle_id) | index($p.principle_id)) as $hit
+        | if $hit == null then
+            . + [$p]
+          else
+            .[$hit] as $prev
+            | (.[:$hit] + .[$hit+1:]) + [$p + {overrides_source: $prev.source}]
+          end)
+      end
+    )
+  ' "$tmp"
+
+  local rc=$?
+  rm -f "$tmp"
+  return $rc
+}
+
+# Filter the merged principles array to a single logical source.
+# Args: <shipped|user|project|memory-bank|all>
+# Mapping: shipped→shipped-default, user→user-promoted, project→project.
+ac_principles_filter_by_source() {
+  local source_arg="$1"
+  local target=""
+  case "$source_arg" in
+    shipped|shipped-default) target="shipped-default" ;;
+    user|user-promoted)      target="user-promoted" ;;
+    project)                 target="project" ;;
+    memory-bank)             target="memory-bank" ;;
+    all|"")
+      ac_principles_merge
+      return $?
+      ;;
+    *)
+      ac_log_warn "ac_principles_filter_by_source: unknown source '$source_arg' — returning empty array"
+      printf '[]\n'
+      return 0
+      ;;
+  esac
+
+  ac_principles_merge | jq --arg s "$target" 'map(select(.source == $s))'
+}
+
 # Seed principles.md from the FULL plugin template (with example commented
 # principles) if it does not already exist. Used at plugin install time only.
 # Reads CLAUDE_PLUGIN_ROOT to locate templates/principles.md.

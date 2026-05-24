@@ -1,0 +1,1 @@
+{"scores": {"correct_file": 5, "source_tag_timestamp": 5, "duplicate_validation": 2, "link_to_challenge": 5, "empty_text_rejected": 5}, "pass": false, "notes": "Jaccard 0.45 < 0.85 threshold so skill wouldn t reject short overlap text — real implementation issue, deferred to v0.2.1 (lower threshold or use longer fixture text)"}

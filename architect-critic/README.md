@@ -1,105 +1,188 @@
 # architect-critic
 
-Anti-sycophancy reviewer plugin for Claude Code. `/critique` runs a claude-self-audit + (optionally) a codex fresh-frame audit, consolidates findings, and presents challenges with the T=4 concession scoring rubric (1–5 against the bar; concedes only at ≥4). Recurring patterns are surfaced as candidates to promote into your user-global `principles.md`.
+Anti-sycophancy reviewer plugin for Claude Code (v0.2 — skill-first). Four gerund-named skills auto-invoke on natural-language triggers: `critiquing-spec` runs a claude-self-audit followed by sequential adversarial rebuttal with T=4 concession scoring, `reviewing-critique-history` surfaces recent run summaries, `listing-principles` renders the merged principle set, and `promoting-principle` adds a principle manually. Ships two shipped-default principles — ghost notes (Wald survivor-bias: look for what is *absent*) and CORE protocol (Curiosity / Objectivity / Reassurance / Empathy rebuttal tone) — that are prepended to your `principles.md` on first run. Full auto-promotion machinery: vote-recurrence threshold T=4, supplementary instinct-style N=3 consecutive signal, 30/90-day suppression windows. Codex CLI 0.125+ dispatched as an adversarial fresh-frame second auditor at `--close` depth. Standalone-invocable; consumer plugins (`scaffold-onboard v0.2+`, `scaffold-dev v0.1+`) invoke `critiquing-spec` in-conversation with no file IPC.
 
-Composes with `scaffold-onboard` via file-based JSON IPC: at Phase 5/7 recap and at MASTER-SPEC close, scaffold-onboard's `/onboard` writes a request envelope to inbox, invokes `/critique` synchronously, and reads the response from outbox. Also usable standalone — `/critique` in any session synthesizes an envelope from defaults.
-
-## Commands
-
-- `/critique [--phase N] [--depth premise-audit|close] [--spec PATH]` — primary audit entry
-- `/critique-list [--limit N]` — show recent runs + pending requests
-- `/promote-principle "<text>" [--scope user|project]` — manually promote a principle
-- `/principles-list` — render the merged principle set the next /critique would see
-
-## Worked example — manual critique
-
-From any project directory with a `MASTER-SPEC.md` (or pass `--spec PATH`):
+## Install
 
 ```
-> /critique
+/plugin install architect-critic@claude-agent-scaffolding
 ```
 
-The audit runs in-session: claude-self-audit composes principles from your user-global
-`${CLAUDE_PLUGIN_DATA}/architect-critic/principles.md` + (if onboarded) your in-flight
-MASTER-SPEC + memory-bank patterns, then audits your spec against them. At `close` depth
-(default), codex is also dispatched as a fresh-frame second adversary; their findings are
-merged into one envelope of `{challenges, gaps, divergences}`.
+## Quick start
 
-Then for each challenge, you rebut interactively:
+Shallow audit (claude-self-audit only):
 
 ```
-[premise] Phase 5.2 lacks a fallback strategy for codex unavailability
-  refs: Phase 5.2
-  Your response (accept | edit | note | <rebuttal>): graceful degradation is documented in §10
-  → That doesn't address it (score=2). The challenge stands.
-  Your response (accept | edit | note | <rebuttal>): accept
-  → recorded as: accept
+/critique
 ```
 
-The 1–5 rubric scores your rebuttals (1=bare contradiction, 2=cite-self, 3=partial address,
-4=material new info, 5=premise invalidated). Concession at ≥4 (T=4 firm).
-
-If a pattern emerges across recent runs, the critic offers to promote it:
+Close audit (claude-self-audit + Codex 0.125+ fresh-frame adversary):
 
 ```
-I noticed a pattern across recent runs:
-  "Every state-change operation needs a documented rollback"
-Add to principles.md? [y]es / [n]o / [e]dit:
+/critique --close
 ```
 
-## Cost
-
-Each `close`-depth audit dispatches codex (~$0.05–0.20 per run depending on spec size).
-Per-run cost prints after the rebuttal cycle:
+Audit a specific spec file:
 
 ```
-~$0.012 spent on this audit (codex: $0.012, claude-self: $0)
+/critique --spec docs/SPEC-payments.md
 ```
 
-Cumulative tracking lives in `state.json.recent_runs[].cost_usd`; surfaced as a column in
-`/critique-list`. No soft cap or budget UX in v0.1.0 (deferred per SPEC OQ-3).
+All four skills also auto-invoke on natural-language triggers — no slash command required:
 
-## Composition
+```
+"critique my spec"                   # → critiquing-spec
+"show my recent critiques"           # → reviewing-critique-history
+"what principles are in use?"        # → listing-principles
+"add a principle about rollbacks"    # → promoting-principle
+```
 
-- **Standalone**: `/critique` works in any session with no other plugins installed. codex
-  is optional — if the `codex` CLI isn't on PATH, the audit gracefully degrades to
-  claude-only.
-- **With `scaffold-onboard`**: at Phase 5/7 recap and at MASTER-SPEC close, `/onboard`
-  writes a request envelope to `${CLAUDE_PLUGIN_DATA}/architect-critic/inbox/` and invokes
-  `/critique` synchronously via the `SlashCommand` tool. The response is read from outbox.
-  Both plugins ship together in the `claude-agent-scaffolding` marketplace.
+## Skills (4)
+
+| Skill | Trigger phrases (examples) | What it does |
+|---|---|---|
+| `critiquing-spec` | "critique my spec", "audit this plan", "review this design", "run a critique" | Discovers spec file, runs claude-self-audit, optional Codex fresh-frame, sequential rebuttal per challenge, auto-promotion offer |
+| `reviewing-critique-history` | "show recent critiques", "critique list", "what did the last audit find", "history of critiques" | Renders recent runs from state.json with challenge counts, concession tallies, skills invoked |
+| `listing-principles` | "what principles are in use", "show my principles", "list my principles", "principles-list" | Composes and renders user-global + project-scoped + pattern-derived + governance principles |
+| `promoting-principle` | "add a principle", "promote this principle", "record a principle about X", "add to principles.md" | Validates text, routes to user-global or project scope, appends with `[promoted YYYY-MM-DD source:manual]` annotation |
+
+## Slash commands (4)
+
+| Command | Args | Delegates to |
+|---|---|---|
+| `/critique` | `[--close] [--spec PATH]` | `critiquing-spec` skill |
+| `/critique-list` | `[--limit N]` | `reviewing-critique-history` skill |
+| `/promote-principle` | `"<text>" [--scope user\|project]` | `promoting-principle` skill |
+| `/principles-list` | _(none)_ | `listing-principles` skill |
+
+All commands use `$ARGUMENTS` env-var bridge exclusively — no `$1`/`$2` bare positionals.
+
+## Shipped principles
+
+Two principles ship as defaults in `templates/principles.md` and are auto-prepended to your `~/.claude/architect-critic/principles.md` on first run (preserving any existing content below them):
+
+**Ghost notes** — drawn from Abraham Wald's WWII survivor-bias insight: when auditing a spec, look not just at what is present but for what is *absent*. The missing cases, the unspecified failure modes, the undocumented assumptions — these are the ghost notes. A design that only addresses the visible is incomplete.
+
+**CORE protocol** — sets the rebuttal-cycle tone: Curiosity (ask before assuming), Objectivity (score the argument, not the author), Reassurance (challenge the design, not the person), Empathy (acknowledge when the concern was legitimate even if conceded). Applied by Claude during the sequential rebuttal phase.
+
+## Auto-promotion
+
+When a pattern recurs across critique runs, the skill offers to promote it to your `principles.md`. Two signals combine:
+
+- **Vote-recurrence (T=4):** a topic cluster that appears in ≥4 distinct runs triggers a promotion offer.
+- **Instinct signal (N=3):** a topic cluster appearing in 3 consecutive runs (regardless of total count) also triggers — catches fast-forming patterns before T=4 is reached.
+
+**Suppression windows** prevent re-prompting after a decline:
+
+- Score-4 decline (user said no to a promotion): suppressed for **30 days**.
+- Score-5 decline (user rejected a premise-invalidated challenge): suppressed for **90 days**.
+
+Promotion records live in `~/.claude/architect-critic/state.json` under `auto_promote_suppressions[]`.
+
+## Standalone use
+
+`architect-critic` works in any Claude Code session without `scaffold-onboard` or any other plugin installed.
+
+**Spec file discovery order:**
+
+1. Explicit `--spec PATH` argument.
+2. Workspace-init manifest `well_known_paths.master_spec` (if workspace-init is installed).
+3. Restricted glob: `SPEC*.md` or `PLAN*.md` in the project root (never a bare `*.md` sweep).
+4. `AskUserQuestion` fallback — Claude asks you to identify the spec file.
+
+**Storage locations:**
+
+- `~/.claude/architect-critic/state.json` — run history, concession records, suppression windows.
+- `~/.claude/architect-critic/principles.md` — user-global principles (shipped defaults + your additions).
+- `.claude/architect-critic/principles.md` — project-scoped principles (optional; created by `/promote-principle --scope project`).
+
+**Invoking with an explicit path:**
+
+```
+/critique --spec /abs/path/to/SPEC-foo.md
+```
+
+or pass a relative path from the project root:
+
+```
+/critique --spec docs/SPEC-payments.md --close
+```
+
+## What `project_class=unknown` means
+
+If a workspace-init manifest is present and reports `project_class: unknown`, the critic falls back to **generic principles only** — project-class-specific heuristics (e.g., API-design rules for `project_class: api-service`, or migration-safety rules for `project_class: data-pipeline`) are not applied.
+
+This is expected when workspace-init could not determine the project type during bootstrapping. Two options to resolve:
+
+1. **Add detection rules to workspace-init** — update its classifier so future bootstraps detect the class.
+2. **Author project-scoped principles** — run `/promote-principle "<text>" --scope project` to add heuristics manually; these are always applied regardless of `project_class`.
+
+The `project_class=unknown` state is logged in the skill output ("Project class: unknown — using generic principles only") so it is visible without inspecting the manifest.
 
 ## Configuration
 
-### Codex CLI timeout
+| Env var | Default | Effect |
+|---|---|---|
+| `ARCHITECT_CRITIC_CODEX_TIMEOUT_S` | `180` | Seconds before codex fresh-frame is killed and claude-only fallback is used |
 
-`lib/codex.sh` dispatches codex as a background subprocess using a portable bash-only
-timeout (background subshell + kill — no dependency on GNU `timeout(1)` or `gtimeout`).
+Principles file resolution order (highest priority first):
 
-Default timeout: **180 seconds**.
+1. `$CLAUDE_PLUGIN_DATA/architect-critic/principles.md` (user-global)
+2. `.claude/architect-critic/principles.md` (project-scoped)
+3. Memory-bank pattern files (if scaffold-onboard v0.2+ is installed)
+4. Governance docs (if workspace-init manifest is present)
 
-Override via environment variable:
+## Migrating from v0.1.x
+
+See [CHANGELOG.md](./CHANGELOG.md) for the full breaking-changes list.
+
+On first run after upgrading, `lib/migration.sh` runs automatically:
+
+- Backs up `state.json` → `state.json.v0.1.3.bak` (timestamped on collision).
+- Moves `inbox/` and `outbox/` directories to `legacy-v0.1.x/` (no data is deleted).
+- Prepends ghost-notes + CORE shipped defaults to `principles.md`, preserving all existing user content below the defaults block.
+
+No manual steps required. If anything looks wrong after migration, restore from the `.bak` file and open an issue.
+
+## Composition
+
+`scaffold-onboard v0.2+` and `scaffold-dev v0.1+` invoke `critiquing-spec` in-conversation — Claude calls the skill directly, no file IPC. This is the v0.2 contract: consumer plugins pass context through the conversation turn, not through inbox/outbox JSON files.
+
+**v0.1.x `scaffold-onboard` is incompatible with `architect-critic v0.2`.** The v0.1.x onboard plugin writes to an inbox directory that no longer exists. Upgrade scaffold-onboard to v0.2+ before using architect-critic v0.2.
+
+## Development
+
+Run unit tests (~197 assertions):
 
 ```bash
-export ARCHITECT_CRITIC_CODEX_TIMEOUT=60   # shorter timeout for slow networks
+bash tests/unit/test-state.sh
+bash tests/unit/test-principles.sh
+bash tests/unit/test-promotion.sh
+bash tests/unit/test-migration.sh
 ```
 
-On any codex failure (absent binary, timeout, non-zero exit, malformed JSON output),
-`/critique` falls back to claude-only with a warning and sets `adversaries_used=["claude"]`.
+Run integration tests (bug repros, migration smoke, subagent pressure):
 
-## Status
+```bash
+bash tests/integration/test-bug-repros.sh
+bash tests/integration/test-migration-smoke.sh
+```
 
-v0.1.0 — initial release.
+Run LLM-as-judge evals (requires an active Claude Code session):
 
-## Platforms
-
-macOS and Linux. Windows deferred (matches sibling plugins).
+```
+See tests/eval/RUNBOOK.md
+```
 
 ## See also
 
 - Design spec: [`docs/SPEC-architect-critic.md`](../docs/SPEC-architect-critic.md)
 - Implementation plan: [`docs/PLAN-architect-critic.md`](../docs/PLAN-architect-critic.md)
-- Counterparty IPC contract: [`docs/SPEC-scaffold-onboard.md`](../docs/SPEC-scaffold-onboard.md) §8.3
+- Composition contract: [`docs/SPEC-scaffold-onboard.md`](../docs/SPEC-scaffold-onboard.md) §8.3
+
+## Platforms
+
+macOS and Linux. Windows deferred (matches sibling plugins).
 
 ## License
 

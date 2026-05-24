@@ -1,0 +1,1 @@
+{"scores": {"found_flaw": 5, "severity_valid": 5, "core_tone": 5, "ghost_notes": 5, "no_false_positives": 5}, "pass": true, "notes": "Stripe timeout/unavailability gap surfaced; ghost-notes principle named and applied; CORE throughout"}

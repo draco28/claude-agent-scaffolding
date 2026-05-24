@@ -1,0 +1,1 @@
+{"scores": {"correct_file": 2, "source_tag_timestamp": 2, "duplicate_validation": 5, "link_to_challenge": 5, "empty_text_rejected": 5}, "pass": false, "notes": "Rubric expects .claude/memory-bank/03-code-patterns.md but SPEC + SKILL use .claude/architect-critic/principles.md — RUBRIC BUG (memory-bank is scaffold-onboard namespace)"}
