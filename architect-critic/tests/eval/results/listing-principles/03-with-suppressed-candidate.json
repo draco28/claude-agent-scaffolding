@@ -1,0 +1,1 @@
+{"scores": {"shipped_defaults": 5, "source_tags": 5, "suppression_surfaced": 5, "source_filter": 5, "override_annotated": 5}, "pass": true, "notes": "suppression footer with expiry 2026-06-14 + reason_score; fixture schema corrected to auto_promote_suppressions v2"}

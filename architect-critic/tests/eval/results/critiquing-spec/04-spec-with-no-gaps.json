@@ -1,0 +1,1 @@
+{"scores": {"found_flaw": 5, "severity_valid": 5, "core_tone": 5, "ghost_notes": 4, "no_false_positives": 5}, "pass": true, "notes": "negative control correctly handled — only 2 alternative-severity observations; no spurious premise/gap"}

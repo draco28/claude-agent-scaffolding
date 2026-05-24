@@ -1,0 +1,1 @@
+{"scores": {"correct_file": 5, "source_tag_timestamp": 5, "duplicate_validation": 5, "link_to_challenge": 5, "empty_text_rejected": 4}, "pass": true, "notes": "Empty text correctly rejected with usage error and no writes; SKILL uses exit 0 (rubric prefers non-zero) — score 4"}
