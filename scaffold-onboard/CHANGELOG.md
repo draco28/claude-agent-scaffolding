@@ -2,7 +2,7 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
-## [Unreleased] — v0.2.0 in progress
+## [0.2.0] — 2026-05-24
 
 ### Added
 - **7 skills under `skills/<name>/SKILL.md`** (structural skill-first per SPEC §4.3): `onboarding-project`, `scaffolding-memory-bank`, `scaffolding-governance-docs`, `planning-project-roadmap`, `authoring-machine-checkable-rules`, `authoring-vertical-slice-demo`, `validating-master-spec`. Each ≤500 lines. Slash commands become thin Skill-tool dispatchers via `$ARGUMENTS` env-var bridge.
