@@ -6,6 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [2.0.0] — TBD
+
+**Breaking change.** Scope-cut release: ai-mentor now ships only the surfaces the user actually invokes. See `docs/SPEC-ai-mentor-v2.md` for design rationale and `docs/PLAN-ai-mentor-v2.md` for the 8-phase implementation breakdown.
+
+### Removed (Phase 0)
+- `commands/z1.md`, `commands/z2-decide.md`, `commands/z2-build.md`, `commands/locked.md` — zone enforcement surfaces (unused).
+- `commands/quiz.md` — Socratic quiz protocol (unused).
+- `commands/improve.md` — prompt rewriter (unused).
+- `hooks/` and `hooks-handlers/` directories — `PreToolUse` + `SessionStart` hooks (zone enforcement + 620-token per-session injection). Without zones, both are dead weight.
+- `lib/state.sh` and `~/.claude/ai-mentor/state.json` — zone/submode/quiz_level persistence (no surviving consumer).
+- `skills/ai-mentor/SKILL.md` — 171-line zone reference (~80% obsolete; surviving framing moves to README in Phase 6).
+- `tests/test-hooks.sh` — 28 regression tests for state + hooks (both gone).
+
+### Migration from 1.x
+- `~/.claude/ai-mentor/state.json` is no longer used. Safe to delete manually.
+- Slash commands `/z1`, `/z2-decide`, `/z2-build`, `/locked`, `/quiz`, `/improve` will return "command not found". Intentional.
+
 ## [1.3.0] — 2026-05-03
 
 ### Added
