@@ -69,7 +69,7 @@ v0.2 will NOT do any of the following:
   "composition": {
     "consumes": ["workspace-init.manifest"],
     "invokes": ["architect-critic:critiquing-spec", "ai-mentor:grill-me"],
-    "produces": ["MASTER-SPEC.md", "EXECUTIVE-SUMMARY.md", "memory-bank/*", "CLAUDE.md", "governance-docs/*", "PROJECT_PLAN.md"]
+    "produces": ["MASTER-SPEC.md", "EXECUTIVE-SUMMARY.md", "memory-bank/*", "CLAUDE.md", "governance-docs/*", "ROADMAP.md"]
   }
 }
 ```
@@ -110,7 +110,7 @@ scaffold-onboard/
 │   ├── master-spec/          (unchanged)
 │   ├── memory-bank/          (03-code-patterns.md gains rules section)
 │   ├── governance/           (unchanged)
-│   └── project-plan/          (NEW — PROJECT_PLAN.md template + VS block)
+│   └── roadmap/               (NEW — ROADMAP.md template + VS block)
 └── tests/
     ├── test-compose.sh        (REWRITTEN — probe tests retained, IPC tests dropped)
     ├── test-docs.sh           (extended)
@@ -201,7 +201,7 @@ Each skill ≤500 lines body (per Pass D guidance). Skill names are namespaced a
 - Emit final ROADMAP.md at routing destination (canonical per manifest, or cwd if single-repo)
 - **Re-run protocol** (per §7.5): if ROADMAP.md exists, skill reads existing state + offers incremental modes (add phase / add sprint / add slice / refine slice) before falling back to full re-author
 
-**Hard time-budget:** ≤90 min total across R1.A + R1.B + R1.C. Skill watches elapsed time via state-file timestamps; at 60 min, offers "checkpoint and continue tomorrow?"
+**Hard time-budget:** ≤90 min total across R1.A + R1.B + R1.C. Skill watches elapsed time via state-file timestamps; at 60 min, offers "checkpoint and continue tomorrow?" — advisory only, user may decline. At 90 min, skill emits a warning + a stronger checkpoint offer, but does NOT unilaterally pause (warn-only enforcement; user retains agency). T1.4 SKILL.md body codifies the exact warning text.
 
 ### 5.5 `scaffold-onboard:authoring-machine-checkable-rules` (NEW)
 
@@ -212,18 +212,18 @@ Each skill ≤500 lines body (per Pass D guidance). Skill names are namespaced a
 **Body responsibilities:**
 - Detect if `03-code-patterns.md`'s `## Machine-checkable rules` section exists; if not, append it
 - Walk user through rule authoring via question-driven prompts
-- Generate fenced `mcrule` block per R2 DSL (per §8)
-- Validate the generated block via `lib/rules.sh:sf_rules_parse` (round-trips through parser)
+- Generate HTML-sentinel `mcrule` block per R2 DSL (per §8.2 — fenced-block alternative was rejected during architect-critic pass)
+- Validate the generated block via `lib/rules.sh:sf_rules_validate_block` (single-block validator per §8.4; `sf_rules_parse` is the file-level parser)
 - Append to `## Machine-checkable rules` section
 
 ### 5.6 `scaffold-onboard:authoring-vertical-slice-demo` (NEW)
 
-**Description:** Authors `auto:`/`user:` demo criteria for a named vertical slice in PROJECT_PLAN.md. Invoked by `planning-project-roadmap` during R1.C, and by scaffold-dev's orchestrator at slice planning (top-up authoring).
+**Description:** Authors `auto:`/`user:` demo criteria for a named vertical slice in ROADMAP.md. Invoked by `planning-project-roadmap` during R1.C, and by scaffold-dev's orchestrator at slice planning (top-up authoring).
 
 **Triggers on:** "author demo criteria for slice X", "what should this slice demo?", "set up demo verification for VS-N.M".
 
 **Body responsibilities:**
-- Locate the named slice block in PROJECT_PLAN.md
+- Locate the named slice block in ROADMAP.md
 - Read existing demo criteria (if any) to avoid duplication
 - Prompt for 1-3 demo lines: each is `auto: <cmd> → expected: <code|pattern>` OR `user: <action> → expected: <outcome>`
 - Validate format via `lib/demo-criteria.sh:sf_demo_parse_line`
@@ -484,8 +484,8 @@ This balance avoids:
 ### 9.3 Parser API (`lib/demo-criteria.sh`)
 
 ```bash
-# Parse PROJECT_PLAN.md and emit demo criteria for a named slice.
-sf_demo_parse_slice <project_plan_md> <slice_id>
+# Parse ROADMAP.md and emit demo criteria for a named slice.
+sf_demo_parse_slice <roadmap_md> <slice_id>
 # → emits JSON array of {prefix, body, expected} objects
 
 # Validate a single criterion line (used by authoring skill before write).
@@ -493,7 +493,7 @@ sf_demo_parse_line <line_text>
 # → exit 0 + emits parsed JSON; exit 1 if grammar violation
 
 # Append a criterion to a named slice; idempotent.
-sf_demo_append <project_plan_md> <slice_id> <criterion_line>
+sf_demo_append <roadmap_md> <slice_id> <criterion_line>
 ```
 
 ---
@@ -647,7 +647,7 @@ Per Q7 + I3: drop file-IPC, use in-conversation skill calls.
 | 1 | Phase 5 close | master-spec-phase | premise-audit | [claude] |
 | 2 | Phase 7 close | master-spec-phase | premise-audit | [claude] |
 | 3 | MASTER-SPEC close | master-spec-full | close | [claude, codex] |
-| 4 | `/plan-roadmap` close (NEW) | project-plan | close | [claude, codex] |
+| 4 | `/plan-roadmap` close (NEW) | roadmap | close | [claude, codex] |
 
 Same cadence as v0.1.0 for moments 1-3; moment 4 is new for R1.
 
