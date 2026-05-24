@@ -663,6 +663,136 @@ test_e2e_authoring_mcrules_skill_present() {
   fi
 }
 
+test_e2e_authoring_vs_demo_skill_present() {
+  echo "test_e2e_authoring_vs_demo_skill_present:"
+  local skill_path="$PLUGIN_ROOT/skills/authoring-vertical-slice-demo/SKILL.md"
+
+  # 1. SKILL.md exists
+  assert_file_exists "$skill_path"
+  if [[ ! -f "$skill_path" ]]; then
+    return
+  fi
+
+  # 2. Valid YAML frontmatter: starts with ---, has name: authoring-vertical-slice-demo, has non-empty description
+  local first_line
+  first_line="$(head -n1 "$skill_path")"
+  assert_eq "frontmatter opens with ---" "---" "$first_line"
+
+  if grep -qE '^name:[[:space:]]*authoring-vertical-slice-demo[[:space:]]*$' "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') frontmatter has name: authoring-vertical-slice-demo"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') frontmatter missing 'name: authoring-vertical-slice-demo'"
+  fi
+
+  # Description must be non-empty
+  if awk '/^---$/{c++; next} c==1 && /^description:[[:space:]]*[^[:space:]]/{found=1} END{exit !found}' "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') frontmatter has non-empty description"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') frontmatter description missing or empty"
+  fi
+
+  # 3. Description contains at least 3 trigger phrases (per SPEC §5.6 + task brief)
+  local desc_block
+  desc_block="$(awk '/^---$/{c++; next} c==1' "$skill_path")"
+  local hits=0
+  for phrase in "demo criteria" "vertical slice" "VS-" "demo verification"; do
+    if echo "$desc_block" | grep -qiF "$phrase"; then
+      hits=$((hits+1))
+    fi
+  done
+  if [[ "$hits" -ge 3 ]]; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') description contains $hits/4 trigger phrases (≥3)"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') description contains only $hits/4 trigger phrases (need ≥3)"
+  fi
+
+  # 4. Body contains both grammar prefixes (auto: / user:) and the literal U+2192 arrow in `→ expected:`
+  if grep -qF "auto: " "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body contains 'auto: ' grammar prefix"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing 'auto: ' grammar prefix"
+  fi
+  if grep -qF "user: " "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body contains 'user: ' grammar prefix"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing 'user: ' grammar prefix"
+  fi
+  if grep -qF "→ expected:" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body contains literal U+2192 arrow '→ expected:' grammar delimiter"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing literal U+2192 arrow '→ expected:' delimiter"
+  fi
+
+  # 5. Body contains slice ID convention VS-<phase>.<sprint>.<slice> (literal — use -qF)
+  if grep -qF "VS-<phase>.<sprint>.<slice>" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body documents slice ID convention VS-<phase>.<sprint>.<slice>"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing slice ID convention 'VS-<phase>.<sprint>.<slice>'"
+  fi
+
+  # 6. Body references BOTH target modes ("state" + "markdown") + auto-detection
+  if grep -qiF "target=state" "$skill_path" && \
+     grep -qiF "target=markdown" "$skill_path" && \
+     grep -qiE "auto-detect|auto detection|auto-detection|automatically detect" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body documents dual storage targets (state + markdown) + auto-detection"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing dual storage target docs (need target=state + target=markdown + auto-detection)"
+  fi
+
+  # 7. Body references --target= arg override (pattern starts with --, use grep -qF --)
+  if grep -qF -- "--target=" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body references --target= arg override"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing --target= arg override reference"
+  fi
+
+  # 8. Body references sf_demo_parse_line (validation API)
+  if grep -qF "sf_demo_parse_line" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body references sf_demo_parse_line (validation API)"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing sf_demo_parse_line reference"
+  fi
+
+  # 9. Body references sf_resolve_output_path for markdown mode routing
+  if grep -qF "sf_resolve_output_path" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body references sf_resolve_output_path (markdown-mode routing)"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing sf_resolve_output_path reference"
+  fi
+
+  # 10. Body explicitly forbids ASCII '->' (drift sanity for the U+2192 arrow grammar)
+  if grep -qF -- "->" "$skill_path" && grep -F -- "->" "$skill_path" | grep -qiE "NOT |do not|never|ASCII|forbid|wrong|anti-pattern|don't"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body explicitly forbids ASCII '->' in arrow grammar"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body does not explicitly forbid ASCII '->' as arrow grammar"
+  fi
+
+  # 11. Body does NOT contain v0.1.3 (drift sanity)
+  if grep -qF "v0.1.3" "$skill_path"; then
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') skill body contains forbidden 'v0.1.3' reference"
+  else
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') skill body has no 'v0.1.3' references"
+  fi
+
+  # 12. Body does NOT write to PROJECT_PLAN.md (mention allowed ONLY as anti-pattern flag)
+  if grep -qF "PROJECT_PLAN.md" "$skill_path"; then
+    if grep -F "PROJECT_PLAN.md" "$skill_path" | grep -qiE "NOT |do not|never|anti-pattern|don't|different file|unchanged|v0.1.0|wrong file"; then
+      PASS=$((PASS+1)); echo "  $(_color_pass '✓') PROJECT_PLAN.md appears only inside anti-pattern flag"
+    else
+      FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') PROJECT_PLAN.md appears as a write target without anti-pattern flag"
+    fi
+  else
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body does not reference PROJECT_PLAN.md as a write target"
+  fi
+
+  # 13. Body covers idempotence behavior (search idempoten* / duplicate)
+  if grep -qiE "idempoten|duplicate" "$skill_path"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') body documents idempotence / no-duplicate behavior"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') body missing idempotence / no-duplicate language"
+  fi
+}
+
 test_e2e_fresh_repo_cli
 test_e2e_full_mode
 test_e2e_existing_repo_preserves_user_files
@@ -674,4 +804,5 @@ test_e2e_scaffolding_memory_bank_skill_present
 test_e2e_scaffolding_governance_docs_skill_present
 test_e2e_planning_project_roadmap_skill_present
 test_e2e_authoring_mcrules_skill_present
+test_e2e_authoring_vs_demo_skill_present
 report_results
