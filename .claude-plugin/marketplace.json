@@ -14,7 +14,7 @@
     },
     {
       "name": "scaffold-onboard",
-      "description": "Project onboarding via 10-phase guided conversation. Authors MASTER-SPEC.md as source of truth; derives 11-file memory-bank, tiered CLAUDE.md router, and 5/14 governance docs. Soft-composes with ai-mentor (cognitive mode) and architect-critic (anti-sycophancy review). Run-once per project; complements the `scaffold` plugin which owns slice-driven implementation.",
+      "description": "Project onboarding (v0.2 skill-first retrofit). 7 skills auto-invoke on natural-language triggers: onboarding-project (10-phase MASTER-SPEC.md authoring), scaffolding-memory-bank (11-file bank + Karpathy-opt-in CLAUDE.md), scaffolding-governance-docs (5/14 docs), planning-project-roadmap (R1: Phase→Sprint→VS hierarchy → ROADMAP.md with 3-timelines framing + 5 re-run modes), authoring-machine-checkable-rules (R2: HTML-sentinel mcrule DSL, 4 rule types, warn-and-skip extensibility), authoring-vertical-slice-demo (R3: auto:/user: grammar with literal U+2192 arrow), validating-master-spec. 4 slash commands wrap the skills via $ARGUMENTS bridge. Manifest-aware routing for dual-repo workspaces (single-repo fallback preserved). Tier 0 marker protocol coordinates with scaffold-dev. Critic invocation via filesystem-probe; paired-release with architect-critic v0.2.",
       "category": "workflow",
       "source": "./scaffold-onboard"
     },
