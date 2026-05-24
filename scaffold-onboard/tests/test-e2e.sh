@@ -11,6 +11,10 @@ source "$HERE/../lib/render.sh"
 source "$HERE/../lib/memory-bank.sh"
 source "$HERE/../lib/docs.sh"
 source "$HERE/../lib/compose.sh"
+source "$HERE/../lib/routing.sh"
+source "$HERE/../lib/roadmap.sh"
+source "$HERE/../lib/rules.sh"
+source "$HERE/../lib/demo-criteria.sh"
 
 PLUGIN_ROOT="$HERE/.."
 export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
@@ -891,6 +895,250 @@ test_e2e_validating_master_spec_skill_present() {
   fi
 }
 
+# ============================================================================
+# T7.1 — manifest-present full-flow routing assertions
+# ----------------------------------------------------------------------------
+# Each test sets up a dual-repo workspace via setup_tmp_workspace_init, then
+# invokes sf_resolve_output_path for one logical name (paralleling what each
+# of the four v0.2 skills does when emitting its output). Then for the
+# dynamic outputs (master-spec, memory-bank, governance docs, roadmap) we
+# also verify that running the lib pipeline from the resolved destination
+# actually lands files there. Validates the §10 routing contract end-to-end.
+# ============================================================================
+
+# Save script-anchor dir so each T7 test can cd back before teardown of the
+# (per-test) workspace TMP_DIR. (Existing setup_tmp_repo tests don't need this
+# because they always re-cd into the next test's tmp dir via setup_tmp_repo.)
+T7_ANCHOR_DIR="$HERE"
+
+test_e2e_manifest_present_master_spec_routes_to_ai_workspace() {
+  echo "test_e2e_manifest_present_master_spec_routes_to_ai_workspace:"
+  cd "$T7_ANCHOR_DIR"
+  setup_tmp_workspace_init "foo-msp" "personal"
+  cd "$TMP_AI_WORKSPACE"
+  local resolved
+  resolved="$(sf_resolve_output_path "master_spec" "MASTER-SPEC.md")"
+  assert_eq "master_spec routes to ai_workspace.root" \
+    "${TMP_AI_WORKSPACE}/MASTER-SPEC.md" "$resolved"
+  # End-to-end: cd to ai_workspace, run pipeline → MASTER-SPEC.md lands here.
+  export SF_COMPOSE_PROBE_PATHS="/nonexistent"
+  run_full_pipeline_cli
+  assert_file_exists "${TMP_AI_WORKSPACE}/MASTER-SPEC.md"
+  cd "$T7_ANCHOR_DIR"
+}
+
+test_e2e_manifest_present_memory_bank_routes_to_ai_workspace() {
+  echo "test_e2e_manifest_present_memory_bank_routes_to_ai_workspace:"
+  cd "$T7_ANCHOR_DIR"
+  setup_tmp_workspace_init "foo-mb" "personal"
+  cd "$TMP_AI_WORKSPACE"
+  local resolved
+  resolved="$(sf_resolve_output_path "memory_bank" ".claude/memory-bank/03-code-patterns.md")"
+  assert_eq "memory_bank routes to ai_workspace.root" \
+    "${TMP_AI_WORKSPACE}/.claude/memory-bank/03-code-patterns.md" "$resolved"
+  # End-to-end: cd to ai_workspace, run pipeline → memory-bank dir lands here.
+  export SF_COMPOSE_PROBE_PATHS="/nonexistent"
+  run_full_pipeline_cli
+  assert_file_exists "${TMP_AI_WORKSPACE}/.claude/memory-bank/03-code-patterns.md"
+  # And NOT in the canonical destination
+  assert_file_missing "${TMP_CANONICAL}/.claude/memory-bank/03-code-patterns.md"
+  cd "$T7_ANCHOR_DIR"
+}
+
+test_e2e_manifest_present_prd_routes_to_canonical() {
+  echo "test_e2e_manifest_present_prd_routes_to_canonical:"
+  cd "$T7_ANCHOR_DIR"
+  setup_tmp_workspace_init "foo-prd" "personal"
+  cd "$TMP_AI_WORKSPACE"
+  local resolved
+  resolved="$(sf_resolve_output_path "prd" "docs/PRD.md")"
+  assert_eq "prd routes to canonical.root" \
+    "${TMP_CANONICAL}/docs/PRD.md" "$resolved"
+  cd "$T7_ANCHOR_DIR"
+}
+
+test_e2e_manifest_present_process_adrs_routes_to_ai_workspace() {
+  echo "test_e2e_manifest_present_process_adrs_routes_to_ai_workspace:"
+  cd "$T7_ANCHOR_DIR"
+  setup_tmp_workspace_init "foo-padr" "personal"
+  cd "$TMP_AI_WORKSPACE"
+  local resolved
+  resolved="$(sf_resolve_output_path "process_adrs" "docs/process-adrs/0001-foo.md")"
+  assert_eq "process_adrs routes to ai_workspace.root" \
+    "${TMP_AI_WORKSPACE}/docs/process-adrs/0001-foo.md" "$resolved"
+  # And the canonical product_adrs path goes the other way
+  local resolved_product
+  resolved_product="$(sf_resolve_output_path "product_adrs" "docs/adr/0001-foo.md")"
+  assert_eq "product_adrs routes to canonical.root" \
+    "${TMP_CANONICAL}/docs/adr/0001-foo.md" "$resolved_product"
+  cd "$T7_ANCHOR_DIR"
+}
+
+test_e2e_manifest_present_roadmap_routes_to_canonical() {
+  echo "test_e2e_manifest_present_roadmap_routes_to_canonical:"
+  cd "$T7_ANCHOR_DIR"
+  setup_tmp_workspace_init "foo-rmap" "personal"
+  cd "$TMP_AI_WORKSPACE"
+  local resolved
+  resolved="$(sf_resolve_output_path "roadmap" "ROADMAP.md")"
+  assert_eq "roadmap routes to canonical.root" \
+    "${TMP_CANONICAL}/ROADMAP.md" "$resolved"
+  # End-to-end: seed roadmap state + render → ROADMAP.md lands in canonical.
+  sf_roadmap_state_init "foo-rmap"
+  sf_roadmap_write_phase 1 "Foundation" "Q1" "Lay the groundwork."
+  sf_roadmap_write_sprint "1.1" 1 "Bootstrap" "Boot the pipeline." 1
+  sf_roadmap_write_slice "VS-1.1.1" "1.1" "Pipeline boots" "End-to-end smoke."
+  sf_roadmap_render
+  assert_file_exists "${TMP_CANONICAL}/ROADMAP.md"
+  assert_file_missing "${TMP_AI_WORKSPACE}/ROADMAP.md"
+  cd "$T7_ANCHOR_DIR"
+}
+
+test_e2e_manifest_absent_falls_back_to_cwd() {
+  echo "test_e2e_manifest_absent_falls_back_to_cwd:"
+  cd "$T7_ANCHOR_DIR"
+  # setup_tmp_repo cd's into <tmp>/repo with NO pairing.json — single-repo mode.
+  setup_tmp_repo
+  local cwd_now
+  cwd_now="$(pwd)"
+  local resolved
+  resolved="$(sf_resolve_output_path "master_spec" "MASTER-SPEC.md")"
+  assert_eq "manifest absent → master_spec lands in cwd" \
+    "${cwd_now}/MASTER-SPEC.md" "$resolved"
+  resolved="$(sf_resolve_output_path "roadmap" "ROADMAP.md")"
+  assert_eq "manifest absent → roadmap lands in cwd" \
+    "${cwd_now}/ROADMAP.md" "$resolved"
+}
+
+# ============================================================================
+# T7.2 — R1/R2/R3 contract surface tests
+# ----------------------------------------------------------------------------
+# These validate that the lib functions emit output that scaffold-dev (and
+# any future consumer) can parse. Each test seeds a tiny fixture and runs
+# the parser on the produced artifact. If scaffold-dev's actual consumer
+# behavior diverges from these shapes, this is where the contract breaks.
+# ============================================================================
+
+test_e2e_r1_roadmap_has_phase_sprint_vs_hierarchy() {
+  echo "test_e2e_r1_roadmap_has_phase_sprint_vs_hierarchy:"
+  cd "$T7_ANCHOR_DIR"
+  setup_tmp_workspace_init "foo-r1" "personal"
+  cd "$TMP_AI_WORKSPACE"
+
+  sf_roadmap_state_init "foo-r1"
+  sf_roadmap_write_phase 1 "Foundation" "Q1" "Lay the groundwork."
+  sf_roadmap_write_sprint "1.1" 1 "Bootstrap" "Boot the pipeline." 2
+  sf_roadmap_write_slice "VS-1.1.1" "1.1" "Pipeline boots" "End-to-end smoke."
+  sf_roadmap_write_slice "VS-1.1.2" "1.1" "Health endpoint" "200 OK probe."
+  sf_roadmap_render
+
+  local rmap="${TMP_CANONICAL}/ROADMAP.md"
+  assert_file_exists "$rmap"
+  # All three R1 levels present in the emitted markdown
+  assert_file_contains "$rmap" "^## Phase 1:"
+  assert_file_contains "$rmap" "^### Sprint 1\.1:"
+  assert_file_contains "$rmap" "^#### VS-1\.1\.1:"
+  assert_file_contains "$rmap" "^#### VS-1\.1\.2:"
+  cd "$T7_ANCHOR_DIR"
+}
+
+test_e2e_r2_machine_checkable_rules_section_seeded_in_memory_bank() {
+  echo "test_e2e_r2_machine_checkable_rules_section_seeded_in_memory_bank:"
+  cd "$T7_ANCHOR_DIR"
+  setup_tmp_repo
+  export SF_COMPOSE_PROBE_PATHS="/nonexistent"
+  run_full_pipeline_cli
+  # The R2 section heading is seeded empty by the memory-bank template; the
+  # /add-project-rule skill (authoring-machine-checkable-rules) populates it.
+  assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "^## Machine-checkable rules"
+}
+
+test_e2e_r2_rules_lib_parses_emitted_block() {
+  echo "test_e2e_r2_rules_lib_parses_emitted_block:"
+  cd "$T7_ANCHOR_DIR"
+  setup_tmp_repo
+  export SF_COMPOSE_PROBE_PATHS="/nonexistent"
+  run_full_pipeline_cli
+  # Append a valid mcrule block under the seeded section, then parse it.
+  cat >> ".claude/memory-bank/03-code-patterns.md" <<'RULE'
+
+<!-- mcrule:start type=banned_imports -->
+forbid: requests
+in: src/
+where: production
+<!-- mcrule:end -->
+RULE
+  local rules
+  rules="$(sf_rules_parse "./.claude/memory-bank/03-code-patterns.md")"
+  # Expect exactly one rule, type banned_imports, forbid: requests.
+  local count
+  count="$(echo "$rules" | jq 'length')"
+  assert_eq "sf_rules_parse returns 1 rule" "1" "$count"
+  local type
+  type="$(echo "$rules" | jq -r '.[0].type')"
+  assert_eq "rule type round-trips" "banned_imports" "$type"
+  local forbid
+  forbid="$(echo "$rules" | jq -r '.[0].forbid')"
+  assert_eq "rule forbid round-trips" "requests" "$forbid"
+}
+
+test_e2e_r3_roadmap_slice_has_demo_criterion_with_arrow() {
+  echo "test_e2e_r3_roadmap_slice_has_demo_criterion_with_arrow:"
+  cd "$T7_ANCHOR_DIR"
+  setup_tmp_workspace_init "foo-r3" "personal"
+  cd "$TMP_AI_WORKSPACE"
+  sf_roadmap_state_init "foo-r3"
+  sf_roadmap_write_phase 1 "Foundation" "Q1" "Lay the groundwork."
+  sf_roadmap_write_sprint "1.1" 1 "Bootstrap" "Boot the pipeline." 1
+  sf_roadmap_write_slice "VS-1.1.1" "1.1" "Pipeline boots" "End-to-end smoke."
+  sf_roadmap_render
+  local rmap="${TMP_CANONICAL}/ROADMAP.md"
+  assert_file_exists "$rmap"
+  # Every slice MUST have a "##### Demo criteria" subsection (R3 contract).
+  assert_file_contains "$rmap" "^##### Demo criteria"
+  # Default seed contains the literal U+2192 arrow and "expected:" delimiter.
+  if grep -qF "→ expected:" "$rmap"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') roadmap demo criterion uses literal U+2192 arrow"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') roadmap demo criterion missing literal U+2192 arrow"
+  fi
+  # And NOT the ASCII '->' digraph (forbidden by SPEC §9.1)
+  if grep -qF -- "-> expected:" "$rmap"; then
+    FAIL=$((FAIL+1)); echo "  $(_color_fail '✗') roadmap uses forbidden ASCII '->' digraph"
+  else
+    PASS=$((PASS+1)); echo "  $(_color_pass '✓') roadmap avoids forbidden ASCII '->' digraph"
+  fi
+  cd "$T7_ANCHOR_DIR"
+}
+
+test_e2e_r3_demo_lib_parses_emitted_criteria() {
+  echo "test_e2e_r3_demo_lib_parses_emitted_criteria:"
+  cd "$T7_ANCHOR_DIR"
+  setup_tmp_workspace_init "foo-r3p" "personal"
+  cd "$TMP_AI_WORKSPACE"
+  sf_roadmap_state_init "foo-r3p"
+  sf_roadmap_write_phase 1 "Foundation" "Q1" "Lay the groundwork."
+  sf_roadmap_write_sprint "1.1" 1 "Bootstrap" "Boot the pipeline." 1
+  sf_roadmap_write_slice "VS-1.1.1" "1.1" "Pipeline boots" "End-to-end smoke."
+  sf_roadmap_render
+  local rmap="${TMP_CANONICAL}/ROADMAP.md"
+  # sf_demo_parse_slice reads ROADMAP.md, finds VS-1.1.1, and returns its
+  # demo criteria as JSON. Seed criteria use placeholder bodies — they must
+  # still parse as syntactically valid auto:/user: lines.
+  local crits
+  crits="$(sf_demo_parse_slice "$rmap" "VS-1.1.1" 2>/dev/null)"
+  local n
+  n="$(echo "$crits" | jq 'length' 2>/dev/null)"
+  # Default seed emits 2 placeholder criteria (one auto: + one user:).
+  assert_eq "sf_demo_parse_slice returns 2 seed criteria" "2" "$n"
+  local p0 p1
+  p0="$(echo "$crits" | jq -r '.[0].prefix')"
+  p1="$(echo "$crits" | jq -r '.[1].prefix')"
+  assert_eq "seed criterion 0 has prefix=auto" "auto" "$p0"
+  assert_eq "seed criterion 1 has prefix=user" "user" "$p1"
+  cd "$T7_ANCHOR_DIR"
+}
+
 test_e2e_fresh_repo_cli
 test_e2e_full_mode
 test_e2e_existing_repo_preserves_user_files
@@ -904,4 +1152,17 @@ test_e2e_planning_project_roadmap_skill_present
 test_e2e_authoring_mcrules_skill_present
 test_e2e_authoring_vs_demo_skill_present
 test_e2e_validating_master_spec_skill_present
+# T7.1 — manifest-present routing
+test_e2e_manifest_present_master_spec_routes_to_ai_workspace
+test_e2e_manifest_present_memory_bank_routes_to_ai_workspace
+test_e2e_manifest_present_prd_routes_to_canonical
+test_e2e_manifest_present_process_adrs_routes_to_ai_workspace
+test_e2e_manifest_present_roadmap_routes_to_canonical
+test_e2e_manifest_absent_falls_back_to_cwd
+# T7.2 — R1/R2/R3 contract surfaces
+test_e2e_r1_roadmap_has_phase_sprint_vs_hierarchy
+test_e2e_r2_machine_checkable_rules_section_seeded_in_memory_bank
+test_e2e_r2_rules_lib_parses_emitted_block
+test_e2e_r3_roadmap_slice_has_demo_criterion_with_arrow
+test_e2e_r3_demo_lib_parses_emitted_criteria
 report_results
