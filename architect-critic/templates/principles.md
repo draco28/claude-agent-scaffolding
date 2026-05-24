@@ -1,15 +1,41 @@
 # Architect-critic principles
 
-This file is yours. The architect-critic loads it as the user-global principles set every audit.
-Each line that doesn't begin with `#` is treated as an active principle. Edit freely; the critic
-never overwrites your edits — it only appends via /promote-principle (manual) or auto-promotion
-(with your consent).
+This file is the merged principles set. The critic loads it on every audit and applies the principles when surfacing challenges. The structure has three sections:
 
-## Your principles
+- **Shipped defaults** — load-bearing principles that ship with the plugin. The critic always applies them. Updates land via plugin upgrades; do not edit by hand.
+- **Your principles (user-promoted)** — added via `/promote-principle "<text>"` or by direct edit under that section. Survives plugin upgrades.
+- **Project principles (scope=project)** — only present in project-scoped principles.md files at `<repo>/.claude/architect-critic/principles.md`. Inherited from user-global if not overridden.
 
-(empty — add yours here, one per line)
+Each principle annotated with `<!-- source: ... -->` HTML comment carries: source tag (`shipped-default` / `user-promoted` / `project`), promotion timestamp (for user-promoted), principle_id (for state.json correlation).
 
-## Examples (commented out — uncomment to activate)
+## Shipped defaults (do not edit; updates ship with the plugin)
+
+<!-- source: shipped-default, principle_id: pp-ghost-notes -->
+- **Ghost notes:** Look for what is *absent* from the artifact, not just what is present.
+
+  Per Abraham Wald's survivor-bias insight — armor the engines where there are no bullet holes, because planes hit *there* did not return. Apply by asking: what assumption does this spec depend on that it never surfaces? What dependency is implied but not acknowledged? What failure mode is unenumerated? What rollback path is missing? What invariant is assumed but never stated?
+
+  This is the load-bearing audit heuristic. A literal reading of a spec catches what is wrong on the page; a ghost-notes reading catches what is missing from the page. The latter is where most production incidents originate.
+
+<!-- source: shipped-default, principle_id: pp-core-protocol -->
+- **CORE protocol (rebuttal tone):** Frame every challenge with Curiosity → Objectivity → Reassurance → Empathy.
+
+  - **Curiosity:** *"I might be missing something, but is there a reason X is not addressed?"* — lowers defensiveness by signaling the critic might be wrong; opens dialogue rather than judgment.
+  - **Objectivity:** Shift to facts and processes, not people or stories. *"Where should we adjust the spec?"* not *"why did you skip this?"* The artifact is the unit of attention; the author isn't.
+  - **Reassurance:** Signal mutual purpose. *"I'm raising this because I want the spec to be robust before implementation."* not *"this is wrong."* The critic and the author share the goal.
+  - **Empathy:** Acknowledge the author's work and intent. *"I see you've thought through X carefully; here's a related angle that might also need consideration."* Critique sits alongside acknowledgment.
+
+  Why it matters: an adversarial reviewer who lands well changes the artifact. An adversarial reviewer whose tone triggers defensiveness gets ignored and the artifact ships with the flaws intact. CORE is how the critic earns the right to be heard.
+
+## Your principles (user-promoted)
+
+<!-- Add via /promote-principle "<text>" or by direct edit. Each principle on its own line. Each gets a <!-- source: user-promoted, promoted_at: ..., principle_id: ... --> comment automatically. -->
+
+## Project principles (scope=project)
+
+<!-- Only present in project-scoped principles.md files at <repo>/.claude/architect-critic/principles.md. Inherited from user-global if not overridden. Per-project principles take precedence over user-global with the same fingerprint. -->
+
+## Examples (commented out — uncomment to promote into your principles)
 
 # Prefer explicit over implicit configuration
 # Push validation to system boundaries; trust internal code
