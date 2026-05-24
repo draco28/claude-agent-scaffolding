@@ -3,6 +3,8 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/_helpers.sh"
 source "$HERE/../lib/state.sh"
+source "$HERE/../lib/routing.sh"
+source "$HERE/../lib/roadmap.sh"
 
 test_state_init() {
   echo "test_state_init:"
@@ -210,4 +212,28 @@ test_scripted_full_onboarding() {
 }
 
 test_scripted_full_onboarding
+
+# T7.4 — Confirm onboarding-state.json and project-roadmap.json are separate
+# state files (no conflict between sf_state_* and sf_roadmap_state_* writers
+# in the same plugin-data directory). Per SPEC §7.2.
+test_state_and_roadmap_state_paths_distinct() {
+  echo "test_state_and_roadmap_state_paths_distinct:"
+  setup_tmp_repo
+  local sp rp
+  sp="$(sf_state_path)"
+  rp="$(sf_roadmap_state_path)"
+  if [[ "$sp" != "$rp" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ onboarding-state vs project-roadmap state paths are distinct"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ state paths collide: $sp == $rp"
+  fi
+  # And both must live under the same CLAUDE_PLUGIN_DATA root.
+  if [[ "$sp" == "$CLAUDE_PLUGIN_DATA/"* && "$rp" == "$CLAUDE_PLUGIN_DATA/"* ]]; then
+    PASS=$((PASS+1)); echo "  ✓ both state files rooted under CLAUDE_PLUGIN_DATA"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ state files not rooted under CLAUDE_PLUGIN_DATA (sp=$sp, rp=$rp)"
+  fi
+}
+
+test_state_and_roadmap_state_paths_distinct
 report_results
