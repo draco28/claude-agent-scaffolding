@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # scaffold-onboard/lib/compose.sh
-# Cross-cutting plugin detection + composition.json caching + critic dispatch.
+# Cross-cutting plugin detection + composition.json caching.
+# v0.2: architect-critic detection migrated to filesystem probe (per SPEC §12);
+# legacy file-IPC functions (build_critic_request / read_critic_response) removed.
 
 set -u
 source "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"
 
-# Return the list of paths to probe for installed plugins.
+# Return the list of paths to probe for installed plugins (ai-mentor, superpowers).
 # Override via SF_COMPOSE_PROBE_PATHS env var (colon-separated).
 sf_compose_probe_paths() {
   if [[ -n "${SF_COMPOSE_PROBE_PATHS:-}" ]]; then
@@ -37,12 +39,59 @@ sf_compose_detect_ai_mentor() {
   _compose_find_plugin "ai-mentor"
 }
 
-sf_compose_detect_architect_critic() {
-  _compose_find_plugin "architect-critic"
-}
-
 sf_compose_detect_superpowers() {
   _compose_find_plugin "superpowers"
+}
+
+# Architect-critic v0.2+ detection via filesystem probe (per SPEC §12.2 + §12.4).
+# Walks plugin cache dirs looking for the v0.2 entry skill `critiquing-spec/SKILL.md`.
+# Detection is BINARY (no v0.1.3 fallback per 2026-05-24 drift-resolution pass —
+# v0.1.3 shipped with zero skills/ directory, so Skill(architect-critic:critique)
+# could never resolve against it; v0.2 is a hard breaking change per its SPEC §3 NG1).
+#
+# Echoes "v0.2" + returns 0 if v0.2 SKILL.md present.
+# Echoes "absent" + returns 1 otherwise.
+#
+# Override cache dirs via SF_COMPOSE_AC_CACHE_DIRS env var (colon-separated)
+# for fixture-based testing.
+sf_compose_detect_architect_critic() {
+  local cache_dirs
+  if [[ -n "${SF_COMPOSE_AC_CACHE_DIRS:-}" ]]; then
+    # Test-friendly override: colon-separated cache dirs.
+    local IFS=":"
+    # shellcheck disable=SC2206
+    cache_dirs=( $SF_COMPOSE_AC_CACHE_DIRS )
+  else
+    cache_dirs=(
+      "${HOME}/.claude/plugins/cache"
+      "${CLAUDE_PLUGINS_DIR:-}"
+    )
+  fi
+  local cache skill_md
+  for cache in "${cache_dirs[@]}"; do
+    [[ -z "$cache" || ! -d "$cache" ]] && continue
+    # Glob: cache/<marketplace>/architect-critic/<version>/skills/critiquing-spec/SKILL.md
+    for skill_md in "$cache"/*/architect-critic/*/skills/critiquing-spec/SKILL.md; do
+      [[ -f "$skill_md" ]] && { echo "v0.2"; return 0; }
+    done
+  done
+  echo "absent"
+  return 1
+}
+
+# Resolve which architect-critic skill to invoke at critic moments.
+# Echoes "critiquing-spec" + returns 0 when v0.2 detected.
+# Echoes empty string + returns 1 when absent (binary contract — no v0.1.x fallback;
+# v0.1.3 had no skills/ directory so Skill(...) could never resolve).
+sf_compose_resolve_critic_skill() {
+  local detected
+  detected="$(sf_compose_detect_architect_critic)"
+  if [[ "$detected" == "v0.2" ]]; then
+    echo "critiquing-spec"
+    return 0
+  fi
+  echo ""
+  return 1
 }
 
 # Returns "true" if superpowers is installed AND its brainstorming skill is present
@@ -97,13 +146,17 @@ _sf_compose_refresh_locked() {
   tmp="$(mktemp "${path}.XXXXXX")"
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-  local mentor_dir critic_dir superpowers_dir brainstorming
+  local mentor_dir superpowers_dir brainstorming
   mentor_dir="$(sf_compose_detect_ai_mentor)"
-  critic_dir="$(sf_compose_detect_architect_critic)"
   superpowers_dir="$(sf_compose_detect_superpowers)"
   brainstorming="$(sf_compose_brainstorming_available)"
 
-  # Preserve existing user_overrides if composition.json exists
+  # Preserve existing user_overrides if composition.json exists.
+  # Note: architect-critic is NOT tracked here in v0.2 (per SPEC §12.2 +
+  # ac v0.2 settlement #1); detection is filesystem-only via
+  # `sf_compose_detect_architect_critic`. Pre-v0.2 composition.json files
+  # carrying a `plugins.architect-critic` entry will have it dropped on next
+  # refresh — this is expected behavior, documented in CHANGELOG.
   local overrides_json
   if [[ -f "$path" ]]; then
     overrides_json="$(jq '.user_overrides // {}' "$path")"
@@ -114,23 +167,17 @@ _sf_compose_refresh_locked() {
   if jq -n \
     --arg now "$now" \
     --arg mentor "$mentor_dir" \
-    --arg critic "$critic_dir" \
     --arg sp "$superpowers_dir" \
     --arg br "$brainstorming" \
     --argjson overrides "$overrides_json" \
     '{
+      schema_version: "1",
       detected_at: $now,
       plugins: {
         "ai-mentor": {
           installed: ($mentor != ""),
           data_dir: $mentor,
           state_file: (if $mentor != "" then ($mentor + "/state.json") else "" end)
-        },
-        "architect-critic": {
-          installed: ($critic != ""),
-          data_dir: $critic,
-          principles_file: (if $critic != "" then ($critic + "/principles.md") else "" end),
-          command: "/critique"
         },
         "superpowers": {
           installed: ($sp != ""),
@@ -251,113 +298,8 @@ sf_compose_brainstorming_hint() {
   echo "💡 superpowers:brainstorming is available for visual trade-off exploration on this phase."
 }
 
-# Build a critic request envelope per SPEC §8.3 and write it to the
-# architect-critic inbox dir. Echo the path of the written request file.
-# Args: <depth> <phase_id_or_empty>
-sf_compose_build_critic_request() {
-  local depth="$1" phase_id="${2:-}"
-  local comp
-  comp="$(sf_compose_path)"
-  [[ -f "$comp" ]] || { sf_log_error "composition.json missing"; return 1; }
-
-  local critic_dir
-  critic_dir="$(jq -r '.plugins["architect-critic"].data_dir // ""' "$comp")"
-  [[ -z "$critic_dir" ]] && { sf_log_error "architect-critic not installed"; return 1; }
-
-  local principles
-  principles="$(jq -r '.plugins["architect-critic"].principles_file // ""' "$comp")"
-
-  local inbox_dir
-  inbox_dir="$critic_dir/inbox"
-  mkdir -p "$inbox_dir"
-
-  local now request_id req_path
-  now="$(date -u +%Y-%m-%dT%H%M%S)"
-  local entropy="$$.$RANDOM"
-  if [[ -n "$phase_id" ]]; then
-    request_id="crit-${now}-phase${phase_id}-${entropy}"
-  else
-    request_id="crit-${now}-close-${entropy}"
-  fi
-  req_path="$inbox_dir/${request_id}.json"
-
-  # Adversaries: claude only for per-phase audits; claude+codex at close.
-  local adversaries_json
-  if [[ "$depth" == "close" ]]; then
-    adversaries_json='["claude","codex"]'
-  else
-    adversaries_json='["claude"]'
-  fi
-
-  # target: master-spec-phase (for per-phase) or master-spec-full (for close)
-  local target_json
-  local master_spec_path
-  master_spec_path="$(pwd)/MASTER-SPEC.md"
-  if [[ "$depth" == "close" ]]; then
-    target_json="$(jq -n --arg p "$master_spec_path" '{type:"master-spec-full",path:$p}')"
-  else
-    target_json="$(jq -n --arg p "$master_spec_path" --argjson pid "$phase_id" \
-      '{type:"master-spec-phase",path:$p,phase_id:$pid}')"
-  fi
-
-  # Accumulated phases: 1..N-1 for per-phase audits; 1..10 for close
-  local acc_json
-  if [[ "$depth" == "close" ]]; then
-    acc_json='[1,2,3,4,5,6,7,8,9,10]'
-  else
-    acc_json="$(jq -n --argjson pid "$phase_id" '[range(1;$pid)]')"
-  fi
-
-  local project_class
-  project_class="$(sf_state_read_answer 1.3.1)"
-  [[ "$project_class" == "null" ]] && project_class=""
-
-  if jq -n \
-    --arg rid "$request_id" \
-    --arg depth "$depth" \
-    --argjson adv "$adversaries_json" \
-    --argjson target "$target_json" \
-    --arg principles "$principles" \
-    --argjson acc "$acc_json" \
-    --argjson conc 4 \
-    --arg pc "$project_class" \
-    '{
-      request_id: $rid,
-      depth: $depth,
-      adversaries: $adv,
-      target: $target,
-      sources: { principles: $principles, accumulated_phases: $acc },
-      concession_threshold: $conc,
-      project_class: $pc
-    }' > "$req_path"; then
-    echo "$req_path"
-  else
-    rm -f "$req_path"
-    sf_log_error "jq failed building critic request"
-    return 1
-  fi
-}
-
-# Read a critic response from the outbox by request_id, with a polling timeout.
-# Args: <request_id> <timeout_seconds>
-# Echoes the response JSON on success; returns 1 on timeout.
-sf_compose_read_critic_response() {
-  local request_id="$1" timeout_s="$2"
-  local comp critic_dir outbox_path
-  comp="$(sf_compose_path)"
-  critic_dir="$(jq -r '.plugins["architect-critic"].data_dir // ""' "$comp")"
-  [[ -z "$critic_dir" ]] && return 1
-  outbox_path="$critic_dir/outbox/${request_id}.json"
-
-  local elapsed=0
-  while [[ "$elapsed" -lt "$timeout_s" ]]; do
-    if [[ -f "$outbox_path" ]]; then
-      cat "$outbox_path"
-      return 0
-    fi
-    sleep 1
-    elapsed=$((elapsed+1))
-  done
-  sf_log_warn "Critic response timeout for request $request_id (waited ${timeout_s}s)"
-  return 1
-}
+# v0.2 NOTE: The legacy file-IPC functions `sf_compose_build_critic_request`
+# and `sf_compose_read_critic_response` were removed per SPEC §12.3.
+# architect-critic is now invoked in-conversation via
+# `Skill(architect-critic:critiquing-spec)`. No `inbox/` / `outbox/` paths.
+# See SPEC §12.4 and the `critic-moments.md` reference doc.

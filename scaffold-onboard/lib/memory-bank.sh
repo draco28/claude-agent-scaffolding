@@ -94,9 +94,15 @@ sf_memory_bank_derive() {
 # Read composition.json (if it exists) and return key=value pairs for plugin awareness
 _composition_args() {
   local comp="$(sf_data_dir)/composition.json"
+  # architect-critic in v0.2 is NOT tracked in composition.json (per SPEC §12.2 +
+  # ac v0.2 settlement #1). Source it from the filesystem probe instead.
+  local ac_detected ac_flag
+  ac_detected="$(sf_compose_detect_architect_critic 2>/dev/null || true)"
+  if [[ "$ac_detected" == "v0.2" ]]; then ac_flag="true"; else ac_flag="false"; fi
+
   if [[ ! -f "$comp" ]]; then
     echo "has_ai_mentor=false"
-    echo "has_architect_critic=false"
+    echo "has_architect_critic=$ac_flag"
     echo "has_superpowers=false"
     echo "has_scaffold_plugin=false"
     return 0
@@ -104,8 +110,7 @@ _composition_args() {
   local v
   v="$(jq -r '.plugins["ai-mentor"].installed // false' "$comp")"
   echo "has_ai_mentor=$v"
-  v="$(jq -r '.plugins["architect-critic"].installed // false' "$comp")"
-  echo "has_architect_critic=$v"
+  echo "has_architect_critic=$ac_flag"
   v="$(jq -r '.plugins["superpowers"].installed // false' "$comp")"
   echo "has_superpowers=$v"
   v="$(jq -r '.plugins["scaffold"].installed // false' "$comp")"

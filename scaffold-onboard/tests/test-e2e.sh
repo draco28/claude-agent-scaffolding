@@ -190,14 +190,20 @@ test_e2e_resume_mid_onboarding() {
 test_e2e_with_composition_mocked() {
   echo "test_e2e_with_composition_mocked:"
   setup_tmp_repo
-  # Fake-install all three cross-cutting plugins
+  # Fake-install all three cross-cutting plugins.
+  # ai-mentor + superpowers go via the legacy SF_COMPOSE_PROBE_PATHS path
+  # (still maintained in composition.json). architect-critic v0.2 uses the
+  # filesystem probe layout per SPEC §12.2 — separate fixture root.
   mkdir -p "$TMP_DIR/fake-plugins/ai-mentor-x"
   : > "$TMP_DIR/fake-plugins/ai-mentor-x/state.json"
-  mkdir -p "$TMP_DIR/fake-plugins/architect-critic-y"
-  : > "$TMP_DIR/fake-plugins/architect-critic-y/principles.md"
   mkdir -p "$TMP_DIR/fake-plugins/superpowers-z/skills/brainstorming"
   : > "$TMP_DIR/fake-plugins/superpowers-z/skills/brainstorming/SKILL.md"
   export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
+
+  # architect-critic v0.2 fixture: <cache>/<marketplace>/architect-critic/<ver>/skills/critiquing-spec/SKILL.md
+  mkdir -p "$TMP_DIR/fake-ac-cache/mp/architect-critic/0.2.0/skills/critiquing-spec"
+  : > "$TMP_DIR/fake-ac-cache/mp/architect-critic/0.2.0/skills/critiquing-spec/SKILL.md"
+  export SF_COMPOSE_AC_CACHE_DIRS="$TMP_DIR/fake-ac-cache"
 
   sf_compose_refresh
   run_full_pipeline_cli

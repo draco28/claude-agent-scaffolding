@@ -5,12 +5,17 @@ source "$HERE/_helpers.sh"
 source "$HERE/../lib/state.sh"
 source "$HERE/../lib/compose.sh"
 
+# v0.2 test-compose.sh — 24 tests (16 retained from v0.1.0 baseline + 8 new).
+# Removed: 15 IPC tests (sf_compose_build_critic_request +
+# sf_compose_read_critic_response — functions dropped per SPEC §12.3).
+# Adapted: tests previously asserting plugins.architect-critic in composition.json
+# now assert that key is ABSENT (per SPEC §12.2 — ac detection is filesystem-only).
+
 # Build a fake plugin install dir at $TMP_DIR/fake-plugins/<name>
 mk_fake_plugin() {
   local name="$1"; shift
   local dir="$TMP_DIR/fake-plugins/$name"
   mkdir -p "$dir"
-  # Optional file paths to create inside the fake plugin
   local rel
   for rel in "$@"; do
     mkdir -p "$dir/$(dirname "$rel")"
@@ -18,6 +23,27 @@ mk_fake_plugin() {
   done
   echo "$dir"
 }
+
+# Build a fake architect-critic v0.2 layout under a cache root.
+# Layout: <root>/<marketplace>/architect-critic/<version>/skills/critiquing-spec/SKILL.md
+mk_fake_ac_v02_cache() {
+  local root="$1"
+  local skill_dir="$root/marketplace-fake/architect-critic/0.2.0/skills/critiquing-spec"
+  mkdir -p "$skill_dir"
+  : > "$skill_dir/SKILL.md"
+}
+
+# Build a legacy v0.1.x architect-critic layout (no skills/ dir) to confirm
+# binary contract — it should still resolve as "absent".
+mk_fake_ac_v01_legacy() {
+  local root="$1"
+  local plugin_dir="$root/marketplace-fake/architect-critic/0.1.3"
+  mkdir -p "$plugin_dir"
+  : > "$plugin_dir/principles.md"
+  # No skills/critiquing-spec/SKILL.md — that's the whole point.
+}
+
+# ---------- RETAINED: probe behavior (ai-mentor + superpowers) ----------
 
 test_detect_ai_mentor_present() {
   echo "test_detect_ai_mentor_present:"
@@ -36,25 +62,11 @@ test_detect_ai_mentor_present() {
 test_detect_ai_mentor_absent() {
   echo "test_detect_ai_mentor_absent:"
   setup_tmp_repo
-  mkdir -p "$TMP_DIR/fake-plugins"  # exists but empty
+  mkdir -p "$TMP_DIR/fake-plugins"
   export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
   local found
   found="$(sf_compose_detect_ai_mentor)"
   assert_eq "ai-mentor absent → empty" "" "$found"
-}
-
-test_detect_architect_critic() {
-  echo "test_detect_architect_critic:"
-  setup_tmp_repo
-  mk_fake_plugin "architect-critic-bar" "principles.md"
-  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
-  local found
-  found="$(sf_compose_detect_architect_critic)"
-  if [[ "$found" == *"architect-critic-bar"* ]]; then
-    PASS=$((PASS+1)); echo "  ✓ architect-critic detected"
-  else
-    FAIL=$((FAIL+1)); echo "  ✗ architect-critic not detected: $found"
-  fi
 }
 
 test_detect_superpowers() {
@@ -95,16 +107,22 @@ test_composition_refresh_with_plugins() {
   echo "test_composition_refresh_with_plugins:"
   setup_tmp_repo
   mk_fake_plugin "ai-mentor-x" "state.json"
-  mk_fake_plugin "architect-critic-y" "principles.md"
+  mk_fake_plugin "superpowers-z" "skills/brainstorming/SKILL.md"
   export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
   sf_compose_refresh
   local path="$CLAUDE_PLUGIN_DATA/composition.json"
   assert_file_exists "$path"
-  local mentor_installed critic_installed
+  local mentor_installed sp_installed ac_key
   mentor_installed="$(jq -r '.plugins["ai-mentor"].installed' "$path")"
-  critic_installed="$(jq -r '.plugins["architect-critic"].installed' "$path")"
-  assert_eq "ai-mentor installed" "true" "$mentor_installed"
-  assert_eq "architect-critic installed" "true" "$critic_installed"
+  sp_installed="$(jq -r '.plugins["superpowers"].installed' "$path")"
+  # v0.2 contract: ai-mentor + superpowers tracked here; architect-critic NOT
+  # (per SPEC §12.2 — detection is filesystem-only).
+  ac_key="$(jq -r '.plugins | has("architect-critic")' "$path")"
+  if [[ "$mentor_installed" == "true" && "$sp_installed" == "true" && "$ac_key" == "false" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ refresh records ai-mentor + superpowers; omits architect-critic"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ refresh wrong: mentor=$mentor_installed sp=$sp_installed ac_present=$ac_key"
+  fi
 }
 
 test_composition_refresh_no_plugins() {
@@ -125,9 +143,16 @@ test_composition_is_installed_helper() {
   mk_fake_plugin "ai-mentor-z" "state.json"
   export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
   sf_compose_refresh
-  assert_exit_code 0 sf_compose_is_installed "ai-mentor"
-  assert_exit_code 1 sf_compose_is_installed "architect-critic"
+  # ai-mentor → installed (helper returns 0); architect-critic absent from
+  # composition.json schema in v0.2 → helper returns 1.
+  if sf_compose_is_installed "ai-mentor" && ! sf_compose_is_installed "architect-critic"; then
+    PASS=$((PASS+1)); echo "  ✓ is_installed helper: ai-mentor=true, architect-critic=false"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ is_installed helper returned wrong values"
+  fi
 }
+
+# ---------- RETAINED: mentor hints (source-aware refresh + sticky overrides) ----------
 
 test_mentor_hint_phase_5() {
   echo "test_mentor_hint_phase_5:"
@@ -166,104 +191,7 @@ test_mentor_hint_without_install() {
   assert_eq "no install, no hint" "" "$hint"
 }
 
-test_critic_request_premise_audit() {
-  echo "test_critic_request_premise_audit:"
-  setup_tmp_repo
-  mk_fake_plugin "architect-critic-r" "principles.md"
-  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
-  sf_compose_refresh
-  echo "test content" > MASTER-SPEC.md
-  sf_state_init
-  sf_state_write_answer "1.3.1" "CLI tool"
-  local req_path
-  req_path="$(sf_compose_build_critic_request "premise-audit" 5)"
-  assert_file_exists "$req_path"
-  local depth phase_id
-  depth="$(jq -r .depth "$req_path")"
-  phase_id="$(jq -r .target.phase_id "$req_path")"
-  assert_eq "request depth" "premise-audit" "$depth"
-  assert_eq "request phase_id" "5" "$phase_id"
-  local concession
-  concession="$(jq -r .concession_threshold "$req_path")"
-  assert_eq "concession threshold = 4" "4" "$concession"
-}
-
-test_critic_request_close() {
-  echo "test_critic_request_close:"
-  setup_tmp_repo
-  mk_fake_plugin "architect-critic-r" "principles.md"
-  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
-  sf_compose_refresh
-  echo "test content" > MASTER-SPEC.md
-  sf_state_init
-  sf_state_write_answer "1.3.1" "CLI tool"
-  local req_path
-  req_path="$(sf_compose_build_critic_request "close" "")"
-  local depth target_type
-  depth="$(jq -r .depth "$req_path")"
-  target_type="$(jq -r .target.type "$req_path")"
-  assert_eq "depth=close" "close" "$depth"
-  assert_eq "target type=master-spec-full" "master-spec-full" "$target_type"
-  local adv0 adv1
-  adv0="$(jq -r '.adversaries[0]' "$req_path")"
-  adv1="$(jq -r '.adversaries[1]' "$req_path")"
-  assert_eq "adversaries[0] = claude" "claude" "$adv0"
-  assert_eq "adversaries[1] = codex" "codex" "$adv1"
-}
-
-test_critic_dispatch_with_mock_outbox() {
-  echo "test_critic_dispatch_with_mock_outbox:"
-  setup_tmp_repo
-  mk_fake_plugin "architect-critic-m" "principles.md"
-  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
-  sf_compose_refresh
-  echo "test content" > MASTER-SPEC.md
-  sf_state_init
-  sf_state_write_answer "1.3.1" "CLI tool"
-
-  # Build request
-  local req_path
-  req_path="$(sf_compose_build_critic_request "premise-audit" 5)"
-  local request_id
-  request_id="$(jq -r .request_id "$req_path")"
-
-  # Mock: write a response to the outbox manually (simulating critic)
-  local critic_dir
-  critic_dir="$(jq -r '.plugins["architect-critic"].data_dir' "$CLAUDE_PLUGIN_DATA/composition.json")"
-  mkdir -p "$critic_dir/outbox"
-  jq -n --arg rid "$request_id" '{
-    request_id: $rid,
-    adversaries_used: ["claude"],
-    challenges: [
-      {severity:"premise", text:"Test challenge", references:["Phase 5.2"]}
-    ],
-    gaps: [],
-    divergences: [],
-    elapsed_ms: 25000
-  }' > "$critic_dir/outbox/${request_id}.json"
-
-  # Wait/read the response (no real wait — mock is already there)
-  local response_json
-  response_json="$(sf_compose_read_critic_response "$request_id" 5)"
-  local num_challenges
-  num_challenges="$(echo "$response_json" | jq '.challenges | length')"
-  assert_eq "challenge count" "1" "$num_challenges"
-}
-
-test_critic_response_timeout() {
-  echo "test_critic_response_timeout:"
-  setup_tmp_repo
-  mk_fake_plugin "architect-critic-m" "principles.md"
-  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
-  sf_compose_refresh
-  # No outbox response, short timeout
-  local result ec
-  set +e
-  result="$(sf_compose_read_critic_response "nonexistent-id" 2 2>&1)"
-  ec=$?
-  set -e 2>/dev/null || true
-  assert_eq "timeout exits non-zero" "1" "$ec"
-}
+# ---------- RETAINED: sticky user overrides ----------
 
 test_user_override_disable_mentor() {
   echo "test_user_override_disable_mentor:"
@@ -271,7 +199,6 @@ test_user_override_disable_mentor() {
   mk_fake_plugin "ai-mentor-z" "state.json"
   export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
   sf_compose_refresh
-  # Flip the user override
   sf_compose_set_override "disable_mentor_suggestions" true
   local hint
   hint="$(sf_compose_mentor_hint 5)"
@@ -291,6 +218,8 @@ test_user_override_survives_refresh() {
   assert_eq "override preserved" "true" "$v"
 }
 
+# ---------- RETAINED: jq failure + lock helpers ----------
+
 test_compose_jq_failure_preserves_existing() {
   echo "test_compose_jq_failure_preserves_existing:"
   setup_tmp_repo
@@ -298,23 +227,19 @@ test_compose_jq_failure_preserves_existing() {
   : > "$TMP_DIR/fake-plugins/ai-mentor-x/state.json"
   export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
   sf_compose_refresh
-  # Write a sentinel field so we can verify preservation
   local path="$CLAUDE_PLUGIN_DATA/composition.json"
   jq '.sentinel = "preserved"' "$path" > "${path}.new" && mv "${path}.new" "$path"
-  # Mock jq to always fail
   mkdir -p "$TMP_DIR/badbin"
   cat > "$TMP_DIR/badbin/jq" <<'BAD_JQ'
 #!/bin/sh
 exit 1
 BAD_JQ
   chmod +x "$TMP_DIR/badbin/jq"
-  # Call set_override with bad jq in PATH — should fail without clobbering
   local rc
   set +e
   PATH="$TMP_DIR/badbin:$PATH" sf_compose_set_override disable_critic true 2>/dev/null
   rc=$?
   set -e 2>/dev/null || true
-  # set_override should return nonzero, AND composition.json should still contain sentinel
   if [[ $rc -ne 0 ]] && grep -q '"sentinel"' "$path" 2>/dev/null; then
     PASS=$((PASS+1)); echo "  ✓ jq failure preserved existing composition.json"
   else
@@ -329,50 +254,124 @@ test_compose_concurrent_lock_serializes() {
   export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
   sf_compose_refresh
 
-  # Fork: process A sets override, process B refreshes — they should serialize via lock
   ( sf_compose_set_override disable_critic true ) &
   local pidA=$!
   ( sf_compose_refresh ) &
   local pidB=$!
   wait $pidA $pidB
 
-  # Composition must be well-formed JSON regardless of execution order
   local path="$CLAUDE_PLUGIN_DATA/composition.json"
+  local v=""
   if jq -e . "$path" > /dev/null 2>&1; then
-    PASS=$((PASS+1)); echo "  ✓ composition.json well-formed after concurrent writes"
-  else
-    FAIL=$((FAIL+1)); echo "  ✗ composition.json corrupted by concurrent writes"
+    v="$(jq -r '.user_overrides.disable_critic // "absent"' "$path")"
   fi
-
-  # The override should be preserved regardless of order
-  # (set_override sets it; refresh after preserves it per TF.8 preservation logic)
-  local v
-  v="$(jq -r '.user_overrides.disable_critic // "absent"' "$path")"
-  assert_eq "override preserved through concurrent writes" "true" "$v"
+  if [[ "$v" == "true" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ composition.json well-formed + override preserved through concurrent writes"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ concurrent writes corrupted file or lost override (override=$v)"
+  fi
 }
 
-test_compose_request_id_unique_within_second() {
-  echo "test_compose_request_id_unique_within_second:"
+# ---------- NEW: critic skill resolution + filesystem probe (per SPEC §12.4) ----------
+
+test_detect_architect_critic_v02_present() {
+  echo "test_detect_architect_critic_v02_present:"
   setup_tmp_repo
-  mk_fake_plugin "architect-critic-x" "principles.md"
-  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
-  sf_compose_refresh
-  echo "test content" > MASTER-SPEC.md
-  sf_state_init
-  sf_state_write_answer "1.3.1" "CLI tool"
-  local r1 r2
-  r1="$(sf_compose_build_critic_request "premise-audit" 5)"
-  r2="$(sf_compose_build_critic_request "premise-audit" 5)"
-  if [[ "$r1" != "$r2" && -f "$r1" && -f "$r2" ]]; then
-    PASS=$((PASS+1)); echo "  ✓ two same-second same-phase requests have unique paths"
+  mk_fake_ac_v02_cache "$TMP_DIR/ac-cache"
+  export SF_COMPOSE_AC_CACHE_DIRS="$TMP_DIR/ac-cache"
+  local out rc
+  set +e
+  out="$(sf_compose_detect_architect_critic)"
+  rc=$?
+  set -e 2>/dev/null || true
+  # Single combined assertion: echo + rc together signal a successful v0.2 probe.
+  if [[ "$out" == "v0.2" && "$rc" -eq 0 ]]; then
+    PASS=$((PASS+1)); echo "  ✓ v0.2 SKILL.md present → echoes v0.2 + returns 0"
   else
-    FAIL=$((FAIL+1)); echo "  ✗ collision: r1=$r1 r2=$r2"
+    FAIL=$((FAIL+1)); echo "  ✗ v0.2 probe wrong: out=$out rc=$rc"
   fi
 }
 
+test_detect_architect_critic_absent() {
+  echo "test_detect_architect_critic_absent:"
+  setup_tmp_repo
+  mkdir -p "$TMP_DIR/ac-cache"
+  export SF_COMPOSE_AC_CACHE_DIRS="$TMP_DIR/ac-cache"
+  local out rc
+  set +e
+  out="$(sf_compose_detect_architect_critic)"
+  rc=$?
+  set -e 2>/dev/null || true
+  if [[ "$out" == "absent" && "$rc" -eq 1 ]]; then
+    PASS=$((PASS+1)); echo "  ✓ no SKILL.md → echoes absent + returns 1"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ absent probe wrong: out=$out rc=$rc"
+  fi
+}
+
+test_detect_architect_critic_legacy_v01_is_absent() {
+  echo "test_detect_architect_critic_legacy_v01_is_absent:"
+  # Binary contract: legacy v0.1.x (principles.md only, no skills/ dir) must
+  # resolve as "absent" — Skill(architect-critic:critique) can't resolve against
+  # v0.1.x anyway, and v0.2 is a hard breaking change per its SPEC §3 NG1.
+  setup_tmp_repo
+  mk_fake_ac_v01_legacy "$TMP_DIR/ac-cache"
+  export SF_COMPOSE_AC_CACHE_DIRS="$TMP_DIR/ac-cache"
+  local out rc
+  set +e
+  out="$(sf_compose_detect_architect_critic)"
+  rc=$?
+  set -e 2>/dev/null || true
+  if [[ "$out" == "absent" && "$rc" -eq 1 ]]; then
+    PASS=$((PASS+1)); echo "  ✓ legacy v0.1.x (no skills/) → absent (binary contract)"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ legacy fallback leaked: out=$out rc=$rc"
+  fi
+}
+
+test_resolve_critic_skill_v02() {
+  echo "test_resolve_critic_skill_v02:"
+  setup_tmp_repo
+  mk_fake_ac_v02_cache "$TMP_DIR/ac-cache"
+  export SF_COMPOSE_AC_CACHE_DIRS="$TMP_DIR/ac-cache"
+  local out
+  out="$(sf_compose_resolve_critic_skill)"
+  assert_eq "resolves to critiquing-spec when v0.2 present" "critiquing-spec" "$out"
+}
+
+# ---------- NEW: marker assertions — SKILL.md bodies reference the helpers ----------
+
+test_onboarding_skill_references_probe_helper() {
+  echo "test_onboarding_skill_references_probe_helper:"
+  local skill_md
+  skill_md="$HERE/../skills/onboarding-project/SKILL.md"
+  assert_file_contains "$skill_md" "sf_compose_detect_architect_critic"
+}
+
+test_onboarding_skill_references_critiquing_spec() {
+  echo "test_onboarding_skill_references_critiquing_spec:"
+  local skill_md
+  skill_md="$HERE/../skills/onboarding-project/SKILL.md"
+  assert_file_contains "$skill_md" "architect-critic:critiquing-spec"
+}
+
+test_roadmap_skill_references_probe_helper() {
+  echo "test_roadmap_skill_references_probe_helper:"
+  local skill_md
+  skill_md="$HERE/../skills/planning-project-roadmap/SKILL.md"
+  assert_file_contains "$skill_md" "sf_compose_detect_architect_critic"
+}
+
+test_roadmap_skill_references_target_roadmap_close() {
+  echo "test_roadmap_skill_references_target_roadmap_close:"
+  local skill_md
+  skill_md="$HERE/../skills/planning-project-roadmap/SKILL.md"
+  assert_file_contains "$skill_md" "target=roadmap, depth=close"
+}
+
+# Retained (16):
 test_detect_ai_mentor_present
 test_detect_ai_mentor_absent
-test_detect_architect_critic
 test_detect_superpowers
 test_detect_brainstorming_available
 test_detect_brainstorming_unavailable
@@ -382,13 +381,21 @@ test_composition_is_installed_helper
 test_mentor_hint_phase_5
 test_mentor_hint_phase_2
 test_mentor_hint_without_install
-test_critic_request_premise_audit
-test_critic_request_close
-test_critic_dispatch_with_mock_outbox
-test_critic_response_timeout
 test_user_override_disable_mentor
 test_user_override_survives_refresh
 test_compose_jq_failure_preserves_existing
-test_compose_request_id_unique_within_second
 test_compose_concurrent_lock_serializes
+
+# New — critic detection (4):
+test_detect_architect_critic_v02_present
+test_detect_architect_critic_absent
+test_detect_architect_critic_legacy_v01_is_absent
+test_resolve_critic_skill_v02
+
+# New — marker assertions (4):
+test_onboarding_skill_references_probe_helper
+test_onboarding_skill_references_critiquing_spec
+test_roadmap_skill_references_probe_helper
+test_roadmap_skill_references_target_roadmap_close
+
 report_results
