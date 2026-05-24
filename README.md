@@ -7,7 +7,7 @@ Personal Claude Code plugin marketplace.
 | Plugin | Version | Scope | Purpose |
 |---|---|---|---|
 | [`ai-mentor`](./ai-mentor/) | v2.0.0 | User-level | Decision-making mentor. Four auto-invocable skills: `grill-me` (one-question-at-a-time plan interrogation with CORE posture + 4 cognitive-discipline escape valves), `council` (5-persona multi-angle idea validation, Karpathy LLM Council pattern with codebase-aware Historian), `eli10` (repeatable simplification), `fool` (sticky beginner's-mind mode). Skill-first; no hooks, no state machinery. |
-| [`scaffold-onboard`](./scaffold-onboard/) | v0.1.0 | Project-level (run-once) | Onboarding plugin. 10-phase guided conversation authors `MASTER-SPEC.md`; deterministic derivation produces an 11-file memory-bank, a tiered `CLAUDE.md` router, and 5/14 governance docs. Soft-composes with ai-mentor + architect-critic. |
+| [`scaffold-onboard`](./scaffold-onboard/) | v0.2.0 | Project-level (run-once) | Onboarding plugin (skill-first). 7 skills + 4 slash commands. 10-phase guided conversation authors `MASTER-SPEC.md`; deterministic derivation produces an 11-file memory-bank, a tiered `CLAUDE.md` router, and 5/14 governance docs. v0.2 adds R1 (Phase → Sprint → Vertical Slice roadmap via `/plan-roadmap`), R2 (machine-checkable rules DSL), R3 (`auto:`/`user:` demo criteria grammar). Composes with workspace-init (manifest routing), ai-mentor (cognitive mode), architect-critic v0.2+ (in-conversation review, no file IPC). |
 | [`scaffold`](./scaffold/) | v1.0.0 | Project-level (continuous) | Implementation plugin. Slice-driven 5-phase workflow, living governance (ADRs, CHANGELOG, runbooks), per-repo memory bank with semantic search. 18 slash commands + 10 MCP tools. |
 | [`architect-critic`](./architect-critic/) | v0.2.0 | User-level | Anti-sycophancy reviewer (skill-first). 4 auto-invocable skills: `critiquing-spec` (audit + sequential rebuttal with T=4 concession scoring), `reviewing-critique-history`, `listing-principles`, `promoting-principle`. Ships ghost-notes (Wald survivor-bias) + CORE protocol as default principles. Full auto-promotion (vote-recurrence T=4, instinct N=3, 30/90-day suppression). Codex 0.125+ adversarial fresh-frame at close-depth. Standalone-invocable; consumer plugins invoke skills in-conversation (no file IPC). |
 
@@ -80,7 +80,7 @@ Don't run `/grill-me` and `/council` in the same session — different interacti
 .
 ├── .claude-plugin/marketplace.json    # marketplace manifest
 ├── ai-mentor/                         # ai-mentor plugin (v2.0.0)
-├── scaffold-onboard/                  # scaffold-onboard plugin (v0.1.0)
+├── scaffold-onboard/                  # scaffold-onboard plugin (v0.2.0)
 ├── scaffold/                          # scaffold plugin (v1.0.0)
 ├── docs/
 │   ├── SPEC-ai-mentor.md              # ai-mentor spec (v1.1 amendments)
