@@ -29,6 +29,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Testing approach (v2.0)
 v1.3 was pure-bash (state.sh + hook handlers); v2.0 is pure-skill-markdown with no bash code at all. The test surface changes fundamentally — most of the contract lives in LLM behavior, which bash can't natively dispatch. Picked **hybrid Option C**: bash automates the deterministic checks (~80% of the v2.0 contract is actually structural), markdown checklists capture the LLM-behavior fixtures without overclaiming automation.
 
+### Added (Phase 2 — grill-me refinement)
+- `skills/grill-me/SKILL.md` — CORE protocol posture made explicit (Curiosity → Objectivity → Reassurance → Empathy; from `.claude/ghost-notes.md` principle #3). 4 cognitive-discipline escape valves folded in: separating-concerns, widening-confidence-interval, asking-identity-question, widening-time-horizon. Each fires once when a stuck-state cue appears mid-grill, then resumes grilling.
+- `skills/grill-me/escape-valves.md` — sibling reference doc with diagnostic cues, reframes, and example responses per escape valve.
+
+### Changed (Phase 2)
+- `skills/grill-me/SKILL.md` frontmatter cleaned to v2.0 contract (name + description only; 867/1024 chars; no `version`, no `when_to_use`). v1.3 references to deleted `/quiz` and `/z2-decide` removed.
+- `test-frontmatter-lint.sh` goes from 6/9 (Phase 1 RED) to 9/9 GREEN.
+
 ### Migration from 1.x
 - `~/.claude/ai-mentor/state.json` is no longer used. Safe to delete manually.
 - Slash commands `/z1`, `/z2-decide`, `/z2-build`, `/locked`, `/quiz`, `/improve` will return "command not found". Intentional.
