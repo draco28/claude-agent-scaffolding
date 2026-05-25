@@ -54,3 +54,11 @@
 - README.md with ECC attribution + scope-honesty caveats + opt-in registration snippet
 - LICENSE (MIT)
 - 2 hook smoke tests (153 cumulative)
+
+### Phase 7 — E2E integration tests + perf benchmark
+- 4 core e2e test files (audit, apply-fix, suppress, baseline) against all 13 fixtures
+- 4 adversarial e2e test files covering T1-F (tamper), T2-G (rule-load), T2-H (malicious-rule), T2-I (uid-stability) per SPEC §14.4
+- Perf benchmark validates ≤10s ideal / ≤30s fail-threshold for ~200-file workload (17s on Mac Mini M-series — passes threshold, WARN on ideal)
+- Release-gate metric: ZERO findings on all 5 clean fixtures asserted in test-e2e-audit.sh
+- Integration bugs found and fixed: (1) enumerate-targets.sh scanned .claude/audits/ — excluded via -not -path filter; (2) rule-engine ran N×M subshell cross-product — restructured to batch targets per rule (csa_rule_run_many) with aspect-based pre-filtering; (3) _next_scratch pattern using $() subshell lost counter increments — fixed to use global _CSA_SCRATCH without $()
+- 29 e2e/perf tests added (cumulative 182)

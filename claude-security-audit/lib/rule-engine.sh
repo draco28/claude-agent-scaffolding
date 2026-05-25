@@ -32,6 +32,38 @@ csa_rule_run_one() {
   )
 }
 
+# csa_rule_run_many <rule_file> <targets_file>
+# Source rule ONCE in a subshell, iterate targets_file, call detect per target.
+# More efficient than calling csa_rule_run_one per target (amortizes source cost).
+csa_rule_run_many() {
+  local rule_file="$1"; local targets_file="$2"
+  (
+    set -u
+    if ! source "$rule_file" 2>/dev/null; then
+      jq -nc --arg rid "SCANNER-001" --arg f "$rule_file" \
+        '{rule_id: $rid, file: $f, line: 0, offset: 0, preview: "rule failed to load", severity: "high", context: {failed_rule: $f}}'
+      return 0
+    fi
+    if ! declare -f detect >/dev/null; then
+      jq -nc --arg rid "SCANNER-001" --arg f "$rule_file" \
+        '{rule_id: $rid, file: $f, line: 0, offset: 0, preview: "rule has no detect() function", severity: "high"}'
+      return 0
+    fi
+    while IFS= read -r target_line; do
+      [[ -z "$target_line" ]] && continue
+      local target="${target_line##*$'\t'}"
+      local out ec=0
+      out="$(detect "$target" 2>/dev/null)" || ec=$?
+      if [[ "$ec" -ne 0 ]]; then
+        jq -nc --arg rid "SCANNER-002" --arg f "$target" --arg r "$rule_file" \
+          '{rule_id: $rid, file: $f, line: 0, offset: 0, preview: "detect() failed", severity: "high", context: {failed_rule: $r, exit_code: '"$ec"'}}'
+      else
+        printf '%s\n' "$out"
+      fi
+    done < "$targets_file"
+  )
+}
+
 # csa_rule_engine_scan_files <rule_file> <target_file_1> [<target_file_2> ...]
 csa_rule_engine_scan_files() {
   local rule_file="$1"; shift
@@ -40,8 +72,64 @@ csa_rule_engine_scan_files() {
   done
 }
 
+# _csa_rule_aspect_from_file <rule_file>
+# Extract RULE_ASPECT via grep (no subshell source — fast metadata read).
+_csa_rule_aspect_from_file() {
+  grep -m1 '^RULE_ASPECT=' "$1" 2>/dev/null | sed 's/^RULE_ASPECT=//' | tr -d '"'\'
+}
+
+# _csa_target_matches_aspect <target_path> <aspect>
+# Returns 0 (match) or 1 (skip) based on aspect-to-file-extension heuristic.
+# Secrets rules run on any text file; aspect-specific rules filter tightly.
+_csa_target_matches_aspect() {
+  local target="$1"
+  local aspect="$2"
+  local base; base="$(basename "$target")"
+  case "$aspect" in
+    permissions)
+      [[ "$base" == "settings.json" || "$base" == "settings.local.json" ]] && return 0
+      return 1
+      ;;
+    hooks)
+      [[ "$target" == *.sh ]] && return 0
+      return 1
+      ;;
+    marketplace)
+      [[ "$base" == "marketplace.json" ]] && return 0
+      return 1
+      ;;
+    mcp)
+      [[ "$target" == *.json ]] && return 0
+      return 1
+      ;;
+    claude-md)
+      [[ "$base" == "CLAUDE.md" ]] && return 0
+      return 1
+      ;;
+    prompt-injection)
+      [[ "$target" == *.md ]] && return 0
+      return 1
+      ;;
+    secrets)
+      # Secrets rules scan all text-like files.
+      [[ "$target" == *.md || "$target" == *.json || "$target" == *.sh \
+         || "$target" == *.py || "$target" == *.js || "$target" == *.ts ]] && return 0
+      return 1
+      ;;
+    test)
+      # Synthetic test rules: run on everything (used by e2e tests).
+      return 0
+      ;;
+    *)
+      # Unknown aspect: run on everything (conservative fallback).
+      return 0
+      ;;
+  esac
+}
+
 # csa_rule_engine_scan_all <project_root> [<focus>]
 # Discovers all rule files (filtered by focus aspect), runs the matrix.
+# Uses aspect-based pre-filtering to reduce rule×target cross-product.
 # Emits SCANNER-002 banner on stderr if 3+ SCANNER-002 findings emerge.
 csa_rule_engine_scan_all() {
   local root="$1"; local focus="${2:-all}"
@@ -51,18 +139,33 @@ csa_rule_engine_scan_all() {
   fi
   local scanner_002_count=0
   local findings_out; findings_out="$(mktemp)"
+  # Pre-collect targets once (avoids re-running enumeration per rule).
+  local targets_file; targets_file="$(mktemp)"
+  csa_enum_targets_all "$root" 2>/dev/null > "$targets_file"
   while read -r rule_file; do
     [[ -z "$rule_file" ]] && continue
-    while IFS= read -r target_line; do
-      [[ -z "$target_line" ]] && continue
-      local target="${target_line##*$'\t'}"
-      csa_rule_run_one "$rule_file" "$target" >> "$findings_out"
-    done < <(csa_enum_targets_all "$root" 2>/dev/null)
+    local aspect; aspect="$(_csa_rule_aspect_from_file "$rule_file")"
+    # Build a filtered targets file for this rule's aspect.
+    local rule_targets_file; rule_targets_file="$(mktemp)"
+    if [[ -n "$aspect" ]]; then
+      while IFS= read -r target_line; do
+        [[ -z "$target_line" ]] && continue
+        local target="${target_line##*$'\t'}"
+        if _csa_target_matches_aspect "$target" "$aspect"; then
+          printf '%s\n' "$target_line"
+        fi
+      done < "$targets_file" > "$rule_targets_file"
+    else
+      cp "$targets_file" "$rule_targets_file"
+    fi
+    # Source rule once and iterate all matching targets.
+    csa_rule_run_many "$rule_file" "$rule_targets_file" >> "$findings_out"
+    rm -f "$rule_targets_file"
   done < <(find "$rules_glob" -name '*.sh' -type f 2>/dev/null)
   cat "$findings_out"
   scanner_002_count="$(grep -c 'SCANNER-002' "$findings_out" 2>/dev/null || echo 0)"
   if [[ "$scanner_002_count" -ge 3 ]]; then
     printf '⚠ %d rule(s) failed during scan; results incomplete. See SCANNER-002 findings.\n' "$scanner_002_count" >&2
   fi
-  rm -f "$findings_out"
+  rm -f "$findings_out" "$targets_file"
 }
