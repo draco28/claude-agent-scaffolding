@@ -20,8 +20,10 @@ WI_TESTS_FAIL_NAMES=()
 wi_tmpdir() {
   local d
   d="$(mktemp -d -t "wi-test-XXXXXX")"
-  # Register cleanup in caller's EXIT trap (additive)
-  trap 'rm -rf "$d"' EXIT
+  # Expand $d at trap-registration time (not at trap-fire time) so the trap
+  # works even when it fires in a subshell scope where the local $d is gone
+  # and `set -u` would otherwise complain about an unbound variable.
+  trap "rm -rf -- $(printf '%q' "$d")" EXIT
   echo "$d"
 }
 
