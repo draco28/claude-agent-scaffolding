@@ -289,4 +289,93 @@ test_e2e_handoff_chain() {
 
 test_e2e_handoff_chain
 
+# ---------------------------------------------------------------------------
+# T7.3 — composition extension (6 assertions)
+#
+# Exercises sd_compose_detect_architect_critic / sd_compose_detect_ai_mentor
+# via a test-scoped plugin cache. compose.sh's default-cache-dir set is:
+#   - $HOME/.claude/plugins/cache
+#   - ${CLAUDE_PLUGINS_DIR:-} (when set)
+# To prevent any real user-cache from leaking into these assertions, we
+# isolate HOME to a tmp dir AND set CLAUDE_PLUGINS_DIR to the test-scoped
+# cache. This double-isolation proves the T3.11 contract (CLAUDE_PLUGINS_DIR
+# IS consulted as a probe path) while keeping the test deterministic.
+# ---------------------------------------------------------------------------
+
+_compose_isolated_home() {
+  # Stash original HOME / CLAUDE_PLUGINS_DIR so we can restore them after.
+  _ORIG_HOME="$HOME"
+  _ORIG_CLAUDE_PLUGINS_DIR="${CLAUDE_PLUGINS_DIR-__unset__}"
+  _ISOLATED_HOME="$(mktemp -d -t sd-compose-home.XXXXXX)"
+  export HOME="$_ISOLATED_HOME"
+  export _TEST_PLUGIN_CACHE_DIR="$_ISOLATED_HOME/test-plugin-cache"
+  mkdir -p "$_TEST_PLUGIN_CACHE_DIR"
+  export CLAUDE_PLUGINS_DIR="$_TEST_PLUGIN_CACHE_DIR"
+  # Ensure no SD_COMPOSE_* overrides interfere.
+  unset SD_COMPOSE_AC_CACHE_DIRS SD_COMPOSE_MENTOR_CACHE_DIRS
+}
+
+_compose_restore_home() {
+  export HOME="$_ORIG_HOME"
+  if [[ "$_ORIG_CLAUDE_PLUGINS_DIR" == "__unset__" ]]; then
+    unset CLAUDE_PLUGINS_DIR
+  else
+    export CLAUDE_PLUGINS_DIR="$_ORIG_CLAUDE_PLUGINS_DIR"
+  fi
+  [[ -n "${_ISOLATED_HOME:-}" && -d "$_ISOLATED_HOME" ]] && rm -rf "$_ISOLATED_HOME"
+}
+
+test_e2e_composition_architect_critic() {
+  echo "test_e2e_composition_architect_critic:"
+  _compose_isolated_home
+
+  # Assertion 1 — with no plugins installed, detect returns "absent" rc=1
+  local out rc
+  out="$(sd_compose_detect_architect_critic)"; rc=$?
+  assert_eq "ac absent (string)" "absent" "$out"
+  assert_eq "ac absent (rc=1)"   "1"      "$rc"
+
+  # Mock-install architect-critic v0.2 into the test-scoped cache.
+  mkdir -p "$_TEST_PLUGIN_CACHE_DIR/test-mp/architect-critic/0.2.0/skills/critiquing-spec"
+  touch    "$_TEST_PLUGIN_CACHE_DIR/test-mp/architect-critic/0.2.0/skills/critiquing-spec/SKILL.md"
+
+  # Assertion 2 — detect via CLAUDE_PLUGINS_DIR returns "v0.2"
+  out="$(sd_compose_detect_architect_critic)"; rc=$?
+  assert_eq "ac present via CLAUDE_PLUGINS_DIR" "v0.2" "$out"
+
+  # Assertion 3 — rc=0 when present
+  assert_eq "ac rc=0 when present" "0" "$rc"
+
+  # Remove the mock; detect should flip back to "absent"
+  rm -rf "$_TEST_PLUGIN_CACHE_DIR/test-mp"
+  out="$(sd_compose_detect_architect_critic)"
+  assert_eq "ac absent after removal" "absent" "$out"
+
+  _compose_restore_home
+}
+
+test_e2e_composition_ai_mentor() {
+  echo "test_e2e_composition_ai_mentor:"
+  _compose_isolated_home
+
+  # Mock-install ai-mentor v2.0 into the test-scoped cache.
+  mkdir -p "$_TEST_PLUGIN_CACHE_DIR/test-mp/ai-mentor/2.0.0/skills/grill-me"
+  touch    "$_TEST_PLUGIN_CACHE_DIR/test-mp/ai-mentor/2.0.0/skills/grill-me/SKILL.md"
+
+  # Assertion 5 — detect via CLAUDE_PLUGINS_DIR returns "v2.0"
+  local out
+  out="$(sd_compose_detect_ai_mentor)"
+  assert_eq "ai-mentor present via CLAUDE_PLUGINS_DIR" "v2.0" "$out"
+
+  # Remove the mock; detect should flip back to "absent"
+  rm -rf "$_TEST_PLUGIN_CACHE_DIR/test-mp"
+  out="$(sd_compose_detect_ai_mentor)"
+  assert_eq "ai-mentor absent after removal" "absent" "$out"
+
+  _compose_restore_home
+}
+
+test_e2e_composition_architect_critic
+test_e2e_composition_ai_mentor
+
 sd_test_summary
