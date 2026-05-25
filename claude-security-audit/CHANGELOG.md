@@ -32,3 +32,15 @@
 - `lib/report-render.sh` chat+markdown per §8.4 with stable display_id
 - `lib/apply-fix.sh` two-flag system (T2-H) + 5-layer defense-in-depth (rule re-validation, target re-resolution, symlink refusal, path-traversal refusal, atomic state log)
 - 54 unit tests added (cumulative ~104)
+
+### Phase 4 — Rule files (7 aspects, 28 rules)
+- secrets/ (4): SECRETS-001 to 004
+- permissions/ (5): PERM-001 to 005 including dedicated schema validation per T1-E
+- hooks/ (4): HOOK-001 to 004 (common-pattern only; AST is v0.2)
+- mcp/ (3): MCP-001 to 003
+- claude-md/ (2): CLAUDE-MD-001 to 002
+- prompt-injection/ (2): PROMPT-INJ-001 to 002 (common-pattern only; semantic-intent is v0.2)
+- marketplace/ (2): MARKETPLACE-001 to 002
+- _known-keys.txt allowlist for PERM-005
+- 51 rule tests added (cumulative ~151)
+- All 5 clean fixtures produce zero findings (D17 release gate verified)

@@ -24,7 +24,7 @@ Subagent updates this table after each phase-close. Don't pre-fill.
 | 1 — Skill body + references | complete | 15 (no new tests) | (see git log) | |
 | 2 — Foundation libs | complete | 50 | (see git log) | |
 | 3 — Orchestration libs | complete | 104 | (see git log) | |
-| 4 — Rules | not started | ~90 → ~152 | | |
+| 4 — Rules | complete | 151 | (see git log) | All 7 aspects, 28 rules. Clean fixtures: 0 findings |
 | 5 — Slash commands | not started | ~152 (covered by e2e) | | |
 | 6 — Opt-in hook + bootstrap | not started | ~152 → ~158 | | |
 | 7 — E2E + perf | not started | ~158 → ~170 | | |
