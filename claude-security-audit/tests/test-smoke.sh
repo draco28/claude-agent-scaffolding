@@ -2,6 +2,8 @@
 set -u
 source "$(dirname "$0")/_helpers.sh"
 
+_csa_failed=0
+
 test_harness_loads() {
   [[ -n "$CSA_PLUGIN_ROOT" ]] || return 1
   [[ -d "$CSA_PLUGIN_ROOT/.claude-plugin" ]] || return 1
@@ -16,5 +18,7 @@ test_assertion_failures_are_loud() {
   fi
 }
 
-csa_test_run test_harness_loads
-csa_test_run test_assertion_failures_are_loud
+csa_test_run test_harness_loads             || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_assertion_failures_are_loud || _csa_failed=$((_csa_failed + 1))
+
+[[ "$_csa_failed" -eq 0 ]] || exit 1

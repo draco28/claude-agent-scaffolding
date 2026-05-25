@@ -63,7 +63,8 @@ assert_exits_with() {
 csa_tmpdir() {
   local d
   d="$(mktemp -d "${TMPDIR:-/tmp}/csa-test.XXXXXX")"
-  # Auto-cleanup on script exit; trap is additive.
+  # Auto-cleanup on script exit. NOTE: each csa_tmpdir call REPLACES the EXIT
+  # trap — call it once per test script. Future helper if multi-dir is needed.
   trap "rm -rf '$d'" EXIT
   printf '%s' "$d"
 }
