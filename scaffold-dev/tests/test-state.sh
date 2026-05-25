@@ -128,7 +128,7 @@ test_read_cursor_absent() {
   set +e
   sd_state_read_cursor 2>/dev/null
   local rc=$?
-  set -e 2>/dev/null || true
+  :
   assert_eq "read_cursor absent rc=1" "1" "$rc"
 }
 

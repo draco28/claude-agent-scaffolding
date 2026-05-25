@@ -92,7 +92,7 @@ test_add_duplicate() {
   set +e
   sd_worktree_add "1.01" "VS-1.1" "dup" >/dev/null 2>&1
   local rc=$?
-  set -e 2>/dev/null || true
+  :
   assert_ne "second add fails" "0" "$rc"
 }
 
@@ -146,7 +146,7 @@ test_remove_nonexistent() {
   set +e
   sd_worktree_remove "$TMP_CANONICAL/.worktrees/nope" >/dev/null 2>&1
   local rc=$?
-  set -e 2>/dev/null || true
+  :
   assert_ne "remove nonexistent fails" "0" "$rc"
 }
 

@@ -46,7 +46,7 @@ test_discover_absent() {
   set +e
   sd_manifest_discover 2>/dev/null
   local rc=$?
-  set -e 2>/dev/null || true
+  :
   assert_eq "discover absent rc=1" "1" "$rc"
 }
 
@@ -57,7 +57,7 @@ test_require_absent() {
   set +e
   sd_manifest_require 2>/dev/null
   local rc=$?
-  set -e 2>/dev/null || true
+  :
   assert_eq "require absent rc=1" "1" "$rc"
 }
 
@@ -69,7 +69,7 @@ test_require_present() {
   set +e
   sd_manifest_require 2>/dev/null
   local rc=$?
-  set -e 2>/dev/null || true
+  :
   assert_eq "require present rc=0" "0" "$rc"
 }
 
@@ -110,7 +110,7 @@ test_get_no_manifest() {
   set +e
   sd_manifest_get '.foo' 2>/dev/null
   local rc=$?
-  set -e 2>/dev/null || true
+  :
   assert_eq "get with no manifest rc=1" "1" "$rc"
 }
 

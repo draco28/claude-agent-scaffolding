@@ -98,7 +98,7 @@ assert_exit_code() {
   set +e
   "$@" >/dev/null 2>&1
   local actual=$?
-  set -e 2>/dev/null || true
+  :
   if [[ "$expected" == "$actual" ]]; then
     PASS=$((PASS+1))
     echo "  $(_color_pass 'PASS') $label"

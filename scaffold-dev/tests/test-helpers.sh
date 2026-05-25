@@ -37,7 +37,7 @@ test_require_jq_present() {
     set +e
     sd_require_jq 2>/dev/null
     local rc=$?
-    set -e 2>/dev/null || true
+    :
     assert_eq "require_jq exits 0 with jq" "0" "$rc"
   else
     echo "  (skipped: jq not in PATH)"
