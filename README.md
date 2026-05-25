@@ -13,26 +13,30 @@ Personal Claude Code plugin marketplace.
 | [`architect-critic`](./architect-critic/) | v0.2.0 | User-level | Anti-sycophancy reviewer (skill-first). 4 auto-invocable skills: `critiquing-spec` (audit + sequential rebuttal with T=4 concession scoring), `reviewing-critique-history`, `listing-principles`, `promoting-principle`. Ships ghost-notes (Wald survivor-bias) + CORE protocol as default principles. Full auto-promotion (vote-recurrence T=4, instinct N=3, 30/90-day suppression). Codex 0.125+ adversarial fresh-frame at close-depth. Standalone-invocable; consumer plugins invoke skills in-conversation (no file IPC). |
 | [`claude-security-audit`](./claude-security-audit/) | v0.1.0 | Project-level | Static-analysis security audit for Claude Code project configs and enabled plugins. 28 rules across 7 aspects (secrets, permissions incl. PERM-005 schema-typo, hooks, MCP, CLAUDE.md, prompt-injection, marketplace). Two-flag auto-fix + 5-layer defense-in-depth (T2-H). Durable `finding_uid` survives whitespace edits (T2-I). Self-tamper detection on state + suppressions (T1-F). Critical-cannot-suppress; 60s race-window refusal. Zero ambient surface — SessionStart reminder is opt-in (T1-C). 28 rules / 182 tests / 5 clean-fixture release gate. Inspired by ECC's AgentShield (MIT). |
 
-The four plugins are designed to **compose without overlap**: `ai-mentor` provides decision-making mentor surfaces (interrogation, multi-angle validation, simplification, beginner's mind); `scaffold-onboard` runs once per project to author the source-of-truth spec and derive its scaffolding; `scaffold` owns the continuous slice-by-slice implementation phase; `architect-critic` provides anti-sycophancy reviews on demand or when invoked in-conversation by `scaffold-onboard v0.2+` / `scaffold-dev v0.1+` (no file IPC). Disjoint slash command namespaces, distinct state paths.
+The six plugins are designed to **compose without overlap**, ordered by where they fire in the project lifecycle: `workspace-init` (chain head) bootstraps the dual-repo topology (AI workspace + canonical) and writes the pairing manifest every downstream plugin reads; `scaffold-onboard` runs once per project to author the source-of-truth spec and derive its scaffolding; `scaffold` owns the continuous slice-by-slice implementation phase; `architect-critic` provides anti-sycophancy reviews on demand or when invoked in-conversation by `scaffold-onboard v0.2+` / `scaffold-dev v0.1+` (no file IPC); `ai-mentor` provides decision-making mentor surfaces (interrogation, multi-angle validation, simplification, beginner's mind) at any point; `claude-security-audit` provides on-demand static-analysis review of project configs and enabled plugins. Disjoint slash command namespaces, distinct state paths.
 
 ## Install
 
 ```
 /plugin marketplace add github:draco28/claude-agent-scaffolding
+/plugin install workspace-init@claude-agent-scaffolding
 /plugin install ai-mentor@claude-agent-scaffolding
 /plugin install scaffold-onboard@claude-agent-scaffolding
 /plugin install scaffold@claude-agent-scaffolding
 /plugin install architect-critic@claude-agent-scaffolding
+/plugin install claude-security-audit@claude-agent-scaffolding
 ```
 
 For local development:
 
 ```
 /plugin marketplace add /home/pras/personal/claude-agent-scaffolding
+/plugin install workspace-init@claude-agent-scaffolding
 /plugin install ai-mentor@claude-agent-scaffolding
 /plugin install scaffold-onboard@claude-agent-scaffolding
 /plugin install scaffold@claude-agent-scaffolding
 /plugin install architect-critic@claude-agent-scaffolding
+/plugin install claude-security-audit@claude-agent-scaffolding
 ```
 
 ## Quick start with `scaffold`

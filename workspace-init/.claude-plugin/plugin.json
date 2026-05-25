@@ -7,5 +7,7 @@
     "email": "praveensingh2897@gmail.com"
   },
   "homepage": "https://github.com/draco28/claude-agent-scaffolding/tree/main/workspace-init",
-  "repository": "https://github.com/draco28/claude-agent-scaffolding"
+  "repository": "https://github.com/draco28/claude-agent-scaffolding",
+  "category": "workflow",
+  "license": "MIT"
 }
