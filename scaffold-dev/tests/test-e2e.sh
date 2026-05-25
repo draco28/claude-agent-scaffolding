@@ -182,4 +182,111 @@ EOF
 
 test_e2e_minimal_sprint
 
+# ---------------------------------------------------------------------------
+# T7.2 — handoff-chain extension (8 assertions)
+# ---------------------------------------------------------------------------
+
+FIXTURE_BUGFIX="$PLUGIN_ROOT/fixtures/sprint-fixture-with-bugfix-detour"
+
+# setup_handoff_fixture — bootstrap a workspace sufficient for the handoff
+# lib API. Re-uses setup_tmp_workspace's scaffolding, then seeds:
+#   - <ai_workspace>/.workspace/handoffs/  (created lazily by sd_handoff_ensure_dir)
+#   - the carry-forward sprint handoff from the bugfix-detour fixture, so
+#     sprint-cleanup can be tested with preservation semantics
+setup_handoff_fixture() {
+  setup_tmp_workspace "handoffix"
+  # Seed the carry-forward sprint handoff (placed by hand in the dir to
+  # mirror a real sprint-close scenario where the prior session left one).
+  local hdir="$TMP_AI_WORKSPACE/.workspace/handoffs"
+  mkdir -p "$hdir"
+  cp "$FIXTURE_BUGFIX/sprint-1-to-2-handoff-carry.md" \
+     "$hdir/sprint-1-to-2-handoff-carry.md"
+}
+
+test_e2e_handoff_chain() {
+  echo "test_e2e_handoff_chain:"
+  setup_handoff_fixture
+  cd "$TMP_AI_WORKSPACE"
+
+  # Assertion 1 — sd_handoff_ensure_dir creates .workspace/handoffs/
+  sd_handoff_ensure_dir
+  assert_file_exists "$TMP_AI_WORKSPACE/.workspace/handoffs"
+
+  # Assertion 2 — sd_handoff_short_id emits 4-char lowercase hex
+  local sid
+  sid="$(sd_handoff_short_id)"
+  if [[ "$sid" =~ ^[0-9a-f]{4}$ ]]; then
+    PASS=$((PASS+1))
+    echo "  $(_color_pass 'PASS') short_id is 4-char hex: $sid"
+  else
+    FAIL=$((FAIL+1))
+    echo "  $(_color_fail 'FAIL') short_id malformed: $sid"
+  fi
+
+  # Assertion 3 — sd_handoff_compose_path for a forward bugfix
+  local fwd_path
+  fwd_path="$(sd_handoff_compose_path "vs-1.1" "bugfix-auth" "$sid")"
+  assert_eq "forward path" \
+    "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-1.1-bugfix-auth-${sid}.md" \
+    "$fwd_path"
+
+  # Render the forward handoff via the template, then write it to fwd_path.
+  local tmpl="$PLUGIN_ROOT/templates/handoff.md.tmpl"
+  local vars
+  vars="$(jq -nc \
+    --arg ht "forward" \
+    --arg sc "bugfix" \
+    --arg ss "VS-1.1 detour" \
+    --arg ps "bugfix-auth" \
+    --arg si "$sid" \
+    --arg sm "test-session 2026-05-25" \
+    --arg rf "n/a" \
+    --arg pp "Auth flow regression discovered mid-slice." \
+    --arg sp "- worktree: .worktrees/work-1.01" \
+    --arg nm "- new finding about token expiry" \
+    --arg wd "None." \
+    --arg ifs "- bug-fix branch open" \
+    --arg mr "- docs/MASTER-SPEC.md" \
+    --arg nia "Resume after bug fix." \
+    --arg aa "- do NOT merge the slice branch yet" \
+    --arg rt "Return template stub." \
+    '{handoff_type:$ht, scope:$sc, scope_specifier:$ss, purpose_slug:$ps,
+      short_id:$si, source_session_metadata:$sm,
+      references_forward_handoff:$rf, purpose_paragraph:$pp,
+      state_pointers_block:$sp, not_in_memory_bank_block:$nm,
+      workflow_deviations:$wd, in_flight_state_block:$ifs,
+      must_read_before_doing:$mr, next_intended_actions:$nia,
+      anti_actions_block:$aa, return_template_stub:$rt}')"
+  sd_render_template "$tmpl" "$vars" > "$fwd_path"
+
+  # Assertion 4 — rendered file exists and contains the purpose slug
+  assert_file_contains "$fwd_path" "bugfix-auth"
+
+  # Assertion 5 — sd_handoff_list with prefix "vs-1.1-" returns the file
+  local listed
+  listed="$(sd_handoff_list "vs-1.1-")"
+  assert_contains "list returns forward handoff" "vs-1.1-bugfix-auth-${sid}.md" "$listed"
+
+  # Assertion 6 — sd_handoff_compose_path with --return suffix
+  local ret_path
+  ret_path="$(sd_handoff_compose_path "vs-1.1" "bugfix-auth" "$sid" "-return")"
+  assert_eq "return path" \
+    "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-1.1-bugfix-auth-${sid}-return.md" \
+    "$ret_path"
+
+  # Drop a minimal return handoff so cleanup has something to remove.
+  echo "# return handoff" > "$ret_path"
+
+  # Assertion 7 — sprint cleanup removes vs-1.1-* handoffs but preserves
+  # the carry-forward sprint handoff (matches prefix
+  # "sprint-1-to-2-handoff-").
+  sd_handoff_cleanup_sprint "1" "sprint-1-to-2-handoff-"
+  assert_file_missing "$fwd_path"
+
+  # Assertion 8 — carry-forward survives the cleanup
+  assert_file_exists "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-1-to-2-handoff-carry.md"
+}
+
+test_e2e_handoff_chain
+
 sd_test_summary
