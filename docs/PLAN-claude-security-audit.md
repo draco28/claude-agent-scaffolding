@@ -22,7 +22,7 @@ Subagent updates this table after each phase-close. Don't pre-fill.
 |---|---|---|---|---|
 | 0 — Eval fixtures | complete | 15 | (see git log) | Accumulator pattern + .gitignore override added beyond verbatim plan |
 | 1 — Skill body + references | complete | 15 (no new tests) | (see git log) | |
-| 2 — Foundation libs | not started | ~13 → ~46 | | |
+| 2 — Foundation libs | complete | 50 | (see git log) | |
 | 3 — Orchestration libs | not started | ~46 → ~90 | | |
 | 4 — Rules | not started | ~90 → ~152 | | |
 | 5 — Slash commands | not started | ~152 (covered by e2e) | | |
