@@ -76,3 +76,56 @@ export CSA_PLUGIN_ROOT
 export CSA_LIB_DIR="$CSA_PLUGIN_ROOT/lib"
 export CSA_RULES_DIR="$CSA_LIB_DIR/rules"
 export CSA_FIXTURES_DIR="$CSA_PLUGIN_ROOT/fixtures"
+
+# csa_audit_harness <project_root> [focus]
+# Runs the full audit flow end-to-end and emits findings JSONL on stdout.
+# Sets CSA_PROJECT_ROOT = project_root so libs that look at it pick it up.
+csa_audit_harness() {
+  local root="$1"; local focus="${2:-all}"
+  export CSA_PROJECT_ROOT="$root"
+  # Source the orchestration libs (idempotent in this subshell).
+  source "$CSA_LIB_DIR/helpers.sh"
+  source "$CSA_LIB_DIR/redact.sh"
+  source "$CSA_LIB_DIR/fingerprint.sh"
+  source "$CSA_LIB_DIR/severity.sh"
+  source "$CSA_LIB_DIR/enumerate-targets.sh"
+  source "$CSA_LIB_DIR/rule-engine.sh"
+  source "$CSA_LIB_DIR/state.sh"
+  source "$CSA_LIB_DIR/baseline.sh"
+  source "$CSA_LIB_DIR/suppress.sh"
+  source "$CSA_LIB_DIR/report-render.sh"
+
+  # Ensure state is initialized.
+  if [[ ! -f "$(csa_state_path "$root")" ]]; then
+    csa_state_init "$root"
+  fi
+
+  # 1. Scan
+  local raw_findings; raw_findings="$(mktemp)"
+  trap "rm -f '$raw_findings'" RETURN
+  csa_rule_engine_scan_all "$root" "$focus" > "$raw_findings" 2>/dev/null
+
+  # 2. Tag NEW/PERSISTED
+  local tagged; tagged="$(mktemp)"
+  trap "rm -f '$raw_findings' '$tagged'" RETURN
+  csa_baseline_tag "$raw_findings" "$root" > "$tagged" 2>/dev/null
+
+  # 3. Filter suppressions
+  local filtered; filtered="$(mktemp)"
+  trap "rm -f '$raw_findings' '$tagged' '$filtered'" RETURN
+  csa_suppress_filter "$tagged" "$root" > "$filtered" 2>/dev/null
+
+  # 4. Update state with this run
+  local run_index; run_index=$(jq -r '.audit_history | length // 0' "$(csa_state_path "$root")" 2>/dev/null || echo 0)
+  run_index=$((run_index + 1))
+  local findings_content; findings_content="$(cat "$filtered")"
+  csa_state_record_audit "$root" "$run_index" ".claude/audits/run-$run_index.md" "$findings_content" >/dev/null 2>&1 || true
+
+  # 5. Update self-integrity after state write
+  csa_state_update_self_integrity "$root" >/dev/null 2>&1 || true
+
+  # Emit final findings JSONL
+  cat "$filtered"
+
+  rm -f "$raw_findings" "$tagged" "$filtered"
+}

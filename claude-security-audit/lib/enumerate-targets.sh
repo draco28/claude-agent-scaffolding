@@ -13,10 +13,13 @@ CSA_GLOB_MARKETPLACE="${CSA_GLOB_MARKETPLACE:-marketplace.json}"
 csa_enum_project_targets() {
   local root="$1"
   [[ -d "$root/.claude" ]] || return 0
+  # Exclude .claude/audits/ — it holds audit state/reports and must not be scanned.
   find "$root/.claude" -type f \
+       -not -path "$root/.claude/audits/*" \
        \( -name '*.md' -o -name '*.json' -o -name '*.sh' \
           -o -name '*.py' -o -name '*.js' -o -name '*.ts' \) 2>/dev/null
-  find "$root/.claude" -type l 2>/dev/null | while read -r sl; do
+  find "$root/.claude" -type l \
+       -not -path "$root/.claude/audits/*" 2>/dev/null | while read -r sl; do
     printf 'info: symlink at %s not followed\n' "$sl" >&2
   done
   find "$root" -name 'CLAUDE.md' -type f 2>/dev/null
