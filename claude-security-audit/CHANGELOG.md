@@ -48,3 +48,9 @@
 ### Phase 5 — Slash command wrappers
 - /security-audit, /secrets-scan, /permissions-review, /apply-fix — all use $ARGUMENTS (per feedback_slash_command_dollar_n_bug)
 - Wrappers route to skill modes; no dedicated unit tests (covered by Phase 7 e2e)
+
+### Phase 6 — Opt-in hook + README + LICENSE
+- hooks/session-start-reminder.sh shipped as file (NOT declared in plugin.json — T1-C invariant)
+- README.md with ECC attribution + scope-honesty caveats + opt-in registration snippet
+- LICENSE (MIT)
+- 2 hook smoke tests (153 cumulative)

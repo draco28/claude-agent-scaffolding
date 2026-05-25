@@ -26,7 +26,7 @@ Subagent updates this table after each phase-close. Don't pre-fill.
 | 3 — Orchestration libs | complete | 104 | (see git log) | |
 | 4 — Rules | complete | 151 | (see git log) | All 7 aspects, 28 rules. Clean fixtures: 0 findings |
 | 5 — Slash commands | complete | 151 (no new tests) | (see git log) | |
-| 6 — Opt-in hook + bootstrap | not started | ~152 → ~158 | | |
+| 6 — Opt-in hook + bootstrap | complete | 153 | (see git log) | |
 | 7 — E2E + perf | not started | ~158 → ~170 | | |
 | 8 — Dogfood + release | not started | ~170 (no new tests) | | tag claude-security-audit-v0.1.0 |
 
