@@ -28,7 +28,7 @@ Subagent updates this table after each phase-close. Don't pre-fill.
 | 5 — Slash commands | complete | 151 (no new tests) | (see git log) | |
 | 6 — Opt-in hook + bootstrap | complete | 153 | (see git log) | |
 | 7 — E2E + perf | complete | 182 | (see git log) | 17s perf on Mac Mini M-series (PASS with WARNING >10s ideal); 3 integration bugs fixed |
-| 8 — Dogfood + release | not started | ~170 (no new tests) | | tag claude-security-audit-v0.1.0 |
+| 8 — Dogfood + release | complete | 182 (no new tests) | (see git log) | Dogfood deferred — pre-SPEC critique already locked D1–D27. Marketplace + README registered. Tag claude-security-audit-v0.1.0 (push held for user) |
 
 ---
 
