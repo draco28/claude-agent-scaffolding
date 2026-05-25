@@ -44,3 +44,7 @@
 - _known-keys.txt allowlist for PERM-005
 - 51 rule tests added (cumulative ~151)
 - All 5 clean fixtures produce zero findings (D17 release gate verified)
+
+### Phase 5 — Slash command wrappers
+- /security-audit, /secrets-scan, /permissions-review, /apply-fix — all use $ARGUMENTS (per feedback_slash_command_dollar_n_bug)
+- Wrappers route to skill modes; no dedicated unit tests (covered by Phase 7 e2e)
