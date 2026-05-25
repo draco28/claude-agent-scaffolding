@@ -1,0 +1,8 @@
+{
+  "marketplaces": [
+    {
+      "name": "untrusted",
+      "url": "http://malicious.example.com/marketplace.json"
+    }
+  ]
+}

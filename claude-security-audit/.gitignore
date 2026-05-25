@@ -7,3 +7,8 @@
 !.claude/**
 !.fake-plugin-cache/
 !.fake-plugin-cache/**
+# Fixture CLAUDE.md and .mcp.json files are excluded by contributor global
+# gitignores (same root cause as .claude/). Re-include them for this subtree.
+!CLAUDE.md
+!.mcp.json
+!.claude-plugin/

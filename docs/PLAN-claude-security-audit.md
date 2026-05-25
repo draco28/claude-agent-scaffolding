@@ -20,7 +20,7 @@ Subagent updates this table after each phase-close. Don't pre-fill.
 
 | Phase | Status | Test count (cumulative) | Commit SHA | Notes |
 |---|---|---|---|---|
-| 0 — Eval fixtures | not started | 0 → ~13 | | |
+| 0 — Eval fixtures | complete | 15 | (see git log) | Accumulator pattern + .gitignore override added beyond verbatim plan |
 | 1 — Skill body + references | not started | ~13 (no new tests) | | |
 | 2 — Foundation libs | not started | ~13 → ~46 | | |
 | 3 — Orchestration libs | not started | ~46 → ~90 | | |
