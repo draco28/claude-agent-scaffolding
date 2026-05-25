@@ -1,0 +1,200 @@
+#!/usr/bin/env bash
+# tests/test-verify.sh — 14 tests for lib/verify.sh
+
+set -u
+HERE="$(cd "$(dirname "$0")" && pwd)"
+source "$HERE/_helpers.sh"
+source "$HERE/../lib/_helpers.sh"
+source "$HERE/../lib/verify.sh"
+
+# 1. auto step — exit 0 expectation, command succeeds → 0
+test_auto_exit0_pass() {
+  echo "test_auto_exit0_pass:"
+  set +e
+  sd_verify_auto_step '- [ ] auto: `true` -> expected: exit 0' >/dev/null 2>&1
+  local rc=$?
+  :
+  assert_eq "true expected exit 0 → rc=0" "0" "$rc"
+}
+
+# 2. auto step — exit 0 expectation, command fails → 1
+test_auto_exit0_fail() {
+  echo "test_auto_exit0_fail:"
+  set +e
+  sd_verify_auto_step '- [ ] auto: `false` -> expected: exit 0' >/dev/null 2>&1
+  local rc=$?
+  :
+  assert_eq "false expected exit 0 → rc=1" "1" "$rc"
+}
+
+# 3. auto step — exit N expectation matches
+test_auto_exit_n_match() {
+  echo "test_auto_exit_n_match:"
+  set +e
+  sd_verify_auto_step '- [ ] auto: `exit 3` -> expected: exit 3' >/dev/null 2>&1
+  local rc=$?
+  :
+  assert_eq "exit 3 matches → rc=0" "0" "$rc"
+}
+
+# 4. auto step — exit N expectation mismatch
+test_auto_exit_n_mismatch() {
+  echo "test_auto_exit_n_mismatch:"
+  set +e
+  sd_verify_auto_step '- [ ] auto: `exit 1` -> expected: exit 3' >/dev/null 2>&1
+  local rc=$?
+  :
+  assert_eq "mismatch → rc=1" "1" "$rc"
+}
+
+# 5. auto step — output contains pattern matches
+test_auto_output_contains_pass() {
+  echo "test_auto_output_contains_pass:"
+  set +e
+  sd_verify_auto_step '- [ ] auto: `echo hello world` -> expected: output contains hello' >/dev/null 2>&1
+  local rc=$?
+  :
+  assert_eq "output contains match → rc=0" "0" "$rc"
+}
+
+# 6. auto step — output contains pattern miss
+test_auto_output_contains_miss() {
+  echo "test_auto_output_contains_miss:"
+  set +e
+  sd_verify_auto_step '- [ ] auto: `echo goodbye` -> expected: output contains hello' >/dev/null 2>&1
+  local rc=$?
+  :
+  assert_eq "output miss → rc=1" "1" "$rc"
+}
+
+# 7. auto step — unknown expected form returns rc=2
+test_auto_unknown_form() {
+  echo "test_auto_unknown_form:"
+  set +e
+  sd_verify_auto_step '- [ ] auto: `true` -> expected: stars align' >/dev/null 2>&1
+  local rc=$?
+  :
+  assert_eq "unknown form → rc=2" "2" "$rc"
+}
+
+# 8. auto step — missing command parse → rc=2
+test_auto_missing_cmd() {
+  echo "test_auto_missing_cmd:"
+  set +e
+  sd_verify_auto_step '- [ ] auto: not in backticks → expected: exit 0' >/dev/null 2>&1
+  local rc=$?
+  :
+  # Could be 1 or 2 depending on interpretation; we expect non-zero.
+  assert_ne "malformed → rc!=0" "0" "$rc"
+}
+
+# 9. report cross-check — all ACs covered
+test_report_cross_check_pass() {
+  echo "test_report_cross_check_pass:"
+  setup_tmp_repo
+  cat > spec.md <<'EOF'
+# Spec
+## Acceptance criteria
+- AC-1: must do thing-A
+- AC-2: must do thing-B
+EOF
+  cat > report.md <<'EOF'
+# Report
+## AC verification
+- AC-1: passed
+- AC-2: passed
+EOF
+  set +e
+  sd_verify_report_cross_check report.md spec.md >/dev/null 2>&1
+  local rc=$?
+  :
+  assert_eq "all ACs covered → rc=0" "0" "$rc"
+}
+
+# 10. report cross-check — missing AC
+test_report_cross_check_missing() {
+  echo "test_report_cross_check_missing:"
+  setup_tmp_repo
+  cat > spec.md <<'EOF'
+# Spec
+## Acceptance criteria
+- AC-1: must do thing-A
+- AC-2: must do thing-B
+- AC-3: must do thing-C
+EOF
+  cat > report.md <<'EOF'
+# Report
+- AC-1: ok
+- AC-2: ok
+EOF
+  set +e
+  sd_verify_report_cross_check report.md spec.md >/dev/null 2>&1
+  local rc=$?
+  :
+  assert_ne "missing AC-3 → rc!=0" "0" "$rc"
+}
+
+# 11. report cross-check — missing report file
+test_report_cross_check_no_report() {
+  echo "test_report_cross_check_no_report:"
+  setup_tmp_repo
+  cat > spec.md <<'EOF'
+- AC-1: x
+EOF
+  set +e
+  sd_verify_report_cross_check no-such.md spec.md >/dev/null 2>&1
+  local rc=$?
+  :
+  assert_ne "no report → rc!=0" "0" "$rc"
+}
+
+# 12. report cross-check — no ACs in spec → rc=0 (trivially satisfied)
+test_report_cross_check_no_acs() {
+  echo "test_report_cross_check_no_acs:"
+  setup_tmp_repo
+  echo "# Spec without acceptance criteria" > spec.md
+  echo "# Report" > report.md
+  set +e
+  sd_verify_report_cross_check report.md spec.md >/dev/null 2>&1
+  local rc=$?
+  :
+  assert_eq "no ACs → rc=0" "0" "$rc"
+}
+
+# 13. auto step — stderr also counted by output contains
+test_auto_output_includes_stderr() {
+  echo "test_auto_output_includes_stderr:"
+  set +e
+  sd_verify_auto_step '- [ ] auto: `bash -c "echo stderrout >&2"` -> expected: output contains stderrout' >/dev/null 2>&1
+  local rc=$?
+  :
+  assert_eq "stderr captured → rc=0" "0" "$rc"
+}
+
+# 14. auto step — uses arrow character (U+2192) as alternative separator
+test_auto_unicode_arrow() {
+  echo "test_auto_unicode_arrow:"
+  set +e
+  # The line uses real Unicode arrow.
+  sd_verify_auto_step "$(printf -- '- [ ] auto: `true` \xe2\x86\x92 expected: exit 0')" >/dev/null 2>&1
+  local rc=$?
+  :
+  assert_eq "unicode arrow accepted → rc=0" "0" "$rc"
+}
+
+test_auto_exit0_pass
+test_auto_exit0_fail
+test_auto_exit_n_match
+test_auto_exit_n_mismatch
+test_auto_output_contains_pass
+test_auto_output_contains_miss
+test_auto_unknown_form
+test_auto_missing_cmd
+test_report_cross_check_pass
+test_report_cross_check_missing
+test_report_cross_check_no_report
+test_report_cross_check_no_acs
+test_auto_output_includes_stderr
+test_auto_unicode_arrow
+
+sd_test_summary
