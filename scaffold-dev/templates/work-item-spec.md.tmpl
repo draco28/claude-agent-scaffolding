@@ -1,0 +1,58 @@
+<!-- vars:
+  work_item_id           e.g. work-3.2.01
+  work_item_title        short kebab-or-prose title
+  vs_id                  e.g. VS-3.2
+  vs_kebab               e.g. insights-action-needed-card
+  round_id               e.g. R1
+  worktree_abs_path      absolute path to the canonical worktree for this work item
+  branch_name            e.g. work/3.2.01-backend-query-endpoint
+  context_paragraph      1-3 sentences linking this work item to the slice goal
+  decisions_baked_in     bulleted decisions pre-pinned by spec authoring + audit
+  files_to_modify        bulleted list of paths (added | modified)
+  acs_table              markdown table: AC-N | description | verification
+  verification_block     fenced bash block listing executable verification commands
+  demo_contribution      one paragraph: how this work item advances slice demo criteria
+  not_in_scope           bulleted list of out-of-scope items (anti-actions)
+  reference_index        bulleted list of reference paths (spec sections, ADRs, memory bank)
+-->
+# {{work_item_id}} — {{work_item_title}}
+
+## 1. Header
+
+- Work item: {{work_item_id}}
+- Vertical slice: {{vs_id}} ({{vs_kebab}})
+- Round: {{round_id}}
+- Worktree (absolute path): {{worktree_abs_path}}
+- Branch: {{branch_name}}
+
+## 2. Context
+
+{{context_paragraph}}
+
+## 3. Decisions baked in
+
+{{decisions_baked_in}}
+
+## 4. Files to modify
+
+{{files_to_modify}}
+
+## 5. ACs with verification
+
+{{acs_table}}
+
+## 6. Verification (executable)
+
+{{verification_block}}
+
+## 7. Demo contribution
+
+{{demo_contribution}}
+
+## 8. Not in this work item
+
+{{not_in_scope}}
+
+## Reference index
+
+{{reference_index}}
