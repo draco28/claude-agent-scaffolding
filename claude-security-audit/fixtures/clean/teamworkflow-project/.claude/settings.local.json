@@ -1,0 +1,6 @@
+{
+  "permissions": {
+    "allow": ["Bash(git:*)", "Bash(make:*)", "Bash(pytest:*)"],
+    "deny": ["Bash(rm -rf:*)"]
+  }
+}
