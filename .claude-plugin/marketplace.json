@@ -25,8 +25,14 @@
       "source": "./scaffold-onboard"
     },
     {
+      "name": "scaffold-dev",
+      "description": "Sprint-driven orchestrator-implementer workflow for dual-repo workspaces. 9 skills, 4 slash commands, custom implementer-agent subagent type via Task tool, handoff escape valve. Composes with workspace-init (manifest), scaffold-onboard (R1/R2/R3 contract), architect-critic (filesystem probe + critiquing-spec), ai-mentor (grill-me at 3 gates). Replaces scaffold v1.0.0.",
+      "category": "workflow",
+      "source": "./scaffold-dev"
+    },
+    {
       "name": "scaffold",
-      "description": "Project-level workflow plugin. Bootstrap or audit any repo, run slice-driven 5-phase workflow (spec → contract → scaffold → implement → verify), manage living governance (ADRs, CHANGELOG, runbooks), and search a per-repo memory bank via Ollama-backed semantic recall (FTS5 fallback). Worktree-safe: state lives outside the working tree so parallel branches inherit/fork cleanly. 18 slash commands + 10 MCP tools.",
+      "description": "DEPRECATED — replaced by scaffold-dev v0.1.0. Project-level workflow plugin. Bootstrap or audit any repo, run slice-driven 5-phase workflow (spec → contract → scaffold → implement → verify), manage living governance (ADRs, CHANGELOG, runbooks), and search a per-repo memory bank via Ollama-backed semantic recall (FTS5 fallback). Worktree-safe: state lives outside the working tree so parallel branches inherit/fork cleanly. 18 slash commands + 10 MCP tools.",
       "category": "workflow",
       "source": "./scaffold"
     },
