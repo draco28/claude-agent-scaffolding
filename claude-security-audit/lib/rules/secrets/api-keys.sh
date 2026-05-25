@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+RULE_ID="SECRETS-001"
+RULE_NAME="api-keys"
+RULE_ASPECT="secrets"
+RULE_SEVERITY="critical"
+RULE_DESCRIPTION="API key or token detected in plaintext (Anthropic / OpenAI / GitHub / AWS)."
+RULE_AUTO_FIXABLE="false"
+RULE_MECHANICALLY_FIXABLE="false"
+RULE_REMEDIATION="Remove the key and rotate it at the provider. If discovered in a committed file, force-push history rewrite OR rotate the key and accept the leak."
+RULE_REFERENCES=""
+
+# Resolve lib dir robustly: BASH_SOURCE works for normal invocations;
+# fall back to CSA_LIB_DIR (set by harness) when sourced inside a subshell.
+if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
+  _RULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+else
+  _RULE_DIR="${CSA_LIB_DIR:-}"
+fi
+# shellcheck source=/dev/null
+source "$_RULE_DIR/redact.sh" 2>/dev/null || true
+# shellcheck source=/dev/null
+source "$_RULE_DIR/fingerprint.sh" 2>/dev/null || true
+# shellcheck source=/dev/null
+source "$_RULE_DIR/helpers.sh" 2>/dev/null || true
+
+detect() {
+  local target_file="$1"
+  [[ -r "$target_file" ]] || return 0
+  grep -nE 'sk-ant-api03-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9_-]{20,}|gh[psorau]_[A-Za-z0-9]{36,}|AKIA[0-9A-Z]{16}' "$target_file" 2>/dev/null \
+    | while IFS=: read -r line_no match; do
+        local preview; preview="$(csa_redact "$match")"
+        local fuid; fuid="$(csa_finding_uid "$RULE_ID" "$target_file" "$match")"
+        jq -nc \
+          --arg rule_id "$RULE_ID" \
+          --arg file "$target_file" \
+          --argjson line "$line_no" \
+          --argjson offset 0 \
+          --arg preview "$preview" \
+          --arg severity "$RULE_SEVERITY" \
+          --arg fuid "$fuid" \
+          '{rule_id: $rule_id, file: $file, line: $line, offset: $offset, preview: $preview, severity: $severity, finding_uid: $fuid}'
+      done
+}
