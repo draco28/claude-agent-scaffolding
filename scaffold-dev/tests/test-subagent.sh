@@ -5,14 +5,15 @@
 # the scaffold-dev:implementer-agent subagent (per SPEC §6.5/§6.6 and PLAN
 # Phase 3.5). No actual subagent dispatch — fixture-based parsing only.
 #
-# Also asserts that .claude-plugin/agents.json registers the subagent with the
-# expected tools_allowed / tools_denied / system_prompt_skill fields.
+# Also asserts that agents/implementer-agent.md registers the subagent with the
+# expected name / description / tools allowlist / model fields per Claude Code's
+# subagent registration format (per-agent markdown file with YAML frontmatter).
 
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/_helpers.sh"
 
-AGENTS_JSON="$HERE/../.claude-plugin/agents.json"
+AGENT_FILE="$HERE/../agents/implementer-agent.md"
 
 # ---------- Fixtures ----------
 GAPS_RESPONSE='{"mode":"gaps-surfaced","gaps":[{"section":"spec §3","question":"AC-2 means X or Y?","severity":"blocking"}]}'
@@ -22,6 +23,24 @@ COMPLETE_NONE='{"mode":"complete","report_path":"/abs/report.md","summary":"noth
 MALFORMED='{"mode":"complete"'
 UNKNOWN_MODE='{"mode":"frobnicated","gaps":[]}'
 GAPS_NICE='{"mode":"gaps-surfaced","gaps":[{"section":"spec §4","question":"naming?","severity":"nice-to-have"}]}'
+
+# Extract YAML frontmatter from agents/implementer-agent.md (between the two `---` lines).
+# Bash 3.2-compatible: awk-based block extractor.
+_agent_frontmatter() {
+  awk '/^---$/ { c++; next } c == 1 { print }' "$AGENT_FILE"
+}
+
+# Extract a single frontmatter field by key (handles "key: value" form, trims spaces).
+_agent_field() {
+  local key="$1"
+  _agent_frontmatter | awk -v k="$key" '
+    $0 ~ "^"k":" {
+      sub("^"k": *", "")
+      print
+      exit
+    }
+  '
+}
 
 # ---------- 1. gaps-mode JSON shape parse ----------
 test_gaps_parse() {
@@ -93,7 +112,6 @@ test_clarification_loop_max_3() {
   i=0
   while [[ $i -lt $max ]]; do
     iterations=$((iterations+1))
-    # Simulate a gaps-surfaced response on each iteration.
     local mode
     mode="$(echo "$GAPS_RESPONSE" | jq -r '.mode')"
     if [[ "$mode" != "gaps-surfaced" ]]; then
@@ -105,55 +123,68 @@ test_clarification_loop_max_3() {
   assert_eq "loop counter reached max"    "3" "$i"
 }
 
-# ---------- 6. subagent_type name string ----------
+# ---------- 6. subagent_type name string (frontmatter `name:` field) ----------
+# Claude Code prefixes the plugin name automatically, so the on-disk name is
+# the un-prefixed form. The full dispatch name is `scaffold-dev:implementer-agent`.
 test_subagent_name_exact() {
   echo "test_subagent_name_exact:"
   local name
-  name="$(jq -r '.subagent_types[0].name' "$AGENTS_JSON")"
-  assert_eq "subagent name exact" "scaffold-dev:implementer-agent" "$name"
+  name="$(_agent_field name)"
+  assert_eq "subagent name exact" "implementer-agent" "$name"
 }
 
-# ---------- 7. agents.json file exists at .claude-plugin/agents.json ----------
-test_agents_json_exists() {
-  echo "test_agents_json_exists:"
-  assert_file_exists "$AGENTS_JSON"
+# ---------- 7. agents/implementer-agent.md file exists ----------
+test_agent_file_exists() {
+  echo "test_agent_file_exists:"
+  assert_file_exists "$AGENT_FILE"
 }
 
-# ---------- 8. agents.json has the correct subagent_type registered ----------
-test_agents_json_has_subagent() {
-  echo "test_agents_json_has_subagent:"
-  local count
-  count="$(jq '[.subagent_types[] | select(.name == "scaffold-dev:implementer-agent")] | length' "$AGENTS_JSON")"
-  assert_eq "implementer-agent registered exactly once" "1" "$count"
+# ---------- 8. agent file has the expected name + description fields ----------
+test_agent_has_description() {
+  echo "test_agent_has_description:"
+  local desc
+  desc="$(_agent_field description)"
+  if [[ -n "$desc" ]]; then
+    PASS=$((PASS+1)); echo "  $(_color_pass 'PASS') description field non-empty"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail 'FAIL') description field missing or empty"
+  fi
 }
 
-# ---------- 9. tools_allowed contains the expected 6 tools ----------
+# ---------- 9. tools field contains the expected 6 tools ----------
 test_tools_allowed_six() {
   echo "test_tools_allowed_six:"
-  local count
-  count="$(jq '.subagent_types[0].tools_allowed | length' "$AGENTS_JSON")"
-  assert_eq "tools_allowed length" "6" "$count"
+  local tools
+  tools="$(_agent_field tools)"
   for tool in Bash Read Write Edit Glob Grep; do
-    local has
-    has="$(jq --arg t "$tool" '.subagent_types[0].tools_allowed | index($t) != null' "$AGENTS_JSON")"
-    assert_eq "tools_allowed contains $tool" "true" "$has"
+    if echo "$tools" | grep -q "$tool"; then
+      PASS=$((PASS+1)); echo "  $(_color_pass 'PASS') tools contains $tool"
+    else
+      FAIL=$((FAIL+1)); echo "  $(_color_fail 'FAIL') tools missing $tool (tools='$tools')"
+    fi
   done
 }
 
-# ---------- 10. tools_denied contains Task ----------
+# ---------- 10. tools field does NOT contain Task (nesting forbidden) ----------
 test_tools_denied_task() {
   echo "test_tools_denied_task:"
-  local has
-  has="$(jq '.subagent_types[0].tools_denied | index("Task") != null' "$AGENTS_JSON")"
-  assert_eq "tools_denied contains Task" "true" "$has"
+  local tools
+  tools="$(_agent_field tools)"
+  if echo "$tools" | grep -qw 'Task'; then
+    FAIL=$((FAIL+1)); echo "  $(_color_fail 'FAIL') tools unexpectedly contains Task"
+  else
+    PASS=$((PASS+1)); echo "  $(_color_pass 'PASS') tools omits Task"
+  fi
 }
 
-# ---------- 11. system_prompt_skill points to executing-work-item/SKILL.md ----------
-test_system_prompt_skill_path() {
-  echo "test_system_prompt_skill_path:"
-  local path
-  path="$(jq -r '.subagent_types[0].system_prompt_skill' "$AGENTS_JSON")"
-  assert_eq "system_prompt_skill path" "skills/executing-work-item/SKILL.md" "$path"
+# ---------- 11. body references the executing-work-item SKILL.md as system prompt source ----------
+test_body_references_skill() {
+  echo "test_body_references_skill:"
+  if grep -q 'skills/executing-work-item/SKILL.md' "$AGENT_FILE"; then
+    PASS=$((PASS+1)); echo "  $(_color_pass 'PASS') body references executing-work-item SKILL.md"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail 'FAIL') body missing reference to executing-work-item SKILL.md"
+  fi
 }
 
 # ---------- 12. gap entry shape (section, question, severity) ----------
@@ -188,7 +219,7 @@ test_severity_enum() {
   esac
 }
 
-# ---------- 14. Unknown mode value rejected (neither complete nor gaps-surfaced) ----------
+# ---------- 14. Unknown mode value rejected ----------
 test_unknown_mode_rejected() {
   echo "test_unknown_mode_rejected:"
   local mode
@@ -207,11 +238,11 @@ test_malformed_rejected
 test_stage_status_enum
 test_clarification_loop_max_3
 test_subagent_name_exact
-test_agents_json_exists
-test_agents_json_has_subagent
+test_agent_file_exists
+test_agent_has_description
 test_tools_allowed_six
 test_tools_denied_task
-test_system_prompt_skill_path
+test_body_references_skill
 test_gap_entry_shape
 test_severity_enum
 test_unknown_mode_rejected

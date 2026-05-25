@@ -2,6 +2,15 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.1.1] — 2026-05-25
+
+Install-blocking schema fixes surfaced by first `/plugin install scaffold-dev` against live Claude Code. No behavioral changes.
+
+### Fixed
+- **`hooks/hooks.json` schema** — wrapped the `SessionStart` declaration in the required top-level `hooks: { ... }` object with the `matcher` + `hooks[]` + `type: "command"` shape that Claude Code's hooks loader actually validates. The v0.1.0 shorthand (`{"SessionStart": "hooks-handlers/session-start.sh"}`) was the PLAN-provided sketch, not the production schema; v0.1.0 install raised `Hook load failed: expected: "record", code: "invalid_type", path: ["hooks"]`. Matches `scaffold-onboard/hooks/hooks.json` shape verbatim.
+- **Subagent registration format** — replaced `.claude-plugin/agents.json` (the PLAN-provided provisional shape) with `agents/implementer-agent.md` per Claude Code's actual per-agent markdown-with-frontmatter format. Frontmatter declares `name: implementer-agent` (Claude Code auto-prefixes the plugin name → `scaffold-dev:implementer-agent` at dispatch), `description:`, `tools: Bash, Read, Write, Edit, Glob, Grep` (Task omitted to forbid nesting), `model: inherit`. The body references the single-source-of-truth `skills/executing-work-item/SKILL.md` as the binding system prompt — keeps the dual-use SKILL.md authoritative.
+- **`tests/test-subagent.sh`** — rewrote 6 assertions (subagent name, file existence, description field, tools allowlist, Task absence, body reference to skill) for the new `agents/implementer-agent.md` format. Other 8 assertions (return-mode JSON shapes, enums, clarification loop, malformed rejection) unchanged. 14 test functions / all PASS.
+
 ## [0.1.0] — 2026-05-25
 
 Initial release. Sprint-driven orchestrator-implementer workflow for dual-repo workspaces. Replaces `scaffold` v1.0.0 (deprecated).

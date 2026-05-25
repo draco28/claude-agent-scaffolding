@@ -1,3 +1,16 @@
 {
-  "SessionStart": "hooks-handlers/session-start.sh"
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks-handlers/session-start.sh\"",
+            "async": false
+          }
+        ]
+      }
+    ]
+  }
 }
