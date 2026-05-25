@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# workspace-init: commit-msg AI-trace filter (auto-installed)
+# DO NOT EDIT — regenerated on workspace-init runs.
+# Embedded AI workspace path: __AI_WORKSPACE_PATH__
+
+AI_WORKSPACE_PATH="__AI_WORKSPACE_PATH__"
+MANIFEST_PATH="${AI_WORKSPACE_PATH}/.workspace/pairing.json"
+
+commit_msg_file="$1"
+if [[ ! -f "$commit_msg_file" ]]; then exit 0; fi
+
+# If manifest missing (AI workspace moved/deleted), fail-open with warning to stderr
+if [[ ! -f "$MANIFEST_PATH" ]]; then
+  echo "warning: workspace-init manifest not found at $MANIFEST_PATH; trace filter disabled. Re-run /init-workspace --repair." >&2
+  exit 0
+fi
+
+# Trace filter disabled in manifest? exit clean
+enforce="$(jq -r '.git_policy.trace_filter.enforce // false' "$MANIFEST_PATH" 2>/dev/null || echo "false")"
+if [[ "$enforce" != "true" ]]; then exit 0; fi
+
+# Read patterns; handle empty array gracefully
+patterns="$(jq -r '.git_policy.trace_filter.blocked_patterns[]?' "$MANIFEST_PATH" 2>/dev/null || true)"
+if [[ -z "$patterns" ]]; then exit 0; fi
+
+# Scan commit message against each pattern
+while IFS= read -r pattern; do
+  [[ -z "$pattern" ]] && continue
+  if grep -qE "$pattern" "$commit_msg_file"; then
+    echo "ERROR: commit message contains blocked AI-trace pattern: $pattern" >&2
+    echo "       Edit the message and try again, or run with --no-verify to bypass (not recommended)." >&2
+    exit 1
+  fi
+done <<< "$patterns"
+
+exit 0

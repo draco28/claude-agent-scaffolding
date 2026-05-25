@@ -7,6 +7,12 @@
   },
   "plugins": [
     {
+      "name": "workspace-init",
+      "description": "Bootstrap a dual-repo workspace (AI workspace + canonical) with pairing manifest and AI-trace commit-msg filter. Run-once plugin; first in the scaffolding chain. 2 skills (initializing-dual-repo-workspace, pairing-canonical-repo), 2 slash commands (/init-workspace, /pair-workspace via $ARGUMENTS bridge). Pairing manifest schema v1.0 at <ai-workspace>/.workspace/pairing.json. commit-msg hook filters AI-trace lines with baked AI workspace path. Scenario A migration (--pair-with). 145 tests across 10 suites.",
+      "category": "workflow",
+      "source": "./workspace-init"
+    },
+    {
       "name": "ai-mentor",
       "description": "Decision-making mentor. Four skills auto-invoke on natural-language triggers: grill-me (one-question-at-a-time plan interrogation with CORE posture + 4 cognitive-discipline escape valves), council (5-persona multi-angle idea validation, Karpathy LLM Council pattern with codebase-aware Historian), eli10 (repeatable simplification), fool (sticky beginner's-mind mode). Skill-first; no hooks, no state.",
       "category": "productivity",

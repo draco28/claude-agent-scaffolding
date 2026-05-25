@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+# tests/test-default-branch-fallback.sh — unit tests for the 4-step default
+# branch fallback chain in lib/git-init.sh (SPEC §8.4).
+#
+# Coverage (~6 tests):
+#   F1. Step 1 succeeds — origin/HEAD symbolic-ref is set, returns its branch
+#   F2. Step 1 fails, step 2 succeeds — symbolic-ref HEAD returns refs/heads/<branch>
+#   F3. Steps 1+2 fail (detached HEAD), step 3 attempted; documents why
+#       step-3-only-success is infeasible in practice (see test body)
+#   F4. All 3 fail → prompt path triggered; piped answer flows through
+#   F5. All 3 fail → prompt returns empty → defaults to `main`
+#   F6. Custom branch name `develop` survives detection roundtrip
+
+source "$(dirname "$0")/_helpers.sh"
+source "$WI_LIB_DIR/_helpers.sh"
+source "$WI_LIB_DIR/git-init.sh"
+
+# Shared sandbox — direct mktemp (avoids $() trap-loss).
+_WI_TMP="$(mktemp -d "${TMPDIR:-/tmp}/wi-defbranch-test.XXXXXX")"
+_wi_defbranch_cleanup() {
+  if [[ -d "$_WI_TMP" ]]; then
+    chmod -R u+w "$_WI_TMP" 2>/dev/null || true
+    rm -rf "$_WI_TMP"
+  fi
+}
+trap _wi_defbranch_cleanup EXIT
+
+# Quiet git committer identity for ephemeral test repos.
+_GIT_ID=(-c user.email=t@t.test -c user.name=tester)
+
+# Helper: create a fresh repo at $1 with one commit on branch $2.
+_make_repo_with_branch() {
+  local repo="$1"
+  local branch="$2"
+  mkdir -p "$repo"
+  git -C "$repo" init -q
+  # Force HEAD to point at the desired branch BEFORE first commit so that
+  # `git symbolic-ref HEAD` returns refs/heads/<branch> regardless of the
+  # local init.defaultBranch config.
+  git -C "$repo" symbolic-ref HEAD "refs/heads/${branch}"
+  git -C "$repo" "${_GIT_ID[@]}" commit --allow-empty -q -m "init"
+}
+
+# ---------------------------------------------------------------------------
+# F1. Step 1: origin/HEAD symbolic-ref → returns its branch
+# ---------------------------------------------------------------------------
+test_F1_step1_origin_head_succeeds() {
+  local upstream="$_WI_TMP/f1-upstream.git"
+  local repo="$_WI_TMP/f1-repo"
+
+  # Create a bare upstream repo with branch `main` (one commit needed so HEAD
+  # is a real ref, not unborn).
+  local seed="$_WI_TMP/f1-seed"
+  _make_repo_with_branch "$seed" "main"
+  git clone -q --bare "$seed" "$upstream"
+
+  # Clone the upstream — clone auto-fetches and sets origin/HEAD.
+  git clone -q "$upstream" "$repo"
+
+  # Make sure origin/HEAD is set (clone usually does this; fall back to --auto
+  # for safety on quirky git versions).
+  git -C "$repo" remote set-head origin --auto >/dev/null 2>&1 || true
+
+  local branch
+  branch="$(wi_git_detect_default_branch "$repo")"
+  assert_eq "main" "$branch" "F1: step 1 origin/HEAD returns main" || return 1
+}
+
+# ---------------------------------------------------------------------------
+# F2. Step 1 fails (no origin), step 2 succeeds via symbolic-ref HEAD
+# ---------------------------------------------------------------------------
+test_F2_step2_symbolic_ref_head() {
+  local repo="$_WI_TMP/f2-repo"
+  _make_repo_with_branch "$repo" "main"
+
+  # No remotes — step 1 should return empty. Step 2 reads HEAD → refs/heads/main.
+  local branch
+  branch="$(wi_git_detect_default_branch "$repo")"
+  assert_eq "main" "$branch" "F2: step 2 returns main from symbolic-ref HEAD" || return 1
+}
+
+# ---------------------------------------------------------------------------
+# F3. Steps 1+2 fail (detached HEAD) — step 3 also returns empty in this case.
+#
+# Note: per SPEC §8.4 step 3 is `git branch --show-current`. When HEAD is
+# detached, both step 2 (`symbolic-ref HEAD`) and step 3 (`branch
+# --show-current`) return empty — so a "step-2-fails-but-step-3-succeeds"
+# state is not constructible with standard git porcelain. Step 3 is a
+# defensive belt-and-suspenders fallback for edge cases like worktree HEAD
+# weirdness. We verify here that the function does NOT crash on detached HEAD
+# and that the prompt path takes over (validated separately in F4/F5).
+# ---------------------------------------------------------------------------
+test_F3_detached_head_falls_through_to_prompt() {
+  local repo="$_WI_TMP/f3-repo"
+  _make_repo_with_branch "$repo" "main"
+
+  # Detach HEAD by checking out the commit SHA directly.
+  local sha
+  sha="$(git -C "$repo" rev-parse HEAD)"
+  git -C "$repo" checkout -q --detach "$sha"
+
+  # Sanity: steps 2 and 3 truly return empty in this state.
+  local s2 s3
+  s2="$(git -C "$repo" symbolic-ref HEAD 2>/dev/null | sed 's@^refs/heads/@@')"
+  s3="$(git -C "$repo" branch --show-current 2>/dev/null)"
+  [[ -z "$s2" && -z "$s3" ]] || {
+    echo "    expected steps 2+3 empty on detached HEAD; s2=$s2 s3=$s3"
+    return 1
+  }
+
+  # With steps 1-3 empty, the function must fall through to the prompt path.
+  # Pipe an explicit branch name and verify it round-trips.
+  local branch
+  branch="$(echo "release" | wi_git_detect_default_branch "$repo")"
+  assert_eq "release" "$branch" "F3: detached HEAD falls through to prompt" || return 1
+}
+
+# ---------------------------------------------------------------------------
+# F4. All 3 fail → prompt path → piped answer flows through
+# ---------------------------------------------------------------------------
+test_F4_prompt_accepts_piped_answer() {
+  local repo="$_WI_TMP/f4-repo"
+  mkdir -p "$repo"
+  git -C "$repo" init -q
+  # Unborn HEAD on an init.defaultBranch — but we want ALL THREE to fail.
+  # Trick: point HEAD at a non-standard ref that has no commits AND no branch.
+  # Simplest reliable construct: init then `git update-ref -d HEAD` so that
+  # symbolic-ref HEAD also returns empty.
+  #
+  # Actually: fresh `git init` leaves HEAD as a symbolic ref pointing at
+  # refs/heads/<defaultBranch>, so step 2 WILL succeed (returning the
+  # configured default branch name even with no commits). To force step 2 to
+  # fail too, we delete the HEAD file outright.
+  rm -f "$repo/.git/HEAD"
+  # Now `git symbolic-ref HEAD` errors and step 2 returns empty.
+  # `git branch --show-current` also returns empty (no HEAD).
+
+  local branch
+  branch="$(echo "develop" | wi_git_detect_default_branch "$repo")"
+  assert_eq "develop" "$branch" "F4: piped answer 'develop' flows through prompt" || return 1
+}
+
+# ---------------------------------------------------------------------------
+# F5. All 3 fail → prompt with empty input → defaults to `main`
+# ---------------------------------------------------------------------------
+test_F5_prompt_empty_input_defaults_to_main() {
+  local repo="$_WI_TMP/f5-repo"
+  mkdir -p "$repo"
+  git -C "$repo" init -q
+  rm -f "$repo/.git/HEAD"
+
+  local branch
+  branch="$(echo "" | wi_git_detect_default_branch "$repo")"
+  assert_eq "main" "$branch" "F5: empty prompt input defaults to main" || return 1
+}
+
+# ---------------------------------------------------------------------------
+# F6. Custom branch name `develop` survives roundtrip via step 2
+# ---------------------------------------------------------------------------
+test_F6_custom_branch_develop_roundtrip() {
+  local repo="$_WI_TMP/f6-repo"
+  _make_repo_with_branch "$repo" "develop"
+
+  local branch
+  branch="$(wi_git_detect_default_branch "$repo")"
+  assert_eq "develop" "$branch" "F6: custom branch develop detected" || return 1
+}
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+echo "== Running tests for lib/git-init.sh default-branch fallback =="
+echo ""
+
+wi_test_run test_F1_step1_origin_head_succeeds
+wi_test_run test_F2_step2_symbolic_ref_head
+wi_test_run test_F3_detached_head_falls_through_to_prompt
+wi_test_run test_F4_prompt_accepts_piped_answer
+wi_test_run test_F5_prompt_empty_input_defaults_to_main
+wi_test_run test_F6_custom_branch_develop_roundtrip
+
+echo ""
+wi_test_summary
