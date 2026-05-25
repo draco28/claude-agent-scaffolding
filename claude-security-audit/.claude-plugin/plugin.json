@@ -1,17 +1,11 @@
 {
   "name": "claude-security-audit",
-  "version": "0.1.0",
-  "description": "Static-analysis security audit for Claude Code project configurations and enabled plugins.",
-  "author": "Praveen Kumar Singh",
+  "version": "0.1.1",
+  "description": "Static-analysis security audit for Claude Code project configurations and enabled plugins. 28 rules across 7 aspects (secrets, permissions incl. PERM-005 schema-typo, hooks, MCP, CLAUDE.md, prompt-injection, marketplace). Two-flag auto-fix + 5-layer defense-in-depth (T2-H). Durable finding_uid survives whitespace edits (T2-I). Self-tamper detection (T1-F). Zero ambient surface (T1-C — SessionStart reminder is opt-in). Inspired by AgentShield in Everything Claude Code (Mustafa, 2026; MIT).",
+  "author": {
+    "name": "Pras"
+  },
   "license": "MIT",
   "homepage": "https://github.com/draco28/claude-agent-scaffolding/tree/main/claude-security-audit",
-  "skills": [
-    { "name": "auditing-claude-configs", "path": "skills/auditing-claude-configs/SKILL.md" }
-  ],
-  "commands": [
-    { "name": "security-audit", "path": "commands/security-audit.md" },
-    { "name": "secrets-scan", "path": "commands/secrets-scan.md" },
-    { "name": "permissions-review", "path": "commands/permissions-review.md" },
-    { "name": "apply-fix", "path": "commands/apply-fix.md" }
-  ]
+  "category": "security"
 }
