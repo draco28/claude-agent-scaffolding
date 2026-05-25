@@ -191,8 +191,10 @@ wi_manifest_write() {
   created_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
   # Ensure .workspace/ exists; mkdir -p is idempotent.
-  local manifest; manifest="$(_wi_manifest_path "$ai_root")"
-  local manifest_dir; manifest_dir="$(dirname "$manifest")"
+  local manifest
+  manifest="$(_wi_manifest_path "$ai_root")"
+  local manifest_dir
+  manifest_dir="$(dirname "$manifest")"
   mkdir -p "$manifest_dir" || {
     wi_log_error "wi_manifest_write: failed to create $manifest_dir"
     return 1
@@ -308,7 +310,8 @@ wi_manifest_write() {
 wi_manifest_read() {
   local ai_root="$1"
   local field="${2:-}"
-  local manifest; manifest="$(_wi_manifest_path "$ai_root")"
+  local manifest
+  manifest="$(_wi_manifest_path "$ai_root")"
 
   if [[ ! -f "$manifest" ]]; then
     wi_log_error "wi_manifest_read: manifest not found: $manifest"
@@ -353,7 +356,8 @@ wi_manifest_read() {
 wi_manifest_resolve() {
   local ai_root="$1"
   local input="$2"
-  local manifest; manifest="$(_wi_manifest_path "$ai_root")"
+  local manifest
+  manifest="$(_wi_manifest_path "$ai_root")"
 
   if [[ ! -f "$manifest" ]]; then
     wi_log_error "wi_manifest_resolve: manifest not found: $manifest"
@@ -424,7 +428,8 @@ mi_manifest_resolve() { wi_manifest_resolve "$@"; }
 # messages naming the manifest path so consumers can act on the message.
 wi_manifest_validate() {
   local ai_root="$1"
-  local manifest; manifest="$(_wi_manifest_path "$ai_root")"
+  local manifest
+  manifest="$(_wi_manifest_path "$ai_root")"
 
   if [[ ! -f "$manifest" ]]; then
     wi_log_error "wi_manifest_validate: manifest not found at $manifest"

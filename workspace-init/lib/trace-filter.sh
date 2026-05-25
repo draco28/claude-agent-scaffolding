@@ -30,7 +30,8 @@ _wi_trace_filter_template() {
 # Output goes to stdout. Returns 1 if the template is missing.
 wi_trace_filter_render() {
   local ai_root="$1"
-  local tmpl; tmpl="$(_wi_trace_filter_template)"
+  local tmpl
+  tmpl="$(_wi_trace_filter_template)"
   if [[ ! -f "$tmpl" ]]; then
     wi_log_error "wi_trace_filter_render: template not found: $tmpl"
     return 1

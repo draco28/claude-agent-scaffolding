@@ -20,26 +20,26 @@ wi_log_error() { echo "ERROR: $*" >&2; }
 # /private/tmp, /var → /private/var, etc. — the canonical form.
 # For non-existing paths, best-effort: canonicalize parent + append basename.
 wi_realpath() {
-  local path="$1"
-  if [[ -d "$path" ]]; then
-    ( cd "$path" 2>/dev/null && pwd -P )
+  local target_path="$1"
+  if [[ -d "$target_path" ]]; then
+    ( cd "$target_path" 2>/dev/null && pwd -P )
     return 0
   fi
-  if [[ -e "$path" ]]; then
+  if [[ -e "$target_path" ]]; then
     local dir base
-    dir="$(dirname "$path")"
-    base="$(basename "$path")"
+    dir="$(dirname "$target_path")"
+    base="$(basename "$target_path")"
     ( cd "$dir" 2>/dev/null && printf '%s/%s\n' "$(pwd -P)" "$base" )
     return 0
   fi
   # Not yet existing — canonicalize parent if possible.
   local dir base
-  dir="$(dirname "$path")"
-  base="$(basename "$path")"
+  dir="$(dirname "$target_path")"
+  base="$(basename "$target_path")"
   if [[ -d "$dir" ]]; then
     printf '%s/%s\n' "$( cd "$dir" 2>/dev/null && pwd -P )" "$base"
   else
-    printf '%s\n' "$path"
+    printf '%s\n' "$target_path"
   fi
 }
 
@@ -91,14 +91,15 @@ wi_guarded_jq_write() {
 wi_log_op() {
   local logfile="$1"
   local op="$2"
-  local path="$3"
+  local target_path="$3"
   local detail="${4:-}"
-  local dir; dir="$(dirname "$logfile")"
+  local dir
+  dir="$(dirname "$logfile")"
   [[ -d "$dir" ]] || mkdir -p "$dir"
   if [[ -n "$detail" ]]; then
-    printf '%s\t%s\t%s\n' "$op" "$path" "$detail" >> "$logfile"
+    printf '%s\t%s\t%s\n' "$op" "$target_path" "$detail" >> "$logfile"
   else
-    printf '%s\t%s\n' "$op" "$path" >> "$logfile"
+    printf '%s\t%s\n' "$op" "$target_path" >> "$logfile"
   fi
 }
 
@@ -125,7 +126,8 @@ wi_render_template() {
     # Replace every literal ${VAR} with val. Bash 3.2-safe pattern expansion.
     content="${content//\$\{${var}\}/${val}}"
   done
-  local outdir; outdir="$(dirname "$out")"
+  local outdir
+  outdir="$(dirname "$out")"
   [[ -d "$outdir" ]] || mkdir -p "$outdir"
   printf '%s\n' "$content" > "$out"
 }

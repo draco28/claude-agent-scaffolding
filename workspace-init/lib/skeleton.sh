@@ -26,11 +26,11 @@ _wi_skeleton_log() {
 _wi_skeleton_log_once() {
   local log="$1"
   local op="$2"
-  local path="$3"
-  if [[ -f "$log" ]] && grep -qE "^${op}	$(printf '%s' "$path" | sed 's/[][\\/.^$*]/\\&/g')(	|\$)" "$log" 2>/dev/null; then
+  local target_path="$3"
+  if [[ -f "$log" ]] && grep -qE "^${op}	$(printf '%s' "$target_path" | sed 's/[][\\/.^$*]/\\&/g')(	|\$)" "$log" 2>/dev/null; then
     return 0
   fi
-  wi_log_op "$log" "$op" "$path"
+  wi_log_op "$log" "$op" "$target_path"
 }
 
 # wi_skeleton_preflight <parent> <name> [--pair-with <existing-canonical>]
@@ -127,7 +127,8 @@ wi_skeleton_create_root_pair() {
     return 1
   fi
 
-  local log; log="$(_wi_skeleton_log "$ai_root")"
+  local log
+  log="$(_wi_skeleton_log "$ai_root")"
   _wi_skeleton_log_once "$log" MKDIR "$ai_root"
   _wi_skeleton_log_once "$log" MKDIR "$canonical_root"
   _wi_skeleton_log_once "$log" MKDIR "${ai_root}/.workspace"
@@ -152,7 +153,8 @@ wi_skeleton_create_root_ai_only() {
     return 1
   fi
 
-  local log; log="$(_wi_skeleton_log "$ai_root")"
+  local log
+  log="$(_wi_skeleton_log "$ai_root")"
   _wi_skeleton_log_once "$log" MKDIR "$ai_root"
   _wi_skeleton_log_once "$log" MKDIR "${ai_root}/.workspace"
   return 0
@@ -171,7 +173,8 @@ wi_skeleton_seed_subdirs() {
     return 1
   fi
 
-  local log; log="$(_wi_skeleton_log "$ai_root")"
+  local log
+  log="$(_wi_skeleton_log "$ai_root")"
 
   local subdirs=(".workspace" ".claude" "docs" "docs/specs" ".superpowers" ".archive")
   local sd d gk

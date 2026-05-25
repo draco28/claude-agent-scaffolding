@@ -30,11 +30,11 @@ _wi_stubs_log() {
 _wi_stubs_log_once() {
   local log="$1"
   local op="$2"
-  local path="$3"
-  if [[ -f "$log" ]] && grep -qE "^${op}	$(printf '%s' "$path" | sed 's/[][\\/.^$*]/\\&/g')(	|\$)" "$log" 2>/dev/null; then
+  local target_path="$3"
+  if [[ -f "$log" ]] && grep -qE "^${op}	$(printf '%s' "$target_path" | sed 's/[][\\/.^$*]/\\&/g')(	|\$)" "$log" 2>/dev/null; then
     return 0
   fi
-  wi_log_op "$log" "$op" "$path"
+  wi_log_op "$log" "$op" "$target_path"
 }
 
 # wi_stub_claude_md <ai-root> <project-name>
@@ -77,7 +77,8 @@ wi_stub_claude_md() {
   fi
 
   # Log the write.
-  local log; log="$(_wi_stubs_log "$ai_root")"
+  local log
+  log="$(_wi_stubs_log "$ai_root")"
   _wi_stubs_log_once "$log" WRITE_FILE "$out"
 
   return 0
@@ -122,7 +123,8 @@ wi_stub_agents_md() {
   fi
 
   # Log the write.
-  local log; log="$(_wi_stubs_log "$ai_root")"
+  local log
+  log="$(_wi_stubs_log "$ai_root")"
   _wi_stubs_log_once "$log" WRITE_FILE "$out"
 
   return 0
@@ -168,7 +170,8 @@ wi_stub_readme() {
   fi
 
   # Log the write.
-  local log; log="$(_wi_stubs_log "$ai_root")"
+  local log
+  log="$(_wi_stubs_log "$ai_root")"
   _wi_stubs_log_once "$log" WRITE_FILE "$out"
 
   return 0

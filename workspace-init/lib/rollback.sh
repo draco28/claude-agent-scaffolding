@@ -88,7 +88,7 @@ wi_rollback() {
   local skipped_unknown=0
   local warnings=0
 
-  local i entry op rest path
+  local i entry op rest target_path
   for (( i = total - 1; i >= 0; i-- )); do
     entry="${entries[$i]}"
 
@@ -97,9 +97,9 @@ wi_rollback() {
     op="${entry%%	*}"
     if [[ "$entry" == *"	"* ]]; then
       rest="${entry#*	}"
-      path="${rest%%	*}"
+      target_path="${rest%%	*}"
     else
-      path=""
+      target_path=""
     fi
 
     # Pair-with safety: skip ANY op whose path equals or is under the
@@ -107,8 +107,8 @@ wi_rollback() {
     # too so the prefix match survives symlink legs (e.g. /var → /private/var
     # on macOS, where `mktemp -d -t` returns /var/folders/... but `pwd -P`
     # resolves the same dir as /private/var/folders/...).
-    if [[ -n "$pair_with" && -n "$path" ]]; then
-      local cmp_path="${path%/}"
+    if [[ -n "$pair_with" && -n "$target_path" ]]; then
+      local cmp_path="${target_path%/}"
       local cmp_canon=""
       cmp_canon="$(wi_realpath "$cmp_path" 2>/dev/null)"
       cmp_canon="${cmp_canon%/}"
@@ -121,16 +121,16 @@ wi_rollback() {
 
     case "$op" in
       MKDIR)
-        if [[ -z "$path" ]]; then
+        if [[ -z "$target_path" ]]; then
           wi_log_warn "wi_rollback: MKDIR entry missing path; skipping"
           warnings=$((warnings + 1))
           continue
         fi
-        if [[ -d "$path" ]]; then
-          if rm -rf -- "$path" 2>/dev/null; then
+        if [[ -d "$target_path" ]]; then
+          if rm -rf -- "$target_path" 2>/dev/null; then
             reverted=$((reverted + 1))
           else
-            wi_log_warn "wi_rollback: rm -rf failed: $path"
+            wi_log_warn "wi_rollback: rm -rf failed: $target_path"
             warnings=$((warnings + 1))
           fi
         else
@@ -139,42 +139,42 @@ wi_rollback() {
         fi
         ;;
       WRITE_FILE)
-        if [[ -z "$path" ]]; then
+        if [[ -z "$target_path" ]]; then
           wi_log_warn "wi_rollback: WRITE_FILE entry missing path; skipping"
           warnings=$((warnings + 1))
           continue
         fi
         # rm -f is idempotent on missing files.
-        if rm -f -- "$path" 2>/dev/null; then
+        if rm -f -- "$target_path" 2>/dev/null; then
           reverted=$((reverted + 1))
         else
-          wi_log_warn "wi_rollback: rm -f failed: $path"
+          wi_log_warn "wi_rollback: rm -f failed: $target_path"
           warnings=$((warnings + 1))
         fi
         ;;
       GIT_INIT)
-        if [[ -z "$path" ]]; then
+        if [[ -z "$target_path" ]]; then
           wi_log_warn "wi_rollback: GIT_INIT entry missing path; skipping"
           warnings=$((warnings + 1))
           continue
         fi
-        if rm -rf -- "${path}/.git" 2>/dev/null; then
+        if rm -rf -- "${target_path}/.git" 2>/dev/null; then
           reverted=$((reverted + 1))
         else
-          wi_log_warn "wi_rollback: rm -rf .git failed: ${path}/.git"
+          wi_log_warn "wi_rollback: rm -rf .git failed: ${target_path}/.git"
           warnings=$((warnings + 1))
         fi
         ;;
       HOOK_INSTALL)
-        if [[ -z "$path" ]]; then
+        if [[ -z "$target_path" ]]; then
           wi_log_warn "wi_rollback: HOOK_INSTALL entry missing path; skipping"
           warnings=$((warnings + 1))
           continue
         fi
-        if rm -f -- "${path}/.git/hooks/commit-msg" 2>/dev/null; then
+        if rm -f -- "${target_path}/.git/hooks/commit-msg" 2>/dev/null; then
           reverted=$((reverted + 1))
         else
-          wi_log_warn "wi_rollback: rm -f hook failed: ${path}/.git/hooks/commit-msg"
+          wi_log_warn "wi_rollback: rm -f hook failed: ${target_path}/.git/hooks/commit-msg"
           warnings=$((warnings + 1))
         fi
         ;;
