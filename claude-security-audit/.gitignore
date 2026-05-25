@@ -1,0 +1,9 @@
+# Override global gitignore for this plugin subtree.
+# Fixtures intentionally embed .claude/ and .fake-plugin-cache/ as snapshots
+# of project configurations under audit. Without these re-includes, contributors
+# whose ~/.gitignore_global excludes .claude/ would silently drop fixture files
+# from `git add` (caught during Phase 0.2 fixture work).
+!.claude/
+!.claude/**
+!.fake-plugin-cache/
+!.fake-plugin-cache/**
