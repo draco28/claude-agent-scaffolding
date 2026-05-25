@@ -1,6 +1,8 @@
 # claude-security-audit changelog
 
-## Unreleased
+## 0.1.0 (2026-05-25)
+
+First public release. Static-analysis security audit for Claude Code project configs and enabled plugins, inspired by AgentShield in Everything Claude Code (Mustafa, 2026; MIT). 28 rules across 7 aspects, 182 tests, ≤30s perf budget for ~200-file workloads. Zero ambient surface by default — SessionStart reminder ships opt-in only (T1-C). Two-flag auto-fix gated by 5-layer defense-in-depth (T2-H). Durable `finding_uid` survives whitespace edits (T2-I). Self-tamper detection on state files (T1-F). 5 clean-fixture release gate (D17) verified at zero findings.
 
 ### Phase 0 — Eval fixtures
 - Plugin manifest (no hooks declared per T1-C opt-in pattern)
