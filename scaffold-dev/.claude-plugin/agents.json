@@ -1,0 +1,12 @@
+{
+  "subagent_types": [
+    {
+      "name": "scaffold-dev:implementer-agent",
+      "description": "Execute a single work item per a handoff doc. Pre-flight check; if gaps detected, return gaps-mode. Else TDD loop per AC; verify; author report.md; stage changes (NO commit). Return structured JSON.",
+      "system_prompt_skill": "skills/executing-work-item/SKILL.md",
+      "tools_allowed": ["Bash", "Read", "Write", "Edit", "Glob", "Grep"],
+      "tools_denied": ["Task"],
+      "model": "inherit"
+    }
+  ]
+}
