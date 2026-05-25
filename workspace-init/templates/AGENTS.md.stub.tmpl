@@ -1,0 +1,22 @@
+# AGENTS.md — ${PROJECT_NAME}
+
+Cross-tool agent guidance. Read by Codex CLI, Cursor, Aider, Continue, and other agentic tools that look for an `AGENTS.md` at the repo root.
+
+## Workspace topology
+
+This is the AI workspace of a dual-repo project. Production code lives in the sibling canonical repo (see `.workspace/pairing.json` for paths).
+
+When running agentic tools here:
+- Edits to MASTER-SPEC.md, memory-bank/, sprint specs land here (AI workspace).
+- Edits to src/, tests/, PRD.md, SRS.md, ADRs land in canonical.
+- See the `routing` block in `.workspace/pairing.json` for the full table.
+
+## Git policy
+
+- Commit messages must NOT contain AI-trace patterns (Co-Authored-By trailers, 🤖 markers). A `commit-msg` hook enforces this in both repos.
+- Network ops (push/pull/fetch) require explicit user instruction. Default-deny per the manifest's `git_policy.allow_ai_*` fields.
+- Local merges + rebases allowed.
+
+## When in doubt
+
+Read `CLAUDE.md` (Claude Code's entry point) for richer guidance. This file is a stub; scaffold-onboard may extend it during `/scaffold-project`.

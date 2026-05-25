@@ -1,0 +1,27 @@
+# ${PROJECT_NAME} — AI workspace
+
+The AI workspace half of a dual-repo project. Paired with canonical at `${CANONICAL_ROOT}`.
+
+## What this repo holds
+
+- Memory bank, MASTER-SPEC, sprint specs, brainstorm artifacts, process ADRs — everything an agentic IDE needs to understand the project.
+- `.workspace/pairing.json` — the pairing manifest (workspace-init wrote this; downstream plugins read it).
+
+## What this repo does NOT hold
+
+Production code, product docs (PRD/SRS/BACKLOG), product ADRs, test code. Those live in canonical (`${CANONICAL_ROOT}`).
+
+## Cadence
+
+- AI workspace: commit cadence is per-sprint or per-big-milestone (bundled).
+- Canonical: per-feature / per-slice / per-bug-fix commits.
+
+## Plugins involved
+
+- `workspace-init` (this plugin) — bootstrapped both repos.
+- `scaffold-onboard` — runs next; authors MASTER-SPEC, memory-bank, PRD/SRS in canonical.
+- `scaffold-dev` — authors sprint specs after onboarding.
+- `architect-critic` — fresh-frame adversarial review of specs.
+- `ai-mentor` — decision-making aids.
+
+See the marketplace README at the marketplace root for plugin details.
