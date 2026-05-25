@@ -381,4 +381,17 @@ wi_test_run test_F3_validate_rejects_schema_version_2_0
 wi_test_run test_G1_write_then_read_full_json_structural_equality
 wi_test_run test_G2_defaults_round_trip_unchanged
 
+# H — SPEC §6.3 mi_manifest_resolve alias
+test_H1_mi_manifest_resolve_alias_matches_wi() {
+  local d; d="$(wi_tmpdir)"
+  local ai="$d/foo-ai"; local cn="$d/foo"
+  mkdir -p "$ai/.workspace" "$cn"
+  wi_manifest_write "$ai" "$cn" personal >/dev/null
+  local got_wi got_mi
+  got_wi="$(wi_manifest_resolve "$ai" 'X=${ai_workspace.root}')"
+  got_mi="$(mi_manifest_resolve "$ai" 'X=${ai_workspace.root}')"
+  assert_eq "$got_wi" "$got_mi" "mi_ alias resolves identically to wi_"
+}
+wi_test_run test_H1_mi_manifest_resolve_alias_matches_wi
+
 wi_test_summary

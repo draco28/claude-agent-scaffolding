@@ -404,6 +404,11 @@ wi_manifest_resolve() {
   return 0
 }
 
+# SPEC §6.3 refers to this resolver as `mi_manifest_resolve` (cross-plugin
+# canonical name). Provided as an alias so consumers (scaffold-onboard,
+# scaffold-dev) that follow the SPEC name verbatim find it without indirection.
+mi_manifest_resolve() { wi_manifest_resolve "$@"; }
+
 # ---------------------------------------------------------------------------
 # wi_manifest_validate
 # ---------------------------------------------------------------------------
