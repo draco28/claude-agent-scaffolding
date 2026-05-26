@@ -70,9 +70,10 @@ Call `sd_manifest_require` (lib/manifest.sh). If absent, surface this verbatim r
 
 The literal `/init-workspace` and `/pair-workspace` slash-command tokens are load-bearing (mirrors `planning-vertical-slice` §3.1 + `implementation-checking` §3.1). Do NOT read the VS README, do NOT run any `auto:` command, do NOT invoke architect-critic, do NOT touch any worktree.
 
+All scaffold-dev lib calls go through the `sd` dispatcher (`scaffold-dev/bin/sd`, on `$PATH` because Claude Code adds each plugin's `bin/` automatically; the dispatcher's bash shebang forces a bash runtime under it regardless of the calling shell — required because Claude Code's Bash tool runs zsh by default on macOS):
+
 ```bash
-source "${CLAUDE_PLUGIN_ROOT}/lib/manifest.sh"
-if ! sd_manifest_require 2>/dev/null; then
+if ! sd manifest_require 2>/dev/null; then
   printf '%s\n' "scaffold-dev requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first."
   exit 0
 fi
@@ -91,11 +92,11 @@ Resolution priority:
 ### 3.3 Read manifest fields
 
 ```bash
-ai_workspace="$(sd_manifest_get '.ai_workspace.root')"
-canonical="$(sd_manifest_get '.canonical.root')"
-worktrees_dir="$(sd_manifest_get '.during_dev.worktrees_dir')"
-handoffs_dir="$(sd_manifest_get '.routing.handoffs_dir')"   # resolves to <ai-workspace>/.workspace/handoffs/ in v0.1
-sprint_dir_template="$(sd_manifest_get '.during_dev.sprint_dir_template')"
+ai_workspace="$(sd manifest_get '.ai_workspace.root')"
+canonical="$(sd manifest_get '.canonical.root')"
+worktrees_dir="$(sd manifest_get '.during_dev.worktrees_dir')"
+handoffs_dir="$(sd manifest_get '.routing.handoffs_dir')"   # resolves to <ai-workspace>/.workspace/handoffs/ in v0.1
+sprint_dir_template="$(sd manifest_get '.during_dev.sprint_dir_template')"
 ```
 
 ### 3.4 Locate the slice directory
@@ -127,8 +128,7 @@ Then stop. The ceremony depends on all work items having committed + merged outp
 Read `${slice_root}/README.md`. Locate the demo-criteria block (rendered into the README at `planning-vertical-slice` §6 from the ROADMAP's `auto:`/`user:` lines). Parse via `lib/render.sh::sd_demo_parse_block`:
 
 ```bash
-source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"
-demo_lines="$(sd_demo_parse_block "${slice_root}/README.md")"
+demo_lines="$(sd demo_parse_block "${slice_root}/README.md")"
 ```
 
 Each parsed line yields a `(prefix, command-or-action, expectation)` tuple where `prefix` is one of `auto` or `user`, separated by the literal U+2192 arrow character (`→`, NOT the ASCII `->` digraph — same grammar as scaffold-onboard's R3 per SPEC §14.1).
@@ -357,8 +357,7 @@ ONLY AFTER §9 step 8 completes successfully, remove worktrees + delete branches
 For each work item in the slice:
 
 ```bash
-source "${CLAUDE_PLUGIN_ROOT}/lib/worktree.sh"
-sd_worktree_remove "${work_id}" "${kebab}"
+sd worktree_remove "${work_id}" "${kebab}"
 # Runs: git worktree remove "${canonical}/${worktrees_dir}/work-${work_id}-${kebab}"
 # Then: git branch -D "${branch_name}"
 ```
@@ -380,7 +379,7 @@ If this slice is the FINAL slice of its sprint (resolved by checking `ROADMAP.md
 ### 11.1 Detect final-slice condition
 
 ```bash
-roadmap_path="$(sd_manifest_get '.routing.roadmap')"
+roadmap_path="$(sd manifest_get '.routing.roadmap')"
 # Search for any VS block whose sprint matches sprint_n AND whose M > current_m
 next_vs_in_sprint="$(grep -E "^#### VS-${sprint_n}\.[0-9]+:" "$roadmap_path" | awk -F'[.:]' -v cur="${vs_m}" '$3 > cur' | head -1)"
 if [[ -z "$next_vs_in_sprint" ]]; then

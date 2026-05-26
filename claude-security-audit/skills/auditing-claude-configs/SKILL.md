@@ -7,6 +7,8 @@ description: Static-analysis security audit for Claude Code project configuratio
 
 Orchestrates the static-analysis security audit. Detection lives in `lib/rules/<aspect>/*.sh`; this skill body handles flow control, presentation, and the `/apply-fix` path.
 
+**Lib invocation contract:** call every lib function via the `csa` dispatcher (`claude-security-audit/bin/csa`, on `$PATH` because Claude Code adds each plugin's `bin/` automatically). The dispatcher's bash shebang forces a bash runtime for the libs even when the Bash tool subprocess is zsh (the macOS default). Form: `csa <fn-suffix> [args...]` resolves to `csa_<fn-suffix>`. Never `source` lib files directly from skill body — under zsh `${BASH_SOURCE[0]}` is unset and `${BASH_REMATCH[…]}` returns empty silently; the libs crash or silently corrupt state. Always go through `csa`. Use `csa --list` for discovery.
+
 ## Scope honesty (read this before invoking)
 
 v0.1 catches **common, unobfuscated patterns**. A determined adversary who obfuscates payloads (base64, eval indirection, dynamic command construction) will evade most v0.1 rules. AST-based detection is v0.2. Realistic v0.1 value: catching accidental friendly-fire (committed secrets), naive-malicious teammate PRs, pre-publish hygiene, and the common-pattern subset of compromised-plugin attacks. Treat a clean audit as "doesn't trip our v0.1 common-pattern rules" — NOT as "this is safe to trust."
@@ -14,13 +16,13 @@ v0.1 catches **common, unobfuscated patterns**. A determined adversary who obfus
 ## Audit mode (default — `/security-audit`)
 
 1. Parse `$ARGUMENTS` for flags: `--focus <aspect>`, `--verbose`, `--show-suppressed`.
-2. **First-run gitignore bootstrap** (only if `.claude/audits/state.json` does not yet exist): call `lib/state.sh::csa_state_bootstrap_gitignore` to add `.claude/audits/` to `.gitignore` (idempotent; covers nested git repos, missing gitignore, unwritable files — see references/auto-fix-policy.md).
-3. Resolve scan targets: `lib/enumerate-targets.sh` (project `.claude/` + enabled plugins per the algorithm in references/threat-model.md §enumerate).
-4. Run rule engine: `lib/rule-engine.sh` iterates targets × applicable rules; each rule emits findings as JSONL.
-5. Compute durable `finding_uid` (no line number) + per-run `dedup_fingerprint`: `lib/fingerprint.sh`.
-6. Tag findings NEW vs PERSISTED via `lib/baseline.sh` against state.json's `findings` registry.
-7. Filter suppressed findings via `lib/suppress.sh` (unless `--show-suppressed`).
-8. Write report file `.claude/audits/<date>-<NN>.md` and return chat summary via `lib/report-render.sh`.
+2. **First-run gitignore bootstrap** (only if `.claude/audits/state.json` does not yet exist): `csa state_bootstrap_gitignore` to add `.claude/audits/` to `.gitignore` (idempotent; covers nested git repos, missing gitignore, unwritable files — see references/auto-fix-policy.md).
+3. Resolve scan targets: `csa enum_targets_all` (project `.claude/` + enabled plugins per the algorithm in references/threat-model.md §enumerate).
+4. Run rule engine: `csa rule_engine_scan_all <targets>` iterates targets × applicable rules; each rule emits findings as JSONL.
+5. Compute durable `finding_uid` (no line number) + per-run `dedup_fingerprint`: `csa finding_uid <...>` / `csa dedup_fingerprint <...>` (per finding).
+6. Tag findings NEW vs PERSISTED via `csa baseline_tag <findings>` against state.json's `findings` registry.
+7. Filter suppressed findings via `csa suppress_filter <findings>` (unless `--show-suppressed`).
+8. Write report file `.claude/audits/<date>-<NN>.md` and return chat summary via `csa report_render_markdown` + `csa report_render_chat`.
 9. Update `state.json` (last-audit-date, findings registry with GC per references/severity-rubric.md §GC, `self_integrity.state_mtime_at_last_audit` per references/auto-fix-policy.md §tamper).
 10. If any rules failed to load, emit prominent chat banner: `"⚠ N rule(s) failed to load; results incomplete. See report for SCANNER-001 findings."`
 11. Emit chat summary inline (per references/severity-rubric.md §chat-summary-format).
@@ -32,7 +34,7 @@ Identical to audit mode but with `--focus <aspect>` baked in. Skill body parses 
 ## Apply-fix mode (`/apply-fix <finding-id>`)
 
 1. Parse `$ARGUMENTS` to extract finding ID. Accept either `display_id` (e.g., `SA-2026-05-24-013`) or `finding_uid` (e.g., `FUID-a3f9b21c`).
-2. Resolve via `lib/apply-fix.sh::csa_apply_resolve_id`: display_id → look up in latest report → finding_uid.
+2. Resolve via `csa apply_resolve_id "<id>"`: display_id → look up in latest report → finding_uid.
 3. Load finding record from `state.json`.
 4. Run defense-in-depth checks per references/auto-fix-policy.md:
    - Rule has `RULE_AUTO_FIXABLE=true` AND `RULE_MECHANICALLY_FIXABLE=true`
@@ -46,7 +48,7 @@ If any check fails, refuse with the specific message from references/auto-fix-po
 
 ## Suppression mode (`/security-audit --suppress <finding-id>`)
 
-Calls `lib/suppress.sh::csa_suppress_add`. Refuses Critical-severity findings. Refuses if finding_uid was first_seen < 60s ago (race-window protection per references/auto-fix-policy.md §tamper).
+Calls `csa suppress_add "<finding-id>"`. Refuses Critical-severity findings. Refuses if finding_uid was first_seen < 60s ago (race-window protection per references/auto-fix-policy.md §tamper).
 
 ## When the user asks naturally (no slash command)
 

@@ -34,8 +34,7 @@ Single-repo fallback (no `.workspace/pairing.json` up the tree); resolved path i
 **Step 2 — Validate.** Skill sources the helper and runs:
 
 ```bash
-source "$PLUGIN_DIR/lib/parser.sh"
-err="$(sf_spec_validate "$spec_path" 2>&1 1>/dev/null)"
+err="$(sf spec_validate "$spec_path" 2>&1 1>/dev/null)"
 rc=$?
 # rc=0; err=""
 ```
@@ -79,7 +78,7 @@ Description-match resolves to `scaffold-onboard:validating-master-spec` (per §2
 **Step 1 — Locate.**
 
 ```bash
-spec_path="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
+spec_path="$(sf resolve_output_path master_spec MASTER-SPEC.md)"
 # → /Users/<you>/work/halftime-onboard/MASTER-SPEC.md
 ```
 
@@ -88,8 +87,7 @@ File exists.
 **Step 2 — Validate.**
 
 ```bash
-source "$PLUGIN_DIR/lib/parser.sh"
-err="$(sf_spec_validate "$spec_path" 2>&1 1>/dev/null)"
+err="$(sf spec_validate "$spec_path" 2>&1 1>/dev/null)"
 rc=$?
 # rc=1
 # err="Missing phase markers: id=5. Phases must be authored via /onboard."

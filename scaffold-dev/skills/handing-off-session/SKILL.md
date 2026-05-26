@@ -65,9 +65,10 @@ Call `sd_manifest_discover` (lib/manifest.sh) to walk up from `pwd` for `.worksp
 
 The literal slash-command tokens `/init-workspace` and `/pair-workspace` are load-bearing — they mirror the refusal text from `planning-vertical-slice` §3.1 so the user sees a consistent recovery path across scaffold-dev skills. Do NOT proceed to parse args, do NOT compute any short-id, do NOT touch `.workspace/handoffs/`.
 
+All scaffold-dev lib calls go through the `sd` dispatcher (`scaffold-dev/bin/sd`, on `$PATH` because Claude Code adds each plugin's `bin/` automatically; the dispatcher's bash shebang forces a bash runtime under it regardless of the calling shell — required because Claude Code's Bash tool runs zsh by default on macOS and bare `source` of these libs crashes with `BASH_SOURCE[0]: parameter not set`):
+
 ```bash
-source "${CLAUDE_PLUGIN_ROOT}/lib/manifest.sh"
-if ! sd_manifest_require 2>/dev/null; then
+if ! sd manifest_require 2>/dev/null; then
   printf '%s\n' "scaffold-dev requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first."
   exit 0
 fi
@@ -78,11 +79,11 @@ fi
 All manifest field reads go through `sd_manifest_get` / `sd_manifest_resolve` (binding per `planning-vertical-slice` §3.2; never raw `jq` against `pairing.json`).
 
 ```bash
-ai_workspace="$(sd_manifest_get '.ai_workspace.root')"
-canonical="$(sd_manifest_get '.canonical.root')"
-handoffs_dir="$(sd_manifest_resolve "$(sd_manifest_get '.routing.handoffs_dir')")"
-worktrees_dir="$(sd_manifest_get '.during_dev.worktrees_dir')"
-branch_naming="$(sd_manifest_get '.during_dev.branch_naming')"
+ai_workspace="$(sd manifest_get '.ai_workspace.root')"
+canonical="$(sd manifest_get '.canonical.root')"
+handoffs_dir="$(sd manifest_resolve "$(sd manifest_get '.routing.handoffs_dir')")"
+worktrees_dir="$(sd manifest_get '.during_dev.worktrees_dir')"
+branch_naming="$(sd manifest_get '.during_dev.branch_naming')"
 ```
 
 If `routing.handoffs_dir` is absent from the manifest (older workspace-init versions), fall back to `${ai_workspace}/.workspace/handoffs/`. The fallback is silent — the v0.1.0 workspace-init seeds this path by default; only pre-v0.1 manifests would lack the routing entry.
@@ -178,9 +179,10 @@ The mkdir invocation MUST appear in your tool-call log BEFORE the `Write` of the
 ### 5.1 State cursor (active sprint, slice, work-item position)
 
 ```bash
-source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"
-sd_state_read_cursor    # populates: ACTIVE_SPRINT, ACTIVE_SLICE, ACTIVE_WORK_ITEM, ACTIVE_BRANCH, ACTIVE_WORKTREE
+sd state_read_cursor    # populates: ACTIVE_SPRINT, ACTIVE_SLICE, ACTIVE_WORK_ITEM, ACTIVE_BRANCH, ACTIVE_WORKTREE
 ```
+
+(All `sd <fn-suffix>` invocations go through the `sd` dispatcher per §3.1 above.)
 
 If the state cursor is empty (no active slice — e.g., between sprints, or fresh project pre-orchestration), the slice-scoped sections (3 State pointers, 6 In-flight state) render with `n/a — no active slice at handoff time` rather than fabricated values. Sprint-boundary carry-forward handoffs (S1) often run with the just-closed sprint as `ACTIVE_SPRINT` and no `ACTIVE_SLICE` — that's expected.
 
@@ -298,8 +300,13 @@ For return handoffs (per S3), section 8 names what the consuming main session C 
 Compose the rendered markdown via `lib/render.sh::sd_render_template`, then write atomically:
 
 ```bash
+# Discover scaffold-dev plugin root via the dispatcher on $PATH
+# (works under zsh; does NOT depend on $CLAUDE_PLUGIN_ROOT which the host
+# runtime does not export to Bash subprocesses per anthropics/claude-code#48230).
+SD_PLUGIN_ROOT="$(dirname "$(dirname "$(command -v sd)")")"
+
 tmp_path="${target_path}.tmp.$$"
-sd_render_template "${CLAUDE_PLUGIN_ROOT}/templates/handoff.md.tmpl" > "$tmp_path"
+sd render_template "${SD_PLUGIN_ROOT}/templates/handoff.md.tmpl" > "$tmp_path"
 mv "$tmp_path" "$target_path"
 ```
 

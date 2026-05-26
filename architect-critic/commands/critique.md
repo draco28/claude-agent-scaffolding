@@ -30,4 +30,10 @@ export ARCHITECT_CRITIC_ARGS="$ARGUMENTS"
 
 ## Invoke
 
-Now invoke the `critiquing-spec` skill, passing the arguments above via `$ARCHITECT_CRITIC_ARGS`.
+Now invoke the skill via:
+
+```
+Skill(architect-critic:critiquing-spec)
+```
+
+The qualified `<plugin>:<skill>` form is required — the unqualified skill name `critiquing-spec` is ambiguous and the slash-command handler may not route to this plugin's skill otherwise. Pass the arguments above via `$ARCHITECT_CRITIC_ARGS`.

@@ -65,12 +65,12 @@ If `SCAFFOLD_INSTALLED` is non-empty, load `$(git rev-parse --show-toplevel 2>/d
 
 ---
 
-## Step 3: Merge via `lib/principles.sh`
+## Step 3: Merge via the `arc` dispatcher
 
-Call the bash helper to load user-global principles:
+Call the bash helper to load user-global principles. The `arc` dispatcher is on `$PATH` (Claude Code adds each plugin's `bin/` automatically); the dispatcher's bash shebang forces a bash runtime under it regardless of the calling Bash tool's shell (zsh by default on macOS), so the lib's `${BASH_SOURCE[0]}` and `${BASH_REMATCH[…]}` work as written. Never `source` the lib directly from skill body — under zsh it crashes:
 
 ```bash
-bash -c 'source "${CLAUDE_PLUGIN_ROOT}/lib/principles.sh" && ac_principles_load_user_global'
+arc principles_load_user_global
 ```
 
 This strips header lines (lines starting with `# `), strips trailing `[promoted ...]` annotations, and emits one active principle per line. Hold the output in your working context.

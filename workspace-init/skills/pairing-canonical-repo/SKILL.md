@@ -98,14 +98,16 @@ Exit non-zero. Do NOT touch anything (no mkdirs, no manifest, no hook).
 
 ## 5. Detect canonical metadata
 
-Source the lib modules and detect default branch + remote from the existing
-repo. Per **SPEC §8.4** the fallback chain is robust to oddly-configured
-repos:
+Detect default branch + remote from the existing repo via the `wi`
+dispatcher (`workspace-init/bin/wi`, on `$PATH`; bash shebang forces a bash
+runtime even when the calling Bash tool subprocess is zsh). Per
+**SPEC §8.4** the fallback chain is robust to oddly-configured repos:
 
-- `source "${WI_LIB_DIR}/_helpers.sh"`
-- `source "${WI_LIB_DIR}/git-init.sh"`
-- `detected_branch="$(wi_git_detect_default_branch "$canonical_root")"`
-- `detected_remote="$(wi_git_detect_remote "$canonical_root")"`
+- `detected_branch="$(wi git_detect_default_branch "$canonical_root")"`
+- `detected_remote="$(wi git_detect_remote "$canonical_root")"`
+
+Never `source` lib files directly from skill body — under zsh
+`${BASH_SOURCE[0]}` is unset and the libs crash. Always go through `wi`.
 
 `wi_git_detect_default_branch` tries (in order):
 `git symbolic-ref refs/remotes/origin/HEAD` → `git symbolic-ref HEAD` →
@@ -119,8 +121,8 @@ records `null`).
 
 Same skeleton as `initializing-dual-repo-workspace` but with three
 pair-with-specific differences (8.2, 8.4, 8.8). After each task, append to
-`${ai_root}/.workspace/init-log` via `wi_log_op`. On ANY task failure,
-call `wi_rollback "${ai_root}/.workspace/init-log" --pair-with "$canonical_root"`
+`${ai_root}/.workspace/init-log` via `wi log_op …`. On ANY task failure,
+call `wi rollback "${ai_root}/.workspace/init-log" --pair-with "$canonical_root"`
 (the `--pair-with` flag tells rollback to skip ops against the existing
 canonical — see section 7).
 
@@ -135,7 +137,7 @@ Already collected in section 3. Reference `name`, `parent`, `canonical_root`,
 `mkdir <canonical>`. Only create the new AI workspace:
 
 ```
-wi_skeleton_create_root_ai_only "$parent" "$name"
+wi skeleton_create_root_ai_only "$parent" "$name"
 ```
 
 Expected init-log entry: `mkdir <ai_root>`. NO entry for canonical mkdir.
@@ -145,7 +147,7 @@ Expected init-log entry: `mkdir <ai_root>`. NO entry for canonical mkdir.
 Same as fresh mode:
 
 ```
-wi_skeleton_seed_subdirs "$ai_root"
+wi skeleton_seed_subdirs "$ai_root"
 ```
 
 Expected init-log entries: subdir mkdirs + `.gitkeep` files + `.gitignore`.
@@ -156,7 +158,7 @@ Expected init-log entries: subdir mkdirs + `.gitkeep` files + `.gitignore`.
 through to `wi_manifest_write`:
 
 ```
-wi_manifest_write "$ai_root" "$canonical_root" "$project_type" \
+wi manifest_write "$ai_root" "$canonical_root" "$project_type" \
   --git-remote "$detected_remote" \
   --default-branch "$detected_branch"
 ```
@@ -169,7 +171,7 @@ Expected init-log entry: `file <ai_root>/.workspace/pairing.json`.
 ### 6.5 — Task 8.5: Write CLAUDE.md stub
 
 ```
-wi_stub_claude_md "$ai_root" "$name"
+wi stub_claude_md "$ai_root" "$name"
 ```
 
 Expected init-log entry: `file <ai_root>/CLAUDE.md`.
@@ -177,7 +179,7 @@ Expected init-log entry: `file <ai_root>/CLAUDE.md`.
 ### 6.6 — Task 8.6: Write AGENTS.md stub
 
 ```
-wi_stub_agents_md "$ai_root"
+wi stub_agents_md "$ai_root"
 ```
 
 Expected init-log entry: `file <ai_root>/AGENTS.md`.
@@ -185,7 +187,7 @@ Expected init-log entry: `file <ai_root>/AGENTS.md`.
 ### 6.7 — Task 8.7: Write README.md
 
 ```
-wi_stub_readme "$ai_root" "$name"
+wi stub_readme "$ai_root" "$name"
 ```
 
 Expected init-log entry: `file <ai_root>/README.md`.
@@ -198,21 +200,21 @@ Expected init-log entry: `file <ai_root>/README.md`.
    only the AI workspace:
 
    ```
-   wi_git_init_ai_only "$ai_root"
+   wi git_init_ai_only "$ai_root"
    ```
 
 2. **DO** install the commit-msg hook in BOTH AI workspace and canonical
    (the trace filter must guard canonical commits going forward):
 
    ```
-   wi_trace_filter_install_pair "$ai_root" "$canonical_root"
+   wi trace_filter_install_pair "$ai_root" "$canonical_root"
    ```
 
 3. **STAGE ONLY** in the AI workspace; do NOT run `git add` against the
    canonical (its working tree is the user's; we never touch it):
 
    ```
-   wi_git_stage_ai_workspace "$ai_root"
+   wi git_stage_ai_workspace "$ai_root"
    ```
 
 Expected init-log entries: `git-init <ai_root>` (no canonical git-init),
@@ -223,7 +225,7 @@ Expected init-log entries: `git-init <ai_root>` (no canonical git-init),
 
 Per **SPEC §8.9 step 3**, rollback in pair-with mode **NEVER** undoes ops
 on the existing canonical. Pass the `--pair-with "$canonical_root"` flag to
-`wi_rollback`; the helper then filters out ops whose target lies under
+`wi rollback`; the helper then filters out ops whose target lies under
 `$canonical_root` when walking the init-log in reverse.
 
 **Pair-with-safe to reverse** (rollback DOES undo these):

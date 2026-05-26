@@ -76,9 +76,10 @@ Call `sd_manifest_require` (lib/manifest.sh). If absent, surface this verbatim r
 
 The literal `/init-workspace` and `/pair-workspace` slash-command tokens are load-bearing (mirrors `planning-vertical-slice` §3.1). Do NOT read the spec, do NOT run any `auto:` commands, do NOT probe rules.
 
+All scaffold-dev lib calls go through the `sd` dispatcher (`scaffold-dev/bin/sd`, on `$PATH` because Claude Code adds each plugin's `bin/` automatically; the dispatcher's bash shebang forces a bash runtime under it regardless of the calling shell — required because Claude Code's Bash tool runs zsh by default on macOS):
+
 ```bash
-source "${CLAUDE_PLUGIN_ROOT}/lib/manifest.sh"
-if ! sd_manifest_require 2>/dev/null; then
+if ! sd manifest_require 2>/dev/null; then
   printf '%s\n' "scaffold-dev requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first."
   exit 0
 fi
@@ -100,10 +101,10 @@ If none of the above produces an id, ask: *"Which work item? (e.g., `3.2.01`)"* 
 ### 3.3 Read manifest fields
 
 ```bash
-ai_workspace="$(sd_manifest_get '.ai_workspace.root')"
-canonical="$(sd_manifest_get '.canonical.root')"
-worktrees_dir="$(sd_manifest_get '.during_dev.worktrees_dir')"
-sprint_dir_template="$(sd_manifest_get '.during_dev.sprint_dir_template')"
+ai_workspace="$(sd manifest_get '.ai_workspace.root')"
+canonical="$(sd manifest_get '.canonical.root')"
+worktrees_dir="$(sd manifest_get '.during_dev.worktrees_dir')"
+sprint_dir_template="$(sd manifest_get '.during_dev.sprint_dir_template')"
 ```
 
 ### 3.4 Locate the work-item directory
@@ -184,7 +185,7 @@ fi
 Iterate the `(ac_label, command, expectation)` tuples in declared order. For each, call:
 
 ```bash
-sd_verify_auto_step "$command" "$expectation" "$worktree"
+sd verify_auto_step "$command" "$expectation" "$worktree"
 ```
 
 `sd_verify_auto_step` (lib/verify.sh):
@@ -243,21 +244,22 @@ When rules are present:
 
 ### 8.1 Parse + filter
 
-```bash
-source "${CLAUDE_PLUGIN_ROOT}/lib/rules.sh"
-rules_json="$(sf_rules_parse "$patterns_file")"
-```
-
-`sf_rules_parse` returns a JSON array of rule objects (one per mcrule block). Filter by type for each of the four v0.2 rule families:
+Use scaffold-onboard's `sf` dispatcher for this — `sf_rules_*` lives in scaffold-onboard per SPEC §16.2, not scaffold-dev. The `sf` dispatcher is also on `$PATH` (Claude Code adds every plugin's `bin/` automatically):
 
 ```bash
-banned_imports_rules="$(sf_rules_filter "$rules_json" 'banned_imports')"
-coverage_floor_rules="$(sf_rules_filter "$rules_json" 'coverage_floor')"
-style_invariants_rules="$(sf_rules_filter "$rules_json" 'style_invariants')"
-required_pattern_rules="$(sf_rules_filter "$rules_json" 'required_pattern')"
+rules_json="$(sf rules_parse "$patterns_file")"
 ```
 
-Eval S3's assertion requires consumption through the published `sf_rules_*` API — no raw inline regex parsing of `mcrule:start` HTML sentinels. The `sf_` prefix (NOT `sd_`) is correct: scaffold-dev consumes scaffold-onboard's published library directly per SPEC §16.2.
+`sf rules_parse` returns a JSON array of rule objects (one per mcrule block). Filter by type for each of the four v0.2 rule families:
+
+```bash
+banned_imports_rules="$(sf rules_filter "$rules_json" 'banned_imports')"
+coverage_floor_rules="$(sf rules_filter "$rules_json" 'coverage_floor')"
+style_invariants_rules="$(sf rules_filter "$rules_json" 'style_invariants')"
+required_pattern_rules="$(sf rules_filter "$rules_json" 'required_pattern')"
+```
+
+Eval S3's assertion requires consumption through the published `sf_rules_*` API (via the `sf` dispatcher) — no raw inline regex parsing of `mcrule:start` HTML sentinels. The `sf` dispatcher (NOT `sd`) is correct: scaffold-dev consumes scaffold-onboard's published library directly per SPEC §16.2.
 
 ### 8.2 Apply against modified files
 
@@ -271,7 +273,7 @@ while IFS= read -r f; do modified_files+=("$f"); done < <(git -C "$worktree" dif
 Then invoke `sd_rules_apply` (lib/rules.sh — scaffold-dev's adapter that walks rule JSON arrays and dispatches per type):
 
 ```bash
-sd_rules_apply "$rules_json" "$worktree" "${modified_files[@]}"
+sd rules_apply "$rules_json" "$worktree" "${modified_files[@]}"
 ```
 
 `sd_rules_apply` returns 0 if no violations fire; non-zero on first violation, emitting a structured line on stderr: `RULE_TYPE=<t> RULE_NAME=<n> FILE=<path> LINE=<n> MESSAGE=<text>`.

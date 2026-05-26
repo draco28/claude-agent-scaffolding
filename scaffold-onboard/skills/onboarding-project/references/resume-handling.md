@@ -8,18 +8,27 @@ This doc supplements SKILL.md §4 (State management) + §9 (Slash-command flags)
 
 ## 1. Mode resolution
 
-On every `/onboard` invocation the skill calls `sf_state_mode` (lib/state.sh). It returns one of:
+On every `/onboard` invocation the skill calls `sf state_mode` (the `sf` dispatcher on `$PATH`; resolves to `sf_state_mode` in `lib/state.sh`). It returns one of:
 
-| Mode value  | Meaning                                                     | Skill behavior                          |
-|-------------|-------------------------------------------------------------|------------------------------------------|
-| `new`       | No state file present                                       | `sf_state_init` → Phase 1                |
-| `resume`    | State file present, `status=in_progress`                    | Re-enter at first unanswered question    |
-| `reonboard` | State file present, `status=complete`                       | Confirm prompt → `--regenerate` path     |
+| Mode value         | Meaning                                                                   | Skill behavior                                                                                                              |
+|--------------------|---------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| `new`              | No state file present                                                     | `sf state_init` → Phase 1                                                                                                    |
+| `resume`           | State file present, `status=in_progress`, `project_root` matches cwd      | Re-enter at first unanswered question                                                                                        |
+| `reonboard`        | State file present, `status=complete`, `project_root` matches cwd         | Confirm prompt → `--regenerate` path                                                                                         |
+| `project_mismatch` | State file present, `project_root` ≠ cwd (or stored `project_root` empty) | Prompt: *"State from `<stored>` found. Resume that, or start fresh here?"* — user picks → resume-with-cd OR fresh-init       |
+
+`project_mismatch` (v0.2.1+) prevents the v0.x.1 Issue #4 bug where a stale state file from a different project triggered a false-resume at session start. Stored `project_root` is captured by `sf state_init` from `pwd` (or from `$SF_PROJECT_ROOT` if pre-exported by a manifest-aware caller). Legacy state files (pre-v0.2.1) lacking `project_root` surface as `project_mismatch` with `stored="unknown"`, forcing the user to confirm.
+
+To surface the prompt, fetch the stored path with `sf state_stored_project_root` (returns `unknown` for legacy state). Render:
+
+> State from `<stored>` found (initialized `<created_at>`). Resume that, or start fresh here?
+> &nbsp;&nbsp;1. Resume the existing state (cd to the stored project root and re-invoke /onboard)
+> &nbsp;&nbsp;2. Start fresh here (overwrites the existing state file with a new init from `<pwd>`)
 
 The mode is computed once at skill entry. Explicit flags override:
 
-- `--resume` forces `resume`; errors if no state file.
-- `--regenerate` forces the reonboard confirm-and-reset flow regardless of `status`.
+- `--resume` forces `resume`; errors if no state file OR if `project_mismatch` fires (user must reconcile first).
+- `--regenerate` forces the reonboard confirm-and-reset flow regardless of `status` or `project_root`.
 
 ---
 

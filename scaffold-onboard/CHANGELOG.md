@@ -2,6 +2,19 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.2.1] — 2026-05-26
+
+Shell-portability + cross-project-contamination patch (v0.x.1 bundle). See `docs/HANDOFF-shell-portability-v0x1.md` and `docs/HANDOFF-shell-portability-v0x1-RETURN.md` in the marketplace repo.
+
+### Fixed
+- **Shell portability (zsh compatibility):** Claude Code's Bash tool runs zsh by default on macOS; skill bodies that `source lib/*.sh` then inherited zsh, where `${BASH_SOURCE[0]}` is unset (libs crash with `parameter not set`) and `${BASH_REMATCH[…]}` returns empty silently (parser appears to work, downstream gets garbage — scaffold-onboard had the worst silent-corruption surface with 11 BASH_REMATCH sites in spec parsers / rule validators). Added `bin/sf` dispatcher with `#!/usr/bin/env bash` shebang — kernel forces bash on direct execution regardless of caller shell. `validating-master-spec/SKILL.md` and its example walkthroughs refactored to invoke `sf <fn-suffix>` instead of `source && fn`. `sf --list` enumerates dispatchable functions. The dispatcher is auto-discoverable via `$PATH` (Claude Code adds each plugin's `bin/` to PATH automatically).
+- **Issue #3 — `sf_data_dir` no longer falls back to `~/.scaffold-onboard-test-data/`:** that path was originally a "test fallback" but became the production-active path because Claude Code does not export `CLAUDE_PLUGIN_DATA` to Bash tool subprocesses (anthropics/claude-code#48230). v0.2.1 derives the canonical `~/.claude/plugins/data/<plugin>-<marketplace>/` path from `$PLUGIN_ROOT` when the install matches the cache layout, and falls back to `~/.claude/plugins/data/scaffold-onboard-local/` (intentionally NOT colliding with the host-runtime path) when derivation fails. The old `~/.scaffold-onboard-test-data/` path is gone.
+- **Issue #4 — cross-project state contamination:** added `project_root` field to `onboarding-state.json` schema. `sf_state_init` captures `pwd` (or `$SF_PROJECT_ROOT` if pre-exported); `sf_state_mode` now returns a new `project_mismatch` value when the stored `project_root` differs from current `pwd`, prompting the user before resuming a stranger's state. New `sf_state_stored_project_root` helper returns the stored path (or `unknown` for legacy state files lacking the field). The `onboarding-project` skill's resume protocol updated to handle `project_mismatch`. Legacy state files (pre-v0.2.1) lacking `project_root` surface as `project_mismatch` with stored=`unknown`, forcing user confirmation.
+
+### Migration notes
+- Existing `~/.scaffold-onboard-test-data/onboarding-state.json` files are NOT auto-migrated to the new canonical path. To preserve in-flight onboarding state from v0.2.0, manually `mv ~/.scaffold-onboard-test-data ~/.claude/plugins/data/scaffold-onboard-claude-agent-scaffolding` (substitute your marketplace name) or delete the stale file and restart `/onboard`.
+- Legacy state files lacking `project_root` will trigger the project-mismatch prompt on next `/onboard` invocation — pick "start fresh here" to overwrite with a new init.
+
 ## [0.2.0] — 2026-05-24
 
 ### Added

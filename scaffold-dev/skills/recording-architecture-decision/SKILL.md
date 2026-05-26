@@ -61,9 +61,10 @@ Call `sd_manifest_require` (lib/manifest.sh). If absent, surface this verbatim r
 
 The literal `/init-workspace` and `/pair-workspace` slash-command tokens are load-bearing (mirrors `planning-vertical-slice` §3.1).
 
+All scaffold-dev lib calls go through the `sd` dispatcher (`scaffold-dev/bin/sd`, on `$PATH` because Claude Code adds each plugin's `bin/` automatically; the dispatcher's bash shebang forces a bash runtime under it regardless of the calling shell — required because Claude Code's Bash tool runs zsh by default on macOS):
+
 ```bash
-source "${CLAUDE_PLUGIN_ROOT}/lib/manifest.sh"
-if ! sd_manifest_require 2>/dev/null; then
+if ! sd manifest_require 2>/dev/null; then
   printf '%s\n' "scaffold-dev requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first."
   exit 0
 fi
@@ -92,12 +93,12 @@ If the response is genuinely ambiguous (e.g., "I dunno", "both"), surface the §
 ### 5.1 Manifest field lookup
 
 ```bash
-ai_workspace="$(sd_manifest_get '.ai_workspace.root')"
-canonical="$(sd_manifest_get '.canonical.root')"
+ai_workspace="$(sd manifest_get '.ai_workspace.root')"
+canonical="$(sd manifest_get '.canonical.root')"
 
 case "$adr_kind" in
-  product)  target_dir="$(sd_manifest_resolve "$(sd_manifest_get '.routing.product_adrs')")" ;;
-  process)  target_dir="$(sd_manifest_resolve "$(sd_manifest_get '.routing.process_adrs')")" ;;
+  product)  target_dir="$(sd manifest_resolve "$(sd manifest_get '.routing.product_adrs')")" ;;
+  process)  target_dir="$(sd manifest_resolve "$(sd manifest_get '.routing.process_adrs')")" ;;
 esac
 ```
 
@@ -224,8 +225,9 @@ The written file MUST contain four MADR-lite section headings: `Status`, `Contex
 ### 9.4 Write (atomic mv pattern)
 
 ```bash
+SD_PLUGIN_ROOT="$(dirname "$(dirname "$(command -v sd)")")"
 tmp_path="${target_path}.tmp.$$"
-sd_render_template "${CLAUDE_PLUGIN_ROOT}/templates/adr.md.tmpl" > "$tmp_path"
+sd render_template "${SD_PLUGIN_ROOT}/templates/adr.md.tmpl" > "$tmp_path"
 mv "$tmp_path" "$target_path"
 ```
 

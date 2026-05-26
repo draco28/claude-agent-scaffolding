@@ -23,7 +23,12 @@ auto-commits (SPEC §7.4).
 
 This skill delegates bookkeeping to bash modules under
 `workspace-init/lib/`. Those modules expose stable function names; this skill
-calls them by name and never inlines their implementations.
+calls them via the `wi` dispatcher (`workspace-init/bin/wi`, on `$PATH`
+because Claude Code adds every plugin's `bin/` automatically). The dispatcher
+has a bash shebang so the libs always run under bash even when the calling
+Bash tool subprocess is zsh (Claude Code's default on macOS). Never `source`
+the lib files directly from skill body — under zsh `${BASH_SOURCE[0]}` is
+unset and the libs crash. Always go through `wi`.
 
 ## 2. Preconditions
 
@@ -72,13 +77,16 @@ repos have neither; the canonical's default branch will be whatever
 
 ## 4. Validate via lib/
 
-Source the lib modules and run preflight:
+Run preflight via the `wi` dispatcher:
 
-- Set `WI_LIB_DIR="${CLAUDE_PLUGIN_ROOT}/lib"` (or the equivalent for the
-  current invocation).
-- `source "${WI_LIB_DIR}/_helpers.sh"`
-- `source "${WI_LIB_DIR}/skeleton.sh"`
-- Call `wi_skeleton_preflight "$parent" "$name"`.
+```
+wi skeleton_preflight "$parent" "$name"
+```
+
+The dispatcher (`workspace-init/bin/wi`) sources every `lib/*.sh` module
+under a bash shebang and resolves the function-suffix argument
+(`skeleton_preflight` → `wi_skeleton_preflight`). No env-var setup, no
+`source`, no shell-portability footgun.
 
 `wi_skeleton_preflight` checks the parent-writable + name-regex invariants
 (same as section 2) AND verifies that the target dirs (`<parent>/<name>-ai`
@@ -89,9 +97,9 @@ preflight error to stderr and exit non-zero.
 ## 5. The 8 pre-onboard tasks
 
 Execute the tasks in the order below. After each task, append an entry to
-`<ai-workspace>/.workspace/init-log` via `wi_log_op` so rollback can undo
+`<ai-workspace>/.workspace/init-log` via `wi log_op …` so rollback can undo
 the work in reverse order. **On ANY task failure**, immediately invoke
-`wi_rollback "${ai_root}/.workspace/init-log"` and exit non-zero. Per
+`wi rollback "${ai_root}/.workspace/init-log"` and exit non-zero. Per
 **SPEC §8** and **SPEC §8.9**, rollback walks the log in reverse and
 inverts each op (`mkdir` → `rmdir`, file create → `rm`, `git init` →
 remove `.git/`, hook install → remove hook file).
@@ -109,7 +117,7 @@ resolved `name`, `parent`, `project_type`, `ai_root`, `canonical_root`.
 Creates `<parent>/<name>-ai` AND `<parent>/<name>` (both empty).
 
 ```
-wi_skeleton_create_root_pair "$parent" "$name"
+wi skeleton_create_root_pair "$parent" "$name"
 ```
 
 Expected init-log entries: `mkdir <ai_root>` and `mkdir <canonical_root>`.
@@ -121,7 +129,7 @@ Creates `.workspace/`, `.claude/`, `docs/`, `docs/specs/`, `.superpowers/`,
 template to `<ai_root>/.gitignore`.
 
 ```
-wi_skeleton_seed_subdirs "$ai_root"
+wi skeleton_seed_subdirs "$ai_root"
 ```
 
 Expected init-log entries: `mkdir <ai_root>/.workspace`, `mkdir <ai_root>/.claude`,
@@ -136,7 +144,7 @@ is passed; `wi_manifest_write` defaults `default_branch` to `"main"` and
 `git_remote` to `null`.
 
 ```
-wi_manifest_write "$ai_root" "$canonical_root" "$project_type"
+wi manifest_write "$ai_root" "$canonical_root" "$project_type"
 ```
 
 Expected init-log entry: `file <ai_root>/.workspace/pairing.json`.
@@ -147,7 +155,7 @@ Renders the CLAUDE.md router stub. scaffold-onboard's `/scaffold-project`
 will overwrite this later.
 
 ```
-wi_stub_claude_md "$ai_root" "$name"
+wi stub_claude_md "$ai_root" "$name"
 ```
 
 Expected init-log entry: `file <ai_root>/CLAUDE.md`.
@@ -157,7 +165,7 @@ Expected init-log entry: `file <ai_root>/CLAUDE.md`.
 Renders the cross-tool AGENTS.md stub.
 
 ```
-wi_stub_agents_md "$ai_root"
+wi stub_agents_md "$ai_root"
 ```
 
 Expected init-log entry: `file <ai_root>/AGENTS.md`.
@@ -167,7 +175,7 @@ Expected init-log entry: `file <ai_root>/AGENTS.md`.
 Renders the AI workspace README.
 
 ```
-wi_stub_readme "$ai_root" "$name"
+wi stub_readme "$ai_root" "$name"
 ```
 
 Expected init-log entry: `file <ai_root>/README.md`.
@@ -176,12 +184,12 @@ Expected init-log entry: `file <ai_root>/README.md`.
 
 Three sequential sub-steps; any failure triggers full rollback:
 
-1. `wi_git_init_pair "$ai_root" "$canonical_root"` — `git init` both repos.
-2. `wi_trace_filter_install_pair "$ai_root" "$canonical_root"` — render
+1. `wi git_init_pair "$ai_root" "$canonical_root"` — `git init` both repos.
+2. `wi trace_filter_install_pair "$ai_root" "$canonical_root"` — render
    `hooks/commit-msg.tmpl` with the baked AI workspace path and install to
    `<ai_root>/.git/hooks/commit-msg` AND `<canonical_root>/.git/hooks/commit-msg`,
    `chmod +x` on both.
-3. `wi_git_stage_ai_workspace "$ai_root"` — `git -C "$ai_root" add .` (stages
+3. `wi git_stage_ai_workspace "$ai_root"` — `git -C "$ai_root" add .` (stages
    the skeleton; does NOT commit).
 
 Expected init-log entries: `git-init <ai_root>`, `git-init <canonical_root>`,

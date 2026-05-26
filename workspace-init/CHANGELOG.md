@@ -1,5 +1,10 @@
 # workspace-init changelog
 
+## 0.1.1 (2026-05-26)
+
+### Fixed
+- **Shell portability (zsh compatibility):** Claude Code's Bash tool runs zsh by default on macOS; skill bodies that `source lib/*.sh` then inherited zsh, where `${BASH_SOURCE[0]}` is unset and lib self-location crashed. Added `bin/wi` dispatcher with `#!/usr/bin/env bash` shebang — the kernel forces bash on direct execution regardless of caller shell. Skill bodies (`initializing-dual-repo-workspace`, `pairing-canonical-repo`) and `/init-workspace` command now invoke `wi <fn-suffix> [args...]` instead of `source && fn`. `wi --list` enumerates dispatchable functions. The dispatcher is auto-discoverable via `$PATH` (Claude Code adds each plugin's `bin/` to PATH automatically), so callers don't need to know the plugin root.
+
 ## 0.1.0 (2026-05-25)
 
 Initial release. Bootstrap a dual-repo workspace (AI workspace + canonical) with pairing manifest and AI-trace commit-msg filter. Run-once plugin; first in the scaffolding chain (workspace-init → scaffold-onboard → scaffold-dev). 145 tests across 10 suites.

@@ -102,25 +102,29 @@ State lives at `${CLAUDE_PLUGIN_DATA}/onboarding-state.json`. The v0.1.0 schema 
 }
 ```
 
+**Lib invocation contract:** every `sf_<fn>` call below goes through the `sf` dispatcher — `scaffold-onboard/bin/sf`, on `$PATH` because Claude Code adds each plugin's `bin/` automatically. Call form: `sf <fn-suffix> [args...]` resolves to `sf_<fn-suffix>`. The dispatcher's bash shebang forces a bash runtime for the libs even when the surrounding Bash tool subprocess is zsh (Claude Code's macOS default), so `${BASH_SOURCE[0]}` and `${BASH_REMATCH[…]}` inside the libs work as written. Never `source` lib files directly from skill body — under zsh `BASH_SOURCE` is unset and the libs crash; under bash without env var hygiene the regex captures silently return empty. Always go through `sf`. Use `sf --list` for discovery.
+
 **Helpers you call (lib/state.sh):**
 
-- `sf_state_init` — create a fresh state file (acquires the onboarding lock first).
-- `sf_state_mode` — returns `new` | `resume` | `reonboard` based on existing state + filesystem.
-- `sf_state_path` — print the absolute path of the state file.
-- `sf_state_read_field <key>` — read a top-level field (`status`, `current_phase`, `started_at`).
-- `sf_state_read_answer <qid>` — read a single answer; returns `null` if unanswered.
-- `sf_state_write_answer <qid> <value>` — atomic write of one answer.
-- `sf_state_write_atomic <key> <value>` — atomic write of a top-level field.
-- `sf_state_advance_phase` — bump `current_phase`; if already at 10, set `status=complete`.
-- `sf_state_lock_acquire` / `sf_state_lock_release` — advisory lock so two sessions don't author into the same state file concurrently.
-- `sf_state_gate_passes <gate_expr>` — evaluate a phases.yaml gate against current answers (e.g., `project_class in {Web app, ...}`).
+- `sf state_init` — create a fresh state file with `project_root` captured from `$(pwd)` (or `$SF_PROJECT_ROOT` if pre-exported). Acquires the onboarding lock first.
+- `sf state_mode` — returns `new` | `resume` | `reonboard` | `project_mismatch` based on existing state + filesystem + project_root match. The `project_mismatch` value (v0.2.1+) fires when the stored `project_root` ≠ current pwd; prompt the user per §4 protocol before proceeding.
+- `sf state_stored_project_root` — return the stored `project_root` (or `unknown` for legacy state files lacking the field); useful for rendering the project-mismatch prompt.
+- `sf state_path` — print the absolute path of the state file.
+- `sf state_read_field <key>` — read a top-level field (`status`, `current_phase`, `project_root`, `started_at`).
+- `sf state_read_answer <qid>` — read a single answer; returns `null` if unanswered.
+- `sf state_write_answer <qid> <value>` — atomic write of one answer.
+- `sf state_write_atomic <key> <value>` — atomic write of a top-level field.
+- `sf state_advance_phase` — bump `current_phase`; if already at 10, set `status=complete`.
+- `sf state_lock_acquire` / `sf state_lock_release` — advisory lock so two sessions don't author into the same state file concurrently.
+- `sf state_gate_passes <gate_expr>` — evaluate a phases.yaml gate against current answers (e.g., `project_class in {Web app, ...}`).
 
 **Discipline:**
 
 - **Persist after every single answer.** An interruption mid-Phase-6 must never lose Phase 1–5's work.
 - **Acquire the lock at skill entry.** If `sf_state_lock_acquire` fails, surface *"Onboarding already in progress in another session. Either close that session or re-run with `/onboard --force-unlock` after confirming no other session is active."* and stop.
-- **Resume protocol.** On entry, call `sf_state_mode`. If `resume`: read `current_phase`, announce position (*"Resuming at Phase N (Architecture). 3 of 5 questions remaining."*), and re-enter at the first unanswered question of that phase (detected via `sf_state_read_answer <qid>` returning `null`).
-- **Re-onboard protocol.** If `sf_state_mode` returns `reonboard` (status=complete + state file present): ask explicit confirmation *"Re-onboarding will overwrite MASTER-SPEC.md (backed up to `MASTER-SPEC.md.bak-<timestamp>`) and reset state to Phase 1. Continue? (yes/no, default no)"*. Default is cancel. Only proceed on explicit `yes`.
+- **Resume protocol.** On entry, call `sf state_mode`. If `resume`: read `current_phase`, announce position (*"Resuming at Phase N (Architecture). 3 of 5 questions remaining."*), and re-enter at the first unanswered question of that phase (detected via `sf state_read_answer <qid>` returning `null`).
+- **Re-onboard protocol.** If `sf state_mode` returns `reonboard` (status=complete + state file present + project_root matches): ask explicit confirmation *"Re-onboarding will overwrite MASTER-SPEC.md (backed up to `MASTER-SPEC.md.bak-<timestamp>`) and reset state to Phase 1. Continue? (yes/no, default no)"*. Default is cancel. Only proceed on explicit `yes`.
+- **Project-mismatch protocol (Issue #4 / v0.2.1).** If `sf state_mode` returns `project_mismatch`: fetch the stored path via `sf state_stored_project_root` and surface this prompt verbatim (substitute `<stored>` and `<pwd>` with actual paths): *"State from `<stored>` (initialized earlier) found, but you're now in `<pwd>`. Options: (1) `cd <stored>` and re-run /onboard to resume the original project, (2) start fresh here — this OVERWRITES the existing state file with a new init from `<pwd>`. Which? (1/2)"*. Wait for the user's pick. On `1`, exit non-zero with the cd instruction; on `2`, call `sf state_init` (which captures `pwd` as the new `project_root`) and proceed at Phase 1. Do NOT silently resume the stranger's state — that's the bug this mode prevents.
 
 ---
 

@@ -65,10 +65,11 @@ Call `sd_manifest_discover` (lib/manifest.sh) to walk up from `pwd` for `.worksp
 
 The literal slash-command tokens `/init-workspace` and `/pair-workspace` are load-bearing — eval S2's judge rejects paraphrased substitutes that omit either token. Do NOT proceed to read ROADMAP.md, do NOT author any files, do NOT invoke architect-critic. The refusal is grounded in the helper's absent-result, not in a heuristic guess.
 
+All scaffold-dev lib calls go through the `sd` dispatcher (`scaffold-dev/bin/sd`, on `$PATH` because Claude Code adds each plugin's `bin/` automatically; the dispatcher's bash shebang forces a bash runtime under it regardless of the calling shell — required because Claude Code's Bash tool runs zsh by default on macOS):
+
 ```bash
 # Manifest probe (S2 contract)
-source "${CLAUDE_PLUGIN_ROOT}/lib/manifest.sh"
-if ! sd_manifest_require 2>/dev/null; then
+if ! sd manifest_require 2>/dev/null; then
   printf '%s\n' "scaffold-dev requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first."
   exit 0
 fi
@@ -81,12 +82,12 @@ Never read manifest fields via raw inline `jq -r '...' .workspace/pairing.json` 
 Resolve the fields this skill needs:
 
 ```bash
-ai_workspace="$(sd_manifest_get '.ai_workspace.root')"
-canonical="$(sd_manifest_get '.canonical.root')"
-roadmap_path="$(sd_manifest_get '.routing.roadmap')"
-worktrees_dir="$(sd_manifest_get '.during_dev.worktrees_dir')"
-branch_naming="$(sd_manifest_get '.during_dev.branch_naming')"
-sprint_dir_template="$(sd_manifest_get '.during_dev.sprint_dir_template')"
+ai_workspace="$(sd manifest_get '.ai_workspace.root')"
+canonical="$(sd manifest_get '.canonical.root')"
+roadmap_path="$(sd manifest_get '.routing.roadmap')"
+worktrees_dir="$(sd manifest_get '.during_dev.worktrees_dir')"
+branch_naming="$(sd manifest_get '.during_dev.branch_naming')"
+sprint_dir_template="$(sd manifest_get '.during_dev.sprint_dir_template')"
 ```
 
 If `routing.roadmap` is unset (older workspace-init manifest pre-`roadmap` key), fall back to `${ai_workspace}/ROADMAP.md` with a one-line warning per SPEC §10.4. workspace-init v0.1.1+ ships the key with default `"ai_workspace"`.
@@ -272,7 +273,7 @@ When the user invokes round execution (e.g., "execute round 1", "run round K"), 
 For each work item in the round:
 
 ```bash
-sd_worktree_add "${work_id}" "${kebab}"
+sd worktree_add "${work_id}" "${kebab}"
 # Creates ${canonical}/${worktrees_dir}/work-${work_id}-${kebab}
 # Branches per ${branch_naming} template
 # Base: canonical main HEAD at creation
