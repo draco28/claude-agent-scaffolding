@@ -53,19 +53,18 @@ Trigger phrases scoped — do NOT poach `onboarding-project`'s `/onboard` / "sta
 
 Four steps; the helper does the parsing, the skill body does the judgment.
 
-**Step 1 — Locate.** Resolve the spec path:
+**Step 1 — Locate.** Resolve the spec path via the `sf` dispatcher (`scaffold-onboard/bin/sf`, on `$PATH` because Claude Code adds each plugin's `bin/` automatically; the dispatcher's bash shebang forces a bash runtime for the libs even when the calling shell is zsh — required because Claude Code's Bash tool runs zsh by default on macOS and bare `source` of these libs crashes with `BASH_SOURCE[0]: parameter not set` or returns empty `BASH_REMATCH` captures silently):
 
 ```bash
-spec_path="$(sf_resolve_output_path "master_spec" "MASTER-SPEC.md")"
+spec_path="$(sf resolve_output_path "master_spec" "MASTER-SPEC.md")"
 ```
 
 Routing rules in §8. If the resolved file is missing on disk, surface the §2 routing message and stop.
 
-**Step 2 — Validate.** Source the helper and run the validator, capturing stderr:
+**Step 2 — Validate.** Run the validator via the dispatcher, capturing stderr:
 
 ```bash
-source "$PLUGIN_DIR/lib/parser.sh"
-err="$(sf_spec_validate "$spec_path" 2>&1 1>/dev/null)"
+err="$(sf spec_validate "$spec_path" 2>&1 1>/dev/null)"
 rc=$?
 ```
 

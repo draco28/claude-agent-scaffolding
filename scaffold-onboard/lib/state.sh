@@ -13,14 +13,20 @@ sf_state_init() {
   local path
   path="$(sf_state_path)"
   mkdir -p "$(dirname "$path")"
-  local now
+  local now project_root
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  # project_root captures the cwd at init so cross-project state
+  # contamination (per v0.x.1 friction-log Issue #4) is detectable.
+  # The caller may pre-export SF_PROJECT_ROOT to override (e.g., for
+  # workspace-init manifest-aware install paths).
+  project_root="${SF_PROJECT_ROOT:-$(pwd)}"
   cat > "$path" <<JSON
 {
   "status": "in_progress",
   "current_phase": 1,
   "current_question": null,
   "project_class": null,
+  "project_root": "$project_root",
   "created_at": "$now",
   "updated_at": "$now",
   "answers": {}
@@ -241,7 +247,16 @@ sf_phases_question_gate() {
 }
 
 # Determine the onboarding mode based on state file existence + status.
-# Returns one of: new | resume | reonboard
+# Returns one of: new | resume | reonboard | project_mismatch
+#
+# project_mismatch fires when the stored project_root != current pwd
+# (v0.x.1 Issue #4 cross-project contamination fix). The skill body
+# is expected to handle project_mismatch by prompting the user:
+# "State from <stored> found. Resume that, or start fresh here?"
+#
+# Legacy state files (pre-v0.2.1) lacking project_root are treated as
+# unknown — they surface project_mismatch with stored="unknown" so the
+# user is forced to confirm.
 sf_state_mode() {
   local path
   path="$(sf_state_path)"
@@ -249,11 +264,39 @@ sf_state_mode() {
     echo "new"
     return 0
   fi
-  local status
+  local status stored_root cur_root
   status="$(sf_state_read_field status)"
+
+  # Cross-project contamination check (Issue #4)
+  stored_root="$(sf_state_read_field project_root)"
+  cur_root="${SF_PROJECT_ROOT:-$(pwd)}"
+  if [[ -z "$stored_root" || "$stored_root" == "null" ]]; then
+    stored_root="unknown"
+  fi
+  if [[ "$stored_root" != "$cur_root" ]]; then
+    # Stash on stderr so the skill body can surface the absolute paths
+    # in its prompt without re-reading the state file.
+    sf_log_warn "state project_root mismatch: stored=$stored_root current=$cur_root"
+    echo "project_mismatch"
+    return 0
+  fi
+
   case "$status" in
     "in_progress") echo "resume" ;;
     "complete")    echo "reonboard" ;;
     *)             echo "new" ;;  # malformed or unrecognized
   esac
+}
+
+# Get the stored project_root from the state file (returns "unknown" for
+# legacy state files lacking the field). Useful for skill bodies that need
+# to render the project-mismatch prompt with both stored and current paths.
+sf_state_stored_project_root() {
+  local stored
+  stored="$(sf_state_read_field project_root)"
+  if [[ -z "$stored" || "$stored" == "null" ]]; then
+    echo "unknown"
+  else
+    echo "$stored"
+  fi
 }

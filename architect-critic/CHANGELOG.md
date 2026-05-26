@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.1 — 2026-05-26
+
+Shell-portability patch (v0.x.1 bundle). See `docs/HANDOFF-shell-portability-v0x1.md` in the marketplace repo.
+
+### Fixed
+- **Shell portability (zsh compatibility):** Claude Code's Bash tool runs zsh by default on macOS; skill bodies used `bash -c 'source "${CLAUDE_PLUGIN_ROOT}/lib/X.sh" && ac_fn'` to force a bash subshell, but `$CLAUDE_PLUGIN_ROOT` isn't exported to Bash tool subprocesses (anthropics/claude-code#48230) so the source path resolved to `/lib/X.sh` and failed silently. Added `bin/arc` dispatcher with `#!/usr/bin/env bash` shebang (named `arc` not `ac` because `/usr/sbin/ac` is macOS's login-accounting utility — `ac` would shadow or be shadowed depending on PATH order). All 8 source-call sites across the 3 active skills refactored to invoke `arc <fn-suffix>` instead of `bash -c 'source && fn'` (`promoting-principle`, `listing-principles`, `critiquing-spec`). `arc --list` enumerates dispatchable functions. The dispatcher is auto-discoverable via `$PATH` (Claude Code adds each plugin's `bin/` to PATH automatically).
+
+### Naming notes
+- **The shell command is `arc`** (not the originally-planned `ac` from the handoff doc) because `ac` collides with macOS's `/usr/sbin/ac` system utility. Function-name prefix `ac_` in lib code is unchanged — only the dispatcher binary name differs.
+
 ## v0.2.0 — 2026-05-24 (BREAKING)
 
 **Architecture:** ground-up retrofit to skill-first. 4 skills (gerund-named) replace the v0.1.3 bash-orchestrates-Claude approach. Slash commands become thin `$ARGUMENTS` wrappers. File-IPC inbox/outbox protocol removed.

@@ -20,4 +20,10 @@ export ARCHITECT_CRITIC_ARGS="$ARGUMENTS"
 
 ## Invoke
 
-Now invoke the `reviewing-critique-history` skill, passing the arguments above via `$ARCHITECT_CRITIC_ARGS`.
+Now invoke the skill via:
+
+```
+Skill(architect-critic:reviewing-critique-history)
+```
+
+The qualified `<plugin>:<skill>` form is required — pass the arguments above via `$ARCHITECT_CRITIC_ARGS`.

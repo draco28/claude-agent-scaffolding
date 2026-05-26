@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# bin/wi — dispatcher entry point for workspace-init
+#
+# Why this exists: Claude Code's Bash tool on macOS runs under zsh by default
+# ($SHELL=zsh). Skill bodies that `source lib/*.sh` then inherit zsh, where
+# ${BASH_SOURCE[0]} is unset and ${BASH_REMATCH[…]} returns empty silently.
+# This dispatcher's shebang (#!/usr/bin/env bash) forces bash via the kernel
+# on direct execution, regardless of caller shell. Libs sourced through here
+# get the bash runtime they were written for.
+#
+# Contract:
+#   wi <function-suffix> [args...]
+#     → resolves to wi_<function-suffix>, dispatches with remaining args.
+#       Examples:
+#         wi manifest_resolve "$ai_root"     → wi_manifest_resolve "$ai_root"
+#         wi skeleton_preflight "$p" "$n"    → wi_skeleton_preflight "$p" "$n"
+#         wi log_info "hello"                → wi_log_info "hello"
+#   wi --list
+#     → prints all wi_-prefixed functions, one per line, sorted.
+#
+# Exit codes:
+#   0    function ran successfully (or matched function's exit code)
+#   2    usage error (no args, unknown function)
+#   *    propagated verbatim from the dispatched function
+# stdout/stderr are passed through unchanged — no wrapping.
+
+set -euo pipefail
+
+readonly _DISPATCHER_PREFIX="wi"
+
+_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLUGIN_ROOT="$(cd "$_BIN_DIR/.." && pwd)"
+export PLUGIN_ROOT
+_LIB_DIR="$PLUGIN_ROOT/lib"
+
+if [ -f "$_LIB_DIR/_helpers.sh" ]; then
+  # shellcheck source=/dev/null
+  source "$_LIB_DIR/_helpers.sh"
+fi
+for _f in "$_LIB_DIR"/*.sh; do
+  [ -e "$_f" ] || continue
+  [ "$(basename "$_f")" = "_helpers.sh" ] && continue
+  # shellcheck source=/dev/null
+  source "$_f"
+done
+
+if [ "${1:-}" = "--list" ]; then
+  declare -F \
+    | awk -v pfx="${_DISPATCHER_PREFIX}_" '$3 ~ "^"pfx"[^_]" { sub(pfx, "", $3); print $3 }' \
+    | sort
+  exit 0
+fi
+
+if [ $# -lt 1 ]; then
+  cat >&2 <<USAGE
+Usage: $(basename "$0") <function-suffix> [args...]
+       $(basename "$0") --list
+
+Function suffix resolves to ${_DISPATCHER_PREFIX}_<suffix>.
+Examples:
+  $(basename "$0") skeleton_preflight "\$parent" "\$name"
+  $(basename "$0") manifest_resolve "\$ai_root"
+USAGE
+  exit 2
+fi
+
+_fn="${_DISPATCHER_PREFIX}_$1"
+shift
+if ! declare -f "$_fn" >/dev/null 2>&1; then
+  echo "Unknown function: $_fn" >&2
+  echo "Run '$(basename "$0") --list' to see available functions." >&2
+  exit 2
+fi
+"$_fn" "$@"

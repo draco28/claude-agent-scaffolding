@@ -47,7 +47,7 @@ FILE	/Users/example/projects/foo-ai/AGENTS.md
 During Task 8.7, `wi_stub_readme` attempts to write `/Users/example/projects/foo-ai/README.md`:
 
 ```bash
-wi_stub_readme "$ai_root" "$name"
+wi stub_readme "$ai_root" "$name"
 ```
 
 But the file already exists (from the stale partial run). The function detects the error:
@@ -59,7 +59,7 @@ ERROR: /Users/example/projects/foo-ai/README.md already exists (not overwriting)
 `wi_stub_readme` returns exit code 1. The skill catches this and immediately invokes rollback:
 
 ```bash
-wi_rollback "${ai_root}/.workspace/init-log"
+wi rollback "${ai_root}/.workspace/init-log"
 ```
 
 ## Rollback execution log

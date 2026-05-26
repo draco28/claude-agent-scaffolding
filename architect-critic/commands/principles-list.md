@@ -21,4 +21,10 @@ export ARCHITECT_CRITIC_ARGS="$ARGUMENTS"
 
 ## Invoke
 
-Now invoke the `listing-principles` skill, passing the arguments above via `$ARCHITECT_CRITIC_ARGS`.
+Now invoke the skill via:
+
+```
+Skill(architect-critic:listing-principles)
+```
+
+The qualified `<plugin>:<skill>` form is required — pass the arguments above via `$ARCHITECT_CRITIC_ARGS`.

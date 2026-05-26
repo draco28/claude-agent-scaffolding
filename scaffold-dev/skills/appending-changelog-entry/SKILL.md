@@ -53,9 +53,10 @@ If the user types something ambiguous like "note this in the changelog and also 
 
 ### 3.1 Manifest discovery (refuses fail-fast)
 
+All scaffold-dev lib calls go through the `sd` dispatcher (`scaffold-dev/bin/sd`, on `$PATH` because Claude Code adds each plugin's `bin/` automatically; the dispatcher's bash shebang forces a bash runtime under it regardless of the calling shell — required because Claude Code's Bash tool runs zsh by default on macOS):
+
 ```bash
-source "${CLAUDE_PLUGIN_ROOT}/lib/manifest.sh"
-if ! sd_manifest_require 2>/dev/null; then
+if ! sd manifest_require 2>/dev/null; then
   printf '%s\n' "scaffold-dev requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first."
   exit 0
 fi
@@ -66,7 +67,7 @@ Never read manifest fields via raw inline `jq`. All reads route through `sd_mani
 ### 3.2 Resolve the changelog path
 
 ```bash
-changelog_path="$(sd_manifest_resolve "$(sd_manifest_get '.routing.changelog')")"
+changelog_path="$(sd manifest_resolve "$(sd manifest_get '.routing.changelog')")"
 ```
 
 The path MUST resolve under `<canonical>` (changelog is production-facing per §7.1). If `routing.changelog` is absent from the manifest, fall back to `<canonical>/CHANGELOG.md`.

@@ -54,9 +54,10 @@ If the user types something ambiguous like "I need a doc for the redis incident"
 
 ### 3.1 Manifest discovery (refuses fail-fast)
 
+All scaffold-dev lib calls go through the `sd` dispatcher (`scaffold-dev/bin/sd`, on `$PATH` because Claude Code adds each plugin's `bin/` automatically; the dispatcher's bash shebang forces a bash runtime under it regardless of the calling shell — required because Claude Code's Bash tool runs zsh by default on macOS):
+
 ```bash
-source "${CLAUDE_PLUGIN_ROOT}/lib/manifest.sh"
-if ! sd_manifest_require 2>/dev/null; then
+if ! sd manifest_require 2>/dev/null; then
   printf '%s\n' "scaffold-dev requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first."
   exit 0
 fi
@@ -67,8 +68,8 @@ Never read manifest fields via raw `jq`. All reads route through `sd_manifest_ge
 ### 3.2 Resolve the runbooks dir
 
 ```bash
-runbooks_dir="$(sd_manifest_resolve "$(sd_manifest_get '.routing.runbooks')")"
-canonical="$(sd_manifest_get '.canonical.root')"
+runbooks_dir="$(sd manifest_resolve "$(sd manifest_get '.routing.runbooks')")"
+canonical="$(sd manifest_get '.canonical.root')"
 ```
 
 The dir MUST resolve under `${canonical}` (runbooks are canonical-only per §7.1). If the dir does not exist, surface a one-line hint: *"Runbooks directory `<resolved-path>` not found; create it (`mkdir -p`) or seed it via scaffold-onboard."*. v0.1's runbooks dir creation is informally owned (no explicit `/scaffold-docs` seed in v0.1.0); the skill may proceed with a `mkdir -p` if the parent is canonical and the user confirms — but the default is bail-and-warn.
@@ -183,8 +184,9 @@ Template variables (illustrative):
 Write atomically:
 
 ```bash
+SD_PLUGIN_ROOT="$(dirname "$(dirname "$(command -v sd)")")"
 tmp_path="${target_path}.tmp.$$"
-sd_render_template "${CLAUDE_PLUGIN_ROOT}/templates/runbook.md.tmpl" > "$tmp_path"
+sd render_template "${SD_PLUGIN_ROOT}/templates/runbook.md.tmpl" > "$tmp_path"
 mv "$tmp_path" "$target_path"
 ```
 

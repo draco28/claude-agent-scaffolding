@@ -2,6 +2,13 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.1.2] — 2026-05-26
+
+Shell-portability patch (v0.x.1 bundle). See `docs/HANDOFF-shell-portability-v0x1.md` in the marketplace repo.
+
+### Fixed
+- **Shell portability (zsh compatibility):** Claude Code's Bash tool runs zsh by default on macOS; skill bodies that `source lib/*.sh` then inherited zsh, where `${BASH_SOURCE[0]}` is unset and lib self-location crashed (`BASH_SOURCE[0]: parameter not set`). Added `bin/sd` dispatcher with `#!/usr/bin/env bash` shebang — kernel forces bash on direct execution regardless of caller shell. All 12 source-call sites across 9 skill bodies refactored to invoke `sd <fn-suffix>` instead of `source && fn` (`handing-off-session`, `writing-sprint-retrospective`, `recording-architecture-decision`, `appending-changelog-entry`, `authoring-runbook`, `implementation-checking`, `closing-vertical-slice`, `planning-vertical-slice`). Cross-plugin call into scaffold-onboard's `sf_rules_*` API (per SPEC §16.2) routes through the `sf` dispatcher. Skill bodies discover the plugin root via `SD_PLUGIN_ROOT="$(dirname "$(dirname "$(command -v sd)")")"` when they need to resolve a template path — works under zsh, does NOT depend on `$CLAUDE_PLUGIN_ROOT` which the host runtime doesn't export (anthropics/claude-code#48230). `sd --list` enumerates dispatchable functions. The dispatcher is auto-discoverable via `$PATH` (Claude Code adds each plugin's `bin/` to PATH automatically).
+
 ## [0.1.1] — 2026-05-25
 
 Install-blocking schema fixes surfaced by first `/plugin install scaffold-dev` against live Claude Code. No behavioral changes.

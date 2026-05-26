@@ -173,11 +173,10 @@ Example formatted entry:
 
 ## Step 6: Record in state.json
 
-Source the state helper and append a structured record to `principle_promotions[]`:
+Initialize state via the `arc` dispatcher (`architect-critic/bin/arc`, on `$PATH` because Claude Code adds each plugin's `bin/` automatically; the dispatcher's bash shebang forces a bash runtime for the lib regardless of the caller shell, fixing the BASH_SOURCE crash that bare `source` triggers under zsh):
 
 ```bash
-source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"
-ac_state_init
+arc state_init
 ```
 
 Then append via `jq`:

@@ -1,5 +1,12 @@
 # claude-security-audit changelog
 
+## 0.1.2 (2026-05-26)
+
+Shell-portability patch (v0.x.1 bundle). See `docs/HANDOFF-shell-portability-v0x1.md` in the marketplace repo.
+
+### Fixed
+- **Shell portability (zsh compatibility):** Claude Code's Bash tool runs zsh by default on macOS; skill bodies referenced libs as prose ("call `lib/state.sh::csa_state_bootstrap_gitignore`") which Claude would otherwise source under zsh, where `${BASH_SOURCE[0]}` is unset and lib self-location crashed. Added `bin/csa` dispatcher with `#!/usr/bin/env bash` shebang — kernel forces bash on direct execution regardless of caller shell. `auditing-claude-configs/SKILL.md` prose references rewritten to explicit `csa <fn-suffix>` dispatcher invocations across the audit/focus/apply-fix/suppress paths. `csa --list` enumerates dispatchable functions. The dispatcher is auto-discoverable via `$PATH` (Claude Code adds each plugin's `bin/` to PATH automatically). claude-security-audit had the highest BASH_SOURCE volume in the plugin lineup (50 sites across 11 lib files) but the simplest skill-body refactor (zero literal `source` statements; pure prose-reference rewrites) and zero BASH_REMATCH risk (1 site, non-critical).
+
 ## 0.1.1 (2026-05-25)
 
 Manifest schema fix — v0.1.0 failed installation due to plugin.json shape mismatch against Claude Code's marketplace schema. Three fixes:

@@ -63,9 +63,9 @@ Principles are the lens you audit through. Merge sources in this exact order, la
 3. **Project-scoped** — `<repo>/.claude/architect-critic/principles.md` if it exists. Project-specific principles override user-global on conflict.
 4. **Memory-bank patterns** — only if scaffold-onboard is installed. Probe the filesystem for `~/.claude/plugins/*/scaffold-onboard/skills/` (any of the marketplace install paths). If found, load any `principles*.md` or `patterns*.md` files it ships and merge them as additional principles.
 
-Run the bash helper to do the file merge:
+Run the `arc` dispatcher to do the file merge (the dispatcher is on `$PATH` because Claude Code adds each plugin's `bin/` automatically; its bash shebang forces a bash runtime for the lib regardless of the calling shell — required because Claude Code's Bash tool runs zsh by default on macOS and bare `source` of these libs crashes with `BASH_SOURCE[0]: parameter not set`):
 ```bash
-bash -c 'source "${CLAUDE_PLUGIN_ROOT}/lib/principles.sh" && ac_principles_merge'
+arc principles_merge
 ```
 
 That returns the merged principles block to stdout. Hold it in context for Step 5; you will apply each principle when generating challenges.
@@ -207,7 +207,7 @@ The invocation is **synchronous** (no background mode, no async polling — thos
 The implementation lives at `lib/codex.sh:ac_codex_run_audit` — you can call that helper rather than re-constructing the invocation inline. Signature: `ac_codex_run_audit <prompt> <output_dir> [--model NAME] [--timeout SECS]`. The helper computes its own `REQ_ID` and writes the parsed JSON to stdout; the raw `--output-last-message` file lands in `<output_dir>/codex-audit-<req-id>.json`.
 
 ```bash
-bash -c 'source "${CLAUDE_PLUGIN_ROOT}/lib/codex.sh" && ac_codex_run_audit "$ADVERSARIAL_PROMPT" "$TMP" ${MODEL_OVERRIDE:+--model "$MODEL_OVERRIDE"}'
+arc codex_run_audit "$ADVERSARIAL_PROMPT" "$TMP" ${MODEL_OVERRIDE:+--model "$MODEL_OVERRIDE"}
 ```
 
 **Timeout handling.** If the helper returns a timeout indicator, surface it as a normal turn message:
@@ -223,7 +223,7 @@ Read the resulting JSON from `${TMP}/codex-audit-${REQ_ID}.json` and hold it in 
 You now have one or two challenge lists (claude-only, or claude + codex). Merge them via the bash helper:
 
 ```bash
-bash -c 'source "${CLAUDE_PLUGIN_ROOT}/lib/consolidator.sh" && ac_consolidator_merge'
+arc consolidator_merge
 ```
 
 The consolidator's algorithm:
@@ -280,7 +280,7 @@ Then **end your turn** and wait for the user's reply. When they reply:
 - If they say *"dismiss"* → mark as dismissed (challenge stands but user does not want to engage); advance.
 - If they rebut → score the rebuttal 1–5 via:
   ```bash
-  bash -c 'source "${CLAUDE_PLUGIN_ROOT}/lib/scorer.sh" && ac_scorer_score "$CHALLENGE_TEXT" "$REBUTTAL_TEXT"'
+  arc scorer_score "$CHALLENGE_TEXT" "$REBUTTAL_TEXT"
   ```
   - Score ≥4 → concede. The rebuttal materially addresses the challenge. Mark concession.
   - Score ≤3 → challenge stands. Surface to the candidates pile for Step 9's auto-promotion check. Tell the user gently: *"That doesn't quite address the concern — the challenge stands, but I've noted your reasoning."*
@@ -312,7 +312,7 @@ When the helper returns a 3 (the borderline case), default to "stands" but softe
 State updates happen in bash because they are pure I/O. Append the run record:
 
 ```bash
-bash -c 'source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh" && ac_state_append_run'
+arc state_append_run
 ```
 
 The schema v2 `recent_runs[]` entry includes:
@@ -328,7 +328,7 @@ The schema v2 `recent_runs[]` entry includes:
 Then run the auto-promotion candidate check:
 
 ```bash
-bash -c 'source "${CLAUDE_PLUGIN_ROOT}/lib/promotion.sh" && ac_promotion_check_candidates'
+arc promotion_check_candidates
 ```
 
 The helper inspects `recent_runs[]` for patterns (same challenge fingerprint surfacing across ≥3 runs) and emits any candidates. If candidates exist, surface them to the user as a separate turn message asking whether to promote — but only when the rebuttal cycle in Step 8 is fully complete (don't interrupt mid-cycle).
