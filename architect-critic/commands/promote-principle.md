@@ -1,6 +1,6 @@
 ---
 description: Promote a principle to user-global or project-scoped principles.md
-argument-hint: "<text>" [--scope user|project]
+argument-hint: "\"<text>\" [--scope user|project]"
 ---
 
 # /promote-principle

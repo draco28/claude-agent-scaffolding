@@ -10,20 +10,47 @@ CSA_GLOB_CLAUDE_MD="${CSA_GLOB_CLAUDE_MD:-CLAUDE.md}"
 CSA_GLOB_PROMPT_INJECTION="${CSA_GLOB_PROMPT_INJECTION:-*.md}"
 CSA_GLOB_MARKETPLACE="${CSA_GLOB_MARKETPLACE:-marketplace.json}"
 
+csa_enum_codex_project_targets() {
+  local root="$1"
+  local has_codex_surface=0
+  [[ -f "$root/AGENTS.md" ]] && { has_codex_surface=1; printf '%s\n' "$root/AGENTS.md"; }
+
+  if [[ -d "$root/.codex" ]]; then
+    has_codex_surface=1
+    find "$root/.codex" -type f \
+         \( -name '*.md' -o -name '*.json' -o -name '*.toml' -o -name '*.sh' \
+            -o -name '*.py' -o -name '*.js' -o -name '*.ts' \) 2>/dev/null
+    find "$root/.codex" -type l 2>/dev/null | while read -r sl; do
+      printf 'info: symlink at %s not followed\n' "$sl" >&2
+    done
+  fi
+
+  [[ -f "$root/.agents/plugins/marketplace.json" ]] && { has_codex_surface=1; printf '%s\n' "$root/.agents/plugins/marketplace.json"; }
+  local codex_manifests
+  codex_manifests="$(find "$root" -path '*/.codex-plugin/plugin.json' -type f 2>/dev/null)"
+  [[ -n "$codex_manifests" ]] && { has_codex_surface=1; printf '%s\n' "$codex_manifests"; }
+
+  if [[ "$has_codex_surface" -eq 1 && -f "${HOME}/.codex/config.toml" ]]; then
+    printf '%s\n' "${HOME}/.codex/config.toml"
+  fi
+}
+
 csa_enum_project_targets() {
   local root="$1"
-  [[ -d "$root/.claude" ]] || return 0
-  # Exclude .claude/audits/ — it holds audit state/reports and must not be scanned.
-  find "$root/.claude" -type f \
-       -not -path "$root/.claude/audits/*" \
-       \( -name '*.md' -o -name '*.json' -o -name '*.sh' \
-          -o -name '*.py' -o -name '*.js' -o -name '*.ts' \) 2>/dev/null
-  find "$root/.claude" -type l \
-       -not -path "$root/.claude/audits/*" 2>/dev/null | while read -r sl; do
-    printf 'info: symlink at %s not followed\n' "$sl" >&2
-  done
+  if [[ -d "$root/.claude" ]]; then
+    # Exclude .claude/audits/ — it holds audit state/reports and must not be scanned.
+    find "$root/.claude" -type f \
+         -not -path "$root/.claude/audits/*" \
+         \( -name '*.md' -o -name '*.json' -o -name '*.sh' \
+            -o -name '*.py' -o -name '*.js' -o -name '*.ts' \) 2>/dev/null
+    find "$root/.claude" -type l \
+         -not -path "$root/.claude/audits/*" 2>/dev/null | while read -r sl; do
+      printf 'info: symlink at %s not followed\n' "$sl" >&2
+    done
+  fi
   find "$root" -name 'CLAUDE.md' -type f 2>/dev/null
   [[ -f "$root/.claude-plugin/marketplace.json" ]] && printf '%s\n' "$root/.claude-plugin/marketplace.json"
+  csa_enum_codex_project_targets "$root"
 }
 
 csa_enum_enabled_plugins() {

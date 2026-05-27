@@ -42,7 +42,7 @@ test_bug_2_skill_body_runs_audit() {
     assert_fail "critiquing-spec/SKILL.md does not exist yet"
     return
   fi
-  if grep -q 'CLAUDE SELF-AUDIT INSTRUCTIONS' "$skill_body" && \
+  if grep -q 'HOST-AGENT SELF-AUDIT INSTRUCTIONS' "$skill_body" && \
      ! grep -q 'bash -c.*CLAUDE_AUDIT_TMP' "$skill_body"; then
     assert_pass "audit instructions present in markdown, not bash-orchestrated"
   else
@@ -84,6 +84,20 @@ test_bug_5_codex_status_in_output() {
     assert_pass "codex status messages in skill body"
   else
     assert_fail "skill body does not surface codex availability"
+  fi
+}
+
+# --- BUG #9: Codex host must use Claude Code as optional fresh-frame adversary ---
+test_bug_9_codex_host_claude_adversary() {
+  echo "BUG #9 — Codex host flips close-depth adversary to Claude Code"
+  local skill_body="$PLUGIN_DIR/skills/critiquing-spec/SKILL.md"
+  [[ -f "$skill_body" ]] || { assert_fail "skill body missing"; return; }
+  if grep -q 'HOST_AGENT' "$skill_body" && \
+     grep -q 'claude_available' "$skill_body" && \
+     grep -q 'Claude Code detected' "$skill_body"; then
+    assert_pass "Codex-host Claude-adversary path documented"
+  else
+    assert_fail "Codex-host Claude-adversary path missing"
   fi
 }
 
@@ -133,6 +147,7 @@ test_bug_5_codex_status_in_output
 test_bug_6_cost_field_removed
 test_bug_7_readme_standalone
 test_bug_8_project_class_doc
+test_bug_9_codex_host_claude_adversary
 
 echo ""
 echo "Results: $TESTS_PASSED passed, $TESTS_FAILED failed"

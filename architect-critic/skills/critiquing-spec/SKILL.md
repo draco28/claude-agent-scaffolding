@@ -1,6 +1,6 @@
 ---
 name: critiquing-spec
-description: Adversarial audit of a written spec or plan. Triggers on phrases like "audit this spec", "critique X", "adversarial review", "challenge the spec", "deep audit", "fresh-frame review". Runs claude-self-audit in conversation; optionally invokes codex fresh-frame at close-depth (--close flag or NL trigger). Produces challenges/gaps/alternatives, runs sequential rebuttal cycle with 1-5 concession scoring, appends run to state.json, checks auto-promotion candidates.
+description: "Adversarial audit of a written spec or plan. Triggers on phrases like \"audit this spec\", \"critique X\", \"adversarial review\", \"challenge the spec\", \"deep audit\", \"fresh-frame review\". Runs host-agent self-audit in conversation; optionally invokes the other agent as a fresh-frame adversary at close-depth (--close flag or NL trigger): Codex when hosted in Claude Code, Claude Code when hosted in Codex. Produces challenges/gaps/alternatives, runs sequential rebuttal cycle with 1-5 concession scoring, appends run to state.json, checks auto-promotion candidates."
 ---
 
 # critiquing-spec
@@ -89,11 +89,15 @@ Skip CORE and your challenges get dismissed defensively even when they're correc
 
 ---
 
-## Step 3: Detect codex availability and close-depth
+## Step 3: Detect host agent, adversary availability, and close-depth
 
-You need two booleans: `codex_available` and `close_depth`.
+You need four values: `HOST_AGENT`, `codex_available`, `claude_available`, and `close_depth`.
+
+**HOST_AGENT detection:** If this skill is being read by Codex (for example, Codex plugin context, `CODEX_HOME` is present, or the active tool/runtime is Codex), set `HOST_AGENT=codex`. Otherwise set `HOST_AGENT=claude`. Do not ask the user; infer it from the running agent context.
 
 **Codex availability:** Run `command -v codex` in a Bash tool call. Capture the return code. If the binary resolves, also capture `codex --version` for the status message in Step 4.
+
+**Claude availability:** Run `command -v claude` in a Bash tool call. Capture the return code. If the binary resolves, also capture `claude --version` for the status message in Step 4.
 
 **Close-depth detection.** Set `close_depth = true` if ANY of:
 - `--close` slash flag present in `$ARCHITECT_CRITIC_ARGS`
@@ -102,26 +106,29 @@ You need two booleans: `codex_available` and `close_depth`.
 
 Otherwise `close_depth = false` (shallow = claude-only audit, the default).
 
-The two booleans cross-product into four states:
+The close-depth adversary is host-aware:
 
-| codex_available | close_depth | What runs                                       |
-|-----------------|-------------|-------------------------------------------------|
-| true            | true        | claude-self-audit + codex fresh-frame           |
-| true            | false       | claude-self-audit only (codex skipped)          |
-| false           | true        | claude-self-audit only (codex unavailable)      |
-| false           | false       | claude-self-audit only                          |
+| HOST_AGENT | close_depth | available check | What runs |
+|------------|-------------|-----------------|-----------|
+| claude     | true        | codex_available | claude-self-audit + codex fresh-frame |
+| claude     | false       | codex_available | claude-self-audit only |
+| codex      | true        | claude_available | codex-self-audit + claude fresh-frame |
+| codex      | false       | claude_available | codex-self-audit only |
 
 ---
 
-## Step 4: Surface codex status to the user BEFORE the audit runs
+## Step 4: Surface adversary status to the user BEFORE the audit runs
 
-This is the bug #5 fix. Users in v0.1 had no idea whether codex was being consulted. Tell them, in plain prose, before any audit work starts.
+This is the bug #5 fix. Users in v0.1 had no idea whether an external adversary was being consulted. Tell them, in plain prose, before any audit work starts.
 
 Pick the matching message and emit it as a normal turn message (not a tool call output):
 
-- **codex_available && close_depth →** *"Codex 0.125 detected; will run fresh-frame audit (~60s)"* (substitute the real version string from `codex --version`).
-- **!codex_available →** *"Codex not detected; running claude-self-audit only. Install codex CLI for adversarial fresh-frame."*
-- **codex_available && !close_depth →** *"Codex available but depth=shallow; running claude-self-audit only. Use --close for fresh-frame."*
+- **HOST_AGENT=claude && codex_available && close_depth →** *"Codex 0.125 detected; will run fresh-frame audit (~60s)"* (substitute the real version string from `codex --version`).
+- **HOST_AGENT=claude && !codex_available →** *"Codex not detected; running claude-self-audit only. Install codex CLI for adversarial fresh-frame."*
+- **HOST_AGENT=claude && codex_available && !close_depth →** *"Codex available but depth=shallow; running claude-self-audit only. Use --close for fresh-frame."*
+- **HOST_AGENT=codex && claude_available && close_depth →** *"Claude Code detected; will run fresh-frame audit (~60s)"* (substitute the real version string from `claude --version`).
+- **HOST_AGENT=codex && !claude_available →** *"Claude Code not detected; running codex-self-audit only. Install Claude Code CLI for adversarial fresh-frame."*
+- **HOST_AGENT=codex && claude_available && !close_depth →** *"Claude Code available but depth=shallow; running codex-self-audit only. Use --close for fresh-frame."*
 
 Do not phrase this as a tool-progress message ("Running detection..."). Phrase it as a status declaration the user can act on — they may want to abort and re-run with `--close`, or stop to install codex first.
 
@@ -129,11 +136,11 @@ Do not skip this. It is a structural part of the skill, not a courtesy.
 
 ---
 
-## Step 5: Run claude-self-audit IN CONVERSATION
+## Step 5: Run host-agent self-audit IN CONVERSATION
 
-## CLAUDE SELF-AUDIT INSTRUCTIONS
+## HOST-AGENT SELF-AUDIT INSTRUCTIONS
 
-Now, as Claude, perform the audit yourself in this conversation. Read the artifact end-to-end. Apply the **Ghost Notes principle** (look for what is absent: unstated assumptions, unspecified failure modes, implied-but-unacknowledged dependencies) and use the **CORE protocol** tone (Curiosity → Objectivity → Reassurance → Empathy) for every challenge you raise. Produce output as a JSON-shaped structure inline in your turn:
+Now, as the current host agent (Claude when running under Claude Code, Codex when running under Codex), perform the audit yourself in this conversation. Read the artifact end-to-end. Apply the **Ghost Notes principle** (look for what is absent: unstated assumptions, unspecified failure modes, implied-but-unacknowledged dependencies) and use the **CORE protocol** tone (Curiosity → Objectivity → Reassurance → Empathy) for every challenge you raise. Produce output as a JSON-shaped structure inline in your turn:
 
 ```json
 {
@@ -177,13 +184,13 @@ Hold the JSON structure in working context for Step 7.
 
 ---
 
-## Step 6: If close-depth + codex installed, invoke codex fresh-frame
+## Step 6: If close-depth + external adversary installed, invoke fresh-frame
 
-Skip this step if codex is unavailable or `close_depth = false`.
+Skip this step if `close_depth = false` or the external adversary for `HOST_AGENT` is unavailable.
 
-Codex is a separate model talking to a separate session — it has no knowledge of this conversation, the user, or the principles you applied. That fresh-frame view is exactly the value: it catches what Claude-self-audit cannot see because Claude has already absorbed the spec's framing.
+The external adversary is a separate model talking to a separate session — it has no knowledge of this conversation, the user, or the principles you applied. That fresh-frame view is exactly the value: it catches what the host-agent self-audit cannot see because the host agent has already absorbed the spec's framing.
 
-**Display a progress message first** (so the user knows ~60s of latency is incoming):
+**If HOST_AGENT=claude, invoke Codex.** Display a progress message first (so the user knows ~60s of latency is incoming):
 
 > *"Invoking codex for adversarial fresh-frame audit. This typically takes 30–90 seconds."*
 
@@ -210,11 +217,28 @@ The implementation lives at `lib/codex.sh:ac_codex_run_audit` — you can call t
 arc codex_run_audit "$ADVERSARIAL_PROMPT" "$TMP" ${MODEL_OVERRIDE:+--model "$MODEL_OVERRIDE"}
 ```
 
+**If HOST_AGENT=codex, invoke Claude Code.** Display a progress message first:
+
+> *"Invoking Claude Code for adversarial fresh-frame audit. This typically takes 30–90 seconds."*
+
+Then invoke Claude Code via the shell with this pattern, using the same `ADVERSARIAL_PROMPT` and `templates/output-schema.json` schema:
+
+```bash
+claude --print \
+  --output-format json \
+  --json-schema "$(cat "${PLUGIN_DIR}/templates/output-schema.json")" \
+  --permission-mode dontAsk \
+  --no-session-persistence \
+  "$ADVERSARIAL_PROMPT"
+```
+
+Capture the JSON response, validate that it has the same `{"challenges":[...]}` shape as Step 5, and hold it in working context as the external adversary result. If Claude exits non-zero or emits invalid JSON, surface a warning and continue with host-agent-only results.
+
 **Timeout handling.** If the helper returns a timeout indicator, surface it as a normal turn message:
 
-> *"Codex audit timed out after 5 minutes. Continuing with partial result (claude-self-audit only). Consider re-running with `ARCHITECT_CRITIC_CODEX_TIMEOUT_S=600` for a longer budget."*
+> *"External adversary audit timed out after 5 minutes. Continuing with partial result (host-agent self-audit only). Consider re-running with a longer timeout budget."*
 
-Read the resulting JSON from `${TMP}/codex-audit-${REQ_ID}.json` and hold it in working context alongside the claude-self-audit JSON for Step 7.
+Hold the external adversary JSON in working context alongside the host-agent self-audit JSON for Step 7.
 
 ---
 

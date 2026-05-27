@@ -1,0 +1,56 @@
+{
+  "name": "claude-agent-scaffolding-codex",
+  "interface": {
+    "displayName": "Claude Agent Scaffolding for Codex"
+  },
+  "plugins": [
+    {
+      "name": "workspace-init",
+      "source": {
+        "source": "local",
+        "path": "./workspace-init"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Coding"
+    },
+    {
+      "name": "ai-mentor",
+      "source": {
+        "source": "local",
+        "path": "./ai-mentor"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "architect-critic",
+      "source": {
+        "source": "local",
+        "path": "./architect-critic"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Coding"
+    },
+    {
+      "name": "claude-security-audit",
+      "source": {
+        "source": "local",
+        "path": "./claude-security-audit"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Security"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 # claude-agent-scaffolding
 
-Personal Claude Code plugin marketplace.
+Personal Claude Code and Codex plugin marketplace.
 
 ## Plugins
 
@@ -18,6 +18,8 @@ The seven plugins are designed to **compose without overlap**, ordered by where 
 
 ## Install
 
+### Claude Code
+
 ```
 /plugin marketplace add github:draco28/claude-agent-scaffolding
 /plugin install workspace-init@claude-agent-scaffolding
@@ -27,6 +29,24 @@ The seven plugins are designed to **compose without overlap**, ordered by where 
 /plugin install scaffold@claude-agent-scaffolding
 /plugin install architect-critic@claude-agent-scaffolding
 /plugin install claude-security-audit@claude-agent-scaffolding
+```
+
+### Codex v0
+
+Codex support is dual-published from the same repo through
+`.agents/plugins/marketplace.json`. The v0 Codex marketplace intentionally
+exposes only:
+
+- `workspace-init`
+- `ai-mentor`
+- `architect-critic`
+- `claude-security-audit`
+
+Deferred for a later Codex port: `scaffold-onboard` and `scaffold-dev`.
+Deprecated and not ported: `scaffold`.
+
+```
+codex plugin marketplace add github:draco28/claude-agent-scaffolding
 ```
 
 For local development:
@@ -40,6 +60,12 @@ For local development:
 /plugin install scaffold@claude-agent-scaffolding
 /plugin install architect-critic@claude-agent-scaffolding
 /plugin install claude-security-audit@claude-agent-scaffolding
+```
+
+For local Codex development:
+
+```
+codex plugin marketplace add /home/pras/personal/claude-agent-scaffolding
 ```
 
 ## Quick start with `scaffold`
@@ -87,7 +113,8 @@ Don't run `/grill-me` and `/council` in the same session — different interacti
 
 ```
 .
-├── .claude-plugin/marketplace.json    # marketplace manifest
+├── .claude-plugin/marketplace.json    # Claude Code marketplace manifest
+├── .agents/plugins/marketplace.json   # Codex v0 marketplace manifest
 ├── ai-mentor/                         # ai-mentor plugin (v2.0.0)
 ├── scaffold-onboard/                  # scaffold-onboard plugin (v0.2.0)
 ├── scaffold/                          # scaffold plugin (v1.0.0)

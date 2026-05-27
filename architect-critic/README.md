@@ -1,6 +1,6 @@
 # architect-critic
 
-Anti-sycophancy reviewer plugin for Claude Code (v0.2 — skill-first). Four gerund-named skills auto-invoke on natural-language triggers: `critiquing-spec` runs a claude-self-audit followed by sequential adversarial rebuttal with T=4 concession scoring, `reviewing-critique-history` surfaces recent run summaries, `listing-principles` renders the merged principle set, and `promoting-principle` adds a principle manually. Ships two shipped-default principles — ghost notes (Wald survivor-bias: look for what is *absent*) and CORE protocol (Curiosity / Objectivity / Reassurance / Empathy rebuttal tone) — that are prepended to your `principles.md` on first run. Full auto-promotion machinery: vote-recurrence threshold T=4, supplementary instinct-style N=3 consecutive signal, 30/90-day suppression windows. Codex CLI 0.125+ dispatched as an adversarial fresh-frame second auditor at `--close` depth. Standalone-invocable; consumer plugins (`scaffold-onboard v0.2+`, `scaffold-dev v0.1+`) invoke `critiquing-spec` in-conversation with no file IPC.
+Anti-sycophancy reviewer plugin for Claude Code and Codex (v0.2 — skill-first). Four gerund-named skills auto-invoke on natural-language triggers: `critiquing-spec` runs a host-agent self-audit followed by sequential adversarial rebuttal with T=4 concession scoring, `reviewing-critique-history` surfaces recent run summaries, `listing-principles` renders the merged principle set, and `promoting-principle` adds a principle manually. Ships two shipped-default principles — ghost notes (Wald survivor-bias: look for what is *absent*) and CORE protocol (Curiosity / Objectivity / Reassurance / Empathy rebuttal tone) — that are prepended to your `principles.md` on first run. Full auto-promotion machinery: vote-recurrence threshold T=4, supplementary instinct-style N=3 consecutive signal, 30/90-day suppression windows. At `--close` depth, the plugin dispatches the other agent as the adversarial fresh-frame reviewer: Codex when hosted in Claude Code, Claude Code when hosted in Codex. Standalone-invocable; consumer plugins (`scaffold-onboard v0.2+`, `scaffold-dev v0.1+`) invoke `critiquing-spec` in-conversation with no file IPC.
 
 ## Install
 
@@ -21,6 +21,10 @@ Close audit (claude-self-audit + Codex 0.125+ fresh-frame adversary):
 ```
 /critique --close
 ```
+
+When installed in Codex, close-depth audits invert the adversary: Codex runs the
+host-agent audit and invokes Claude Code CLI for the fresh-frame pass when
+`claude` is installed.
 
 Audit a specific spec file:
 

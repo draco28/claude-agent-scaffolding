@@ -111,6 +111,23 @@ test_enum_gitignored_target_still_scanned() {
   assert_contains "$stdout" "secret.json" || return 1
 }
 
+# 9. Codex-only project surfaces are enumerated for dual-publish v0.
+test_enum_codex_project_targets() {
+  local fixture; fixture="$(mktemp -d "${TMPDIR:-/tmp}/csa-codex.XXXXXX")"
+  trap "rm -rf '$fixture'" EXIT
+  mkdir -p "$fixture/.codex" "$fixture/.agents/plugins" "$fixture/tool/.codex-plugin"
+  echo '# Agent rules' > "$fixture/AGENTS.md"
+  echo '{}' > "$fixture/.codex/config.json"
+  echo '{"plugins":[]}' > "$fixture/.agents/plugins/marketplace.json"
+  echo '{"name":"tool"}' > "$fixture/tool/.codex-plugin/plugin.json"
+
+  local stdout; stdout="$(HOME=/nonexistent csa_enum_project_targets "$fixture" 2>/dev/null)"
+  assert_contains "$stdout" "AGENTS.md" || return 1
+  assert_contains "$stdout" ".codex/config.json" || return 1
+  assert_contains "$stdout" ".agents/plugins/marketplace.json" || return 1
+  assert_contains "$stdout" ".codex-plugin/plugin.json" || return 1
+}
+
 csa_test_run test_enum_no_dot_claude_returns_empty       || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_project_only                       || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_project_plus_one_plugin            || _csa_failed=$((_csa_failed + 1))
@@ -119,5 +136,6 @@ csa_test_run test_enum_malformed_settings_degrades_to_empty || _csa_failed=$((_c
 csa_test_run test_enum_missing_cache_returns_provenance   || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_symlink_in_target_dir              || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_gitignored_target_still_scanned    || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_enum_codex_project_targets              || _csa_failed=$((_csa_failed + 1))
 
 [[ "$_csa_failed" -eq 0 ]] || exit 1

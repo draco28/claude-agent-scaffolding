@@ -1,0 +1,27 @@
+{
+  "name": "architect-critic",
+  "version": "0.2.1",
+  "description": "Anti-sycophancy reviewer for specs and plans, with optional cross-agent fresh-frame critique.",
+  "author": {
+    "name": "Pras"
+  },
+  "repository": "https://github.com/draco28/claude-agent-scaffolding",
+  "license": "MIT",
+  "keywords": ["critique", "architecture", "review", "planning"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Architect Critic",
+    "shortDescription": "Adversarial review for specs, plans, and design choices.",
+    "longDescription": "Architect Critic audits written specs and plans, surfaces challenges, runs a rebuttal cycle, records critique history, and can use a second agent as a fresh-frame adversary at close depth.",
+    "developerName": "Pras",
+    "category": "Coding",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": [
+      "Critique this spec at close depth.",
+      "List the critique principles for this project.",
+      "Review recent critique history."
+    ],
+    "websiteURL": "https://github.com/draco28/claude-agent-scaffolding/tree/main/architect-critic",
+    "brandColor": "#7C3AED"
+  }
+}

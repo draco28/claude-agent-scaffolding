@@ -1,17 +1,17 @@
 # claude-security-audit
 
-Static-analysis security audit for Claude Code project configurations and enabled plugins.
+Static-analysis security audit for Claude Code and Codex project configurations and enabled plugins.
 
 > **Inspired by AgentShield in [Everything Claude Code](https://github.com/affaan-m/everything-claude-code)** (Mustafa, 2026; MIT). This implementation is an independent, focused MIT-licensed audit tool tailored to composable plugin marketplaces.
 
 ## What it catches (v0.1)
 
-- **Plaintext secrets** in CLAUDE.md and `.claude/` files (API keys, JWTs, GitHub PATs, AWS keys, env-var-shaped leaks)
+- **Plaintext secrets** in `CLAUDE.md`, `AGENTS.md`, `.claude/`, and `.codex/` files (API keys, JWTs, GitHub PATs, AWS keys, env-var-shaped leaks)
 - **Permission misconfigurations** including the high-impact **schema-validation** check that catches typo'd field names like `"allowed"` instead of `"allow"` (which Claude Code silently ignores → user has no enforcement)
 - **Hook injection** patterns (curl|bash, rm -rf, unbounded eval, plaintext network exfiltration)
 - **MCP server misconfiguration** (untrusted endpoints, missing auth, env-var leaks)
 - **Prompt injection** in agent definitions and slash commands (common patterns)
-- **Marketplace integrity** (non-HTTPS URLs, malformed marketplace.json)
+- **Marketplace integrity** (non-HTTPS URLs, malformed marketplace.json, Claude `.claude-plugin/` manifests, Codex `.agents/plugins/` and `.codex-plugin/` manifests)
 - **`settings.local.json` silent broadening** (gitignored file overrides committed settings)
 
 ## What it does NOT catch (v0.1)
@@ -29,10 +29,16 @@ Realistic v0.1 value:
 
 ## Install
 
-Via marketplace:
+Via Claude Code marketplace:
 
 ```
 /plugin install claude-security-audit
+```
+
+Via Codex marketplace:
+
+```
+codex plugin marketplace add github:draco28/claude-agent-scaffolding
 ```
 
 ## Usage
@@ -67,7 +73,8 @@ Why opt-in: the plugin's threat model flags plugin-installed SessionStart hooks 
 
 ## What gets written to disk
 
-The plugin writes to `<project>/.claude/audits/`:
+The plugin writes audit state to `<project>/.claude/audits/` for compatibility
+with the existing report/state format, even when scanning Codex surfaces:
 - `state.json` — durable finding registry + audit history + tamper-detection mtimes
 - `<date>-<NN>.md` — per-run report with stable finding IDs
 - `suppressions.json` — your dismissed findings (gitignored per-developer)

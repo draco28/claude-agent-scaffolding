@@ -1,11 +1,11 @@
 ---
 name: auditing-claude-configs
-description: Static-analysis security audit for Claude Code project configurations and enabled plugins. Detects secrets, permission issues, hook injection, MCP misconfiguration, settings-schema typos, prompt-injection in agents/commands, marketplace integrity issues. Activate on "audit my claude config", "security scan my .claude", "check for security issues in my claude project", "scan for leaked credentials", "review my permissions", "audit settings.json", "apply fix SA-...", "/security-audit", "/secrets-scan", "/permissions-review", "/apply-fix". Inspired by AgentShield in Everything Claude Code (Mustafa, 2026; MIT) — independent MIT implementation tailored to composable plugin marketplaces.
+description: Static-analysis security audit for Claude Code and Codex project configurations and enabled plugins. Detects secrets, permission issues, hook injection, MCP misconfiguration, settings-schema typos, prompt-injection in agents/commands, marketplace integrity issues. Activate on "audit my claude config", "audit my codex config", "security scan my .claude", "security scan my .codex", "scan for leaked credentials", "review my permissions", "audit settings.json", "apply fix SA-...", "/security-audit", "/secrets-scan", "/permissions-review", "/apply-fix". Inspired by AgentShield in Everything Claude Code (Mustafa, 2026; MIT) — independent MIT implementation tailored to composable plugin marketplaces.
 ---
 
 # auditing-claude-configs
 
-Orchestrates the static-analysis security audit. Detection lives in `lib/rules/<aspect>/*.sh`; this skill body handles flow control, presentation, and the `/apply-fix` path.
+Orchestrates the static-analysis security audit for Claude Code and Codex projects. Detection lives in `lib/rules/<aspect>/*.sh`; this skill body handles flow control, presentation, and the `/apply-fix` path.
 
 **Lib invocation contract:** call every lib function via the `csa` dispatcher (`claude-security-audit/bin/csa`, on `$PATH` because Claude Code adds each plugin's `bin/` automatically). The dispatcher's bash shebang forces a bash runtime for the libs even when the Bash tool subprocess is zsh (the macOS default). Form: `csa <fn-suffix> [args...]` resolves to `csa_<fn-suffix>`. Never `source` lib files directly from skill body — under zsh `${BASH_SOURCE[0]}` is unset and `${BASH_REMATCH[…]}` returns empty silently; the libs crash or silently corrupt state. Always go through `csa`. Use `csa --list` for discovery.
 
@@ -17,7 +17,7 @@ v0.1 catches **common, unobfuscated patterns**. A determined adversary who obfus
 
 1. Parse `$ARGUMENTS` for flags: `--focus <aspect>`, `--verbose`, `--show-suppressed`.
 2. **First-run gitignore bootstrap** (only if `.claude/audits/state.json` does not yet exist): `csa state_bootstrap_gitignore` to add `.claude/audits/` to `.gitignore` (idempotent; covers nested git repos, missing gitignore, unwritable files — see references/auto-fix-policy.md).
-3. Resolve scan targets: `csa enum_targets_all` (project `.claude/` + enabled plugins per the algorithm in references/threat-model.md §enumerate).
+3. Resolve scan targets: `csa enum_targets_all` (project `.claude/`, `CLAUDE.md`, `.claude-plugin/marketplace.json`, Codex surfaces such as `.codex/`, `AGENTS.md`, `.agents/plugins/marketplace.json`, `.codex-plugin/plugin.json`, readable `~/.codex/config.toml`, plus enabled Claude plugins per the algorithm in references/threat-model.md §enumerate).
 4. Run rule engine: `csa rule_engine_scan_all <targets>` iterates targets × applicable rules; each rule emits findings as JSONL.
 5. Compute durable `finding_uid` (no line number) + per-run `dedup_fingerprint`: `csa finding_uid <...>` / `csa dedup_fingerprint <...>` (per finding).
 6. Tag findings NEW vs PERSISTED via `csa baseline_tag <findings>` against state.json's `findings` registry.
@@ -52,7 +52,7 @@ Calls `csa suppress_add "<finding-id>"`. Refuses Critical-severity findings. Ref
 
 ## When the user asks naturally (no slash command)
 
-Match phrasings like "scan my .claude for security issues", "check for leaked credentials", "review my settings.json" — invoke this skill in the appropriate mode based on intent.
+Match phrasings like "scan my .claude for security issues", "scan my .codex for security issues", "audit my Codex config", "check for leaked credentials", "review my settings.json" — invoke this skill in the appropriate mode based on intent.
 
 ## References
 

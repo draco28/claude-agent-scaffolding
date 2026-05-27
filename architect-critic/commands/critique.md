@@ -1,6 +1,6 @@
 ---
 description: Run an architect-critic audit on a spec or plan
-argument-hint: [path] [--close] [--model NAME] [--principles PATH] [--scope project|user]
+argument-hint: "[path] [--close] [--model NAME] [--principles PATH] [--scope project|user]"
 ---
 
 # /critique
