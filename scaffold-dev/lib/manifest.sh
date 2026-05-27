@@ -65,6 +65,10 @@ _sd_manifest_locate_mi() {
   for cand in "$glob_pat"/*/workspace-init/*/lib/manifest.sh; do
     [[ -f "$cand" ]] && { echo "$cand"; return 0; }
   done
+  glob_pat="${CODEX_HOME:-$HOME/.codex}/plugins/cache"
+  for cand in "$glob_pat"/*/workspace-init/*/lib/manifest.sh; do
+    [[ -f "$cand" ]] && { echo "$cand"; return 0; }
+  done
   # Also try the in-repo sibling path (development / monorepo usage).
   local sibling
   sibling="$(cd "$_SD_LIB_DIR/../../workspace-init/lib/manifest.sh" 2>/dev/null && pwd)"
@@ -96,7 +100,7 @@ _sd_manifest_resolve_local() {
   [[ -n "$aw_root" ]] && result="${result//\$\{ai_workspace.root\}/$aw_root}"
   [[ -n "$cn_root" ]] && result="${result//\$\{canonical.root\}/$cn_root}"
 
-  # ${PLUGIN_DATA:<name>} — resolve to ~/.claude/plugins/data/<name>(-suffix)?
+  # ${PLUGIN_DATA:<name>} — resolve to ~/.claude or ~/.codex plugin data.
   local guard=0
   while [[ "$result" =~ \$\{PLUGIN_DATA:([a-zA-Z0-9_-]+)\} ]]; do
     local plugin="${BASH_REMATCH[1]}"
@@ -110,6 +114,17 @@ _sd_manifest_resolve_local() {
           break
         fi
       done
+    fi
+    if [[ "$data_dir" == "${HOME}/.claude/plugins/data/${plugin}" && -d "${CODEX_HOME:-$HOME/.codex}/plugins/data" ]]; then
+      for cand in "${CODEX_HOME:-$HOME/.codex}/plugins/data/${plugin}"-*; do
+        if [[ -d "$cand" ]]; then
+          data_dir="$cand"
+          break
+        fi
+      done
+      if [[ "$data_dir" == "${HOME}/.claude/plugins/data/${plugin}" && -d "${CODEX_HOME:-$HOME/.codex}/plugins/data/${plugin}" ]]; then
+        data_dir="${CODEX_HOME:-$HOME/.codex}/plugins/data/${plugin}"
+      fi
     fi
     result="${result//\$\{PLUGIN_DATA:${plugin}\}/$data_dir}"
     guard=$((guard + 1))

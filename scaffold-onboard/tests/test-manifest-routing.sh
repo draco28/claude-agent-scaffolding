@@ -273,15 +273,21 @@ test_sourced_mi_resolver_takes_precedence() {
   local mock_marker="$TMP_DIR/mock-was-sourced.marker"
   # Mock writes a filesystem marker when sourced (env vars set in
   # command-substitution subshells don't propagate to parent — use file).
-  cat > "$mock_dir/manifest.sh" <<MOCK
-touch "${mock_marker}"
+  printf 'touch "%s"\n' "$mock_marker" > "$mock_dir/manifest.sh"
+  cat >> "$mock_dir/manifest.sh" <<'MOCK'
 mi_manifest_resolve() {
-  local manifest="\$1"
-  local var_ref="\$2"  # e.g., "ai_workspace.root"
-  local section field
-  section="\${var_ref%%.*}"
-  field="\${var_ref#*.}"
-  jq -r ".\${section}.\${field}" "\$manifest"
+  local ai_root="$1"
+  local input="$2"
+  local manifest="$ai_root/.workspace/pairing.json"
+  local result="$input"
+  local aw cn
+  aw="$(jq -r '.ai_workspace.root' "$manifest")"
+  cn="$(jq -r '.canonical.root' "$manifest")"
+  local aw_ref='${ai_workspace.root}'
+  local cn_ref='${canonical.root}'
+  result="${result//$aw_ref/$aw}"
+  result="${result//$cn_ref/$cn}"
+  echo "$result"
 }
 MOCK
   export SF_ROUTING_MI_RESOLVER_PATHS="$mock_dir/manifest.sh"
@@ -310,7 +316,10 @@ test_home_expansion_in_manifest_values() {
   TMP_DIR="$(mktemp -d -t scaffold-onboard-routing-home.XXXXXX)"
   export CLAUDE_PLUGIN_DATA="$TMP_DIR/plugin-data"
   mkdir -p "$CLAUDE_PLUGIN_DATA"
-  # Use a subdir of HOME that we'll create + clean up.
+  # Use a temporary HOME so sandboxed test runs do not write to the real home.
+  local original_home="$HOME"
+  export HOME="$TMP_DIR/home"
+  mkdir -p "$HOME"
   local rel_subdir=".scaffold-onboard-routing-test.XXX"
   local home_subdir; home_subdir="$(mktemp -d "$HOME/${rel_subdir}")"
   TMP_AI_WORKSPACE="$home_subdir"
@@ -339,6 +348,7 @@ EOF
     "${home_subdir}/MASTER-SPEC.md" "$got"
   # Cleanup the home subdir we created.
   rm -rf "$home_subdir"
+  export HOME="$original_home"
   unset SF_ROUTING_MI_RESOLVER_PATHS
   unset -f mi_manifest_resolve 2>/dev/null || true
   _SF_ROUTING_RESOLVER_SOURCED=""

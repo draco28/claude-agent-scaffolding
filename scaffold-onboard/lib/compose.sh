@@ -13,9 +13,11 @@ sf_compose_probe_paths() {
   if [[ -n "${SF_COMPOSE_PROBE_PATHS:-}" ]]; then
     echo "$SF_COMPOSE_PROBE_PATHS" | tr ":" "\n"
   else
-    # Default: standard Claude Code plugin dirs
+    # Default: standard Claude Code and Codex plugin dirs
     echo "$HOME/.claude/plugins/data"
     echo "$HOME/.claude/plugins/cache"
+    echo "${CODEX_HOME:-$HOME/.codex}/plugins/data"
+    echo "${CODEX_HOME:-$HOME/.codex}/plugins/cache"
   fi
 }
 
@@ -64,7 +66,9 @@ sf_compose_detect_architect_critic() {
   else
     cache_dirs=(
       "${HOME}/.claude/plugins/cache"
+      "${CODEX_HOME:-$HOME/.codex}/plugins/cache"
       "${CLAUDE_PLUGINS_DIR:-}"
+      "${CODEX_PLUGINS_DIR:-}"
     )
   fi
   local cache skill_md

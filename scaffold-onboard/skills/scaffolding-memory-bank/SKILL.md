@@ -1,6 +1,6 @@
 ---
 name: scaffolding-memory-bank
-description: Deterministically derive the 11-file memory bank + CLAUDE.md + .claude/settings.json from MASTER-SPEC.md. Use this when the user wants to scaffold the memory bank, derive memory bank artifacts, set up project memory, run /scaffold-project, or regenerate the project's tiered-context router after MASTER-SPEC changes. Seeds the R2 Machine-checkable rules section as empty (heading + invitation only — rule authoring is a separate skill), routes outputs via the workspace-init manifest when present, and conditionally emits the Karpathy Behavioral Discipline section in CLAUDE.md based on the Phase 10 opt-in answer.
+description: Deterministically derive the 11-file memory bank + CLAUDE.md + AGENTS.md managed Codex section + .claude/settings.json from MASTER-SPEC.md. Use this when the user wants to scaffold the memory bank, derive memory bank artifacts, set up project memory, run /scaffold-project, or regenerate the project's tiered-context router after MASTER-SPEC changes. Seeds the R2 Machine-checkable rules section as empty (heading + invitation only — rule authoring is a separate skill), routes outputs via the workspace-init manifest when present, preserves user-authored AGENTS.md content outside the scaffold-managed marker block, and conditionally emits the Karpathy Behavioral Discipline section in CLAUDE.md based on the Phase 10 opt-in answer.
 ---
 
 # scaffolding-memory-bank
@@ -13,7 +13,7 @@ Bash helpers in `lib/memory-bank.sh`, `lib/routing.sh`, `lib/compose.sh`, and `l
 
 ## 1. Overview
 
-When invoked, you read `MASTER-SPEC.md`, validate it with `sf_spec_validate`, and derive the 11-file memory bank under `.claude/memory-bank/` at the destination resolved by `sf_resolve_output_path memory_bank ...`. Eight files come from MASTER-SPEC (00–04, 07, 08, `index.md`). Two are live-seed (`05-active-context.md`, `06-progress.md`) — emitted only when missing, preserved on re-derive. One is static (`WORKFLOW.md`, copy-once). You then emit `CLAUDE.md` (with optional Karpathy section) and `.claude/settings.json`, each routed via its own logical name. Inside `03-code-patterns.md` you seed an empty `## Machine-checkable rules` section — heading plus invitation comment, zero rule blocks.
+When invoked, you read `MASTER-SPEC.md`, validate it with `sf_spec_validate`, and derive the 11-file memory bank under `.claude/memory-bank/` at the destination resolved by `sf_resolve_output_path memory_bank ...`. Eight files come from MASTER-SPEC (00–04, 07, 08, `index.md`). Two are live-seed (`05-active-context.md`, `06-progress.md`) — emitted only when missing, preserved on re-derive. One is static (`WORKFLOW.md`, copy-once). You then emit `CLAUDE.md` (with optional Karpathy section), section-merge the scaffold-managed Codex block into `AGENTS.md`, and emit `.claude/settings.json`, each routed via its own logical name. Inside `03-code-patterns.md` you seed an empty `## Machine-checkable rules` section — heading plus invitation comment, zero rule blocks.
 
 ---
 
@@ -187,7 +187,7 @@ Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly. If `$ARGUMENTS
 
 This skill never bash-orchestrates the judgment work (whether to overwrite live-seed, whether to suggest a composition companion, how to phrase the destination prompt). It calls helpers for I/O and templating only.
 
-**Memory-bank derivation (lib/memory-bank.sh):** `sf_memory_bank_derive` (with optional `--force`), `sf_claude_md_generate`, `sf_claude_settings_generate`, `_memory_bank_args` (internal), `_composition_args` (internal).
+**Memory-bank derivation (lib/memory-bank.sh):** `sf_memory_bank_derive` (with optional `--force`), `sf_claude_md_generate`, `sf_agents_md_generate`, `sf_claude_settings_generate`, `_memory_bank_args` (internal), `_composition_args` (internal).
 
 **Rendering (lib/render.sh):** `sf_render` (generic template substitution — used by the derivation helpers; rarely called directly from this skill).
 

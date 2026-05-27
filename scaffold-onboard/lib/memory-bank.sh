@@ -4,6 +4,9 @@
 
 set -u
 source "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"
+if ! declare -F sf_agents_merge_managed_section >/dev/null 2>&1; then
+  source "$(dirname "${BASH_SOURCE[0]}")/agents.sh"
+fi
 
 # Render args used by every memory-bank file
 _memory_bank_args() {
@@ -154,4 +157,14 @@ sf_claude_settings_generate() {
   tmpl="$root/templates/settings/claude-settings.json.tmpl"
   mkdir -p .claude
   cp "$tmpl" .claude/settings.json
+}
+
+# Generate or refresh the scaffold-managed Codex section in AGENTS.md.
+# User-authored content outside the marker block is preserved.
+sf_agents_md_generate() {
+  local manifest_path=".workspace/pairing.json"
+  if declare -F sf_discover_manifest >/dev/null 2>&1; then
+    manifest_path="$(sf_discover_manifest 2>/dev/null || echo "$manifest_path")"
+  fi
+  sf_agents_merge_managed_section "AGENTS.md" "$manifest_path"
 }

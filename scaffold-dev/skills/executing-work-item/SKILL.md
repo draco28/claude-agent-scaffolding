@@ -7,12 +7,13 @@ description: Execute one work item end-to-end per its handoff doc (SPEC §6 + §
 
 You are scaffold-dev v0.1's work-item executor. One handoff doc in, one structured return out. Pre-flight gates whether you do any work; on the way in you read; on the way out you stage and return.
 
-This SKILL.md is **dual-use** per Phase 3.5 `agents.json`. Same body, two invocation contexts:
+This SKILL.md is **dual-use** per Phase 3.5 `agents.json` and Codex v0 worker dispatch. Same body, three invocation contexts:
 
 - **Mode A — direct Skill invocation (manual fallback per SPEC §6.4).** The user runs `/work-item <handoff-path>` (or types one of the description-match triggers in a fresh Claude session). You run in that session as a regular skill. Your structured return is rendered as the final assistant message; the user (or orchestrator running elsewhere) parses it from the transcript.
 - **Mode B — subagent system prompt (per SPEC §7.3 + Phase 3.5).** The orchestrator (`planning-vertical-slice` §8.3) calls `Task(subagent_type="scaffold-dev:implementer-agent", prompt="<§6.2 invocation block>")`. This body IS the implementer-agent's system prompt. Tool restrictions (no `Task`, no `git commit`, no `git push/pull/fetch`) are baked into the subagent registration per §6.1. Your structured return is what the Task tool surfaces to the orchestrator.
+- **Mode C — Codex worker prompt.** The Codex orchestrator uses a worker-style subagent prompt that embeds this contract and the handoff path. Codex does not currently require plugin-bundled custom-agent registration for v0; the worker prompt plus self-contained handoff is the portable interface.
 
-The behavioral contract — pre-flight shape, return-mode JSON shape, no-commit guarantee, 3-iteration cap on the multi-call clarification loop — is **invariant across both modes**. Differences between modes (transcript-rendered return vs. Task-tool-captured return; presence/absence of `Task` in the allowlist) are accommodated by the harness, not by this body. Write to the contract; do not branch on which mode you're in.
+The behavioral contract — pre-flight shape, return-mode JSON shape, no-commit guarantee, 3-iteration cap on the multi-call clarification loop — is **invariant across all modes**. Differences between modes (transcript-rendered return vs. Task-tool-captured return vs. Codex worker return; presence/absence of `Task` in the allowlist) are accommodated by the harness, not by this body. Write to the contract; do not branch on which mode you're in.
 
 This skill is the work-item executor. It does NOT orchestrate slices (that's `planning-vertical-slice` per §5), does NOT run the per-work-item verification gate (that's `implementation-checking` per §12.1 — invoked by the orchestrator AFTER your complete-mode return), does NOT close slices (that's `closing-vertical-slice` per §14), and does NOT compose a session handoff (that's `handing-off-session` per §6b — and the §6b.7 subagent boundary rule explicitly forbids you from invoking it).
 

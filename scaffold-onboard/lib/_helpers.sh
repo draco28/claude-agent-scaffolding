@@ -27,7 +27,8 @@ sf_plugin_root() {
 #      anthropics/claude-code#48230 where CLAUDE_PLUGIN_DATA isn't exported
 #      to Bash tool subprocesses.
 #   3. Workspace-init manifest's data path (future v0.2 hook; absent in v0.2.1).
-#   4. Last resort: $HOME/.claude/plugins/data/scaffold-onboard-local/ —
+#   4. Codex plugin cache layout, when installed through Codex.
+#   5. Last resort: $HOME/.claude/plugins/data/scaffold-onboard-local/ —
 #      DIFFERENT from the host-runtime path so a misconfigured environment
 #      doesn't silently masquerade as a real install.
 #
@@ -40,10 +41,14 @@ sf_data_dir() {
     echo "$CLAUDE_PLUGIN_DATA"
     return 0
   fi
+  if [[ -n "${CODEX_PLUGIN_DATA:-}" ]]; then
+    echo "$CODEX_PLUGIN_DATA"
+    return 0
+  fi
 
   # Derive from $PLUGIN_ROOT (exported by bin/sf dispatcher) or
   # $CLAUDE_PLUGIN_ROOT (host runtime — usually unset per #48230).
-  local root="${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}"
+  local root="${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-}}}"
   if [[ -n "$root" ]]; then
     # Expected cache layout: .../cache/<marketplace>/<plugin>/<version>
     # PLUGIN_ROOT in cache layout is the <version> dir. Walk up:
@@ -59,7 +64,11 @@ sf_data_dir() {
     # The root's basename should be a version-like string (digits and dots);
     # the great-great-grandparent should be `cache`. Fall through otherwise.
     if [[ "$cache_dir" == "cache" && "$plugin_dir" == "scaffold-onboard" ]]; then
-      echo "${HOME}/.claude/plugins/data/${plugin_dir}-${marketplace_dir}"
+      if [[ "$version_dir" == *"/.codex/plugins/cache/"* || "$version_dir" == *"/.codex/plugins/cache"* ]]; then
+        echo "${CODEX_HOME:-$HOME/.codex}/plugins/data/${plugin_dir}-${marketplace_dir}"
+      else
+        echo "${HOME}/.claude/plugins/data/${plugin_dir}-${marketplace_dir}"
+      fi
       return 0
     fi
   fi

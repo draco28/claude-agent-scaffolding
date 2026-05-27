@@ -1,6 +1,6 @@
 # scaffold-dev
 
-Sprint-driven orchestrator-implementer workflow plugin for dual-repo workspaces. Consumes the R1/R2/R3 contract emitted by `scaffold-onboard` (Phase → Sprint → Vertical Slice roadmap, machine-checkable rules, `auto:`/`user:` demo criteria) and drives slice-by-slice implementation via a custom `implementer-agent` subagent type dispatched through the Task tool.
+Sprint-driven orchestrator-implementer workflow plugin for dual-repo workspaces. Consumes the R1/R2/R3 contract emitted by `scaffold-onboard` (Phase → Sprint → Vertical Slice roadmap, machine-checkable rules, `auto:`/`user:` demo criteria) and drives slice-by-slice implementation via Claude Code's custom `implementer-agent` subagent or Codex worker-style handoff prompts.
 
 Replaces `scaffold` v1.0.0 (deprecated). Third in the chain: `workspace-init` → `scaffold-onboard` → **`scaffold-dev`**.
 
@@ -46,9 +46,9 @@ The 9 skills auto-invoke on natural-language triggers — slash commands are thi
 
 ## How it works
 
-The **orchestrator** (you, in the main session) drives slice planning and dispatches one **implementer subagent** per work item via the Task tool. The implementer is a custom subagent type (`scaffold-dev:implementer-agent`) declared in `.claude-plugin/agents.json` with its own tool allowlist (no nested `Task`) and a TDD-loop system prompt sourced from `skills/executing-work-item/SKILL.md`. The implementer pre-flight-checks the handoff for gaps, runs the TDD loop per acceptance criterion, verifies, authors `report.md`, stages changes (never commits), and returns structured JSON. The orchestrator harvests the report into the slice retrospective.
+The **orchestrator** (you, in the main session) drives slice planning and dispatches one **implementer** per work item. In Claude Code, the implementer is the custom subagent type `scaffold-dev:implementer-agent`. In Codex, v0 uses a worker-style prompt that embeds the same `executing-work-item` contract and the absolute `handoff.md` path. If automated worker dispatch is unavailable, the handoff is self-contained and can be pasted into a fresh Claude or Codex session. The implementer pre-flight-checks the handoff for gaps, runs the TDD loop per acceptance criterion, verifies, authors `report.md`, stages changes (never commits), and returns structured JSON.
 
-If a session boundary hits mid-slice, `/handoff` writes a resumable markdown to `.workspace/handoffs/` — the next session reads it via `handing-off-session` and picks up cleanly.
+If a session boundary hits mid-slice, `/handoff` writes a resumable markdown to `.workspace/handoffs/` — the next session reads it via `handing-off-session` and picks up cleanly. Volatile scaffold state uses lock/provenance helpers under `.workspace/locks` so Claude and Codex can switch without silently trampling active cursors.
 
 The **R2 machine-checkable rules** (from `.claude/memory-bank/03-code-patterns.md`) are enforced by `implementation-checking` at slice close. The **R3 demo criteria** (literal U+2192 arrow grammar from `ROADMAP.md`) gate slice acceptance via `closing-vertical-slice`.
 

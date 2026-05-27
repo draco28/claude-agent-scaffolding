@@ -23,6 +23,10 @@ if ! declare -F sd_manifest_get >/dev/null 2>&1; then
   # shellcheck disable=SC1091
   source "$_SD_LIB_DIR/manifest.sh"
 fi
+if ! declare -F sd_guard_lock_acquire >/dev/null 2>&1; then
+  # shellcheck disable=SC1091
+  source "$_SD_LIB_DIR/guard.sh"
+fi
 
 # Locate the active-context file. Memory-bank dir comes from manifest's
 # well_known_paths.memory_bank (resolved) when present, falling back to
@@ -89,6 +93,9 @@ sd_state_write_cursor() {
   fi
   mkdir -p "$(dirname "$path")"
 
+  local lock_dir
+  lock_dir="$(sd_guard_lock_acquire active-context)" || return 1
+
   local cursor_json
   cursor_json="$(jq -nc \
     --arg s "$sprint" --arg sl "$slice" --arg w "$work_item" \
@@ -105,6 +112,7 @@ sd_state_write_cursor() {
 ${cursor_json}
 \`\`\`
 <!-- sd:cursor:end -->
+$(sd_guard_provenance_comment active-context)
 EOF
   else
     # Rewrite existing file: replace the body between sentinels.
@@ -137,9 +145,15 @@ ${cursor_json}
 <!-- sd:cursor:end -->
 EOF
     fi
+    printf '%s' "$(sd_guard_provenance_comment active-context)" >> "$tmp"
   fi
 
-  mv "$tmp" "$path" || { rm -f "$tmp"; return 1; }
+  if ! mv "$tmp" "$path"; then
+    rm -f "$tmp"
+    sd_guard_lock_release "$lock_dir"
+    return 1
+  fi
+  sd_guard_lock_release "$lock_dir"
   return 0
 }
 

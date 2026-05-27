@@ -19,8 +19,12 @@ fi
 # Default cache-dir set when no override is provided.
 _sd_compose_default_cache_dirs() {
   echo "${HOME}/.claude/plugins/cache"
+  echo "${CODEX_HOME:-$HOME/.codex}/plugins/cache"
   if [[ -n "${CLAUDE_PLUGINS_DIR:-}" ]]; then
     echo "$CLAUDE_PLUGINS_DIR"
+  fi
+  if [[ -n "${CODEX_PLUGINS_DIR:-}" ]]; then
+    echo "$CODEX_PLUGINS_DIR"
   fi
 }
 

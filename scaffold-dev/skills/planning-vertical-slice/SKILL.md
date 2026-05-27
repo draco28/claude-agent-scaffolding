@@ -287,9 +287,15 @@ Render `templates/implementation-handoff.md.tmpl` into each `work-N.NN-<kebab>/h
 
 The handoff works in BOTH contexts (per SPEC §6.4) — as a Task tool prompt AND as a manual fresh-session starter.
 
-### 8.3 Dispatch implementer-agent subagent
+### 8.3 Dispatch implementer
 
-For each work item in the round, dispatch:
+Detect the host before dispatch:
+
+- **Claude Code host** — use the registered custom subagent type.
+- **Codex host** — use a worker-style subagent when available, with the same handoff path and the `executing-work-item` contract embedded in the prompt.
+- **Fallback** — if Codex worker dispatch is unavailable or the user wants a fresh boundary, stop after writing the handoff and instruct the user to start a fresh Claude/Codex session with the absolute `handoff.md` path. This is a first-class path, not a degraded path; the handoff is self-contained by design.
+
+For Claude Code, dispatch each work item in the round with:
 
 ```
 Task(
@@ -309,6 +315,29 @@ Task(
 ```
 
 The `scaffold-dev:` prefix on `subagent_type` is load-bearing — that's the registered custom subagent type per SPEC §6.1. Do NOT use the bare `implementer-agent` or any other prefix.
+
+For Codex, dispatch a worker subagent with this prompt shape when the host exposes subagent dispatch:
+
+```
+You are the scaffold-dev implementer for one work item.
+
+Read the handoff at <abs path to work-${work_id}-${kebab}/handoff.md>.
+Then read scaffold-dev's executing-work-item contract if available at the installed plugin path, or treat the handoff's embedded constraints as binding.
+
+Your worktree: <abs path to ${canonical}/${worktrees_dir}/work-${work_id}-${kebab}>.
+Use this path for all git operations and file edits.
+
+First action: PRE-FLIGHT CHECK.
+If the handoff/spec/worktree has blocking gaps, return:
+{"mode":"gaps-surfaced","gaps":[{"section":"...","question":"...","severity":"blocking|nice-to-have"}]}
+
+If pre-flight is clean, implement using TDD, run embedded verification, author report.md, stage changes, and return:
+{"mode":"complete","report_path":"<absolute path>","summary":"<one-line>","stage_status":"all_staged|partial|none"}
+
+Never run git commit, git push, git pull, or git fetch. Never launch nested subagents.
+```
+
+Do not assume Codex plugin installation registers a named custom agent. Until Codex supports plugin-bundled custom agents as a first-class component, the portable contract is worker-subagent prompt plus manual handoff fallback.
 
 ### 8.4 Process returns (§6.3 multi-call protocol)
 

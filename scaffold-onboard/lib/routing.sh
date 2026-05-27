@@ -61,6 +61,7 @@ sf_discover_manifest() {
 #   1. SF_ROUTING_MI_RESOLVER_PATHS (colon-separated paths; test/dev override)
 #   2. ${CLAUDE_PLUGIN_ROOT}/../workspace-init/lib/manifest.sh
 #   3. ${HOME}/.claude/plugins/cache/*/workspace-init/*/lib/manifest.sh
+#   4. ${CODEX_HOME:-$HOME/.codex}/plugins/cache/*/workspace-init/*/lib/manifest.sh
 _sf_routing_source_mi_resolver() {
   # If already sourced/defined in this session, no-op.
   if [[ "$_SF_ROUTING_RESOLVER_SOURCED" == "1" ]]; then
@@ -92,6 +93,10 @@ _sf_routing_source_mi_resolver() {
   for p in $glob_pattern; do
     candidates+=("$p")
   done
+  glob_pattern="${CODEX_HOME:-$HOME/.codex}/plugins/cache/*/workspace-init/*/lib/manifest.sh"
+  for p in $glob_pattern; do
+    candidates+=("$p")
+  done
 
   for p in "${candidates[@]}"; do
     if [[ -f "$p" ]]; then
@@ -108,7 +113,10 @@ _sf_routing_source_mi_resolver() {
   return 0
 }
 
-# Local fallback resolver. Handles:
+# Local fallback resolver. Handles the same call shape as workspace-init:
+#   mi_manifest_resolve <ai-root> <string-with-vars>
+#
+# Handles:
 #   - ${ai_workspace.root}, ${canonical.root}, ${ai_workspace.name},
 #     ${canonical.name}, ${canonical.default_branch} (manifest field refs)
 #   - ${HOME}, ${USER} (env vars)
@@ -117,28 +125,17 @@ _sf_routing_source_mi_resolver() {
 # ${PLUGIN_DATA:<name>} per workspace-init SPEC §6.3).
 _sf_routing_define_local_mi_resolver() {
   mi_manifest_resolve() {
-    local manifest="$1"
-    local var_ref="$2"   # e.g., "ai_workspace.root"
+    local ai_root="$1"
+    local input="$2"
+    local manifest="$ai_root/.workspace/pairing.json"
     if [[ ! -f "$manifest" ]]; then
       sf_log_error "mi_manifest_resolve: manifest not found: $manifest"
       return 1
     fi
-    # Split "section.field" → ".section.field" jq path.
-    local section field raw
-    section="${var_ref%%.*}"
-    field="${var_ref#*.}"
-    raw="$(jq -r ".${section}.${field} // empty" "$manifest" 2>/dev/null)"
-    if [[ -z "$raw" || "$raw" == "null" ]]; then
-      sf_log_warn "mi_manifest_resolve: '${var_ref}' missing from manifest"
-      return 1
-    fi
-    # Expand ${HOME}, ${USER}, and manifest field refs in the raw value.
-    # Two-pass: first env-var-style ${HOME}/${USER}, then any ${section.field}.
-    local expanded="$raw"
+    local expanded="$input"
     expanded="${expanded//\$\{HOME\}/$HOME}"
     expanded="${expanded//\$\{USER\}/${USER:-$(id -un)}}"
-    # Handle nested ${section.field} references (one level — sufficient).
-    # Use bash 3.2-portable while-loop regex.
+    # Handle ${section.field} references. Use bash 3.2-portable while-loop regex.
     while [[ "$expanded" =~ \$\{([a-z_]+)\.([a-z_]+)\} ]]; do
       local nest_section="${BASH_REMATCH[1]}"
       local nest_field="${BASH_REMATCH[2]}"
@@ -153,6 +150,8 @@ _sf_routing_define_local_mi_resolver() {
       fi
       expanded="${expanded//\$\{${nest_section}.${nest_field}\}/${nest_val}}"
     done
+    expanded="${expanded//\$\{HOME\}/$HOME}"
+    expanded="${expanded//\$\{USER\}/${USER:-$(id -un)}}"
     echo "$expanded"
   }
 }
@@ -206,8 +205,11 @@ sf_resolve_output_path() {
   # Ensure mi_manifest_resolve is available (source or define local fallback).
   _sf_routing_source_mi_resolver
 
-  local root
-  root="$(mi_manifest_resolve "$manifest" "${destination}.root")"
+  local ai_root root
+  ai_root="$(jq -r '.ai_workspace.root // empty' "$manifest" 2>/dev/null)"
+  ai_root="${ai_root//\$\{HOME\}/$HOME}"
+  ai_root="${ai_root//\$\{USER\}/${USER:-$(id -un)}}"
+  root="$(mi_manifest_resolve "$ai_root" "\${${destination}.root}")"
   if [[ -z "$root" ]]; then
     sf_log_warn "could not resolve \${${destination}.root} from manifest; falling back to cwd"
     echo "$(pwd)/${rel_path}"

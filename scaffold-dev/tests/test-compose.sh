@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/test-compose.sh — 10 tests for lib/compose.sh
+# tests/test-compose.sh — tests for lib/compose.sh
 
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -118,6 +118,14 @@ test_detect_ac_multi_dir() {
   assert_eq "detected across multiple dirs" "v0.2" "$out"
 }
 
+# 11. default cache dirs include Codex cache
+test_default_cache_dirs_include_codex() {
+  echo "test_default_cache_dirs_include_codex:"
+  local out
+  out="$(CODEX_HOME="$TMPDIR/codex-home-test" _sd_compose_default_cache_dirs)"
+  assert_contains "default dirs include codex cache" "/codex-home-test/plugins/cache" "$out"
+}
+
 test_detect_ac_present
 test_detect_ac_absent
 test_detect_ac_rc_present
@@ -128,5 +136,6 @@ test_warn_critic_stderr
 test_warn_grillme_stderr
 test_warn_critic_silent_stdout
 test_detect_ac_multi_dir
+test_default_cache_dirs_include_codex
 
 sd_test_summary

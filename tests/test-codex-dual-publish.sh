@@ -5,8 +5,8 @@ set -u
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MARKETPLACE="$ROOT/.agents/plugins/marketplace.json"
-V0_PLUGINS="ai-mentor architect-critic workspace-init claude-security-audit"
-DEFERRED_PLUGINS="scaffold scaffold-onboard scaffold-dev"
+V0_PLUGINS="ai-mentor architect-critic workspace-init scaffold-onboard scaffold-dev claude-security-audit"
+DEFERRED_PLUGINS="scaffold"
 
 PASS=0
 FAIL=0

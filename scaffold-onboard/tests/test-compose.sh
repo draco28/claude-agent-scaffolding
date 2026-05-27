@@ -69,6 +69,21 @@ test_detect_ai_mentor_absent() {
   assert_eq "ai-mentor absent → empty" "" "$found"
 }
 
+test_detect_ai_mentor_codex_cache_layout() {
+  echo "test_detect_ai_mentor_codex_cache_layout:"
+  setup_tmp_repo
+  mkdir -p "$TMP_DIR/codex-cache/mp/ai-mentor/2.0.0/skills/grill-me"
+  : > "$TMP_DIR/codex-cache/mp/ai-mentor/2.0.0/skills/grill-me/SKILL.md"
+  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/codex-cache"
+  local found
+  found="$(sf_compose_detect_ai_mentor)"
+  if [[ "$found" == *"ai-mentor"* ]]; then
+    PASS=$((PASS+1)); echo "  ✓ ai-mentor detected in Codex cache layout"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ ai-mentor not detected in Codex cache layout: $found"
+  fi
+}
+
 test_detect_superpowers() {
   echo "test_detect_superpowers:"
   setup_tmp_repo
@@ -372,6 +387,7 @@ test_roadmap_skill_references_target_roadmap_close() {
 # Retained (16):
 test_detect_ai_mentor_present
 test_detect_ai_mentor_absent
+test_detect_ai_mentor_codex_cache_layout
 test_detect_superpowers
 test_detect_brainstorming_available
 test_detect_brainstorming_unavailable

@@ -131,7 +131,8 @@ test_resolve_plugin_data() {
   cd "$TMP_AI_WORKSPACE"
   local out
   out="$(sd_manifest_resolve "$TMP_AI_WORKSPACE" '${PLUGIN_DATA:scaffold-dev}/state.json')"
-  assert_contains "PLUGIN_DATA resolves to a path" "scaffold-dev/state.json" "$out"
+  assert_contains "PLUGIN_DATA resolves plugin name" "scaffold-dev" "$out"
+  assert_contains "PLUGIN_DATA preserves suffix path" "state.json" "$out"
 }
 
 test_discover_cwd

@@ -8,8 +8,8 @@ Personal Claude Code and Codex plugin marketplace.
 |---|---|---|---|
 | [`workspace-init`](./workspace-init/) | v0.1.0 | Project-level (run-once) | Bootstrap a dual-repo workspace (AI workspace + canonical) with pairing manifest and AI-trace commit-msg filter. Run-once plugin; first in the scaffolding chain. 2 skills (`initializing-dual-repo-workspace`, `pairing-canonical-repo`), 2 slash commands (`/init-workspace`, `/pair-workspace` via `$ARGUMENTS` bridge). Pairing manifest schema v1.0 at `<ai-workspace>/.workspace/pairing.json`. `commit-msg` hook filters AI-trace lines with baked AI workspace path. Scenario A migration (`--pair-with`). 145 tests across 10 suites. |
 | [`ai-mentor`](./ai-mentor/) | v2.0.0 | User-level | Decision-making mentor. Four auto-invocable skills: `grill-me` (one-question-at-a-time plan interrogation with CORE posture + 4 cognitive-discipline escape valves), `council` (5-persona multi-angle idea validation, Karpathy LLM Council pattern with codebase-aware Historian), `eli10` (repeatable simplification), `fool` (sticky beginner's-mind mode). Skill-first; no hooks, no state machinery. |
-| [`scaffold-onboard`](./scaffold-onboard/) | v0.2.0 | Project-level (run-once) | Onboarding plugin (skill-first). 7 skills + 4 slash commands. 10-phase guided conversation authors `MASTER-SPEC.md`; deterministic derivation produces an 11-file memory-bank, a tiered `CLAUDE.md` router, and 5/14 governance docs. v0.2 adds R1 (Phase → Sprint → Vertical Slice roadmap via `/plan-roadmap`), R2 (machine-checkable rules DSL), R3 (`auto:`/`user:` demo criteria grammar). Composes with workspace-init (manifest routing), ai-mentor (cognitive mode), architect-critic v0.2+ (in-conversation review, no file IPC). |
-| [`scaffold-dev`](./scaffold-dev/) | v0.1.0 | Project-level (continuous) | Sprint-driven orchestrator-implementer workflow for dual-repo workspaces. 9 skills, 4 slash commands, custom `implementer-agent` subagent type via Task tool, handoff escape valve (`.workspace/handoffs/`). Composes with workspace-init (manifest), scaffold-onboard (R1/R2/R3 contract), architect-critic (filesystem probe + critiquing-spec), ai-mentor (grill-me at 3 gates). 14 test files / ~216 assertions. Replaces scaffold v1.0.0. |
+| [`scaffold-onboard`](./scaffold-onboard/) | v0.2.1 | Project-level (run-once) | Onboarding plugin (skill-first). 8 skills + 4 slash commands. 10-phase guided conversation authors `MASTER-SPEC.md`; deterministic derivation produces an 11-file memory-bank, tiered `CLAUDE.md`, managed Codex section in `AGENTS.md`, and 5/14 governance docs. v0.2 adds R1 (Phase → Sprint → Vertical Slice roadmap), R2 (machine-checkable rules DSL), R3 (`auto:`/`user:` demo criteria grammar), plus a Claude/Codex workspace doctor. |
+| [`scaffold-dev`](./scaffold-dev/) | v0.1.2 | Project-level (continuous) | Sprint-driven orchestrator-implementer workflow for dual-repo workspaces. 9 skills, 4 slash commands, Claude custom `implementer-agent` via Task, Codex worker-prompt dispatch guidance, handoff escape valve (`.workspace/handoffs/`), and cross-agent live-state lock/provenance helpers. Composes with workspace-init, scaffold-onboard R1/R2/R3, architect-critic, and ai-mentor. Replaces scaffold v1.0.0. |
 | [`scaffold`](./scaffold/) | v1.0.0 | Project-level (continuous) | Implementation plugin. Slice-driven 5-phase workflow, living governance (ADRs, CHANGELOG, runbooks), per-repo memory bank with semantic search. 18 slash commands + 10 MCP tools. — DEPRECATED, replaced by scaffold-dev v0.1.0 |
 | [`architect-critic`](./architect-critic/) | v0.2.0 | User-level | Anti-sycophancy reviewer (skill-first). 4 auto-invocable skills: `critiquing-spec` (audit + sequential rebuttal with T=4 concession scoring), `reviewing-critique-history`, `listing-principles`, `promoting-principle`. Ships ghost-notes (Wald survivor-bias) + CORE protocol as default principles. Full auto-promotion (vote-recurrence T=4, instinct N=3, 30/90-day suppression). Codex 0.125+ adversarial fresh-frame at close-depth. Standalone-invocable; consumer plugins invoke skills in-conversation (no file IPC). |
 | [`claude-security-audit`](./claude-security-audit/) | v0.1.0 | Project-level | Static-analysis security audit for Claude Code project configs and enabled plugins. 28 rules across 7 aspects (secrets, permissions incl. PERM-005 schema-typo, hooks, MCP, CLAUDE.md, prompt-injection, marketplace). Two-flag auto-fix + 5-layer defense-in-depth (T2-H). Durable `finding_uid` survives whitespace edits (T2-I). Self-tamper detection on state + suppressions (T1-F). Critical-cannot-suppress; 60s race-window refusal. Zero ambient surface — SessionStart reminder is opt-in (T1-C). 28 rules / 182 tests / 5 clean-fixture release gate. Inspired by ECC's AgentShield (MIT). |
@@ -34,15 +34,15 @@ The seven plugins are designed to **compose without overlap**, ordered by where 
 ### Codex v0
 
 Codex support is dual-published from the same repo through
-`.agents/plugins/marketplace.json`. The v0 Codex marketplace intentionally
-exposes only:
+`.agents/plugins/marketplace.json`. The Codex marketplace exposes:
 
 - `workspace-init`
 - `ai-mentor`
+- `scaffold-onboard`
+- `scaffold-dev`
 - `architect-critic`
 - `claude-security-audit`
 
-Deferred for a later Codex port: `scaffold-onboard` and `scaffold-dev`.
 Deprecated and not ported: `scaffold`.
 
 ```
