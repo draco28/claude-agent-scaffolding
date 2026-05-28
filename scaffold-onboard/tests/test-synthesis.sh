@@ -90,6 +90,25 @@ test_ledger_merge_concats_families() {
   assert_eq "fr added" "FR-1" "$(printf '%s' "$out" | jq -r '.frs[0].id')"
 }
 
+test_validate_cited_ids_present() {
+  echo "test_validate_cited_ids_present:"
+  local led='{"use_cases":[{"id":"UC-1"}],"frs":[{"id":"FR-1"}],"nfrs":[],"backlog":[]}'
+  if sf_synth_validate_cited "$led" "UC-1 FR-1"; then echo "  ✓"; PASS=$((PASS+1)); else echo "  ✗"; FAIL=$((FAIL+1)); fi
+}
+test_validate_cited_ids_missing() {
+  echo "test_validate_cited_ids_missing:"
+  local led='{"use_cases":[{"id":"UC-1"}],"frs":[],"nfrs":[],"backlog":[]}'
+  if sf_synth_validate_cited "$led" "FR-9" 2>/dev/null; then echo "  ✗ should fail"; FAIL=$((FAIL+1)); else echo "  ✓ rejected"; PASS=$((PASS+1)); fi
+}
+test_no_fillin_markers_pass_and_fail() {
+  echo "test_no_fillin_markers_pass_and_fail:"
+  setup_tmp_repo
+  printf '# Doc\nReal content.\n' > ./good.md
+  printf '# Doc\n1. *(steps in order)*\n' > ./bad.md
+  if sf_synth_assert_no_markers ./good.md; then echo "  ✓ clean ok"; PASS=$((PASS+1)); else echo "  ✗"; FAIL=$((FAIL+1)); fi
+  if sf_synth_assert_no_markers ./bad.md 2>/dev/null; then echo "  ✗ should fail"; FAIL=$((FAIL+1)); else echo "  ✓ marker caught"; PASS=$((PASS+1)); fi
+}
+
 test_project_name_prefers_explicit_answer
 test_project_name_no_emdash_truncation_fallback
 test_synth_enabled_default_on
@@ -99,4 +118,7 @@ test_brief_required_sections_list
 test_brief_validate_ok
 test_brief_validate_missing_key
 test_ledger_merge_concats_families
+test_validate_cited_ids_present
+test_validate_cited_ids_missing
+test_no_fillin_markers_pass_and_fail
 report_results

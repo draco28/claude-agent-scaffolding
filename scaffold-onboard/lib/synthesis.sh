@@ -76,3 +76,37 @@ sf_synth_brief_validate() {
   fi
   return 0
 }
+
+# Assert every space-separated cited ID exists in the ledger's id sets.
+sf_synth_validate_cited() {
+  local ledger="$1" cited="$2" id
+  local known
+  known="$(printf '%s' "$ledger" | jq -r '[.use_cases[],.frs[],.nfrs[],.backlog[]] | .[].id')"
+  for id in $cited; do
+    if ! printf '%s\n' "$known" | grep -qxF "$id"; then
+      sf_log_error "cited id '$id' not found in ledger"; return 1
+    fi
+  done
+  return 0
+}
+
+# Reject leftover fill-in markers in a synthesized doc.
+sf_synth_assert_no_markers() {
+  local file="$1"
+  if grep -nE '\*\([^)]*\)\*|TODO: ' "$file" >/dev/null 2>&1; then
+    sf_log_error "fill-in markers remain in $file"; return 1
+  fi
+  return 0
+}
+
+# Assert each required section heading from a brief exists in the doc.
+sf_synth_assert_sections() {
+  local brief="$1" doc="$2" sec
+  while IFS= read -r sec; do
+    [[ -z "$sec" ]] && continue
+    if ! grep -qF "$sec" "$doc"; then
+      sf_log_error "required section '$sec' missing from $doc"; return 1
+    fi
+  done < <(sf_synth_brief_list "$brief" required_sections)
+  return 0
+}
