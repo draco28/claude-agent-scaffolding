@@ -134,17 +134,7 @@ sf_master_spec_update_phase() {
   local tmpl="$1" phase_id="$2"
   # Collect every answered question's id+value into key=value pairs
   local args=()
-  # Derive project_name: prefer pitch prefix from answer 1.1.1 (text before " — "),
-  # fallback to basename of cwd. Same logic as sf_claude_md_generate, kept
-  # consistent so MASTER-SPEC and CLAUDE.md agree on project name.
-  local raw_pitch _project_name
-  raw_pitch="$(sf_state_read_answer 1.1.1)"
-  if [[ "$raw_pitch" != "null" && "$raw_pitch" == *" — "* ]]; then
-    _project_name="${raw_pitch%% — *}"
-  else
-    _project_name="$(basename "$PWD")"
-  fi
-  args+=("project_name=$_project_name")
+  args+=("project_name=$(sf_project_name)")
   local pc
   pc="$(sf_state_read_answer 1.3.1)"
   [[ "$pc" != "null" ]] && args+=("project_class=$pc")

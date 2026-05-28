@@ -117,6 +117,19 @@ sf_state_read_answer() {
   jq -r --arg q "$qid" '.answers[$q] // "null"' "$path"
 }
 
+# Resolve a clean project name for titles/paths. Prefers the explicit onboarding
+# answer 1.1.4; falls back to the cwd basename. Never truncates the pitch on
+# em-dash (the v0.2.x bug that produced garbage H1 titles).
+sf_project_name() {
+  local explicit
+  explicit="$(sf_state_read_answer 1.1.4 2>/dev/null || echo null)"
+  if [[ -n "$explicit" && "$explicit" != "null" ]]; then
+    printf '%s\n' "$explicit"
+    return 0
+  fi
+  basename "$PWD"
+}
+
 sf_state_lock_path() {
   echo "$(sf_project_data_dir)/onboarding.lock"
 }

@@ -127,18 +127,8 @@ sf_claude_md_generate() {
   tmpl="$root/templates/claude-md/CLAUDE.md.tmpl"
   ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-  # Derive project_name from state answer 1.1.1 (e.g. "test-proj — a fast widget")
-  # by taking the segment before " — ". Fall back to basename of PWD.
-  local raw_oneliner project_name
-  raw_oneliner="$(sf_state_read_answer "1.1.1")"
-  if [[ "$raw_oneliner" != "null" && "$raw_oneliner" == *" — "* ]]; then
-    project_name="${raw_oneliner%% — *}"
-  else
-    project_name="$(basename "$PWD")"
-  fi
-
   local args=()
-  args+=("project_name=$project_name")
+  args+=("project_name=$(sf_project_name)")
   args+=("ts=$ts")
   while IFS= read -r line; do args+=("$line"); done < <(_memory_bank_args "$ts")
   while IFS= read -r line; do args+=("$line"); done < <(_composition_args)

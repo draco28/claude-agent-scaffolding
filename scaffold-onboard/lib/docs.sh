@@ -9,15 +9,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"
 _docs_args() {
   local ts="$1"
   local args=("ts=$ts")
-  # Derive project_name same way as render.sh + memory-bank.sh for consistency
-  local raw_pitch _project_name
-  raw_pitch="$(sf_state_read_answer 1.1.1)"
-  if [[ "$raw_pitch" != "null" && "$raw_pitch" == *" — "* ]]; then
-    _project_name="${raw_pitch%% — *}"
-  else
-    _project_name="$(basename "$PWD")"
-  fi
-  args+=("project_name=$_project_name")
+  args+=("project_name=$(sf_project_name)")
   local pc
   pc="$(sf_state_read_answer 1.3.1)"
   [[ "$pc" != "null" ]] && args+=("project_class=$pc")
