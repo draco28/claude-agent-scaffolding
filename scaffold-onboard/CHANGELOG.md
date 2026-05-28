@@ -2,6 +2,22 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.3.0] — 2026-05-29
+
+### Added
+- **Issue #17 — LLM sub-agent synthesis layer:** post-MASTER-SPEC artifacts (governance docs, roadmap slices, memory-bank, CLAUDE.md) are now synthesized by `scaffold-onboard:synthesis-agent` from `MASTER-SPEC.md` + `EXECUTIVE-SUMMARY.md` instead of deterministic `{{placeholder}}` substitution, raising them from scaffolds to production-grade documents.
+- `lib/synthesis.sh` — deterministic orchestration helpers: `sf_synth_mode` (`--fast` gate), brief frontmatter reader/validator, ID-ledger merge, cited-ID / required-section / fill-in-marker validators, brief assembly with consumed-ledger slicing, and requirement coverage rollup.
+- `agents/synthesis-agent.md` — registered sub-agent (Read/Write/Grep/Glob; no Task, no git) with a compact ID-ledger return contract.
+- `templates/synthesis-briefs/*.brief.md` — 24 per-artifact synthesis briefs (machine-readable section contract + guidance), dispatched in dependency waves (PRD → SRS → BACKLOG → fan-out) so minted `UC`/`FR`/`NFR`/`BACKLOG` IDs stay consistent across artifacts.
+- `--fast` flag on `/scaffold-docs`, `/plan-roadmap`, `/scaffold-project` for the deterministic (zero-token, offline) path.
+
+### Fixed
+- **Issue #16:** SRS now derives Functional Requirements from PRD use cases (`UC-N`) and Non-Functional Requirements from quality attributes (latency/determinism/security/coverage) instead of from implementation (Phase 7) and devops (Phase 8); PRD emits a full `UC-1..UC-N` use-case set rather than a single use case.
+- `project_name` em-dash truncation (`${raw_pitch%% — *}` in three call sites) that produced garbage document titles — replaced with a shared `sf_project_name` helper backed by an explicit onboarding answer (`1.1.4`).
+
+### Changed
+- Post-MASTER-SPEC derivation is synthesis-by-default; the prior deterministic substitution remains available via `--fast` and as the per-artifact fallback when synthesis fails validation.
+
 ## [0.2.3] — 2026-05-28
 
 ### Added
