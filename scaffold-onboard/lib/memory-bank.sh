@@ -56,10 +56,19 @@ _memory_bank_args() {
 
 # Derive memory-bank: regenerate derived files, seed live files only if missing,
 # copy static file only if missing.
-# Args: --force (optional) to overwrite live files too.
+# Args: --force  (optional) to overwrite live files too.
+#       --fast   (optional) sets SF_SYNTH_FAST=1 to skip synthesis dispatch;
+#                used by the /scaffold-project --fast flag and as the synthesis
+#                fallback path when sub-agent dispatch fails.
 sf_memory_bank_derive() {
   local force=0
-  if [[ "${1:-}" == "--force" ]]; then force=1; fi
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --force) force=1 ;;
+      --fast)  export SF_SYNTH_FAST=1 ;;
+    esac
+  done
 
   local root tmpl_dir ts
   root="$(sf_plugin_root)"

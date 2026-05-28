@@ -227,3 +227,125 @@ These are pseudocode references — the implementations are in their respective 
 - **The user** is the final authority. For destructive operations (`--regenerate` against live-seed files), require explicit confirmation. Never auto-finalize a re-derive that clobbers work without an explicit `yes`.
 
 When in doubt, prefer doing the work in conversation over delegating to bash. v0.1.x got this wrong — `/scaffold-project` lived almost entirely inside `bash -c` blocks Claude never read; v0.2 corrects that by making this skill body the readable orchestration layer and keeping bash to bookkeeping.
+
+---
+
+## 13. Synthesis dispatch (v0.3)
+
+v0.3 introduces an LLM-synthesis path that replaces template rendering with sub-agent authoring for the 8 derived memory-bank files + CLAUDE.md. The deterministic `sf_memory_bank_derive` + `sf_claude_md_generate` path is preserved as the `--fast` path and as the per-artifact fallback. This section describes the orchestration logic you (the orchestrator session reading this skill) must execute. Bash cannot dispatch sub-agents; this logic lives here as prose instructions.
+
+### 13.1 Setup
+
+Source both synthesis and routing helpers:
+
+```bash
+source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
+source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
+```
+
+Resolve source documents:
+
+```bash
+master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
+exec_summary="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
+```
+
+### 13.2 Fast-path short-circuit
+
+Check the synthesis mode immediately after setup:
+
+```bash
+if [[ "$(sf_synth_mode)" == "fast" ]]; then
+  sf_memory_bank_derive [--force]   # deterministic path; --force passed through if --regenerate was set
+  sf_claude_md_generate
+  # STOP — do not execute synthesis waves
+fi
+```
+
+`sf_synth_mode` echoes `fast` when `SF_SYNTH_FAST=1`. This flag is set by `sf_memory_bank_derive --fast` (which now exports `SF_SYNTH_FAST=1` per the v0.3 lib change) or when the user passes `--fast` in `$ARGUMENTS`. Parse `--fast` from `$ARGUMENTS` in the same flag loop as `--regenerate` (§9) and call `sf_memory_bank_derive --fast` when present.
+
+### 13.3 Synthesis wave dispatch
+
+When `sf_synth_mode` echoes `synthesize`, dispatch the 9 artifacts in Wave 4. All artifacts are independent of each other (no sequential ID-dependency within this skill), so they can be dispatched in parallel. Maintain a running ledger from the start:
+
+```bash
+ledger="$(sf_synth_ledger_empty)"
+```
+
+Briefs live at `${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/<name>.brief.md`.
+
+**Wave 4 — all 9 artifacts in parallel** (all model `sonnet`; `routes_to` per brief):
+
+Dispatch each of the following using the standard pattern:
+
+```bash
+brief="${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/<NAME>.brief.md"
+out="$(sf_resolve_output_path <routes_to> .claude/memory-bank/<name>.md)"
+prompt="$(sf_synth_brief_assemble "$brief" "$ledger" "$out" "$master" "$exec_summary")"
+Task(subagent_type="scaffold-onboard:synthesis-agent",
+     description="Synthesize <name>",
+     model="claude-sonnet-4-5",
+     prompt="$prompt")
+```
+
+The 9 artifacts and their output paths:
+
+| Artifact | `routes_to` | Output path |
+|---|---|---|
+| `00-project-brief` | `memory_bank` | `.claude/memory-bank/00-project-brief.md` |
+| `01-product-context` | `memory_bank` | `.claude/memory-bank/01-product-context.md` |
+| `02-system-patterns` | `memory_bank` | `.claude/memory-bank/02-system-patterns.md` |
+| `03-code-patterns` | `memory_bank` | `.claude/memory-bank/03-code-patterns.md` |
+| `04-tech-context` | `memory_bank` | `.claude/memory-bank/04-tech-context.md` |
+| `07-constraints` | `memory_bank` | `.claude/memory-bank/07-constraints.md` |
+| `08-governance` | `memory_bank` | `.claude/memory-bank/08-governance.md` |
+| `index` | `memory_bank` | `.claude/memory-bank/index.md` |
+| `CLAUDE` | `claude_md` | `CLAUDE.md` |
+
+**Live files and WORKFLOW.md are NOT synthesized:**
+
+- `05-active-context.md` and `06-progress.md` keep today's seed-once behavior — `sf_memory_bank_derive` handles them (preserve if present, seed only if missing). Do not dispatch sub-agents for them.
+- `WORKFLOW.md` remains a static copy. Do not dispatch a sub-agent for it.
+
+**03-code-patterns special note:** the brief already instructs the sub-agent to keep the `## Machine-checkable rules` section empty (heading + invitation comment, zero `<!-- mcrule:start -->` blocks). Dispatch it normally — do not special-case beyond using its brief.
+
+On `mode:complete` for each artifact: merge returned IDs and validate:
+
+```bash
+ledger="$(sf_synth_ledger_merge "$ledger" "<ids_minted from return JSON>")"
+sf_synth_assert_sections "$brief" "$out"
+sf_synth_assert_no_markers "$out"
+sf_synth_validate_cited "$ledger" "<ids_cited from return JSON>"
+```
+
+On `mode:failed` or any validation failure: `sf_log_warn "<artifact> synthesis failed — falling back to deterministic render"` then call `sf_memory_bank_derive` filtered to that file (or `sf_render` directly against the relevant template). Continue with the remaining artifacts regardless.
+
+After all 9 artifacts complete, seed the live files and copy the static file:
+
+```bash
+sf_memory_bank_derive --fast   # seeds 05/06 only if missing; copies WORKFLOW.md if missing
+                               # --fast prevents re-synthesizing; only live/static paths run
+```
+
+Then emit `.claude/settings.json` and the AGENTS.md managed section via their helpers (unchanged from v0.2):
+
+```bash
+sf_claude_settings_generate
+sf_agents_md_generate
+```
+
+### 13.4 Skip / regenerate semantics
+
+Synthesis honors the same skip-if-exists / `--regenerate` semantics as the deterministic path. Before assembling a prompt for any derived artifact, check whether its resolved output path already exists; if it does and `--regenerate` was not passed, skip it (emit `sf_log_info "preserved: <path>"`) and do not dispatch a sub-agent for it. With `--regenerate`, dispatch unconditionally (same as the deterministic path's `force=1` behavior).
+
+For the 2 live files (`05-active-context.md`, `06-progress.md`), always apply the preserve-unless-`--regenerate` + explicit-confirmation discipline from §4 — even in synthesis mode. Sub-agents never touch live files.
+
+### 13.5 Coverage report
+
+After all waves complete (regardless of per-artifact fallbacks), collect every ID cited across all synthesized docs into a single newline-separated list and print:
+
+```bash
+sf_synth_coverage_report "$ledger" "<all cited IDs, newline-separated>"
+```
+
+This surfaces any FR/NFR that no artifact cited so the user can identify gaps before committing the bundle.
