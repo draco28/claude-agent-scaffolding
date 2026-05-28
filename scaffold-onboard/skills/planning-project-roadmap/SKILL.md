@@ -7,6 +7,11 @@ description: Drive the three-sub-phase (R1.A Phases → R1.B Sprints → R1.C Ve
 
 You are the conductor of scaffold-onboard's R1 hierarchy authoring flow. After `MASTER-SPEC.md` has been authored and closed by `/onboard`, this skill walks the user through three sub-phases — R1.A (Phases), R1.B (Sprints per phase), R1.C (Vertical Slices per sprint) — and emits `ROADMAP.md`: the Phase → Sprint → Vertical Slice hierarchy that scaffold-dev v0.1's orchestrator-implementer cycle consumes as its R1 input contract (per scaffold-dev SPEC §16.2).
 
+There are two valid sequencing modes:
+
+- **Traceability-first:** run `/scaffold-docs` first so `SRS.md` contains `FR-N` / `NFR-N` IDs and `BACKLOG.md` contains `BACKLOG-N` IDs, then run `/plan-roadmap` and capture trace arrays for every vertical slice.
+- **Lightweight:** run `/plan-roadmap` directly from MASTER-SPEC. In this mode, leave trace arrays empty and warn that requirement coverage reporting will be limited until `/scaffold-docs` exists.
+
 Bash helpers in `lib/roadmap.sh`, `lib/state.sh`, `lib/render.sh`, `lib/routing.sh`, and `lib/compose.sh` do the bookkeeping (state CRUD, atomic writes, template substitution, manifest path resolution, filesystem probes). The judgment work — how to frame each sub-phase intro, when to surface a size-class warning, whether the 60-min checkpoint offer is the right next thing to say, how to interpret a `TBD` slice answer — happens here, in conversation.
 
 This skill is **interactive, not LLM-extractive**. It does NOT try to auto-decompose MASTER-SPEC.md into a hierarchy. The user authors the hierarchy with the skill's guidance; the skill prompts, persists answers, and routes the output (per SPEC §3.7 non-goal).
@@ -143,7 +148,7 @@ State lives at `${CLAUDE_PLUGIN_DATA}/project-roadmap.json` — a **separate fil
     ...
   ],
   "vertical_slices": [
-    {"sprint_id": "1.1", "id": "VS-1.1.1", "name": "...", "summary": "...", "demo_criteria": ["auto: ...", "user: ..."]},
+    {"sprint_id": "1.1", "id": "VS-1.1.1", "name": "...", "summary": "...", "demo_criteria": ["auto: ...", "user: ..."], "traces_fr": ["FR-1"], "traces_nfr": ["NFR-1"], "traces_backlog": ["BACKLOG-1"]},
     ...
   ],
   "mutations": [
@@ -160,7 +165,7 @@ State lives at `${CLAUDE_PLUGIN_DATA}/project-roadmap.json` — a **separate fil
 - `sf_roadmap_state_path` — print the absolute path of the roadmap state file.
 - `sf_roadmap_read_checkpoint` — return current `checkpoint` value.
 - `sf_roadmap_read_elapsed` — compute and return `elapsed_min` from `started_at`.
-- `sf_roadmap_write_phase` / `sf_roadmap_write_sprint` / `sf_roadmap_write_slice` — atomic writes for individual hierarchy nodes.
+- `sf_roadmap_write_phase` / `sf_roadmap_write_sprint` / `sf_roadmap_write_slice` — atomic writes for individual hierarchy nodes. `sf_roadmap_write_slice` accepts optional JSON arrays for `traces_fr`, `traces_nfr`, and `traces_backlog`; existing four-argument calls default those arrays to empty.
 - `sf_roadmap_count_nodes_estimate` — compute estimated node count for size-class adaptation (§6).
 - `sf_roadmap_append_mutation` — log a mutation entry into `mutations[]` during re-runs (§9).
 - `sf_state_write_atomic` / `sf_state_read_field` — top-level field reads/writes (re-used from lib/state.sh).
@@ -239,7 +244,14 @@ The default-flip at >100 is a nudge, not a force. User retains agency.
 
 ## 8. R1.C: invoking `authoring-vertical-slice-demo` per slice
 
-For each vertical slice you capture in R1.C, after `sf_roadmap_write_slice` persists the slice header, invoke the demo-criteria authoring skill to top-up 1-3 demo criteria:
+For each vertical slice you capture in R1.C, ask for requirement traceability before demo criteria:
+
+- If `SRS.md` / `BACKLOG.md` exist from `/scaffold-docs`, capture `traces_fr`, `traces_nfr`, and `traces_backlog` as JSON arrays of valid IDs. NFR IDs are allowed and encouraged when they define the slice's success bar.
+- If those docs do not exist, persist empty arrays and surface one warning: *"No generated SRS/BACKLOG IDs found; this slice will be roadmap-only until `/scaffold-docs` is generated and the slice is refined."*
+
+Then call `sf_roadmap_write_slice <slice_id> <sprint_id> <name> <summary> <traces_fr_json> <traces_nfr_json> <traces_backlog_json>`.
+
+After `sf_roadmap_write_slice` persists the slice header, invoke the demo-criteria authoring skill to top-up 1-3 demo criteria:
 
 ```
 Skill(scaffold-onboard:authoring-vertical-slice-demo)

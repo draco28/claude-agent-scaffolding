@@ -309,6 +309,32 @@ MOCK
   teardown_workspace
 }
 
+test_real_workspace_init_resolver_no_double_manifest() {
+  echo "test_real_workspace_init_resolver_no_double_manifest:"
+  test_setup_workspace yes
+  cd "$TMP_AI_WORKSPACE"
+  export SF_ROUTING_MI_RESOLVER_PATHS="$HERE/../../workspace-init/lib/manifest.sh"
+  unset -f mi_manifest_resolve 2>/dev/null || true
+  _SF_ROUTING_RESOLVER_SOURCED=""
+  local got stderr_capture
+  stderr_capture="$(mktemp -t sf-routing-real-wi-stderr.XXXXXX)"
+  got="$(sf_resolve_output_path master_spec MASTER-SPEC.md 2>"$stderr_capture")"
+  assert_eq "real workspace-init resolver does not double-append manifest path" \
+    "${TMP_AI_WORKSPACE}/MASTER-SPEC.md" "$got"
+  if grep -q "pairing.json/.workspace/pairing.json" "$stderr_capture"; then
+    FAIL=$((FAIL+1))
+    echo "  ✗ doubled manifest path appeared in stderr"
+    cat "$stderr_capture" | sed 's/^/      /'
+  else
+    PASS=$((PASS+1)); echo "  ✓ no doubled manifest path in stderr"
+  fi
+  rm -f "$stderr_capture"
+  unset SF_ROUTING_MI_RESOLVER_PATHS
+  unset -f mi_manifest_resolve 2>/dev/null || true
+  _SF_ROUTING_RESOLVER_SOURCED=""
+  teardown_workspace
+}
+
 test_home_expansion_in_manifest_values() {
   echo "test_home_expansion_in_manifest_values:"
   # Author a manifest where ai_workspace.root contains ${HOME}; verify the
@@ -369,6 +395,7 @@ test_resolve_unknown_name_warns_and_falls_back   # 8
 test_resolve_roadmap_defaults_when_key_missing   # 9
 test_local_fallback_mi_resolver_works            # 10
 test_sourced_mi_resolver_takes_precedence        # 11
-test_home_expansion_in_manifest_values           # 12
+test_real_workspace_init_resolver_no_double_manifest # 12
+test_home_expansion_in_manifest_values           # 13
 
 report_results

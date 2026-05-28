@@ -13,7 +13,7 @@ Bash helpers in `lib/docs.sh`, `lib/render.sh`, `lib/routing.sh`, and `lib/parse
 
 ## 1. Overview
 
-When invoked, you read `MASTER-SPEC.md`, validate it with `sf_spec_validate`, and emit the v0.1.0 governance-doc bundle. The default set is 5 docs: `PRD.md`, `SRS.md`, `BACKLOG.md`, `PROJECT_PLAN.md`, and `ADR-0001.md`. With `--full` you also emit 9 additional docs (`RISK_REGISTER.md`, `THREAT_MODEL.md`, `TEST_STRATEGY.md`, `DEFINITION_OF_DONE.md`, `CUTOVER_PLAN.md`, `DEMO_RUNBOOK.md`, plus three LLM-gated ones — `EVALS_PLAN.md`, `MODEL_CARD.md`, `PROMPT_GOVERNANCE.md` — emitted only when the Phase 9.3.1 answer is `yes`). The doc *contents* are byte-identical to v0.1.0 where the routing destination matches cwd; what's new is per-doc routing through `sf_resolve_output_path`.
+When invoked, you read `MASTER-SPEC.md`, validate it with `sf_spec_validate`, and emit the v0.1.0 governance-doc bundle. The default set is 5 docs: `PRD.md`, `SRS.md`, `BACKLOG.md`, `PROJECT_PLAN.md`, and `ADR-0001.md`. With `--full` you also emit 9 additional docs (`RISK_REGISTER.md`, `THREAT_MODEL.md`, `TEST_STRATEGY.md`, `DEFINITION_OF_DONE.md`, `CUTOVER_PLAN.md`, `DEMO_RUNBOOK.md`, plus three LLM-gated ones — `EVALS_PLAN.md`, `MODEL_CARD.md`, `PROMPT_GOVERNANCE.md` — emitted only when the Phase 9.3.1 answer is `yes`). `SRS.md` mints stable `FR-N` / `NFR-N` IDs and `BACKLOG.md` mints stable `BACKLOG-N` IDs so a traceability-first project can run `/scaffold-docs` before `/plan-roadmap` and cite those IDs from ROADMAP vertical slices.
 
 ---
 

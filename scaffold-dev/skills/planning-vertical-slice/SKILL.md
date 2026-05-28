@@ -100,7 +100,7 @@ Read the resolved `ROADMAP.md`. Search for the target VS block via the heading a
 
 The error MUST name the missing VS-id explicitly, cite the resolved `ROADMAP.md` path, and include the literal `/plan-roadmap` slash-command token plus the `--add-slice` argument (either `--add-slice 3.2` or `--add-slice VS-3.2` is accepted). Then stop — do NOT auto-fix the roadmap, do NOT create `docs/specs/sprint-N/` directories, do NOT invoke architect-critic.
 
-When the block is found, extract: VS name, one-paragraph description, declared `auto:` / `user:` demo criteria (per SPEC §14.1 grammar; rendered into the slice README at §6).
+When the block is found, extract: VS name, one-paragraph description, declared `auto:` / `user:` demo criteria (per SPEC §14.1 grammar; rendered into the slice README at §6), and the Traceability block (`FR`, `NFR`, `Backlog`). Carry the trace IDs into every work-item spec and implementation handoff as `traceability_block`; if the ROADMAP slice says `None`, render `- FR: None`, `- NFR: None`, and `- Backlog: None` explicitly rather than inventing IDs.
 
 ### 3.4 Read MASTER-SPEC + memory bank + cursor
 
@@ -205,7 +205,7 @@ Use `sd_render` (lib/render.sh, ported from scaffold-onboard) to fill templates:
 - `templates/vertical-slice-readme.md.tmpl` → `${slice_root}/README.md`
   - Vars: `vs_id`, `vs_name`, `vs_description`, `demo_criteria` (the `auto:` / `user:` lines from ROADMAP), `work_items_table`, `round_plan`, `sprint_context`.
 - `templates/work-item-spec.md.tmpl` → each `work-N.NN-<kebab>/spec.md` (Wabash Format B, 8 sections per SPEC §9).
-  - Vars: `vs_id`, `work_id`, `round`, `worktree_abs_path` (computed but not yet created — `${canonical}/${worktrees_dir}/work-${work_id}-${kebab}`), `branch` (computed from `branch_naming` template), context, decisions, files to modify, ACs with verification, demo contribution, anti-actions, reference index.
+  - Vars: `vs_id`, `work_id`, `round`, `worktree_abs_path` (computed but not yet created — `${canonical}/${worktrees_dir}/work-${work_id}-${kebab}`), `branch` (computed from `branch_naming` template), context, decisions, `traceability_block`, files to modify, ACs with verification, demo contribution, anti-actions, reference index.
 
 The worktree path and branch are computed at spec-authoring time (so the spec is self-contained as a fresh-session starter per §6.4) but the actual `git worktree add` does NOT happen until the round starts (§8.1).
 

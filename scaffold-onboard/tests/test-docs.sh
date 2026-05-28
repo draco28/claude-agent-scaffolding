@@ -51,6 +51,24 @@ test_prd_content() {
   assert_file_contains "./docs/PRD.md" "CLI tool"
 }
 
+test_srs_mints_requirement_ids() {
+  echo "test_srs_mints_requirement_ids:"
+  setup_tmp_repo
+  seed_master_spec_for_docs
+  sf_docs_derive
+  assert_file_contains "./docs/SRS.md" "FR-1"
+  assert_file_contains "./docs/SRS.md" "NFR-1"
+}
+
+test_backlog_mints_backlog_ids() {
+  echo "test_backlog_mints_backlog_ids:"
+  setup_tmp_repo
+  seed_master_spec_for_docs
+  sf_docs_derive
+  assert_file_contains "./docs/BACKLOG.md" "BACKLOG-1"
+  assert_file_contains "./docs/BACKLOG.md" "BACKLOG-2"
+}
+
 test_default_does_not_create_full_docs() {
   echo "test_default_does_not_create_full_docs:"
   setup_tmp_repo
@@ -123,6 +141,8 @@ test_regenerate_overwrites() {
 
 test_default_docs_generated
 test_prd_content
+test_srs_mints_requirement_ids
+test_backlog_mints_backlog_ids
 test_default_does_not_create_full_docs
 test_full_mode_non_llm
 test_full_mode_llm_project

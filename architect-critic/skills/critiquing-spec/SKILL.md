@@ -247,7 +247,7 @@ Hold the external adversary JSON in working context alongside the host-agent sel
 You now have one or two challenge lists (claude-only, or claude + codex). Merge them via the bash helper:
 
 ```bash
-arc consolidator_merge
+arc consolidator_merge "$CLAUDE_AUDIT_JSON" "$CODEX_AUDIT_JSON"
 ```
 
 The consolidator's algorithm:
@@ -336,8 +336,23 @@ When the helper returns a 3 (the borderline case), default to "stands" but softe
 State updates happen in bash because they are pure I/O. Append the run record:
 
 ```bash
-arc state_append_run
+arc state_append_run "$REQUEST_ID" "$DEPTH" "$ADVERSARIES_JSON" "$CHALLENGE_COUNT" "$CONCESSIONS" critiquing-spec "$ELAPSED_MS"
 ```
+
+Equivalent flag form is also supported for robustness:
+
+```bash
+arc state_append_run \
+  --request-id "$REQUEST_ID" \
+  --depth "$DEPTH" \
+  --adversaries "$ADVERSARIES_JSON" \
+  --challenge-count "$CHALLENGE_COUNT" \
+  --concessions "$CONCESSIONS" \
+  --skill-invoked critiquing-spec \
+  --elapsed-ms "$ELAPSED_MS"
+```
+
+`--adversaries` accepts either a JSON array such as `["claude","codex"]` or a CSV string such as `claude,codex`.
 
 The schema v2 `recent_runs[]` entry includes:
 - `request_id` — `crit-<ISO8601>-<entropy>` generated upstream

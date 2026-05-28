@@ -14,7 +14,8 @@
 #     "project_name": "<string>",
 #     "phases":          [{id, name, horizon, summary}, ...],
 #     "sprints":         [{phase_id, id, name, goal, vs_count_estimate}, ...],
-#     "vertical_slices": [{sprint_id, id, name, summary, demo_criteria: []}, ...],
+#     "vertical_slices": [{sprint_id, id, name, summary, demo_criteria: [],
+#                          traces_fr: [], traces_nfr: [], traces_backlog: []}, ...],
 #     "mutations":       [{timestamp, mode, target, note}, ...]
 #   }
 #
@@ -159,21 +160,58 @@ sf_roadmap_write_sprint() {
 }
 
 # Args: slice_id ("VS-1.1.1") sprint_id ("1.1") name summary
+#       [traces_fr_json] [traces_nfr_json] [traces_backlog_json]
 sf_roadmap_write_slice() {
   local slice_id="$1" sprint_id="$2" name="$3" summary="$4"
+  local trace_args_provided=0
+  [[ $# -ge 5 ]] && trace_args_provided=1
+  local traces_fr="${5:-[]}"
+  local traces_nfr="${6:-[]}"
+  local traces_backlog="${7:-[]}"
+  if ! printf '%s' "$traces_fr" | jq -e 'type == "array"' >/dev/null 2>&1; then
+    sf_log_error "sf_roadmap_write_slice: traces_fr must be a JSON array"
+    return 1
+  fi
+  if ! printf '%s' "$traces_nfr" | jq -e 'type == "array"' >/dev/null 2>&1; then
+    sf_log_error "sf_roadmap_write_slice: traces_nfr must be a JSON array"
+    return 1
+  fi
+  if ! printf '%s' "$traces_backlog" | jq -e 'type == "array"' >/dev/null 2>&1; then
+    sf_log_error "sf_roadmap_write_slice: traces_backlog must be a JSON array"
+    return 1
+  fi
   _sf_roadmap_atomic '
     . as $root
     | ($root.vertical_slices | map(.id) | index($vid)) as $idx
     | (if $idx == null
-       then .vertical_slices += [{sprint_id: $sid, id: $vid, name: $name, summary: $summary, demo_criteria: []}]
+       then .vertical_slices += [{
+          sprint_id: $sid,
+          id: $vid,
+          name: $name,
+          summary: $summary,
+          demo_criteria: [],
+          traces_fr: $traces_fr,
+          traces_nfr: $traces_nfr,
+          traces_backlog: $traces_backlog
+        }]
        else .vertical_slices[$idx] = (.vertical_slices[$idx]
-            | .sprint_id = $sid | .id = $vid | .name = $name | .summary = $summary)
+            | .sprint_id = $sid
+            | .id = $vid
+            | .name = $name
+            | .summary = $summary
+            | .traces_fr = (if $trace_args_provided == 1 then $traces_fr else (.traces_fr // []) end)
+            | .traces_nfr = (if $trace_args_provided == 1 then $traces_nfr else (.traces_nfr // []) end)
+            | .traces_backlog = (if $trace_args_provided == 1 then $traces_backlog else (.traces_backlog // []) end))
        end)
   ' \
     --arg vid     "$slice_id" \
     --arg sid     "$sprint_id" \
     --arg name    "$name" \
-    --arg summary "$summary"
+    --arg summary "$summary" \
+    --argjson trace_args_provided "$trace_args_provided" \
+    --argjson traces_fr "$traces_fr" \
+    --argjson traces_nfr "$traces_nfr" \
+    --argjson traces_backlog "$traces_backlog"
 }
 
 # ----------------------------------------------------------------------------
@@ -418,6 +456,15 @@ _sf_roadmap_render_to_stdout() {
         printf '#### %s: %s\n\n' "$v_id" "$v_name"
         printf '%s\n\n' "$v_summary"
 
+        printf '##### Traceability\n\n'
+        local traces_fr traces_nfr traces_backlog
+        traces_fr="$(jq -r --arg sid "$s_id" --argjson k "$k" '[.vertical_slices[] | select(.sprint_id == $sid)] [$k].traces_fr // [] | if length == 0 then "None" else join(", ") end' "$state_path")"
+        traces_nfr="$(jq -r --arg sid "$s_id" --argjson k "$k" '[.vertical_slices[] | select(.sprint_id == $sid)] [$k].traces_nfr // [] | if length == 0 then "None" else join(", ") end' "$state_path")"
+        traces_backlog="$(jq -r --arg sid "$s_id" --argjson k "$k" '[.vertical_slices[] | select(.sprint_id == $sid)] [$k].traces_backlog // [] | if length == 0 then "None" else join(", ") end' "$state_path")"
+        printf -- '- FR: %s\n' "$traces_fr"
+        printf -- '- NFR: %s\n' "$traces_nfr"
+        printf -- '- Backlog: %s\n\n' "$traces_backlog"
+
         # Demo criteria block (always emit the heading; lines if present).
         printf '##### Demo criteria\n\n'
         local crit_count
@@ -434,6 +481,59 @@ _sf_roadmap_render_to_stdout() {
       done
     done
   done
+}
+
+sf_roadmap_traceability_report() {
+  local state_path srs_path backlog_path
+  state_path="$(sf_roadmap_state_path)"
+  if [[ ! -f "$state_path" ]]; then
+    sf_log_error "roadmap state missing: $state_path"
+    return 1
+  fi
+  srs_path="$(sf_resolve_output_path "srs" "docs/SRS.md")"
+  backlog_path="$(sf_resolve_output_path "backlog" "docs/BACKLOG.md")"
+
+  printf 'Requirement traceability report\n\n'
+  _sf_roadmap_print_trace_group "FR" "$srs_path" "$state_path"
+  printf '\n'
+  _sf_roadmap_print_trace_group "NFR" "$srs_path" "$state_path"
+  printf '\n'
+  _sf_roadmap_print_trace_group "BACKLOG" "$backlog_path" "$state_path"
+}
+
+_sf_roadmap_print_trace_group() {
+  local prefix="$1" source_path="$2" state_path="$3"
+  printf '%s\n' "$prefix"
+  if [[ ! -f "$source_path" ]]; then
+    printf '%s\n' "- source missing: $source_path"
+    return 0
+  fi
+
+  local ids
+  ids="$(grep -Eo "${prefix}-[0-9]+" "$source_path" | sort -u)"
+  if [[ -z "$ids" ]]; then
+    printf '%s\n' "- no IDs found"
+    return 0
+  fi
+
+  local id slices jq_field
+  case "$prefix" in
+    FR) jq_field='traces_fr' ;;
+    NFR) jq_field='traces_nfr' ;;
+    BACKLOG) jq_field='traces_backlog' ;;
+    *) jq_field='traces_fr' ;;
+  esac
+  while IFS= read -r id; do
+    [[ -z "$id" ]] && continue
+    slices="$(jq -r --arg id "$id" --arg field "$jq_field" '
+      [.vertical_slices[] | select((.[$field] // []) | index($id)) | .id] | join(", ")
+    ' "$state_path")"
+    if [[ -n "$slices" ]]; then
+      printf '%s\n' "- ${id}: ${slices}"
+    else
+      printf '%s\n' "- ${id}: unassigned"
+    fi
+  done <<< "$ids"
 }
 
 # ----------------------------------------------------------------------------

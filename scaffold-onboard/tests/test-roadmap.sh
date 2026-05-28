@@ -117,6 +117,39 @@ test_write_slice_appends_with_sprint_id() {
   teardown_roadmap
 }
 
+test_write_slice_accepts_trace_arrays() {
+  echo "test_write_slice_accepts_trace_arrays:"
+  setup_roadmap
+  sf_roadmap_state_init "demo-proj"
+  sf_roadmap_write_phase 1 "Foundation" "Q3 2026" "..."
+  sf_roadmap_write_sprint "1.1" 1 "Bootstrap" "..."
+  sf_roadmap_write_slice "VS-1.1.1" "1.1" "First deploy" "Pipeline → preview env" \
+    '["FR-1","FR-2"]' '["NFR-1"]' '["BACKLOG-1"]'
+  local path; path="$(sf_roadmap_state_path)"
+  local traces
+  traces="$(jq -r '.vertical_slices[0] | (.traces_fr | join(",")) + "|" + (.traces_nfr | join(",")) + "|" + (.traces_backlog | join(","))' "$path")"
+  assert_eq "trace arrays stored on slice" "FR-1,FR-2|NFR-1|BACKLOG-1" "$traces"
+  teardown_roadmap
+}
+
+test_write_slice_preserves_traces_when_legacy_update_omits_them() {
+  echo "test_write_slice_preserves_traces_when_legacy_update_omits_them:"
+  setup_roadmap
+  sf_roadmap_state_init "demo-proj"
+  sf_roadmap_write_phase 1 "Foundation" "Q3 2026" "..."
+  sf_roadmap_write_sprint "1.1" 1 "Bootstrap" "..."
+  sf_roadmap_write_slice "VS-1.1.1" "1.1" "First deploy" "Pipeline → preview env" \
+    '["FR-1"]' '["NFR-1"]' '["BACKLOG-1"]'
+  sf_roadmap_write_slice "VS-1.1.1" "1.1" "Renamed deploy" "Updated summary"
+  local path; path="$(sf_roadmap_state_path)"
+  local traces name
+  name="$(jq -r '.vertical_slices[0].name' "$path")"
+  traces="$(jq -r '.vertical_slices[0] | (.traces_fr | join(",")) + "|" + (.traces_nfr | join(",")) + "|" + (.traces_backlog | join(","))' "$path")"
+  assert_eq "legacy update still updates slice name" "Renamed deploy" "$name"
+  assert_eq "legacy update preserves trace arrays" "FR-1|NFR-1|BACKLOG-1" "$traces"
+  teardown_roadmap
+}
+
 test_checkpoint_set_get_roundtrip() {
   echo "test_checkpoint_set_get_roundtrip:"
   setup_roadmap
@@ -178,6 +211,64 @@ test_render_contains_slice_heading() {
   sf_roadmap_render
   # 10 — VS heading at level 4
   assert_file_contains "ROADMAP.md" '^#### VS-1.1.1: First deploy'
+  teardown_roadmap
+}
+
+test_render_contains_traceability_block() {
+  echo "test_render_contains_traceability_block:"
+  setup_roadmap
+  sf_roadmap_state_init "demo-proj"
+  sf_roadmap_write_phase 1 "Foundation" "Q3 2026" "Platform groundwork"
+  sf_roadmap_write_sprint "1.1" 1 "Bootstrap" "Stand up CI + first deploy"
+  sf_roadmap_write_slice "VS-1.1.1" "1.1" "First deploy" "Pipeline → preview env" \
+    '["FR-1"]' '["NFR-1"]' '["BACKLOG-1"]'
+  sf_roadmap_render
+  assert_file_contains "ROADMAP.md" "##### Traceability"
+  assert_file_contains "ROADMAP.md" "FR: FR-1"
+  assert_file_contains "ROADMAP.md" "NFR: NFR-1"
+  assert_file_contains "ROADMAP.md" "Backlog: BACKLOG-1"
+  teardown_roadmap
+}
+
+test_traceability_report_lists_covered_and_unassigned() {
+  echo "test_traceability_report_lists_covered_and_unassigned:"
+  setup_roadmap
+  sf_roadmap_state_init "demo-proj"
+  mkdir -p docs
+  cat > docs/SRS.md <<'EOF'
+# SRS
+- **FR-1** — First requirement.
+- **FR-2** — Second requirement.
+- **NFR-1** — First non-functional requirement.
+- **NFR-2** — Second non-functional requirement.
+EOF
+  cat > docs/BACKLOG.md <<'EOF'
+# Backlog
+### BACKLOG-1 — First story
+### BACKLOG-2 — Second story
+EOF
+  sf_roadmap_write_phase 1 "Foundation" "Q3 2026" "Platform groundwork"
+  sf_roadmap_write_sprint "1.1" 1 "Bootstrap" "Stand up CI + first deploy"
+  sf_roadmap_write_slice "VS-1.1.1" "1.1" "First deploy" "Pipeline → preview env" \
+    '["FR-1"]' '["NFR-1"]' '["BACKLOG-1"]'
+  local report
+  report="$(sf_roadmap_traceability_report)"
+  case "$report" in
+    *"FR-1: VS-1.1.1"*) PASS=$((PASS+1)); echo "  ✓ covered FR listed" ;;
+    *) FAIL=$((FAIL+1)); echo "  ✗ covered FR missing"; printf '%s\n' "$report" | sed 's/^/    /' ;;
+  esac
+  case "$report" in
+    *"FR-2: unassigned"*) PASS=$((PASS+1)); echo "  ✓ unassigned FR listed" ;;
+    *) FAIL=$((FAIL+1)); echo "  ✗ unassigned FR missing"; printf '%s\n' "$report" | sed 's/^/    /' ;;
+  esac
+  case "$report" in
+    *"NFR-1: VS-1.1.1"*) PASS=$((PASS+1)); echo "  ✓ covered NFR listed" ;;
+    *) FAIL=$((FAIL+1)); echo "  ✗ covered NFR missing"; printf '%s\n' "$report" | sed 's/^/    /' ;;
+  esac
+  case "$report" in
+    *"BACKLOG-2: unassigned"*) PASS=$((PASS+1)); echo "  ✓ unassigned backlog listed" ;;
+    *) FAIL=$((FAIL+1)); echo "  ✗ unassigned backlog missing"; printf '%s\n' "$report" | sed 's/^/    /' ;;
+  esac
   teardown_roadmap
 }
 
@@ -542,12 +633,16 @@ test_state_init_creates_schema                    # 1, 2
 test_write_phase_appends                          # 3, 4
 test_write_sprint_appends_with_phase_id           # 5
 test_write_slice_appends_with_sprint_id           # 6
+test_write_slice_accepts_trace_arrays
+test_write_slice_preserves_traces_when_legacy_update_omits_them
 test_checkpoint_set_get_roundtrip                 # 7
 # Render + ID
 test_render_writes_roadmap_md                     # 8
 test_render_contains_phase_heading                # 9
 test_render_contains_sprint_heading               # 10
 test_render_contains_slice_heading                # 11
+test_render_contains_traceability_block
+test_traceability_report_lists_covered_and_unassigned
 test_render_idempotent_no_diff                    # 12
 # Re-run protocol
 test_rerun_mode_no_state_is_initial               # 13

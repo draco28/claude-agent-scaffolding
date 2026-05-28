@@ -112,6 +112,20 @@ test_dotted_key() {
   assert_eq "dotted key" "Hi todo-cli" "$out"
 }
 
+test_work_item_template_contains_traceability() {
+  echo "test_work_item_template_contains_traceability:"
+  local tmpl="$HERE/../templates/work-item-spec.md.tmpl"
+  assert_file_contains "$tmpl" "Traceability"
+  assert_file_contains "$tmpl" "{{traceability_block}}"
+}
+
+test_handoff_template_contains_traceability() {
+  echo "test_handoff_template_contains_traceability:"
+  local tmpl="$HERE/../templates/implementation-handoff.md.tmpl"
+  assert_file_contains "$tmpl" "Requirement traceability"
+  assert_file_contains "$tmpl" "{{traceability_block}}"
+}
+
 test_simple_substitution
 test_multi_keys
 test_repeated_key
@@ -122,5 +136,7 @@ test_html_entities
 test_multiline
 test_no_nested_expansion
 test_dotted_key
+test_work_item_template_contains_traceability
+test_handoff_template_contains_traceability
 
 sd_test_summary

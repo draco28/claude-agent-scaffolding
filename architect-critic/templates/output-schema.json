@@ -1,18 +1,20 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
+  "additionalProperties": false,
   "properties": {
     "challenges": {
       "type": "array",
       "items": {
         "type": "object",
+        "additionalProperties": false,
         "properties": {
           "text": { "type": "string" },
           "severity": { "enum": ["premise", "gap", "alternative"] },
           "rationale": { "type": "string" },
-          "principle_applied": { "type": "string" }
+          "principle_applied": { "type": ["string", "null"] }
         },
-        "required": ["text", "severity", "rationale"]
+        "required": ["text", "severity", "rationale", "principle_applied"]
       }
     },
     "divergences": {
@@ -20,5 +22,5 @@
       "items": { "type": "string" }
     }
   },
-  "required": ["challenges"]
+  "required": ["challenges", "divergences"]
 }

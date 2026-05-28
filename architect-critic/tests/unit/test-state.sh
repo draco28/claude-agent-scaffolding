@@ -111,6 +111,30 @@ has_cost="$(jq '.recent_runs[0] | has("cost_usd")' "$state_file")"
 assert_eq "recent_runs[0] has no cost_usd key" "false" "$has_cost"
 
 # ---------------------------------------------------------------------------
+# T7e: ac_state_append_run accepts flag-style invocation and CSV adversaries
+# ---------------------------------------------------------------------------
+echo "T7e: ac_state_append_run flag-style via arc dispatcher"
+setup_tmp_repo > /dev/null
+ac_state_init
+state_file="$(ac_state_path)"
+"$TESTS_DIR/../bin/arc" state_append_run \
+  --request-id "crit-flag-style" \
+  --depth close \
+  --adversaries "claude,codex" \
+  --challenge-count 13 \
+  --concessions 7 \
+  --skill-invoked critiquing-spec \
+  --elapsed-ms 300000
+flag_rc=$?
+assert_eq "flag-style state_append_run rc=0" "0" "$flag_rc"
+flag_id="$(jq -r '.recent_runs[0].request_id' "$state_file")"
+assert_eq "flag-style request_id stored" "crit-flag-style" "$flag_id"
+flag_adv="$(jq -r '.recent_runs[0].adversaries_used | join(",")' "$state_file")"
+assert_eq "CSV adversaries converted to JSON array" "claude,codex" "$flag_adv"
+flag_count="$(jq -r '.recent_runs[0].challenge_count' "$state_file")"
+assert_eq "flag-style challenge_count stored" "13" "$flag_count"
+
+# ---------------------------------------------------------------------------
 # T8: recent_runs cap at 20 entries (drops oldest)
 # ---------------------------------------------------------------------------
 echo "T8: recent_runs cap at 20"

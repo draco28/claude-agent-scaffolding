@@ -15,6 +15,7 @@
   preflight_calibration     question list the subagent must consider during pre-flight
   whats_merged              bulleted list of work items already merged that are upstream of this
   memory_bank_pointers      bulleted list of specific memory-bank file paths to read
+  traceability_block        FR/NFR/BACKLOG IDs inherited from the ROADMAP slice and work-item spec
   acs_embedded              numbered list of ACs (full text, NOT a pointer)
   verification_commands     fenced bash block of all verification commands
   git_policy_summary        one paragraph: STAGE-not-commit + no push/pull/fetch + return format
@@ -86,13 +87,19 @@ Beyond the Tier 0 auto-load (which scaffold-dev's SessionStart hook already prov
 
 If `03-code-patterns.md` contains machine-checkable rules whose globs match files you intend to modify, those rules constrain your implementation. Read them BEFORE writing code.
 
-## 7. Acceptance criteria (embedded)
+## 7. Requirement traceability
+
+{{traceability_block}}
+
+Treat referenced NFR IDs as acceptance-bar context. If an `auto:` AC cites an `NFR-N`, the implementation report must name that NFR in the AC outcome.
+
+## 8. Acceptance criteria (embedded)
 
 {{acs_embedded}}
 
 These ACs are the source of truth for what "done" means. The spec at `{{spec_abs_path}}` may contain additional context but the ACs above govern verification.
 
-## 8. Verification commands
+## 9. Verification commands
 
 Run these commands from `{{worktree_abs_path}}` after implementing each AC:
 
@@ -100,7 +107,7 @@ Run these commands from `{{worktree_abs_path}}` after implementing each AC:
 
 Use these EXACT commands. Substituting near-equivalents (e.g., `pytest -x` instead of full `pytest`) loses coverage of edge cases the verification was designed to catch.
 
-## 9. Constraints
+## 10. Constraints
 
 {{git_policy_summary}}
 
@@ -121,11 +128,11 @@ Use these EXACT commands. Substituting near-equivalents (e.g., `pytest -x` inste
 }
 ```
 
-## 10. When done
+## 11. When done
 
 {{when_done_steps}}
 
-## 11. Report template
+## 12. Report template
 
 Author your report.md at `{{report_abs_path}}` using this skeleton (9 sections per SPEC §10):
 

@@ -27,6 +27,53 @@ export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
 echo "=== test-codex.sh (v0.2) ==="
 
 # ---------------------------------------------------------------------------
+# 0. Structured-output schema is strict enough for OpenAI response_format.
+# ---------------------------------------------------------------------------
+echo ""
+echo "-- 0. output schema requires additionalProperties=false on every object --"
+(
+  schema="$PLUGIN_ROOT/templates/output-schema.json"
+  missing="$(jq -r '
+    [path(.. | objects) as $p
+      | getpath($p) as $obj
+      | select(($obj.type? == "object") and ($obj.additionalProperties? != false))
+      | "/" + ($p | map(tostring) | join("/"))
+    ] | join("\n")
+  ' "$schema")"
+  if [[ -n "$missing" ]]; then
+    echo "  x object schema(s) missing additionalProperties:false:"
+    printf '%s\n' "$missing" | sed 's/^/    /'
+    exit 1
+  fi
+  echo "  ok every object schema has additionalProperties:false"
+  exit 0
+)
+if [[ $? -eq 0 ]]; then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); fi
+
+echo ""
+echo "-- 0b. output schema requires every declared property --"
+(
+  schema="$PLUGIN_ROOT/templates/output-schema.json"
+  missing="$(jq -r '
+    [path(.. | objects) as $p
+      | getpath($p) as $obj
+      | select($obj.type? == "object" and ($obj.properties? | type == "object"))
+      | (($obj.properties | keys_unsorted) - ($obj.required // [])) as $missing
+      | select($missing | length > 0)
+      | ("/" + ($p | map(tostring) | join("/")) + " missing required: " + ($missing | join(",")))
+    ] | join("\n")
+  ' "$schema")"
+  if [[ -n "$missing" ]]; then
+    echo "  x object schema(s) have properties not listed in required:"
+    printf '%s\n' "$missing" | sed 's/^/    /'
+    exit 1
+  fi
+  echo "  ok every declared property is required"
+  exit 0
+)
+if [[ $? -eq 0 ]]; then PASS=$((PASS+1)); else FAIL=$((FAIL+1)); fi
+
+# ---------------------------------------------------------------------------
 # 1. ac_codex_available — codex absent (PATH stripped of real codex and mock).
 # ---------------------------------------------------------------------------
 echo ""

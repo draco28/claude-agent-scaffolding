@@ -70,20 +70,58 @@ ac_state_write_field() {
 # Args: <request_id> <depth> <adversaries_used_json> <challenge_count> <concessions> <skill_invoked> <elapsed_ms>
 #   adversaries_used_json: a JSON array literal, e.g. '["claude"]' or '["claude","codex"]'
 ac_state_append_run() {
-  local request_id="$1"
-  local depth="$2"
-  local adversaries_json="$3"
-  local challenge_count="$4"
-  local concessions="$5"
-  local skill_invoked="$6"
-  local elapsed_ms="$7"
+  local request_id="" depth="" adversaries_json="" challenge_count="" concessions="" skill_invoked="" elapsed_ms=""
+
+  if [[ "${1:-}" == --* ]]; then
+    local adversaries_raw=""
+    while [[ $# -gt 0 ]]; do
+      case "$1" in
+        --request-id) request_id="${2:-}"; shift 2 ;;
+        --depth) depth="${2:-}"; shift 2 ;;
+        --adversaries) adversaries_raw="${2:-}"; shift 2 ;;
+        --challenge-count) challenge_count="${2:-}"; shift 2 ;;
+        --concessions) concessions="${2:-}"; shift 2 ;;
+        --skill-invoked) skill_invoked="${2:-}"; shift 2 ;;
+        --elapsed-ms) elapsed_ms="${2:-}"; shift 2 ;;
+        *)
+          ac_log_error "ac_state_append_run: unknown flag: $1"
+          return 2
+          ;;
+      esac
+    done
+    if [[ "$adversaries_raw" == \[* ]]; then
+      adversaries_json="$adversaries_raw"
+    else
+      adversaries_json="$(printf '%s\n' "$adversaries_raw" \
+        | awk -F',' 'BEGIN { printf "[" } { for (i=1;i<=NF;i++) { gsub(/^[ \t]+|[ \t]+$/, "", $i); if ($i != "") { if (n++) printf ","; gsub(/"/, "\\\"", $i); printf "\"%s\"", $i } } } END { printf "]" }')"
+    fi
+  else
+    request_id="${1:-}"
+    depth="${2:-}"
+    adversaries_json="${3:-}"
+    challenge_count="${4:-}"
+    concessions="${5:-}"
+    skill_invoked="${6:-}"
+    elapsed_ms="${7:-}"
+  fi
+
+  if [[ -z "$request_id" || -z "$depth" || -z "$adversaries_json" || -z "$challenge_count" || -z "$concessions" || -z "$skill_invoked" || -z "$elapsed_ms" ]]; then
+    ac_log_error "ac_state_append_run: usage: ac_state_append_run <request_id> <depth> <adversaries_json> <challenge_count> <concessions> <skill_invoked> <elapsed_ms>"
+    return 2
+  fi
+  if ! printf '%s' "$adversaries_json" | jq -e 'type == "array"' >/dev/null 2>&1; then
+    ac_log_error "ac_state_append_run: adversaries must be a JSON array or CSV list"
+    return 2
+  fi
+
   local state_file lock_path completed_at
   state_file="$(ac_state_path)"
   lock_path="$(ac_data_dir)/state.lock"
   completed_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
   ac_lock_acquire "$lock_path" || return 1
-  ac_guarded_jq_write "$state_file" \
+  local rc
+  if ac_guarded_jq_write "$state_file" \
     --arg rid "$request_id" \
     --arg cat "$completed_at" \
     --arg dep "$depth" \
@@ -102,8 +140,11 @@ ac_state_append_run() {
        "skill_invoked": $skl,
        "elapsed_ms": $elm
      }]) | if length > 20 then .[-20:] else . end)' \
-    "$state_file"
-  local rc=$?
+    "$state_file"; then
+    rc=0
+  else
+    rc=$?
+  fi
   ac_lock_release "$lock_path"
   return $rc
 }
