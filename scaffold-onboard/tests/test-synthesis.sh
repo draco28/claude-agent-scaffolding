@@ -129,6 +129,19 @@ test_coverage_report_flags_unassigned() {
   printf '%s' "$out" | grep -q "FR-1: covered" && { echo "  ✓ covered shown"; PASS=$((PASS+1)); } || { echo "  ✗"; FAIL=$((FAIL+1)); }
 }
 
+# CI gate: every shipped synthesis brief must validate.
+test_all_shipped_briefs_validate() {
+  echo "test_all_shipped_briefs_validate:"
+  local b
+  for b in "$PLUGIN_ROOT"/templates/synthesis-briefs/*.brief.md; do
+    if sf_synth_brief_validate "$b" 2>/dev/null; then
+      PASS=$((PASS+1)); echo "  ✓ valid: $(basename "$b")"
+    else
+      FAIL=$((FAIL+1)); echo "  ✗ INVALID: $(basename "$b")"
+    fi
+  done
+}
+
 test_project_name_prefers_explicit_answer
 test_project_name_no_emdash_truncation_fallback
 test_synth_enabled_default_on
@@ -143,4 +156,5 @@ test_validate_cited_ids_missing
 test_no_fillin_markers_pass_and_fail
 test_brief_assemble_includes_paths_and_ledger_slice
 test_coverage_report_flags_unassigned
+test_all_shipped_briefs_validate
 report_results
