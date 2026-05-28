@@ -35,8 +35,58 @@ test_synth_enabled_fast_flag() {
   assert_eq "--fast forces deterministic" "fast" "$(SF_SYNTH_FAST=1 sf_synth_mode)"
 }
 
+_write_sample_brief() {
+  cat > "$1" <<'EOF'
+---
+doc: SRS
+routes_to: srs
+wave: 2
+required_sections:
+  - "Functional Requirements"
+  - "Non-Functional Requirements"
+  - "Traceability"
+mints: [FR, NFR]
+consumes: [UC]
+model: opus
+---
+## Synthesis guidance
+Derive FRs from PRD use cases.
+EOF
+}
+test_brief_field_scalar() {
+  echo "test_brief_field_scalar:"
+  setup_tmp_repo
+  _write_sample_brief ./b.brief.md
+  assert_eq "routes_to" "srs" "$(sf_synth_brief_field ./b.brief.md routes_to)"
+  assert_eq "wave" "2" "$(sf_synth_brief_field ./b.brief.md wave)"
+  assert_eq "model" "opus" "$(sf_synth_brief_field ./b.brief.md model)"
+}
+test_brief_required_sections_list() {
+  echo "test_brief_required_sections_list:"
+  setup_tmp_repo
+  _write_sample_brief ./b.brief.md
+  local got; got="$(sf_synth_brief_list ./b.brief.md required_sections | tr '\n' '|')"
+  assert_eq "sections" "Functional Requirements|Non-Functional Requirements|Traceability|" "$got"
+}
+test_brief_validate_ok() {
+  echo "test_brief_validate_ok:"
+  setup_tmp_repo
+  _write_sample_brief ./b.brief.md
+  if sf_synth_brief_validate ./b.brief.md; then echo "  ✓ valid"; PASS=$((PASS+1)); else echo "  ✗"; FAIL=$((FAIL+1)); fi
+}
+test_brief_validate_missing_key() {
+  echo "test_brief_validate_missing_key:"
+  setup_tmp_repo
+  printf -- '---\ndoc: X\n---\nbody\n' > ./bad.brief.md
+  if sf_synth_brief_validate ./bad.brief.md 2>/dev/null; then echo "  ✗ should fail"; FAIL=$((FAIL+1)); else echo "  ✓ rejected"; PASS=$((PASS+1)); fi
+}
+
 test_project_name_prefers_explicit_answer
 test_project_name_no_emdash_truncation_fallback
 test_synth_enabled_default_on
 test_synth_enabled_fast_flag
+test_brief_field_scalar
+test_brief_required_sections_list
+test_brief_validate_ok
+test_brief_validate_missing_key
 report_results
