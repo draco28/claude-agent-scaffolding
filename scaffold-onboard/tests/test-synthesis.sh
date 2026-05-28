@@ -109,6 +109,17 @@ test_no_fillin_markers_pass_and_fail() {
   if sf_synth_assert_no_markers ./bad.md 2>/dev/null; then echo "  ✗ should fail"; FAIL=$((FAIL+1)); else echo "  ✓ marker caught"; PASS=$((PASS+1)); fi
 }
 
+test_brief_assemble_includes_paths_and_ledger_slice() {
+  echo "test_brief_assemble_includes_paths_and_ledger_slice:"
+  setup_tmp_repo
+  _write_sample_brief ./b.brief.md
+  local led='{"use_cases":[{"id":"UC-1","title":"login"}],"frs":[{"id":"FR-9"}],"nfrs":[],"backlog":[]}'
+  local out; out="$(sf_synth_brief_assemble ./b.brief.md "$led" /tmp/SRS.md /tmp/MASTER-SPEC.md /tmp/EXECUTIVE-SUMMARY.md)"
+  printf '%s' "$out" | grep -q "/tmp/SRS.md" && { echo "  ✓ output path"; PASS=$((PASS+1)); } || { echo "  ✗"; FAIL=$((FAIL+1)); }
+  printf '%s' "$out" | grep -q "UC-1" && { echo "  ✓ consumed UC"; PASS=$((PASS+1)); } || { echo "  ✗"; FAIL=$((FAIL+1)); }
+  printf '%s' "$out" | grep -q "FR-9" && { echo "  ✗ leaked non-consumed family"; FAIL=$((FAIL+1)); } || { echo "  ✓ FR slice excluded"; PASS=$((PASS+1)); }
+}
+
 test_project_name_prefers_explicit_answer
 test_project_name_no_emdash_truncation_fallback
 test_synth_enabled_default_on
@@ -121,4 +132,5 @@ test_ledger_merge_concats_families
 test_validate_cited_ids_present
 test_validate_cited_ids_missing
 test_no_fillin_markers_pass_and_fail
+test_brief_assemble_includes_paths_and_ledger_slice
 report_results

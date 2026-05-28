@@ -110,3 +110,49 @@ sf_synth_assert_sections() {
   done < <(sf_synth_brief_list "$brief" required_sections)
   return 0
 }
+
+# Map a family token (UC/FR/NFR/BACKLOG) to its ledger array key.
+_sf_synth_family_key() {
+  case "$1" in
+    UC) echo use_cases ;; FR) echo frs ;; NFR) echo nfrs ;; BACKLOG) echo backlog ;;
+    *) echo "" ;;
+  esac
+}
+
+sf_synth_brief_assemble() {
+  local brief="$1" ledger="$2" out_path="$3" master="$4" exec_summary="$5"
+  local body slice fam key
+  body="$(awk 'NR==1 && $0=="---"{f=1;next} f && $0=="---"{f=0;skip=1;next} skip{print}' "$brief")"
+
+  slice="$(sf_synth_ledger_empty)"
+  while IFS= read -r fam; do
+    [[ -z "$fam" ]] && continue
+    key="$(_sf_synth_family_key "$fam")"; [[ -z "$key" ]] && continue
+    local fam_obj
+    fam_obj="$(printf '%s' "$ledger" | jq --arg k "$key" '{($k): (.[$k] // [])}')"
+    slice="$(sf_synth_ledger_merge "$slice" "$fam_obj")"
+  done < <(sf_synth_brief_list "$brief" consumes)
+
+  cat <<EOF
+You are synthesizing one artifact for the project. Read both source documents in full first:
+- MASTER-SPEC: $master
+- EXECUTIVE-SUMMARY: $exec_summary
+
+Write the artifact to: $out_path
+
+Required sections (must all appear, in this order):
+$(sf_synth_brief_list "$brief" required_sections | sed 's/^/- /')
+
+IDs you must MINT (format below) and/or CITE from the provided ledger:
+- mints: $(sf_synth_brief_list "$brief" mints | tr '\n' ' ')
+- consumes (cite only these IDs; they already exist): $(sf_synth_brief_list "$brief" consumes | tr '\n' ' ')
+
+Provided ID ledger slice (cite IDs from here; do not invent IDs in consumed families):
+$slice
+
+Synthesis guidance:
+$body
+
+Hard rules: no fill-in markers (no "*(...)*", no "TODO:"); every required section has real content; return the ID-ledger JSON described in your agent contract.
+EOF
+}
