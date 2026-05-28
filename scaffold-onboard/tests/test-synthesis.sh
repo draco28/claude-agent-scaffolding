@@ -25,6 +25,18 @@ test_project_name_no_emdash_truncation_fallback() {
   assert_eq "fallback is basename, not em-dash prefix" "$(basename "$PWD")" "$got"
 }
 
+test_synth_enabled_default_on() {
+  echo "test_synth_enabled_default_on:"
+  unset SF_SYNTH_FAST 2>/dev/null || true
+  assert_eq "default is synthesize" "synthesize" "$(sf_synth_mode)"
+}
+test_synth_enabled_fast_flag() {
+  echo "test_synth_enabled_fast_flag:"
+  assert_eq "--fast forces deterministic" "fast" "$(SF_SYNTH_FAST=1 sf_synth_mode)"
+}
+
 test_project_name_prefers_explicit_answer
 test_project_name_no_emdash_truncation_fallback
+test_synth_enabled_default_on
+test_synth_enabled_fast_flag
 report_results
