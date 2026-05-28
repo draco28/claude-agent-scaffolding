@@ -447,3 +447,125 @@ These are pseudocode references — the implementations live in their respective
 - **The user** is the final authority. They author every node; you prompt and persist. They accept, edit, or skip every checkpoint offer. You never auto-finalize a sub-phase, auto-advance past a checkpoint, or auto-pause without explicit user choice.
 
 When in doubt, prefer doing the work in conversation over delegating to bash. The bookkeeping-vs-judgment line is: if the next action involves a user-facing decision (which question to ask next, how to recap, whether to escalate), it belongs here in the skill body; if it's pure I/O (state write, template render, path resolve), it belongs in a lib helper.
+
+---
+
+## 16. Synthesis dispatch (v0.3)
+
+v0.3 introduces an LLM-synthesis path for slice authoring in R1.C. For each vertical slice, instead of the user dictating the raw Scope + demo criteria from scratch, a `scaffold-onboard:synthesis-agent` sub-agent drafts a Scope paragraph + `auto:`/`user:` demo criteria from MASTER-SPEC + the running ID ledger. The user then reviews and edits the draft before it is persisted. The deterministic interactive authoring path is preserved as the `--fast` path.
+
+**This dispatch happens in R1.C only (slice Scope + demo criteria drafting). R1.A (phases) and R1.B (sprints) remain fully interactive — synthesis does not draft phase or sprint content.**
+
+### 16.1 Setup
+
+Source both synthesis and routing helpers at skill entry (before entering any sub-phase):
+
+```bash
+source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
+source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
+```
+
+Resolve source documents:
+
+```bash
+master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
+exec_summary="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
+```
+
+Build the ID ledger. If `/scaffold-docs` was run first, the governance docs (SRS.md, BACKLOG.md) contain minted FR/NFR/BACKLOG IDs. Load them into the ledger before R1.C opens:
+
+```bash
+ledger="$(sf_synth_ledger_empty)"
+srs_path="$(sf_resolve_output_path srs docs/SRS.md)"
+backlog_path="$(sf_resolve_output_path backlog docs/BACKLOG.md)"
+# If SRS exists, populate ledger.frs and ledger.nfrs from it.
+# If BACKLOG exists, populate ledger.backlog from it.
+# (Parsing is done by reading the mint IDs from each doc's text with grep -Eo.)
+```
+
+If neither governance doc exists (lightweight mode — `/plan-roadmap` run directly from MASTER-SPEC without `/scaffold-docs`): keep the ledger empty. Surface one warning at R1.C open: *"No SRS/BACKLOG IDs found — synthesizing slice drafts without requirement traceability. Requirement coverage is limited until `/scaffold-docs` is run and slices are refined."*
+
+### 16.2 Fast-path short-circuit
+
+Check synthesis mode before entering R1.C:
+
+```bash
+if [[ "$(sf_synth_mode)" == "fast" ]]; then
+  # Use today's deterministic interactive authoring for all slices.
+  # Do NOT dispatch sub-agents. Fall through to §4.3 normally.
+fi
+```
+
+`sf_synth_mode` echoes `fast` when `SF_SYNTH_FAST=1` (set when the user passed `--fast` in `$ARGUMENTS`). Because `/plan-roadmap` is interactive and has no single flag-taking derive entry, the `--fast` gate lives here in the skill prose (not in lib). Parse `--fast` from `$ARGUMENTS` in the same loop as the other flags (§12) and `export SF_SYNTH_FAST=1` when present.
+
+### 16.3 Per-slice synthesis dispatch (R1.C, sf_synth_mode == synthesize)
+
+For each vertical slice during R1.C (after the user has named the slice and provided or accepted its sprint assignment):
+
+**Step 1 — Dispatch the synthesis sub-agent:**
+
+```bash
+brief="${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/ROADMAP-slice.brief.md"
+out="$(sf_resolve_output_path roadmap ROADMAP.md)"   # draft path for this slice's section
+prompt="$(sf_synth_brief_assemble "$brief" "$ledger" "$out" "$master" "$exec_summary")"
+# Prepend slice context: the agent needs the slice name, ID, and sprint goal.
+# Dispatch: model = sonnet (from brief's model: field)
+Task(subagent_type="scaffold-onboard:synthesis-agent",
+     description="Draft slice <VS-N.M.K> scope + demo criteria",
+     model="claude-sonnet-4-5",
+     prompt="Context for this slice: id=<slice_id>, name=<slice_name>, sprint_goal=<sprint_goal>\n\n$prompt")
+```
+
+**Step 2 — Present the draft to the user:**
+
+When `mode:complete`, the sub-agent returns a draft Scope paragraph and `auto:`/`user:` demo criteria. Surface the draft conversationally:
+
+> *Draft for VS-N.M.K (from synthesis):*
+> **Scope:** \<paragraph\>
+> **Demo criteria:**
+> - `auto:` \<check\>
+> - `user:` \<check\>
+>
+> *Accept as-is, or edit? (accept/edit — default accept)*
+
+If the user accepts: proceed to Step 3 with the draft content as-is.
+If the user edits: apply their edits inline and proceed to Step 3 with the edited content.
+
+**Step 3 — Persist and validate:**
+
+```bash
+# Merge any minted IDs (ROADMAP-slice mints nothing — mints: [] — so ledger unchanged)
+sf_synth_assert_sections "$brief" "$out"       # Scope + Demo criteria headings present
+sf_synth_assert_no_markers "$out"              # no fill-in markers
+```
+
+If `/scaffold-docs` ran first (ledger non-empty), validate citations:
+
+```bash
+sf_synth_validate_cited "$ledger" "<ids cited by this slice>"
+```
+
+**On sub-agent failure or validation failure:** `sf_log_warn "Synthesis failed for <slice_id> — falling back to interactive authoring"` then proceed with the standard R1.C interactive prompts (§4.3) for this slice. Continue with the next slice regardless.
+
+**Lightweight mode (empty ledger):** dispatch the sub-agent normally using the empty ledger; `sf_synth_validate_cited` is skipped (no IDs to validate against). The brief's lightweight-mode note instructs the sub-agent to omit citation lines and append the coverage-limited notice — do not suppress that notice; surface it so the user can decide whether to run `/scaffold-docs` first.
+
+### 16.4 Coverage report at R1.C close
+
+After all slices are authored (whether synthesized or interactive), collect every FR/NFR ID cited across all slice `traces_fr`/`traces_nfr` arrays:
+
+```bash
+all_cited="$(jq -r '[.vertical_slices[] | (.traces_fr // [])[], (.traces_nfr // [])[]] | unique | .[]' "$(sf_roadmap_state_path)")"
+sf_synth_coverage_report "$ledger" "$all_cited"
+```
+
+This surfaces any FR/NFR that no slice covers. Print the report before invoking the architect-critic moment (§10), so the user can address gaps before the adversarial review.
+
+If the ledger is empty (lightweight mode), skip the coverage report and note: *"Coverage report unavailable in lightweight mode — run `/scaffold-docs` first for requirement-coverage tracking."*
+
+### 16.5 Anti-patterns specific to synthesis (do not do these)
+
+- **Dispatching a sub-agent for phase or sprint content.** Synthesis is R1.C-only (slice Scope + demo criteria). Phases and sprints remain fully user-authored and interactive.
+- **Auto-accepting the draft without presenting it to the user.** The user is always the final authority on slice content; synthesis provides a draft for review, not a committed output.
+- **Inventing FR/NFR/BACKLOG IDs not in the ledger.** The brief explicitly forbids this in both normal and lightweight modes. If citations appear in the draft that are absent from the ledger, reject the draft, `sf_log_warn`, and fall back to interactive for that slice.
+- **Running `sf_synth_validate_cited` against an empty ledger.** Skip citation validation when the ledger has no IDs (lightweight mode) — it will always fail on a non-empty citation list.
+- **Parsing `--fast` from positional `$1`.** Always read from `$ARGUMENTS` (env-var bridge per §12); bash positionals are corrupted at template-render time.
