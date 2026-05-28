@@ -2,6 +2,19 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.2.2] — 2026-05-28
+
+### Added
+- **Issue #14 — traceability-first docs:** default SRS and BACKLOG templates now mint stable `FR-N`, `NFR-N`, and `BACKLOG-N` IDs for downstream planning.
+- **Issue #14 — roadmap trace links:** roadmap slice records now include `traces_fr`, `traces_nfr`, and `traces_backlog` arrays; ROADMAP rendering shows trace links under each vertical slice.
+- **Issue #14 — coverage report:** added `sf roadmap_traceability_report` to print covered and unassigned FR/NFR/BACKLOG IDs from generated docs and `project-roadmap.json`.
+
+### Changed
+- Roadmap planning guidance now recommends `/scaffold-docs` before `/plan-roadmap` for traceability-first projects while preserving lightweight MASTER-SPEC-only planning with warnings.
+
+### Fixed
+- **Issue #13 — manifest routing regression coverage:** added a real workspace-init resolver integration test proving `sf resolve_output_path master_spec MASTER-SPEC.md` does not double-append `.workspace/pairing.json`.
+
 ## [0.2.1] — 2026-05-26
 
 Shell-portability + cross-project-contamination patch (v0.x.1 bundle). See `docs/HANDOFF-shell-portability-v0x1.md` and `docs/HANDOFF-shell-portability-v0x1-RETURN.md` in the marketplace repo.

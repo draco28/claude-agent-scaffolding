@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.2 — 2026-05-28
+
+### Fixed
+- **Issue #11 — Codex structured output schema strictness:** `templates/output-schema.json` now marks every object schema with `additionalProperties: false`, requires all declared properties, and uses nullable fields where optional semantics are needed for Codex structured outputs.
+- **Issue #12 — helper invocation compatibility:** `arc state_append_run` now accepts the original positional signature plus flag form (`--request-id`, `--depth`, `--adversaries`, `--challenge-count`, `--concessions`, `--skill-invoked`, `--elapsed-ms`). `--adversaries` accepts either a JSON array or CSV.
+- **Issue #12 — state lock hardening:** failed JSON validation or `jq` mutation no longer leaves the state lock behind.
+- Documented exact `state_append_run`, `consolidator_merge`, and `promotion_check_candidates` helper signatures in `critiquing-spec/SKILL.md`.
+
 ## v0.2.1 — 2026-05-26
 
 Shell-portability patch (v0.x.1 bundle). See `docs/HANDOFF-shell-portability-v0x1.md` in the marketplace repo.

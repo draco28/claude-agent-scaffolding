@@ -2,6 +2,14 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.1.3] — 2026-05-28
+
+### Added
+- **Issue #14 — trace propagation:** scaffold-dev work-item specs and implementation handoffs now include ROADMAP traceability links for `FR-N`, `NFR-N`, and `BACKLOG-N` IDs.
+
+### Changed
+- The vertical-slice planning skill now extracts ROADMAP traceability blocks and carries the NFR success-bar context into downstream specs and handoffs.
+
 ## [0.1.2] — 2026-05-26
 
 Shell-portability patch (v0.x.1 bundle). See `docs/HANDOFF-shell-portability-v0x1.md` in the marketplace repo.

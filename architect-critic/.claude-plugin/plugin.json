@@ -1,6 +1,6 @@
 {
   "name": "architect-critic",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Anti-sycophancy reviewer. 4 skills (gerund-named): critiquing-spec (audit + sequential rebuttal with T=4 concession scoring), reviewing-critique-history, listing-principles, promoting-principle. Ships ghost-notes + CORE shipped-default principles. Full auto-promotion (vote-recurrence + instinct-style signal + 30/90-day suppression). Codex 0.125+ adversarial fresh-frame at close-depth. Standalone-invocable; consumer plugins invoke skills in-conversation (no file IPC).",
   "author": {
     "name": "Pras"
