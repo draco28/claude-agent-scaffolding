@@ -15,6 +15,7 @@ seed_master_spec() {
   local tmpl="$PLUGIN_ROOT/templates/master-spec/MASTER-SPEC.md.tmpl"
   sf_state_init
   sf_state_write_answer "1.1.1" "test-proj — a fast widget"
+  sf_state_write_answer "1.1.4" "test-proj"
   sf_state_write_answer "1.1.2" "Widgets are slow today."
   sf_state_write_answer "1.2.1" "Solo devs"
   sf_state_write_answer "1.2.2" "Build a widget in 1 command"
