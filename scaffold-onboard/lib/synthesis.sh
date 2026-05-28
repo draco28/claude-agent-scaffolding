@@ -156,3 +156,15 @@ $body
 Hard rules: no fill-in markers (no "*(...)*", no "TODO:"); every required section has real content; return the ID-ledger JSON described in your agent contract.
 EOF
 }
+
+sf_synth_coverage_report() {
+  local ledger="$1" covered="$2" id
+  echo "## Requirement coverage"
+  for id in $(printf '%s' "$ledger" | jq -r '[.frs[],.nfrs[]] | .[].id'); do
+    if printf '%s\n' "$covered" | grep -qxF "$id"; then
+      echo "- $id: covered"
+    else
+      echo "- $id: UNASSIGNED"
+    fi
+  done
+}

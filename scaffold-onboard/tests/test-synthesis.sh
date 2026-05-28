@@ -120,6 +120,15 @@ test_brief_assemble_includes_paths_and_ledger_slice() {
   printf '%s' "$out" | grep -q "FR-9" && { echo "  ✗ leaked non-consumed family"; FAIL=$((FAIL+1)); } || { echo "  ✓ FR slice excluded"; PASS=$((PASS+1)); }
 }
 
+test_coverage_report_flags_unassigned() {
+  echo "test_coverage_report_flags_unassigned:"
+  local led='{"use_cases":[],"frs":[{"id":"FR-1"},{"id":"FR-2"}],"nfrs":[{"id":"NFR-1"}],"backlog":[]}'
+  local covered=$'FR-1\nNFR-1'
+  local out; out="$(sf_synth_coverage_report "$led" "$covered")"
+  printf '%s' "$out" | grep -q "FR-2: UNASSIGNED" && { echo "  ✓ unassigned flagged"; PASS=$((PASS+1)); } || { echo "  ✗"; FAIL=$((FAIL+1)); }
+  printf '%s' "$out" | grep -q "FR-1: covered" && { echo "  ✓ covered shown"; PASS=$((PASS+1)); } || { echo "  ✗"; FAIL=$((FAIL+1)); }
+}
+
 test_project_name_prefers_explicit_answer
 test_project_name_no_emdash_truncation_fallback
 test_synth_enabled_default_on
@@ -133,4 +142,5 @@ test_validate_cited_ids_present
 test_validate_cited_ids_missing
 test_no_fillin_markers_pass_and_fail
 test_brief_assemble_includes_paths_and_ledger_slice
+test_coverage_report_flags_unassigned
 report_results
