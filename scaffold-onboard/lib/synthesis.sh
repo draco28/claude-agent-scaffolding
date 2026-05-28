@@ -47,6 +47,22 @@ sf_synth_brief_list() {
     blk && /^[^ \t-]/ { exit }'
 }
 
+# Empty ledger literal.
+sf_synth_ledger_empty() { echo '{"use_cases":[],"frs":[],"nfrs":[],"backlog":[]}'; }
+
+# Merge a returned ids_minted object into the running ledger (array concat per family).
+sf_synth_ledger_merge() {
+  local ledger="$1" add="$2"
+  printf '%s\n%s\n' "$ledger" "$add" | jq -s '
+    .[0] as $l | .[1] as $a
+    | {
+        use_cases: (($l.use_cases // []) + ($a.use_cases // [])),
+        frs:       (($l.frs       // []) + ($a.frs       // [])),
+        nfrs:      (($l.nfrs      // []) + ($a.nfrs      // [])),
+        backlog:   (($l.backlog   // []) + ($a.backlog   // []))
+      }'
+}
+
 # Validate a brief has all required frontmatter keys. Returns 1 + logs on miss.
 sf_synth_brief_validate() {
   local file="$1" k

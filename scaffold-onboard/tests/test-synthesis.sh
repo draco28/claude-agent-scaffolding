@@ -81,6 +81,15 @@ test_brief_validate_missing_key() {
   if sf_synth_brief_validate ./bad.brief.md 2>/dev/null; then echo "  ✗ should fail"; FAIL=$((FAIL+1)); else echo "  ✓ rejected"; PASS=$((PASS+1)); fi
 }
 
+test_ledger_merge_concats_families() {
+  echo "test_ledger_merge_concats_families:"
+  local base='{"use_cases":[{"id":"UC-1","title":"a"}],"frs":[],"nfrs":[],"backlog":[]}'
+  local add='{"frs":[{"id":"FR-1","title":"f","traces_uc":["UC-1"]}]}'
+  local out; out="$(sf_synth_ledger_merge "$base" "$add")"
+  assert_eq "uc kept"  "UC-1" "$(printf '%s' "$out" | jq -r '.use_cases[0].id')"
+  assert_eq "fr added" "FR-1" "$(printf '%s' "$out" | jq -r '.frs[0].id')"
+}
+
 test_project_name_prefers_explicit_answer
 test_project_name_no_emdash_truncation_fallback
 test_synth_enabled_default_on
@@ -89,4 +98,5 @@ test_brief_field_scalar
 test_brief_required_sections_list
 test_brief_validate_ok
 test_brief_validate_missing_key
+test_ledger_merge_concats_families
 report_results
