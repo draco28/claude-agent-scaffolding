@@ -44,6 +44,7 @@ sf_docs_derive() {
     case "$1" in
       --full) full=1 ;;
       --regenerate) regen=1 ;;
+      --fast) export SF_SYNTH_FAST=1 ;;
     esac
     shift
   done

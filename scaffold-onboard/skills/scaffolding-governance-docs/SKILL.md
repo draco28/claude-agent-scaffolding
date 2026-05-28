@@ -204,7 +204,130 @@ These are pseudocode references — the implementations live in their respective
 
 ---
 
-## 11. Notes on tool boundaries
+## 11. Synthesis dispatch (v0.3)
+
+v0.3 introduces an LLM-synthesis path that replaces template rendering with sub-agent authoring for richer artifacts. The deterministic `sf_docs_derive` path is preserved as the `--fast` path and as the per-artifact fallback. This section describes the orchestration logic you (the orchestrator session reading this skill) must execute. Bash cannot dispatch sub-agents; this logic lives here as prose instructions.
+
+### 11.1 Setup
+
+Source both synthesis and routing helpers:
+
+```bash
+source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
+source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
+```
+
+Resolve the source documents:
+
+```bash
+master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
+exec_summary="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
+```
+
+Resolve each artifact's output path via `sf_resolve_output_path <routes_to> <relpath>` using the brief's `routes_to` field. The relpath matches today's `sf_docs_derive` output paths:
+
+| Doc | `routes_to` | relpath |
+|---|---|---|
+| PRD | `prd` | `docs/PRD.md` |
+| SRS | `srs` | `docs/SRS.md` |
+| BACKLOG | `backlog` | `docs/BACKLOG.md` |
+| PROJECT_PLAN | `project_plan` | `docs/PROJECT_PLAN.md` |
+| ADR-0001 | `product_adrs` | `docs/adr/0001-record-architecture-decisions.md` |
+| RISK_REGISTER | `product_adrs` | `docs/RISK_REGISTER.md` |
+| THREAT_MODEL | `product_adrs` | `docs/THREAT_MODEL.md` |
+| TEST_STRATEGY | `product_adrs` | `docs/TEST_STRATEGY.md` |
+| DEFINITION_OF_DONE | `process_adrs` | `docs/DEFINITION_OF_DONE.md` |
+| CUTOVER_PLAN | `product_adrs` | `docs/CUTOVER_PLAN.md` |
+| DEMO_RUNBOOK | `process_adrs` | `docs/DEMO_RUNBOOK.md` |
+| EVALS_PLAN | `product_adrs` | `docs/EVALS_PLAN.md` |
+| MODEL_CARD | `product_adrs` | `docs/MODEL_CARD.md` |
+| PROMPT_GOVERNANCE | `process_adrs` | `docs/PROMPT_GOVERNANCE.md` |
+
+### 11.2 Fast-path short-circuit
+
+Check the synthesis mode immediately after setup:
+
+```bash
+if [[ "$(sf_synth_mode)" == "fast" ]]; then
+  sf_docs_derive [--full] --fast   # deterministic path; --full passed through if the user passed it
+  # STOP — do not execute synthesis waves
+fi
+```
+
+`sf_synth_mode` echoes `fast` when `SF_SYNTH_FAST=1` (set by the `--fast` flag, which `sf_docs_derive`'s own arg-parse loop now recognises). In fast mode the full deterministic pipeline runs and you return.
+
+### 11.3 Synthesis wave dispatch
+
+When `sf_synth_mode` echoes `synthesize`, dispatch artifacts in dependency waves. Maintain a running ledger from the start:
+
+```bash
+ledger="$(sf_synth_ledger_empty)"
+```
+
+Briefs live at `${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/<DOC>.brief.md`.
+
+**Wave 1 — PRD** (must complete before Wave 2; PRD mints UC IDs the SRS consumes):
+
+```bash
+brief="${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/PRD.brief.md"
+out="$(sf_resolve_output_path prd docs/PRD.md)"
+prompt="$(sf_synth_brief_assemble "$brief" "$ledger" "$out" "$master" "$exec_summary")"
+# Dispatch: model = opus (from brief's model: field)
+Task(subagent_type="scaffold-onboard:synthesis-agent",
+     description="Synthesize PRD",
+     model="claude-opus-4-5",
+     prompt="$prompt")
+```
+
+On `mode:complete`: merge returned IDs and validate:
+
+```bash
+ledger="$(sf_synth_ledger_merge "$ledger" "<ids_minted from return JSON>")"
+sf_synth_assert_sections "$brief" "$out"
+sf_synth_assert_no_markers "$out"
+sf_synth_validate_cited "$ledger" "<ids_cited from return JSON>"
+```
+
+On `mode:failed` or any validation failure: `sf_log_warn "PRD synthesis failed — falling back to deterministic render"` then call `sf_docs_derive` filtered to PRD only (or note that `_write_or_skip` with `--regenerate` produces it). Continue to Wave 2 regardless — PRD UC IDs will be absent from the ledger but subsequent waves fall back individually.
+
+**Wave 2 — SRS** (sequential; consumes UC IDs minted in Wave 1):
+
+Same pattern as Wave 1. Brief: `SRS.brief.md`. Output: `sf_resolve_output_path srs docs/SRS.md`. Model: `opus`. Merge the returned `FR`/`NFR` IDs into `$ledger` before proceeding to Wave 3.
+
+**Wave 3 — BACKLOG** (sequential; consumes FR/NFR IDs minted in Wave 2):
+
+Brief: `BACKLOG.brief.md`. Output: `sf_resolve_output_path backlog docs/BACKLOG.md`. Model: `sonnet`. Merge returned `BACKLOG` IDs into `$ledger`.
+
+**Wave 4 — parallel block** (independent of each other; all consume from the ledger assembled through Wave 3):
+
+Dispatch in parallel:
+
+- **PROJECT_PLAN** — brief `PROJECT_PLAN.brief.md`, output `sf_resolve_output_path project_plan docs/PROJECT_PLAN.md`, model `sonnet`.
+- **ADR-0001** — brief `ADR-0001.brief.md`, output `sf_resolve_output_path product_adrs docs/adr/0001-record-architecture-decisions.md`, model `sonnet`.
+- **`--full` docs** — only when `--full` was passed:
+  - Always-on: RISK_REGISTER, THREAT_MODEL, TEST_STRATEGY, DEFINITION_OF_DONE, CUTOVER_PLAN, DEMO_RUNBOOK (all model `sonnet`).
+  - LLM-gated: EVALS_PLAN, MODEL_CARD, PROMPT_GOVERNANCE — only when Phase 9.3.1 ∈ {yes, true} (same gate as the deterministic path). If the gate fails, skip these three and surface the skip-with-reason to the user.
+  - Without `--full`: Wave 4 is PROJECT_PLAN + ADR-0001 only.
+
+For each Wave 4 doc use the same dispatch pattern as Wave 1, substituting the appropriate brief, output path, and model. Wave 4 docs do not mint any new IDs that other Wave 4 docs consume, so they are safe to run concurrently. Merge each returned `ids_minted` into `$ledger` as results arrive; validate each artifact immediately on return; fall back to deterministic render on any failure.
+
+### 11.4 Coverage report
+
+After all waves complete (regardless of any per-artifact fallbacks), collect every ID cited across all synthesized docs into a single newline-separated list and print the coverage report:
+
+```bash
+sf_synth_coverage_report "$ledger" "<all cited IDs, newline-separated>"
+```
+
+This surfaces any FR/NFR that no artifact cited, so the user can identify gaps before committing the bundle.
+
+### 11.5 Skip / regenerate semantics
+
+Synthesis honors the same skip-if-exists / `--regenerate` semantics as the deterministic path. Before assembling a prompt for any artifact, check whether its resolved output path already exists; if it does and `--regenerate` was not passed, skip it (emit `sf_log_info "preserved: <path>"`) and do not dispatch a sub-agent for it. With `--regenerate`, dispatch unconditionally (same as the deterministic path's `regen=1` behavior).
+
+---
+
+## 12. Notes on tool boundaries
 
 - **You** (Claude reading this skill body) make every judgment call: whether MASTER-SPEC is too thin to derive from, how to phrase the routing prompt across 6 logical destinations, whether to surface the LLM-gate skip-with-reason, when to refuse `--regenerate` against user-customized files.
 - **Bash helpers** (`lib/*.sh`) handle pure I/O: template substitution, atomic writes, manifest resolution, validation probes, state reads.
