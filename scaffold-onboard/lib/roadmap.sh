@@ -4,7 +4,7 @@
 # Project roadmap state CRUD + ROADMAP.md rendering.
 # Per SPEC §7 (scaffold-onboard v0.2) + PLAN T3.2.
 #
-# State file: ${CLAUDE_PLUGIN_DATA}/project-roadmap.json (separate from
+# State file: $(sf_project_data_dir)/project-roadmap.json (separate from
 # onboarding-state.json). Schema per SPEC §7.2:
 #   {
 #     "schema_version": "1",
@@ -43,7 +43,40 @@ _sf_roadmap_source_deps
 # State file path
 # ----------------------------------------------------------------------------
 sf_roadmap_state_path() {
+  local path
+  path="$(sf_project_data_dir)/project-roadmap.json"
+  sf_roadmap_migrate_legacy_if_owned "$path" >/dev/null 2>&1 || true
+  echo "$path"
+}
+
+sf_roadmap_legacy_state_path() {
   echo "$(sf_data_dir)/project-roadmap.json"
+}
+
+sf_roadmap_migrate_legacy_if_owned() {
+  local path="${1:-}"
+  [[ -n "$path" ]] || path="$(sf_project_data_dir)/project-roadmap.json"
+  [[ -f "$path" ]] && return 0
+
+  local legacy_state legacy_onboarding
+  legacy_state="$(sf_roadmap_legacy_state_path)"
+  legacy_onboarding="$(sf_state_legacy_path)"
+  [[ -f "$legacy_state" && -f "$legacy_onboarding" ]] || return 0
+
+  local stored_root cur_root
+  stored_root="$(jq -r '.project_root // empty' "$legacy_onboarding" 2>/dev/null || true)"
+  cur_root="$(sf_project_identity_root)"
+  [[ -n "$stored_root" && "$stored_root" == "$cur_root" ]] || return 0
+
+  mkdir -p "$(dirname "$path")"
+  local tmp
+  tmp="$(mktemp "${path}.XXXXXX")"
+  if jq --arg root "$cur_root" '.project_root = (.project_root // $root)' "$legacy_state" > "$tmp"; then
+    mv "$tmp" "$path"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
 }
 
 # ----------------------------------------------------------------------------
@@ -55,18 +88,21 @@ sf_roadmap_state_init() {
   local path
   path="$(sf_roadmap_state_path)"
   mkdir -p "$(dirname "$path")"
-  local now
+  local now project_root
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  project_root="$(sf_project_identity_root)"
   # Use jq to construct so we get correctly-formed JSON (and proper escaping).
   jq -n \
     --arg now  "$now" \
     --arg name "$project_name" \
+    --arg root "$project_root" \
     '{
       schema_version: "1",
       started_at: $now,
       checkpoint: "R1.A",
       elapsed_min: 0,
       project_name: $name,
+      project_root: $root,
       phases: [],
       sprints: [],
       vertical_slices: [],

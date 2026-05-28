@@ -134,7 +134,7 @@ This skill resolves T1.4's flagged ambiguity #3: during R1.C authoring, the slic
 - Read: existing `demo_criteria[]` strings for the slice (may be empty array on first authoring).
 - Write: append the validated criterion text (bullet body, no leading `- [ ] `) to the array via `sf_state_write_atomic`.
 - Idempotence: byte-identical string equality match across all existing array entries → no-op; new text → append.
-- Resolved path: `${CLAUDE_PLUGIN_DATA}/project-roadmap.json` (the same state file `planning-project-roadmap` maintains in §5 of T1.4's body).
+- Resolved path: `$(sf project_data_dir)/project-roadmap.json` (the same project-scoped state file `planning-project-roadmap` maintains in §5 of T1.4's body).
 
 **Markdown mode (`--target=markdown`):**
 
@@ -249,7 +249,7 @@ The split is clean: scaffold-dev owns sprint planning + slice implementation; th
 
 ## 10. Manifest-aware output routing
 
-State mode writes go to `${CLAUDE_PLUGIN_DATA}/project-roadmap.json` — that's the shared scaffold-onboard plugin data directory, **not** subject to manifest routing. State files live with the plugin, not in the user's canonical or ai_workspace repos.
+State mode writes go to `$(sf project_data_dir)/project-roadmap.json` — that's scaffold-onboard's project-scoped plugin data directory, **not** subject to manifest routing. State files live with the plugin data, not in the user's canonical or ai_workspace repos.
 
 Markdown mode writes go through manifest routing, identical to T1.4's emission path:
 

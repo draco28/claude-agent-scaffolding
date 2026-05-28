@@ -623,6 +623,126 @@ test_write_slice_plus_explicit_mutation_logs_audit() {
   teardown_roadmap
 }
 
+test_project_scoped_roadmap_paths_differ() {
+  echo "test_project_scoped_roadmap_paths_differ:"
+  cd "$ANCHOR_DIR" 2>/dev/null || cd /tmp
+  TMP_DIR="$(mktemp -d -t scaffold-onboard-roadmap-project.XXXXXX)"
+  export CLAUDE_PLUGIN_DATA="$TMP_DIR/plugin-data"
+  mkdir -p "$CLAUDE_PLUGIN_DATA" "$TMP_DIR/project-a" "$TMP_DIR/project-b"
+  git -C "$TMP_DIR/project-a" init -q
+  git -C "$TMP_DIR/project-b" init -q
+  cd "$TMP_DIR/project-a"
+  local path_a
+  path_a="$(sf_roadmap_state_path)"
+  cd "$TMP_DIR/project-b"
+  local path_b
+  path_b="$(sf_roadmap_state_path)"
+  if [[ "$path_a" != "$path_b" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ two projects get different roadmap state paths"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ project roadmap paths collide: $path_a"
+  fi
+  teardown_roadmap
+}
+
+test_project_scoped_roadmap_writes_are_isolated() {
+  echo "test_project_scoped_roadmap_writes_are_isolated:"
+  cd "$ANCHOR_DIR" 2>/dev/null || cd /tmp
+  TMP_DIR="$(mktemp -d -t scaffold-onboard-roadmap-project.XXXXXX)"
+  export CLAUDE_PLUGIN_DATA="$TMP_DIR/plugin-data"
+  mkdir -p "$CLAUDE_PLUGIN_DATA" "$TMP_DIR/project-a" "$TMP_DIR/project-b"
+  git -C "$TMP_DIR/project-a" init -q
+  git -C "$TMP_DIR/project-b" init -q
+  cd "$TMP_DIR/project-a"
+  sf_roadmap_state_init "project-a"
+  sf_roadmap_write_phase 1 "A Phase" "Q3" "A summary"
+  cd "$TMP_DIR/project-b"
+  sf_roadmap_state_init "project-b"
+  sf_roadmap_write_phase 1 "B Phase" "Q4" "B summary"
+  local b_name
+  b_name="$(jq -r '.phases[0].name' "$(sf_roadmap_state_path)")"
+  cd "$TMP_DIR/project-a"
+  local a_name
+  a_name="$(jq -r '.phases[0].name' "$(sf_roadmap_state_path)")"
+  assert_eq "project A roadmap remains isolated" "A Phase" "$a_name"
+  assert_eq "project B roadmap remains isolated" "B Phase" "$b_name"
+  teardown_roadmap
+}
+
+test_roadmap_state_init_records_project_root() {
+  echo "test_roadmap_state_init_records_project_root:"
+  setup_roadmap
+  local root
+  root="$(sf_project_identity_root)"
+  sf_roadmap_state_init "demo-proj"
+  local got
+  got="$(jq -r '.project_root' "$(sf_roadmap_state_path)")"
+  assert_eq "roadmap state records project_root" "$root" "$got"
+  teardown_roadmap
+}
+
+test_legacy_roadmap_migrates_when_legacy_onboarding_matches() {
+  echo "test_legacy_roadmap_migrates_when_legacy_onboarding_matches:"
+  cd "$ANCHOR_DIR" 2>/dev/null || cd /tmp
+  TMP_DIR="$(mktemp -d -t scaffold-onboard-roadmap-project.XXXXXX)"
+  export CLAUDE_PLUGIN_DATA="$TMP_DIR/plugin-data"
+  mkdir -p "$CLAUDE_PLUGIN_DATA" "$TMP_DIR/project-a"
+  git -C "$TMP_DIR/project-a" init -q
+  cd "$TMP_DIR/project-a"
+  local root legacy_onboarding legacy_roadmap scoped
+  root="$(sf_project_identity_root)"
+  legacy_onboarding="$(sf_state_legacy_path)"
+  legacy_roadmap="$(sf_roadmap_legacy_state_path)"
+  jq -n --arg root "$root" '{status: "complete", current_phase: 10, project_root: $root, answers: {}}' > "$legacy_onboarding"
+  jq -n '{
+    schema_version: "1",
+    started_at: "2026-05-28T00:00:00Z",
+    checkpoint: "R1.B",
+    elapsed_min: 0,
+    project_name: "legacy-roadmap",
+    phases: [],
+    sprints: [],
+    vertical_slices: [],
+    mutations: []
+  }' > "$legacy_roadmap"
+  scoped="$(sf_roadmap_state_path)"
+  assert_file_exists "$scoped"
+  assert_eq "matching legacy roadmap migrates checkpoint" "R1.B" "$(jq -r '.checkpoint' "$scoped")"
+  assert_eq "migrated roadmap gains project_root" "$root" "$(jq -r '.project_root' "$scoped")"
+  assert_file_exists "$legacy_roadmap"
+  teardown_roadmap
+}
+
+test_legacy_roadmap_ignored_when_legacy_onboarding_mismatches() {
+  echo "test_legacy_roadmap_ignored_when_legacy_onboarding_mismatches:"
+  cd "$ANCHOR_DIR" 2>/dev/null || cd /tmp
+  TMP_DIR="$(mktemp -d -t scaffold-onboard-roadmap-project.XXXXXX)"
+  export CLAUDE_PLUGIN_DATA="$TMP_DIR/plugin-data"
+  mkdir -p "$CLAUDE_PLUGIN_DATA" "$TMP_DIR/project-a"
+  git -C "$TMP_DIR/project-a" init -q
+  cd "$TMP_DIR/project-a"
+  local legacy_onboarding legacy_roadmap scoped
+  legacy_onboarding="$(sf_state_legacy_path)"
+  legacy_roadmap="$(sf_roadmap_legacy_state_path)"
+  jq -n '{status: "complete", current_phase: 10, project_root: "/not/this/project", answers: {}}' > "$legacy_onboarding"
+  jq -n '{
+    schema_version: "1",
+    started_at: "2026-05-28T00:00:00Z",
+    checkpoint: "R1.B",
+    elapsed_min: 0,
+    project_name: "foreign-roadmap",
+    phases: [],
+    sprints: [],
+    vertical_slices: [],
+    mutations: []
+  }' > "$legacy_roadmap"
+  scoped="$(sf_project_data_dir)/project-roadmap.json"
+  assert_eq "mismatched legacy roadmap leaves mode new" "new" "$(sf_roadmap_state_mode)"
+  assert_file_missing "$scoped"
+  assert_file_exists "$legacy_roadmap"
+  teardown_roadmap
+}
+
 # ============================================================================
 # Run all tests
 # ============================================================================
@@ -668,5 +788,10 @@ test_mutation_entry_has_required_fields           # 30
 test_mutations_accumulate_in_order                # 31
 test_write_slice_never_auto_appends_mutation      # 32
 test_write_slice_plus_explicit_mutation_logs_audit # 33
+test_project_scoped_roadmap_paths_differ
+test_project_scoped_roadmap_writes_are_isolated
+test_roadmap_state_init_records_project_root
+test_legacy_roadmap_migrates_when_legacy_onboarding_matches
+test_legacy_roadmap_ignored_when_legacy_onboarding_mismatches
 
 report_results

@@ -1,12 +1,38 @@
 #!/usr/bin/env bash
 # scaffold-onboard/lib/state.sh
-# Onboarding state CRUD. State file lives at $(sf_data_dir)/onboarding-state.json.
+# Onboarding state CRUD. State file lives at
+# $(sf_project_data_dir)/onboarding-state.json.
 
 set -u
 source "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"
 
 sf_state_path() {
+  local path
+  path="$(sf_project_data_dir)/onboarding-state.json"
+  sf_state_migrate_legacy_if_owned "$path" >/dev/null 2>&1 || true
+  echo "$path"
+}
+
+sf_state_legacy_path() {
   echo "$(sf_data_dir)/onboarding-state.json"
+}
+
+sf_state_migrate_legacy_if_owned() {
+  local path="${1:-}"
+  [[ -n "$path" ]] || path="$(sf_project_data_dir)/onboarding-state.json"
+  [[ -f "$path" ]] && return 0
+
+  local legacy
+  legacy="$(sf_state_legacy_path)"
+  [[ -f "$legacy" ]] || return 0
+
+  local stored_root cur_root
+  stored_root="$(jq -r '.project_root // empty' "$legacy" 2>/dev/null || true)"
+  cur_root="$(sf_project_identity_root)"
+  [[ -n "$stored_root" && "$stored_root" == "$cur_root" ]] || return 0
+
+  mkdir -p "$(dirname "$path")"
+  cp "$legacy" "$path"
 }
 
 sf_state_init() {
@@ -15,23 +41,20 @@ sf_state_init() {
   mkdir -p "$(dirname "$path")"
   local now project_root
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  # project_root captures the cwd at init so cross-project state
-  # contamination (per v0.x.1 friction-log Issue #4) is detectable.
-  # The caller may pre-export SF_PROJECT_ROOT to override (e.g., for
-  # workspace-init manifest-aware install paths).
-  project_root="${SF_PROJECT_ROOT:-$(pwd)}"
-  cat > "$path" <<JSON
-{
-  "status": "in_progress",
-  "current_phase": 1,
-  "current_question": null,
-  "project_class": null,
-  "project_root": "$project_root",
-  "created_at": "$now",
-  "updated_at": "$now",
-  "answers": {}
-}
-JSON
+  project_root="$(sf_project_identity_root)"
+  jq -n \
+    --arg now "$now" \
+    --arg root "$project_root" \
+    '{
+      status: "in_progress",
+      current_phase: 1,
+      current_question: null,
+      project_class: null,
+      project_root: $root,
+      created_at: $now,
+      updated_at: $now,
+      answers: {}
+    }' > "$path"
 }
 
 # Read a top-level field from the state file. Returns "null" if missing.
@@ -95,7 +118,7 @@ sf_state_read_answer() {
 }
 
 sf_state_lock_path() {
-  echo "$(sf_data_dir)/onboarding.lock"
+  echo "$(sf_project_data_dir)/onboarding.lock"
 }
 
 # Acquire the onboarding lock. Exits 1 if already held.
@@ -249,10 +272,9 @@ sf_phases_question_gate() {
 # Determine the onboarding mode based on state file existence + status.
 # Returns one of: new | resume | reonboard | project_mismatch
 #
-# project_mismatch fires when the stored project_root != current pwd
-# (v0.x.1 Issue #4 cross-project contamination fix). The skill body
-# is expected to handle project_mismatch by prompting the user:
-# "State from <stored> found. Resume that, or start fresh here?"
+# project_mismatch fires when the stored project_root no longer matches the
+# current project identity root. With project-scoped state this is a same-project
+# safety guard for moved/malformed state, not the normal cross-project path.
 #
 # Legacy state files (pre-v0.2.1) lacking project_root are treated as
 # unknown — they surface project_mismatch with stored="unknown" so the
@@ -269,7 +291,7 @@ sf_state_mode() {
 
   # Cross-project contamination check (Issue #4)
   stored_root="$(sf_state_read_field project_root)"
-  cur_root="${SF_PROJECT_ROOT:-$(pwd)}"
+  cur_root="$(sf_project_identity_root)"
   if [[ -z "$stored_root" || "$stored_root" == "null" ]]; then
     stored_root="unknown"
   fi

@@ -44,7 +44,7 @@ Before any derivation step:
 
 1. **MASTER-SPEC.md must exist** at the routing destination. Resolve via `sf_resolve_output_path master_spec MASTER-SPEC.md` and confirm the file is present. If absent, surface the routing prompt from §2 and stop.
 2. **MASTER-SPEC.md must validate.** Call `sf_spec_validate <path>` (lib/parser.sh — unchanged from v0.1.0). Non-zero exit means the spec is malformed (missing phase header, broken YAML frontmatter, unknown project_class enum, etc.). Surface the validator's stderr verbatim to the user and stop — do not attempt to derive from a broken spec; templates will silently emit `{{placeholder}}` artifacts that look complete but aren't.
-3. **State file present (recommended).** `${CLAUDE_PLUGIN_DATA}/onboarding-state.json` provides the gate answers that drive conditional template substitution (project_class branches, the LLM gate at Phase 9.3.1). If the state file is absent (user hand-authored MASTER-SPEC outside `/onboard`), proceed with conservative defaults: treat Phase 9.3.1 as `no` (no LLM-gated docs) and surface one warning: *"No onboarding state file found — proceeding with conservative defaults. Re-run after `/onboard` to enable LLM-gated `--full` docs."*
+3. **State file present (recommended).** The project-scoped `$(sf project_data_dir)/onboarding-state.json` provides the gate answers that drive conditional template substitution (project_class branches, the LLM gate at Phase 9.3.1). If the state file is absent (user hand-authored MASTER-SPEC outside `/onboard`), proceed with conservative defaults: treat Phase 9.3.1 as `no` (no LLM-gated docs) and surface one warning: *"No onboarding state file found — proceeding with conservative defaults. Re-run after `/onboard` to enable LLM-gated `--full` docs."*
 
 ---
 
@@ -95,7 +95,7 @@ This is the most important constraint in this skill body. Read it carefully.
 
 **`PROJECT_PLAN.md` is preserved byte-for-byte from v0.1.0.** It is a **Phase-2-Strategy-derived timeline document** (milestones, dates / horizons, resources, risks summary) — exactly the v0.1.0 template, exactly the v0.1.0 content shape. The v0.2 retrofit does not rename it, does not change its template, does not extend its content. v0.1.0 users who have an existing `PROJECT_PLAN.md` in their canonical repo see no surface change.
 
-**`ROADMAP.md` is a SEPARATE file owned by a DIFFERENT skill.** The R1 Phase → Sprint → Vertical-Slice hierarchy doc introduced in v0.2 is named `ROADMAP.md`, not `PROJECT_PLAN.md`. It is emitted by `scaffold-onboard:planning-project-roadmap` (SPEC §5.4) when the user runs `/plan-roadmap`. It has its own routing logical name (`roadmap`), its own state file (`${CLAUDE_PLUGIN_DATA}/project-roadmap.json`), its own template (`templates/roadmap/ROADMAP.md.tmpl`), and its own architect-critic moment.
+**`ROADMAP.md` is a SEPARATE file owned by a DIFFERENT skill.** The R1 Phase → Sprint → Vertical-Slice hierarchy doc introduced in v0.2 is named `ROADMAP.md`, not `PROJECT_PLAN.md`. It is emitted by `scaffold-onboard:planning-project-roadmap` (SPEC §5.4) when the user runs `/plan-roadmap`. It has its own routing logical name (`roadmap`), its own project-scoped state file (`$(sf project_data_dir)/project-roadmap.json`), its own template (`templates/roadmap/ROADMAP.md.tmpl`), and its own architect-critic moment.
 
 **Why this matters.** The v0.1.0 `PROJECT_PLAN.md` filename was nearly reused for the v0.2 R1 hierarchy doc, and that collision was caught during the v0.2 SPEC's architect-critic pass (challenges C3 + C14; resolved at SPEC §13.5). Reusing the filename would have silently overwritten v0.1.0 users' Phase-2 timeline docs on `/scaffold-docs --regenerate`. The rename to `ROADMAP.md` is load-bearing.
 
@@ -105,7 +105,7 @@ This is the most important constraint in this skill body. Read it carefully.
 - Emit `auto:` or `user:` demo-criteria grammar into `PROJECT_PLAN.md` — those are R3 grammar (SPEC §9) owned by `authoring-vertical-slice-demo`, writing into `ROADMAP.md`.
 - Rename `PROJECT_PLAN.md` to `ROADMAP.md`, or vice-versa. The filenames carry independent meaning.
 - Write a `ROADMAP.md` from this skill at all. `ROADMAP.md` is `planning-project-roadmap`'s territory; running `/scaffold-docs` (with or without `--full`) must not produce a `ROADMAP.md`.
-- Read or mutate `${CLAUDE_PLUGIN_DATA}/project-roadmap.json`. That state file belongs to a different skill.
+- Read or mutate project-scoped `project-roadmap.json`. That state file belongs to a different skill.
 
 If the user asks during `/scaffold-docs` whether the R1 hierarchy will be authored, answer: *"No — `/scaffold-docs` emits the v0.1.0 governance bundle (PRD / SRS / BACKLOG / PROJECT_PLAN / ADR-0001). The Phase → Sprint → Vertical-Slice hierarchy lives in `ROADMAP.md` and is authored interactively by `/plan-roadmap` after onboarding closes."*
 
@@ -193,7 +193,7 @@ These are pseudocode references — the implementations live in their respective
 
 - **Emitting a Phase → Sprint → Vertical-Slice hierarchy into `PROJECT_PLAN.md`.** The structure described in SPEC §7.1 (`Phase N:` / `Sprint N.M:` / slice IDs / `Demo criteria` blocks) is NOT emitted by this skill anywhere — least of all in `PROJECT_PLAN.md`. That structure lives in `ROADMAP.md`, authored by `planning-project-roadmap`. Eval scenario S3 explicitly fails on any hierarchy leakage into `PROJECT_PLAN.md`. (Example identifier `VS-1.1.1` is NOT emitted by this skill — referenced here only to name the boundary.)
 - **Renaming `PROJECT_PLAN.md` to `ROADMAP.md`** (or vice-versa). v0.1.0 users depend on `PROJECT_PLAN.md` continuing to exist with v0.1.0 content; v0.2 introduced `ROADMAP.md` as a separate file precisely to avoid this collision.
-- **Touching `ROADMAP.md` from this skill.** Never read it, never write it, never mutate `${CLAUDE_PLUGIN_DATA}/project-roadmap.json`. That's `planning-project-roadmap`'s territory.
+- **Touching `ROADMAP.md` from this skill.** Never read it, never write it, never mutate project-scoped `project-roadmap.json`. That's `planning-project-roadmap`'s territory.
 - **Emitting `auto:`/`user:` demo-criteria grammar into any doc this skill writes.** That grammar (SPEC §9) belongs in `ROADMAP.md` slice blocks, written by `authoring-vertical-slice-demo`. None of the 14 governance docs contain demo-criteria.
 - **Skipping `sf_spec_validate`.** A malformed MASTER-SPEC silently emits `{{placeholder}}` artifacts that look complete but are broken. Validate up-front; refuse to proceed on non-zero exit.
 - **Hardcoding `docs/PRD.md` against `$(pwd)`** (or any other doc filename). Always route via `sf_resolve_output_path <logical_name> <relative_path>`. v0.1.0 byte-identical behavior in single-repo mode falls out of the helper's fallback; cross-repo routing in workspace-init mode requires the helper.

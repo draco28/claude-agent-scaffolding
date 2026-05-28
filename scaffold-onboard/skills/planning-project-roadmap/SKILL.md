@@ -129,7 +129,7 @@ When all sprints' slices are captured, advance to §10 (architect-critic close m
 
 ## 5. State management
 
-State lives at `${CLAUDE_PLUGIN_DATA}/project-roadmap.json` — a **separate file** from `onboarding-state.json`. The two state files have non-overlapping concerns; keeping them split avoids schema collision and lets `/plan-roadmap --resume` work even when onboarding state is `complete`.
+State lives at `$(sf project_data_dir)/project-roadmap.json` — a **separate file** from `onboarding-state.json` in the same project-scoped data directory. The two state files have non-overlapping concerns; keeping them split avoids schema collision, while project scoping lets multiple projects keep independent onboarding and roadmap sessions under one plugin install.
 
 **Schema (per SPEC §7.2):**
 
@@ -139,6 +139,8 @@ State lives at `${CLAUDE_PLUGIN_DATA}/project-roadmap.json` — a **separate fil
   "started_at": "<ISO8601>",
   "checkpoint": "R1.A" | "R1.A-complete" | "R1.B" | "R1.B-complete" | "R1.C" | "R1.C-complete",
   "elapsed_min": <integer>,
+  "project_name": "<string>",
+  "project_root": "<project identity root>",
   "phases": [
     {"id": 1, "name": "Foundation", "horizon": "Q3 2026", "summary": "..."},
     ...
@@ -160,7 +162,8 @@ State lives at `${CLAUDE_PLUGIN_DATA}/project-roadmap.json` — a **separate fil
 
 **Helpers you call (lib/state.sh + lib/roadmap.sh — T3.2):**
 
-- `sf_roadmap_state_init` — create a fresh `project-roadmap.json` with `started_at` set to `now`, `checkpoint="R1.A"`, empty arrays.
+- `sf_project_identity_root` / `sf_project_data_dir` — resolve the current project identity and project-scoped state directory.
+- `sf_roadmap_state_init` — create a fresh `project-roadmap.json` with `started_at` set to `now`, `checkpoint="R1.A"`, `project_root` set to the current project identity, and empty arrays.
 - `sf_roadmap_state_mode` — returns `new` | `resume` | `rerun` based on existing state + filesystem (parallel to `sf_state_mode` for the onboarding state file).
 - `sf_roadmap_state_path` — print the absolute path of the roadmap state file.
 - `sf_roadmap_read_checkpoint` — return current `checkpoint` value.

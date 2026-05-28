@@ -13,17 +13,17 @@ On every `/onboard` invocation the skill calls `sf state_mode` (the `sf` dispatc
 | Mode value         | Meaning                                                                   | Skill behavior                                                                                                              |
 |--------------------|---------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
 | `new`              | No state file present                                                     | `sf state_init` → Phase 1                                                                                                    |
-| `resume`           | State file present, `status=in_progress`, `project_root` matches cwd      | Re-enter at first unanswered question                                                                                        |
-| `reonboard`        | State file present, `status=complete`, `project_root` matches cwd         | Confirm prompt → `--regenerate` path                                                                                         |
-| `project_mismatch` | State file present, `project_root` ≠ cwd (or stored `project_root` empty) | Prompt: *"State from `<stored>` found. Resume that, or start fresh here?"* — user picks → resume-with-cd OR fresh-init       |
+| `resume`           | Project-scoped state file present, `status=in_progress`, `project_root` matches current project identity | Re-enter at first unanswered question                                                                                        |
+| `reonboard`        | Project-scoped state file present, `status=complete`, `project_root` matches current project identity    | Confirm prompt → `--regenerate` path                                                                                         |
+| `project_mismatch` | Project-scoped state file present, `project_root` ≠ current project identity (or stored `project_root` empty) | Prompt user to return to the original path / set `SF_PROJECT_ROOT`, or start fresh for the current project-scoped state.      |
 
-`project_mismatch` (v0.2.1+) prevents the v0.x.1 Issue #4 bug where a stale state file from a different project triggered a false-resume at session start. Stored `project_root` is captured by `sf state_init` from `pwd` (or from `$SF_PROJECT_ROOT` if pre-exported by a manifest-aware caller). Legacy state files (pre-v0.2.1) lacking `project_root` surface as `project_mismatch` with `stored="unknown"`, forcing the user to confirm.
+`project_mismatch` (v0.2.1+) originally prevented stale singleton state from another project from being resumed. In v0.2.3+, state is already project-scoped under `sf project_data_dir`, so this mode is now a same-project safety net for moved workspaces, changed `SF_PROJECT_ROOT`, or malformed legacy state. Stored `project_root` is captured by `sf state_init` from `sf project_identity_root`.
 
 To surface the prompt, fetch the stored path with `sf state_stored_project_root` (returns `unknown` for legacy state). Render:
 
-> State from `<stored>` found (initialized `<created_at>`). Resume that, or start fresh here?
-> &nbsp;&nbsp;1. Resume the existing state (cd to the stored project root and re-invoke /onboard)
-> &nbsp;&nbsp;2. Start fresh here (overwrites the existing state file with a new init from `<pwd>`)
+> Project-scoped onboarding state says it belongs to `<stored>`, but this session resolves the project as `<current>`.
+> &nbsp;&nbsp;1. Return to the original path or set `SF_PROJECT_ROOT=<stored>` and re-invoke /onboard.
+> &nbsp;&nbsp;2. Start fresh for `<current>` (overwrites only this project-scoped state file).
 
 The mode is computed once at skill entry. Explicit flags override:
 
@@ -34,7 +34,7 @@ The mode is computed once at skill entry. Explicit flags override:
 
 ## 2. Lock acquisition (refusal-on-already-held)
 
-Every entry into the skill body acquires the advisory lock via `sf_state_lock_acquire`. The lock file lives next to `onboarding-state.json` at `${CLAUDE_PLUGIN_DATA}/onboarding-state.lock`. It records:
+Every entry into the skill body acquires the advisory lock via `sf_state_lock_acquire`. The lock file lives next to the project-scoped `onboarding-state.json` as `onboarding.lock`. It records:
 
 ```
 {
@@ -117,7 +117,7 @@ The no-flag default is *forgiving*: it does the most likely-intended thing based
 State file is `in_progress` at Phase 7, but the user has manually edited `MASTER-SPEC.md` in their editor between sessions — added a new line under Phase 3, rephrased a Phase 1 bullet. On `/onboard --resume`, the skill detects drift:
 
 1. After lock acquisition, skill reads the on-disk MASTER-SPEC.md mtime + a content hash (lib/render.sh helper `sf_render_master_spec_hash`).
-2. Compares against the hash recorded at the last `sf_master_spec_update_phase` call (stored in `${CLAUDE_PLUGIN_DATA}/onboarding-state.json` under `answers["__internal.master_spec_hash"]` or a sibling field — implementation detail of T2.3 render helpers).
+2. Compares against the hash recorded at the last `sf_master_spec_update_phase` call (stored in the project-scoped `onboarding-state.json` under `answers["__internal.master_spec_hash"]` or a sibling field — implementation detail of T2.3 render helpers).
 3. If the hash differs, skill emits:
 
    > MASTER-SPEC.md has been edited outside the onboarding flow since the last persisted phase recap. Your manual edits may conflict with the auto-rendered sections.
@@ -137,15 +137,15 @@ The `revalidate` path is the clean restart: full re-render from `state.answers`,
 
 ## 6. Resume across `${CLAUDE_PLUGIN_DATA}` migration
 
-The state file lives at `${CLAUDE_PLUGIN_DATA}/onboarding-state.json`. If the user changes `CLAUDE_PLUGIN_DATA` between sessions (or moves the plugin install), `/onboard --resume` will say *"no state file"* and refuse. This is intentional — the skill never scans the filesystem for orphaned state files. If the user knows they moved their plugin data dir, they can copy the state file manually; the schema is stable across v0.1.0 → v0.2.
+The state file lives at `$(sf project_data_dir)/onboarding-state.json`, where `sf project_data_dir` is rooted under the install-level plugin data dir. If the user changes `CLAUDE_PLUGIN_DATA` between sessions (or moves the plugin install), `/onboard --resume` will say *"no state file"* and refuse. This is intentional — the skill never scans the filesystem for orphaned state files. If the user knows they moved their plugin data dir, they can copy the project subdirectory manually; the schema is stable across v0.1.0 → v0.2.
 
 ---
 
 ## 7. Concurrency model summary
 
-- One state file, one lock, one in-flight onboarding per `${CLAUDE_PLUGIN_DATA}` namespace.
+- One state file and one lock per project identity under the install-level plugin data namespace.
 - Two sessions trying to onboard the same project at the same time: second one gets refused at lock acquisition.
-- Two sessions onboarding *different* projects with different `CLAUDE_PLUGIN_DATA` values: independent, no contention.
+- Two sessions onboarding *different* projects with the same `CLAUDE_PLUGIN_DATA` value: independent, no contention.
 - Crash mid-write: atomic-mv via `sf_state_write_atomic` means the state file is never half-written. Worst case: the last unflushed answer is lost; resume picks up at that question.
 
 This is deliberately conservative. We don't try to merge concurrent onboarding sessions; that way lies madness. Lock-then-refuse is the contract.

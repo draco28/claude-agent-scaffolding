@@ -236,4 +236,119 @@ test_state_and_roadmap_state_paths_distinct() {
 }
 
 test_state_and_roadmap_state_paths_distinct
+
+test_project_scoped_state_paths_differ() {
+  echo "test_project_scoped_state_paths_differ:"
+  TMP_DIR="$(mktemp -d -t scaffold-onboard-project-state.XXXXXX)"
+  export CLAUDE_PLUGIN_DATA="$TMP_DIR/plugin-data"
+  mkdir -p "$CLAUDE_PLUGIN_DATA" "$TMP_DIR/project-a" "$TMP_DIR/project-b"
+  git -C "$TMP_DIR/project-a" init -q
+  git -C "$TMP_DIR/project-b" init -q
+  cd "$TMP_DIR/project-a"
+  local path_a
+  path_a="$(sf_state_path)"
+  cd "$TMP_DIR/project-b"
+  local path_b
+  path_b="$(sf_state_path)"
+  if [[ "$path_a" != "$path_b" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ two projects get different onboarding state paths"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ project state paths collide: $path_a"
+  fi
+}
+
+test_project_scoped_state_writes_are_isolated() {
+  echo "test_project_scoped_state_writes_are_isolated:"
+  TMP_DIR="$(mktemp -d -t scaffold-onboard-project-state.XXXXXX)"
+  export CLAUDE_PLUGIN_DATA="$TMP_DIR/plugin-data"
+  mkdir -p "$CLAUDE_PLUGIN_DATA" "$TMP_DIR/project-a" "$TMP_DIR/project-b"
+  git -C "$TMP_DIR/project-a" init -q
+  git -C "$TMP_DIR/project-b" init -q
+  cd "$TMP_DIR/project-a"
+  sf_state_init
+  sf_state_write_answer "1.1.1" "Project A"
+  cd "$TMP_DIR/project-b"
+  sf_state_init
+  sf_state_write_answer "1.1.1" "Project B"
+  local b_val
+  b_val="$(sf_state_read_answer "1.1.1")"
+  cd "$TMP_DIR/project-a"
+  local a_val
+  a_val="$(sf_state_read_answer "1.1.1")"
+  assert_eq "project A state remains isolated" "Project A" "$a_val"
+  assert_eq "project B state remains isolated" "Project B" "$b_val"
+}
+
+test_project_scoped_lock_paths_differ() {
+  echo "test_project_scoped_lock_paths_differ:"
+  TMP_DIR="$(mktemp -d -t scaffold-onboard-project-state.XXXXXX)"
+  export CLAUDE_PLUGIN_DATA="$TMP_DIR/plugin-data"
+  mkdir -p "$CLAUDE_PLUGIN_DATA" "$TMP_DIR/project-a" "$TMP_DIR/project-b"
+  git -C "$TMP_DIR/project-a" init -q
+  git -C "$TMP_DIR/project-b" init -q
+  cd "$TMP_DIR/project-a"
+  local lock_a
+  lock_a="$(sf_state_lock_path)"
+  cd "$TMP_DIR/project-b"
+  local lock_b
+  lock_b="$(sf_state_lock_path)"
+  if [[ "$lock_a" != "$lock_b" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ two projects get different onboarding lock paths"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ project lock paths collide: $lock_a"
+  fi
+}
+
+test_legacy_onboarding_state_migrates_when_project_matches() {
+  echo "test_legacy_onboarding_state_migrates_when_project_matches:"
+  TMP_DIR="$(mktemp -d -t scaffold-onboard-project-state.XXXXXX)"
+  export CLAUDE_PLUGIN_DATA="$TMP_DIR/plugin-data"
+  mkdir -p "$CLAUDE_PLUGIN_DATA" "$TMP_DIR/project-a"
+  git -C "$TMP_DIR/project-a" init -q
+  cd "$TMP_DIR/project-a"
+  local root legacy scoped mode
+  root="$(sf_project_identity_root)"
+  legacy="$(sf_state_legacy_path)"
+  jq -n --arg root "$root" '{
+    status: "in_progress",
+    current_phase: 4,
+    project_root: $root,
+    answers: {"1.1.1": "legacy-owned"}
+  }' > "$legacy"
+  scoped="$(sf_state_path)"
+  mode="$(sf_state_mode)"
+  assert_file_exists "$scoped"
+  assert_eq "matching legacy state migrates to resume" "resume" "$mode"
+  assert_eq "migrated answer preserved" "legacy-owned" "$(sf_state_read_answer "1.1.1")"
+  assert_file_exists "$legacy"
+}
+
+test_legacy_onboarding_state_ignored_when_project_mismatches() {
+  echo "test_legacy_onboarding_state_ignored_when_project_mismatches:"
+  TMP_DIR="$(mktemp -d -t scaffold-onboard-project-state.XXXXXX)"
+  export CLAUDE_PLUGIN_DATA="$TMP_DIR/plugin-data"
+  mkdir -p "$CLAUDE_PLUGIN_DATA" "$TMP_DIR/project-a"
+  git -C "$TMP_DIR/project-a" init -q
+  cd "$TMP_DIR/project-a"
+  local legacy scoped mode
+  legacy="$(sf_state_legacy_path)"
+  jq -n '{
+    status: "in_progress",
+    current_phase: 4,
+    project_root: "/not/this/project",
+    answers: {"1.1.1": "legacy-foreign"}
+  }' > "$legacy"
+  scoped="$(sf_project_data_dir)/onboarding-state.json"
+  mode="$(sf_state_mode)"
+  assert_eq "mismatched legacy state is ignored" "new" "$mode"
+  assert_file_missing "$scoped"
+  assert_file_exists "$legacy"
+}
+
+test_project_scoped_state_paths_differ
+test_project_scoped_state_writes_are_isolated
+test_project_scoped_lock_paths_differ
+test_legacy_onboarding_state_migrates_when_project_matches
+test_legacy_onboarding_state_ignored_when_project_mismatches
+
 report_results

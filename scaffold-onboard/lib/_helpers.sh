@@ -15,7 +15,8 @@ sf_plugin_root() {
   echo "$d"
 }
 
-# Resolve the plugin data directory (writable state).
+# Resolve the plugin data directory (writable state). This is the install-level
+# data root; project session state is scoped further by sf_project_data_dir.
 #
 # Resolution order:
 #   1. $CLAUDE_PLUGIN_DATA if set — the host runtime's canonical signal.
@@ -26,9 +27,8 @@ sf_plugin_root() {
 #      runtime would have produced. Works around upstream issue
 #      anthropics/claude-code#48230 where CLAUDE_PLUGIN_DATA isn't exported
 #      to Bash tool subprocesses.
-#   3. Workspace-init manifest's data path (future v0.2 hook; absent in v0.2.1).
-#   4. Codex plugin cache layout, when installed through Codex.
-#   5. Last resort: $HOME/.claude/plugins/data/scaffold-onboard-local/ —
+#   3. Codex plugin cache layout, when installed through Codex.
+#   4. Last resort: $HOME/.claude/plugins/data/scaffold-onboard-local/ —
 #      DIFFERENT from the host-runtime path so a misconfigured environment
 #      doesn't silently masquerade as a real install.
 #
@@ -76,6 +76,55 @@ sf_data_dir() {
   # Last-resort fallback (does NOT collide with the host-runtime canonical
   # path; intentionally named to surface misconfiguration rather than hide it).
   echo "${HOME}/.claude/plugins/data/scaffold-onboard-local"
+}
+
+sf_project_identity_root() {
+  if [[ -n "${SF_PROJECT_ROOT:-}" ]]; then
+    echo "$SF_PROJECT_ROOT"
+    return 0
+  fi
+
+  local dir
+  dir="$(pwd)"
+  while [[ -n "$dir" && "$dir" != "/" ]]; do
+    if [[ -f "$dir/.workspace/pairing.json" ]]; then
+      local ai_root
+      ai_root="$(jq -r '.ai_workspace.root // empty' "$dir/.workspace/pairing.json" 2>/dev/null)"
+      if [[ -n "$ai_root" && "$ai_root" != "null" ]]; then
+        ai_root="${ai_root//\$\{HOME\}/$HOME}"
+        ai_root="${ai_root//\$\{USER\}/${USER:-$(id -un 2>/dev/null)}}"
+        echo "$ai_root"
+        return 0
+      fi
+      echo "$dir"
+      return 0
+    fi
+    dir="$(dirname "$dir")"
+  done
+
+  local git_root
+  git_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  if [[ -n "$git_root" ]]; then
+    echo "$git_root"
+    return 0
+  fi
+
+  pwd
+}
+
+sf_project_data_dir() {
+  if [[ -n "${SF_PROJECT_DATA_DIR:-}" ]]; then
+    echo "$SF_PROJECT_DATA_DIR"
+    return 0
+  fi
+
+  local root base safe checksum
+  root="$(sf_project_identity_root)"
+  base="$(basename "$root")"
+  safe="$(printf '%s' "$base" | tr -cs 'A-Za-z0-9._-' '-' | sed 's/^-*//; s/-*$//')"
+  [[ -n "$safe" ]] || safe="project"
+  checksum="$(printf '%s' "$root" | cksum | awk '{print $1}')"
+  echo "$(sf_data_dir)/projects/${safe}-${checksum}"
 }
 
 # Log levels: info / warn / error. Always to stderr.

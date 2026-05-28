@@ -2,6 +2,21 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.2.3] — 2026-05-28
+
+### Added
+- **Issue #15 — per-project state:** onboarding and roadmap state now live under project-scoped plugin data directories, allowing multiple projects to be mid-onboarding or mid-roadmap-planning under the same plugin install.
+- Added `sf project_identity_root` and `sf project_data_dir` helper surfaces for resolving the current project identity and its state directory.
+- `project-roadmap.json` now records `project_root` on new initialization.
+
+### Changed
+- `sf state_path`, `sf state_lock_path`, and `sf roadmap_state_path` now resolve to project-scoped paths while preserving their public call signatures.
+- `project_mismatch` is retained as a same-project moved/malformed-state guard; switching to a different project now opens a different state file instead of asking to overwrite the singleton.
+
+### Migration
+- Matching legacy singleton files at the install-level `onboarding-state.json` and `project-roadmap.json` are copied into the project-scoped directory when ownership can be proven from `project_root`.
+- Legacy singleton files are never deleted automatically.
+
 ## [0.2.2] — 2026-05-28
 
 ### Added

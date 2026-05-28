@@ -312,7 +312,7 @@ Mutations are append-only. The skill never rewrites or deletes mutation entries 
 Scenario: user hand-edited ROADMAP.md without going through `/plan-roadmap` (e.g., they wrote it from scratch in their editor, or they copied it from another project as a starting template). Now they run `/plan-roadmap` and the skill sees:
 
 - ROADMAP.md present at routing destination.
-- `project-roadmap.json` absent in `${CLAUDE_PLUGIN_DATA}`.
+- `project-roadmap.json` absent in the current project's `sf project_data_dir`.
 
 This is a **reconciliation moment**. The skill cannot pretend it's a fresh authoring (would conflict with the existing file) and cannot pretend it's a re-run (no state to walk back from). Surface a two-path prompt:
 

@@ -13,7 +13,7 @@ Bash helpers in `lib/` do bookkeeping (state CRUD, atomic writes, template rende
 
 ## 1. Overview
 
-When invoked, you walk the user through ten role-scoped phases (Product Manager → Strategy → Domain Model → Security → Architecture → UX → Implementation → DevOps → Quality → Operations). Each phase asks 3–7 questions sourced from `templates/onboarding-questions/phases.yaml`. Answers persist to `${CLAUDE_PLUGIN_DATA}/onboarding-state.json` after every write. At Phase 5 close, Phase 7 close, and MASTER-SPEC close you invoke `architect-critic:critiquing-spec` (if installed) for adversarial review. At Phase 10 close you ask the Karpathy opt-in question, suggest `/plan-roadmap` as the next step, and emit `MASTER-SPEC.md` + `EXECUTIVE-SUMMARY.md` routed via `sf_resolve_output_path`.
+When invoked, you walk the user through ten role-scoped phases (Product Manager → Strategy → Domain Model → Security → Architecture → UX → Implementation → DevOps → Quality → Operations). Each phase asks 3–7 questions sourced from `templates/onboarding-questions/phases.yaml`. Answers persist to the current project's `onboarding-state.json` under `sf project_data_dir` after every write. At Phase 5 close, Phase 7 close, and MASTER-SPEC close you invoke `architect-critic:critiquing-spec` (if installed) for adversarial review. At Phase 10 close you ask the Karpathy opt-in question, suggest `/plan-roadmap` as the next step, and emit `MASTER-SPEC.md` + `EXECUTIVE-SUMMARY.md` routed via `sf_resolve_output_path`.
 
 ---
 
@@ -88,7 +88,7 @@ phases[].subsections[] → groups of questions
 
 ## 4. State management
 
-State lives at `${CLAUDE_PLUGIN_DATA}/onboarding-state.json`. The v0.1.0 schema is preserved in v0.2.
+State lives at `$(sf project_data_dir)/onboarding-state.json`. `sf project_data_dir` scopes state under the install-level plugin data root by project identity, so multiple projects can be mid-onboarding concurrently. The v0.1.0 schema is preserved in v0.2.
 
 **Schema (v0.1.0-compatible):**
 
@@ -106,8 +106,10 @@ State lives at `${CLAUDE_PLUGIN_DATA}/onboarding-state.json`. The v0.1.0 schema 
 
 **Helpers you call (lib/state.sh):**
 
-- `sf state_init` — create a fresh state file with `project_root` captured from `$(pwd)` (or `$SF_PROJECT_ROOT` if pre-exported). Acquires the onboarding lock first.
-- `sf state_mode` — returns `new` | `resume` | `reonboard` | `project_mismatch` based on existing state + filesystem + project_root match. The `project_mismatch` value (v0.2.1+) fires when the stored `project_root` ≠ current pwd; prompt the user per §4 protocol before proceeding.
+- `sf project_identity_root` — print the current project identity root (`SF_PROJECT_ROOT` override → workspace-init manifest AI workspace root → git root → `pwd`).
+- `sf project_data_dir` — print this project's scaffold-onboard data directory under the install-level plugin data root.
+- `sf state_init` — create a fresh state file with `project_root` captured from `sf project_identity_root`. Acquires the onboarding lock first.
+- `sf state_mode` — returns `new` | `resume` | `reonboard` | `project_mismatch` based on existing project-scoped state + `project_root` match. The `project_mismatch` value now catches moved or malformed state inside the current project data dir; switching to another project normally opens a different state file.
 - `sf state_stored_project_root` — return the stored `project_root` (or `unknown` for legacy state files lacking the field); useful for rendering the project-mismatch prompt.
 - `sf state_path` — print the absolute path of the state file.
 - `sf state_read_field <key>` — read a top-level field (`status`, `current_phase`, `project_root`, `started_at`).
@@ -124,7 +126,7 @@ State lives at `${CLAUDE_PLUGIN_DATA}/onboarding-state.json`. The v0.1.0 schema 
 - **Acquire the lock at skill entry.** If `sf_state_lock_acquire` fails, surface *"Onboarding already in progress in another session. Either close that session or re-run with `/onboard --force-unlock` after confirming no other session is active."* and stop.
 - **Resume protocol.** On entry, call `sf state_mode`. If `resume`: read `current_phase`, announce position (*"Resuming at Phase N (Architecture). 3 of 5 questions remaining."*), and re-enter at the first unanswered question of that phase (detected via `sf state_read_answer <qid>` returning `null`).
 - **Re-onboard protocol.** If `sf state_mode` returns `reonboard` (status=complete + state file present + project_root matches): ask explicit confirmation *"Re-onboarding will overwrite MASTER-SPEC.md (backed up to `MASTER-SPEC.md.bak-<timestamp>`) and reset state to Phase 1. Continue? (yes/no, default no)"*. Default is cancel. Only proceed on explicit `yes`.
-- **Project-mismatch protocol (Issue #4 / v0.2.1).** If `sf state_mode` returns `project_mismatch`: fetch the stored path via `sf state_stored_project_root` and surface this prompt verbatim (substitute `<stored>` and `<pwd>` with actual paths): *"State from `<stored>` (initialized earlier) found, but you're now in `<pwd>`. Options: (1) `cd <stored>` and re-run /onboard to resume the original project, (2) start fresh here — this OVERWRITES the existing state file with a new init from `<pwd>`. Which? (1/2)"*. Wait for the user's pick. On `1`, exit non-zero with the cd instruction; on `2`, call `sf state_init` (which captures `pwd` as the new `project_root`) and proceed at Phase 1. Do NOT silently resume the stranger's state — that's the bug this mode prevents.
+- **Project-mismatch protocol.** If `sf state_mode` returns `project_mismatch`: fetch the stored path via `sf state_stored_project_root`, fetch the current identity via `sf project_identity_root`, and surface this prompt (substitute `<stored>` and `<current>`): *"Project-scoped onboarding state says it belongs to `<stored>`, but this session resolves the project as `<current>`. Options: (1) return to the original path / set `SF_PROJECT_ROOT=<stored>` and re-run /onboard, (2) start fresh for `<current>` — this overwrites only this project-scoped onboarding state, not other projects. Which? (1/2)"*. Wait for the user's pick. On `1`, exit non-zero with the path instruction; on `2`, call `sf state_init` and proceed at Phase 1.
 
 ---
 
@@ -259,7 +261,7 @@ Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly.
 
 This skill never bash-orchestrates the judgment work (which question to ask next, how to recap a phase, whether to escalate a challenge). It calls helpers for I/O and templating only. The named helpers:
 
-**State (lib/state.sh):** `sf_state_init`, `sf_state_mode`, `sf_state_path`, `sf_state_read_field`, `sf_state_read_answer`, `sf_state_write_answer`, `sf_state_write_atomic`, `sf_state_advance_phase`, `sf_state_lock_acquire`, `sf_state_lock_release`, `sf_state_gate_passes`.
+**State (lib/state.sh + lib/_helpers.sh):** `sf_project_identity_root`, `sf_project_data_dir`, `sf_state_init`, `sf_state_mode`, `sf_state_path`, `sf_state_read_field`, `sf_state_read_answer`, `sf_state_write_answer`, `sf_state_write_atomic`, `sf_state_advance_phase`, `sf_state_lock_acquire`, `sf_state_lock_release`, `sf_state_gate_passes`.
 
 **Phases (lib/state.sh / parser.sh):** `sf_phases_questions_for`, `sf_phases_question_text`, `sf_phases_question_gate`.
 

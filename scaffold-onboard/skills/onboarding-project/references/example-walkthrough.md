@@ -14,7 +14,7 @@ $ git init
 $ /onboard
 ```
 
-Skill triggers via `/onboard` → `commands/onboard.md` exports `$ARGUMENTS=""` → routes to `scaffold-onboard:onboarding-project`. Lock acquired via `sf_state_lock_acquire`; `sf_state_init` writes a fresh state file at `${CLAUDE_PLUGIN_DATA}/onboarding-state.json`.
+Skill triggers via `/onboard` → `commands/onboard.md` exports `$ARGUMENTS=""` → routes to `scaffold-onboard:onboarding-project`. Lock acquired via `sf_state_lock_acquire`; `sf_state_init` writes a fresh project-scoped state file at `$(sf project_data_dir)/onboarding-state.json`.
 
 Skill announces:
 
