@@ -351,20 +351,22 @@ Parse `$ARGUMENTS` in bash; never reference `$1` / `$2`:
 #   --scope vs-3.2 --purpose bugfix-auth
 #   --scope sprint --purpose to-4-handoff
 #   --scope vs-3.2 --purpose bugfix-auth --return a1b2
+#
+# Parse by regex via BASH_REMATCH — NEVER bare $1/$2 in a case loop: the
+# slash-command renderer freezes bare positionals at template-render time, so
+# `case "$1"` matches against a frozen literal and every flag comes out empty
+# (#19). The /handoff wrapper delegates this to the shared, unit-tested helper
+# `sd handoff_parse_flags`; the equivalent inline form is:
 
-scope=""
-purpose=""
-return_id=""
-return_of=""
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --scope)     scope="$2"; shift 2 ;;
-    --purpose)   purpose="$2"; shift 2 ;;
-    --return)    return_id="$2"; shift 2 ;;
-    --return-of) return_of="$2"; shift 2 ;;
-    *)           shift ;;
-  esac
-done
+args="$ARGUMENTS"
+scope=""; purpose=""; return_id=""; return_of=""
+[[ "$args" =~ --scope[[:space:]=]+([^[:space:]]+) ]]     && scope="${BASH_REMATCH[1]}"
+[[ "$args" =~ --purpose[[:space:]=]+([^[:space:]]+) ]]   && purpose="${BASH_REMATCH[1]}"
+[[ "$args" =~ --return-of[[:space:]=]+([^[:space:]]+) ]] && return_of="${BASH_REMATCH[1]}"
+[[ "$args" =~ --return[[:space:]=]+([^[:space:]]+) ]]    && return_id="${BASH_REMATCH[1]}"
+# The [[:space:]=]+ separator makes the --return pattern reject --return-of
+# ('-of' is neither whitespace nor '='), so the two never collide. Each flag
+# also accepts the --flag=value form.
 ```
 
 If `$ARGUMENTS` is empty, the slash command falls through to description-match handling — the trigger phrase context drives scope/purpose resolution per §3.5. If both `$ARGUMENTS` is empty AND no trigger phrase context is available (rare; the slash command was invoked from a fresh session with no preceding conversation), prompt for both per §3.3 + §3.5.

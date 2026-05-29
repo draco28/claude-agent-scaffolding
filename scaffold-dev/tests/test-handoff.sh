@@ -216,6 +216,60 @@ test_compose_path_full_naming() {
   assert_eq "naming" "bugfix-fix-race-1234.md" "$base"
 }
 
+# --- sd_handoff_parse_flags (#19 — regex parse, immune to $N substitution) ---
+# Emits exactly 4 lines: scope, purpose, return_of, return_id.
+_parse_into() {
+  # _parse_into <argstring> ; sets PF_SCOPE PF_PURPOSE PF_ROF PF_RID
+  local out; out="$(sd_handoff_parse_flags "$1")"
+  { IFS= read -r PF_SCOPE; IFS= read -r PF_PURPOSE; IFS= read -r PF_ROF; IFS= read -r PF_RID; } <<EOF
+$out
+EOF
+}
+
+# 17. space-delimited flags
+test_parse_flags_space_form() {
+  echo "test_parse_flags_space_form:"
+  _parse_into "--scope vs-3.2 --purpose bugfix-auth"
+  assert_eq "scope"     "vs-3.2"      "$PF_SCOPE"
+  assert_eq "purpose"   "bugfix-auth" "$PF_PURPOSE"
+  assert_eq "return_of" ""            "$PF_ROF"
+  assert_eq "return_id" ""            "$PF_RID"
+}
+
+# 18. equals form
+test_parse_flags_equals_form() {
+  echo "test_parse_flags_equals_form:"
+  _parse_into "--scope=sprint-15-orch --purpose=context-bloat-recovery"
+  assert_eq "scope"   "sprint-15-orch"          "$PF_SCOPE"
+  assert_eq "purpose" "context-bloat-recovery"  "$PF_PURPOSE"
+}
+
+# 19. --return-of must NOT be captured by the --return pattern (prefix guard)
+test_parse_flags_return_of_not_return() {
+  echo "test_parse_flags_return_of_not_return:"
+  _parse_into "--scope vs-3.2 --purpose x --return-of a1b2"
+  assert_eq "return_of set" "a1b2" "$PF_ROF"
+  assert_eq "return_id empty (not stolen by --return)" "" "$PF_RID"
+}
+
+# 20. forward --return id captured; return_of stays empty
+test_parse_flags_return_forward() {
+  echo "test_parse_flags_return_forward:"
+  _parse_into "--scope vs-3.2 --purpose x --return c3d4"
+  assert_eq "return_id" "c3d4" "$PF_RID"
+  assert_eq "return_of empty" "" "$PF_ROF"
+}
+
+# 21. empty arg string → all empty (skill falls back to conversation context)
+test_parse_flags_empty() {
+  echo "test_parse_flags_empty:"
+  _parse_into ""
+  assert_eq "scope"     "" "$PF_SCOPE"
+  assert_eq "purpose"   "" "$PF_PURPOSE"
+  assert_eq "return_of" "" "$PF_ROF"
+  assert_eq "return_id" "" "$PF_RID"
+}
+
 test_dir_resolution
 test_ensure_dir_creates
 test_ensure_dir_idempotent
@@ -232,5 +286,10 @@ test_cleanup_carry_forward
 test_cleanup_isolates_sprint
 test_cleanup_no_match
 test_compose_path_full_naming
+test_parse_flags_space_form
+test_parse_flags_equals_form
+test_parse_flags_return_of_not_return
+test_parse_flags_return_forward
+test_parse_flags_empty
 
 sd_test_summary

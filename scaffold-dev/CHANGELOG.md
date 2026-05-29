@@ -2,6 +2,14 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.1.4] — 2026-05-29
+
+### Fixed
+- **Issue #19 — `/handoff` flag parsing broken by slash-command `$N` substitution:** `commands/handoff.md` and the `handing-off-session` §10 example parsed flags with `case "$1"`, but Claude Code freezes bare `$1`/`$2`/`$N` at template-render time, so `--scope`/`--purpose`/`--return-of` came out empty — silently mis-authoring a **return** handoff as a forward and breaking the A→B→C chain. Flag parsing now lives in a shared, unit-tested helper `sd_handoff_parse_flags` (regex/`BASH_REMATCH`, immune to `$N`; accepts space- and `=`-delimited values; `--return` vs `--return-of` disambiguated by the separator). The command invokes it via the `sd` dispatcher; the §10 doc example shows the equivalent inline regex.
+
+### Added
+- `sd_handoff_parse_flags` in `lib/handoff.sh` + 5 regression tests in `tests/test-handoff.sh` (space form, `=` form, `--return-of`/`--return` disambiguation, empty args).
+
 ## [0.1.3] — 2026-05-28
 
 ### Added

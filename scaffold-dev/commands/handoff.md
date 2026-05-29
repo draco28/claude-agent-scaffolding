@@ -18,21 +18,17 @@ ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
   SCAFFOLD_DEV_ARGS="${ARGS_FROM_CLAUDE:-}"
   export SCAFFOLD_DEV_ARGS
 
-  # Flag extraction (single-pass, order-independent). Each flag value is the
-  # token immediately following its name; --flag=value form also supported.
-  _scope=""; _purpose=""; _return_of=""
-  set -- $SCAFFOLD_DEV_ARGS
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --scope)           _scope="${2:-}";     shift 2 ;;
-      --scope=*)         _scope="${1#--scope=}";       shift ;;
-      --purpose)         _purpose="${2:-}";   shift 2 ;;
-      --purpose=*)       _purpose="${1#--purpose=}";   shift ;;
-      --return-of)       _return_of="${2:-}"; shift 2 ;;
-      --return-of=*)     _return_of="${1#--return-of=}"; shift ;;
-      *)                 shift ;;
-    esac
-  done
+  # Flag extraction delegates to the shared, unit-tested helper
+  # sd_handoff_parse_flags (lib/handoff.sh), invoked through the bin/sd
+  # dispatcher on PATH. CRITICAL (#19): never use bare $1/$2 here — the
+  # slash-command renderer freezes them at template-render time, which silently
+  # emptied --scope/--purpose/--return-of. The helper parses by regex and emits
+  # four ordered lines: scope, purpose, return_of, return_id.
+  { IFS= read -r _scope
+    IFS= read -r _purpose
+    IFS= read -r _return_of
+    IFS= read -r _return_id
+  } < <(sd handoff_parse_flags "$SCAFFOLD_DEV_ARGS")
   export SCAFFOLD_DEV_SCOPE="$_scope"
   export SCAFFOLD_DEV_PURPOSE="$_purpose"
   export SCAFFOLD_DEV_RETURN_OF="$_return_of"
