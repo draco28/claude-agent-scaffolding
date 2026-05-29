@@ -2,6 +2,11 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.3.1] — 2026-05-29
+
+### Fixed
+- **Issue #18 — `sf_roadmap_write_sprint` doc/signature mismatch:** the `planning-project-roadmap` skill documented the arguments as `<phase_id> <id> …`, but the lib takes `<sprint_id> <phase_id> …` (sprint_id first; phase_id is a bare-integer `--argjson`). Following the doc made every sprint in a phase collide on one id and silently overwrite (only the last survived). Corrected §4.2 of the skill to the real order with an explicit note on the sprint_id-string / phase_id-integer distinction. Doc-only change; the lib signature (which the test suite already pins) is unchanged.
+
 ## [0.3.0] — 2026-05-29
 
 ### Added

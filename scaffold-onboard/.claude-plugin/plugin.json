@@ -1,6 +1,6 @@
 {
   "name": "scaffold-onboard",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Project onboarding via skill-first composition. Authors MASTER-SPEC + project roadmap (Phase → Sprint → Vertical Slice) + machine-checkable rules + demo criteria. Composes with workspace-init (manifest routing), ai-mentor (cognitive mode), architect-critic (in-conversation review), superpowers (workflow).",
   "author": {
     "name": "Pras"

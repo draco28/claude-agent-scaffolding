@@ -99,7 +99,7 @@ For each phase in order, walk the user through naming 2-4 sprints. For each spri
 - `goal` — 2-3 sentence sprint goal: what's demoable at sprint close
 - `vs_count_estimate` — integer 2-5 (used by size-class adaptation; can refine in R1.C)
 
-Persist via `sf_roadmap_write_sprint <phase_id> <id> <name> <goal> <vs_count_estimate>` after each sprint. After all sprints for a phase are captured, surface Checkpoint 2 (per-phase boundary):
+Persist via `sf_roadmap_write_sprint <sprint_id> <phase_id> <name> <goal> <vs_count_estimate>` after each sprint — **`sprint_id` (the dotted string, e.g. `"1.2"`) comes first, then `phase_id` (a bare integer, e.g. `1`)**. The sprint upsert keys on `sprint_id`, so passing the arguments in the wrong order makes every sprint in a phase collide on one id and silently overwrite (only the last survives). `phase_id` is consumed as `--argjson` and must be a bare integer, not a dotted/quoted string. After all sprints for a phase are captured, surface Checkpoint 2 (per-phase boundary):
 
 > Sprints captured for Phase N (M total). Continue to the next phase's sprints, or pause and resume with `/plan-roadmap --resume`?
 

@@ -1,6 +1,6 @@
 {
   "name": "scaffold-onboard",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Project onboarding workflow for MASTER-SPEC, memory bank, roadmap, machine-checkable rules, and Codex/Claude shared workspace guidance.",
   "author": {
     "name": "Pras"
