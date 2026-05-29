@@ -1,6 +1,6 @@
 ---
 name: checking-workspace-interoperability
-description: Check or repair a workspace-init AI workspace so Claude Code and Codex can switch safely mid-project. Use this when the user asks "can I switch between Claude and Codex here?", "check Codex compatibility", "repair AGENTS.md", "make this workspace Codex-ready", "workspace doctor", or "Claude/Codex interoperability check". Validates `.workspace/pairing.json`, additive routing keys, `AGENTS.md` managed Codex section, and `.workspace/locks`; with explicit repair intent, runs the scaffold-onboard interop repair helper to add missing non-breaking keys, create lock directory, and section-merge AGENTS.md while preserving user content.
+description: Check or repair a workspace-init AI workspace so Claude Code and Codex can switch safely mid-project. Use this when the user asks "can I switch between Claude and Codex here?", "check Codex compatibility", "repair AGENTS.md", "make this workspace Codex-ready", "workspace doctor", or "Claude/Codex interoperability check". With repair intent, adds missing non-breaking routing keys, creates the lock dir, and section-merges the AGENTS.md managed Codex section while preserving user content.
 ---
 
 # checking-workspace-interoperability

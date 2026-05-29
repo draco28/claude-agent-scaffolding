@@ -2,6 +2,13 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.3.3] — 2026-05-29
+
+### Fixed
+- **Issue #23 — synthesis validators rejected valid LLM output.** Three `lib/synthesis.sh` bugs that silently downgraded good synthesized docs back to deterministic templates: (1) `sf_synth_assert_no_markers` flagged every `*(...)*` italic — including legitimate annotations like `*(traces_uc: UC-1)*` — now only imperative fill-in stubs (`*(populate …)*`, `TODO:`/`TBD`) trip it; (2) `sf_synth_validate_cited` + `sf_synth_coverage_report` threw `Cannot index string with "id"` on string-array ledgers — both now tolerate object- or string-shaped entries; (3) `sf_synth_assert_sections` was exact/case-sensitive — now normalizes case + a dropped trailing parenthetical (`## Initial stories` matches required `Initial stories (seeded from MASTER-SPEC.md)`). The brief-assembly "hard rules" no longer ban `*(...)*` wholesale.
+- **Issue #22 — settings.json `$schema` host.** `claude-settings.json.tmpl` used `www.schemastore.org`, which fails Claude Code's `/doctor`; corrected to `json.schemastore.org`.
+- **Issue #24 — skill-description bloat.** Tightened the over-long `description:` frontmatter on seven skills (authoring-vertical-slice-demo, validating-master-spec, authoring-machine-checkable-rules, scaffolding-governance-docs, scaffolding-memory-bank, planning-project-roadmap, checking-workspace-interoperability) to ~440–570 chars, preserving trigger phrases and disambiguations — part of cutting the cross-plugin skill-listing budget (~5.9k→~3.6k description tokens) so descriptions stop being truncated/dropped.
+
 ## [0.3.2] — 2026-05-29
 
 ### Fixed

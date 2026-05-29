@@ -1,6 +1,6 @@
 ---
 name: validating-master-spec
-description: Validate `MASTER-SPEC.md` against the v0.1.0 schema rules (per SPEC §5.7) before any derivation runs — wraps `sf_spec_validate` from `lib/parser.sh` (unchanged from v0.1.0, 7 validation rules + 9 project-class enums) and surfaces errors with line numbers + remediation hints. Use this when the user asks to validate MASTER-SPEC, check the spec, asks "is my master spec ready for derivation?", or asks whether the spec is ready for `/scaffold-project` and `/scaffold-docs`. Locates `MASTER-SPEC.md` via manifest-aware routing (`sf_resolve_output_path "master_spec" "MASTER-SPEC.md"`), reports the first ERROR-class failure with offending value + line number + concrete fix, or confirms validity with the verbatim string `MASTER-SPEC valid. Ready for /scaffold-project and /scaffold-docs.`. Read-only — never edits `MASTER-SPEC.md`, never auto-fixes, never invokes architect-critic. Skill-only invocation; no dedicated slash command.
+description: Validate `MASTER-SPEC.md` against the v0.1.0 schema rules before any derivation runs, surfacing the first ERROR with its offending value, line number, and a concrete fix (or confirming the spec is ready). Use this when the user asks to validate MASTER-SPEC, check the spec, or "is my master spec ready for /scaffold-project and /scaffold-docs?". Read-only — never edits or auto-fixes the spec. Skill-only invocation; no dedicated slash command.
 ---
 
 # validating-master-spec

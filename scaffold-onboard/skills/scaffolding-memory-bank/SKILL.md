@@ -1,6 +1,6 @@
 ---
 name: scaffolding-memory-bank
-description: Derive the 11-file memory bank + CLAUDE.md + AGENTS.md managed Codex section + .claude/settings.json from MASTER-SPEC.md — LLM-assisted sub-agent synthesis by default, with a deterministic `--fast` template path that also serves as the per-artifact fallback. Use this when the user wants to scaffold the memory bank, derive memory bank artifacts, set up project memory, run /scaffold-project, or regenerate the project's tiered-context router after MASTER-SPEC changes. Seeds the R2 Machine-checkable rules section as empty (heading + invitation only — rule authoring is a separate skill), routes outputs via the workspace-init manifest when present, preserves user-authored AGENTS.md content outside the scaffold-managed marker block, and conditionally emits the Karpathy Behavioral Discipline section in CLAUDE.md based on the Phase 10 opt-in answer.
+description: Derive the 11-file memory bank + CLAUDE.md + AGENTS.md Codex section + .claude/settings.json from MASTER-SPEC.md — LLM sub-agent synthesis by default, deterministic `--fast` fallback. Use this when the user wants to scaffold the memory bank, derive memory-bank artifacts, set up project memory, run /scaffold-project, or regenerate the tiered-context router after MASTER-SPEC changes. Seeds an empty Machine-checkable rules section, preserves user-authored AGENTS.md content, and conditionally emits the Karpathy Behavioral Discipline section per the Phase-10 opt-in.
 ---
 
 # scaffolding-memory-bank

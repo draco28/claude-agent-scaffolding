@@ -1,6 +1,6 @@
 ---
 name: authoring-machine-checkable-rules
-description: Interactively author machine-checkable rules into `03-code-patterns.md` per the v0.2 R2 mcrule DSL. Use this when the user wants to add a project rule, author machine-checkable rules, write an mcrule, add a banned-imports / coverage-floor / style-invariants / required-pattern rule, or asks "what rules should this project enforce?". Generates HTML-sentinel `<!-- mcrule:start type=<T> -->` blocks for the four v0.2 rule types (banned_imports, coverage_floor, style_invariants, required_pattern), validates each block via `sf_rules_validate_block` before write, appends idempotently to the `## Machine-checkable rules` section without overwriting existing rules, and warns-and-skips on unknown forward-compat types per the §8.5 extensibility contract. Routes the `03-code-patterns.md` write target through `sf_resolve_output_path "memory_bank" ...` and never invokes architect-critic (no critic moment in this skill).
+description: Interactively author machine-checkable rules into `03-code-patterns.md` (v0.2 R2 mcrule DSL). Use this when the user wants to add a project rule, author machine-checkable rules, write an mcrule, add a banned-imports / coverage-floor / style-invariants / required-pattern rule, or asks "what rules should this project enforce?". Validates each block before write, appends idempotently to the `## Machine-checkable rules` section without overwriting existing rules, and warns-and-skips unknown rule types.
 ---
 
 # authoring-machine-checkable-rules

@@ -3396,7 +3396,7 @@ mkdir -p scaffold-onboard/templates/settings
 
 ```json
 {
-  "$schema": "https://www.schemastore.org/claude-code-settings.json",
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
       "Bash(git status:*)",

@@ -1,6 +1,6 @@
 ---
 name: planning-project-roadmap
-description: Drive the three-sub-phase (R1.A Phases → R1.B Sprints → R1.C Vertical Slices) interactive authoring of ROADMAP.md after MASTER-SPEC closes. Use this when the user wants to run /plan-roadmap, decompose into sprints, author project roadmap, build out the phase plan, plan the phase-sprint-slice hierarchy, or asks "what comes after onboarding?". Manages a separate project-roadmap.json state file with sub-phase checkpoints, surfaces the verbatim 3-timelines framing prompts, watches the 60-min advisory / 90-min warn-only time budget, invokes authoring-vertical-slice-demo per slice for demo criteria, and calls architect-critic at R1.C close. Re-runs via --add-phase / --add-sprint / --add-slice / --refine-slice / --reorganize modes; never writes to PROJECT_PLAN.md (that's /scaffold-docs's v0.1.0 timeline doc, owned by a different skill).
+description: Drive the three-sub-phase (Phases → Sprints → Vertical Slices) interactive authoring of ROADMAP.md after MASTER-SPEC closes. Use this when the user wants to run /plan-roadmap, decompose into sprints, author the project roadmap, build out the phase plan, plan the phase-sprint-slice hierarchy, or asks "what comes after onboarding?". Re-runs via --add-phase / --add-sprint / --add-slice / --refine-slice / --reorganize. Never writes PROJECT_PLAN.md — that's /scaffold-docs's v0.1.0 timeline doc, a different skill.
 ---
 
 # planning-project-roadmap

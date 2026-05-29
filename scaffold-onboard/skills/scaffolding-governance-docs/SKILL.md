@@ -1,6 +1,6 @@
 ---
 name: scaffolding-governance-docs
-description: Derive governance documents (PRD, SRS, BACKLOG, PROJECT_PLAN, ADR-0001 + nine optional `--full` artifacts) from MASTER-SPEC.md — LLM-assisted sub-agent synthesis by default (one synthesis-agent per artifact, dependency-wave dispatch for cross-doc ID consistency), with a deterministic `--fast` template path that also serves as the per-artifact fallback when synthesis fails validation. Use this when the user wants to scaffold governance docs, generate PRD/SRS, run /scaffold-docs, derive BACKLOG/ADRs, or regenerate the governance-doc bundle after MASTER-SPEC changes. Routes each doc per the workspace-init manifest (canonical for product-facing docs; ai_workspace for process ADRs); preserves v0.1.0's PROJECT_PLAN.md as a Phase-2-Strategy-derived timeline — never the R1 Phase→Sprint→Vertical-Slice hierarchy, which is a separate file (ROADMAP.md) emitted by the planning-project-roadmap skill.
+description: Derive governance docs (PRD, SRS, BACKLOG, PROJECT_PLAN, ADR-0001, +9 `--full`) from MASTER-SPEC.md — LLM sub-agent synthesis by default, deterministic `--fast` fallback. Use this when the user wants to scaffold governance docs, generate PRD/SRS, run /scaffold-docs, derive BACKLOG/ADRs, or regenerate the bundle after MASTER-SPEC changes. Manifest-routed (canonical product docs vs ai_workspace process ADRs). NOT the Phase→Sprint→Vertical-Slice ROADMAP.md — that's the planning-project-roadmap skill.
 ---
 
 # scaffolding-governance-docs

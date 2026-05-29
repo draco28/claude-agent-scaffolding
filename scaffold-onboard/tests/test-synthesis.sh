@@ -129,6 +129,64 @@ test_coverage_report_flags_unassigned() {
   printf '%s' "$out" | grep -q "FR-1: covered" && { echo "  ✓ covered shown"; PASS=$((PASS+1)); } || { echo "  ✗"; FAIL=$((FAIL+1)); }
 }
 
+# --- #23 regression: validators must not reject valid LLM output ---
+
+# Bug 1: legit italic parentheticals (annotations) are NOT fill-in markers.
+test_markers_allow_legit_italics() {
+  echo "test_markers_allow_legit_italics:"
+  setup_tmp_repo
+  # Real synthesized SRS/BACKLOG content the agent legitimately emits:
+  printf '# SRS\n- FR-1 — system shall X *(traces_uc: UC-1)*\n~~BACKLOG-1 — done~~ *(completed 2026-06-14)*\nLatency target *(p95)*\n' > ./legit.md
+  if sf_synth_assert_no_markers ./legit.md; then echo "  ✓ annotations allowed"; PASS=$((PASS+1)); else echo "  ✗ false-positive on legit italics"; FAIL=$((FAIL+1)); fi
+  # Real leftover template stubs MUST still be caught:
+  printf '# Doc\n### Sprint 1 *(populate after planning)*\n' > ./stub1.md
+  printf '# Doc\n1. *(steps in order, with expected outcomes per step)*\n' > ./stub2.md
+  printf '# Doc\nStatus: TODO: write me\n' > ./stub3.md
+  for f in stub1 stub2 stub3; do
+    if sf_synth_assert_no_markers "./$f.md" 2>/dev/null; then echo "  ✗ $f stub not caught"; FAIL=$((FAIL+1)); else echo "  ✓ $f stub caught"; PASS=$((PASS+1)); fi
+  done
+}
+
+# Bug 2: validators tolerate a string-array ledger (not just array-of-objects).
+test_validate_cited_string_ledger() {
+  echo "test_validate_cited_string_ledger:"
+  local led='{"use_cases":["UC-1","UC-2"],"frs":["FR-1"],"nfrs":[],"backlog":[]}'
+  if sf_synth_validate_cited "$led" "UC-1 FR-1" 2>/dev/null; then echo "  ✓ string ledger ok"; PASS=$((PASS+1)); else echo "  ✗ jq error on string ledger"; FAIL=$((FAIL+1)); fi
+  if sf_synth_validate_cited "$led" "FR-9" 2>/dev/null; then echo "  ✗ should reject missing"; FAIL=$((FAIL+1)); else echo "  ✓ missing rejected"; PASS=$((PASS+1)); fi
+}
+
+test_coverage_string_ledger() {
+  echo "test_coverage_string_ledger:"
+  local led='{"use_cases":[],"frs":["FR-1","FR-2"],"nfrs":["NFR-1"],"backlog":[]}'
+  local out; out="$(sf_synth_coverage_report "$led" $'FR-1\nNFR-1' 2>&1)"
+  printf '%s' "$out" | grep -q 'Cannot index' && { echo "  ✗ jq error: $out"; FAIL=$((FAIL+1)); } || { echo "  ✓ no jq error"; PASS=$((PASS+1)); }
+  printf '%s' "$out" | grep -q "FR-2: UNASSIGNED" && { echo "  ✓ unassigned flagged"; PASS=$((PASS+1)); } || { echo "  ✗ FR-2 not flagged"; FAIL=$((FAIL+1)); }
+}
+
+# Bug 3: section assertion tolerates case + dropped parenthetical suffix.
+test_assert_sections_normalizes() {
+  echo "test_assert_sections_normalizes:"
+  setup_tmp_repo
+  cat > ./s.brief.md <<'EOF'
+---
+doc: T
+routes_to: backlog
+wave: 4
+required_sections:
+  - "Initial stories (seeded from MASTER-SPEC.md)"
+  - "Success metric"
+model: sonnet
+---
+body
+EOF
+  # Agent emitted title-cased heading + dropped the parenthetical:
+  printf '# T\n## Initial stories\nstuff\n## Success Metric\nstuff\n' > ./doc.md
+  if sf_synth_assert_sections ./s.brief.md ./doc.md; then echo "  ✓ case + dropped-paren tolerated"; PASS=$((PASS+1)); else echo "  ✗ false missing-section"; FAIL=$((FAIL+1)); fi
+  # A genuinely missing section still fails:
+  printf '# T\n## Initial stories\nstuff\n' > ./doc2.md
+  if sf_synth_assert_sections ./s.brief.md ./doc2.md 2>/dev/null; then echo "  ✗ missing not caught"; FAIL=$((FAIL+1)); else echo "  ✓ genuine missing caught"; PASS=$((PASS+1)); fi
+}
+
 # CI gate: every shipped synthesis brief must validate.
 test_all_shipped_briefs_validate() {
   echo "test_all_shipped_briefs_validate:"
@@ -156,5 +214,9 @@ test_validate_cited_ids_missing
 test_no_fillin_markers_pass_and_fail
 test_brief_assemble_includes_paths_and_ledger_slice
 test_coverage_report_flags_unassigned
+test_markers_allow_legit_italics
+test_validate_cited_string_ledger
+test_coverage_string_ledger
+test_assert_sections_normalizes
 test_all_shipped_briefs_validate
 report_results

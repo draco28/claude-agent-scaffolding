@@ -81,7 +81,9 @@ sf_synth_brief_validate() {
 sf_synth_validate_cited() {
   local ledger="$1" cited="$2" id
   local known
-  known="$(printf '%s' "$ledger" | jq -r '[.use_cases[],.frs[],.nfrs[],.backlog[]] | .[].id')"
+  # Ledger entries may be objects ({id,title,...}) OR plain ID strings, depending
+  # on what the synthesis agent returned in ids_minted (#23 Bug 2). Tolerate both.
+  known="$(printf '%s' "$ledger" | jq -r '[.use_cases[],.frs[],.nfrs[],.backlog[]] | .[] | if type=="object" then .id else . end' 2>/dev/null)"
   for id in $cited; do
     if ! printf '%s\n' "$known" | grep -qxF "$id"; then
       sf_log_error "cited id '$id' not found in ledger"; return 1
@@ -91,20 +93,42 @@ sf_synth_validate_cited() {
 }
 
 # Reject leftover fill-in markers in a synthesized doc.
+#
+# A "marker" is leftover author-instruction text, not real content. We match:
+#   - literal TODO: / TBD tokens, and
+#   - an italic-parenthetical *(...)* whose body is an IMPERATIVE fill-in
+#     instruction (populate/describe/list/set/seed/verify/steps/...).
+# We deliberately do NOT flag every *(...)*: synthesis agents legitimately emit
+# italic parentheticals for annotations like *(traces_uc: UC-1)* or
+# *(completed 2026-06-14)* — flagging those caused valid docs to be downgraded
+# to templates (#23 Bug 1). The keyword gate catches the deterministic template
+# stubs (which are all imperative) without tripping on factual annotations.
 sf_synth_assert_no_markers() {
   local file="$1"
-  if grep -nE '\*\([^)]*\)\*|TODO: ' "$file" >/dev/null 2>&1; then
+  local fillin='(populate|describe|list things|list out|set per|set numerical|seed with|seed from|pre-baked|escape clause|tasks to|steps to|steps in|plan your|monitoring checks|features that|fill in|e\.g\.,)'
+  if grep -nE "TODO:|\\bTBD\\b|\\*\\([^)]*\\b${fillin}\\b[^)]*\\)\\*" "$file" >/dev/null 2>&1; then
     sf_log_error "fill-in markers remain in $file"; return 1
   fi
   return 0
 }
 
 # Assert each required section heading from a brief exists in the doc.
+# Normalizes both sides before comparison (#23 Bug 3): synthesis agents vary
+# heading case ("## Success Metric" vs required "Success metric") and sometimes
+# drop a trailing parenthetical suffix ("## Initial stories" vs required
+# "Initial stories (seeded from MASTER-SPEC.md)"). We lowercase, collapse
+# whitespace, strip a trailing "(...)" from the required heading, and match as a
+# substring so correct content isn't downgraded to a template over cosmetics.
 sf_synth_assert_sections() {
-  local brief="$1" doc="$2" sec
+  local brief="$1" doc="$2" sec sec_norm doc_norm
+  doc_norm="$(tr 'A-Z' 'a-z' < "$doc" | tr -s ' \t' ' ')"
   while IFS= read -r sec; do
     [[ -z "$sec" ]] && continue
-    if ! grep -qF "$sec" "$doc"; then
+    sec_norm="$(printf '%s' "$sec" \
+      | sed -E 's/[[:space:]]*\([^)]*\)[[:space:]]*$//' \
+      | tr 'A-Z' 'a-z' | tr -s ' \t' ' ' | sed 's/^ *//; s/ *$//')"
+    [[ -z "$sec_norm" ]] && continue
+    if ! printf '%s' "$doc_norm" | grep -qF "$sec_norm"; then
       sf_log_error "required section '$sec' missing from $doc"; return 1
     fi
   done < <(sf_synth_brief_list "$brief" required_sections)
@@ -153,14 +177,15 @@ $slice
 Synthesis guidance:
 $body
 
-Hard rules: no fill-in markers (no "*(...)*", no "TODO:"); every required section has real content; return the ID-ledger JSON described in your agent contract.
+Hard rules: no leftover fill-in placeholders — no "TODO:"/"TBD", and no imperative author-instruction stubs like "*(populate ...)*" or "*(describe ...)*". Factual italic annotations such as "*(traces_uc: UC-1)*" are fine. Every required section must have real content; emit each required section heading verbatim (including any parenthetical). Return the ID-ledger JSON described in your agent contract.
 EOF
 }
 
 sf_synth_coverage_report() {
   local ledger="$1" covered="$2" id
   echo "## Requirement coverage"
-  for id in $(printf '%s' "$ledger" | jq -r '[.frs[],.nfrs[]] | .[].id'); do
+  # Tolerate object- or string-shaped ledger entries (#23 Bug 2).
+  for id in $(printf '%s' "$ledger" | jq -r '[.frs[],.nfrs[]] | .[] | if type=="object" then .id else . end' 2>/dev/null); do
     if printf '%s\n' "$covered" | grep -qxF "$id"; then
       echo "- $id: covered"
     else
