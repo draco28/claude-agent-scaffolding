@@ -36,6 +36,13 @@ _sf_roadmap_source_deps() {
   [[ -f "$here/_helpers.sh" ]] && source "$here/_helpers.sh"
   # shellcheck disable=SC1090
   [[ -f "$here/routing.sh"  ]] && source "$here/routing.sh"
+  # state.sh provides sf_project_name + sf_state_read_answer, used by the
+  # renderer to fill the H1 title and overview seed from the onboarding spec
+  # (#20). Guarded so a re-source is a no-op.
+  if ! declare -F sf_project_name >/dev/null 2>&1; then
+    # shellcheck disable=SC1090
+    [[ -f "$here/state.sh" ]] && source "$here/state.sh"
+  fi
 }
 _sf_roadmap_source_deps
 
@@ -441,17 +448,38 @@ _sf_roadmap_render_to_stdout() {
   local state_path="$1"
 
   local project_name today
-  project_name="$(jq -r '.project_name // "<project>"' "$state_path")"
+  # Resolve the project name (#20): prefer the roadmap state's recorded name,
+  # but fall back to sf_project_name (onboarding answer 1.1.4 → cwd basename)
+  # when state was initialized without one, so the H1 is never empty.
+  project_name="$(jq -r '.project_name // empty' "$state_path")"
+  if [[ -z "$project_name" || "$project_name" == "null" ]]; then
+    if declare -F sf_project_name >/dev/null 2>&1; then
+      project_name="$(sf_project_name 2>/dev/null || true)"
+    fi
+  fi
+  [[ -z "$project_name" ]] && project_name="<project>"
   # Use started_at's date prefix for the "Derived on" line so re-renders are
   # idempotent (not "today's date"). Falls back to the ISO date of started_at.
   today="$(jq -r '(.started_at // "") | split("T")[0]' "$state_path")"
   [[ -z "$today" || "$today" == "null" ]] && today="$(date -u +%Y-%m-%d)"
 
-  printf '# ROADMAP — %s\n\n' "$project_name"
+  # Overview seed (#20): never ship the literal "<3-paragraph...>" stub. Seed
+  # from the elevator pitch (onboarding answer 1.1.1) when available, plus a
+  # soft invitation to expand into the full 3-timelines framing.
+  local pitch=""
+  if declare -F sf_state_read_answer >/dev/null 2>&1; then
+    pitch="$(sf_state_read_answer 1.1.1 2>/dev/null || true)"
+    [[ "$pitch" == "null" ]] && pitch=""
+  fi
+
+  printf '# %s — Roadmap\n\n' "$project_name"
   printf '> Derived from MASTER-SPEC.md by `/plan-roadmap` on %s.\n' "$today"
   printf '> Co-edited by user + scaffold-dev orchestrator over time.\n\n'
   printf '## Roadmap overview\n\n'
-  printf '<3-paragraph summary of project shape, with 3-timelines framing>\n\n'
+  if [[ -n "$pitch" ]]; then
+    printf '%s\n\n' "$pitch"
+  fi
+  printf '_Expand into a 3-paragraph project-shape summary using the 3-timelines framing: visionary horizon (Phases) → value-building windows (Sprints) → visibility cycles (Vertical Slices)._\n\n'
 
   # Iterate phases in array order. For each phase: walk its sprints in array
   # order; for each sprint: walk its slices in array order.

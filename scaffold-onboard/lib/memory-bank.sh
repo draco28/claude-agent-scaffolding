@@ -142,6 +142,17 @@ sf_claude_md_generate() {
   while IFS= read -r line; do args+=("$line"); done < <(_memory_bank_args "$ts")
   while IFS= read -r line; do args+=("$line"); done < <(_composition_args)
 
+  # Karpathy Behavioral Discipline opt-in (#21). Captured in Phase 10 of /onboard
+  # as answer phase_10.4.include_karpathy. Emit the section only when the answer
+  # is the literal "yes"; any other value (no / null / missing) opts out.
+  local karpathy
+  karpathy="$(sf_state_read_answer phase_10.4.include_karpathy 2>/dev/null || echo null)"
+  if [[ "$karpathy" == "yes" ]]; then
+    args+=("include_karpathy=true")
+  else
+    args+=("include_karpathy=false")
+  fi
+
   sf_render "$tmpl" "${args[@]}" > CLAUDE.md
 }
 

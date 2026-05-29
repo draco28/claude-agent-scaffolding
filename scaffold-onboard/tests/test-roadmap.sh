@@ -184,6 +184,30 @@ test_render_writes_roadmap_md() {
   teardown_roadmap
 }
 
+# #20 — H1 carries the project name (no empty "# ROADMAP — ") and the overview
+# never ships the literal angle-bracket stub.
+test_render_h1_has_project_name() {
+  echo "test_render_h1_has_project_name:"
+  setup_roadmap
+  _seed_minimal_state "demo-proj"
+  sf_roadmap_render
+  assert_file_contains "ROADMAP.md" '^# demo-proj — Roadmap$'
+  teardown_roadmap
+}
+
+test_render_no_overview_stub() {
+  echo "test_render_no_overview_stub:"
+  setup_roadmap
+  _seed_minimal_state "demo-proj"
+  sf_roadmap_render
+  if grep -q '3-paragraph summary of project shape' "ROADMAP.md"; then
+    FAIL=$((FAIL+1)); echo "  ✗ literal overview stub still present"
+  else
+    PASS=$((PASS+1)); echo "  ✓ no literal overview stub"
+  fi
+  teardown_roadmap
+}
+
 test_render_contains_phase_heading() {
   echo "test_render_contains_phase_heading:"
   setup_roadmap
@@ -758,6 +782,8 @@ test_write_slice_preserves_traces_when_legacy_update_omits_them
 test_checkpoint_set_get_roundtrip                 # 7
 # Render + ID
 test_render_writes_roadmap_md                     # 8
+test_render_h1_has_project_name                   # 8b (#20)
+test_render_no_overview_stub                      # 8c (#20)
 test_render_contains_phase_heading                # 9
 test_render_contains_sprint_heading               # 10
 test_render_contains_slice_heading                # 11

@@ -113,6 +113,32 @@ test_claude_md_plugin_awareness_when_no_composition() {
   fi
 }
 
+# #21 — Karpathy opt-in: phase_10.4.include_karpathy=yes emits the Behavioral
+# Discipline section with the verbatim attribution; any other value omits it.
+test_claude_md_karpathy_opt_in() {
+  echo "test_claude_md_karpathy_opt_in:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_state_write_answer phase_10.4.include_karpathy yes
+  sf_claude_md_generate
+  assert_file_contains "./CLAUDE.md" "Behavioral Discipline \(Karpathy-inspired\)"
+  assert_file_contains "./CLAUDE.md" "Behavioral guidelines inspired by Karpathy's observations \(Chang, 2026; MIT\)"
+  assert_file_contains "./CLAUDE.md" "Think Before Coding"
+}
+
+test_claude_md_karpathy_opt_out() {
+  echo "test_claude_md_karpathy_opt_out:"
+  setup_tmp_repo
+  seed_master_spec
+  # seed_master_spec does not set the karpathy answer → opt-out by default
+  sf_claude_md_generate
+  if grep -q "Behavioral Discipline (Karpathy-inspired)" "./CLAUDE.md"; then
+    FAIL=$((FAIL+1)); echo "  ✗ Karpathy section present without opt-in"
+  else
+    PASS=$((PASS+1)); echo "  ✓ Karpathy section absent without opt-in"
+  fi
+}
+
 # T7.4 — R2 contract: 03-code-patterns.md seeds an empty "Machine-checkable
 # rules" section so /add-project-rule (authoring-machine-checkable-rules) has
 # a known heading to insert mcrule blocks under. SPEC §8.1.
@@ -131,5 +157,7 @@ test_workflow_static_unchanged
 test_all_derived_files_present
 test_claude_md_generated
 test_claude_md_plugin_awareness_when_no_composition
+test_claude_md_karpathy_opt_in
+test_claude_md_karpathy_opt_out
 test_derive_seeds_machine_checkable_rules_section
 report_results

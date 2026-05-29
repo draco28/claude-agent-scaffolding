@@ -2,6 +2,13 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.3.2] — 2026-05-29
+
+### Fixed
+- **Issue #20 — ROADMAP renderer shipped a broken artifact:** `_sf_roadmap_render_to_stdout` emitted an empty H1 (`# ROADMAP — ` with no project name) and a literal `<3-paragraph summary…>` stub. The renderer now resolves the project name via `sf_project_name` (onboarding answer 1.1.4 → cwd basename) when roadmap state lacks one — H1 is now `# <ProjectName> — Roadmap` — and seeds the overview from the elevator pitch (answer 1.1.1) plus a soft italic invitation to expand, never an angle-bracket stub.
+- **Issue #21 — Karpathy opt-in silently no-op'd:** the `phase_10.4.include_karpathy = yes` opt-in captured during `/onboard` was never emitted. `CLAUDE.md.tmpl` now contains the `{{#if include_karpathy}}` Behavioral Discipline block (verbatim attribution "Behavioral guidelines inspired by Karpathy's observations (Chang, 2026; MIT)"), and `sf_claude_md_generate` reads the answer and passes `include_karpathy=true` only when the answer is the literal `yes`. This also makes the skill description's Karpathy claim accurate again.
+- **Stale skill metadata:** the `scaffolding-governance-docs` and `scaffolding-memory-bank` frontmatter descriptions still said "Deterministically derive"; updated to reflect LLM-assisted sub-agent synthesis by default (with the deterministic `--fast` path / per-artifact fallback) introduced in v0.3.0.
+
 ## [0.3.1] — 2026-05-29
 
 ### Fixed
