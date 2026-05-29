@@ -2,6 +2,11 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.1.5] — 2026-05-29
+
+### Fixed
+- **Issue #24 — skill-description bloat.** The `description:` frontmatter on nine skills (handing-off-session, recording-architecture-decision, appending-changelog-entry, executing-work-item, authoring-runbook, writing-sprint-retrospective, closing-vertical-slice, implementation-checking, planning-vertical-slice) crammed the full behavioral contract into the description (handing-off-session at 1543 chars exceeded Claude Code's per-entry cap; others were dropped from the listing, disabling reliable auto-invocation, and inflated session token cost). Rewrote each to ~450–500 chars preserving all trigger phrases, slash-command tokens, and disambiguations (the detailed contract already lives in each SKILL body). No behavioral change.
+
 ## [0.1.4] — 2026-05-29
 
 ### Fixed

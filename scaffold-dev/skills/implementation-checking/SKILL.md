@@ -1,6 +1,6 @@
 ---
 name: implementation-checking
-description: Per-work-item verification gate for scaffold-dev v0.1 (SPEC §12). Reads the work-item spec, runs each `auto:` AC line in the canonical worktree via `sd_verify_auto_step` (halting on the first failure per §12.1), cross-checks `report.md` against observed AC outcomes, and consults scaffold-onboard's `sf_rules_*` API for R2 machine-checkable rule violations when `03-code-patterns.md` contains mcrule blocks (falling back to AC-only with a user-visible advisory when rules are absent per §12.1 + Q2). On any failure, surfaces source-tagged errors (`[AC]`, `[report cross-check]`, `[rule]`) and the §12.2 failure-response menu (3+ options); on all-pass, reports green and hands control back to the orchestrator. Use this when the user wants to verify work item N.NN, check round 1, asks "is this work item done", or says "verify the implementation". Read-only with respect to repo artifacts; never commits, merges, edits `report.md`/`handoff.md`, or auto-fixes violations.
+description: Per-work-item verification gate — runs `auto:` AC lines (halt-on-first-fail), cross-checks `report.md` outcomes, checks machine-checkable rules from `03-code-patterns.md`; surfaces source-tagged errors (`[AC]`, `[report cross-check]`, `[rule]`) + menu on fail; reports green on all-pass. Use this when the user wants to verify work item N.NN, check round 1, asks "is this work item done", or says "verify the implementation". Read-only: never commits, merges, or auto-fixes.
 ---
 
 # implementation-checking

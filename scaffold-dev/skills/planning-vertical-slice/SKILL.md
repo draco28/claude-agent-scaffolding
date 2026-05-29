@@ -1,6 +1,6 @@
 ---
 name: planning-vertical-slice
-description: Drive the full vertical-slice lifecycle for scaffold-dev v0.1 — read MASTER-SPEC + memory bank + ROADMAP.md to locate the target slice, decompose into 4-5 feature-sized work items (~200-500 LOC each), identify rounds via strict-layer DAG, author all work-item specs upfront under `docs/specs/sprint-N/VS-N.M-<kebab>/`, offer grill-me at three gates (decomposition / spec authoring / fix-up replan), invoke architect-critic's `critiquing-spec` skill in-conversation, then per round spawn worktrees + author handoffs + dispatch `scaffold-dev:implementer-agent` subagents via the Task tool and process their gaps-mode / complete-mode returns. Use this when the user wants to plan VS-3.2, orchestrate VS-3.2, start a new vertical slice, or says "let's plan the next slice". Refuses to start without a workspace-init pairing manifest (per SPEC §16.1) and halts on per-work-item verification fail or merge conflict per the §12.2 failure-response menu.
+description: Drive the full vertical-slice lifecycle — decompose into 4-5 work items, identify rounds via DAG, author specs upfront, offer grill-me at three gates, invoke architect-critic, then per round spawn worktrees + dispatch `scaffold-dev:implementer-agent` subagents. Use this when the user wants to plan VS-3.2, orchestrate VS-3.2, start a new vertical slice, or says "let's plan the next slice". Refuses to start without a workspace-init pairing manifest.
 ---
 
 # planning-vertical-slice
