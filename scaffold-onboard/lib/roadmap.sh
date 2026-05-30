@@ -425,6 +425,31 @@ sf_roadmap_read_elapsed() {
 # inline content (i.e., partial-overwrite of existing ROADMAP.md) is deferred
 # to v0.3; in v0.2, users who want freeform context appended to ROADMAP.md
 # should keep it in a separate file or wrap it outside the rendered region.
+# Publish the structured roadmap state to the workspace contract path
+# (well_known_paths.roadmap_state) so scaffold-dev can field-read `id` + `sprint_id`
+# instead of grepping rendered `#### VS-…:` headings (#28 Phase 2). Best-effort:
+# no-op (info) when there's no workspace-init manifest (standalone onboard).
+# Echoes the destination path on success.
+sf_roadmap_publish_state() {
+  local state_file manifest aw routed dest
+  state_file="${1:-$(sf_roadmap_state_path)}"
+  [[ -f "$state_file" ]] || { sf_log_error "sf_roadmap_publish_state: no roadmap state at $state_file"; return 1; }
+  manifest="$(sf_discover_manifest)" || { sf_log_info "sf_roadmap_publish_state: no workspace manifest — structured roadmap not published (standalone mode)"; return 0; }
+  aw="$(jq -r '.ai_workspace.root // empty' "$manifest" 2>/dev/null)"
+  [[ -n "$aw" ]] || { sf_log_error "sf_roadmap_publish_state: manifest missing ai_workspace.root"; return 1; }
+  # Honor the manifest's routed path; fall back to the canonical workspace location
+  # for older manifests that predate the well_known_paths.roadmap_state key.
+  routed="$(jq -r '.well_known_paths.roadmap_state // empty' "$manifest" 2>/dev/null)"
+  if [[ -n "$routed" ]]; then
+    dest="${routed//'${ai_workspace.root}'/$aw}"
+  else
+    dest="$aw/.workspace/project-roadmap.json"
+  fi
+  mkdir -p "$(dirname "$dest")" || return 1
+  cp "$state_file" "$dest" || { sf_log_error "sf_roadmap_publish_state: copy to $dest failed"; return 1; }
+  echo "$dest"
+}
+
 sf_roadmap_render() {
   local out_path
   out_path="$(sf_resolve_output_path "roadmap" "ROADMAP.md")"
@@ -441,6 +466,12 @@ sf_roadmap_render() {
 
   _sf_roadmap_render_to_stdout "$state_path" > "$tmp"
   mv "$tmp" "$out_path"
+
+  # #28 Phase 2: also publish the structured roadmap state into the workspace so
+  # scaffold-dev's orchestrator can field-read it. Best-effort — no-op in
+  # standalone mode (no manifest); never blocks the ROADMAP.md write.
+  sf_roadmap_publish_state "$state_path" >/dev/null \
+    || sf_log_warn "roadmap render: structured-state publish failed (ROADMAP.md still written)"
 }
 
 # Internal: emit roadmap markdown for a given state file to stdout.

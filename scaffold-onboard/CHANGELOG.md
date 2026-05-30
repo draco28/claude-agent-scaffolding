@@ -2,6 +2,11 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.3.6] — 2026-05-30
+
+### Added
+- **#28 Phase 2 — publish the structured roadmap state into the workspace.** `sf_roadmap_render` now also calls a new `sf_roadmap_publish_state`, which copies `project-roadmap.json` (the structured roadmap with explicit `id` + `sprint_id` fields) from onboard's data dir to the workspace contract path the manifest routes via `well_known_paths.roadmap_state` (`${ai_workspace.root}/.workspace/project-roadmap.json`, added in workspace-init 0.1.2). This gives scaffold-dev's orchestrator a structured surface to **field-read** the slice `id`/`sprint_id` from — the fix for the #28 cross-plugin slice-ID arity mismatch (so it no longer guesses the sprint by string-splitting a rendered `#### VS-…:` heading). Best-effort: a no-op (info log) in standalone mode with no workspace-init manifest; never blocks the `ROADMAP.md` write. The scaffold-dev consumer side (field-read + complete fixture migration) is Phase 3.
+
 ## [0.3.5] — 2026-05-30
 
 ### Fixed

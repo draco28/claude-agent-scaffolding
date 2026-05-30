@@ -1,5 +1,10 @@
 # workspace-init changelog
 
+## 0.1.2 (2026-05-30)
+
+### Added
+- **`well_known_paths.roadmap_state` (#28 Phase 2).** The pairing manifest now routes the structured roadmap state — `${ai_workspace.root}/.workspace/project-roadmap.json` — alongside the existing `master_spec` / `memory_bank` paths. scaffold-onboard publishes the structured roadmap there; scaffold-dev's orchestrator will field-read `id` + `sprint_id` from it (the #28 cross-plugin slice-ID contract fix) instead of grepping rendered `#### VS-…:` headings. Older manifests without the key are handled by consumer-side fallback (forward-compat, per the `routing.roadmap` §10.4 precedent).
+
 ## 0.1.1 (2026-05-26)
 
 ### Fixed

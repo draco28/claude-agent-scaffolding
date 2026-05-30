@@ -47,6 +47,44 @@ teardown_roadmap() {
 }
 
 # ============================================================================
+# #28 Phase 2 — sf_roadmap_publish_state: publish project-roadmap.json to the
+# workspace contract path (well_known_paths.roadmap_state) for scaffold-dev.
+# ============================================================================
+
+test_publish_state_writes_to_workspace_when_manifest_present() {
+  echo "test_publish_state_writes_to_workspace_when_manifest_present:"
+  setup_roadmap
+  local AW="$TMP_DIR/ai"
+  mkdir -p "$AW/.workspace"
+  printf '%s\n' '{"ai_workspace":{"root":"'"$AW"'"},"well_known_paths":{"roadmap_state":"${ai_workspace.root}/.workspace/project-roadmap.json"}}' > "$AW/.workspace/pairing.json"
+  cd "$AW"
+  sf_roadmap_state_init "demo-proj"
+  sf_roadmap_write_phase 1 "Foundation" "Q3 2026" "groundwork"
+  sf_roadmap_write_sprint "1.1" 1 "Bootstrap" "skeleton" 2
+  sf_roadmap_write_slice "VS-1.1.1" "1.1" "auth-flow" "users log in"
+  sf_roadmap_publish_state >/dev/null
+  local pub="$AW/.workspace/project-roadmap.json"
+  assert_file_exists "$pub"
+  assert_eq "published id" "VS-1.1.1" "$(jq -r '.vertical_slices[0].id' "$pub")"
+  assert_eq "published sprint_id" "1.1" "$(jq -r '.vertical_slices[0].sprint_id' "$pub")"
+  teardown_roadmap
+}
+
+test_publish_state_noop_without_manifest() {
+  echo "test_publish_state_noop_without_manifest:"
+  setup_roadmap
+  sf_roadmap_state_init "demo-proj"
+  sf_roadmap_write_phase 1 "P" "Q3" "x"
+  # setup_roadmap guarantees no ancestor manifest → publish is a graceful no-op (rc 0).
+  if sf_roadmap_publish_state >/dev/null 2>&1; then
+    PASS=$((PASS+1)); echo "  ✓ no-op returns 0 without manifest"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ publish errored in standalone mode"
+  fi
+  teardown_roadmap
+}
+
+# ============================================================================
 # Base CRUD (5 assertions)
 # ============================================================================
 
@@ -819,5 +857,7 @@ test_project_scoped_roadmap_writes_are_isolated
 test_roadmap_state_init_records_project_root
 test_legacy_roadmap_migrates_when_legacy_onboarding_matches
 test_legacy_roadmap_ignored_when_legacy_onboarding_mismatches
+test_publish_state_writes_to_workspace_when_manifest_present
+test_publish_state_noop_without_manifest
 
 report_results

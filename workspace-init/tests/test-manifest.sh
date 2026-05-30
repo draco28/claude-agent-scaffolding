@@ -144,6 +144,19 @@ test_A8_created_at_and_created_by_present() {
   assert_eq "workspace-init@0.1.0" "$cb" || return 1
 }
 
+# A9 — #28 Phase 2: well_known_paths.roadmap_state routes the structured roadmap
+# (project-roadmap.json) into the workspace so scaffold-dev can field-read it.
+test_A9_well_known_paths_roadmap_state() {
+  local ai; ai="$(_setup_pair a9)" || return 1
+  local m="$ai/.workspace/pairing.json"
+  local rs; rs="$(jq -r '.well_known_paths.roadmap_state // empty' "$m")"
+  assert_eq '${ai_workspace.root}/.workspace/project-roadmap.json' "$rs" || return 1
+  # …and it resolves to a real path under the ai workspace at read time.
+  local resolved; resolved="$(wi_manifest_resolve "$ai" "$rs")"
+  local aw; aw="$(jq -r '.ai_workspace.root' "$m")"
+  assert_eq "${aw}/.workspace/project-roadmap.json" "$resolved" || return 1
+}
+
 # ---------------------------------------------------------------------------
 # B. ${var} resolution (3 tests)
 # ---------------------------------------------------------------------------
@@ -351,6 +364,7 @@ wi_test_run test_A5_routing_all_16_entries_present
 wi_test_run test_A6_during_dev_block_complete
 wi_test_run test_A7_git_policy_blocked_patterns_complete
 wi_test_run test_A8_created_at_and_created_by_present
+wi_test_run test_A9_well_known_paths_roadmap_state
 
 # B
 wi_test_run test_B1_resolve_ai_workspace_root
