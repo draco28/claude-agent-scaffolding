@@ -255,7 +255,7 @@ sf_compose_is_installed() {
   [[ "$v" == "true" ]]
 }
 
-# Emit ai-mentor /z2-decide hint for judgment-dense phases (5, 7).
+# Emit ai-mentor /grill-me hint for judgment-dense phases (5, 7).
 # Returns empty string when phase doesn't qualify, plugin isn't installed,
 # or user has disabled hints.
 sf_compose_mentor_hint() {
@@ -276,8 +276,8 @@ sf_compose_mentor_hint() {
   [[ "$disabled" == "true" ]]   && { echo ""; return 0; }
 
   case "$phase" in
-    5) echo "💡 Phase 5 (Architecture) is judgment-dense. Consider /z2-decide for spotter mode." ;;
-    7) echo "💡 Phase 7 (Implementation) is judgment-dense. Consider /z2-decide for spotter mode." ;;
+    5) echo "💡 Phase 5 (Architecture) is judgment-dense. Consider /grill-me to pressure-test the decision." ;;
+    7) echo "💡 Phase 7 (Implementation) is judgment-dense. Consider /grill-me to pressure-test the decision." ;;
   esac
 }
 

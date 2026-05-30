@@ -177,8 +177,8 @@ test_mentor_hint_phase_5() {
   sf_compose_refresh
   local hint
   hint="$(sf_compose_mentor_hint 5)"
-  if echo "$hint" | grep -q "z2-decide"; then
-    PASS=$((PASS+1)); echo "  ✓ phase 5 emits /z2-decide hint"
+  if echo "$hint" | grep -q "grill-me"; then
+    PASS=$((PASS+1)); echo "  ✓ phase 5 emits /grill-me hint"
   else
     FAIL=$((FAIL+1)); echo "  ✗ phase 5 hint missing: $hint"
   fi

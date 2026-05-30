@@ -35,7 +35,7 @@ ledger. Do NOT leave gates unannotated if a corresponding NFR exists.
 
 Documentation: reproduce the standard Documentation checklist. If Phase 6 or Phase 7
 signals a docs-site or API reference requirement, add a project-specific item (e.g.,
-"API reference updated in docs/api/"). Reference the `/changelog` and `/adr-new`
+"API reference updated in docs/api/"). Reference the `/changelog` and `/adr`
 scaffold-dev commands.
 
 Operations: reproduce the standard Operations checklist. Ground the observability item in
