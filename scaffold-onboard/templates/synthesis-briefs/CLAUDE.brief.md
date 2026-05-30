@@ -60,7 +60,7 @@ Then check the installed-plugins context from MASTER-SPEC Phase 8 or the
 flags, and append ONLY the blocks whose flag is true, copying the command names
 verbatim from these tables:
   - If `has_scaffold_plugin` (scaffold-dev):
-      - `/orchestrate VS-1.1.1` — plan & orchestrate a vertical slice (pass the slice's id from ROADMAP)
+      - `/orchestrate VS-N.M` — plan & orchestrate a vertical slice
       - `/work-item <handoff>` — execute one work item
       - `/impl-check` — implementation-check verification gate
       - `/handoff` — author a session handoff doc
