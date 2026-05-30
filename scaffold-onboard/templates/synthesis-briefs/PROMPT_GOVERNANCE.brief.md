@@ -41,7 +41,7 @@ EVALS_PLAN.md for the full threshold table.
 Rollback: reproduce the standard rollback procedure (restore prior version file,
 redeploy). Add the project-specific trigger condition for rollback — ground it in
 `phase_10.2.2` (alerting thresholds) so operators know when a production regression
-warrants a prompt rollback vs. a code rollback. Reference the scaffold-dev `/runbook`
-command for incident recording.
+warrants a prompt rollback vs. a code rollback. Reference the scaffold-dev `author runbook`
+skill for incident recording.
 
 See also: include links to EVALS_PLAN.md and MODEL_CARD.md as in the template.

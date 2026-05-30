@@ -125,7 +125,9 @@ _composition_args() {
   echo "has_architect_critic=$ac_flag"
   v="$(jq -r '.plugins["superpowers"].installed // false' "$comp")"
   echo "has_superpowers=$v"
-  v="$(jq -r '.plugins["scaffold"].installed // false' "$comp")"
+  # Read the scaffold-dev key (current plugin name); fall back to the legacy
+  # "scaffold" key for pre-rename composition.json files (PR #27 / Codex #1).
+  v="$(jq -r '.plugins["scaffold-dev"].installed // .plugins["scaffold"].installed // false' "$comp")"
   echo "has_scaffold_plugin=$v"
 }
 

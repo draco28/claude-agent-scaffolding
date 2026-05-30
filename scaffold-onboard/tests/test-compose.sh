@@ -140,6 +140,31 @@ test_composition_refresh_with_plugins() {
   fi
 }
 
+# PR #27 / Codex #1: scaffold-dev must be detected and recorded so the
+# has_scaffold_plugin gate (and the slice-workflow command block) actually fires.
+test_detect_scaffold_dev() {
+  echo "test_detect_scaffold_dev:"
+  setup_tmp_repo
+  mk_fake_plugin "scaffold-dev" ".claude-plugin/plugin.json"
+  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
+  local found; found="$(sf_compose_detect_scaffold_dev)"
+  if [[ -n "$found" ]]; then PASS=$((PASS+1)); echo "  ✓ scaffold-dev detected"; else FAIL=$((FAIL+1)); echo "  ✗ scaffold-dev not detected"; fi
+  sf_compose_refresh
+  local path="$CLAUDE_PLUGIN_DATA/composition.json"
+  assert_eq "scaffold-dev recorded installed" "true" "$(jq -r '.plugins["scaffold-dev"].installed' "$path")"
+  if sf_compose_is_installed "scaffold-dev"; then PASS=$((PASS+1)); echo "  ✓ is_installed scaffold-dev"; else FAIL=$((FAIL+1)); echo "  ✗ is_installed scaffold-dev failed"; fi
+}
+
+# The probe must key on the full "scaffold-dev" prefix — a bare "scaffold" prefix
+# would false-match scaffold-onboard itself (the original bug surface).
+test_detect_scaffold_dev_not_matched_by_onboard() {
+  echo "test_detect_scaffold_dev_not_matched_by_onboard:"
+  setup_tmp_repo
+  mk_fake_plugin "scaffold-onboard" ".claude-plugin/plugin.json"
+  export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
+  assert_eq "scaffold-onboard must NOT satisfy the scaffold-dev probe" "" "$(sf_compose_detect_scaffold_dev)"
+}
+
 test_composition_refresh_no_plugins() {
   echo "test_composition_refresh_no_plugins:"
   setup_tmp_repo
@@ -392,6 +417,8 @@ test_detect_superpowers
 test_detect_brainstorming_available
 test_detect_brainstorming_unavailable
 test_composition_refresh_with_plugins
+test_detect_scaffold_dev
+test_detect_scaffold_dev_not_matched_by_onboard
 test_composition_refresh_no_plugins
 test_composition_is_installed_helper
 test_mentor_hint_phase_5

@@ -45,6 +45,15 @@ sf_compose_detect_superpowers() {
   _compose_find_plugin "superpowers"
 }
 
+# Detect the scaffold-dev implementation plugin. Prefix is "scaffold-dev" (NOT
+# bare "scaffold", which would also match scaffold-onboard itself). The plugin was
+# renamed scaffold → scaffold-dev; older composition.json files keyed on "scaffold"
+# never matched an installed plugin, so the has_scaffold_plugin gate was always
+# false and the slice-workflow command block never rendered (PR #27 / Codex #1).
+sf_compose_detect_scaffold_dev() {
+  _compose_find_plugin "scaffold-dev"
+}
+
 # Architect-critic v0.2+ detection via filesystem probe (per SPEC §12.2 + §12.4).
 # Walks plugin cache dirs looking for the v0.2 entry skill `critiquing-spec/SKILL.md`.
 # Detection is BINARY (no v0.1.3 fallback per 2026-05-24 drift-resolution pass —
@@ -150,10 +159,11 @@ _sf_compose_refresh_locked() {
   tmp="$(mktemp "${path}.XXXXXX")"
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-  local mentor_dir superpowers_dir brainstorming
+  local mentor_dir superpowers_dir brainstorming scaffold_dev_dir
   mentor_dir="$(sf_compose_detect_ai_mentor)"
   superpowers_dir="$(sf_compose_detect_superpowers)"
   brainstorming="$(sf_compose_brainstorming_available)"
+  scaffold_dev_dir="$(sf_compose_detect_scaffold_dev)"
 
   # Preserve existing user_overrides if composition.json exists.
   # Note: architect-critic is NOT tracked here in v0.2 (per SPEC §12.2 +
@@ -173,6 +183,7 @@ _sf_compose_refresh_locked() {
     --arg mentor "$mentor_dir" \
     --arg sp "$superpowers_dir" \
     --arg br "$brainstorming" \
+    --arg sd "$scaffold_dev_dir" \
     --argjson overrides "$overrides_json" \
     '{
       schema_version: "1",
@@ -187,6 +198,10 @@ _sf_compose_refresh_locked() {
           installed: ($sp != ""),
           skills_dir: (if $sp != "" then ($sp + "/skills") else "" end),
           brainstorming_available: ($br == "true")
+        },
+        "scaffold-dev": {
+          installed: ($sd != ""),
+          data_dir: $sd
         }
       },
       user_overrides: ($overrides | . + {

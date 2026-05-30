@@ -19,18 +19,18 @@ are planned and dispatched, not hand-stepped:
 5. **Slice close** (say "close VS-N.M") — slice-close ceremony: auto-demo + manual-demo,
    architect-critic review, retrospective, memory-bank harvest, then worktree + branch cleanup.
 
-At sprint boundaries, `/close-sprint N` aggregates the per-slice retrospectives.
+At sprint boundaries, say `close sprint N` to aggregate the per-slice retrospectives.
 
 ## When to update memory-bank
 
 - **05-active-context.md** — update as you switch slices or change focus. Hand-edit freely.
-- **06-progress.md** — append after every commit (via `/changelog` or by hand). One line per change.
+- **06-progress.md** — append after every commit (via `add changelog entry` or by hand). One line per change.
 - **00–04, 07, 08, index** — never hand-edit; re-run `/scaffold-project` after editing MASTER-SPEC.md.
 
 ## When to update governance docs
 
-- **ADRs** — `/adr` for each architectural decision.
-- **Runbooks** — `/runbook [topic]` for operational procedures.
+- **ADRs** — say `record ADR` for each architectural decision.
+- **Runbooks** — say `author runbook` for operational procedures.
 - **PRD / SRS / BACKLOG / PROJECT_PLAN** — re-run `/scaffold-docs` after material MASTER-SPEC.md changes; otherwise hand-edit (existing files preserved).
 
 ## Composition with other plugins
