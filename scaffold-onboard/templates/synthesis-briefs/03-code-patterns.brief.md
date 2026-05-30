@@ -5,12 +5,16 @@ wave: 4
 required_sections:
   - "Module / package boundaries"
   - "Code style"
-  - "Backend conventions"
-  - "Frontend conventions"
-  - "Library / SDK conventions"
   - "Machine-checkable rules"
   - "User-global defaults (apply unless overridden above)"
   - "See also"
+# Branch-gated sections — included ONLY when the project class activates the gate
+# (see synthesis guidance). The validator does NOT hard-require these: omitting a
+# gated section whose branch is false is correct, not a failure (#26 Slip 1).
+gated_sections:
+  - "Backend conventions"
+  - "Frontend conventions"
+  - "Library / SDK conventions"
 mints: []
 consumes: [UC, FR, NFR, BACKLOG]
 model: sonnet

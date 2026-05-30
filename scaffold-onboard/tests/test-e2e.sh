@@ -98,6 +98,10 @@ test_e2e_fresh_repo_cli() {
   assert_file_contains "./CLAUDE.md" "Tier 0"
   # Settings
   assert_file_exists "./.claude/settings.json"
+  # #25 — the default allowlist must not auto-approve command-exec / secret
+  # escapes (rg --pre, jq env) or unrestricted local file read (cat/grep/ls).
+  assert_file_contains "./.claude/settings.json" "Bash\\(git status:"
+  assert_file_not_contains "./.claude/settings.json" "Bash\\((rg|jq|cat|grep|ls):"
   # Default docs
   assert_file_exists "./docs/PRD.md"
   assert_file_exists "./docs/SRS.md"
@@ -213,7 +217,7 @@ test_e2e_with_composition_mocked() {
   run_full_pipeline_cli
 
   # CLAUDE.md should mention all three integrations
-  assert_file_contains "./CLAUDE.md" "z2-decide"
+  assert_file_contains "./CLAUDE.md" "cognitive modes \(ai-mentor\)"
   assert_file_contains "./CLAUDE.md" "/critique"
   assert_file_contains "./CLAUDE.md" "superpowers"
 

@@ -2,6 +2,15 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.3.4] — 2026-05-30
+
+### Security
+- **Issue #25 — settings.json template auto-approved command-exec & secret-disclosure escapes.** `templates/settings/claude-settings.json.tmpl` — copied verbatim into every scaffolded project by `/scaffold-project` (`sf_claude_settings_generate`) — shipped `Bash(rg:*)` and `Bash(jq:*)` on the `permissions.allow` list. As `allow` entries these ran with **no confirmation prompt**, yet both carry allowlist-escape vectors the `:*` wildcard cannot exclude: `rg --pre <cmd>` / `--search-zip` execute arbitrary external programs, and `jq -n 'env'` dumps all environment variables (`--rawfile`/`--slurpfile` read arbitrary files). The default allowlist is now reduced to the three safe read-only git grants (`git status`/`git diff`/`git log`); `rg`/`jq`/`cat`/`grep`/`ls` are removed (the dedicated Read/Grep/Glob tools cover those uses without a Bash auto-approve). A new `test-e2e.sh` regression asserts the generated settings contains no escape-capable grant.
+
+### Fixed
+- **Issue #26 Slip 1 — branch-gated sections were over-required, forcing needless template fallback.** Three memory-bank briefs (`01-product-context`, `03-code-patterns`, `04-tech-context`) listed project-class-conditional headings (Backend/Frontend/Library specifics; UI/DX Surfaces & flows) as flat `required_sections`. `sf_synth_assert_sections` has no gate concept, so when a synthesis agent correctly omitted an inapplicable branch section the validator failed it and swapped good LLM output for a deterministic template. These headings now live in a new additive `gated_sections:` frontmatter block (never hard-required); `sf_synth_brief_assemble` surfaces them to the agent under a "Conditional sections (include only when the branch applies)" block instead of "must all appear". New `test-synthesis.sh` coverage pins the lenient behavior.
+- **Issue #26 Slip 2 — synthesis briefs referenced "the template" for verbatim content the sub-agent can't see, so it hallucinated.** `CLAUDE.brief.md` said "include the scaffold/ai-mentor commands exactly as in the template" without embedding them; the deterministic `CLAUDE.md.tmpl` it pointed at was itself stale (`/slice-new`, `/z1`, `/quiz`, `/adr-new` — none exist). Both now carry the **ground-truth** slash-command tables verbatim (`/orchestrate` `/work-item` `/impl-check` `/handoff`; `/council` `/grill-me` `/eli10` `/fool`; `/critique` `/critique-list` `/principles-list` `/promote-principle`; base `/onboard` `/plan-roadmap` `/scaffold-project` `/scaffold-docs`), with the swapped `/scaffold-project`↔`/scaffold-docs` descriptions corrected and known-hallucinated names explicitly banned. Same root cause fixed in `index.brief.md` (the Tier-0 always-preloaded memory-bank index table is now embedded for verbatim copy instead of referenced). Lower-severity prose references (DEFINITION_OF_DONE/RISK_REGISTER/BACKLOG/PROMPT_GOVERNANCE) already inline their essential format and are left as-is.
+
 ## [0.3.3] — 2026-05-29
 
 ### Fixed

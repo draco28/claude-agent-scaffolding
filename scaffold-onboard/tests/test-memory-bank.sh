@@ -105,8 +105,9 @@ test_claude_md_plugin_awareness_when_no_composition() {
   seed_master_spec
   # No composition.json present
   sf_claude_md_generate
-  # ai-mentor / critic / superpowers sections should NOT appear
-  if grep -q "/z2-decide" "./CLAUDE.md"; then
+  # ai-mentor / critic / superpowers sections should NOT appear. Sentinel is the
+  # ai-mentor block label (its commands are /council /grill-me /eli10 /fool).
+  if grep -q "cognitive modes (ai-mentor)" "./CLAUDE.md"; then
     FAIL=$((FAIL+1)); echo "  ✗ ai-mentor section leaked without composition"
   else
     PASS=$((PASS+1)); echo "  ✓ ai-mentor section absent without composition"
