@@ -42,8 +42,9 @@ a corresponding NFR is present.
 
 Framework: name the canonical test framework for `phase_5.2.1` stack — pick the specific
 tool (e.g., pytest, Jest, go test, cargo test) not just the language. State the test
-command and the `/slice-verify` hook invocation. If phase_9.3 signals LLM eval tooling,
-name that framework too.
+command; it is run by the slice's `auto:` demo criteria and the scaffold-dev
+`/impl-check` verification gate. If phase_9.3 signals LLM eval tooling, name that
+framework too.
 
 What we deliberately don't test: list 3–5 concrete exclusions grounded in this project
 (e.g., generated code from specific tools, third-party SDK internals, infrastructure

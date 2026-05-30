@@ -9,10 +9,14 @@ required_sections:
   - "Local dev tooling"
   - "CI/CD"
   - "Hosting target"
+  - "See also"
+# Branch-gated sections — included ONLY when the project class activates the gate
+# (see synthesis guidance). The validator does NOT hard-require these: omitting a
+# gated section whose branch is false is correct, not a failure (#26 Slip 1).
+gated_sections:
   - "Backend specifics"
   - "Frontend specifics"
   - "Library specifics"
-  - "See also"
 mints: []
 consumes: [UC, FR, NFR, BACKLOG]
 model: sonnet

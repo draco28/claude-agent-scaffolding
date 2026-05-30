@@ -40,17 +40,37 @@ coding → 03-code-patterns + 04-tech-context; Product/UX → 01-product-context
 Planning/scoping → 07-constraints + 08-governance; Workflow/process →
 WORKFLOW.md + 06-progress.md). Do NOT add project-specific routing rules here.
 
-Slash commands: synthesize the slash-command reference block. Always include the
-three base commands (`/onboard`, `/scaffold-project`, `/scaffold-docs [--full]`).
+Slash commands: synthesize the slash-command reference block. The command names
+below are GROUND TRUTH — copy them VERBATIM. Do NOT invent, rename, abbreviate, or
+re-file commands across plugins, and do NOT emit any command not listed here. (You
+cannot see the deterministic template, so this brief carries the authoritative list;
+earlier synthesis runs hallucinated `/slice*`, `/spec`, `/estimate`, `/z1`, `/z2`,
+`/quiz`, `/think`, `/rubber-duck` — none of those exist. Never emit them.)
+
+Always include the four scaffold-onboard base commands, with these exact descriptions
+(note `/scaffold-project` derives memory-bank/CLAUDE.md/settings; `/scaffold-docs`
+derives governance docs — do NOT swap them):
+  - `/onboard` — re-run onboarding · re-author MASTER-SPEC.md
+  - `/plan-roadmap` — author/extend the Phase → Sprint → Vertical Slice roadmap
+  - `/scaffold-project` — re-derive memory-bank + CLAUDE.md + settings · live files preserved
+  - `/scaffold-docs [--full]` — re-derive governance docs (PRD/SRS/BACKLOG/PROJECT_PLAN/ADR) · preserves existing
+
 Then check the installed-plugins context from MASTER-SPEC Phase 8 or the
 `has_scaffold_plugin`, `has_ai_mentor`, `has_architect_critic`, and `has_superpowers`
-flags:
-  - If `has_scaffold_plugin`: include the scaffold slice-workflow and governance
-    commands exactly as in the template.
-  - If `has_ai_mentor`: include the ai-mentor cognitive-mode commands.
-  - If `has_architect_critic`: include the `/critique` command.
-  - If `has_superpowers`: include the superpowers auto-loaded note.
-If plugin flag information is not available in the spec, emit only the three base
+flags, and append ONLY the blocks whose flag is true, copying the command names
+verbatim from these tables:
+  - If `has_scaffold_plugin` (scaffold-dev):
+      - `/orchestrate VS-N.M` — plan & orchestrate a vertical slice
+      - `/work-item <handoff>` — execute one work item
+      - `/impl-check` — implementation-check verification gate
+      - `/handoff` — author a session handoff doc
+  - If `has_ai_mentor`:
+      - `/council`, `/grill-me`, `/eli10`, `/fool` — cognitive modes
+  - If `has_architect_critic`:
+      - `/critique`, `/critique-list`, `/principles-list`, `/promote-principle` — anti-sycophancy review (`/critique` auto-fires during /onboard at Phase 5/7 recaps and MASTER-SPEC close)
+  - If `has_superpowers`:
+      - a one-line note that superpowers skills are auto-loaded (brainstorming, writing-plans, executing-plans, TDD, systematic-debugging, dispatching-parallel-agents).
+If plugin flag information is not available in the spec, emit only the four base
 commands and add a note: "Install plugins to extend slash commands."
 
 SSoT discipline: emit the three canonical SSoT rules VERBATIM from the template:

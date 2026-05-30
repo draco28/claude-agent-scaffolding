@@ -31,20 +31,23 @@ If the user's first message is about:
 ## Slash commands
 
 - `/onboard` — re-run onboarding · re-author MASTER-SPEC.md
-- `/scaffold-project` — re-derive memory-bank · live files preserved
-- `/scaffold-docs [--full]` — re-derive governance docs · preserves existing
+- `/plan-roadmap` — author/extend the Phase → Sprint → Vertical Slice roadmap
+- `/scaffold-project` — re-derive memory-bank + CLAUDE.md + settings · live files preserved
+- `/scaffold-docs [--full]` — re-derive governance docs (PRD/SRS/BACKLOG/PROJECT_PLAN/ADR) · preserves existing
 
 {{#if has_scaffold_plugin}}
-- `/slice-new`, `/slice-spec`, `/slice-contract`, `/slice-scaffold`, `/slice-implement`, `/slice-verify` — slice workflow (scaffold plugin)
-- `/adr-new`, `/changelog`, `/runbook-new` — governance (scaffold plugin)
+- `/orchestrate VS-N.M` — plan & orchestrate a vertical slice (scaffold-dev)
+- `/work-item <handoff>` — execute one work item (scaffold-dev)
+- `/impl-check` — implementation-check verification gate (scaffold-dev)
+- `/handoff` — author a session handoff doc (scaffold-dev)
 {{/if}}
 
 {{#if has_ai_mentor}}
-- `/z1`, `/z2-decide`, `/z2-build`, `/locked`, `/quiz`, `/eli10`, `/fool` — cognitive mode (ai-mentor)
+- `/council`, `/grill-me`, `/eli10`, `/fool` — cognitive modes (ai-mentor)
 {{/if}}
 
 {{#if has_architect_critic}}
-- `/critique` — anti-sycophancy review (architect-critic). Auto-fires during /onboard at Phase 5/7 recaps and MASTER-SPEC close.
+- `/critique`, `/critique-list`, `/principles-list`, `/promote-principle` — anti-sycophancy review (architect-critic). `/critique` auto-fires during /onboard at Phase 5/7 recaps and MASTER-SPEC close.
 {{/if}}
 
 {{#if has_superpowers}}

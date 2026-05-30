@@ -68,6 +68,22 @@ assert_file_contains() {
   fi
 }
 
+assert_file_not_contains() {
+  local path="$1" pattern="$2"
+  if [[ ! -e "$path" ]]; then
+    FAIL=$((FAIL+1))
+    echo "  $(_color_fail '✗') file missing for not-contains-check: $path"
+    return
+  fi
+  if grep -qE "$pattern" "$path"; then
+    FAIL=$((FAIL+1))
+    echo "  $(_color_fail '✗') $path unexpectedly contains /$pattern/"
+  else
+    PASS=$((PASS+1))
+    echo "  $(_color_pass '✓') $path does not contain /$pattern/"
+  fi
+}
+
 assert_exit_code() {
   local expected="$1"; shift
   local label="exit code $expected for: $*"

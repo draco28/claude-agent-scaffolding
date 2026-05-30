@@ -98,6 +98,12 @@ test_e2e_fresh_repo_cli() {
   assert_file_contains "./CLAUDE.md" "Tier 0"
   # Settings
   assert_file_exists "./.claude/settings.json"
+  # #25 — the default allowlist must not auto-approve command-exec / secret
+  # escapes (rg --pre, jq env) or unrestricted local file read (cat/grep/ls).
+  assert_file_contains "./.claude/settings.json" "Bash\\(git status:"
+  assert_file_contains "./.claude/settings.json" "Bash\\(git diff:"
+  assert_file_contains "./.claude/settings.json" "Bash\\(git log:"
+  assert_file_not_contains "./.claude/settings.json" "Bash\\((rg|jq|cat|grep|ls):"
   # Default docs
   assert_file_exists "./docs/PRD.md"
   assert_file_exists "./docs/SRS.md"
@@ -202,6 +208,9 @@ test_e2e_with_composition_mocked() {
   : > "$TMP_DIR/fake-plugins/ai-mentor-x/state.json"
   mkdir -p "$TMP_DIR/fake-plugins/superpowers-z/skills/brainstorming"
   : > "$TMP_DIR/fake-plugins/superpowers-z/skills/brainstorming/SKILL.md"
+  # scaffold-dev (implementation plugin) — detected by the "scaffold-dev" prefix
+  # probe; gates the slice-workflow command block in CLAUDE.md (PR #27 / Codex #1).
+  mkdir -p "$TMP_DIR/fake-plugins/scaffold-dev-x"
   export SF_COMPOSE_PROBE_PATHS="$TMP_DIR/fake-plugins"
 
   # architect-critic v0.2 fixture: <cache>/<marketplace>/architect-critic/<ver>/skills/critiquing-spec/SKILL.md
@@ -212,10 +221,12 @@ test_e2e_with_composition_mocked() {
   sf_compose_refresh
   run_full_pipeline_cli
 
-  # CLAUDE.md should mention all three integrations
-  assert_file_contains "./CLAUDE.md" "z2-decide"
+  # CLAUDE.md should mention all four integrations
+  assert_file_contains "./CLAUDE.md" "cognitive modes \(ai-mentor\)"
   assert_file_contains "./CLAUDE.md" "/critique"
   assert_file_contains "./CLAUDE.md" "superpowers"
+  # scaffold-dev slice-workflow block must render when scaffold-dev is detected
+  assert_file_contains "./CLAUDE.md" "/orchestrate"
 
   # Mentor hint emits at Phase 5 + 7
   local hint5 hint7 hint2

@@ -10,11 +10,16 @@ required_sections:
   - "Key relationships"
   - "Aggregates / invariants"
   - "Ubiquitous language"
+  - "See also"
+# Branch-gated sections — included ONLY when the project class activates the gate
+# (see synthesis guidance). The validator does NOT hard-require these: omitting a
+# gated section whose branch is false is correct, not a failure (#26 Slip 1).
+# Surfaces / Primary user flow are UI-branch; the two DX rows are DX-branch.
+gated_sections:
   - "Surfaces"
   - "Primary user flow"
   - "Developer experience — discovery & learning"
   - "Error and output style"
-  - "See also"
 mints: []
 consumes: [UC, FR, NFR, BACKLOG]
 model: sonnet

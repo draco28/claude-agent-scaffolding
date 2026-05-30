@@ -187,6 +187,44 @@ EOF
   if sf_synth_assert_sections ./s.brief.md ./doc2.md 2>/dev/null; then echo "  ✗ missing not caught"; FAIL=$((FAIL+1)); else echo "  ✓ genuine missing caught"; PASS=$((PASS+1)); fi
 }
 
+# #26 Slip 1: branch-gated sections are NOT hard-required, but ARE surfaced to
+# the agent as conditional. Omitting an inapplicable gated section must pass
+# validation (no needless template fallback); the assembled prompt must still
+# list the gated headings under a "Conditional sections" block.
+test_gated_sections_optional_but_assembled() {
+  echo "test_gated_sections_optional_but_assembled:"
+  setup_tmp_repo
+  cat > ./g.brief.md <<'EOF'
+---
+doc: T
+routes_to: memory_bank
+wave: 4
+required_sections:
+  - "Languages"
+  - "See also"
+gated_sections:
+  - "Frontend specifics"
+  - "Backend specifics"
+mints: []
+consumes: [UC]
+model: sonnet
+---
+body
+EOF
+  # Doc emits only the required sections (project class has no frontend/backend):
+  printf '# T\n## Languages\nPython\n## See also\nlinks\n' > ./doc.md
+  if sf_synth_assert_sections ./g.brief.md ./doc.md; then echo "  ✓ gated absence tolerated"; PASS=$((PASS+1)); else echo "  ✗ gated section wrongly required"; FAIL=$((FAIL+1)); fi
+  # A genuinely missing *required* section still fails:
+  printf '# T\n## Languages\nPython\n' > ./doc2.md
+  if sf_synth_assert_sections ./g.brief.md ./doc2.md 2>/dev/null; then echo "  ✗ missing required not caught"; FAIL=$((FAIL+1)); else echo "  ✓ missing required still caught"; PASS=$((PASS+1)); fi
+  # The brief is still valid (gated_sections is additive, required_sections non-empty):
+  if sf_synth_brief_validate ./g.brief.md; then echo "  ✓ brief valid"; PASS=$((PASS+1)); else echo "  ✗ brief rejected"; FAIL=$((FAIL+1)); fi
+  # The assembled prompt surfaces the gated headings as conditional:
+  local out; out="$(sf_synth_brief_assemble ./g.brief.md "$(sf_synth_ledger_empty)" /tmp/T.md /tmp/MASTER-SPEC.md /tmp/EXECUTIVE-SUMMARY.md)"
+  printf '%s' "$out" | grep -q "Conditional sections" && { echo "  ✓ conditional block present"; PASS=$((PASS+1)); } || { echo "  ✗ no conditional block"; FAIL=$((FAIL+1)); }
+  printf '%s' "$out" | grep -q "Frontend specifics" && { echo "  ✓ gated heading listed"; PASS=$((PASS+1)); } || { echo "  ✗ gated heading missing"; FAIL=$((FAIL+1)); }
+}
+
 # CI gate: every shipped synthesis brief must validate.
 test_all_shipped_briefs_validate() {
   echo "test_all_shipped_briefs_validate:"
@@ -218,5 +256,6 @@ test_markers_allow_legit_italics
 test_validate_cited_string_ledger
 test_coverage_string_ledger
 test_assert_sections_normalizes
+test_gated_sections_optional_but_assembled
 test_all_shipped_briefs_validate
 report_results

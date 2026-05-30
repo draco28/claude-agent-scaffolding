@@ -77,6 +77,41 @@ test_workflow_static_unchanged() {
   assert_file_contains "./.claude/memory-bank/WORKFLOW.md" "My workflow note"
 }
 
+# PR #27 / Codex round-3: --force refreshes the static WORKFLOW.md so existing
+# projects pick up template rewrites (e.g. the corrected slice-workflow loop).
+test_workflow_refreshed_on_force() {
+  echo "test_workflow_refreshed_on_force:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  echo "## STALE-SENTINEL" >> ".claude/memory-bank/WORKFLOW.md"
+  sf_memory_bank_derive --force
+  assert_file_not_contains "./.claude/memory-bank/WORKFLOW.md" "STALE-SENTINEL"
+  assert_file_contains "./.claude/memory-bank/WORKFLOW.md" "Per-slice loop"
+}
+
+# PR #27 / Codex round-3: regenerating over an existing settings.json that still
+# carries the #25 escape grants must WARN (and must NOT auto-edit the user file).
+test_settings_warns_on_unsafe_grants() {
+  echo "test_settings_warns_on_unsafe_grants:"
+  setup_tmp_repo
+  mkdir -p .claude
+  printf '{"permissions":{"allow":["Bash(git status:*)","Bash(rg:*)","Bash(jq:*)"]}}\n' > .claude/settings.json
+  local err; err="$(sf_claude_settings_generate 2>&1 >/dev/null)"
+  if echo "$err" | grep -q 'escape-capable grants'; then PASS=$((PASS+1)); echo "  ✓ warned on unsafe grants"; else FAIL=$((FAIL+1)); echo "  ✗ no warning emitted: $err"; fi
+  # user file preserved verbatim — not auto-edited
+  assert_file_contains "./.claude/settings.json" "Bash\\(rg:"
+}
+
+test_settings_no_warn_when_clean() {
+  echo "test_settings_no_warn_when_clean:"
+  setup_tmp_repo
+  mkdir -p .claude
+  printf '{"permissions":{"allow":["Bash(git status:*)","Bash(git diff:*)"]}}\n' > .claude/settings.json
+  local err; err="$(sf_claude_settings_generate 2>&1 >/dev/null)"
+  if echo "$err" | grep -q 'escape-capable grants'; then FAIL=$((FAIL+1)); echo "  ✗ false warning on clean settings"; else PASS=$((PASS+1)); echo "  ✓ no warning on clean settings"; fi
+}
+
 test_all_derived_files_present() {
   echo "test_all_derived_files_present:"
   setup_tmp_repo
@@ -105,8 +140,9 @@ test_claude_md_plugin_awareness_when_no_composition() {
   seed_master_spec
   # No composition.json present
   sf_claude_md_generate
-  # ai-mentor / critic / superpowers sections should NOT appear
-  if grep -q "/z2-decide" "./CLAUDE.md"; then
+  # ai-mentor / critic / superpowers sections should NOT appear. Sentinel is the
+  # ai-mentor block label (its commands are /council /grill-me /eli10 /fool).
+  if grep -q "cognitive modes (ai-mentor)" "./CLAUDE.md"; then
     FAIL=$((FAIL+1)); echo "  ✗ ai-mentor section leaked without composition"
   else
     PASS=$((PASS+1)); echo "  ✓ ai-mentor section absent without composition"
@@ -154,6 +190,9 @@ test_derive_00_project_brief
 test_live_files_preserved
 test_live_files_force_overwritten
 test_workflow_static_unchanged
+test_workflow_refreshed_on_force
+test_settings_warns_on_unsafe_grants
+test_settings_no_warn_when_clean
 test_all_derived_files_present
 test_claude_md_generated
 test_claude_md_plugin_awareness_when_no_composition

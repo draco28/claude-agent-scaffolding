@@ -157,6 +157,17 @@ sf_synth_brief_assemble() {
     slice="$(sf_synth_ledger_merge "$slice" "$fam_obj")"
   done < <(sf_synth_brief_list "$brief" consumes)
 
+  # Branch-gated sections (#26 Slip 1): listed but NOT in "must all appear".
+  # The agent includes one only when the project's branch/gate activates it
+  # (the Synthesis guidance below spells out each gate). Omitting an
+  # inapplicable gated section is correct — the validator never hard-requires
+  # gated sections, so a needless template fallback no longer fires.
+  local gated_block="" gated_list
+  gated_list="$(sf_synth_brief_list "$brief" gated_sections)"
+  if [[ -n "$gated_list" ]]; then
+    gated_block=$'\n\nConditional sections (include a section ONLY when its branch/gate applies — see Synthesis guidance; omit the heading entirely otherwise, never emit an empty heading):\n'"$(printf '%s' "$gated_list" | sed 's/^/- /')"
+  fi
+
   cat <<EOF
 You are synthesizing one artifact for the project. Read both source documents in full first:
 - MASTER-SPEC: $master
@@ -165,7 +176,7 @@ You are synthesizing one artifact for the project. Read both source documents in
 Write the artifact to: $out_path
 
 Required sections (must all appear, in this order):
-$(sf_synth_brief_list "$brief" required_sections | sed 's/^/- /')
+$(sf_synth_brief_list "$brief" required_sections | sed 's/^/- /')$gated_block
 
 IDs you must MINT (format below) and/or CITE from the provided ledger:
 - mints: $(sf_synth_brief_list "$brief" mints | tr '\n' ' ')
@@ -177,7 +188,7 @@ $slice
 Synthesis guidance:
 $body
 
-Hard rules: no leftover fill-in placeholders — no "TODO:"/"TBD", and no imperative author-instruction stubs like "*(populate ...)*" or "*(describe ...)*". Factual italic annotations such as "*(traces_uc: UC-1)*" are fine. Every required section must have real content; emit each required section heading verbatim (including any parenthetical). Return the ID-ledger JSON described in your agent contract.
+Hard rules: no leftover fill-in placeholders — no "TODO:"/"TBD", and no imperative author-instruction stubs like "*(populate ...)*" or "*(describe ...)*". Factual italic annotations such as "*(traces_uc: UC-1)*" are fine. Every required section must have real content; emit each required section heading verbatim (including any parenthetical). Conditional sections are included only when their branch/gate applies — omitting an inapplicable one is correct, not an error. Return the ID-ledger JSON described in your agent contract.
 EOF
 }
 
