@@ -97,8 +97,11 @@ sf_memory_bank_derive() {
     fi
   done
 
-  # 1 static file — copy only if missing (--force does NOT overwrite static; it's project-agnostic)
-  if [[ ! -f ".claude/memory-bank/WORKFLOW.md" ]]; then
+  # 1 static file — copied when missing, and refreshed on --force so existing
+  # projects pick up template rewrites (e.g. the corrected slice-workflow loop,
+  # PR #27 / Codex round-3). WORKFLOW.md is project-agnostic (no per-project
+  # substitution), so a --force overwrite cannot clobber project-specific content.
+  if [[ ! -f ".claude/memory-bank/WORKFLOW.md" || "$force" -eq 1 ]]; then
     cp "$tmpl_dir/WORKFLOW.md" ".claude/memory-bank/WORKFLOW.md"
   fi
 }
@@ -125,9 +128,13 @@ _composition_args() {
   echo "has_architect_critic=$ac_flag"
   v="$(jq -r '.plugins["superpowers"].installed // false' "$comp")"
   echo "has_superpowers=$v"
-  # Read the scaffold-dev key (current plugin name); fall back to the legacy
-  # "scaffold" key for pre-rename composition.json files (PR #27 / Codex #1).
-  v="$(jq -r '.plugins["scaffold-dev"].installed // .plugins["scaffold"].installed // false' "$comp")"
+  # Read the scaffold-dev key only. The legacy "scaffold" plugin (v1.0, which
+  # scaffold-dev replaced) shipped a DIFFERENT command surface (/slice-*,
+  # /adr-new), so a stale `.plugins["scaffold"]` key must NOT light up the
+  # scaffold-dev /orchestrate command block — that would advertise commands the
+  # user hasn't installed (PR #27 / Codex round-3). The "scaffold" key was never
+  # written by any version anyway, so there is nothing to fall back to.
+  v="$(jq -r '.plugins["scaffold-dev"].installed // false' "$comp")"
   echo "has_scaffold_plugin=$v"
 }
 
@@ -158,10 +165,23 @@ sf_claude_md_generate() {
   sf_render "$tmpl" "${args[@]}" > CLAUDE.md
 }
 
-# Generate .claude/settings.json from template, only if not present
+# Generate .claude/settings.json from template, only if not present.
+# We never overwrite a user's settings file. But on an upgrade, an existing file
+# may still carry the escape-capable grants removed from the default in v0.3.4
+# (#25) — `Bash(rg:*)` (rg --pre runs arbitrary commands), `Bash(jq:*)` (jq -n
+# 'env' dumps secrets), and unrestricted local file read via cat/grep/ls. Those
+# auto-approve with no prompt, so we scan and WARN loudly rather than silently
+# preserving the vulnerability. We do NOT auto-edit the file (that could clobber
+# the user's own grants); remediation is left to the user (PR #27 / Codex round-3).
 sf_claude_settings_generate() {
   if [[ -f ".claude/settings.json" ]]; then
-    sf_log_info "preserved existing .claude/settings.json"
+    local unsafe
+    unsafe="$(jq -r '[.permissions.allow[]? | select(test("^Bash\\((rg|jq|cat|grep|ls):"))] | join(", ")' .claude/settings.json 2>/dev/null || echo "")"
+    if [[ -n "$unsafe" ]]; then
+      sf_log_warn "existing .claude/settings.json auto-approves escape-capable grants: ${unsafe}. These were removed from the default in v0.3.4 (#25) — rg --pre runs arbitrary commands and jq -n 'env' discloses secrets, both with no prompt. Remove them from permissions.allow (not auto-edited)."
+    else
+      sf_log_info "preserved existing .claude/settings.json"
+    fi
     return 0
   fi
   local root tmpl
