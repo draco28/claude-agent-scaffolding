@@ -12,7 +12,7 @@ This eval validates the *per-work-item verification gate skill's* behavior — n
 
 Each scenario is executed inside a single Claude Code subscription session by an orchestrator. The orchestrator is a top-level conversation (or a dispatching subagent) that runs three steps per scenario:
 
-1. **Setup** — orchestrator (or a setup subagent it dispatches) prepares the fixture: tmp dual-repo workspace (canonical + AI workspace siblings with a `.workspace/pairing.json` manifest at the parent), published roadmap state with an exact `VS-3.2.1` record whose `sprint_id` is `3.2`, active cursor state naming `active_slice=VS-3.2.1`, a single work item's spec.md + handoff.md + report.md at `<ai-workspace>/docs/specs/sprint-3.2/VS-3.2.1-<kebab>/work-1.NN-<kebab>/`, a canonical worktree at `${canonical.root}/.worktrees/work-1.NN-<kebab>` containing the implementer-subagent's staged-but-not-committed changes, and the scenario-specific R2 rules state in the memory bank's `03-code-patterns.md` (present-and-clean, present-and-violated, or absent).
+1. **Setup** — orchestrator (or a setup subagent it dispatches) prepares the fixture: tmp dual-repo workspace (canonical + AI workspace siblings with a `.workspace/pairing.json` manifest at the parent), published roadmap state with an exact `VS-3.2.1` record whose `sprint_id` is `3.2`, active cursor state naming `active_slice=VS-3.2.1`, a single work item's spec.md + handoff.md + report.md at `<ai-workspace>/docs/specs/sprint-3.2/VS-3.2.1-<kebab>/work-1.NN-<kebab>/`, a canonical worktree at `${canonical.root}/.worktrees/sprint-3.2/work-1.NN-<kebab>` containing the implementer-subagent's staged-but-not-committed changes, and the scenario-specific R2 rules state in the memory bank's `03-code-patterns.md` (present-and-clean, present-and-violated, or absent).
 2. **Trigger** — orchestrator dispatches a fresh **target subagent** with the trigger phrase as the user message and instructs it to act as if it were the user-facing Claude session resuming after implementer-subagent return. The target subagent has access to the skill via its description-match (no slash command is invoked except where `/impl-check` is named explicitly). The orchestrator captures the subagent's tool calls, transcript, and final filesystem state.
 3. **Judge** — orchestrator dispatches a **judge subagent** with:
    - The scenario's `Expected behavior` and `Assertion` text
@@ -35,7 +35,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 - Roadmap/cursor fixture: `<ai-workspace>/.workspace/project-roadmap.json` contains `{"id":"VS-3.2.1","sprint_id":"3.2","name":"<kebab>",...}` and scaffold-dev's active cursor state names `active_slice=VS-3.2.1`.
 - Work item `1.01` exists at `<ai-workspace>/docs/specs/sprint-3.2/VS-3.2.1-<kebab>/work-1.01-<kebab>/` with a `spec.md` containing 3 `auto:` ACs per §14.1 grammar: e.g., `- [ ] auto: \`pytest tests/test_foo.py\` → expected: exit 0`, `- [ ] auto: \`grep -q "TARGET" src/foo.py\` → expected: exit 0`, `- [ ] auto: \`python -c "import foo; print(foo.VERSION)"\` → expected: output contains "1.0"`.
 - `report.md` is authored per template, with a "Status" line stating `complete` and an "AC outcomes" section claiming all 3 ACs passed.
-- Canonical worktree at `${canonical.root}/.worktrees/work-1.01-<kebab>` contains staged-but-uncommitted changes that DO satisfy all 3 ACs (i.e., running each verification command in the worktree yields the expected exit/output).
+- Canonical worktree at `${canonical.root}/.worktrees/sprint-3.2/work-1.01-<kebab>` contains staged-but-uncommitted changes that DO satisfy all 3 ACs (i.e., running each verification command in the worktree yields the expected exit/output).
 - `<ai-workspace>/.claude/memory-bank/03-code-patterns.md` exists but contains NO `<!-- mcrule:start ... -->` blocks (R2 rules absent — fallback path).
 - Pre-injected user follow-ups: none required (happy path; skill should report green and surface a "ready for commit" handoff without prompting).
 
@@ -43,7 +43,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 **Expected behavior:**
 - Skill triggers via description-match on the "verify work item" trigger phrase (per SPEC §7.1 + §12 triggers list).
-- Skill resolves the work item's worktree path via the manifest (`${canonical.root}/.worktrees/work-1.01-<kebab>`) and reads the spec.md to extract the `auto:` AC list per §14.1 grammar (each line parsed into a `(command, expectation)` tuple).
+- Skill resolves the work item's worktree path via the manifest (`${canonical.root}/.worktrees/sprint-3.2/work-1.01-<kebab>`) and reads the spec.md to extract the `auto:` AC list per §14.1 grammar (each line parsed into a `(command, expectation)` tuple).
 - Skill probes `<ai-workspace>/.claude/memory-bank/03-code-patterns.md` for R2 mcrule blocks; finds none; takes the AC-only fallback path per §12.1 (no `sf_rules_*` invocation needed beyond the absence-detection probe).
 - Skill executes each `auto:` command sequentially in the worktree (via `cd <abs worktree> && <cmd>` or `git -C` for git ops, per §6.5), checks exit code against `expected: exit 0` or matches output against `expected: output contains "<pattern>"` per §14.1 grammar.
 - All 3 ACs pass.
@@ -52,7 +52,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 - Skill does NOT commit, does NOT merge, does NOT edit `report.md`.
 
 **Assertion (judge subagent verifies):**
-- Target subagent's tool-call log shows exactly 3 distinct Bash invocations running the 3 `auto:` commands, each scoped to the worktree (path prefix `${canonical.root}/.worktrees/work-1.01-<kebab>` appears in the invocation, e.g., via `cd <path>` or `git -C <path>`).
+- Target subagent's tool-call log shows exactly 3 distinct Bash invocations running the 3 `auto:` commands, each scoped to the worktree (path prefix `${canonical.root}/.worktrees/sprint-3.2/work-1.01-<kebab>` appears in the invocation, e.g., via `cd <path>` or `git -C <path>`).
 - Target subagent's tool-call log shows at least one Read of `<ai-workspace>/.claude/memory-bank/03-code-patterns.md` (the rules-absence probe).
 - Target subagent's tool-call log shows at least one Read of `<ai-workspace>/docs/specs/sprint-3.2/VS-3.2.1-<kebab>/work-1.01-<kebab>/report.md` (the cross-check read).
 - Target subagent's assistant transcript contains a green verification summary naming all 3 ACs as passed (e.g., "AC-1: pass · AC-2: pass · AC-3: pass" or equivalent enumerated list).

@@ -67,10 +67,16 @@ The runtime smoke surface remains covered by existing shell suites:
 - `jq -e . workspace-init/.claude-plugin/plugin.json workspace-init/.codex-plugin/plugin.json scaffold-onboard/.claude-plugin/plugin.json scaffold-onboard/.codex-plugin/plugin.json scaffold-dev/.claude-plugin/plugin.json scaffold-dev/.codex-plugin/plugin.json .agents/plugins/marketplace.json`
   - Exited 0.
 - Active eval stale-pattern scan:
-  - `rg -n -P "(?<![\\\\.])VS-[0-9]+\\.[0-9]+(?![0-9.])|(?<![\\\\.])vs-[0-9]+\\.[0-9]+(?![0-9.])|docs/specs/sprint-[0-9]+/|\\.worktrees/work-[23]\\.[0-9][0-9]|work-[23]\\.[0-9][0-9]|sprint-[0-9]+-to-[0-9]+|to-[0-9]+-handoff" scaffold-dev/evals --glob '!**/results/SUMMARY.md'`
+  - `rg -n -P "(?<![\\\\.])VS-[0-9]+\\.[0-9]+(?![0-9.])|(?<![\\\\.])vs-[0-9]+\\.[0-9]+(?![0-9.])|docs/specs/sprint-[0-9]+/|\\.worktrees/work-|work-[23]\\.[0-9][0-9]|sprint-[0-9]+-to-[0-9]+|to-[0-9]+-handoff" scaffold-dev/evals --glob '!**/results/SUMMARY.md'`
   - Exited 1 with no matches, as expected for `rg` when no stale patterns are found.
 - `git diff --check`
   - Exited 0.
+
+Review cleanup on PR #34 also re-ran:
+
+- `cd scaffold-dev && bash run-tests.sh`
+- active eval stale-pattern scan with the broadened `.worktrees/work-` guard above
+- `git diff --check`
 
 ## Limitation
 

@@ -13,7 +13,7 @@ This eval validates the *orchestrator entry skill's* behavior — not the implem
 Each scenario is executed inside a single Claude Code subscription session by an orchestrator. The orchestrator is a top-level conversation (or a dispatching subagent) that runs three steps per scenario:
 
 1. **Setup** — orchestrator (or a setup subagent it dispatches) prepares the fixture: tmp dual-repo workspace (canonical + AI workspace siblings with a `.workspace/pairing.json` manifest at the parent), `.workspace/project-roadmap.json` at the manifest-routed `well_known_paths.roadmap_state` destination with the scenario's VS record, `ROADMAP.md` as human-readable context only, marketplace cache directories populated or empty per scenario, and any preexisting `docs/specs/` content described in the scenario.
-2. **Trigger** — orchestrator dispatches a fresh **target subagent** with the trigger phrase as the user message and instructs it to act as if it were the user-facing Claude session. The target subagent has access to the skill via its description-match (no slash command is invoked in these scenarios — the description-match path is what's under test, except where `/orchestrate VS-N.M` is named explicitly). The orchestrator captures the subagent's tool calls, transcript, and final filesystem state.
+2. **Trigger** — orchestrator dispatches a fresh **target subagent** with the trigger phrase as the user message and instructs it to act as if it were the user-facing Claude session. The target subagent has access to the skill via its description-match (no slash command is invoked in these scenarios — the description-match path is what's under test, except where `/orchestrate VS-N.M.K` is named explicitly). The orchestrator captures the subagent's tool calls, transcript, and final filesystem state.
 3. **Judge** — orchestrator dispatches a **judge subagent** with:
    - The scenario's `Expected behavior` and `Assertion` text
    - The target subagent's full transcript (tool calls + assistant text)
@@ -130,7 +130,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 **Expected behavior:**
 - Skill triggers via description-match on the "start a new vertical slice" trigger phrase.
-- Skill proceeds through manifest discovery, ROADMAP read, decomposition proposal, grill-me offer, round identification, and spec authoring identically to S1.
+- Skill proceeds through manifest discovery, `project-roadmap.json` field-read via `sd_roadmap_*`, decomposition proposal, grill-me offer, round identification, and spec authoring identically to S1; `ROADMAP.md` is not used as the lookup source.
 - At the architect-critic invocation moment (after specs are written, per §5.5 + §16.3 moment 1), skill performs the filesystem probe per §16.3 and finds no architect-critic v0.2 SKILL.md.
 - Skill emits the warning per §16.3 last paragraph ("adversarial review skipped — architect-critic not detected" or equivalent string from §14.3's "adversarial review skipped" language) AND continues without blocking — the slice scaffold is still authored, the warning is surfaced once, and the skill exits with the normal "ready for round-1 execution" handoff.
 - Skill does NOT halt, does NOT prompt the user to install architect-critic, and does NOT retry the probe.
@@ -158,6 +158,6 @@ The full eval is GREEN when all 4 scenarios PASS.
 - Round-close orchestrator flow (strict-sequential processing per §13, merge orchestration, halt-on-conflict semantics) — covered by `test-merge.sh` and the e2e fixture in `test-e2e.sh`.
 - Slice-close ceremony (auto-demo execution, manual-demo prompting, slice-close adversarial review per §14.3, memory-bank harvest per §15.2) — covered by `evals/closing-vertical-slice.md`.
 - grill-me opt-IN path (user accepts the offer and ai-mentor's `grill-me` skill takes over) — the offer-surfacing behavior is tested here in S1 + S4 via the opt-out branch; the opt-in branch is covered by `test-compose.sh` and ai-mentor v2.0's own evals.
-- Worktree creation mechanics (`git worktree add` at `${canonical.root}/.worktrees/work-N.NN-<kebab>`, branch naming, base-at-canonical-main-HEAD) — worktrees are created at round start (per §11), not at slice-plan time; this eval explicitly excludes worktree state from S1's success criteria.
+- Worktree creation mechanics (`git worktree add` at `${canonical.root}/.worktrees/sprint-<sprint_id>/work-N.NN-<kebab>`, branch naming, base-at-canonical-main-HEAD) — worktrees are created at round start (per §11), not at slice-plan time; this eval explicitly excludes worktree state from S1's success criteria.
 - The handoff escape valve skill (`handing-off-session` per §6b) — orthogonal; covered by `evals/handing-off-session.md`.
 - Manifest schema validation / corrupt-manifest behavior — S2 covers absent-manifest only; corrupt-but-present manifest semantics are defined by workspace-init's contract and tested in its own suite.

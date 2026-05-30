@@ -73,7 +73,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 **Setup:**
 - Dual-repo fixture identical to S1: manifest present, `.gitignore` seeded with `.workspace/handoffs/`, `handoffs/` subdir present.
 - Mid-slice state: orchestrator is mid-way through VS-3.2.1 work-item `work-1.01-<kebab>`; a bug surfaced in the auth layer that the user wants to detour into a separate fork session.
-- Canonical worktrees at `${canonical.root}/.worktrees/work-1.01-<kebab>` (current) and `${canonical.root}/.worktrees/work-1.02-<kebab>` (next round, not yet started) present. Spec files at `<ai-workspace>/docs/specs/sprint-3.2/VS-3.2.1-<kebab>/work-1.01-<kebab>/` present.
+- Canonical worktrees at `${canonical.root}/.worktrees/sprint-3.2/work-1.01-<kebab>` (current) and `${canonical.root}/.worktrees/sprint-3.2/work-1.02-<kebab>` (next round, not yet started) present. Spec files at `<ai-workspace>/docs/specs/sprint-3.2/VS-3.2.1-<kebab>/work-1.01-<kebab>/` present.
 - The orchestrator session has 30+ turns of context including: a half-formed hypothesis about the auth bug ("token refresh might be racing the request middleware"), two rejected fix attempts the user wants the fork session to NOT repeat, and a specific commit SHA the user wants the fork to reproduce-from.
 - Pre-injected user follow-ups: (a) `--scope bugfix --purpose auth` slash-args equivalent (so the skill knows to compose a `vs-3.2.1-bugfix-auth-<short-id>.md` filename); (b) user confirms the auto-extracted section 4 content captures the rejected-attempts negative-space.
 
@@ -94,7 +94,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 - The written file contains all 10 §6b.5 section headings in order (per the cross-scenario invariant).
 - Section 4 ("What's NOT in memory bank yet") contains at least 2 substantive bullets OR 2 paragraphs: judge confirms it captures both the negative-space ("tried X, rejected because Y" pattern) AND the unfinished hypothesis as a forward-context hint.
 - Section 10 ("Return-handoff template stub") is NOT empty AND contains at least the literal headings or labels for `Summary`, `Deferrals`, `Cautions`, and `Memory bank promotion candidates` (judge accepts paraphrase variants but rejects: missing section-10 content entirely, section 10 rendered as "n/a" or "TBD", section 10 collapsed into a single sentence without sub-headings).
-- Section 3 (State pointers) contains the literal worktree absolute path matching `${canonical.root}/.worktrees/work-1.01-<kebab>` AND the work-item branch name AND a `VS-3.2.1` or `sprint-3.2` reference.
+- Section 3 (State pointers) contains the literal worktree absolute path matching `${canonical.root}/.worktrees/sprint-3.2/work-1.01-<kebab>` AND the work-item branch name AND a `VS-3.2.1` or `sprint-3.2` reference.
 - Target subagent's tool-call log contains a Read of `<ai-workspace>/.gitignore` AFTER the handoff file Write AND BEFORE the final assistant message.
 - Target subagent's tool-call log does NOT contain a `mkdir -p` Bash invocation against `handoffs/` (subdir pre-existing).
 - Target subagent's final assistant message references the return-handoff filename pattern `vs-3.2.1-bugfix-auth-a1b2-return.md` (or the matching short-id-aware variant) so the fork session knows where to write its return.
@@ -113,7 +113,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 **Expected behavior:**
 - Skill triggers via description-match.
-- Skill discovers manifest; resolves handoffs dir; finds the existing forward handoff `vs-3.2.1-bugfix-auth-a1b2.md`; detects this is a return handoff (pre-injected args specify `--return a1b2`).
+- Skill discovers manifest and resolves the handoffs dir. If the invocation references a forward filename (for example via `--return-of vs-3.2.1-bugfix-auth-a1b2.md`), it reads that forward handoff before writing the return; if the invocation supplies `--return a1b2`, it may reuse the short-id directly without reading the forward file.
 - Skill reuses the short-id `a1b2` (does NOT generate a new one) and composes filename `vs-3.2.1-bugfix-auth-a1b2-return.md`.
 - Skill authors the file with all 10 sections per the §6b.5 invariant, BUT the section-content emphasis shifts for a return handoff: Section 1 (Header) marks type=`return`; section 2 (Purpose) summarizes what the fork session accomplished; section 4 ("What's NOT in memory bank yet") captures the cautions + tech-debt observations the fork session surfaced; section 8 (Next intended action(s)) names what the consuming main session C should do next (e.g., "resume VS-3.2.1 from work-1.01 with the auth fix landed; revisit auth TTL hard-code in next tech-debt round"); section 10 (Return-handoff template stub) is rendered as "n/a — this IS a return handoff" or equivalent (the heading still appears per the 10-section invariant).
 - The return doc ALSO includes (within sections 2, 4, 8, and 9 as appropriate) explicit `Summary`, `Deferrals`, and `Cautions` content per the §6b.4 chain model's return-handoff template stub from S2.
@@ -121,7 +121,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 - Skill emits final assistant message naming the return file's absolute path AND noting that a new main session C should read BOTH the forward and the return per the §6b.4 chain.
 
 **Assertion (judge subagent verifies):**
-- Target subagent's tool-call log contains a Read of the existing forward handoff `vs-3.2.1-bugfix-auth-a1b2.md` BEFORE writing the return doc (skill must confirm the short-id to reuse).
+- If the invocation references the forward handoff filename, target subagent's tool-call log contains a Read of `vs-3.2.1-bugfix-auth-a1b2.md` BEFORE writing the return doc. If the invocation uses `--return a1b2`, that Read is optional, but the return Write MUST reuse the `a1b2` short-id.
 - Target subagent's tool-call log contains a `Write` of a file whose filename matches the literal regex `^vs-3\.2\.1-bugfix-auth-a1b2-return\.md$` exactly — the short-id `a1b2` is reused (NOT a new 4-char hex), and the `-return.md` suffix is present.
 - The written file contains all 10 §6b.5 section headings in order (per the cross-scenario invariant). The heading for section 10 ("Return-handoff template stub") IS present even though it's "n/a" for a return — the parser-friendly contract is binding.
 - Section 1 (Header) content includes the literal token `return` (type marker, distinguishes from S1/S2's `forward`).
