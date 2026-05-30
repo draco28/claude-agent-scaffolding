@@ -227,4 +227,4 @@ Bump version to 1.0.0; tag; cut Homebrew + cargo + GitHub Release. Update CHANGE
 - **19 vertical slices:** 2-3 per sprint, each with 2 demo criteria
 - **Total node count:** 4 + 8 + 19 = **31** (under the ≤50-node default; no size-class prompt fires)
 
-Demo criteria use the literal Unicode arrow (→), NEVER the ASCII `->`. Slice IDs follow `VS-<phase>.<sprint>.<slice>` and chain cleanly into scaffold-dev's `docs/specs/sprint-N/VS-N.M-<kebab>/` schema.
+Demo criteria use the literal Unicode arrow (→), NEVER the ASCII `->`. Slice IDs follow `VS-<phase>.<sprint>.<slice>` (the canonical 3-part identifier; cross-plugin consumer-contract alignment tracked in #28).

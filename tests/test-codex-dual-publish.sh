@@ -69,6 +69,18 @@ for plugin in $V0_PLUGINS; do
 
   assert_jq_plugin "$plugin" '.name == $p' "$manifest" "$plugin manifest name matches directory"
   assert_jq '.version | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")' "$manifest" "$plugin manifest has semver version"
+  # Codex manifest version MUST match the Claude manifest — a release bump that
+  # touches only .claude-plugin/plugin.json leaves Codex installs on the old
+  # version (scaffold-onboard drifted 0.3.3 → through 0.3.4/0.3.5 unnoticed
+  # because nothing enforced parity). Guard against silent recurrence.
+  claude_manifest="$ROOT/$plugin/.claude-plugin/plugin.json"
+  cv="$(json_get '.version' "$claude_manifest")"
+  xv="$(json_get '.version' "$manifest")"
+  if [[ -n "$cv" && "$cv" == "$xv" ]]; then
+    pass "$plugin codex manifest version ($xv) matches claude manifest"
+  else
+    fail "$plugin codex manifest version ($xv) != claude manifest ($cv)"
+  fi
   assert_jq '.skills == "./skills/"' "$manifest" "$plugin manifest exposes skills"
   assert_jq '.interface.displayName | type == "string" and length > 0' "$manifest" "$plugin has displayName"
   assert_jq '.interface.shortDescription | type == "string" and length > 0' "$manifest" "$plugin has shortDescription"

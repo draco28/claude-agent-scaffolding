@@ -2,6 +2,12 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.3.5] — 2026-05-30
+
+### Fixed
+- **#28 (Phase 1, doc-truth) — removed the false "slice IDs match scaffold-dev's `VS-N.M` schema" claim.** scaffold-onboard authors **3-part** slice IDs (`VS-<phase>.<sprint>.<slice>`, e.g. `VS-1.1.1`) but four shipped docs claimed this "matches"/"chains cleanly into" scaffold-dev's **2-part** `docs/specs/sprint-N/VS-N.M-<kebab>/` schema — a self-contradiction (3-part ≠ 2-part). Corrected `planning-project-roadmap/SKILL.md`, `authoring-vertical-slice-demo/SKILL.md`, `examples/sample-project/ROADMAP.md`, and `planning-project-roadmap/references/example-hierarchy.md` to state the canonical 3-part identifier honestly and point at #28 for the (still-open) cross-plugin consumer-contract alignment. The `/orchestrate VS-N.M` command examples in the generated templates are **deliberately left as-is** — current scaffold-dev parses 2-part IDs (`planning-vertical-slice` derives `docs/specs/sprint-<N>/` from the first field; `closing-vertical-slice` resolves `VS-N.M`), so showing the 3-part form would route users into a failed path-derivation. The command-arity correction lands with the #28 code-side contract fix (structured field-read), gated on a verification spike per the architect-critic audit. Docs-only.
+- **Synced the Codex manifest version (Codex review on PR #29).** `.codex-plugin/plugin.json` was stranded at `0.3.3` — it was never bumped for 0.3.4 or 0.3.5, so Codex installs (published via `.agents/plugins/marketplace.json`) would never receive the fixes. Bumped to `0.3.5` and added a version-parity assertion to `tests/test-codex-dual-publish.sh` so a release that bumps only the Claude manifest can no longer drift the Codex manifest silently.
+
 ## [0.3.4] — 2026-05-30
 
 ### Security

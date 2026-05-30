@@ -110,7 +110,7 @@ Per SPEC §7.1, slice IDs follow the pattern:
 VS-<phase>.<sprint>.<slice>
 ```
 
-Examples: `VS-1.1.1` (phase 1, sprint 1, slice 1), `VS-2.3.2` (phase 2, sprint 3, slice 2). This matches scaffold-dev's `docs/specs/sprint-N/VS-N.M-<kebab>/` path schema (scaffold-dev SPEC §5.2) — the load-bearing convention that makes scaffold-onboard outputs directly addressable from scaffold-dev's input contract.
+Examples: `VS-1.1.1` (phase 1, sprint 1, slice 1), `VS-2.3.2` (phase 2, sprint 3, slice 2) — the canonical 3-part vertical-slice identifier. (The scaffold-dev consumer-contract handshake for this id is being aligned — see #28; it does NOT match scaffold-dev's older 2-part `VS-N.M` form.)
 
 **Resolving slice IDs:**
 

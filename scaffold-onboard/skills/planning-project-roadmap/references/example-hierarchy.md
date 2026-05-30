@@ -342,4 +342,4 @@ Cron-driven weekly delivery of coaching cards to each AE's preferred channel. De
 - **30 vertical slices**: 2-3 per sprint, each with 2 demo criteria mixing `auto:` and `user:` forms
 - **Total node count**: 4 + 12 + 30 = 46 — within the ≤50-node default size class (no 3-path size-class prompt fires at R1.A close)
 
-The shape generalises: a 4-phase product roadmap, three sprints per phase, slices that each correspond to a 90-day demoable cycle. Demo criteria use the literal Unicode arrow (→), NOT the ASCII `->`. Slice IDs follow `VS-<phase>.<sprint>.<slice>` and chain into scaffold-dev's `docs/specs/sprint-N/VS-N.M-<kebab>/` schema cleanly.
+The shape generalises: a 4-phase product roadmap, three sprints per phase, slices that each correspond to a 90-day demoable cycle. Demo criteria use the literal Unicode arrow (→), NOT the ASCII `->`. Slice IDs follow `VS-<phase>.<sprint>.<slice>` (the canonical 3-part identifier; cross-plugin consumer-contract alignment tracked in #28).

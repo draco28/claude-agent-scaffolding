@@ -114,7 +114,7 @@ Open R1.C with this exact line:
 For each sprint in order, walk the user through naming 2-5 vertical slices. For each slice capture:
 
 - `sprint_id` — the sprint this slice belongs to (e.g., "1.1", "2.3")
-- `id` — `VS-<phase>.<sprint>.<slice>` (e.g., `VS-1.1.1`, `VS-2.3.2`) — matches scaffold-dev's `docs/specs/sprint-N/VS-N.M-<kebab>/` schema (per scaffold-dev SPEC §5.2)
+- `id` — `VS-<phase>.<sprint>.<slice>` (e.g., `VS-1.1.1`, `VS-2.3.2`) — the canonical vertical-slice identifier. (The scaffold-dev consumer-contract handshake for this id is being aligned — see #28; do NOT assume it matches scaffold-dev's older 2-part `VS-N.M` form.)
 - `name` — short slice name
 - `summary` — 1-2 sentence summary: what's demoed when this slice closes
 - `demo_criteria` — 1-3 lines authored via `Skill(scaffold-onboard:authoring-vertical-slice-demo)` (§8)
