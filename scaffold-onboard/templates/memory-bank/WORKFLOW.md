@@ -7,7 +7,7 @@
 Use the companion `scaffold-dev` plugin (implementation phase) for slice work. Slices
 are planned and dispatched, not hand-stepped:
 
-1. `/orchestrate VS-N.M` — plan the vertical slice: decompose into 4–5 work items,
+1. `/orchestrate VS-1.1.1` — plan the vertical slice (pass the slice's `id` from ROADMAP.md): decompose into 4–5 work items,
    identify rounds via the dependency DAG, author specs upfront, then per round spawn
    worktrees and dispatch implementer subagents.
 2. `/work-item <handoff>` — execute a single work item directly (manual fallback when
@@ -16,7 +16,7 @@ are planned and dispatched, not hand-stepped:
    criteria, cross-checks `report.md`, and checks machine-checkable rules.
 4. `/handoff` — author a session handoff doc for out-of-slice transitions
    (sprint boundary, context bloat, bug-fix detour).
-5. **Slice close** (say "close VS-N.M") — slice-close ceremony: auto-demo + manual-demo,
+5. **Slice close** (say "close VS-1.1.1") — slice-close ceremony: auto-demo + manual-demo,
    architect-critic review, retrospective, memory-bank harvest, then worktree + branch cleanup.
 
 At sprint boundaries, say `close sprint N` to aggregate the per-slice retrospectives.
