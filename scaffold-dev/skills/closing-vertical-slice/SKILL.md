@@ -94,7 +94,7 @@ Resolution priority:
 ```bash
 ai_workspace="$(sd manifest_get '.ai_workspace.root')"
 canonical="$(sd manifest_get '.canonical.root')"
-worktrees_dir="$(sd manifest_get '.during_dev.worktrees_dir')"
+worktrees_dir="$(sd manifest_resolve "$ai_workspace" "$(sd manifest_get '.during_dev.worktrees_dir')")"
 handoffs_dir="$(sd manifest_get '.routing.handoffs_dir')"   # resolves to <ai-workspace>/.workspace/handoffs/ in v0.1
 sprint_dir_template="$(sd manifest_get '.during_dev.sprint_dir_template')"
 ```
@@ -185,7 +185,7 @@ Record each outcome in the VS README's `## Demo verification` section (append if
 Surface a failure report naming: (a) the verbatim `auto:` line from the VS README so the user can identify the failing step, (b) the command that was run, (c) the observed exit code, (d) a captured stderr/stdout excerpt (~200 chars). Then present the recovery menu (§12.2 row adapted for slice-close auto-demo fails):
 
 > **Recovery menu (§12.2 — slice-close auto-demo fail):**
-> 1. **Re-author the demo step** — the criterion is wrong; return to scaffold-onboard's `Skill(scaffold-onboard:authoring-vertical-slice-demo)` (or `/plan-roadmap --refine-slice VS-<N.M>`) to revise.
+> 1. **Re-author the demo step** — the criterion is wrong; return to scaffold-onboard's `Skill(scaffold-onboard:authoring-vertical-slice-demo)` (or `/plan-roadmap --refine-slice VS-<N.M.K>`) to revise.
 > 2. **Accept-with-deferred** — slice closes with the failing step marked deferred; the slice must still be demoable despite the caveat (per §14.4 close-with-deferred). Add a follow-up work item to the backlog.
 > 3. **Re-spawn implementer subagent for fix-up** — the implementation is wrong; re-invoke the offending work item's implementer-agent against the failing area, then re-run the slice-close ceremony.
 
@@ -367,8 +367,16 @@ ONLY AFTER §9 step 8 completes successfully, remove worktrees + delete branches
 For each work item in the slice:
 
 ```bash
-sd worktree_remove "${work_id}" "${kebab}"
-# Runs: git worktree remove "${canonical}/${worktrees_dir}/work-${work_id}-${kebab}"
+shopt -s nullglob
+worktree_matches=("${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-"*)
+shopt -u nullglob
+if [[ "${#worktree_matches[@]}" -ne 1 ]]; then
+  printf 'Worktree cleanup for %s matched %s paths under %s/sprint-%s/\n' \
+    "$work_id" "${#worktree_matches[@]}" "$worktrees_dir" "$sprint_id"
+  exit 0
+fi
+sd worktree_remove "${worktree_matches[0]}"
+# Runs: git worktree remove "${worktree_matches[0]}"
 # Then: git branch -D "${branch_name}"
 ```
 
@@ -378,7 +386,7 @@ sd worktree_remove "${work_id}" "${kebab}"
 
 ### 10.2 Branch deletion
 
-Branch deletion is bundled into `sd_worktree_remove` per `lib/worktree.sh`'s contract. After §10.1 completes, all `work-N.NN-*` branches are gone. Final filesystem state shows `${canonical}/${worktrees_dir}/work-*` directories absent and `git branch` listing in canonical does not contain any `work-*` branch.
+Branch deletion is bundled into `sd_worktree_remove` per `lib/worktree.sh`'s contract. After §10.1 completes, all `work-N.NN-*` branches are gone. Final filesystem state shows `${worktrees_dir}/sprint-${sprint_id}/work-*` directories absent and `git branch` listing in canonical does not contain any `work-*` branch.
 
 ---
 

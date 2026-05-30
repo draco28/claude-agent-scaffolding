@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # scaffold-dev/lib/worktree.sh
 # Per-work-item worktree lifecycle against the canonical repo. Worktree path
-# convention: <canonical.root>/.worktrees/work-<NN>-<kebab>. Branch name
+# convention: <canonical.root>/.worktrees/sprint-<sprint_id>/work-<NN>-<kebab>.
+# Branch name
 # follows the manifest's during_dev.branch_naming template
 #   "slice/sprint-{N}-work-{NN}-{kebab-name}"
 # where {N} is the SPRINT segment (e.g. "1.1" for slice VS-1.1.1) — field-read
@@ -50,13 +51,23 @@ _sd_worktree_branch_name() {
 # the branch template's {N} sprint segment.
 sd_worktree_add() {
   local work_id="$1" slice_id="$2" kebab="$3" sprint_id="${4:-}"
-  local canonical default_branch branch wt_path
+  local canonical default_branch raw_worktrees_dir worktrees_dir branch wt_path
   canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "no canonical.root"; return 1; }
   default_branch="$(sd_manifest_get '.canonical.default_branch')" || default_branch="main"
+  if raw_worktrees_dir="$(sd_manifest_get '.during_dev.worktrees_dir')"; then
+    worktrees_dir="$(sd_manifest_resolve "$(sd_manifest_get '.ai_workspace.root')" "$raw_worktrees_dir")" || return 1
+  else
+    worktrees_dir="${canonical}/.worktrees"
+  fi
   branch="$(_sd_worktree_branch_name "$slice_id" "$work_id" "$kebab" "$sprint_id")"
-  wt_path="${canonical}/.worktrees/work-${work_id}-${kebab}"
+  local n="$sprint_id"
+  if [[ -z "$n" ]]; then
+    n="${slice_id#VS-}"
+    n="${n%.*}"
+  fi
+  wt_path="${worktrees_dir}/sprint-${n}/work-${work_id}-${kebab}"
 
-  mkdir -p "${canonical}/.worktrees" || return 1
+  mkdir -p "${worktrees_dir}/sprint-${n}" || return 1
 
   if ! git -C "$canonical" worktree add -b "$branch" "$wt_path" "$default_branch" >/dev/null 2>&1; then
     sd_log_error "sd_worktree_add: git worktree add failed for $wt_path (branch=$branch)"

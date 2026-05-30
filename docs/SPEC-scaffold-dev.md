@@ -442,7 +442,7 @@ Placeholders use Wabash-style `{{var}}` substitution (per scaffold-onboard's ren
 
 ## 11. Worktree mechanics
 
-- **Path:** `${canonical.root}/.worktrees/work-N.NN-<kebab>` (manifest)
+- **Path:** `${canonical.root}/.worktrees/sprint-<sprint_id>/work-N.NN-<kebab>` (manifest)
 - **Branch:** per `during_dev.branch_naming`
 - **Base:** canonical main HEAD at creation
 - **Creation timing:** per-round (per B2 Q8)

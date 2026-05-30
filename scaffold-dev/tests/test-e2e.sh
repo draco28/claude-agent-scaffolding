@@ -114,7 +114,7 @@ test_e2e_minimal_sprint() {
   # ({N}=sprint_id 1.1 passed as 4th arg, slice id is 3-part)
   local wt1
   wt1="$(sd_worktree_add "1.01" "VS-1.1.1" "init-models" "1.1" 2>/dev/null)"
-  assert_eq "wt1 path" "$TMP_CANONICAL/.worktrees/work-1.01-init-models" "$wt1"
+  assert_eq "wt1 path" "$TMP_CANONICAL/.worktrees/sprint-1.1/work-1.01-init-models" "$wt1"
 
   # Assertion 5 — branch name follows the manifest template
   local branches1
@@ -256,7 +256,7 @@ test_e2e_handoff_chain() {
     --arg sm "test-session 2026-05-25" \
     --arg rf "n/a" \
     --arg pp "Auth flow regression discovered mid-slice." \
-    --arg sp "- worktree: .worktrees/work-1.01" \
+    --arg sp "- worktree: .worktrees/sprint-1.1/work-1.01" \
     --arg nm "- new finding about token expiry" \
     --arg wd "None." \
     --arg ifs "- bug-fix branch open" \

@@ -84,7 +84,7 @@ Resolve the fields this skill needs:
 ```bash
 ai_workspace="$(sd manifest_get '.ai_workspace.root')"
 canonical="$(sd manifest_get '.canonical.root')"
-worktrees_dir="$(sd manifest_get '.during_dev.worktrees_dir')"
+worktrees_dir="$(sd manifest_resolve "$ai_workspace" "$(sd manifest_get '.during_dev.worktrees_dir')")"
 branch_naming="$(sd manifest_get '.during_dev.branch_naming')"
 sprint_dir_template="$(sd manifest_get '.during_dev.sprint_dir_template')"
 ```
@@ -118,7 +118,7 @@ When the record is found, read every field directly from `vs_record` (all carrie
 
 - **MASTER-SPEC.md** — read via the manifest-resolved master-spec path. Surfaces project class, constraints, tech stack — feeds decomposition rationale.
 - **Memory bank Tier 0** — auto-loaded by scaffold-dev's SessionStart hook (per SPEC §15.1, §18). If the hook hasn't fired in this session (e.g., started outside the AI workspace), surface a soft warning and continue.
-- **Active-context cursor** — read `<ai-workspace>/.claude/memory-bank/05-active-context.md` for the current active sprint / slice / round position (per SPEC §17). If the cursor names a different active slice and the user is invoking this skill for a NEW slice, surface: *"Cursor shows VS-<X.Y> active. Plan VS-<N.M> as a new slice (cursor will update on first commit), or resume VS-<X.Y> instead?"* and wait for choice.
+- **Active-context cursor** — read `<ai-workspace>/.claude/memory-bank/05-active-context.md` for the current active sprint / slice / round position (per SPEC §17). If the cursor names a different active slice and the user is invoking this skill for a NEW slice, surface: *"Cursor shows VS-<X.Y.Z> active. Plan VS-<N.M.K> as a new slice (cursor will update on first commit), or resume VS-<X.Y.Z> instead?"* and wait for choice.
 
 ---
 
@@ -219,7 +219,7 @@ Use `sd_render` (lib/render.sh, ported from scaffold-onboard) to fill templates:
 - `templates/vertical-slice-readme.md.tmpl` → `${slice_root}/README.md`
   - Vars: `vs_id`, `vs_name`, `vs_description`, `demo_criteria` (the `auto:` / `user:` lines from ROADMAP), `work_items_table`, `round_plan`, `sprint_context`.
 - `templates/work-item-spec.md.tmpl` → each `work-N.NN-<kebab>/spec.md` (Wabash Format B, 8 sections per SPEC §9).
-  - Vars: `vs_id`, `work_id`, `round`, `worktree_abs_path` (computed but not yet created — `${canonical}/${worktrees_dir}/work-${work_id}-${kebab}`), `branch` (computed from `branch_naming` template), context, decisions, `traceability_block`, files to modify, ACs with verification, demo contribution, anti-actions, reference index.
+  - Vars: `vs_id`, `work_id`, `round`, `worktree_abs_path` (computed but not yet created — `${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}`), `branch` (computed from `branch_naming` template), context, decisions, `traceability_block`, files to modify, ACs with verification, demo contribution, anti-actions, reference index.
 
 The worktree path and branch are computed at spec-authoring time (so the spec is self-contained as a fresh-session starter per §6.4) but the actual `git worktree add` does NOT happen until the round starts (§8.1).
 
@@ -272,9 +272,9 @@ The warning MUST reference either `architect-critic` (plugin name) OR `adversari
 
 After §7.2 or §7.3 settles, surface:
 
-> VS-<N.M> specs authored and audited. Ready for round-1 execution — invoke "execute round 1" when ready.
+> VS-<N.M.K> specs authored and audited. Ready for round-1 execution — invoke "execute round 1" when ready.
 
-Do NOT auto-spawn implementer-agent subagents on this same turn. Round execution (§8) is a separate user-initiated step. Eval S1 explicitly asserts that no `Task(subagent_type="scaffold-dev:implementer-agent", ...)` invocation and no `${canonical}/.worktrees/work-*` directories are created on the slice-planning turn.
+Do NOT auto-spawn implementer-agent subagents on this same turn. Round execution (§8) is a separate user-initiated step. Eval S1 explicitly asserts that no `Task(subagent_type="scaffold-dev:implementer-agent", ...)` invocation and no `${canonical}/.worktrees/sprint-*/work-*` directories are created on the slice-planning turn.
 
 ---
 
@@ -288,7 +288,7 @@ For each work item in the round:
 
 ```bash
 sd worktree_add "${work_id}" "${vs_id}" "${kebab}" "${sprint_id}"
-# Creates ${canonical}/${worktrees_dir}/work-${work_id}-${kebab}
+# Creates ${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}
 # Branches per ${branch_naming} template — {N} = sprint_id (e.g. sprint-1.1),
 # field-read in §3.3, NOT split from the slice id
 # Base: canonical main HEAD at creation
@@ -320,7 +320,7 @@ Task(
     Read handoff at <abs path to work-${work_id}-${kebab}/handoff.md>
     and execute the work item per its instructions.
 
-    Your worktree: <abs path to ${canonical}/${worktrees_dir}/work-${work_id}-${kebab}>
+    Your worktree: <abs path to ${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}>
     Use this path for all git operations and file edits in canonical.
 
     First turn: PRE-FLIGHT CHECK (per SPEC §6.2).
@@ -339,7 +339,7 @@ You are the scaffold-dev implementer for one work item.
 Read the handoff at <abs path to work-${work_id}-${kebab}/handoff.md>.
 Then read scaffold-dev's executing-work-item contract if available at the installed plugin path, or treat the handoff's embedded constraints as binding.
 
-Your worktree: <abs path to ${canonical}/${worktrees_dir}/work-${work_id}-${kebab}>.
+Your worktree: <abs path to ${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}>.
 Use this path for all git operations and file edits.
 
 First action: PRE-FLIGHT CHECK.
@@ -399,7 +399,7 @@ After all work items in the round are processed (committed + merged):
 1. Update VS README: round status → complete.
 2. Surface:
 
-> Round K complete (M items committed + merged). Ready for round K+1, or close VS-<N.M>?
+> Round K complete (M items committed + merged). Ready for round K+1, or close VS-<N.M.K>?
 
 If the user says "next round": loop §8.1 for round K+1.
 If the user says "close slice" (or equivalent): proceed to §10.
@@ -424,7 +424,7 @@ State IS the artifacts (per SPEC §17 — no separate state file). The two curso
 
 When the user signals slice close (after all rounds complete), suggest the slice-close ceremony skill:
 
-> All rounds complete. Invoke `Skill(scaffold-dev:closing-vertical-slice)` (or `/close-slice VS-<N.M>`) to run the 3-layer close ceremony: auto-demo execution → manual-demo prompting → architect-critic adversarial review at close depth → retrospective + memory-bank harvest → worktree + branch cleanup.
+> All rounds complete. Invoke `Skill(scaffold-dev:closing-vertical-slice)` (or `/close-slice VS-<N.M.K>`) to run the 3-layer close ceremony: auto-demo execution → manual-demo prompting → architect-critic adversarial review at close depth → retrospective + memory-bank harvest → worktree + branch cleanup.
 
 Do NOT auto-invoke `closing-vertical-slice` — slice close is a deliberate gate the user opts into (often after manual demoing). This skill's lane ends at the round-complete handoff; the close ceremony is downstream.
 
