@@ -30,27 +30,27 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 ## Scenarios
 
-### S1 — Happy path: all sprint-3 slices closed, aggregate 3 slice retros into sprint retro
+### S1 — Happy path: all sprint-3.1 slices closed, aggregate 3 slice retros into sprint retro
 
 **Setup:**
 - Dual-repo fixture: manifest at the parent, `routing.specs_dir` resolves to `<ai-workspace>/docs/specs/`.
-- `<ai-workspace>/docs/specs/sprint-3/` contains 3 closed slice directories:
-  - `VS-3.1-user-auth/retrospective.md` (7-section slice retro per §16b; populated content)
-  - `VS-3.2-redis-cache/retrospective.md` (likewise)
-  - `VS-3.3-feature-flags/retrospective.md` (likewise)
-- Each slice retro has a populated "Memory bank harvest" section naming the specific memory-bank files it modified (e.g., VS-3.1 added 2 items to `03-code-patterns.md`; VS-3.2 added 1 item to `09-known-issues.md` and 1 to `03-code-patterns.md`; VS-3.3 added 1 to `04-data-models.md`).
+- `<ai-workspace>/docs/specs/sprint-3.1/` contains 3 closed slice directories:
+  - `VS-3.1.1-user-auth/retrospective.md` (7-section slice retro per §16b; populated content)
+  - `VS-3.1.2-redis-cache/retrospective.md` (likewise)
+  - `VS-3.1.3-feature-flags/retrospective.md` (likewise)
+- Each slice retro has a populated "Memory bank harvest" section naming the specific memory-bank files it modified (e.g., VS-3.1.1 added 2 items to `03-code-patterns.md`; VS-3.1.2 added 1 item to `09-known-issues.md` and 1 to `03-code-patterns.md`; VS-3.1.3 added 1 to `04-data-models.md`).
 - Each slice retro has a populated "Lessons learned" section with 2-3 bullets.
-- `<ai-workspace>/ROADMAP.md` contains the sprint-3 goal block ("Sprint 3 goal: ship user auth + caching + feature-flags MVP") at a manifest-routed path.
+- `<ai-workspace>/ROADMAP.md` contains the sprint-3.1 goal block ("Sprint 3.1 goal: ship user auth + caching + feature-flags MVP") at a manifest-routed path.
 - `templates/sprint-retrospective.md.tmpl` is present.
-- No prior `sprint-retrospective.md` exists at `<ai-workspace>/docs/specs/sprint-3/sprint-retrospective.md`.
+- No prior `sprint-retrospective.md` exists at `<ai-workspace>/docs/specs/sprint-3.1/sprint-retrospective.md`.
 - Pre-injected user follow-ups: (a) user confirms the auto-derived cross-slice patterns ("all 3 slices touched 03-code-patterns.md → opportunity to consolidate"); (b) "accept" decisions for the surfaced sprint-level lessons.
 
-**Trigger:** target subagent user message: `close sprint 3`
+**Trigger:** target subagent user message: `close sprint 3.1`
 
 **Expected behavior:**
 - Skill triggers via description-match on the "close sprint N" trigger phrase (per SPEC §7.1 triggers list).
 - Skill discovers the manifest via `lib/manifest.sh` walk-up helpers and resolves `routing.specs_dir` to `<ai-workspace>/docs/specs/`.
-- Skill enumerates slice directories under `sprint-3/` matching the `VS-3.*` pattern; finds 3.
+- Skill enumerates slice directories under `sprint-3.1/` matching the `VS-3.1.*` pattern; finds 3.
 - Skill Reads each slice's `retrospective.md`; confirms each one has status indicating slice-closed.
 - Skill extracts cross-slice patterns from the aggregate (e.g., shared memory-bank targets, common deviations, repeated lessons).
 - Skill renders `templates/sprint-retrospective.md.tmpl` with the aggregated content + the 6 §16b sections populated:
@@ -60,31 +60,31 @@ Each scenario is executed inside a single Claude Code subscription session by an
   - **Cross-slice patterns** — patterns the user confirmed
   - **Memory bank impact totals** — count of items added per memory-bank file across all 3 slices
   - **Lessons for next sprint** — aggregated lessons + user-edited additions
-- Skill writes the file at `<ai-workspace>/docs/specs/sprint-3/sprint-retrospective.md`.
+- Skill writes the file at `<ai-workspace>/docs/specs/sprint-3.1/sprint-retrospective.md`.
 - Skill emits a final assistant message naming the new file's absolute path.
 
 **Assertion (judge subagent verifies):**
 - Target subagent's tool-call log shows at least one `lib/manifest.sh` helper invocation; no raw `jq` inline reads of `.routing.specs_dir`.
-- Target subagent's tool-call log contains Reads of ALL 3 slice retrospectives: `VS-3.1-user-auth/retrospective.md`, `VS-3.2-redis-cache/retrospective.md`, `VS-3.3-feature-flags/retrospective.md`. Judge counts exactly 3 distinct slice-retro Reads; if any is missing, the aggregation is incomplete.
+- Target subagent's tool-call log contains Reads of ALL 3 slice retrospectives: `VS-3.1.1-user-auth/retrospective.md`, `VS-3.1.2-redis-cache/retrospective.md`, `VS-3.1.3-feature-flags/retrospective.md`. Judge counts exactly 3 distinct slice-retro Reads; if any is missing, the aggregation is incomplete.
 - Target subagent's tool-call log contains a Read of `<ai-workspace>/ROADMAP.md` (to pull the sprint goal) BEFORE the Write of `sprint-retrospective.md`.
-- Target subagent's tool-call log contains a `Write` of `<ai-workspace>/docs/specs/sprint-3/sprint-retrospective.md` (NOT under a slice subdirectory; NOT in `<canonical>/`).
+- Target subagent's tool-call log contains a `Write` of `<ai-workspace>/docs/specs/sprint-3.1/sprint-retrospective.md` (NOT under a slice subdirectory; NOT in `<canonical>/`).
 - The written file contains all 6 §16b section headings in order per the cross-scenario 6-section invariant.
-- The "Per-slice rollup" section names all 3 slices explicitly (judge confirms: `VS-3.1`, `VS-3.2`, `VS-3.3` all appear as identifiers).
-- The "Memory bank impact totals" section aggregates the counts across slices — judge confirms it names at least 2 memory-bank files (e.g., `03-code-patterns.md` with a count of 3 items aggregated from VS-3.1 + VS-3.2 contributions) AND the counts are NUMERIC (NOT "several" or "many").
-- The "Sprint goal vs delivered" section quotes or paraphrases the ROADMAP sprint-3 goal AND contrasts it against delivered slice outcomes.
+- The "Per-slice rollup" section names all 3 slices explicitly (judge confirms: `VS-3.1.1`, `VS-3.1.2`, `VS-3.1.3` all appear as identifiers).
+- The "Memory bank impact totals" section aggregates the counts across slices — judge confirms it names at least 2 memory-bank files (e.g., `03-code-patterns.md` with a count of 3 items aggregated from VS-3.1.1 + VS-3.1.2 contributions) AND the counts are NUMERIC (NOT "several" or "many").
+- The "Sprint goal vs delivered" section quotes or paraphrases the ROADMAP sprint-3.1 goal AND contrasts it against delivered slice outcomes.
 - Target subagent's final assistant message names the absolute path of the written file.
 - No edits to any slice's `retrospective.md` appear (the skill READS slice retros; never mutates them).
 
 ---
 
-### S2 — Mid-sprint refusal (not all sprint-3 slices closed, skill bails with slice-close suggestion)
+### S2 — Mid-sprint refusal (not all sprint-3.1 slices closed, skill bails with slice-close suggestion)
 
 **Setup:**
-- Dual-repo fixture identical to S1: manifest present, ROADMAP with sprint-3 goal, template present.
-- `<ai-workspace>/docs/specs/sprint-3/` contains 3 slice directories BUT only 2 have `retrospective.md` (slice-closed):
-  - `VS-3.1-user-auth/retrospective.md` (present, closed)
-  - `VS-3.2-redis-cache/retrospective.md` (present, closed)
-  - `VS-3.3-feature-flags/` (slice directory present; spec files + work-item subdirs present; NO `retrospective.md` — slice is still mid-execution, work item 3.3.02 is in flight)
+- Dual-repo fixture identical to S1: manifest present, ROADMAP with sprint-3.1 goal, template present.
+- `<ai-workspace>/docs/specs/sprint-3.1/` contains 3 slice directories BUT only 2 have `retrospective.md` (slice-closed):
+  - `VS-3.1.1-user-auth/retrospective.md` (present, closed)
+  - `VS-3.1.2-redis-cache/retrospective.md` (present, closed)
+  - `VS-3.1.3-feature-flags/` (slice directory present; spec files + work-item subdirs present; NO `retrospective.md` — slice is still mid-execution, work item 1.03 is in flight)
 - Pre-injected user follow-ups: none (skill should refuse before reaching aggregation).
 
 **Trigger:** target subagent user message: `write sprint retro`
@@ -92,16 +92,16 @@ Each scenario is executed inside a single Claude Code subscription session by an
 **Expected behavior:**
 - Skill triggers via description-match on the "write sprint retro" trigger phrase.
 - Skill discovers manifest; resolves specs dir.
-- Skill enumerates slice directories under `sprint-3/`; finds 3.
+- Skill enumerates slice directories under `sprint-3.1/`; finds 3.
 - Skill checks each slice for a closed-state signal (presence of `retrospective.md` per §14.4 — the closing-vertical-slice skill writes this file as part of slice close).
-- Skill detects VS-3.3 is NOT closed (no `retrospective.md` present).
-- Skill **refuses to proceed** and surfaces a message naming: (a) the un-closed slice (`VS-3.3` or the kebab name), (b) a remediation hint pointing at `closing-vertical-slice` (e.g., "close VS-3.3 first via `/close-slice VS-3.3` or by triggering the closing-vertical-slice skill") — NOT a suggestion to skip the un-closed slice and aggregate the other two.
+- Skill detects VS-3.1.3 is NOT closed (no `retrospective.md` present).
+- Skill **refuses to proceed** and surfaces a message naming: (a) the un-closed slice (`VS-3.1.3` or the kebab name), (b) a remediation hint pointing at `closing-vertical-slice` (e.g., "close VS-3.1.3 first via `/close-slice VS-3.1.3` or by triggering the closing-vertical-slice skill") — NOT a suggestion to skip the un-closed slice and aggregate the other two.
 - Skill does NOT write any `sprint-retrospective.md` file, does NOT mutate any slice retro, does NOT prompt for aggregation content.
 
 **Assertion (judge subagent verifies):**
-- Target subagent's final assistant message names `VS-3.3` explicitly as the un-closed slice (quoted or otherwise identifiable). Judge rejects: vague "a slice is still open", or refusal that omits the slice ID.
-- The message includes the remediation hint with either: (a) a slash-command token referencing slice close (e.g., `/close-slice VS-3.3`), OR (b) an explicit naming of the `closing-vertical-slice` skill as the prerequisite. Judge accepts either phrasing; rejects messages that suggest aggregating the 2 closed slices and skipping VS-3.3.
-- Target subagent's tool-call log contains a directory listing of `<ai-workspace>/docs/specs/sprint-3/` AND existence checks for `retrospective.md` in each slice subdirectory.
+- Target subagent's final assistant message names `VS-3.1.3` explicitly as the un-closed slice (quoted or otherwise identifiable). Judge rejects: vague "a slice is still open", or refusal that omits the slice ID.
+- The message includes the remediation hint with either: (a) a slash-command token referencing slice close (e.g., `/close-slice VS-3.1.3`), OR (b) an explicit naming of the `closing-vertical-slice` skill as the prerequisite. Judge accepts either phrasing; rejects messages that suggest aggregating the 2 closed slices and skipping VS-3.1.3.
+- Target subagent's tool-call log contains a directory listing of `<ai-workspace>/docs/specs/sprint-3.1/` AND existence checks for `retrospective.md` in each slice subdirectory.
 - No `Write` of `sprint-retrospective.md` appears in the tool-call log.
 - No `Read` of any slice's `retrospective.md` proceeds past the existence-check step (the skill bails before aggregation; it MAY have Read the 2 present ones for status confirmation but MUST NOT have begun composing the sprint retro).
 
@@ -118,7 +118,7 @@ The full eval is GREEN when both scenarios PASS.
 - Sprint-retrospective template fidelity (the exact placeholders in `templates/sprint-retrospective.md.tmpl`, the formatting of each section's blocks) — covered by `tests/test-render.sh`. This eval asserts the 6 §16b section headings appear with substantive content; full template-conformance is downstream.
 - Sprint-close cleanup of sprint-scoped handoffs (§6b.6 lifecycle — wiping `sprint-N-*.md` handoffs except the carry-forward) — sprint-close cleanup ownership is resolved during PLAN (extension of `closing-vertical-slice` at the final slice OR a separate `closing-sprint` skill); whichever owns it gets its own eval. This eval focuses on the retrospective authoring step only.
 - Carry-forward handoff handling (composing `sprint-N-to-N+1-handoff-XXXX.md` at sprint close) — covered by `evals/handing-off-session.md` S1.
-- Cross-sprint pattern detection (patterns that span multiple sprints — e.g., "sprint 2 and sprint 3 both had auth-related deferrals") — deferred to v0.2; v0.1 aggregates only within the current sprint.
+- Cross-sprint pattern detection (patterns that span multiple sprints — e.g., "sprint 2.1 and sprint 3.1 both had auth-related deferrals") — deferred to v0.2; v0.1 aggregates only within the current sprint.
 - Memory-bank harvest at sprint level (promote sprint-aggregate observations to memory-bank files with `source: sprint-retro` provenance trailers) — the per-slice harvest at §15.2 covers slice-scope items; sprint-level promotion is documented as an open question for v0.1 and may surface during PLAN. This eval asserts the retro's "Memory bank impact totals" section aggregates the counts but does NOT re-promote items.
 - Sprint goal mismatch handling (the ROADMAP-stated sprint goal differs significantly from what was actually delivered — does the skill flag it as a deviation requiring user attention?) — deferred to v0.2.
 - Manifest absence / corrupt-manifest behavior — `evals/planning-vertical-slice.md` S2 covers the absent-manifest refusal at the orchestrator entry point; if the user invokes this skill without a manifest, the same fail-fast applies but is not re-tested here.

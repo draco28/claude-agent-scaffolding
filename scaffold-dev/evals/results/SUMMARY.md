@@ -4,6 +4,7 @@
 > Date: 2026-05-25
 > Method: inline reasoning pass — trigger-phrase × description-token cross-check + scenario × SKILL.md-section coverage check.
 > Note: This consolidates the 9 originally-planned T6.x subagent-dispatch checks into one inline analysis pass. Per [feedback_subagent_vs_inline_threshold] and the scaffold-onboard Phase 6 precedent (`scaffold-onboard/evals/phase6-pressure-test-summary.md`), when subagent dispatches inside an already-orchestrated subagent-driven build introduce double-dispatch fragility and the value of description-match pressure-testing is fully captured by careful inline analysis, inline is the correct lane.
+> Phase 4 note: this file is a historical pre-Phase-4 results summary. Legacy two-part examples below are preserved as recorded evidence; the active eval specs have been migrated to the three-part `VS-N.M.K` + explicit `sprint_id` contract.
 
 ---
 
