@@ -1,6 +1,6 @@
 ---
 name: handing-off-session
-description: Compose a forward or return session handoff doc for out-of-slice transitions (sprint-boundary carry-forward, mid-slice context-bloat, bug-fix detour). Use this when the user says `handoff to next session`, `hand this off`, `context bloated`, `fresh session for VS-N.M`, `compose a handoff`, `write a return handoff`, or invokes `/handoff [--return ...]`. NEVER edits `.gitignore`, NEVER commits; `scaffold-dev:implementer-agent` is forbidden from invoking this skill.
+description: Compose a forward or return session handoff doc for out-of-slice transitions (sprint-boundary carry-forward, mid-slice context-bloat, bug-fix detour). Use this when the user says `handoff to next session`, `hand this off`, `context bloated`, `fresh session for VS-N.M.K`, `compose a handoff`, `write a return handoff`, or invokes `/handoff [--return ...]`. NEVER edits `.gitignore`, NEVER commits; `scaffold-dev:implementer-agent` is forbidden from invoking this skill.
 ---
 
 # handing-off-session
@@ -22,7 +22,7 @@ When invoked, you:
 1. **Parse `$ARGUMENTS`** via the env-var bridge (per `feedback_slash_command_dollar_n_bug`): `--scope`, `--purpose`, optional `--return <short-id>` or `--return-of <forward-filename>`. Missing args are resolved from conversation context (active sprint/slice cursor + the trigger phrase wording) rather than guessed silently.
 2. **Discover the workspace-init pairing manifest** via `lib/manifest.sh` walk-up helpers. Refuse fail-fast if absent (same refusal text as `planning-vertical-slice` §3.1 — handoffs require the dual-repo manifest contract).
 3. **Resolve the handoffs directory** via `sd_manifest_resolve` against `routing.handoffs_dir` (or fall back to `<ai_workspace.root>/.workspace/handoffs/`); `mkdir -p` it if absent (lazy creation per §6b.1; workspace-init seeded the parent `.workspace/` per its §4.3).
-4. **Validate scope** against the §6b.1 enum (`sprint`, `slice`, `mid-slice`, `bugfix`, `techdebt`, plus the `sprint-N` and `vs-N.M` numbered variants that appear in the §6b.1 filename examples) and **sanitize purpose** to kebab-case.
+4. **Validate scope** against the §6b.1 enum (`sprint`, `slice`, `mid-slice`, `bugfix`, `techdebt`, plus the `sprint-N` and `vs-N.M.K` numbered variants that appear in the §6b.1 filename examples) and **sanitize purpose** to kebab-case.
 5. **Detect forward-vs-return.** If `--return <short-id>` or `--return-of <forward-filename>` is present OR the trigger phrase context indicates this session IS a fork session reporting back (per §6b.4 chain model), this is a return handoff: reuse the original short-id, emit a `-return.md` filename, mark Header type=`return`. Otherwise this is a forward handoff: generate a fresh 4-char hex short-id.
 6. **Gather state pointers** via `lib/state.sh::sd_state_read_cursor` (active sprint, active slice, active work-item position, worktree paths) and `lib/manifest.sh::sd_manifest_get` (ai_workspace.root, canonical.root, branch_naming, worktrees_dir).
 7. **Compose the 10 sections** per §6b.5 using `templates/handoff.md.tmpl` + `lib/render.sh` `{{var}}` substitution. Sections 4 and 8 are the two REQUIRED user-prompted sections (see §4 and §5 below); auto-extract candidates from session context first, but refuse to write the file if either is empty.
@@ -39,11 +39,11 @@ When invoked, you:
 - `handoff to next session` (both forward and return — context determines which; see §3.4)
 - `hand this off`
 - `context bloated` (orchestrator-side recovery; scope widens to `sprint-N` per §6b.1)
-- `fresh session for VS-N.M` (mid-slice handoff, slice-scoped)
+- `fresh session for VS-N.M.K` (mid-slice handoff, slice-scoped)
 - `compose a handoff`, `write a handoff`, `write a return handoff`
 - `/handoff [--scope ...] [--purpose ...] [--return ...]` (slash command — see §10 for the `$ARGUMENTS` env-var bridge)
 
-All six phrase forms are load-bearing in the description block above — the five eval scenarios trigger via description-match on the first four (S1 and S3 reuse the same `handoff to next session` phrase to verify context-discrimination; S2 uses `hand this off`; S4 uses `context bloated`; S5 uses `fresh session for VS-3.2`).
+All six phrase forms are load-bearing in the description block above — the five eval scenarios trigger via description-match on the first four (S1 and S3 reuse the same `handoff to next session` phrase to verify context-discrimination; S2 uses `hand this off`; S4 uses `context bloated`; S5 uses `fresh session for VS-1.1.1`).
 
 **Do NOT auto-invoke when:**
 
@@ -94,9 +94,9 @@ Parse the raw arg string (Mode: slash-command invocation; see §10 for the env-v
 
 Extract:
 
-- **`--scope <enum>`** — one of `sprint`, `slice`, `mid-slice`, `bugfix`, `techdebt`, OR a numbered variant matching `^sprint-[0-9]+$` or `^vs-[0-9]+\.[0-9]+$`. The §6b.1 filename examples use the numbered forms (`vs-3.2-bugfix-auth-a1b2.md`, `sprint-3-context-bloat-c3d4.md`, `sprint-3-to-4-handoff-g7h8.md`), so the numbered forms ARE valid scopes — they expand the §6b.1 enum, they do not violate it. Reject anything outside this set with a one-line error naming the rejected value AND the accepted enum.
+- **`--scope <enum>`** — one of `sprint`, `slice`, `mid-slice`, `bugfix`, `techdebt`, OR a numbered variant matching `^sprint-[0-9]+$` or the **3-part** slice form `^vs-[0-9]+\.[0-9]+\.[0-9]+$` (#28: slice ids are `vs-<phase>.<sprint>.<slice>`, e.g. `vs-1.1.1`, so the slice-scoped prefix the close-time harvest globs is `vs-1.1.1-*`). The §6b.1 filename examples use the numbered forms (`vs-1.1.1-bugfix-auth-a1b2.md`, `sprint-3-context-bloat-c3d4.md`, `sprint-3-to-4-handoff-g7h8.md`), so the numbered forms ARE valid scopes — they expand the §6b.1 enum, they do not violate it. Reject anything outside this set with a one-line error naming the rejected value AND the accepted enum.
 - **`--purpose <slug>`** — the human-readable purpose token. Sanitize to kebab-case: lowercase, replace whitespace + underscores with `-`, strip everything not in `[a-z0-9-]`, collapse repeated dashes, trim leading/trailing dashes. Examples: `"to-4-handoff"`, `"bugfix-auth"`, `"context-bloat"`, `"techdebt-logging"`.
-- **`--return <short-id>`** OR **`--return-of <forward-filename>`** (optional, mutually exclusive) — presence flips this to a return handoff per §3.4. The `--return` form takes a 4-char hex short-id; the `--return-of` form takes a full forward filename (e.g., `vs-3.2-bugfix-auth-a1b2.md`) which you parse to extract the short-id. Both produce the same effect: reuse the existing short-id rather than generate a new one.
+- **`--return <short-id>`** OR **`--return-of <forward-filename>`** (optional, mutually exclusive) — presence flips this to a return handoff per §3.4. The `--return` form takes a 4-char hex short-id; the `--return-of` form takes a full forward filename (e.g., `vs-1.1.1-bugfix-auth-a1b2.md`) which you parse to extract the short-id. Both produce the same effect: reuse the existing short-id rather than generate a new one.
 
 If `--scope` or `--purpose` is missing from `$ARGUMENTS`, attempt resolution from conversation context (the trigger phrase + the active-context cursor); see §3.5. If still unresolved, ask the user one specific question (not "what scope?" — *"Is this a sprint-N→N+1 carry-forward, a mid-slice detour, a context-bloat recovery, or a slice boundary breath?"*) and wait.
 
@@ -121,9 +121,9 @@ If neither signal fires, this is a forward handoff: generate a fresh 4-char hex 
 If `--scope` is missing, resolve from the trigger phrase first, then from the active-context cursor:
 
 - `context bloated` → scope = `sprint-N` where N is the active sprint (whole-session recovery widens scope past the active slice per §6b.1 example `sprint-3-context-bloat-c3d4.md`).
-- `fresh session for VS-N.M` → scope = `vs-N.M` (slice-narrow, mid-slice).
+- `fresh session for VS-N.M.K` → scope = `vs-N.M.K` (slice-narrow, mid-slice).
 - `handoff to next session` at a sprint-close boundary → scope = `sprint-N` with purpose defaulting to `to-(N+1)-handoff` (carry-forward, §6b.6).
-- `hand this off` mid-slice with a known bug detour intent → scope = `vs-N.M`.
+- `hand this off` mid-slice with a known bug detour intent → scope = `vs-N.M.K`.
 
 If `--purpose` is missing, prompt the user with one concrete question naming the resolved scope: *"What's the purpose slug for this `<scope>` handoff? (kebab-case; e.g., `bugfix-auth`, `to-4-handoff`, `context-bloat`)"*. Wait for the user's response; do not invent a slug.
 
@@ -151,8 +151,8 @@ filename="${scope}-${purpose}-${short_id}.md"
 target_path="${handoffs_dir%/}/${filename}"
 ```
 
-Forward example: `<ai-workspace>/.workspace/handoffs/vs-3.2-bugfix-auth-a1b2.md`
-Return example: `<ai-workspace>/.workspace/handoffs/vs-3.2-bugfix-auth-a1b2-return.md`
+Forward example: `<ai-workspace>/.workspace/handoffs/vs-1.1.1-bugfix-auth-a1b2.md`
+Return example: `<ai-workspace>/.workspace/handoffs/vs-1.1.1-bugfix-auth-a1b2-return.md`
 Carry-forward example: `<ai-workspace>/.workspace/handoffs/sprint-3-to-4-handoff-g7h8.md`
 Context-bloat example: `<ai-workspace>/.workspace/handoffs/sprint-3-context-bloat-c3d4.md`
 
@@ -209,7 +209,7 @@ The template file is `templates/handoff.md.tmpl` (authored in Phase 2 T2.3 of th
 
 ```
 {{handoff_type}}        forward | return
-{{scope}}               vs-3.2 | sprint-3 | ...
+{{scope}}               vs-1.1.1 | sprint-3 | ...
 {{purpose}}             bugfix-auth | to-4-handoff | ...
 {{short_id}}            a1b2 | c3d4 | ...
 {{composed_date}}       YYYY-MM-DD
@@ -291,7 +291,7 @@ If auto-extraction produces no candidate, prompt the user:
 
 Eval S4 explicitly rejects vague phrasings ("continue work", "resume slice"); the judge requires the action verb AND the cursor reference (work-item ID, slice-ID, or file path) to appear in section 8 content.
 
-For return handoffs (per S3), section 8 names what the consuming main session C should do — typically a directive like "resume VS-N.M from `work-N.NN` with the auth fix landed; revisit auth TTL hard-code in next tech-debt round". Same concreteness bar.
+For return handoffs (per S3), section 8 names what the consuming main session C should do — typically a directive like "resume VS-N.M.K from `work-N.NN` with the auth fix landed; revisit auth TTL hard-code in next tech-debt round". Same concreteness bar.
 
 ---
 
@@ -348,9 +348,9 @@ Parse `$ARGUMENTS` in bash; never reference `$1` / `$2`:
 
 ```bash
 # $ARGUMENTS is the raw arg string, e.g.:
-#   --scope vs-3.2 --purpose bugfix-auth
+#   --scope vs-1.1.1 --purpose bugfix-auth
 #   --scope sprint --purpose to-4-handoff
-#   --scope vs-3.2 --purpose bugfix-auth --return a1b2
+#   --scope vs-1.1.1 --purpose bugfix-auth --return a1b2
 #
 # Parse by regex via BASH_REMATCH — NEVER bare $1/$2 in a case loop: the
 # slash-command renderer freezes bare positionals at template-render time, so
@@ -401,7 +401,7 @@ Do NOT close the message with a self-congratulatory boilerplate ("Handoff compos
 
 - **Writing the file with an empty section 4.** The section-4 non-empty invariant is the eval's binding cross-scenario green-light criterion. An empty heading, `TBD`, `(none)`, `n/a`, or any single-token placeholder is a FAIL. If you cannot auto-extract candidates AND cannot prompt-and-wait for the user, the only correct action is to stop before writing — never write a placeholder.
 - **Writing the file with an empty section 8.** Same discipline as section 4. Concrete actionable cursor required.
-- **Including a timestamp in the filename.** §6b.1 + the cross-scenario filename regex `^[a-z0-9.-]+-[a-z0-9-]+-[0-9a-f]{4}\.md$` explicitly excludes timestamps; the 4-char hex short-id IS the uniqueness mechanism. Filenames like `vs-3.2-bugfix-auth-20260525-a1b2.md` are FAIL.
+- **Including a timestamp in the filename.** §6b.1 + the cross-scenario filename regex `^[a-z0-9.-]+-[a-z0-9-]+-[0-9a-f]{4}\.md$` explicitly excludes timestamps; the 4-char hex short-id IS the uniqueness mechanism. Filenames like `vs-1.1.1-bugfix-auth-20260525-a1b2.md` are FAIL.
 - **Using a short-id with anything other than exactly 4 lowercase hex characters.** Not 3, not 5, not 8; not uppercase; not non-hex characters. Eval's judge regex is strict.
 - **Generating a new short-id for a return handoff.** Return handoffs reuse the source forward's short-id per §3.4 + §6b.4 chain model. Eval S3 explicitly verifies the return file's short-id equals the forward's.
 - **Running `mkdir -p` on the second invocation when the subdir already exists.** Eval S5 verifies skip-on-present is binding for back-to-back invocations.
@@ -422,7 +422,7 @@ Do NOT close the message with a self-congratulatory boilerplate ("Handoff compos
 
 - **§6b.4 chain model.** Sessions don't "rejoin" — A writes forward, B reads forward and writes return, C reads both and resumes. The forward + return pair is identified by shared short-id; the chain is a three-node sequence mediated by markdown files, not a parent-child tree. Your job is to author one node of the chain per invocation (the forward in S1/S2/S4/S5; the return in S3); the user-side discipline of opening fresh sessions and reading the right doc is what stitches the chain together.
 - **§6b.6 lifecycle.** Handoffs accumulate per sprint. Sprint-close cleanup (owned by `closing-vertical-slice` at the final slice of the sprint, per v0.1 cleanup ownership) wipes all sprint-scope handoffs EXCEPT the carry-forward `sprint-N-to-N+1-handoff-XXXX.md` — that one survives so sprint-(N+1) can bootstrap from it. Your job is to NAME the carry-forward per the §6b.1 pattern (the eval's S1 keys off `sprint-3-to-4-handoff-` literal scope+purpose prefix); the sweep that filters it from the cleanup is downstream.
-- **§15.2 harvest sweep.** `closing-vertical-slice` sweeps slice-scoped handoffs (`vs-N.M-*.md`) at slice-close and surfaces section-4 promote-candidates for memory-bank promotion, source-tagged `[handoff]` (vs. `[report]` for work-item reports). Your job ends at *authoring* section 4 with substantive content; what slice-close does with it later is downstream and not exercised in this eval.
+- **§15.2 harvest sweep.** `closing-vertical-slice` sweeps slice-scoped handoffs (`vs-N.M.K-*.md`) at slice-close and surfaces section-4 promote-candidates for memory-bank promotion, source-tagged `[handoff]` (vs. `[report]` for work-item reports). Your job ends at *authoring* section 4 with substantive content; what slice-close does with it later is downstream and not exercised in this eval.
 - **§6b.7 subagent boundary.** The implementer-agent subagent must never invoke this skill. The skill body's §2 "do NOT auto-invoke" block names this rule, and the eval doc references it as out-of-scope for `evals/handing-off-session.md` (the boundary is enforced upstream via the implementer-agent's tool restrictions per §6.1).
 - **§6b.8 deferrals.** Four known limitations are deferred to v0.2+: in-flight subagent quiesce, multiple parallel detours from the same source, the 35%-context-threshold passive-hint hook, and the carry-forward naming convention finalization. v0.1 treats handoff invocation as user-judgment-driven; the passive hint is not implemented; concurrency semantics are not designed for parallel detours.
 

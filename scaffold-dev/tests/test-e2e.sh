@@ -213,8 +213,8 @@ setup_handoff_fixture() {
   # mirror a real sprint-close scenario where the prior session left one).
   local hdir="$TMP_AI_WORKSPACE/.workspace/handoffs"
   mkdir -p "$hdir"
-  cp "$FIXTURE_BUGFIX/sprint-1-to-2-handoff-carry.md" \
-     "$hdir/sprint-1-to-2-handoff-carry.md"
+  cp "$FIXTURE_BUGFIX/sprint-1.1-to-1.2-handoff-carry.md" \
+     "$hdir/sprint-1.1-to-1.2-handoff-carry.md"
 }
 
 test_e2e_handoff_chain() {
@@ -239,9 +239,9 @@ test_e2e_handoff_chain() {
 
   # Assertion 3 — sd_handoff_compose_path for a forward bugfix
   local fwd_path
-  fwd_path="$(sd_handoff_compose_path "vs-1.1" "bugfix-auth" "$sid")"
+  fwd_path="$(sd_handoff_compose_path "vs-1.1.1" "bugfix-auth" "$sid")"
   assert_eq "forward path" \
-    "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-1.1-bugfix-auth-${sid}.md" \
+    "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-1.1.1-bugfix-auth-${sid}.md" \
     "$fwd_path"
 
   # Render the forward handoff via the template, then write it to fwd_path.
@@ -276,29 +276,29 @@ test_e2e_handoff_chain() {
   # Assertion 4 — rendered file exists and contains the purpose slug
   assert_file_contains "$fwd_path" "bugfix-auth"
 
-  # Assertion 5 — sd_handoff_list with prefix "vs-1.1-" returns the file
+  # Assertion 5 — sd_handoff_list with prefix "vs-1.1.1-" returns the file
   local listed
-  listed="$(sd_handoff_list "vs-1.1-")"
-  assert_contains "list returns forward handoff" "vs-1.1-bugfix-auth-${sid}.md" "$listed"
+  listed="$(sd_handoff_list "vs-1.1.1-")"
+  assert_contains "list returns forward handoff" "vs-1.1.1-bugfix-auth-${sid}.md" "$listed"
 
   # Assertion 6 — sd_handoff_compose_path with --return suffix
   local ret_path
-  ret_path="$(sd_handoff_compose_path "vs-1.1" "bugfix-auth" "$sid" "-return")"
+  ret_path="$(sd_handoff_compose_path "vs-1.1.1" "bugfix-auth" "$sid" "-return")"
   assert_eq "return path" \
-    "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-1.1-bugfix-auth-${sid}-return.md" \
+    "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-1.1.1-bugfix-auth-${sid}-return.md" \
     "$ret_path"
 
   # Drop a minimal return handoff so cleanup has something to remove.
   echo "# return handoff" > "$ret_path"
 
-  # Assertion 7 — sprint cleanup removes vs-1.1-* handoffs but preserves
+  # Assertion 7 — sprint cleanup removes vs-1.1.1-* handoffs but preserves
   # the carry-forward sprint handoff (matches prefix
-  # "sprint-1-to-2-handoff-").
-  sd_handoff_cleanup_sprint "1" "sprint-1-to-2-handoff-"
+  # "sprint-1.1-to-1.2-handoff-").
+  sd_handoff_cleanup_sprint "1.1" "sprint-1.1-to-1.2-handoff-"
   assert_file_missing "$fwd_path"
 
   # Assertion 8 — carry-forward survives the cleanup
-  assert_file_exists "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-1-to-2-handoff-carry.md"
+  assert_file_exists "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-1.1-to-1.2-handoff-carry.md"
 }
 
 test_e2e_handoff_chain

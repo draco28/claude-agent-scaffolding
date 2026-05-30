@@ -111,14 +111,14 @@ test_list_with_prefix() {
   setup_tmp_workspace
   cd "$TMP_AI_WORKSPACE"
   sd_handoff_ensure_dir
-  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-3.2-foo-aaaa.md"
-  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-3.2-bar-bbbb.md"
-  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-4.1-baz-cccc.md"
+  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-1.1.1-foo-aaaa.md"
+  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-1.1.1-bar-bbbb.md"
+  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-2.1.1-baz-cccc.md"
   local out
-  out="$(sd_handoff_list "vs-3.2-")"
+  out="$(sd_handoff_list "vs-1.1.1-")"
   local count
   count="$(echo "$out" | wc -l | tr -d ' ')"
-  assert_eq "2 vs-3.2-* matches" "2" "$count"
+  assert_eq "2 vs-1.1.1-* matches" "2" "$count"
 }
 
 # 10. list with prefix excludes non-matching
@@ -127,16 +127,16 @@ test_list_exclusion() {
   setup_tmp_workspace
   cd "$TMP_AI_WORKSPACE"
   sd_handoff_ensure_dir
-  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-3.2-foo-aaaa.md"
-  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-4.1-baz-cccc.md"
+  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-1.1.1-foo-aaaa.md"
+  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-2.1.1-baz-cccc.md"
   local out
-  out="$(sd_handoff_list "vs-3.2-")"
-  if [[ "$out" == *"vs-4.1"* ]]; then
+  out="$(sd_handoff_list "vs-1.1.1-")"
+  if [[ "$out" == *"vs-2.1.1"* ]]; then
     FAIL=$((FAIL+1))
-    echo "  $(_color_fail 'FAIL') vs-4.1 should be excluded"
+    echo "  $(_color_fail 'FAIL') vs-2.1.1 should be excluded"
   else
     PASS=$((PASS+1))
-    echo "  $(_color_pass 'PASS') vs-4.1 excluded"
+    echo "  $(_color_pass 'PASS') vs-2.1.1 excluded"
   fi
 }
 
@@ -157,12 +157,14 @@ test_cleanup_sprint_removes() {
   setup_tmp_workspace
   cd "$TMP_AI_WORKSPACE"
   sd_handoff_ensure_dir
-  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-3-foo-aaaa.md"
-  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-3.2-bar-bbbb.md"
-  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-3.5-baz-cccc.md"
-  sd_handoff_cleanup_sprint "3"
-  assert_file_missing "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-3-foo-aaaa.md"
-  assert_file_missing "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-3.2-bar-bbbb.md"
+  # #28: a sprint is keyed by its dotted sprint_id ("1.1"); cleanup sweeps both
+  # sprint-scoped (sprint-1.1-*) and 3-field slice handoffs (vs-1.1.*-*).
+  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-1.1-foo-aaaa.md"
+  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-1.1.1-bar-bbbb.md"
+  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-1.1.2-baz-cccc.md"
+  sd_handoff_cleanup_sprint "1.1"
+  assert_file_missing "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-1.1-foo-aaaa.md"
+  assert_file_missing "$TMP_AI_WORKSPACE/.workspace/handoffs/vs-1.1.1-bar-bbbb.md"
 }
 
 # 13. cleanup_sprint preserves carry-forward exception
@@ -171,11 +173,11 @@ test_cleanup_carry_forward() {
   setup_tmp_workspace
   cd "$TMP_AI_WORKSPACE"
   sd_handoff_ensure_dir
-  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-3-foo-aaaa.md"
-  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-3-to-4-handoff-bbbb.md"
-  sd_handoff_cleanup_sprint "3" "sprint-3-to-4-handoff-"
-  assert_file_missing "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-3-foo-aaaa.md"
-  assert_file_exists "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-3-to-4-handoff-bbbb.md"
+  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-1.1-foo-aaaa.md"
+  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-1.1-to-1.2-handoff-bbbb.md"
+  sd_handoff_cleanup_sprint "1.1" "sprint-1.1-to-1.2-handoff-"
+  assert_file_missing "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-1.1-foo-aaaa.md"
+  assert_file_exists "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-1.1-to-1.2-handoff-bbbb.md"
 }
 
 # 14. cleanup_sprint doesn't touch other sprints
@@ -184,11 +186,11 @@ test_cleanup_isolates_sprint() {
   setup_tmp_workspace
   cd "$TMP_AI_WORKSPACE"
   sd_handoff_ensure_dir
-  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-3-foo-aaaa.md"
-  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-4-bar-bbbb.md"
-  sd_handoff_cleanup_sprint "3"
-  assert_file_missing "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-3-foo-aaaa.md"
-  assert_file_exists  "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-4-bar-bbbb.md"
+  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-1.1-foo-aaaa.md"
+  touch "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-2.1-bar-bbbb.md"
+  sd_handoff_cleanup_sprint "1.1"
+  assert_file_missing "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-1.1-foo-aaaa.md"
+  assert_file_exists  "$TMP_AI_WORKSPACE/.workspace/handoffs/sprint-2.1-bar-bbbb.md"
 }
 
 # 15. cleanup_sprint with no matching files succeeds
@@ -229,8 +231,8 @@ EOF
 # 17. space-delimited flags
 test_parse_flags_space_form() {
   echo "test_parse_flags_space_form:"
-  _parse_into "--scope vs-3.2 --purpose bugfix-auth"
-  assert_eq "scope"     "vs-3.2"      "$PF_SCOPE"
+  _parse_into "--scope vs-1.1.1 --purpose bugfix-auth"
+  assert_eq "scope"     "vs-1.1.1"      "$PF_SCOPE"
   assert_eq "purpose"   "bugfix-auth" "$PF_PURPOSE"
   assert_eq "return_of" ""            "$PF_ROF"
   assert_eq "return_id" ""            "$PF_RID"
@@ -247,7 +249,7 @@ test_parse_flags_equals_form() {
 # 19. --return-of must NOT be captured by the --return pattern (prefix guard)
 test_parse_flags_return_of_not_return() {
   echo "test_parse_flags_return_of_not_return:"
-  _parse_into "--scope vs-3.2 --purpose x --return-of a1b2"
+  _parse_into "--scope vs-1.1.1 --purpose x --return-of a1b2"
   assert_eq "return_of set" "a1b2" "$PF_ROF"
   assert_eq "return_id empty (not stolen by --return)" "" "$PF_RID"
 }
@@ -255,7 +257,7 @@ test_parse_flags_return_of_not_return() {
 # 20. forward --return id captured; return_of stays empty
 test_parse_flags_return_forward() {
   echo "test_parse_flags_return_forward:"
-  _parse_into "--scope vs-3.2 --purpose x --return c3d4"
+  _parse_into "--scope vs-1.1.1 --purpose x --return c3d4"
   assert_eq "return_id" "c3d4" "$PF_RID"
   assert_eq "return_of empty" "" "$PF_ROF"
 }

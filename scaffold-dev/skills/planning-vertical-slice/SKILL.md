@@ -37,9 +37,9 @@ Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/p
 
 **Trigger phrases (description-match):**
 
-- `plan VS-N.M`, `orchestrate VS-N.M`, `start vertical slice N.M`
+- `plan VS-N.M.K`, `orchestrate VS-N.M.K`, `start vertical slice N.M`
 - `start a new vertical slice`, `let's plan the next slice`
-- `/orchestrate VS-N.M` (slash command — see §13 for the `$ARGUMENTS` env-var bridge)
+- `/orchestrate VS-N.M.K` (slash command — see §13 for the `$ARGUMENTS` env-var bridge)
 
 **Do NOT auto-invoke when:**
 
@@ -82,17 +82,17 @@ Never read manifest fields via raw inline `jq -r '...' .workspace/pairing.json` 
 Resolve the fields this skill needs:
 
 ```bash
-ai_workspace="$(sd_manifest_get '.ai_workspace.root')"
-canonical="$(sd_manifest_get '.canonical.root')"
-worktrees_dir="$(sd_manifest_get '.during_dev.worktrees_dir')"
-branch_naming="$(sd_manifest_get '.during_dev.branch_naming')"
-sprint_dir_template="$(sd_manifest_get '.during_dev.sprint_dir_template')"
+ai_workspace="$(sd manifest_get '.ai_workspace.root')"
+canonical="$(sd manifest_get '.canonical.root')"
+worktrees_dir="$(sd manifest_get '.during_dev.worktrees_dir')"
+branch_naming="$(sd manifest_get '.during_dev.branch_naming')"
+sprint_dir_template="$(sd manifest_get '.during_dev.sprint_dir_template')"
 ```
 
 The slice's identity and structure come from the **structured roadmap state** (`project-roadmap.json`) that scaffold-onboard publishes — NOT from grepping `ROADMAP.md`. Resolve its path via the helper, which honors the manifest's `well_known_paths.roadmap_state` and falls back to the canonical workspace location (`${ai_workspace.root}/.workspace/project-roadmap.json`) for older manifests predating workspace-init 0.1.2:
 
 ```bash
-roadmap_state="$(sd_roadmap_state_path)"
+roadmap_state="$(sd roadmap_state_path)"
 ```
 
 Do **NOT** read `.routing.roadmap` as a path — it is a repo *selector* string (`"canonical"` / `"ai_workspace"`), never a filesystem path. The published JSON, carrying explicit `id` + `sprint_id` fields per slice, is the structured contract surface scaffold-onboard and scaffold-dev share (#28).
@@ -102,8 +102,8 @@ Do **NOT** read `.routing.roadmap` as a path — it is a repo *selector* string 
 Look up the slice by its **exact `id`** in `project-roadmap.json`. Never grep a `#### VS-…:` heading, and never string-split the id to recover the sprint — that was the #28 slice-ID arity bug (a 3-part `VS-1.1.1` collapsed to the wrong `sprint-1` instead of `sprint-1.1`).
 
 ```bash
-vs_record="$(sd_roadmap_slice_json "$vs_id")"        # fails if id not found
-sprint_id="$(sd_roadmap_slice_sprint_id "$vs_id")"   # e.g. "1.1" for VS-1.1.1
+vs_record="$(sd roadmap_slice_json "$vs_id")"        # fails if id not found
+sprint_id="$(sd roadmap_slice_sprint_id "$vs_id")"   # e.g. "1.1" for VS-1.1.1
 ```
 
 If no slice matches the id, `sd_roadmap_slice_json` fails and its error lists the available ids; surface this to the user (S3 contract):
@@ -287,7 +287,7 @@ When the user invokes round execution (e.g., "execute round 1", "run round K"), 
 For each work item in the round:
 
 ```bash
-sd_worktree_add "${work_id}" "${vs_id}" "${kebab}" "${sprint_id}"
+sd worktree_add "${work_id}" "${vs_id}" "${kebab}" "${sprint_id}"
 # Creates ${canonical}/${worktrees_dir}/work-${work_id}-${kebab}
 # Branches per ${branch_naming} template — {N} = sprint_id (e.g. sprint-1.1),
 # field-read in §3.3, NOT split from the slice id
@@ -460,9 +460,9 @@ Implementations live in their respective lib files (Phase 3 tasks). macOS-portab
 
 ---
 
-## 13. Slash-command interaction (`/orchestrate VS-N.M`)
+## 13. Slash-command interaction (`/orchestrate VS-N.M.K`)
 
-The `/orchestrate VS-N.M` slash command (`commands/orchestrate.md`) exports the raw arg string as `$ARGUMENTS` (env-var bridge per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
+The `/orchestrate VS-N.M.K` slash command (`commands/orchestrate.md`) exports the raw arg string as `$ARGUMENTS` (env-var bridge per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
 
 Parse `$ARGUMENTS` in bash; never reference `$1` / `$2`. Extract the VS-id (e.g., `VS-1.1.1` — the full 3-part id `VS-<phase>.<sprint>.<slice>`) and proceed to §3 pre-flight.
 

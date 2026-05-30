@@ -1,6 +1,6 @@
 ---
 name: closing-vertical-slice
-description: Run the three-layer slice-close ceremony — auto-demo (halt-on-first-fail), manual-demo, architect-critic review at close depth, `retrospective.md` authoring, memory-bank harvest sweeping `report.md` + handoffs with `[report]`/`[handoff]` source tags, then worktree + branch cleanup (only after harvest). Also owns sprint-close handoff cleanup on the final slice. Use this when the user says `close VS-N.M`, `slice close`, `wrap up the slice`, or `run slice-close ceremony`.
+description: Run the three-layer slice-close ceremony — auto-demo (halt-on-first-fail), manual-demo, architect-critic review at close depth, `retrospective.md` authoring, memory-bank harvest sweeping `report.md` + handoffs with `[report]`/`[handoff]` source tags, then worktree + branch cleanup (only after harvest). Also owns sprint-close handoff cleanup on the final slice. Use this when the user says `close VS-N.M.K`, `slice close`, `wrap up the slice`, or `run slice-close ceremony`.
 ---
 
 # closing-vertical-slice
@@ -11,7 +11,7 @@ The ceremony order is binding. The §11 M2 marker — worktrees + branches remov
 
 Bash helpers in `lib/manifest.sh`, `lib/render.sh`, `lib/worktree.sh`, and `lib/compose.sh` do the bookkeeping (manifest resolution, demo-line parsing, template substitution, filesystem probes, worktree teardown). The judgment work — which §12.2 menu row matches the failing auto-demo, how to phrase the source-tagged harvest candidates, when to count the rejected handoff item as "left in handoff" — happens here, in conversation.
 
-This skill is the slice-close terminal step. It does NOT plan slices (that's `planning-vertical-slice` per §5), does NOT verify per-work-item ACs (that's `implementation-checking` per §12.1), and does NOT author the work-item bodies (that's the `scaffold-dev:implementer-agent` subagent body via `executing-work-item` per §6). It is invoked at the end of the slice when all rounds complete, either by trigger phrase or by the `/close-slice VS-N.M` slash command.
+This skill is the slice-close terminal step. It does NOT plan slices (that's `planning-vertical-slice` per §5), does NOT verify per-work-item ACs (that's `implementation-checking` per §12.1), and does NOT author the work-item bodies (that's the `scaffold-dev:implementer-agent` subagent body via `executing-work-item` per §6). It is invoked at the end of the slice when all rounds complete, either by trigger phrase or by the `/close-slice VS-N.M.K` slash command.
 
 ---
 
@@ -26,10 +26,10 @@ When invoked, you:
 5. **Layer 2 — manual-demo:** surface each `user:` step to the user with the expected outcome; capture pass/fail/partial + notes. Record outcomes in "Demo verification".
 6. **Layer 3 — architect-critic at close depth:** probe via `lib/compose.sh::sd_compose_detect_architect_critic`; if v0.2 present, invoke `Skill(architect-critic:critiquing-spec)` in-conversation at `depth=close` with the slice diff + VS README + work-item specs as context; if absent, emit one warning naming `architect-critic` or `adversarial review` and proceed.
 7. **Retrospective:** render `templates/slice-retrospective.md.tmpl` (7 sections per SPEC §16b) into `${slice_root}/retrospective.md`.
-8. **Memory-bank harvest (§15.2 8-step flow):** read all work-item `report.md` files + all slice-scoped handoffs at `<ai-workspace>/.workspace/handoffs/vs-N.M-*.md`; extract "Suggestions for memory bank" + handoff section-4 promote candidates; categorize by target memory-bank file; surface each candidate prefixed `[report]` or `[handoff]`; consume per-item accept/edit/reject decisions; apply approved items with the provenance trailer `<!-- Added from VS-N.M retrospective, YYYY-MM-DD; source: report | handoff -->`; record harvest outcomes in `retrospective.md`.
+8. **Memory-bank harvest (§15.2 8-step flow):** read all work-item `report.md` files + all slice-scoped handoffs at `<ai-workspace>/.workspace/handoffs/vs-N.M.K-*.md`; extract "Suggestions for memory bank" + handoff section-4 promote candidates; categorize by target memory-bank file; surface each candidate prefixed `[report]` or `[handoff]`; consume per-item accept/edit/reject decisions; apply approved items with the provenance trailer `<!-- Added from VS-N.M.K retrospective, YYYY-MM-DD; source: report | handoff -->`; record harvest outcomes in `retrospective.md`.
 9. **Cleanup (M2):** remove each work-item worktree via `sd_worktree_remove` + delete each work-item branch — ONLY after harvest completes successfully.
 10. **Sprint-close cleanup:** if this is the FINAL slice of the sprint, sweep non-carry-forward handoffs from `<ai-workspace>/.workspace/handoffs/` per §6b.6.
-11. Emit final `VS-N.M closed` handoff message.
+11. Emit final `VS-N.M.K closed` handoff message.
 
 Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/closing-vertical-slice.md` — the four scenarios there are the binding spec.
 
@@ -39,11 +39,11 @@ Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/c
 
 **Trigger phrases (description-match):**
 
-- `close VS-N.M` (e.g., `close VS-1.1.1`)
+- `close VS-N.M.K` (e.g., `close VS-1.1.1`)
 - `slice close`
 - `wrap up the slice`
 - `run slice-close ceremony`
-- `/close-slice VS-N.M` (slash command — see §11 for the `$ARGUMENTS` env-var bridge)
+- `/close-slice VS-N.M.K` (slash command — see §11 for the `$ARGUMENTS` env-var bridge)
 
 All four phrase forms are load-bearing in the description block above — the four eval scenarios trigger via description-match on each, so do not paraphrase any of them in your acknowledgement.
 
@@ -92,18 +92,18 @@ Resolution priority:
 ### 3.3 Read manifest fields + field-read the slice
 
 ```bash
-ai_workspace="$(sd_manifest_get '.ai_workspace.root')"
-canonical="$(sd_manifest_get '.canonical.root')"
-worktrees_dir="$(sd_manifest_get '.during_dev.worktrees_dir')"
-handoffs_dir="$(sd_manifest_get '.routing.handoffs_dir')"   # resolves to <ai-workspace>/.workspace/handoffs/ in v0.1
-sprint_dir_template="$(sd_manifest_get '.during_dev.sprint_dir_template')"
+ai_workspace="$(sd manifest_get '.ai_workspace.root')"
+canonical="$(sd manifest_get '.canonical.root')"
+worktrees_dir="$(sd manifest_get '.during_dev.worktrees_dir')"
+handoffs_dir="$(sd manifest_get '.routing.handoffs_dir')"   # resolves to <ai-workspace>/.workspace/handoffs/ in v0.1
+sprint_dir_template="$(sd manifest_get '.during_dev.sprint_dir_template')"
 ```
 
 Field-read the slice's `sprint_id` from the published structured roadmap — the same contract `planning-vertical-slice` uses. Never split it out of the slice id:
 
 ```bash
-roadmap_state="$(sd_roadmap_state_path)"
-sprint_id="$(sd_roadmap_slice_sprint_id "$vs_id")"   # e.g. "1.1" for VS-1.1.1
+roadmap_state="$(sd roadmap_state_path)"
+sprint_id="$(sd roadmap_slice_sprint_id "$vs_id")"   # e.g. "1.1" for VS-1.1.1
 ```
 
 ### 3.4 Locate the slice directory
@@ -263,7 +263,7 @@ Render `templates/slice-retrospective.md.tmpl` into `${slice_root}/retrospective
 4. **Memory bank harvest** — placeholder; §9 fills it after harvest completes.
 5. **Deviations + deferrals** — anything that landed as accept-with-deferred during demo layers, plus any cross-cutting deviations from the original spec discovered during the rounds.
 6. **Lessons learned** — free-form observations the orchestrator + user captured.
-7. **Reference index** — paths to the VS README, all work-item `spec.md` + `report.md` + `handoff.md`, all `vs-N.M-*.md` handoffs swept in §9, the retrospective itself.
+7. **Reference index** — paths to the VS README, all work-item `spec.md` + `report.md` + `handoff.md`, all `vs-N.M.K-*.md` handoffs swept in §9, the retrospective itself.
 
 Write the file BEFORE harvest runs (so the harvest step can append to section 4 in-place). Eval S1 asserts the `Write` of `retrospective.md` appears AFTER the architect-critic invocation in tool-call order, and BEFORE the harvest Reads of report/handoff files — preserve that ordering.
 
@@ -293,7 +293,7 @@ done
 
 From each `report.md`: extract the **"Suggestions for memory bank"** section (per SPEC §10 report template). May be empty for some reports — that's fine.
 
-From each `vs-N.M-*.md` handoff: extract **section 4 — "What's NOT in memory bank yet"** (per SPEC §6b.5 handoff doc structure). May be empty for some handoffs — that's fine.
+From each `vs-N.M.K-*.md` handoff: extract **section 4 — "What's NOT in memory bank yet"** (per SPEC §6b.5 handoff doc structure). May be empty for some handoffs — that's fine.
 
 ### 9.4 Step 4 — Categorize by target memory-bank file
 
@@ -332,16 +332,16 @@ For each candidate, accept the user's decision: `accept`, `edit: <new text>`, or
 For each `accept` or `edit` decision, append the item to its target memory-bank file at `${ai_workspace}/.claude/memory-bank/<file>.md`. Each applied item carries the literal provenance trailer:
 
 ```
-<!-- Added from VS-N.M retrospective, YYYY-MM-DD; source: report -->
+<!-- Added from VS-N.M.K retrospective, YYYY-MM-DD; source: report -->
 ```
 
 or
 
 ```
-<!-- Added from VS-N.M retrospective, YYYY-MM-DD; source: handoff -->
+<!-- Added from VS-N.M.K retrospective, YYYY-MM-DD; source: handoff -->
 ```
 
-The `source:` field MUST exactly match the candidate's origin (`report` for report-sourced, `handoff` for handoff-sourced). Eval S4 explicitly rejects: missing trailer, missing `source:` field, mis-labeled source (e.g., `source: report` on a handoff-origin item). Eval S1 accepts minor date-format variation but rejects missing `VS-N.M` reference.
+The `source:` field MUST exactly match the candidate's origin (`report` for report-sourced, `handoff` for handoff-sourced). Eval S4 explicitly rejects: missing trailer, missing `source:` field, mis-labeled source (e.g., `source: report` on a handoff-origin item). Eval S1 accepts minor date-format variation but rejects missing `VS-N.M.K` reference.
 
 For `reject` decisions: do NOT write to any memory-bank file. The candidate is dropped. Eval S4 asserts filesystem diff confirms only the count of accepted items appears as memory-bank file modifications.
 
@@ -377,7 +377,7 @@ sd worktree_remove "${work_id}" "${kebab}"
 
 ### 10.2 Branch deletion
 
-Branch deletion is bundled into `sd_worktree_remove` per `lib/worktree.sh`'s contract. After §10.1 completes, all `work-N.NN-*` branches are gone. Final filesystem state shows `${canonical}/${worktrees_dir}/work-${vs_id}.NN-*` directories absent and `git branch` listing in canonical does not contain any `work-${vs_id}.NN-*` branch.
+Branch deletion is bundled into `sd_worktree_remove` per `lib/worktree.sh`'s contract. After §10.1 completes, all `work-N.NN-*` branches are gone. Final filesystem state shows `${canonical}/${worktrees_dir}/work-*` directories absent and `git branch` listing in canonical does not contain any `work-*` branch.
 
 ---
 
@@ -388,7 +388,7 @@ If this slice is the FINAL slice of its sprint (resolved by field-reading the st
 ### 11.1 Detect final-slice condition
 
 ```bash
-roadmap_state="$(sd_roadmap_state_path)"
+roadmap_state="$(sd roadmap_state_path)"
 # Field-read: is there a LATER slice in this same sprint? Compare the slice index
 # (3rd id field) numerically — never grep ROADMAP headings or split on the wrong
 # field (the #28 bug). cur_idx is this slice's index, e.g. "1" from VS-1.1.1.
@@ -423,9 +423,9 @@ Sprint-level retrospective authoring (`sprint-${sprint_n}/sprint-retrospective.m
 
 ---
 
-## 12. Slash-command interaction (`/close-slice VS-N.M`)
+## 12. Slash-command interaction (`/close-slice VS-N.M.K`)
 
-The `/close-slice VS-N.M` slash command (`commands/close-slice.md`) exports the raw arg string as `$ARGUMENTS` (env-var bridge per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
+The `/close-slice VS-N.M.K` slash command (`commands/close-slice.md`) exports the raw arg string as `$ARGUMENTS` (env-var bridge per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
 
 Parse `$ARGUMENTS` in bash; never reference `$1` / `$2`. Extract the VS-id (e.g., `VS-1.1.1` — the full 3-part id `VS-<phase>.<sprint>.<slice>`) and proceed to §3 pre-flight.
 
@@ -452,8 +452,8 @@ Eval S1 / S3 / S4 assert the target subagent's final assistant message indicates
 - **Removing worktrees before harvest completes.** §11 M2 marker is the entire ceremony's discipline. Eval S1 + S4 scan the tool-call log: any `git worktree remove` or `git branch -D work-*` invocation that precedes the `retrospective.md` Write OR precedes any harvest Read fails the scenario.
 - **Removing worktrees on an auto-demo halt.** Eval S2 explicitly asserts no `git worktree remove` invocation appears when ceremony halts in Layer 1. Worktrees + branches stay preserved for user inspection; the user picks the recovery menu option and the ceremony re-runs from §5 on the next pass.
 - **Paraphrasing the source-tag tokens.** The literal `[report]` and `[handoff]` square brackets are load-bearing per eval S1 + S4. Spellings like `(report)`, `<handoff>`, `*report*`, `[Report]`, `[report-sourced]` all fail the assertion.
-- **Mis-labeling the `source:` field in the provenance trailer.** Eval S4 cross-checks each accepted item against its origin: `source: report` for items extracted from `report.md`; `source: handoff` for items extracted from a `vs-N.M-*.md` handoff. Swapping the labels fails the assertion.
-- **Sweeping sprint-scoped handoffs at slice close.** The glob is `${handoffs_dir}/vs-${vs_id}-*.md` — slice-scoped only. Files like `sprint-3-context-bloat-c3d4.md` are sprint-scoped and MUST NOT appear in any Read during harvest. Eval S1 + S4 reject any accidental read of a sprint-scoped handoff.
+- **Mis-labeling the `source:` field in the provenance trailer.** Eval S4 cross-checks each accepted item against its origin: `source: report` for items extracted from `report.md`; `source: handoff` for items extracted from a `vs-N.M.K-*.md` handoff. Swapping the labels fails the assertion.
+- **Sweeping sprint-scoped handoffs at slice close.** The glob is `${handoffs_dir}/${vs_slug}-*.md` (`vs_slug="vs-${vs_id#VS-}"`, e.g. `vs-1.1.1-*.md`) — slice-scoped only; do NOT write `vs-${vs_id}-*.md`, which with the `VS-`-prefixed `vs_id` would resolve to a never-matching `vs-VS-1.1.1-*.md`. Files like `sprint-3-context-bloat-c3d4.md` are sprint-scoped and MUST NOT appear in any Read during harvest. Eval S1 + S4 reject any accidental read of a sprint-scoped handoff.
 - **Silent skip when architect-critic is absent.** Eval S3 rejects silent skip — emit the §7.3 warning naming `architect-critic` or `adversarial review`. Also rejects blocking error — never prompt the user to install architect-critic; never retry the probe.
 - **Invoking architect-critic via Task tool or via `inbox/` / `outbox/` file IPC.** Eval S1 rejects both. The only correct invocation is the in-conversation `Skill(architect-critic:critiquing-spec)` pattern per SPEC §16.3.
 - **Authoring the retrospective BEFORE the architect-critic moment.** Eval S1 asserts the `Write` of `retrospective.md` appears AFTER the architect-critic invocation in tool-call order. The retrospective's section 3 captures the critic's findings; writing it earlier means section 3 is empty.

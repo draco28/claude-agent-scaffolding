@@ -138,7 +138,7 @@ Every vertical slice demoable end-to-end. Demo criteria in slice README with con
 ### 5.1 Entry point
 
 **Skill:** `planning-vertical-slice`. Triggers: "plan VS-N.M.K", "start vertical slice N.M.K", "orchestrate VS-N.M.K".
-**Slash wrapper:** `/orchestrate VS-N.M`.
+**Slash wrapper:** `/orchestrate VS-N.M.K`.
 
 ### 5.2 File/folder conventions
 
@@ -278,7 +278,7 @@ Companion to §6's implementer-agent subagent. Where the subagent handles **plan
 - **Storage:** `<ai-workspace>/.workspace/handoffs/` — **gitignored** (durable per-machine; not synced; doesn't pollute repo). workspace-init owns the parent `.workspace/` namespace per its SPEC §4.3 and seeds the AI-workspace `.gitignore` with `.workspace/handoffs/` per its §8.3; scaffold-dev's `handing-off-session` skill lazily creates the `handoffs/` subdir on first invocation via `mkdir -p`.
 - **Naming:** `<scope>-<purpose>-<short-id>.md` (no timestamp; short-id is 4-char hex for uniqueness). Examples:
   - `vs-1.1.1-bugfix-auth-a1b2.md` (mid-slice bug-fix detour from VS-1.1.1)
-  - `sprint-1-context-bloat-c3d4.md` (sprint-3 mid-sprint context recovery)
+  - `sprint-3-context-bloat-c3d4.md` (sprint-3 mid-sprint context recovery)
   - `vs-1.1.1-techdebt-logging-e5f6.md` (mid-slice tech-debt detour)
   - `sprint-3-to-4-handoff-g7h8.md` (carry-forward sprint→sprint transition; see §6b.6)
 
@@ -348,7 +348,7 @@ Every handoff doc — forward or return — uses these sections (parser-friendly
 ### 6b.7 Composition with peer skills
 
 - **§7.1 catalog:** `handing-off-session` is the 8th orchestrator-facing skill.
-- **§15.2 harvest:** `closing-vertical-slice` sweeps the slice's handoffs (`vs-N.M-*.md`) alongside work-item reports during memory-bank harvest; promote-worthy items in handoff section 4 surface for user accept/edit/reject (source-tagged so user can distinguish report-origin from handoff-origin).
+- **§15.2 harvest:** `closing-vertical-slice` sweeps the slice's handoffs (`vs-N.M.K-*.md`) alongside work-item reports during memory-bank harvest; promote-worthy items in handoff section 4 surface for user accept/edit/reject (source-tagged so user can distinguish report-origin from handoff-origin).
 - **Subagent boundary rule (binding):** subagent = planned work-item *inside* slice; handoff = anything taking you *out* of planned slice work. The implementer-agent subagent must never invoke `handing-off-session`. The orchestrator may invoke either, per use case in §6b.2.
 
 ### 6b.8 Known limitations (deferred to v0.2+)
@@ -366,9 +366,9 @@ Every handoff doc — forward or return — uses these sections (parser-friendly
 
 | Skill | Trigger | Body responsibility |
 |---|---|---|
-| `planning-vertical-slice` | "plan VS-N.M", "orchestrate VS-N.M" | Full VS lifecycle (decomposition → rounds → spec authoring → grill-me offer → critic invocation → per-round subagent invocation + return handling → round-close → slice-close) |
+| `planning-vertical-slice` | "plan VS-N.M.K", "orchestrate VS-N.M.K" | Full VS lifecycle (decomposition → rounds → spec authoring → grill-me offer → critic invocation → per-round subagent invocation + return handling → round-close → slice-close) |
 | `implementation-checking` | "verify work item", "check round K" | Per-work-item gate: AC verification + report cross-check + project rule checks (§12) |
-| `closing-vertical-slice` | "close VS-N.M", "slice close" | 3-layer slice-close ceremony (§14); memory bank harvest (§15.2) including handoff sweep per §6b.7 |
+| `closing-vertical-slice` | "close VS-N.M.K", "slice close" | 3-layer slice-close ceremony (§14); memory bank harvest (§15.2) including handoff sweep per §6b.7 |
 | `recording-architecture-decision` | "ADR for X" | Manifest-routed: product ADR → canonical; process ADR → AI workspace |
 | `appending-changelog-entry` | "log changelog" | Keep-a-Changelog 1.1.0 |
 | `authoring-runbook` | "write runbook" | SRE-style runbook template |
@@ -387,7 +387,7 @@ Every handoff doc — forward or return — uses these sections (parser-friendly
 
 ### 7.4 Slash command wrappers (3)
 
-- `/orchestrate VS-N.M` — wraps `planning-vertical-slice`
+- `/orchestrate VS-N.M.K` — wraps `planning-vertical-slice`
 - `/work-item <handoff-path>` — wraps `executing-work-item` (for manual-session fallback per §6.4)
 - `/impl-check <work-item-id-or-round>` — wraps `implementation-checking`
 
@@ -544,7 +544,7 @@ If architect-critic NOT installed: warn user ("adversarial review skipped — ar
 
 ### 14.4 Slice-close decision + retrospective + memory bank harvest
 
-All pass + challenges resolved → VS closes → orchestrator authors `retrospective.md` (format §16b) → memory bank harvest (§15.2) → **NOW removes worktrees + deletes branches** (deferred from round close per §11) → surfaces "VS-N.M closed".
+All pass + challenges resolved → VS closes → orchestrator authors `retrospective.md` (format §16b) → memory bank harvest (§15.2) → **NOW removes worktrees + deletes branches** (deferred from round close per §11) → surfaces "VS-N.M.K closed".
 
 Any failure → menu: re-open VS with fix-up round / close-with-deferred (must be demoable despite caveats) / abandon VS.
 
@@ -564,12 +564,12 @@ Reuses scaffold-onboard's tiered pattern. Tier 0 always preloaded by SessionStar
 
 `closing-vertical-slice` skill at slice close (§14.4):
 1. Reads all work-item `report.md` files for the VS
-2. Reads all slice handoffs at `<ai-workspace>/.workspace/handoffs/vs-N.M-*.md` (per §6b)
+2. Reads all slice handoffs at `<ai-workspace>/.workspace/handoffs/vs-N.M.K-*.md` (per §6b)
 3. Extracts: (a) "Suggestions for memory bank" sections from reports, and (b) section 4 ("What's NOT in memory bank yet") promote-worthy items from handoffs
 4. Categorizes by target memory-bank file
 5. Surfaces to user with proposed target + edit per suggestion (source-tagged: `[report]` or `[handoff]` so user can distinguish origin)
 6. User approves/edits/rejects per item
-7. Applies with provenance trailer: `<!-- Added from VS-N.M retrospective, YYYY-MM-DD; source: report | handoff -->`
+7. Applies with provenance trailer: `<!-- Added from VS-N.M.K retrospective, YYYY-MM-DD; source: report | handoff -->`
 8. Records harvest outcomes in retrospective.md (including which handoff items were promoted vs left in handoff)
 
 ### 15.3 File structure additions
@@ -627,7 +627,7 @@ Never auto-invoked.
 
 ## 16b. Retrospective formats
 
-### Slice retrospective (`VS-N.M-<kebab>/retrospective.md`, 7 sections)
+### Slice retrospective (`VS-N.M.K-<kebab>/retrospective.md`, 7 sections)
 
 Slice metadata · Demo verification results · Architect-critic findings (both moments with resolutions) · Memory bank harvest · Deviations + deferrals · Lessons learned · Reference index.
 
