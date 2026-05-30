@@ -108,14 +108,15 @@ sprint_id="$(sd roadmap_slice_sprint_id "$vs_id")"   # e.g. "1.1" for VS-1.1.1
 
 ### 3.4 Locate the slice directory
 
-Resolve, keying the sprint segment off the field-read `sprint_id` (`vs_id` is the full 3-part id, e.g. `VS-1.1.1`):
+The sprint segment is the field-read `sprint_id`; the kebab suffix was chosen at planning time and isn't field-read here, so locate the existing dir by glob (`vs_id` is the full 3-part id, e.g. `VS-1.1.1`):
 
 ```bash
-slice_root="${ai_workspace}/docs/specs/sprint-${sprint_id}/${vs_id}-${vs_kebab}"
+slice_root="$(ls -d "${ai_workspace}/docs/specs/sprint-${sprint_id}/${vs_id}-"*/ 2>/dev/null | head -1)"
+slice_root="${slice_root%/}"
 # → …/docs/specs/sprint-1.1/VS-1.1.1-<kebab>
 ```
 
-If `slice_root` does not exist or contains no `work-*/` subdirectories, surface:
+If `slice_root` is empty or contains no `work-*/` subdirectories, surface:
 
 > Slice `<vs_id>` not found at `<resolved-path>`. Has `planning-vertical-slice` authored this slice yet?
 
@@ -412,14 +413,14 @@ When `is_final_slice_of_sprint=1`:
 
 - Read every handoff in `${handoffs_dir}/`.
 - For each handoff, check its frontmatter or section-1 metadata for a `carry_forward: true` marker (per §6b.5).
-- Delete handoffs WITHOUT the carry-forward marker. Carry-forward handoffs (e.g., `sprint-${sprint_n}-to-${sprint_n+1}-handoff-XXXX.md`) survive into the next sprint.
-- Surface to user: *"Sprint ${sprint_n} closed. Swept N non-carry-forward handoffs; K carry-forward handoffs preserved for sprint ${sprint_n+1}."*.
+- Delete handoffs WITHOUT the carry-forward marker. Carry-forward handoffs (e.g., `sprint-${sprint_id}-to-${next_sprint_id}-handoff-XXXX.md`, where `next_sprint_id` is the next sprint in the roadmap — there is no integer `+1` for a dotted `sprint_id` like `1.1`) survive into the next sprint.
+- Surface to user: *"Sprint ${sprint_id} closed. Swept N non-carry-forward handoffs; K carry-forward handoffs preserved for sprint ${next_sprint_id}."*.
 
 **Ownership lock for v0.1:** sprint-close cleanup lives in this skill, not a separate `closing-sprint` skill (per SPEC §6b.6 settlement during PLAN). A future v0.2 may split this out, but v0.1's surface is a single slice-close skill with sprint-close as a conditional final step.
 
 ### 11.3 Sprint retrospective (out of scope for this skill)
 
-Sprint-level retrospective authoring (`sprint-${sprint_n}/sprint-retrospective.md`, 6 sections per §16b) is handled by `writing-sprint-retrospective` (Phase 1 task T1.7, separate skill). This skill does NOT author the sprint retrospective — only the slice retrospective + the conditional handoff sweep.
+Sprint-level retrospective authoring (`sprint-${sprint_id}/sprint-retrospective.md`, 6 sections per §16b) is handled by `writing-sprint-retrospective` (Phase 1 task T1.7, separate skill). This skill does NOT author the sprint retrospective — only the slice retrospective + the conditional handoff sweep.
 
 ---
 

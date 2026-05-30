@@ -109,15 +109,17 @@ sprint_dir_template="$(sd manifest_get '.during_dev.sprint_dir_template')"
 
 ### 3.4 Locate the work-item directory
 
-Resolve:
+The active slice is recorded in the cursor; its `sprint_id` is **field-read** from the structured roadmap (#28 — never split out of the slice id). Kebabs were chosen at planning time and aren't known here, so locate the existing dir by glob rather than reconstructing it:
 
 ```bash
-work_dir="${ai_workspace}/docs/specs/sprint-${sprint_n}/VS-${vs_id}-${vs_kebab}/work-${work_id}-${work_kebab}"
+vs_id="$(sd state_active_slice)"                    # e.g. VS-1.1.1
+sprint_id="$(sd roadmap_slice_sprint_id "$vs_id")"  # e.g. 1.1 (field-read)
+work_dir="$(ls -d "${ai_workspace}/docs/specs/sprint-${sprint_id}/${vs_id}-"*/"work-${work_id}-"* 2>/dev/null | head -1)"
 ```
 
-If the directory or its `spec.md` does not exist, surface:
+If `work_dir` is empty or its `spec.md` does not exist, surface:
 
-> Work item `<work_id>` not found at `<resolved-path>`. Has `planning-vertical-slice` authored this slice yet?
+> Work item `<work_id>` not found under `${ai_workspace}/docs/specs/sprint-${sprint_id}/${vs_id}-*/`. Has `planning-vertical-slice` authored this slice yet?
 
 Then stop. Do NOT auto-create the directory; spec authoring is the orchestrator's lane.
 
