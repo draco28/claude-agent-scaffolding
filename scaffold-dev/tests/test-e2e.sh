@@ -16,6 +16,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/_helpers.sh"
 source "$HERE/../lib/_helpers.sh"
 source "$HERE/../lib/manifest.sh"
+source "$HERE/../lib/roadmap.sh"
 source "$HERE/../lib/state.sh"
 source "$HERE/../lib/worktree.sh"
 source "$HERE/../lib/verify.sh"
@@ -48,7 +49,7 @@ setup_test_workspace() {
 
 <!-- sd:cursor:start -->
 ```json
-{"sprint":"1","slice":"VS-1.1","work_item":"1.01"}
+{"sprint":"1.1","slice":"VS-1.1.1","work_item":"1.01"}
 ```
 <!-- sd:cursor:end -->
 EOF
@@ -62,8 +63,14 @@ EOF
   mkdir -p "$TMP_CANONICAL/docs"
   cp "$FIXTURE_MIN/ROADMAP.md" "$TMP_CANONICAL/docs/ROADMAP.md"
 
+  # Structured roadmap state published to the workspace contract path
+  # (well_known_paths.roadmap_state) — what scaffold-onboard's
+  # sf_roadmap_publish_state writes; scaffold-dev field-reads it (#28 Phase 3).
+  cp "$FIXTURE_MIN/project-roadmap.json" "$TMP_AI_WORKSPACE/.workspace/project-roadmap.json"
+
   # Sprint slice dir under ai_workspace (per during_dev.sprint_dir_template).
-  TMP_SLICE_DIR="$TMP_AI_WORKSPACE/docs/specs/sprint-1/VS-1.1"
+  # #28 Phase 3: sprint dir keys off the dotted sprint_id (1.1), slice is 3-part.
+  TMP_SLICE_DIR="$TMP_AI_WORKSPACE/docs/specs/sprint-1.1/VS-1.1.1"
   mkdir -p "$TMP_SLICE_DIR"
 
   # Patch the manifest's routing.roadmap so sd_manifest_get .routing.roadmap
@@ -91,15 +98,22 @@ test_e2e_minimal_sprint() {
   roadmap_route="$(sd_manifest_get '.routing.roadmap')"
   assert_eq "routing.roadmap == canonical" "canonical" "$roadmap_route"
 
+  # Assertion 2b — field-read the slice from the published structured roadmap:
+  # sprint_id comes from the record, NOT from splitting the 3-part id (#28).
+  local fr_sprint
+  fr_sprint="$(sd_roadmap_slice_sprint_id "VS-1.1.1")"
+  assert_eq "field-read sprint_id == 1.1" "1.1" "$fr_sprint"
+
   # Assertion 3 — initial cursor read from seeded 05-active-context.md
   local cursor sprint
   cursor="$(sd_state_read_cursor)"
   sprint="$(echo "$cursor" | jq -r .sprint)"
-  assert_eq "initial cursor sprint == 1" "1" "$sprint"
+  assert_eq "initial cursor sprint == 1.1" "1.1" "$sprint"
 
   # Assertion 4 — sd_worktree_add for work-item 1.01 creates the expected path
+  # ({N}=sprint_id 1.1 passed as 4th arg, slice id is 3-part)
   local wt1
-  wt1="$(sd_worktree_add "1.01" "VS-1.1" "init-models" 2>/dev/null)"
+  wt1="$(sd_worktree_add "1.01" "VS-1.1.1" "init-models" "1.1" 2>/dev/null)"
   assert_eq "wt1 path" "$TMP_CANONICAL/.worktrees/work-1.01-init-models" "$wt1"
 
   # Assertion 5 — branch name follows the manifest template
@@ -140,7 +154,7 @@ EOF
 
   # Assertion 8 — sd_harvest_handoffs returns empty (no handoffs in fixture)
   local h2
-  h2="$(sd_harvest_handoffs "VS-1.1")"
+  h2="$(sd_harvest_handoffs "VS-1.1.1")"
   assert_eq "harvest_handoffs empty" "[]" "$h2"
 
   # Assertion 9 — sd_merge_work_item merges branch into main
@@ -156,7 +170,7 @@ EOF
 
   # Repeat for work-item 1.02 — second iteration
   local wt2
-  wt2="$(sd_worktree_add "1.02" "VS-1.1" "list-items" 2>/dev/null)"
+  wt2="$(sd_worktree_add "1.02" "VS-1.1.1" "list-items" "1.1" 2>/dev/null)"
   echo "list_items = fn" > "$wt2/list.txt"
   git -C "$wt2" add list.txt
   local branch2="slice/sprint-1.1-work-1.02-list-items"

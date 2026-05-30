@@ -166,7 +166,8 @@ setup_tmp_workspace() {
   },
   "well_known_paths": {
     "master_spec": "\${ai_workspace.root}/docs/MASTER-SPEC.md",
-    "memory_bank": "\${ai_workspace.root}/.claude/memory-bank"
+    "memory_bank": "\${ai_workspace.root}/.claude/memory-bank",
+    "roadmap_state": "\${ai_workspace.root}/.workspace/project-roadmap.json"
   },
   "git_policy": {
     "project_type":           "${project_type}",

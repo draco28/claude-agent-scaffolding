@@ -2,6 +2,19 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.1.6] — 2026-05-30
+
+### Fixed
+- **#28 Phase 3 — consume the 3-part slice id by field-read instead of heading-grep (cross-plugin contract fix).** scaffold-onboard authors 3-part slice ids (`VS-<phase>.<sprint>.<slice>`, e.g. `VS-1.1.1`) with an explicit `sprint_id` (`1.1`), but scaffold-dev located slices by grepping a `#### VS-…:` heading in `ROADMAP.md` and recovered the sprint by string-splitting the id's **first** field — so `VS-1.1.1` mis-derived `sprint-1` instead of the real `sprint-1.1` (and `closing-vertical-slice` did the same via an `awk -F'[.:]'` over a `#### VS-${sprint_n}\.…:` grep). scaffold-dev now **field-reads** the slice from the structured `project-roadmap.json` that scaffold-onboard publishes (manifest `well_known_paths.roadmap_state`): it matches `id` exactly and reads `sprint_id` as a field — no id parsing — so every path/branch sprint segment (`sprint-<sprint_id>`) is correct. This also resolves the pre-existing bug where `planning-vertical-slice` read `.routing.roadmap` (a repo *selector* like `"canonical"`) as if it were a filesystem path.
+
+### Added
+- **`lib/roadmap.sh`** — `sd_roadmap_state_path` (resolve the published `project-roadmap.json` via `well_known_paths.roadmap_state`, with a forward-compat fallback to `${ai_workspace.root}/.workspace/project-roadmap.json` and an unresolved-placeholder guard), `sd_roadmap_slice_json` (exact-`id` lookup, fails listing available ids), `sd_roadmap_slice_field`, and `sd_roadmap_slice_sprint_id`. New `tests/test-roadmap.sh` (10 assertions).
+
+### Changed
+- **`lib/worktree.sh`** — `_sd_worktree_branch_name` / `sd_worktree_add` take an explicit `sprint_id` (the branch template's `{N}` sprint segment); when omitted it is derived from the 3-part id by dropping the slice segment (`VS-1.1.1` → `1.1`), never the bare first field.
+- **`planning-vertical-slice` / `closing-vertical-slice` SKILLs** — rewritten to field-read `id` + `sprint_id` from `project-roadmap.json`; `slice_root` and the sprint-final detection key off `sprint_id`; work-item ids stay compact `<slice-index>.<nn>` (e.g. `1.01`, not the 4-dotted `1.1.1.01`).
+- **Fixtures, test helpers, and `docs/SPEC-scaffold-dev.md`** migrated to the 3-part id / dotted `sprint_id` convention (complete migration per the architect-critic C4 finding): `sprint-fixture-minimal` gains a published `project-roadmap.json`; the shared test manifest declares `well_known_paths.roadmap_state`; `test-e2e`/`test-worktree`/`test-state`/`test-harvest`/`test-merge` updated; SPEC §4.4 + §5.2 specify the 3-part id + field-read contract.
+
 ## [0.1.5] — 2026-05-29
 
 ### Fixed

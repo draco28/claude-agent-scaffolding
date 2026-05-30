@@ -4,7 +4,10 @@
 # convention: <canonical.root>/.worktrees/work-<NN>-<kebab>. Branch name
 # follows the manifest's during_dev.branch_naming template
 #   "slice/sprint-{N}-work-{NN}-{kebab-name}"
-# where {N} is the slice id with the leading "VS-" stripped.
+# where {N} is the SPRINT segment (e.g. "1.1" for slice VS-1.1.1) — field-read
+# from the structured roadmap (sprint_id) by the caller and passed in. It is NOT
+# the slice id and NOT the bare first field of the id; feeding the first field was
+# the #28 slice-ID arity bug (VS-1.1.1 → wrong "sprint-1").
 
 set -u
 
@@ -18,13 +21,21 @@ if ! declare -F sd_manifest_get >/dev/null 2>&1; then
   source "$_SD_LIB_DIR/manifest.sh"
 fi
 
-# _sd_worktree_branch_name <slice-id> <work-id> <kebab>
-# Substitute {N}, {NN}, {kebab-name} in the manifest's branch template.
+# _sd_worktree_branch_name <slice-id> <work-id> <kebab> [sprint-id]
+# Substitute {N}, {NN}, {kebab-name} in the manifest's branch template. {N} is the
+# sprint segment: the caller field-reads sprint_id and passes it. When omitted, it
+# is derived from the slice id by dropping the trailing slice segment
+# (VS-1.1.1 → 1.1) — which equals sprint_id for the 3-part contract — NEVER the
+# bare first field.
 _sd_worktree_branch_name() {
-  local slice_id="$1" work_id="$2" kebab="$3"
+  local slice_id="$1" work_id="$2" kebab="$3" sprint_id="${4:-}"
   local tpl
   tpl="$(sd_manifest_get '.during_dev.branch_naming')" || tpl="slice/sprint-{N}-work-{NN}-{kebab-name}"
-  local n="${slice_id#VS-}"
+  local n="$sprint_id"
+  if [[ -z "$n" ]]; then
+    n="${slice_id#VS-}"   # strip the VS- prefix
+    n="${n%.*}"           # drop the trailing .<slice> segment → sprint_id
+  fi
   local branch="$tpl"
   branch="${branch//\{N\}/$n}"
   branch="${branch//\{NN\}/$work_id}"
@@ -32,16 +43,17 @@ _sd_worktree_branch_name() {
   echo "$branch"
 }
 
-# sd_worktree_add <work-id> <slice-id> <kebab>
+# sd_worktree_add <work-id> <slice-id> <kebab> [sprint-id]
 # Creates a worktree under <canonical.root>/.worktrees and a fresh branch.
 # Echoes the absolute worktree path on stdout. Branches from canonical's
-# default_branch (typically main).
+# default_branch (typically main). sprint-id (field-read from the roadmap) feeds
+# the branch template's {N} sprint segment.
 sd_worktree_add() {
-  local work_id="$1" slice_id="$2" kebab="$3"
+  local work_id="$1" slice_id="$2" kebab="$3" sprint_id="${4:-}"
   local canonical default_branch branch wt_path
   canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "no canonical.root"; return 1; }
   default_branch="$(sd_manifest_get '.canonical.default_branch')" || default_branch="main"
-  branch="$(_sd_worktree_branch_name "$slice_id" "$work_id" "$kebab")"
+  branch="$(_sd_worktree_branch_name "$slice_id" "$work_id" "$kebab" "$sprint_id")"
   wt_path="${canonical}/.worktrees/work-${work_id}-${kebab}"
 
   mkdir -p "${canonical}/.worktrees" || return 1

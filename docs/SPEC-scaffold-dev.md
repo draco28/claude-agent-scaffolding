@@ -123,7 +123,9 @@ The split is **subagent-bounded**, not session-bounded (CHANGED from prior versi
 
 ### 4.4 Hierarchy + numbering
 
-Phase (~4, no prefix) → Sprint (numbering scope) → Vertical slice (`VS-N.M`) → Work item (`N.NN`) → Round (strict-layer DAG within slice).
+Phase (~4, no prefix) → Sprint (`sprint_id` = `<phase>.<sprint>`, e.g. `1.1`) → Vertical slice (3-part `VS-<phase>.<sprint>.<slice>`, e.g. `VS-1.1.1`) → Work item (`<slice-index>.<nn>`, e.g. `1.01`) → Round (strict-layer DAG within slice).
+
+**Slice-ID arity + field-read contract (#28).** scaffold-onboard authors the canonical 3-part slice id and publishes a structured `project-roadmap.json` (manifest `well_known_paths.roadmap_state`) whose slice records carry explicit `id` + `sprint_id` fields. scaffold-dev **field-reads** `id` (exact match) and `sprint_id` from that JSON — it never greps a `#### VS-…:` heading and never string-splits the id to recover the sprint (the old approach mis-derived `sprint-1` from `VS-1.1.1`). The sprint segment of every path/branch (`sprint-<sprint_id>`) keys off the field-read `sprint_id`, not the id's first field.
 
 ### 4.5 Demoable definition
 
@@ -135,15 +137,15 @@ Every vertical slice demoable end-to-end. Demo criteria in slice README with con
 
 ### 5.1 Entry point
 
-**Skill:** `planning-vertical-slice`. Triggers: "plan VS-N.M", "start vertical slice N.M", "orchestrate VS-N.M".
+**Skill:** `planning-vertical-slice`. Triggers: "plan VS-N.M.K", "start vertical slice N.M.K", "orchestrate VS-N.M.K".
 **Slash wrapper:** `/orchestrate VS-N.M`.
 
 ### 5.2 File/folder conventions
 
 ```
-docs/specs/sprint-N/VS-N.M-<kebab-name>/
+docs/specs/sprint-<sprint_id>/VS-<phase>.<sprint>.<slice>-<kebab-name>/   # e.g. sprint-1.1/VS-1.1.1-init-models/
 ├── README.md
-├── work-N.NN-<kebab>/
+├── work-<slice-index>.<nn>-<kebab>/
 │   ├── spec.md
 │   ├── handoff.md
 │   └── report.md
@@ -275,9 +277,9 @@ Companion to §6's implementer-agent subagent. Where the subagent handles **plan
 - **Slash wrapper:** `/handoff [--scope sprint|slice|mid-slice|bugfix|techdebt] [--purpose "<short slug>"]`
 - **Storage:** `<ai-workspace>/.workspace/handoffs/` — **gitignored** (durable per-machine; not synced; doesn't pollute repo). workspace-init owns the parent `.workspace/` namespace per its SPEC §4.3 and seeds the AI-workspace `.gitignore` with `.workspace/handoffs/` per its §8.3; scaffold-dev's `handing-off-session` skill lazily creates the `handoffs/` subdir on first invocation via `mkdir -p`.
 - **Naming:** `<scope>-<purpose>-<short-id>.md` (no timestamp; short-id is 4-char hex for uniqueness). Examples:
-  - `vs-3.2-bugfix-auth-a1b2.md` (mid-slice bug-fix detour from VS-3.2)
-  - `sprint-3-context-bloat-c3d4.md` (sprint-3 mid-sprint context recovery)
-  - `vs-3.2-techdebt-logging-e5f6.md` (mid-slice tech-debt detour)
+  - `vs-1.1.1-bugfix-auth-a1b2.md` (mid-slice bug-fix detour from VS-1.1.1)
+  - `sprint-1-context-bloat-c3d4.md` (sprint-3 mid-sprint context recovery)
+  - `vs-1.1.1-techdebt-logging-e5f6.md` (mid-slice tech-debt detour)
   - `sprint-3-to-4-handoff-g7h8.md` (carry-forward sprint→sprint transition; see §6b.6)
 
 ### 6b.2 Use cases (4)
@@ -302,19 +304,19 @@ When a source session writes a handoff, the source session **terminates** (or ju
 Example bug-fix detour:
 
 ```
-Main session A (mid-slice VS-3.2)
-  └── writes forward handoff:  vs-3.2-bugfix-auth-a1b2.md
+Main session A (mid-slice VS-1.1.1)
+  └── writes forward handoff:  vs-1.1.1-bugfix-auth-a1b2.md
       Main session A terminates (or pauses indefinitely)
 
 Fork session B (bug-fix work)
   reads forward handoff
   fixes the bug
-  └── writes return handoff:   vs-3.2-bugfix-auth-a1b2-return.md
+  └── writes return handoff:   vs-1.1.1-bugfix-auth-a1b2-return.md
       Fork session B terminates
 
 New main session C
   reads BOTH handoffs (forward sets context; return delivers results)
-  resumes VS-3.2 work
+  resumes VS-1.1.1 work
 ```
 
 The "thread" is the sequence A → B → C, mediated by markdown files. Not a parent-child tree.
@@ -352,7 +354,7 @@ Every handoff doc — forward or return — uses these sections (parser-friendly
 ### 6b.8 Known limitations (deferred to v0.2+)
 
 - **In-flight subagent quiesce.** If the orchestrator invokes `handing-off-session` while an implementer-agent subagent is mid-execution, the subagent return is orphaned (no orchestrator to receive it). Documented as user discipline: wait for subagent return before handing off. Detection/enforcement deferred.
-- **Multiple parallel detours from same source.** Naming with short-id keeps file paths unique; concurrency semantics (e.g., two bug-fix detours from VS-3.2 running in parallel) are not designed. Each fork session works independently; new main session at integration time reads all return handoffs.
+- **Multiple parallel detours from same source.** Naming with short-id keeps file paths unique; concurrency semantics (e.g., two bug-fix detours from VS-1.1.1 running in parallel) are not designed. Each fork session works independently; new main session at integration time reads all return handoffs.
 - **35%-context-threshold detection mechanism.** Whether Claude Code exposes session token count to a skill body needs investigation. May degrade to "user-side hint only" if not exposed; user invokes manually based on subjective sense of orchestrator slowdown.
 - **Carry-forward handoff naming convention.** Pattern `sprint-N-to-N+1-handoff-XXXX.md` is provisional; pin during PLAN.
 

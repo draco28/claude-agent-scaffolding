@@ -2,9 +2,9 @@
 
 ## Phase 1: Foundation
 
-### Sprint 1 — bootstrap
+### Sprint 1.1 — bootstrap
 
-#### VS-1.1: init-models
+#### VS-1.1.1: init-models
 
 ##### Work items
 

@@ -1,6 +1,6 @@
 {
   "name": "scaffold-dev",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Sprint-driven implementation workflow for shared Claude/Codex dual-repo workspaces.",
   "author": {
     "name": "Pras"
@@ -17,7 +17,7 @@
     "category": "Coding",
     "capabilities": ["Interactive", "Read", "Write"],
     "defaultPrompt": [
-      "Orchestrate VS-1.1.",
+      "Orchestrate VS-1.1.1.",
       "Execute this work item handoff.",
       "Write a session handoff."
     ],
