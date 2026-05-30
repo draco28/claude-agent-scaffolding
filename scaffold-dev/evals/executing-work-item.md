@@ -19,7 +19,7 @@ This eval validates the *work-item execution skill's* behavior — not the orche
 
 Each scenario is executed inside a single Claude Code subscription session by an orchestrator. The orchestrator is a top-level conversation (or a dispatching subagent) that runs three steps per scenario:
 
-1. **Setup** — orchestrator (or a setup subagent it dispatches) prepares the fixture: tmp dual-repo workspace (canonical + AI workspace siblings with a `.workspace/pairing.json` manifest at the parent), a single work item's `spec.md` + `handoff.md` (per §10 shape, with the 12 standardized sections) + empty `report.md` placeholder at `<ai-workspace>/docs/specs/sprint-N/VS-N.M-<kebab>/work-N.NN-<kebab>/`, and a canonical worktree at `${canonical.root}/.worktrees/work-N.NN-<kebab>` whose branch + clean-state matches the scenario's preconditions. The handoff doc's Header block names the worktree absolute path per §6.5 + §10.
+1. **Setup** — orchestrator (or a setup subagent it dispatches) prepares the fixture: tmp dual-repo workspace (canonical + AI workspace siblings with a `.workspace/pairing.json` manifest at the parent), a single work item's `spec.md` + `handoff.md` (per §10 shape, with the 12 standardized sections) + empty `report.md` placeholder at `<ai-workspace>/docs/specs/sprint-<sprint_id>/VS-N.M.K-<kebab>/work-R.NN-<kebab>/`, and a canonical worktree at `${canonical.root}/.worktrees/work-R.NN-<kebab>` whose branch + clean-state matches the scenario's preconditions. The handoff doc's Header block names the worktree absolute path per §6.5 + §10.
 2. **Trigger** — the harness selects one of the two invocation modes per the scenario's `Invocation mode` field:
    - **Mode A** — orchestrator dispatches a fresh **target subagent** with the trigger phrase as the user message; the target subagent invokes the skill via description-match (or, where named explicitly, via the `/work-item <handoff-path>` slash command).
    - **Mode B** — orchestrator calls `Task(subagent_type="scaffold-dev:implementer-agent", prompt=<§6.2 invocation block referencing the handoff path>)` and treats the Task tool's return payload as the equivalent of the target subagent's final message. The implementer-agent's tool-call log is what the judge inspects.
@@ -63,14 +63,14 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 
 **Setup:**
 - Dual-repo fixture: manifest at the parent, `routing.worktrees_dir` resolves to `${canonical.root}/.worktrees/`.
-- Work item `2.04` exists at `<ai-workspace>/docs/specs/sprint-2/VS-2.1-<kebab>/work-2.04-<kebab>/` with:
+- Work item `1.04` exists at `<ai-workspace>/docs/specs/sprint-2.1/VS-2.1.1-<kebab>/work-1.04-<kebab>/` with:
   - `spec.md` containing 3 unambiguous `auto:` ACs per §14.1 grammar (e.g., `- [ ] auto: \`pytest tests/test_foo.py::test_new_behavior\` → expected: exit 0`, `- [ ] auto: \`grep -q "FEATURE_FLAG_X" src/foo.py\` → expected: exit 0`, `- [ ] auto: \`python -c "from foo import bar; print(bar())"\` → expected: output contains "expected_value"`).
   - `handoff.md` per §10 shape with all 12 sections populated; Header names the worktree absolute path; "Verification commands embedded" section restates the 3 ACs as runnable lines; "Constraints" section states `git_policy: STAGE-not-commit` + subagent return JSON shape.
   - `report.md` exists as an empty template placeholder.
-- Canonical worktree at `${canonical.root}/.worktrees/work-2.04-<kebab>` exists, is on the work-item branch per `during_dev.branch_naming`, has a clean working tree (no uncommitted modifications, no staged changes), and `git -C <worktree> status` returns "nothing to commit, working tree clean".
+- Canonical worktree at `${canonical.root}/.worktrees/work-1.04-<kebab>` exists, is on the work-item branch per `during_dev.branch_naming`, has a clean working tree (no uncommitted modifications, no staged changes), and `git -C <worktree> status` returns "nothing to commit, working tree clean".
 - The implementing changes needed to satisfy the 3 ACs can be authored by a competent implementer-agent given the spec content (i.e., the spec is well-formed and unambiguous — pre-flight will NOT detect gaps).
 
-**Trigger:** target user message: `execute work item 2.04` (Mode A) OR Task-tool prompt referencing the absolute path to `<ai-workspace>/docs/specs/sprint-2/VS-2.1-<kebab>/work-2.04-<kebab>/handoff.md` per §6.2 (Mode B).
+**Trigger:** target user message: `execute work item 1.04` (Mode A) OR Task-tool prompt referencing the absolute path to `<ai-workspace>/docs/specs/sprint-2.1/VS-2.1.1-<kebab>/work-1.04-<kebab>/handoff.md` per §6.2 (Mode B).
 
 **Expected behavior:**
 - Skill triggers via description-match on the "execute work item" trigger phrase (Mode A) or via baked-in system prompt (Mode B).
@@ -86,7 +86,7 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 - **No-commit invariant:** the literal token `git commit` does NOT appear anywhere in the target's tool-call log. Judge scans every Bash invocation's command string. A single occurrence — even in a comment, heredoc, or piped subcommand — is a FAIL. This bullet applies to ALL scenarios but is restated here as the binding green-light criterion.
 - Target's tool-call log shows at least one Read of the handoff path AND at least one Read of the spec path BEFORE any Write/Edit to a worktree source file (pre-flight precedes execution).
 - Target's tool-call log shows at least one Bash invocation containing `git -C <worktree>` (or `cd <worktree> && git`) with a `status` subcommand during the pre-flight phase, positioned BEFORE any source-file edit.
-- Target's tool-call log shows exactly 3 distinct Bash invocations running the 3 `auto:` verification commands in the worktree (path prefix `${canonical.root}/.worktrees/work-2.04-<kebab>` appears in each invocation), each positioned AFTER the source-file edits.
+- Target's tool-call log shows exactly 3 distinct Bash invocations running the 3 `auto:` verification commands in the worktree (path prefix `${canonical.root}/.worktrees/work-1.04-<kebab>` appears in each invocation), each positioned AFTER the source-file edits.
 - Target's tool-call log shows a `Write` (or `Edit`) of `report.md` at the absolute path under the work-item subdir, positioned AFTER the verification commands.
 - Target's tool-call log shows exactly one Bash invocation containing `git -C <worktree> add` (or `cd <worktree> && git add`) with the `.` or `-A` argument, positioned AFTER the report Write.
 - **Return-mode JSON shape:** the target's final structured return matches the complete-mode skeleton exactly: keys `mode`, `report_path`, `summary`, `stage_status` ALL present; `mode` = `"complete"` (literal string); `report_path` is an absolute path starting with `/` and ending in `report.md`; `stage_status` is the literal enum value `"all_staged"` (not `"all"`, not `"staged"`, not `"complete"`). Judge rejects any deviation in key names, missing keys, or non-enum stage_status values.
@@ -100,12 +100,12 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 **Invocation mode:** Mode B (subagent dispatch) — this scenario also exercises the orchestrator's clarification-re-dispatch loop, which is most naturally tested in Mode B where the orchestrator IS the harness's dispatching agent. The harness ALSO runs the first iteration in Mode A to verify the gaps-mode return shape rendering; the multi-call loop assertion is Mode-B only.
 
 **Setup:**
-- Dual-repo fixture identical to S1: manifest present, work item `2.04` exists with `spec.md` + `handoff.md` + empty `report.md` placeholder, worktree clean and on the expected branch.
+- Dual-repo fixture identical to S1: manifest present, work item `1.04` exists with `spec.md` + `handoff.md` + empty `report.md` placeholder, worktree clean and on the expected branch.
 - **Spec.md is deliberately ambiguous:** AC-2 is written as `- [ ] auto: \`grep -q "FEATURE_FLAG_X" src/foo.py\` → expected: exit 0` BUT the spec's "Decisions baked in" section says "TBD: whether FEATURE_FLAG_X should be a constant or a config-file lookup — defer to implementer judgment". AC-3's expected output pattern is `"expected_value"` but spec doesn't define what value that string corresponds to.
 - Orchestrator pre-loads three rounds of clarification responses (one per gap question), each round amending `handoff.md` with a `## Clarifications` section appending the user's answer. After the 3rd round of clarifications, the spec ambiguity is fully resolved.
 - Pre-injected user follow-ups (for the orchestrator's re-dispatch loop): round 1 answer "FEATURE_FLAG_X is a constant in src/constants.py"; round 2 answer "expected_value is the string 'v2-enabled'"; round 3 not actually needed if subagent resolves within 2 iterations — but the orchestrator is configured to stop dispatching after iteration 3 regardless.
 
-**Trigger:** target user message: `handoff at /tmp/fixture/ai_workspace/docs/specs/sprint-2/VS-2.1-<kebab>/work-2.04-<kebab>/handoff.md` (Mode A first-iteration shape verification) AND, for the multi-call loop, orchestrator-driven Task dispatch with the same handoff path per §6.2 (Mode B).
+**Trigger:** target user message: `handoff at /tmp/fixture/ai_workspace/docs/specs/sprint-2.1/VS-2.1.1-<kebab>/work-1.04-<kebab>/handoff.md` (Mode A first-iteration shape verification) AND, for the multi-call loop, orchestrator-driven Task dispatch with the same handoff path per §6.2 (Mode B).
 
 **Expected behavior:**
 - Skill triggers via description-match on the "handoff at /path/to/handoff.md" trigger phrase (Mode A) or via system prompt (Mode B).
@@ -130,8 +130,8 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 **Invocation mode:** Mode B (subagent dispatch) primary, with Mode A also exercised for return-shape verification. The behavioral contract is identical across modes.
 
 **Setup:**
-- Dual-repo fixture identical to S1: manifest present, work item `2.04` exists with `spec.md` + `handoff.md` + empty `report.md` placeholder. Spec is unambiguous (not the S2 case).
-- **Worktree is DIRTY:** the canonical worktree at `${canonical.root}/.worktrees/work-2.04-<kebab>` exists and is on the expected branch, BUT has uncommitted modifications to one or more files (e.g., `src/foo.py` has an unstaged edit from a prior aborted session). `git -C <worktree> status` reports modified-not-staged files.
+- Dual-repo fixture identical to S1: manifest present, work item `1.04` exists with `spec.md` + `handoff.md` + empty `report.md` placeholder. Spec is unambiguous (not the S2 case).
+- **Worktree is DIRTY:** the canonical worktree at `${canonical.root}/.worktrees/work-1.04-<kebab>` exists and is on the expected branch, BUT has uncommitted modifications to one or more files (e.g., `src/foo.py` has an unstaged edit from a prior aborted session). `git -C <worktree> status` reports modified-not-staged files.
 - Pre-injected user follow-ups: none (skill should refuse and return gaps-mode without prompting the user inline; the orchestrator handles surfacing downstream per §6.3).
 
 **Trigger:** target user message: `implement the work item` (paired with handoff path context for Mode A) OR Task dispatch per §6.2 (Mode B).
@@ -160,11 +160,11 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 **Invocation mode:** Mode B (subagent dispatch) primary, with Mode A also exercised. The behavioral contract is identical across modes. The interesting wrinkle this scenario tests is: how does the subagent return when execution proceeds (pre-flight passes, TDD attempted) but the final verification step fails?
 
 **Setup:**
-- Dual-repo fixture identical to S1: manifest present, work item `2.04` with `spec.md` + `handoff.md` + empty `report.md`, clean worktree.
+- Dual-repo fixture identical to S1: manifest present, work item `1.04` with `spec.md` + `handoff.md` + empty `report.md`, clean worktree.
 - Spec has 3 `auto:` ACs; the implementer-agent can satisfy ACs 1 and 2 cleanly but AC-3 has a subtle requirement that the agent's implementation does NOT satisfy (e.g., AC-3 demands a specific exception class hierarchy that the implementer's code uses a different way). Pre-flight does NOT detect this — the ambiguity-detection sweep is shallow per §6.2 step 1, and the AC text itself is unambiguous; the failure only surfaces when the verification command runs.
 - Pre-injected user follow-ups: none. The skill should complete its work (author report, stage changes) and return complete-mode with the failure noted; the §12.2 "AC verification fail" menu is the ORCHESTRATOR's response, not the subagent's. The subagent's job is to honestly report what happened.
 
-**Trigger:** target user message: `execute work item 2.04` (same trigger as S1; same phrase, different fixture state — verifies trigger-phrase reuse is OK).
+**Trigger:** target user message: `execute work item 1.04` (same trigger as S1; same phrase, different fixture state — verifies trigger-phrase reuse is OK).
 
 **Expected behavior:**
 - Skill triggers and runs pre-flight; pre-flight passes (spec is unambiguous, worktree is clean).
