@@ -410,8 +410,14 @@ next_vs_in_sprint="$(jq -r --arg sid "$sprint_id" --argjson cur "$cur_idx" '
 # next_vs_in_sprint == "0" ⇒ this is the final slice of the sprint.
 if [[ -z "$next_vs_in_sprint" || "$next_vs_in_sprint" == "0" ]]; then
   is_final_slice_of_sprint=1
+  next_sprint_id="$(jq -r --arg sid "$sprint_id" '
+    (.sprints // [] | map(.id)) as $ids
+    | ($ids | index($sid)) as $i
+    | if $i == null or ($i + 1) >= ($ids | length) then empty else $ids[$i + 1] end
+  ' "$roadmap_state")"
 else
   is_final_slice_of_sprint=0
+  next_sprint_id=""
 fi
 ```
 
@@ -421,8 +427,8 @@ When `is_final_slice_of_sprint=1`:
 
 - Read every handoff in `${handoffs_dir}/`.
 - For each handoff, check its frontmatter or section-1 metadata for a `carry_forward: true` marker (per §6b.5).
-- Delete handoffs WITHOUT the carry-forward marker. Carry-forward handoffs (e.g., `sprint-${sprint_id}-to-${next_sprint_id}-handoff-XXXX.md`, where `next_sprint_id` is the next sprint in the roadmap — there is no integer `+1` for a dotted `sprint_id` like `1.1`) survive into the next sprint.
-- Surface to user: *"Sprint ${sprint_id} closed. Swept N non-carry-forward handoffs; K carry-forward handoffs preserved for sprint ${next_sprint_id}."*.
+- Delete handoffs WITHOUT the carry-forward marker. Carry-forward handoffs (e.g., `sprint-${sprint_id}-to-${next_sprint_id}-handoff-XXXX.md`, where `next_sprint_id` is field-read from the next entry in the roadmap `sprints[]` array — there is no integer `+1` for a dotted `sprint_id` like `1.1`) survive into the next sprint. If `next_sprint_id` is empty because this is the final roadmap sprint, preserve only explicitly marked carry-forward handoffs and say there is no next sprint in the published roadmap.
+- Surface to user: *"Sprint ${sprint_id} closed. Swept N non-carry-forward handoffs; K carry-forward handoffs preserved for sprint ${next_sprint_id:-<none in roadmap>}."*.
 
 **Ownership lock for v0.1:** sprint-close cleanup lives in this skill, not a separate `closing-sprint` skill (per SPEC §6b.6 settlement during PLAN). A future v0.2 may split this out, but v0.1's surface is a single slice-close skill with sprint-close as a conditional final step.
 

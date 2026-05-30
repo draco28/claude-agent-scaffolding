@@ -104,6 +104,15 @@ Look up the slice by its **exact `id`** in `project-roadmap.json`. Never grep a 
 ```bash
 vs_record="$(sd roadmap_slice_json "$vs_id")"        # fails if id not found
 sprint_id="$(sd roadmap_slice_sprint_id "$vs_id")"   # e.g. "1.1" for VS-1.1.1
+vs_name="$(printf '%s' "$vs_record" | jq -r '.name // empty')"
+vs_summary="$(printf '%s' "$vs_record" | jq -r '.summary // empty')"
+vs_kebab="$(printf '%s' "$vs_name" \
+  | tr '[:upper:]' '[:lower:]' \
+  | sed -E 's/[[:space:]_]+/-/g; s/[^a-z0-9-]//g; s/-+/-/g; s/^-+|-+$//g')"
+if [[ -z "$vs_kebab" ]]; then
+  echo "VS ${vs_id} has no usable roadmap name for a directory slug; update project-roadmap.json and re-publish via /plan-roadmap." >&2
+  exit 1
+fi
 ```
 
 If no slice matches the id, `sd_roadmap_slice_json` fails and its error lists the available ids; surface this to the user (S3 contract):
@@ -112,7 +121,7 @@ If no slice matches the id, `sd_roadmap_slice_json` fails and its error lists th
 
 The error MUST name the missing id explicitly, cite the resolved `project-roadmap.json` path, and include the literal `/plan-roadmap --add-slice` token. Then stop — do NOT auto-fix the roadmap, do NOT create `docs/specs/sprint-<sprint_id>/` directories, do NOT invoke architect-critic.
 
-When the record is found, read every field directly from `vs_record` (all carried in the structured state — no prose parsing): VS `name`, one-paragraph `summary`, declared `demo_criteria` (the `auto:` / `user:` lines, per SPEC §14.1 grammar; rendered into the slice README at §6), and the traceability arrays `traces_fr` / `traces_nfr` / `traces_backlog`. Carry the trace IDs into every work-item spec and implementation handoff as `traceability_block`; if an array is empty, render `- FR: None`, `- NFR: None`, and `- Backlog: None` explicitly rather than inventing IDs.
+When the record is found, read every field directly from `vs_record` (all carried in the structured state — no prose parsing): VS `name`, one-paragraph `summary`, declared `demo_criteria` (the `auto:` / `user:` lines, per SPEC §14.1 grammar; rendered into the slice README at §6), and the traceability arrays `traces_fr` / `traces_nfr` / `traces_backlog`. Derive `vs_kebab` from the roadmap `name` field before §6.1 uses it in `slice_root`; if the name sanitizes to empty, stop and surface a roadmap data error rather than inventing a directory slug. Carry the trace IDs into every work-item spec and implementation handoff as `traceability_block`; if an array is empty, render `- FR: None`, `- NFR: None`, and `- Backlog: None` explicitly rather than inventing IDs.
 
 ### 3.4 Read MASTER-SPEC + memory bank + cursor
 

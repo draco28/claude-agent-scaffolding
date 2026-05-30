@@ -95,7 +95,7 @@ Parse the raw arg string (Mode: slash-command invocation; see §10 for the env-v
 Extract:
 
 - **`--scope <enum>`** — one of `sprint`, `slice`, `mid-slice`, `bugfix`, `techdebt`, OR a numbered variant: the **sprint** form `^sprint-[0-9]+(\.[0-9]+)?$` (#28: the active sprint id is the dotted `sprint_id`, e.g. `sprint-1.1`; a bare `sprint-N` is tolerated for back-compat) or the **3-part** slice form `^vs-[0-9]+\.[0-9]+\.[0-9]+$` (slice ids are `vs-<phase>.<sprint>.<slice>`, e.g. `vs-1.1.1`, so the slice-scoped prefix the close-time harvest globs is `vs-1.1.1-*`). The §6b.1 filename examples use the numbered forms (`vs-1.1.1-bugfix-auth-a1b2.md`, `sprint-1.1-context-bloat-c3d4.md`, `sprint-1.1-to-1.2-handoff-g7h8.md`), so the numbered forms ARE valid scopes — they expand the §6b.1 enum, they do not violate it. Reject anything outside this set with a one-line error naming the rejected value AND the accepted enum.
-- **`--purpose <slug>`** — the human-readable purpose token. Sanitize to kebab-case: lowercase, replace whitespace + underscores with `-`, strip everything not in `[a-z0-9-]`, collapse repeated dashes, trim leading/trailing dashes. Examples: `"to-4-handoff"`, `"bugfix-auth"`, `"context-bloat"`, `"techdebt-logging"`.
+- **`--purpose <slug>`** — the human-readable purpose token. Sanitize to kebab-case with dotted sprint ids preserved: lowercase, replace whitespace + underscores with `-`, strip everything not in `[a-z0-9.-]`, collapse repeated dashes, trim leading/trailing dashes. Examples: `"to-4-handoff"`, `"to-1.2-handoff"`, `"bugfix-auth"`, `"context-bloat"`, `"techdebt-logging"`.
 - **`--return <short-id>`** OR **`--return-of <forward-filename>`** (optional, mutually exclusive) — presence flips this to a return handoff per §3.4. The `--return` form takes a 4-char hex short-id; the `--return-of` form takes a full forward filename (e.g., `vs-1.1.1-bugfix-auth-a1b2.md`) which you parse to extract the short-id. Both produce the same effect: reuse the existing short-id rather than generate a new one.
 
 If `--scope` or `--purpose` is missing from `$ARGUMENTS`, attempt resolution from conversation context (the trigger phrase + the active-context cursor); see §3.5. If still unresolved, ask the user one specific question (not "what scope?" — *"Is this a sprint-N→N+1 carry-forward, a mid-slice detour, a context-bloat recovery, or a slice boundary breath?"*) and wait.
@@ -122,10 +122,10 @@ If `--scope` is missing, resolve from the trigger phrase first, then from the ac
 
 - `context bloated` → scope = `sprint-N` where N is the active sprint (whole-session recovery widens scope past the active slice per §6b.1 example `sprint-3-context-bloat-c3d4.md`).
 - `fresh session for VS-N.M.K` → scope = `vs-N.M.K` (slice-narrow, mid-slice).
-- `handoff to next session` at a sprint-close boundary → scope = `sprint-N` with purpose defaulting to `to-(N+1)-handoff` (carry-forward, §6b.6).
+- `handoff to next session` at a sprint-close boundary → scope = `sprint-N` with purpose defaulting to `to-(next_sprint_id)-handoff` (carry-forward, §6b.6; preserve dots, e.g. `to-1.2-handoff`).
 - `hand this off` mid-slice with a known bug detour intent → scope = `vs-N.M.K`.
 
-If `--purpose` is missing, prompt the user with one concrete question naming the resolved scope: *"What's the purpose slug for this `<scope>` handoff? (kebab-case; e.g., `bugfix-auth`, `to-4-handoff`, `context-bloat`)"*. Wait for the user's response; do not invent a slug.
+If `--purpose` is missing, prompt the user with one concrete question naming the resolved scope: *"What's the purpose slug for this `<scope>` handoff? (kebab-case; e.g., `bugfix-auth`, `to-1.2-handoff`, `context-bloat`)"*. Wait for the user's response; do not invent a slug.
 
 ### 3.6 Short-id generation (forward handoffs only)
 
@@ -156,7 +156,7 @@ Return example: `<ai-workspace>/.workspace/handoffs/vs-1.1.1-bugfix-auth-a1b2-re
 Carry-forward example: `<ai-workspace>/.workspace/handoffs/sprint-3-to-4-handoff-g7h8.md`
 Context-bloat example: `<ai-workspace>/.workspace/handoffs/sprint-3-context-bloat-c3d4.md`
 
-**Filename pattern invariant (binding per eval cross-scenario):** every filename you write MUST match `^[a-z0-9.-]+-[a-z0-9-]+-[0-9a-f]{4}\.md$` for forward handoffs OR `^[a-z0-9.-]+-[a-z0-9-]+-[0-9a-f]{4}-return\.md$` for return handoffs. The judge rejects: timestamps in the filename, short-ids of fewer or more than 4 hex chars, uppercase hex, missing `.md` extension, scope segments that don't match the invocation context (e.g., `sprint-3-...` when the scenario invoked from VS-3.2 mid-slice).
+**Filename pattern invariant (binding per eval cross-scenario):** every filename you write MUST match `^[a-z0-9.-]+-[a-z0-9.-]+-[0-9a-f]{4}\.md$` for forward handoffs OR `^[a-z0-9.-]+-[a-z0-9.-]+-[0-9a-f]{4}-return\.md$` for return handoffs. The judge rejects: timestamps in the filename, short-ids of fewer or more than 4 hex chars, uppercase hex, missing `.md` extension, scope segments that don't match the invocation context (e.g., `sprint-3-...` when the scenario invoked from VS-3.2 mid-slice), or dotted sprint carry-forward purposes collapsed from `to-1.2-handoff` to `to-12-handoff`.
 
 ### 4.2 Lazy mkdir on first invocation
 

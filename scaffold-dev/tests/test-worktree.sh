@@ -176,7 +176,7 @@ test_branch_sprint_derived_from_3part_id() {
 test_add_path_namespaced_by_sprint_id() {
   echo "test_add_path_namespaced_by_sprint_id:"
   setup_tmp_workspace
-  cd "$TMP_AI_WORKSPACE"
+  cd "$TMP_AI_WORKSPACE" || return 1
   local wt
   wt="$(sd_worktree_add "1.01" "VS-1.1.1" "first-thing" "1.1" 2>/dev/null)"
   assert_eq "wt path includes sprint namespace" "$TMP_CANONICAL/.worktrees/sprint-1.1/work-1.01-first-thing" "$wt"
@@ -187,7 +187,7 @@ test_add_path_namespaced_by_sprint_id() {
 test_same_work_id_kebab_allowed_across_sprints() {
   echo "test_same_work_id_kebab_allowed_across_sprints:"
   setup_tmp_workspace
-  cd "$TMP_AI_WORKSPACE"
+  cd "$TMP_AI_WORKSPACE" || return 1
   local wt1 wt2
   wt1="$(sd_worktree_add "1.01" "VS-1.1.1" "init-models" "1.1" 2>/dev/null)"
   wt2="$(sd_worktree_add "1.01" "VS-2.1.1" "init-models" "2.1" 2>/dev/null)"
@@ -200,7 +200,7 @@ test_same_work_id_kebab_allowed_across_sprints() {
 test_add_uses_manifest_worktrees_dir() {
   echo "test_add_uses_manifest_worktrees_dir:"
   setup_tmp_workspace
-  cd "$TMP_AI_WORKSPACE"
+  cd "$TMP_AI_WORKSPACE" || return 1
   perl -0pi -e 's#\$\{canonical.root\}/\.worktrees#\$\{canonical.root\}/custom-worktrees#' "$TMP_MANIFEST"
   local wt
   wt="$(sd_worktree_add "1.01" "VS-1.1.1" "custom" "1.1" 2>/dev/null)"
