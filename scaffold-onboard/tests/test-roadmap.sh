@@ -84,6 +84,61 @@ test_publish_state_noop_without_manifest() {
   teardown_roadmap
 }
 
+test_publish_state_rejects_unresolved_placeholder() {
+  echo "test_publish_state_rejects_unresolved_placeholder:"
+  setup_roadmap
+  local AW="$TMP_DIR/ai"
+  mkdir -p "$AW/.workspace"
+  # roadmap_state references a placeholder the resolver does not understand;
+  # publish must refuse rather than write a literal-placeholder file (Codex #31 P2).
+  printf '%s\n' '{"ai_workspace":{"root":"'"$AW"'"},"well_known_paths":{"roadmap_state":"${UNKNOWN_VAR}/project-roadmap.json"}}' > "$AW/.workspace/pairing.json"
+  cd "$AW"
+  sf_roadmap_state_init "demo-proj"
+  sf_roadmap_write_phase 1 "P" "Q3" "x"
+  local rc=0
+  sf_roadmap_publish_state >/dev/null 2>&1 || rc=$?
+  assert_eq "publish rejects unresolved placeholder (rc!=0)" "1" "$rc"
+  assert_file_missing "$AW/.workspace/project-roadmap.json"
+  teardown_roadmap
+}
+
+test_publish_state_overwrites_existing_atomically() {
+  echo "test_publish_state_overwrites_existing_atomically:"
+  setup_roadmap
+  local AW="$TMP_DIR/ai"
+  mkdir -p "$AW/.workspace"
+  printf '%s\n' '{"ai_workspace":{"root":"'"$AW"'"},"well_known_paths":{"roadmap_state":"${ai_workspace.root}/.workspace/project-roadmap.json"}}' > "$AW/.workspace/pairing.json"
+  cd "$AW"
+  sf_roadmap_state_init "demo-proj"
+  sf_roadmap_write_phase 1 "Foundation" "Q3 2026" "groundwork"
+  sf_roadmap_write_sprint "1.1" 1 "Bootstrap" "skeleton" 2
+  sf_roadmap_write_slice "VS-1.1.1" "1.1" "auth-flow" "users log in"
+  sf_roadmap_publish_state >/dev/null
+  # Mutate state and re-publish *over* the existing file: the temp+rename must
+  # leave a complete, valid JSON (no partial-write corruption).
+  sf_roadmap_write_slice "VS-1.1.2" "1.1" "logout-flow" "users log out"
+  sf_roadmap_publish_state >/dev/null
+  local pub="$AW/.workspace/project-roadmap.json"
+  assert_file_exists "$pub"
+  assert_eq "re-publish slice count" "2" "$(jq -r '.vertical_slices | length' "$pub")"
+  assert_eq "re-publish keeps newest slice" "VS-1.1.2" "$(jq -r '.vertical_slices[1].id' "$pub")"
+  teardown_roadmap
+}
+
+test_render_propagates_render_failure() {
+  echo "test_render_propagates_render_failure:"
+  setup_roadmap
+  sf_roadmap_state_init "demo-proj"
+  sf_roadmap_write_phase 1 "P" "Q3" "x"
+  # Stub the internal renderer to fail inside a subshell (definition does not
+  # leak to sibling tests). The trailing best-effort publish must NOT mask the
+  # render failure — sf_roadmap_render must return non-zero (Codex #31 P2).
+  local rc=0
+  ( _sf_roadmap_render_to_stdout() { return 1; }; sf_roadmap_render ) >/dev/null 2>&1 || rc=$?
+  assert_eq "render failure propagates (rc!=0)" "1" "$rc"
+  teardown_roadmap
+}
+
 # ============================================================================
 # Base CRUD (5 assertions)
 # ============================================================================
@@ -859,5 +914,8 @@ test_legacy_roadmap_migrates_when_legacy_onboarding_matches
 test_legacy_roadmap_ignored_when_legacy_onboarding_mismatches
 test_publish_state_writes_to_workspace_when_manifest_present
 test_publish_state_noop_without_manifest
+test_publish_state_rejects_unresolved_placeholder
+test_publish_state_overwrites_existing_atomically
+test_render_propagates_render_failure
 
 report_results

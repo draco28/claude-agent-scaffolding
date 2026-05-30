@@ -437,16 +437,42 @@ sf_roadmap_publish_state() {
   manifest="$(sf_discover_manifest)" || { sf_log_info "sf_roadmap_publish_state: no workspace manifest — structured roadmap not published (standalone mode)"; return 0; }
   aw="$(jq -r '.ai_workspace.root // empty' "$manifest" 2>/dev/null)"
   [[ -n "$aw" ]] || { sf_log_error "sf_roadmap_publish_state: manifest missing ai_workspace.root"; return 1; }
+  aw="${aw//\$\{HOME\}/$HOME}"
+  aw="${aw//\$\{USER\}/${USER:-$(id -un)}}"
   # Honor the manifest's routed path; fall back to the canonical workspace location
   # for older manifests that predate the well_known_paths.roadmap_state key.
   routed="$(jq -r '.well_known_paths.roadmap_state // empty' "$manifest" 2>/dev/null)"
   if [[ -n "$routed" ]]; then
-    dest="${routed//'${ai_workspace.root}'/$aw}"
+    # Resolve through the shared manifest resolver so *every* supported placeholder
+    # (${ai_workspace.root}, ${canonical.root}, ${HOME}, …) is expanded — not only
+    # ${ai_workspace.root} as a naive substitution would (Codex #31 P2).
+    _sf_routing_source_mi_resolver
+    dest="$(mi_manifest_resolve "$aw" "$routed")"
   else
     dest="$aw/.workspace/project-roadmap.json"
   fi
+  # Refuse to write a path that still carries an unresolved ${…} placeholder,
+  # rather than silently creating a literal-placeholder file on disk.
+  if [[ -z "$dest" || "$dest" == *'${'* ]]; then
+    sf_log_error "sf_roadmap_publish_state: unresolved roadmap_state path: '${dest:-<empty>}' (from '$routed')"
+    return 1
+  fi
   mkdir -p "$(dirname "$dest")" || return 1
-  cp "$state_file" "$dest" || { sf_log_error "sf_roadmap_publish_state: copy to $dest failed"; return 1; }
+  # Atomic publish: write to a sibling temp then rename into place, so a concurrent
+  # field-reader (scaffold-dev) never observes a half-written project-roadmap.json
+  # when re-rendering over an existing published state (Codex #31 P2).
+  local tmp_dest
+  tmp_dest="$(mktemp "${dest}.XXXXXX")" || { sf_log_error "sf_roadmap_publish_state: mktemp failed near $dest"; return 1; }
+  if ! cp "$state_file" "$tmp_dest"; then
+    sf_log_error "sf_roadmap_publish_state: copy to $tmp_dest failed"
+    rm -f "$tmp_dest"
+    return 1
+  fi
+  if ! mv "$tmp_dest" "$dest"; then
+    sf_log_error "sf_roadmap_publish_state: atomic publish to $dest failed"
+    rm -f "$tmp_dest"
+    return 1
+  fi
   echo "$dest"
 }
 
@@ -464,12 +490,23 @@ sf_roadmap_render() {
   local tmp
   tmp="$(mktemp "${out_path}.XXXXXX")"
 
-  _sf_roadmap_render_to_stdout "$state_path" > "$tmp"
-  mv "$tmp" "$out_path"
+  # Render + write must propagate failure: the best-effort publish below must
+  # never mask a real render/write error (Codex #31 P2 — previously the trailing
+  # `publish || warn` made this function always return 0).
+  if ! _sf_roadmap_render_to_stdout "$state_path" > "$tmp"; then
+    sf_log_error "roadmap render: failed to render markdown for $out_path"
+    rm -f "$tmp"
+    return 1
+  fi
+  if ! mv "$tmp" "$out_path"; then
+    sf_log_error "roadmap render: failed to write $out_path"
+    rm -f "$tmp"
+    return 1
+  fi
 
   # #28 Phase 2: also publish the structured roadmap state into the workspace so
   # scaffold-dev's orchestrator can field-read it. Best-effort — no-op in
-  # standalone mode (no manifest); never blocks the ROADMAP.md write.
+  # standalone mode (no manifest); never blocks (or masks) the ROADMAP.md write.
   sf_roadmap_publish_state "$state_path" >/dev/null \
     || sf_log_warn "roadmap render: structured-state publish failed (ROADMAP.md still written)"
 }
