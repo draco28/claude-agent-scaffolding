@@ -52,7 +52,7 @@ When invoked, you:
 
 **Do NOT auto-invoke when:**
 
-- The handoff path is not provided (Mode A trigger without a path argument) — ask: *"Which handoff doc? (absolute path to a `handoff.md` under `docs/specs/sprint-N/VS-N.M-<kebab>/work-N.NN-<kebab>/`)"* and wait.
+- The handoff path is not provided (Mode A trigger without a path argument) — ask: *"Which handoff doc? (absolute path to a `handoff.md` under `docs/specs/sprint-<sprint_id>/VS-N.M.K-<kebab>/work-N.NN-<kebab>/`)"* and wait.
 - The user wants to *plan* a slice (that's `planning-vertical-slice`), *verify* a completed work item (that's `implementation-checking`), or *close* a slice (that's `closing-vertical-slice`).
 - The user wants to compose a session handoff (that's `handing-off-session`; per §6b.7 the implementer-agent subagent is explicitly forbidden from invoking it).
 
@@ -282,7 +282,7 @@ When a tool boundary surfaces mid-run (e.g., you notice the work item really nee
 
 ## 10. Worktree access discipline (per §6.5)
 
-Your `cwd` is inherited from the orchestrator (AI workspace, Mode B) or from the user's session start directory (Mode A). The worktree is in a DIFFERENT repository — canonical, at `${canonical.root}/${worktrees_dir}/work-N.NN-<kebab>`. You reach it via absolute paths only.
+Your `cwd` is inherited from the orchestrator (AI workspace, Mode B) or from the user's session start directory (Mode A). The worktree is in a DIFFERENT repository — canonical, at `${worktrees_dir}/sprint-<sprint_id>/work-N.NN-<kebab>`. You reach it via absolute paths only.
 
 **Git ops:** always use the `-C` flag with the absolute worktree path:
 

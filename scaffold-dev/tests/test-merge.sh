@@ -23,7 +23,7 @@ test_clean_merge() {
   setup_tmp_workspace
   cd "$TMP_AI_WORKSPACE"
   local wt
-  wt="$(sd_worktree_add "1.01" "VS-1.1" "feat" 2>/dev/null)"
+  wt="$(sd_worktree_add "1.01" "VS-1.1.1" "feat" "1.1" 2>/dev/null)"
   _make_commit "$wt" "feat.txt" "hello"
   local branch
   branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD)"
@@ -40,7 +40,7 @@ test_merge_commit_on_main() {
   setup_tmp_workspace
   cd "$TMP_AI_WORKSPACE"
   local wt
-  wt="$(sd_worktree_add "1.01" "VS-1.1" "feat" 2>/dev/null)"
+  wt="$(sd_worktree_add "1.01" "VS-1.1.1" "feat" "1.1" 2>/dev/null)"
   _make_commit "$wt" "feat.txt" "hello"
   local branch
   branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD)"
@@ -56,7 +56,7 @@ test_file_lands_on_main() {
   setup_tmp_workspace
   cd "$TMP_AI_WORKSPACE"
   local wt
-  wt="$(sd_worktree_add "1.01" "VS-1.1" "feat" 2>/dev/null)"
+  wt="$(sd_worktree_add "1.01" "VS-1.1.1" "feat" "1.1" 2>/dev/null)"
   _make_commit "$wt" "feat.txt" "hello"
   local branch
   branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD)"
@@ -76,7 +76,7 @@ test_conflict_detected() {
   git -C "$TMP_CANONICAL" add conflict.txt
   git -C "$TMP_CANONICAL" commit -q -m "main: conflict.txt"
   local wt
-  wt="$(sd_worktree_add "2.02" "VS-2.1" "fix" 2>/dev/null)"
+  wt="$(sd_worktree_add "2.02" "VS-2.1.1" "fix" "2.1" 2>/dev/null)"
   # Branch from main — but rewrite conflict.txt going backwards.
   echo "branch version" > "$wt/conflict.txt"
   git -C "$wt" add conflict.txt
@@ -105,7 +105,7 @@ test_merge_abort() {
   git -C "$TMP_CANONICAL" add c.txt
   git -C "$TMP_CANONICAL" commit -q -m "main c"
   local wt
-  wt="$(sd_worktree_add "1.01" "VS-1.1" "x" 2>/dev/null)"
+  wt="$(sd_worktree_add "1.01" "VS-1.1.1" "x" "1.1" 2>/dev/null)"
   echo "branch" > "$wt/c.txt"
   git -C "$wt" add c.txt
   git -C "$wt" commit -q -m "branch c"
@@ -130,7 +130,7 @@ test_merge_commits_pending() {
   setup_tmp_workspace
   cd "$TMP_AI_WORKSPACE"
   local wt
-  wt="$(sd_worktree_add "1.01" "VS-1.1" "f" 2>/dev/null)"
+  wt="$(sd_worktree_add "1.01" "VS-1.1.1" "f" "1.1" 2>/dev/null)"
   # Stage a change but DO NOT commit. Merge should commit + merge.
   echo "data" > "$wt/staged.txt"
   git -C "$wt" add staged.txt
@@ -148,7 +148,7 @@ test_remerge_noop() {
   setup_tmp_workspace
   cd "$TMP_AI_WORKSPACE"
   local wt
-  wt="$(sd_worktree_add "1.01" "VS-1.1" "f" 2>/dev/null)"
+  wt="$(sd_worktree_add "1.01" "VS-1.1.1" "f" "1.1" 2>/dev/null)"
   _make_commit "$wt" "f.txt" "x"
   local branch
   branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD)"
@@ -186,7 +186,7 @@ test_merge_multi_commit() {
   setup_tmp_workspace
   cd "$TMP_AI_WORKSPACE"
   local wt
-  wt="$(sd_worktree_add "1.01" "VS-1.1" "f" 2>/dev/null)"
+  wt="$(sd_worktree_add "1.01" "VS-1.1.1" "f" "1.1" 2>/dev/null)"
   _make_commit "$wt" "a.txt" "1"
   _make_commit "$wt" "b.txt" "2"
   local branch
@@ -205,7 +205,7 @@ test_merge_no_ff() {
   setup_tmp_workspace
   cd "$TMP_AI_WORKSPACE"
   local wt
-  wt="$(sd_worktree_add "1.01" "VS-1.1" "f" 2>/dev/null)"
+  wt="$(sd_worktree_add "1.01" "VS-1.1.1" "f" "1.1" 2>/dev/null)"
   _make_commit "$wt" "f.txt" "x"
   local branch
   branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD)"
@@ -233,7 +233,7 @@ test_merge_bogus_branch() {
   setup_tmp_workspace
   cd "$TMP_AI_WORKSPACE"
   local wt
-  wt="$(sd_worktree_add "1.01" "VS-1.1" "f" 2>/dev/null)"
+  wt="$(sd_worktree_add "1.01" "VS-1.1.1" "f" "1.1" 2>/dev/null)"
   set +e
   sd_merge_work_item "$wt" "no-such-branch" 2>/dev/null
   local rc=$?
@@ -250,7 +250,7 @@ test_merge_conflict_logs() {
   git -C "$TMP_CANONICAL" add c.txt
   git -C "$TMP_CANONICAL" commit -q -m "main c"
   local wt
-  wt="$(sd_worktree_add "1.01" "VS-1.1" "f" 2>/dev/null)"
+  wt="$(sd_worktree_add "1.01" "VS-1.1.1" "f" "1.1" 2>/dev/null)"
   echo "b" > "$wt/c.txt"
   git -C "$wt" add c.txt
   git -C "$wt" commit -q -m "branch c"
@@ -271,7 +271,7 @@ test_merge_empty_branch() {
   setup_tmp_workspace
   cd "$TMP_AI_WORKSPACE"
   local wt
-  wt="$(sd_worktree_add "1.01" "VS-1.1" "empty" 2>/dev/null)"
+  wt="$(sd_worktree_add "1.01" "VS-1.1.1" "empty" "1.1" 2>/dev/null)"
   local branch
   branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD)"
   set +e

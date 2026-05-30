@@ -49,7 +49,7 @@ EOF
 test_reports_sweep_basic() {
   echo "test_reports_sweep_basic:"
   setup_tmp_repo
-  local slice="$TMP_DIR/repo/sprint-3/VS-3.2-foo"
+  local slice="$TMP_DIR/repo/sprint-3.2/VS-3.2.1-foo"
   mkdir -p "$slice"
   _mk_report "$slice" "1.01"
   local out
@@ -63,7 +63,7 @@ test_reports_sweep_basic() {
 test_reports_source_tag() {
   echo "test_reports_source_tag:"
   setup_tmp_repo
-  local slice="$TMP_DIR/repo/sprint-3/VS-3.2-foo"
+  local slice="$TMP_DIR/repo/sprint-3.2/VS-3.2.1-foo"
   mkdir -p "$slice"
   _mk_report "$slice" "1.01"
   local source
@@ -75,7 +75,7 @@ test_reports_source_tag() {
 test_reports_work_item() {
   echo "test_reports_work_item:"
   setup_tmp_repo
-  local slice="$TMP_DIR/repo/sprint-3/VS-3.2-foo"
+  local slice="$TMP_DIR/repo/sprint-3.2/VS-3.2.1-foo"
   mkdir -p "$slice"
   _mk_report "$slice" "1.01"
   local work_item
@@ -87,7 +87,7 @@ test_reports_work_item() {
 test_reports_target_file() {
   echo "test_reports_target_file:"
   setup_tmp_repo
-  local slice="$TMP_DIR/repo/sprint-3/VS-3.2-foo"
+  local slice="$TMP_DIR/repo/sprint-3.2/VS-3.2.1-foo"
   mkdir -p "$slice"
   _mk_report "$slice" "1.01"
   local tf
@@ -99,7 +99,7 @@ test_reports_target_file() {
 test_reports_multi_workitem() {
   echo "test_reports_multi_workitem:"
   setup_tmp_repo
-  local slice="$TMP_DIR/repo/sprint-3/VS-3.2-foo"
+  local slice="$TMP_DIR/repo/sprint-3.2/VS-3.2.1-foo"
   mkdir -p "$slice"
   _mk_report "$slice" "1.01"
   _mk_report "$slice" "1.02"
@@ -112,7 +112,7 @@ test_reports_multi_workitem() {
 test_reports_empty() {
   echo "test_reports_empty:"
   setup_tmp_repo
-  local slice="$TMP_DIR/repo/sprint-3/VS-3.2-empty"
+  local slice="$TMP_DIR/repo/sprint-3.2/VS-3.2.1-empty"
   mkdir -p "$slice"
   local out
   out="$(sd_harvest_reports "$slice")"
@@ -163,9 +163,9 @@ test_apply_writes_trailer() {
   mkdir -p "$TMP_AI_WORKSPACE/.claude/memory-bank"
   echo "# Architecture" > "$TMP_AI_WORKSPACE/.claude/memory-bank/04-architecture.md"
   local items='[{"source":"report","work_item":"1.01","target_file":"04-architecture.md","suggestion":"Atomic writes for state."}]'
-  sd_harvest_apply "$items" "VS-3.2"
+  sd_harvest_apply "$items" "VS-3.2.1"
   assert_file_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/04-architecture.md" "Atomic writes for state"
-  assert_file_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/04-architecture.md" "Added from VS-3.2 retrospective"
+  assert_file_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/04-architecture.md" "Added from VS-3.2.1 retrospective"
 }
 
 # 11. apply is idempotent — re-applying same item doesn't duplicate
@@ -176,8 +176,8 @@ test_apply_idempotent() {
   mkdir -p "$TMP_AI_WORKSPACE/.claude/memory-bank"
   echo "# Architecture" > "$TMP_AI_WORKSPACE/.claude/memory-bank/04-architecture.md"
   local items='[{"source":"report","work_item":"1.01","target_file":"04-architecture.md","suggestion":"Identical line."}]'
-  sd_harvest_apply "$items" "VS-3.2"
-  sd_harvest_apply "$items" "VS-3.2"
+  sd_harvest_apply "$items" "VS-3.2.1"
+  sd_harvest_apply "$items" "VS-3.2.1"
   local count
   count="$(grep -c "Identical line" "$TMP_AI_WORKSPACE/.claude/memory-bank/04-architecture.md")"
   assert_eq "no duplicate after re-apply" "1" "$count"
@@ -190,7 +190,7 @@ test_apply_empty() {
   cd "$TMP_AI_WORKSPACE"
   mkdir -p "$TMP_AI_WORKSPACE/.claude/memory-bank"
   set +e
-  sd_harvest_apply '[]' "VS-3.2" 2>/dev/null
+  sd_harvest_apply '[]' "VS-3.2.1" 2>/dev/null
   local rc=$?
   :
   assert_eq "empty apply rc=0" "0" "$rc"

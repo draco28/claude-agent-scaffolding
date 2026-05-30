@@ -1,6 +1,6 @@
 ---
-description: Plan and orchestrate a vertical slice. Usage: /orchestrate VS-N.M
-argument-hint: "VS-N.M"
+description: Plan and orchestrate a vertical slice. Usage: /orchestrate VS-N.M.K
+argument-hint: "VS-N.M.K"
 allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep, Task, SlashCommand
 ---
 
@@ -22,6 +22,6 @@ ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
 Now invoke the skill in-conversation.
 
 **`Skill(scaffold-dev:planning-vertical-slice)`** — pass the VS-id parsed from
-`$SCAFFOLD_DEV_ARGS` (e.g. `VS-1.2`). The skill body owns the slice-planning
+`$SCAFFOLD_DEV_ARGS` (e.g. `VS-1.1.1`). The skill body owns the slice-planning
 loop, manifest discovery, ROADMAP lookup, sprint-spec authoring, work-item
 decomposition, and subagent dispatch per scaffold-dev SPEC §6.

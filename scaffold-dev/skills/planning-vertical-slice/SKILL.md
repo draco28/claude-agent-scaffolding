@@ -1,6 +1,6 @@
 ---
 name: planning-vertical-slice
-description: Drive the full vertical-slice lifecycle — decompose into 4-5 work items, identify rounds via DAG, author specs upfront, offer grill-me at three gates, invoke architect-critic, then per round spawn worktrees + dispatch `scaffold-dev:implementer-agent` subagents. Use this when the user wants to plan VS-3.2, orchestrate VS-3.2, start a new vertical slice, or says "let's plan the next slice". Refuses to start without a workspace-init pairing manifest.
+description: Drive the full vertical-slice lifecycle — decompose into 4-5 work items, identify rounds via DAG, author specs upfront, offer grill-me at three gates, invoke architect-critic, then per round spawn worktrees + dispatch `scaffold-dev:implementer-agent` subagents. Use this when the user wants to plan VS-1.1.1, orchestrate VS-1.1.1, start a new vertical slice, or says "let's plan the next slice". Refuses to start without a workspace-init pairing manifest.
 ---
 
 # planning-vertical-slice
@@ -18,7 +18,7 @@ This skill is the orchestrator's entry point. It does NOT author work-item imple
 When invoked, you:
 
 1. Discover the workspace-init pairing manifest (refuse fail-fast if absent per SPEC §16.1).
-2. Resolve `ROADMAP.md` via manifest `routing.roadmap`, locate the target VS block, read MASTER-SPEC + memory bank Tier 0 + the active-context cursor.
+2. Resolve the published structured roadmap (`project-roadmap.json` via `sd_roadmap_state_path`), field-read the target slice by exact `id` (get `sprint_id` + metadata), read MASTER-SPEC + memory bank Tier 0 + the active-context cursor.
 3. Propose a 4-5 work-item decomposition (each ~200-500 LOC, stable `N.NN` numbering); iterate with the user.
 4. Offer grill-me (gate 1).
 5. Identify rounds via strict-layer DAG topological sort over declared dependencies; user may loosen or tighten.
@@ -37,9 +37,9 @@ Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/p
 
 **Trigger phrases (description-match):**
 
-- `plan VS-N.M`, `orchestrate VS-N.M`, `start vertical slice N.M`
+- `plan VS-N.M.K`, `orchestrate VS-N.M.K`, `start vertical slice N.M`
 - `start a new vertical slice`, `let's plan the next slice`
-- `/orchestrate VS-N.M` (slash command — see §13 for the `$ARGUMENTS` env-var bridge)
+- `/orchestrate VS-N.M.K` (slash command — see §13 for the `$ARGUMENTS` env-var bridge)
 
 **Do NOT auto-invoke when:**
 
@@ -49,7 +49,7 @@ Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/p
 - The user wants to *verify* a completed work item — that's `implementation-checking` (SPEC §12.1).
 - The user wants to *close* a slice whose rounds have all completed — that's `closing-vertical-slice` (SPEC §14).
 
-If the user types something ambiguous like "let's work on VS-3.2", ask: *"Plan VS-3.2 from scratch (decomposition → spec authoring → round-1 execution), or resume an in-flight slice (next round / next work item)?"*. A resume case routes to either `executing-work-item` (round in progress) or `implementation-checking` (round-close pending) per the active-context cursor.
+If the user types something ambiguous like "let's work on VS-1.1.1", ask: *"Plan VS-1.1.1 from scratch (decomposition → spec authoring → round-1 execution), or resume an in-flight slice (next round / next work item)?"*. A resume case routes to either `executing-work-item` (round in progress) or `implementation-checking` (round-close pending) per the active-context cursor.
 
 ---
 
@@ -84,29 +84,50 @@ Resolve the fields this skill needs:
 ```bash
 ai_workspace="$(sd manifest_get '.ai_workspace.root')"
 canonical="$(sd manifest_get '.canonical.root')"
-roadmap_path="$(sd manifest_get '.routing.roadmap')"
-worktrees_dir="$(sd manifest_get '.during_dev.worktrees_dir')"
+worktrees_dir="$(sd manifest_resolve "$ai_workspace" "$(sd manifest_get '.during_dev.worktrees_dir')")"
 branch_naming="$(sd manifest_get '.during_dev.branch_naming')"
 sprint_dir_template="$(sd manifest_get '.during_dev.sprint_dir_template')"
 ```
 
-If `routing.roadmap` is unset (older workspace-init manifest pre-`roadmap` key), fall back to `${ai_workspace}/ROADMAP.md` with a one-line warning per SPEC §10.4. workspace-init v0.1.1+ ships the key with default `"ai_workspace"`.
+The slice's identity and structure come from the **structured roadmap state** (`project-roadmap.json`) that scaffold-onboard publishes — NOT from grepping `ROADMAP.md`. Resolve its path via the helper, which honors the manifest's `well_known_paths.roadmap_state` and falls back to the canonical workspace location (`${ai_workspace.root}/.workspace/project-roadmap.json`) for older manifests predating workspace-init 0.1.2:
 
-### 3.3 Read ROADMAP.md and locate target VS
+```bash
+roadmap_state="$(sd roadmap_state_path)"
+```
 
-Read the resolved `ROADMAP.md`. Search for the target VS block via the heading anchor `#### VS-<N.M>:` (per scaffold-onboard v0.2 §7.1 schema). If the block is missing, surface this error (S3 contract):
+Do **NOT** read `.routing.roadmap` as a path — it is a repo *selector* string (`"canonical"` / `"ai_workspace"`), never a filesystem path. The published JSON, carrying explicit `id` + `sprint_id` fields per slice, is the structured contract surface scaffold-onboard and scaffold-dev share (#28).
 
-> VS-<N.M> not found in `<resolved-roadmap-path>`. Run `/plan-roadmap --add-slice <N.M>` to author the slice in ROADMAP first.
+### 3.3 Field-read the target VS from the structured roadmap
 
-The error MUST name the missing VS-id explicitly, cite the resolved `ROADMAP.md` path, and include the literal `/plan-roadmap` slash-command token plus the `--add-slice` argument (either `--add-slice 3.2` or `--add-slice VS-3.2` is accepted). Then stop — do NOT auto-fix the roadmap, do NOT create `docs/specs/sprint-N/` directories, do NOT invoke architect-critic.
+Look up the slice by its **exact `id`** in `project-roadmap.json`. Never grep a `#### VS-…:` heading, and never string-split the id to recover the sprint — that was the #28 slice-ID arity bug (a 3-part `VS-1.1.1` collapsed to the wrong `sprint-1` instead of `sprint-1.1`).
 
-When the block is found, extract: VS name, one-paragraph description, declared `auto:` / `user:` demo criteria (per SPEC §14.1 grammar; rendered into the slice README at §6), and the Traceability block (`FR`, `NFR`, `Backlog`). Carry the trace IDs into every work-item spec and implementation handoff as `traceability_block`; if the ROADMAP slice says `None`, render `- FR: None`, `- NFR: None`, and `- Backlog: None` explicitly rather than inventing IDs.
+```bash
+vs_record="$(sd roadmap_slice_json "$vs_id")"        # fails if id not found
+sprint_id="$(sd roadmap_slice_sprint_id "$vs_id")"   # e.g. "1.1" for VS-1.1.1
+vs_name="$(printf '%s' "$vs_record" | jq -r '.name // empty')"
+vs_summary="$(printf '%s' "$vs_record" | jq -r '.summary // empty')"
+vs_kebab="$(printf '%s' "$vs_name" \
+  | tr '[:upper:]' '[:lower:]' \
+  | sed -E 's/[[:space:]_]+/-/g; s/[^a-z0-9-]//g; s/-+/-/g; s/^-+|-+$//g')"
+if [[ -z "$vs_kebab" ]]; then
+  echo "VS ${vs_id} has no usable roadmap name for a directory slug; update project-roadmap.json and re-publish via /plan-roadmap." >&2
+  exit 1
+fi
+```
+
+If no slice matches the id, `sd_roadmap_slice_json` fails and its error lists the available ids; surface this to the user (S3 contract):
+
+> VS-<id> not found in the published roadmap (`<roadmap_state path>`). Available: <ids>. Run `/plan-roadmap --add-slice <id>` to author the slice first, then `/plan-roadmap` to re-publish the structured state.
+
+The error MUST name the missing id explicitly, cite the resolved `project-roadmap.json` path, and include the literal `/plan-roadmap --add-slice` token. Then stop — do NOT auto-fix the roadmap, do NOT create `docs/specs/sprint-<sprint_id>/` directories, do NOT invoke architect-critic.
+
+When the record is found, read every field directly from `vs_record` (all carried in the structured state — no prose parsing): VS `name`, one-paragraph `summary`, declared `demo_criteria` (the `auto:` / `user:` lines, per SPEC §14.1 grammar; rendered into the slice README at §6), and the traceability arrays `traces_fr` / `traces_nfr` / `traces_backlog`. Derive `vs_kebab` from the roadmap `name` field before §6.1 uses it in `slice_root`; if the name sanitizes to empty, stop and surface a roadmap data error rather than inventing a directory slug. Carry the trace IDs into every work-item spec and implementation handoff as `traceability_block`; if an array is empty, render `- FR: None`, `- NFR: None`, and `- Backlog: None` explicitly rather than inventing IDs.
 
 ### 3.4 Read MASTER-SPEC + memory bank + cursor
 
 - **MASTER-SPEC.md** — read via the manifest-resolved master-spec path. Surfaces project class, constraints, tech stack — feeds decomposition rationale.
 - **Memory bank Tier 0** — auto-loaded by scaffold-dev's SessionStart hook (per SPEC §15.1, §18). If the hook hasn't fired in this session (e.g., started outside the AI workspace), surface a soft warning and continue.
-- **Active-context cursor** — read `<ai-workspace>/.claude/memory-bank/05-active-context.md` for the current active sprint / slice / round position (per SPEC §17). If the cursor names a different active slice and the user is invoking this skill for a NEW slice, surface: *"Cursor shows VS-<X.Y> active. Plan VS-<N.M> as a new slice (cursor will update on first commit), or resume VS-<X.Y> instead?"* and wait for choice.
+- **Active-context cursor** — read `<ai-workspace>/.claude/memory-bank/05-active-context.md` for the current active sprint / slice / round position (per SPEC §17). If the cursor names a different active slice and the user is invoking this skill for a NEW slice, surface: *"Cursor shows VS-<X.Y.Z> active. Plan VS-<N.M.K> as a new slice (cursor will update on first commit), or resume VS-<X.Y.Z> instead?"* and wait for choice.
 
 ---
 
@@ -115,9 +136,9 @@ When the block is found, extract: VS name, one-paragraph description, declared `
 Propose a draft decomposition into 4-5 work items, surfaced to the user as a numbered list with one-line summaries. Each work item:
 
 - Targets ~200-500 LOC of canonical changes (the feature-size band per SPEC §4.4).
-- Carries a stable `N.NN` identifier — e.g., `3.2.01`, `3.2.02` for VS-3.2 — that survives reordering. The two-digit suffix is deliberate (per SPEC §4.4); use it even for slices with < 10 work items so downstream `work-N.NN-<kebab>/` paths are uniform.
-- Has a kebab-case slug for its directory name (`work-3.2.01-pulse-db-migration`).
-- Declares dependencies on prior work items as a list of `N.NN` ids (used for §5 DAG sort).
+- Carries a stable `<slice-index>.<nn>` identifier — e.g., `1.01`, `1.02` for `VS-1.1.1` (slice index 1), `2.01` for `VS-1.1.2` — that survives reordering. The `<slice-index>` is the slice's position within its sprint (the 3rd field of the id); the two-digit `<nn>` suffix is deliberate (per SPEC §4.4). Keep work ids compact (`1.01`, **not** the 4-dotted `1.1.1.01`): the work id is unique across sibling slices in a sprint because the branch and path also carry `sprint-<sprint_id>`.
+- Has a kebab-case slug for its directory name (`work-1.01-pulse-db-migration`).
+- Declares dependencies on prior work items as a list of `<slice-index>.<nn>` ids (used for §5 DAG sort).
 - Carries an explicit rationale: why this slice and why this size.
 
 **Iteration loop:**
@@ -130,7 +151,7 @@ Anti-patterns:
 
 - **Mega-items.** A "build the whole API surface" item that hides 1500 LOC behind one bullet is a decomposition failure — break it.
 - **Microscope items.** A "rename one constant" item is too fine — fold it into a sibling.
-- **Hidden dependencies.** If items 3.2.02 and 3.2.03 both require a schema migration that's not its own item, surface the migration as 3.2.01.
+- **Hidden dependencies.** If items 1.02 and 1.03 both require a schema migration that's not its own item, surface the migration as 1.01.
 - **Demoability drift.** Each work item should advance at least one demo criterion from the VS block; if an item advances zero, justify or merge.
 
 ### 4.1 grill-me offer (gate 1, post-decomposition)
@@ -154,9 +175,9 @@ Run a strict-layer topological sort over the declared dependency edges from §4.
 
 Surface the proposed round structure to the user:
 
-> Round 1: 3.2.01, 3.2.02 (parallel)
-> Round 2: 3.2.03 (depends on 3.2.01)
-> Round 3: 3.2.04, 3.2.05 (parallel; both depend on 3.2.03)
+> Round 1: 1.01, 1.02 (parallel)
+> Round 2: 1.03 (depends on 1.01)
+> Round 3: 1.04, 1.05 (parallel; both depend on 1.03)
 
 Then ask:
 
@@ -166,7 +187,7 @@ Iterate until accepted. Persist the round assignment in each work item's spec (�
 
 **Discipline:**
 
-- **No dep-violating loosening.** If the user requests "move 3.2.03 into round 1 alongside 3.2.01", check the dependency graph — refuse with: *"3.2.03 depends on 3.2.01; can't run in the same round. Loosen by dropping the dependency, or keep the proposed round."*.
+- **No dep-violating loosening.** If the user requests "move 1.03 into round 1 alongside 1.01", check the dependency graph — refuse with: *"1.03 depends on 1.01; can't run in the same round. Loosen by dropping the dependency, or keep the proposed round."*.
 - **Tightening is always allowed.** The DAG produces the *minimum* round count; the user may always serialize further (e.g., turn a parallel-2 round into two serial rounds) — that's soft ordering, not a dep violation.
 - **No empty rounds.** If user edits produce a round with zero items, collapse and renumber.
 
@@ -178,19 +199,21 @@ At this point, author the FULL slice scaffold to disk — README + every work-it
 
 ### 6.1 Slice directory layout
 
-Resolve the slice root:
+Resolve the slice root. The sprint segment is the **field-read `sprint_id`** (§3.3), NOT a split of the slice id:
 
 ```bash
-slice_root="${ai_workspace}/docs/specs/sprint-${sprint_n}/VS-${vs_id}-${vs_kebab}"
+# vs_id is the full 3-part id, e.g. "VS-1.1.1"; sprint_id e.g. "1.1"
+slice_root="${ai_workspace}/docs/specs/sprint-${sprint_id}/${vs_id}-${vs_kebab}"
 mkdir -p "$slice_root"
+# → …/docs/specs/sprint-1.1/VS-1.1.1-<kebab>
 ```
 
-For each work item, create:
+For each work item, create (work id is the compact `<slice-index>.<nn>` from §4 — e.g. `1.01` for the first slice's work items — never the full 3-part slice id re-embedded):
 
 ```
 ${slice_root}/
 ├── README.md
-└── work-${vs_id}.${nn}-${work_kebab}/
+└── work-${work_id}-${work_kebab}/
     ├── spec.md
     ├── handoff.md       (empty placeholder; populated per-round in §8)
     └── report.md        (empty placeholder; populated by implementer subagent in §8)
@@ -205,7 +228,7 @@ Use `sd_render` (lib/render.sh, ported from scaffold-onboard) to fill templates:
 - `templates/vertical-slice-readme.md.tmpl` → `${slice_root}/README.md`
   - Vars: `vs_id`, `vs_name`, `vs_description`, `demo_criteria` (the `auto:` / `user:` lines from ROADMAP), `work_items_table`, `round_plan`, `sprint_context`.
 - `templates/work-item-spec.md.tmpl` → each `work-N.NN-<kebab>/spec.md` (Wabash Format B, 8 sections per SPEC §9).
-  - Vars: `vs_id`, `work_id`, `round`, `worktree_abs_path` (computed but not yet created — `${canonical}/${worktrees_dir}/work-${work_id}-${kebab}`), `branch` (computed from `branch_naming` template), context, decisions, `traceability_block`, files to modify, ACs with verification, demo contribution, anti-actions, reference index.
+  - Vars: `vs_id`, `work_id`, `round`, `worktree_abs_path` (computed but not yet created — `${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}`), `branch` (computed from `branch_naming` template), context, decisions, `traceability_block`, files to modify, ACs with verification, demo contribution, anti-actions, reference index.
 
 The worktree path and branch are computed at spec-authoring time (so the spec is self-contained as a fresh-session starter per §6.4) but the actual `git worktree add` does NOT happen until the round starts (§8.1).
 
@@ -258,9 +281,9 @@ The warning MUST reference either `architect-critic` (plugin name) OR `adversari
 
 After §7.2 or §7.3 settles, surface:
 
-> VS-<N.M> specs authored and audited. Ready for round-1 execution — invoke "execute round 1" when ready.
+> VS-<N.M.K> specs authored and audited. Ready for round-1 execution — invoke "execute round 1" when ready.
 
-Do NOT auto-spawn implementer-agent subagents on this same turn. Round execution (§8) is a separate user-initiated step. Eval S1 explicitly asserts that no `Task(subagent_type="scaffold-dev:implementer-agent", ...)` invocation and no `${canonical}/.worktrees/work-*` directories are created on the slice-planning turn.
+Do NOT auto-spawn implementer-agent subagents on this same turn. Round execution (§8) is a separate user-initiated step. Eval S1 explicitly asserts that no `Task(subagent_type="scaffold-dev:implementer-agent", ...)` invocation and no `${canonical}/.worktrees/sprint-*/work-*` directories are created on the slice-planning turn.
 
 ---
 
@@ -273,9 +296,10 @@ When the user invokes round execution (e.g., "execute round 1", "run round K"), 
 For each work item in the round:
 
 ```bash
-sd worktree_add "${work_id}" "${kebab}"
-# Creates ${canonical}/${worktrees_dir}/work-${work_id}-${kebab}
-# Branches per ${branch_naming} template
+sd worktree_add "${work_id}" "${vs_id}" "${kebab}" "${sprint_id}"
+# Creates ${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}
+# Branches per ${branch_naming} template — {N} = sprint_id (e.g. sprint-1.1),
+# field-read in §3.3, NOT split from the slice id
 # Base: canonical main HEAD at creation
 ```
 
@@ -305,7 +329,7 @@ Task(
     Read handoff at <abs path to work-${work_id}-${kebab}/handoff.md>
     and execute the work item per its instructions.
 
-    Your worktree: <abs path to ${canonical}/${worktrees_dir}/work-${work_id}-${kebab}>
+    Your worktree: <abs path to ${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}>
     Use this path for all git operations and file edits in canonical.
 
     First turn: PRE-FLIGHT CHECK (per SPEC §6.2).
@@ -324,7 +348,7 @@ You are the scaffold-dev implementer for one work item.
 Read the handoff at <abs path to work-${work_id}-${kebab}/handoff.md>.
 Then read scaffold-dev's executing-work-item contract if available at the installed plugin path, or treat the handoff's embedded constraints as binding.
 
-Your worktree: <abs path to ${canonical}/${worktrees_dir}/work-${work_id}-${kebab}>.
+Your worktree: <abs path to ${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}>.
 Use this path for all git operations and file edits.
 
 First action: PRE-FLIGHT CHECK.
@@ -384,7 +408,7 @@ After all work items in the round are processed (committed + merged):
 1. Update VS README: round status → complete.
 2. Surface:
 
-> Round K complete (M items committed + merged). Ready for round K+1, or close VS-<N.M>?
+> Round K complete (M items committed + merged). Ready for round K+1, or close VS-<N.M.K>?
 
 If the user says "next round": loop §8.1 for round K+1.
 If the user says "close slice" (or equivalent): proceed to §10.
@@ -409,7 +433,7 @@ State IS the artifacts (per SPEC §17 — no separate state file). The two curso
 
 When the user signals slice close (after all rounds complete), suggest the slice-close ceremony skill:
 
-> All rounds complete. Invoke `Skill(scaffold-dev:closing-vertical-slice)` (or `/close-slice VS-<N.M>`) to run the 3-layer close ceremony: auto-demo execution → manual-demo prompting → architect-critic adversarial review at close depth → retrospective + memory-bank harvest → worktree + branch cleanup.
+> All rounds complete. Invoke `Skill(scaffold-dev:closing-vertical-slice)` (or `/close-slice VS-<N.M.K>`) to run the 3-layer close ceremony: auto-demo execution → manual-demo prompting → architect-critic adversarial review at close depth → retrospective + memory-bank harvest → worktree + branch cleanup.
 
 Do NOT auto-invoke `closing-vertical-slice` — slice close is a deliberate gate the user opts into (often after manual demoing). This skill's lane ends at the round-complete handoff; the close ceremony is downstream.
 
@@ -445,15 +469,15 @@ Implementations live in their respective lib files (Phase 3 tasks). macOS-portab
 
 ---
 
-## 13. Slash-command interaction (`/orchestrate VS-N.M`)
+## 13. Slash-command interaction (`/orchestrate VS-N.M.K`)
 
-The `/orchestrate VS-N.M` slash command (`commands/orchestrate.md`) exports the raw arg string as `$ARGUMENTS` (env-var bridge per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
+The `/orchestrate VS-N.M.K` slash command (`commands/orchestrate.md`) exports the raw arg string as `$ARGUMENTS` (env-var bridge per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
 
-Parse `$ARGUMENTS` in bash; never reference `$1` / `$2`. Extract the VS-id (e.g., `3.2` from `VS-3.2`) and proceed to §3 pre-flight.
+Parse `$ARGUMENTS` in bash; never reference `$1` / `$2`. Extract the VS-id (e.g., `VS-1.1.1` — the full 3-part id `VS-<phase>.<sprint>.<slice>`) and proceed to §3 pre-flight.
 
 Unknown or missing VS-id → one-line error + stop:
 
-> /orchestrate requires a VS-id argument. Example: /orchestrate VS-3.2
+> /orchestrate requires a VS-id argument. Example: /orchestrate VS-1.1.1
 
 ---
 

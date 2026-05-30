@@ -1,6 +1,6 @@
 ---
 name: closing-vertical-slice
-description: Run the three-layer slice-close ceremony — auto-demo (halt-on-first-fail), manual-demo, architect-critic review at close depth, `retrospective.md` authoring, memory-bank harvest sweeping `report.md` + handoffs with `[report]`/`[handoff]` source tags, then worktree + branch cleanup (only after harvest). Also owns sprint-close handoff cleanup on the final slice. Use this when the user says `close VS-N.M`, `slice close`, `wrap up the slice`, or `run slice-close ceremony`.
+description: Run the three-layer slice-close ceremony — auto-demo (halt-on-first-fail), manual-demo, architect-critic review at close depth, `retrospective.md` authoring, memory-bank harvest sweeping `report.md` + handoffs with `[report]`/`[handoff]` source tags, then worktree + branch cleanup (only after harvest). Also owns sprint-close handoff cleanup on the final slice. Use this when the user says `close VS-N.M.K`, `slice close`, `wrap up the slice`, or `run slice-close ceremony`.
 ---
 
 # closing-vertical-slice
@@ -11,7 +11,7 @@ The ceremony order is binding. The §11 M2 marker — worktrees + branches remov
 
 Bash helpers in `lib/manifest.sh`, `lib/render.sh`, `lib/worktree.sh`, and `lib/compose.sh` do the bookkeeping (manifest resolution, demo-line parsing, template substitution, filesystem probes, worktree teardown). The judgment work — which §12.2 menu row matches the failing auto-demo, how to phrase the source-tagged harvest candidates, when to count the rejected handoff item as "left in handoff" — happens here, in conversation.
 
-This skill is the slice-close terminal step. It does NOT plan slices (that's `planning-vertical-slice` per §5), does NOT verify per-work-item ACs (that's `implementation-checking` per §12.1), and does NOT author the work-item bodies (that's the `scaffold-dev:implementer-agent` subagent body via `executing-work-item` per §6). It is invoked at the end of the slice when all rounds complete, either by trigger phrase or by the `/close-slice VS-N.M` slash command.
+This skill is the slice-close terminal step. It does NOT plan slices (that's `planning-vertical-slice` per §5), does NOT verify per-work-item ACs (that's `implementation-checking` per §12.1), and does NOT author the work-item bodies (that's the `scaffold-dev:implementer-agent` subagent body via `executing-work-item` per §6). It is invoked at the end of the slice when all rounds complete, either by trigger phrase or by the `/close-slice VS-N.M.K` slash command.
 
 ---
 
@@ -20,16 +20,16 @@ This skill is the slice-close terminal step. It does NOT plan slices (that's `pl
 When invoked, you:
 
 1. Discover the workspace-init pairing manifest; refuse fail-fast if absent (mirrors `planning-vertical-slice` §3.1).
-2. Resolve the target VS-id from the user message (or active-context cursor) and locate the slice directory under `<ai-workspace>/docs/specs/sprint-N/VS-N.M-<kebab>/`.
+2. Resolve the target VS-id from the user message (or active-context cursor) and locate the slice directory under `<ai-workspace>/docs/specs/sprint-<sprint_id>/VS-<id>-<kebab>/` (e.g. `sprint-1.1/VS-1.1.1-<kebab>/`), with `sprint_id` field-read from the structured roadmap.
 3. Read the VS README; parse `auto:` and `user:` demo criteria per SPEC §14.1 grammar via `lib/render.sh::sd_demo_parse_block`.
 4. **Layer 1 — auto-demo:** run each `auto:` command in canonical (NOT in any work-item worktree), evaluate the expectation, halt on first failure. Record outcomes in the VS README's "Demo verification" section.
 5. **Layer 2 — manual-demo:** surface each `user:` step to the user with the expected outcome; capture pass/fail/partial + notes. Record outcomes in "Demo verification".
 6. **Layer 3 — architect-critic at close depth:** probe via `lib/compose.sh::sd_compose_detect_architect_critic`; if v0.2 present, invoke `Skill(architect-critic:critiquing-spec)` in-conversation at `depth=close` with the slice diff + VS README + work-item specs as context; if absent, emit one warning naming `architect-critic` or `adversarial review` and proceed.
 7. **Retrospective:** render `templates/slice-retrospective.md.tmpl` (7 sections per SPEC §16b) into `${slice_root}/retrospective.md`.
-8. **Memory-bank harvest (§15.2 8-step flow):** read all work-item `report.md` files + all slice-scoped handoffs at `<ai-workspace>/.workspace/handoffs/vs-N.M-*.md`; extract "Suggestions for memory bank" + handoff section-4 promote candidates; categorize by target memory-bank file; surface each candidate prefixed `[report]` or `[handoff]`; consume per-item accept/edit/reject decisions; apply approved items with the provenance trailer `<!-- Added from VS-N.M retrospective, YYYY-MM-DD; source: report | handoff -->`; record harvest outcomes in `retrospective.md`.
+8. **Memory-bank harvest (§15.2 8-step flow):** read all work-item `report.md` files + all slice-scoped handoffs at `<ai-workspace>/.workspace/handoffs/vs-N.M.K-*.md`; extract "Suggestions for memory bank" + handoff section-4 promote candidates; categorize by target memory-bank file; surface each candidate prefixed `[report]` or `[handoff]`; consume per-item accept/edit/reject decisions; apply approved items with the provenance trailer `<!-- Added from VS-N.M.K retrospective, YYYY-MM-DD; source: report | handoff -->`; record harvest outcomes in `retrospective.md`.
 9. **Cleanup (M2):** remove each work-item worktree via `sd_worktree_remove` + delete each work-item branch — ONLY after harvest completes successfully.
 10. **Sprint-close cleanup:** if this is the FINAL slice of the sprint, sweep non-carry-forward handoffs from `<ai-workspace>/.workspace/handoffs/` per §6b.6.
-11. Emit final `VS-N.M closed` handoff message.
+11. Emit final `VS-N.M.K closed` handoff message.
 
 Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/closing-vertical-slice.md` — the four scenarios there are the binding spec.
 
@@ -39,11 +39,11 @@ Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/c
 
 **Trigger phrases (description-match):**
 
-- `close VS-N.M` (e.g., `close VS-3.2`)
+- `close VS-N.M.K` (e.g., `close VS-1.1.1`)
 - `slice close`
 - `wrap up the slice`
 - `run slice-close ceremony`
-- `/close-slice VS-N.M` (slash command — see §11 for the `$ARGUMENTS` env-var bridge)
+- `/close-slice VS-N.M.K` (slash command — see §11 for the `$ARGUMENTS` env-var bridge)
 
 All four phrase forms are load-bearing in the description block above — the four eval scenarios trigger via description-match on each, so do not paraphrase any of them in your acknowledgement.
 
@@ -54,7 +54,7 @@ All four phrase forms are load-bearing in the description block above — the fo
 - The slice directory does not exist or contains no work-item subdirs — surface the missing-slice error (§3.4) and stop.
 - The user wants to *plan* a new slice (that's `planning-vertical-slice`) or *execute* a work item (that's the implementer-agent subagent).
 
-If the user types something ambiguous like "we're done with VS-3.2", confirm: *"Run the slice-close ceremony for VS-3.2 (auto-demo → manual-demo → architect-critic → retrospective + harvest → worktree cleanup)?"*. The ceremony is destructive at the cleanup step — never auto-advance past the user's intent confirmation when the trigger phrase isn't explicit.
+If the user types something ambiguous like "we're done with VS-1.1.1", confirm: *"Run the slice-close ceremony for VS-1.1.1 (auto-demo → manual-demo → architect-critic → retrospective + harvest → worktree cleanup)?"*. The ceremony is destructive at the cleanup step — never auto-advance past the user's intent confirmation when the trigger phrase isn't explicit.
 
 ---
 
@@ -85,31 +85,40 @@ Never read manifest fields via raw inline `jq`. All manifest reads route through
 
 Resolution priority:
 
-1. **Explicit id** in the user message (e.g., `close VS-3.2`, `/close-slice VS-3.2`) — match the `N.M` or `VS-N.M` token; use as-is.
+1. **Explicit id** in the user message (e.g., `close VS-1.1.1`, `/close-slice VS-1.1.1`) — match the full 3-part `VS-<phase>.<sprint>.<slice>` token and normalize to the `VS-`-prefixed form (`vs_id="VS-1.1.1"`).
 2. **Active-context cursor** — read `<ai-workspace>/.claude/memory-bank/05-active-context.md` for the in-flight slice; use that when the message is ambiguous (e.g., `slice close`, `wrap up the slice`).
-3. If neither produces an id, ask: *"Which slice? (e.g., `VS-3.2`)"* and wait.
+3. If neither produces an id, ask: *"Which slice? (e.g., `VS-1.1.1`)"* and wait.
 
-### 3.3 Read manifest fields
+### 3.3 Read manifest fields + field-read the slice
 
 ```bash
 ai_workspace="$(sd manifest_get '.ai_workspace.root')"
 canonical="$(sd manifest_get '.canonical.root')"
-worktrees_dir="$(sd manifest_get '.during_dev.worktrees_dir')"
+worktrees_dir="$(sd manifest_resolve "$ai_workspace" "$(sd manifest_get '.during_dev.worktrees_dir')")"
 handoffs_dir="$(sd manifest_get '.routing.handoffs_dir')"   # resolves to <ai-workspace>/.workspace/handoffs/ in v0.1
 sprint_dir_template="$(sd manifest_get '.during_dev.sprint_dir_template')"
 ```
 
-### 3.4 Locate the slice directory
-
-Resolve:
+Field-read the slice's `sprint_id` from the published structured roadmap — the same contract `planning-vertical-slice` uses. Never split it out of the slice id:
 
 ```bash
-slice_root="${ai_workspace}/docs/specs/sprint-${sprint_n}/VS-${vs_id}-${vs_kebab}"
+roadmap_state="$(sd roadmap_state_path)"
+sprint_id="$(sd roadmap_slice_sprint_id "$vs_id")"   # e.g. "1.1" for VS-1.1.1
 ```
 
-If `slice_root` does not exist or contains no `work-${vs_id}.*-*/` subdirectories, surface:
+### 3.4 Locate the slice directory
 
-> Slice `VS-<vs_id>` not found at `<resolved-path>`. Has `planning-vertical-slice` authored this slice yet?
+The sprint segment is the field-read `sprint_id`; the kebab suffix was chosen at planning time and isn't field-read here, so locate the existing dir by glob (`vs_id` is the full 3-part id, e.g. `VS-1.1.1`):
+
+```bash
+slice_root="$(ls -d "${ai_workspace}/docs/specs/sprint-${sprint_id}/${vs_id}-"*/ 2>/dev/null | head -1)"
+slice_root="${slice_root%/}"
+# → …/docs/specs/sprint-1.1/VS-1.1.1-<kebab>
+```
+
+If `slice_root` is empty or contains no `work-*/` subdirectories, surface:
+
+> Slice `<vs_id>` not found at `<resolved-path>`. Has `planning-vertical-slice` authored this slice yet?
 
 Then stop. Do NOT auto-create the directory; spec authoring is the orchestrator's lane.
 
@@ -176,7 +185,7 @@ Record each outcome in the VS README's `## Demo verification` section (append if
 Surface a failure report naming: (a) the verbatim `auto:` line from the VS README so the user can identify the failing step, (b) the command that was run, (c) the observed exit code, (d) a captured stderr/stdout excerpt (~200 chars). Then present the recovery menu (§12.2 row adapted for slice-close auto-demo fails):
 
 > **Recovery menu (§12.2 — slice-close auto-demo fail):**
-> 1. **Re-author the demo step** — the criterion is wrong; return to scaffold-onboard's `Skill(scaffold-onboard:authoring-vertical-slice-demo)` (or `/plan-roadmap --refine-slice VS-<N.M>`) to revise.
+> 1. **Re-author the demo step** — the criterion is wrong; return to scaffold-onboard's `Skill(scaffold-onboard:authoring-vertical-slice-demo)` (or `/plan-roadmap --refine-slice VS-<N.M.K>`) to revise.
 > 2. **Accept-with-deferred** — slice closes with the failing step marked deferred; the slice must still be demoable despite the caveat (per §14.4 close-with-deferred). Add a follow-up work item to the backlog.
 > 3. **Re-spawn implementer subagent for fix-up** — the implementation is wrong; re-invoke the offending work item's implementer-agent against the failing area, then re-run the slice-close ceremony.
 
@@ -255,7 +264,7 @@ Render `templates/slice-retrospective.md.tmpl` into `${slice_root}/retrospective
 4. **Memory bank harvest** — placeholder; §9 fills it after harvest completes.
 5. **Deviations + deferrals** — anything that landed as accept-with-deferred during demo layers, plus any cross-cutting deviations from the original spec discovered during the rounds.
 6. **Lessons learned** — free-form observations the orchestrator + user captured.
-7. **Reference index** — paths to the VS README, all work-item `spec.md` + `report.md` + `handoff.md`, all `vs-N.M-*.md` handoffs swept in §9, the retrospective itself.
+7. **Reference index** — paths to the VS README, all work-item `spec.md` + `report.md` + `handoff.md`, all `vs-N.M.K-*.md` handoffs swept in §9, the retrospective itself.
 
 Write the file BEFORE harvest runs (so the harvest step can append to section 4 in-place). Eval S1 asserts the `Write` of `retrospective.md` appears AFTER the architect-critic invocation in tool-call order, and BEFORE the harvest Reads of report/handoff files — preserve that ordering.
 
@@ -267,14 +276,15 @@ The harvest is the heart of the slice's memory-bank promotion contract. Eight st
 
 ### 9.1 Step 1 — Read all work-item `report.md`
 
-Iterate `${slice_root}/work-${vs_id}.*-*/report.md`. Read each one. Eval S1 + S4 assert that ALL work-item reports appear in the Read tool-call log (4 reports in the standard 4-item slice).
+Iterate `${slice_root}/work-*/report.md`. Read each one. Eval S1 + S4 assert that ALL work-item reports appear in the Read tool-call log (4 reports in the standard 4-item slice).
 
 ### 9.2 Step 2 — Read all slice-scoped handoffs
 
-Glob `${handoffs_dir}/vs-${vs_id}-*.md`. Read each match. The glob is **slice-scoped**: it matches `vs-3.2-bugfix-auth-a1b2.md` and `vs-3.2-techdebt-logging-e5f6.md` but does NOT match `sprint-3-context-bloat-c3d4.md` (sprint-scoped, different naming pattern). Eval S1 + S4 explicitly assert the unrelated sprint-scoped handoff MUST NOT appear in any Read — accidentally sweeping it fails the assertion.
+Derive the slice slug from the full id and glob `${handoffs_dir}/${vs_slug}-*.md` (`vs_slug="vs-${vs_id#VS-}"`, e.g. `vs-1.1.1`). Read each match. The glob is **slice-scoped**: it matches `vs-1.1.1-bugfix-auth-a1b2.md` and `vs-1.1.1-techdebt-logging-e5f6.md` but does NOT match `sprint-1-context-bloat-c3d4.md` (sprint-scoped, different naming pattern). Eval S1 + S4 explicitly assert the unrelated sprint-scoped handoff MUST NOT appear in any Read — accidentally sweeping it fails the assertion.
 
 ```bash
-for handoff in "${handoffs_dir}/vs-${vs_id}"-*.md; do
+vs_slug="vs-${vs_id#VS-}"
+for handoff in "${handoffs_dir}/${vs_slug}"-*.md; do
   [[ -f "$handoff" ]] || continue
   # Read the handoff file (Read tool, not bash cat)
 done
@@ -284,7 +294,7 @@ done
 
 From each `report.md`: extract the **"Suggestions for memory bank"** section (per SPEC §10 report template). May be empty for some reports — that's fine.
 
-From each `vs-N.M-*.md` handoff: extract **section 4 — "What's NOT in memory bank yet"** (per SPEC §6b.5 handoff doc structure). May be empty for some handoffs — that's fine.
+From each `vs-N.M.K-*.md` handoff: extract **section 4 — "What's NOT in memory bank yet"** (per SPEC §6b.5 handoff doc structure). May be empty for some handoffs — that's fine.
 
 ### 9.4 Step 4 — Categorize by target memory-bank file
 
@@ -297,18 +307,18 @@ Present each candidate to the user as a numbered list. Each item's first line MU
 Example surface:
 
 ```
-Harvest candidates for VS-3.2 (4 items):
+Harvest candidates for VS-1.1.1 (4 items):
 
-1. [report] from work-3.2.01/report.md → target: 03-code-patterns.md
+1. [report] from work-1.01/report.md → target: 03-code-patterns.md
    "subagent must use absolute paths when reading worktree files (relative paths break under Task dispatch)"
 
-2. [report] from work-3.2.03/report.md → target: 09-known-issues.md
+2. [report] from work-1.03/report.md → target: 09-known-issues.md
    "merge conflict surface on shared schema.json when two parallel work items both touch it"
 
-3. [handoff] from vs-3.2-bugfix-auth-a1b2.md section 4 → target: 03-code-patterns.md
+3. [handoff] from vs-1.1.1-bugfix-auth-a1b2.md section 4 → target: 03-code-patterns.md
    "auth retry pattern: exponential backoff with 3 attempts, jitter 100-500ms"
 
-4. [handoff] from vs-3.2-techdebt-logging-e5f6.md section 4 → target: 09-known-issues.md
+4. [handoff] from vs-1.1.1-techdebt-logging-e5f6.md section 4 → target: 09-known-issues.md
    "log-rotation cron caveat — rotation fires at 03:00 UTC and races with the scheduled backup"
 
 Per item: accept (apply as-is) / edit (give me the revised text) / reject (drop).
@@ -323,16 +333,16 @@ For each candidate, accept the user's decision: `accept`, `edit: <new text>`, or
 For each `accept` or `edit` decision, append the item to its target memory-bank file at `${ai_workspace}/.claude/memory-bank/<file>.md`. Each applied item carries the literal provenance trailer:
 
 ```
-<!-- Added from VS-N.M retrospective, YYYY-MM-DD; source: report -->
+<!-- Added from VS-N.M.K retrospective, YYYY-MM-DD; source: report -->
 ```
 
 or
 
 ```
-<!-- Added from VS-N.M retrospective, YYYY-MM-DD; source: handoff -->
+<!-- Added from VS-N.M.K retrospective, YYYY-MM-DD; source: handoff -->
 ```
 
-The `source:` field MUST exactly match the candidate's origin (`report` for report-sourced, `handoff` for handoff-sourced). Eval S4 explicitly rejects: missing trailer, missing `source:` field, mis-labeled source (e.g., `source: report` on a handoff-origin item). Eval S1 accepts minor date-format variation but rejects missing `VS-N.M` reference.
+The `source:` field MUST exactly match the candidate's origin (`report` for report-sourced, `handoff` for handoff-sourced). Eval S4 explicitly rejects: missing trailer, missing `source:` field, mis-labeled source (e.g., `source: report` on a handoff-origin item). Eval S1 accepts minor date-format variation but rejects missing `VS-N.M.K` reference.
 
 For `reject` decisions: do NOT write to any memory-bank file. The candidate is dropped. Eval S4 asserts filesystem diff confirms only the count of accepted items appears as memory-bank file modifications.
 
@@ -357,8 +367,16 @@ ONLY AFTER §9 step 8 completes successfully, remove worktrees + delete branches
 For each work item in the slice:
 
 ```bash
-sd worktree_remove "${work_id}" "${kebab}"
-# Runs: git worktree remove "${canonical}/${worktrees_dir}/work-${work_id}-${kebab}"
+shopt -s nullglob
+worktree_matches=("${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-"*)
+shopt -u nullglob
+if [[ "${#worktree_matches[@]}" -ne 1 ]]; then
+  printf 'Worktree cleanup for %s matched %s paths under %s/sprint-%s/\n' \
+    "$work_id" "${#worktree_matches[@]}" "$worktrees_dir" "$sprint_id"
+  exit 0
+fi
+sd worktree_remove "${worktree_matches[0]}"
+# Runs: git worktree remove "${worktree_matches[0]}"
 # Then: git branch -D "${branch_name}"
 ```
 
@@ -368,24 +386,38 @@ sd worktree_remove "${work_id}" "${kebab}"
 
 ### 10.2 Branch deletion
 
-Branch deletion is bundled into `sd_worktree_remove` per `lib/worktree.sh`'s contract. After §10.1 completes, all `work-N.NN-*` branches are gone. Final filesystem state shows `${canonical}/${worktrees_dir}/work-${vs_id}.NN-*` directories absent and `git branch` listing in canonical does not contain any `work-${vs_id}.NN-*` branch.
+Branch deletion is bundled into `sd_worktree_remove` per `lib/worktree.sh`'s contract. After §10.1 completes, all `work-N.NN-*` branches are gone. Final filesystem state shows `${worktrees_dir}/sprint-${sprint_id}/work-*` directories absent and `git branch` listing in canonical does not contain any `work-*` branch.
 
 ---
 
 ## 11. Sprint-close branch (final slice of the sprint)
 
-If this slice is the FINAL slice of its sprint (resolved by checking `ROADMAP.md` for any later `VS-${sprint_n}.M+` blocks), run the sprint-close cleanup per §6b.6.
+If this slice is the FINAL slice of its sprint (resolved by field-reading the structured roadmap for any later slice with the same `sprint_id`), run the sprint-close cleanup per §6b.6.
 
 ### 11.1 Detect final-slice condition
 
 ```bash
-roadmap_path="$(sd manifest_get '.routing.roadmap')"
-# Search for any VS block whose sprint matches sprint_n AND whose M > current_m
-next_vs_in_sprint="$(grep -E "^#### VS-${sprint_n}\.[0-9]+:" "$roadmap_path" | awk -F'[.:]' -v cur="${vs_m}" '$3 > cur' | head -1)"
-if [[ -z "$next_vs_in_sprint" ]]; then
+roadmap_state="$(sd roadmap_state_path)"
+# Field-read: is there a LATER slice in this same sprint? Compare the slice index
+# (3rd id field) numerically — never grep ROADMAP headings or split on the wrong
+# field (the #28 bug). cur_idx is this slice's index, e.g. "1" from VS-1.1.1.
+cur_idx="${vs_id##*.}"
+next_vs_in_sprint="$(jq -r --arg sid "$sprint_id" --argjson cur "$cur_idx" '
+  [ .vertical_slices[]
+    | select(.sprint_id == $sid)
+    | (.id | sub("^VS-"; "") | split(".") | .[2] | tonumber) as $idx
+    | select($idx > $cur) ] | length' "$roadmap_state")"
+# next_vs_in_sprint == "0" ⇒ this is the final slice of the sprint.
+if [[ -z "$next_vs_in_sprint" || "$next_vs_in_sprint" == "0" ]]; then
   is_final_slice_of_sprint=1
+  next_sprint_id="$(jq -r --arg sid "$sprint_id" '
+    (.sprints // [] | map(.id)) as $ids
+    | ($ids | index($sid)) as $i
+    | if $i == null or ($i + 1) >= ($ids | length) then empty else $ids[$i + 1] end
+  ' "$roadmap_state")"
 else
   is_final_slice_of_sprint=0
+  next_sprint_id=""
 fi
 ```
 
@@ -395,26 +427,26 @@ When `is_final_slice_of_sprint=1`:
 
 - Read every handoff in `${handoffs_dir}/`.
 - For each handoff, check its frontmatter or section-1 metadata for a `carry_forward: true` marker (per §6b.5).
-- Delete handoffs WITHOUT the carry-forward marker. Carry-forward handoffs (e.g., `sprint-${sprint_n}-to-${sprint_n+1}-handoff-XXXX.md`) survive into the next sprint.
-- Surface to user: *"Sprint ${sprint_n} closed. Swept N non-carry-forward handoffs; K carry-forward handoffs preserved for sprint ${sprint_n+1}."*.
+- Delete handoffs WITHOUT the carry-forward marker. Carry-forward handoffs (e.g., `sprint-${sprint_id}-to-${next_sprint_id}-handoff-XXXX.md`, where `next_sprint_id` is field-read from the next entry in the roadmap `sprints[]` array — there is no integer `+1` for a dotted `sprint_id` like `1.1`) survive into the next sprint. If `next_sprint_id` is empty because this is the final roadmap sprint, preserve only explicitly marked carry-forward handoffs and say there is no next sprint in the published roadmap.
+- Surface to user: *"Sprint ${sprint_id} closed. Swept N non-carry-forward handoffs; K carry-forward handoffs preserved for sprint ${next_sprint_id:-<none in roadmap>}."*.
 
 **Ownership lock for v0.1:** sprint-close cleanup lives in this skill, not a separate `closing-sprint` skill (per SPEC §6b.6 settlement during PLAN). A future v0.2 may split this out, but v0.1's surface is a single slice-close skill with sprint-close as a conditional final step.
 
 ### 11.3 Sprint retrospective (out of scope for this skill)
 
-Sprint-level retrospective authoring (`sprint-${sprint_n}/sprint-retrospective.md`, 6 sections per §16b) is handled by `writing-sprint-retrospective` (Phase 1 task T1.7, separate skill). This skill does NOT author the sprint retrospective — only the slice retrospective + the conditional handoff sweep.
+Sprint-level retrospective authoring (`sprint-${sprint_id}/sprint-retrospective.md`, 6 sections per §16b) is handled by `writing-sprint-retrospective` (Phase 1 task T1.7, separate skill). This skill does NOT author the sprint retrospective — only the slice retrospective + the conditional handoff sweep.
 
 ---
 
-## 12. Slash-command interaction (`/close-slice VS-N.M`)
+## 12. Slash-command interaction (`/close-slice VS-N.M.K`)
 
-The `/close-slice VS-N.M` slash command (`commands/close-slice.md`) exports the raw arg string as `$ARGUMENTS` (env-var bridge per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
+The `/close-slice VS-N.M.K` slash command (`commands/close-slice.md`) exports the raw arg string as `$ARGUMENTS` (env-var bridge per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
 
-Parse `$ARGUMENTS` in bash; never reference `$1` / `$2`. Extract the VS-id (e.g., `3.2` from `VS-3.2`) and proceed to §3 pre-flight.
+Parse `$ARGUMENTS` in bash; never reference `$1` / `$2`. Extract the VS-id (e.g., `VS-1.1.1` — the full 3-part id `VS-<phase>.<sprint>.<slice>`) and proceed to §3 pre-flight.
 
 Unknown or missing VS-id → one-line error + stop:
 
-> /close-slice requires a VS-id argument. Example: /close-slice VS-3.2
+> /close-slice requires a VS-id argument. Example: /close-slice VS-1.1.1
 
 ---
 
@@ -424,7 +456,7 @@ After §10 cleanup (and §11 sprint-close if applicable), emit the closing messa
 
 > **VS-`<vs_id>` closed.** Demo verification: `<N>` `auto:` + `<M>` `user:` steps all passing. Architect-critic: `<finding-count or "skipped">`. Memory bank harvest: `<X>` items promoted (`<R>` from `[report]`, `<H>` from `[handoff]`), `<L>` left in handoff. Worktrees + branches removed. Retrospective at `${slice_root}/retrospective.md`.
 
-Eval S1 / S3 / S4 assert the target subagent's final assistant message indicates the slice is closed — judge accepts `VS-3.2 closed`, `VS-3.2 close ceremony complete`, or equivalent. Silent termination fails the assertion.
+Eval S1 / S3 / S4 assert the target subagent's final assistant message indicates the slice is closed — judge accepts `VS-1.1.1 closed`, `VS-1.1.1 close ceremony complete`, or equivalent. Silent termination fails the assertion.
 
 ---
 
@@ -435,8 +467,8 @@ Eval S1 / S3 / S4 assert the target subagent's final assistant message indicates
 - **Removing worktrees before harvest completes.** §11 M2 marker is the entire ceremony's discipline. Eval S1 + S4 scan the tool-call log: any `git worktree remove` or `git branch -D work-*` invocation that precedes the `retrospective.md` Write OR precedes any harvest Read fails the scenario.
 - **Removing worktrees on an auto-demo halt.** Eval S2 explicitly asserts no `git worktree remove` invocation appears when ceremony halts in Layer 1. Worktrees + branches stay preserved for user inspection; the user picks the recovery menu option and the ceremony re-runs from §5 on the next pass.
 - **Paraphrasing the source-tag tokens.** The literal `[report]` and `[handoff]` square brackets are load-bearing per eval S1 + S4. Spellings like `(report)`, `<handoff>`, `*report*`, `[Report]`, `[report-sourced]` all fail the assertion.
-- **Mis-labeling the `source:` field in the provenance trailer.** Eval S4 cross-checks each accepted item against its origin: `source: report` for items extracted from `report.md`; `source: handoff` for items extracted from a `vs-N.M-*.md` handoff. Swapping the labels fails the assertion.
-- **Sweeping sprint-scoped handoffs at slice close.** The glob is `${handoffs_dir}/vs-${vs_id}-*.md` — slice-scoped only. Files like `sprint-3-context-bloat-c3d4.md` are sprint-scoped and MUST NOT appear in any Read during harvest. Eval S1 + S4 reject any accidental read of a sprint-scoped handoff.
+- **Mis-labeling the `source:` field in the provenance trailer.** Eval S4 cross-checks each accepted item against its origin: `source: report` for items extracted from `report.md`; `source: handoff` for items extracted from a `vs-N.M.K-*.md` handoff. Swapping the labels fails the assertion.
+- **Sweeping sprint-scoped handoffs at slice close.** The glob is `${handoffs_dir}/${vs_slug}-*.md` (`vs_slug="vs-${vs_id#VS-}"`, e.g. `vs-1.1.1-*.md`) — slice-scoped only; do NOT write `vs-${vs_id}-*.md`, which with the `VS-`-prefixed `vs_id` would resolve to a never-matching `vs-VS-1.1.1-*.md`. Files like `sprint-3-context-bloat-c3d4.md` are sprint-scoped and MUST NOT appear in any Read during harvest. Eval S1 + S4 reject any accidental read of a sprint-scoped handoff.
 - **Silent skip when architect-critic is absent.** Eval S3 rejects silent skip — emit the §7.3 warning naming `architect-critic` or `adversarial review`. Also rejects blocking error — never prompt the user to install architect-critic; never retry the probe.
 - **Invoking architect-critic via Task tool or via `inbox/` / `outbox/` file IPC.** Eval S1 rejects both. The only correct invocation is the in-conversation `Skill(architect-critic:critiquing-spec)` pattern per SPEC §16.3.
 - **Authoring the retrospective BEFORE the architect-critic moment.** Eval S1 asserts the `Write` of `retrospective.md` appears AFTER the architect-critic invocation in tool-call order. The retrospective's section 3 captures the critic's findings; writing it earlier means section 3 is empty.

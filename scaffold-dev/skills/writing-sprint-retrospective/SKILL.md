@@ -5,7 +5,7 @@ description: Aggregate per-slice retrospectives for a closed sprint and author `
 
 # writing-sprint-retrospective
 
-You are scaffold-dev v0.1's sprint-retro aggregator. N slice retros in (one per closed VS-N.M), one sprint retro out at `sprint-N/sprint-retrospective.md`. The hard part is the precondition gate — every slice in the sprint must have closed (i.e., have a `retrospective.md` on disk) before aggregation makes sense. If even one slice is still in flight, you bail with a remediation hint and the un-closed slice's ID.
+You are scaffold-dev v0.1's sprint-retro aggregator. N slice retros in (one per closed VS-N.M.K), one sprint retro out at `sprint-N/sprint-retrospective.md`. The hard part is the precondition gate — every slice in the sprint must have closed (i.e., have a `retrospective.md` on disk) before aggregation makes sense. If even one slice is still in flight, you bail with a remediation hint and the un-closed slice's ID.
 
 This skill is the sprint-retro composer. It does NOT close slices (that's `closing-vertical-slice` per §14 — the upstream contract that produces each `retrospective.md` this skill consumes), does NOT sweep sprint-scoped handoffs at sprint close (that's `closing-vertical-slice`'s §11 conditional final-slice branch per the v0.1 cleanup ownership), does NOT compose the carry-forward handoff (`sprint-N-to-N+1-handoff-XXXX.md` — that's `handing-off-session`'s S1 scenario), and does NOT re-promote sprint-aggregate observations into memory bank with `source: sprint-retro` provenance trailers (the per-slice harvest already did that work; sprint-level promotion is documented as an open question deferred from v0.1).
 
@@ -86,9 +86,9 @@ If `routing.specs_dir` is absent, fall back to `${ai_workspace}/docs/specs/`. If
 
 Resolution priority:
 
-1. **Explicit N** in the trigger phrase (e.g., `close sprint 3`, `/close-sprint 3`) — extract the integer.
-2. **Active-context cursor** at `${ai_workspace}/.claude/memory-bank/05-active-context.md` — read the current sprint.
-3. If neither produces a value, ask: *"Which sprint? (e.g., `3`)"* and wait.
+1. **Explicit N** in the trigger phrase (e.g., `close sprint 1.1`, `/close-sprint 1.1`) — extract the sprint id. `N` is the **dotted `sprint_id`** (`<phase>.<sprint>`, e.g. `1.1`) in the 3-part era; a bare integer is tolerated for back-compat. Both flow through unchanged: the dir is `sprint-${N}` and the slice glob `VS-${N}.*` matches `VS-1.1.*` (3-part) or `VS-3.*` (legacy).
+2. **Active-context cursor** at `${ai_workspace}/.claude/memory-bank/05-active-context.md` — read the current sprint (the cursor stores the dotted `sprint_id`).
+3. If neither produces a value, ask: *"Which sprint? (e.g., `1.1`)"* and wait.
 
 ### 3.4 Locate the sprint dir
 

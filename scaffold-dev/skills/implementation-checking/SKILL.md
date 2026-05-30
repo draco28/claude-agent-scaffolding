@@ -27,7 +27,7 @@ When invoked, you:
 
 1. Discover the workspace-init pairing manifest; refuse fail-fast if absent.
 2. Resolve the work-item id from the user message (or the active-context cursor when ambiguous).
-3. Locate the work-item directory under `<ai-workspace>/docs/specs/sprint-N/VS-N.M-<kebab>/work-N.NN-<kebab>/` and the matching worktree under `${canonical.root}/${worktrees_dir}/work-N.NN-<kebab>`.
+3. Locate the work-item directory under `<ai-workspace>/docs/specs/sprint-<sprint_id>/VS-N.M.K-<kebab>/work-N.NN-<kebab>/` and the matching worktree under `${worktrees_dir}/sprint-<sprint_id>/work-N.NN-<kebab>`.
 4. Read `spec.md`; extract the `auto:` AC list per SPEC §14.1 grammar.
 5. Probe `<ai-workspace>/.claude/memory-bank/03-code-patterns.md` for `<!-- mcrule:start ... -->` blocks (rules-presence binary).
 6. Execute each `auto:` step sequentially in the worktree; **halt on the first failure**.
@@ -96,28 +96,42 @@ Resolution priority:
 3. **Active-context cursor** — read `<ai-workspace>/.claude/memory-bank/05-active-context.md` for the in-flight work item; use that when the message is ambiguous (e.g., `is this work item done`, `verify the implementation`).
 4. **Round-level** — when the user says `check round K`, enumerate the round's work items from the slice README and iterate; for the v0.1 happy path with one item per round, this collapses to the single-item case.
 
-If none of the above produces an id, ask: *"Which work item? (e.g., `3.2.01`)"* and wait.
+Whichever branch resolves the id MUST assign it to `work_id` before continuing.
+
+If none of the above produces an id, ask: *"Which work item? (e.g., `1.01`)"* and wait.
 
 ### 3.3 Read manifest fields
 
 ```bash
 ai_workspace="$(sd manifest_get '.ai_workspace.root')"
 canonical="$(sd manifest_get '.canonical.root')"
-worktrees_dir="$(sd manifest_get '.during_dev.worktrees_dir')"
+worktrees_dir="$(sd manifest_resolve "$ai_workspace" "$(sd manifest_get '.during_dev.worktrees_dir')")"
 sprint_dir_template="$(sd manifest_get '.during_dev.sprint_dir_template')"
 ```
 
 ### 3.4 Locate the work-item directory
 
-Resolve:
+The active slice is recorded in the cursor; its `sprint_id` is **field-read** from the structured roadmap (#28 — never split out of the slice id). Kebabs were chosen at planning time and aren't known here, so locate the existing dir by glob rather than reconstructing it:
 
 ```bash
-work_dir="${ai_workspace}/docs/specs/sprint-${sprint_n}/VS-${vs_id}-${vs_kebab}/work-${work_id}-${work_kebab}"
+vs_id="$(sd state_active_slice)"                    # e.g. VS-1.1.1
+sprint_id="$(sd roadmap_slice_sprint_id "$vs_id")"  # e.g. 1.1 (field-read)
+: "${work_id:?work item id was not resolved by section 3.2}"  # e.g. 1.01
+
+shopt -s nullglob
+work_dir_matches=("${ai_workspace}/docs/specs/sprint-${sprint_id}/${vs_id}-"*/"work-${work_id}-"*)
+shopt -u nullglob
+if [[ "${#work_dir_matches[@]}" -ne 1 ]]; then
+  printf 'Work item %s matched %s directories under %s/docs/specs/sprint-%s/%s-*/\n' \
+    "$work_id" "${#work_dir_matches[@]}" "$ai_workspace" "$sprint_id" "$vs_id"
+  exit 0
+fi
+work_dir="${work_dir_matches[0]}"
 ```
 
-If the directory or its `spec.md` does not exist, surface:
+If `work_dir` is empty or its `spec.md` does not exist, surface:
 
-> Work item `<work_id>` not found at `<resolved-path>`. Has `planning-vertical-slice` authored this slice yet?
+> Work item `<work_id>` not found under `${ai_workspace}/docs/specs/sprint-${sprint_id}/${vs_id}-*/`. Has `planning-vertical-slice` authored this slice yet?
 
 Then stop. Do NOT auto-create the directory; spec authoring is the orchestrator's lane.
 
@@ -126,7 +140,15 @@ Then stop. Do NOT auto-create the directory; spec authoring is the orchestrator'
 Resolve:
 
 ```bash
-worktree="${canonical}/${worktrees_dir}/work-${work_id}-${work_kebab}"
+shopt -s nullglob
+worktree_matches=("${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-"*)
+shopt -u nullglob
+if [[ "${#worktree_matches[@]}" -ne 1 ]]; then
+  printf 'Worktree for %s matched %s paths under %s/sprint-%s/\n' \
+    "$work_id" "${#worktree_matches[@]}" "$worktrees_dir" "$sprint_id"
+  exit 0
+fi
+worktree="${worktree_matches[0]}"
 ```
 
 If the worktree does not exist (i.e., `git worktree list` does not include the path), surface:
