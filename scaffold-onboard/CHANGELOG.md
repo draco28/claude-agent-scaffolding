@@ -2,6 +2,14 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.3.6] — 2026-05-30
+
+### Added
+- **#28 Phase 2 — publish the structured roadmap state into the workspace.** `sf_roadmap_render` now also calls a new `sf_roadmap_publish_state`, which copies `project-roadmap.json` (the structured roadmap with explicit `id` + `sprint_id` fields) from onboard's data dir to the workspace contract path the manifest routes via `well_known_paths.roadmap_state` (`${ai_workspace.root}/.workspace/project-roadmap.json`, added in workspace-init 0.1.2). This gives scaffold-dev's orchestrator a structured surface to **field-read** the slice `id`/`sprint_id` from — the fix for the #28 cross-plugin slice-ID arity mismatch (so it no longer guesses the sprint by string-splitting a rendered `#### VS-…:` heading). Best-effort: a no-op (info log) in standalone mode with no workspace-init manifest; never blocks the `ROADMAP.md` write. The scaffold-dev consumer side (field-read + complete fixture migration) is Phase 3.
+
+### Fixed
+- **PR #31 review hardening (Codex P2 ×3) on `sf_roadmap_publish_state` / `sf_roadmap_render`.** (1) **Resolve all manifest placeholders** — the routed `well_known_paths.roadmap_state` path is now expanded through the shared `mi_manifest_resolve` (every supported placeholder: `${ai_workspace.root}`, `${canonical.root}`, `${HOME}`, …) instead of a naive `${ai_workspace.root}`-only substitution, with a guard that refuses to write a path still carrying an unresolved `${…}`. (2) **Atomic publish** — the structured state is written to a sibling temp then renamed into place, so a concurrent scaffold-dev field-read never observes a half-written `project-roadmap.json` when re-rendering over an existing file. (3) **Render failures propagate** — `sf_roadmap_render` no longer lets the trailing best-effort publish mask a real render/write error (it previously always returned `0`); a render/`mv` failure now returns non-zero while a publish failure stays a warn-only no-op. Adds three regression tests to `test-roadmap.sh`.
+
 ## [0.3.5] — 2026-05-30
 
 ### Fixed
