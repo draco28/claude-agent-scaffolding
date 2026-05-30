@@ -16,8 +16,8 @@ are planned and dispatched, not hand-stepped:
    criteria, cross-checks `report.md`, and checks machine-checkable rules.
 4. `/handoff` — author a session handoff doc for out-of-slice transitions
    (sprint boundary, context bloat, bug-fix detour).
-5. `/close-slice` — slice-close ceremony: auto-demo + manual-demo, architect-critic
-   review, retrospective, memory-bank harvest, then worktree + branch cleanup.
+5. **Slice close** (say "close VS-N.M") — slice-close ceremony: auto-demo + manual-demo,
+   architect-critic review, retrospective, memory-bank harvest, then worktree + branch cleanup.
 
 At sprint boundaries, `/close-sprint N` aggregates the per-slice retrospectives.
 

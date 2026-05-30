@@ -101,6 +101,8 @@ test_e2e_fresh_repo_cli() {
   # #25 — the default allowlist must not auto-approve command-exec / secret
   # escapes (rg --pre, jq env) or unrestricted local file read (cat/grep/ls).
   assert_file_contains "./.claude/settings.json" "Bash\\(git status:"
+  assert_file_contains "./.claude/settings.json" "Bash\\(git diff:"
+  assert_file_contains "./.claude/settings.json" "Bash\\(git log:"
   assert_file_not_contains "./.claude/settings.json" "Bash\\((rg|jq|cat|grep|ls):"
   # Default docs
   assert_file_exists "./docs/PRD.md"

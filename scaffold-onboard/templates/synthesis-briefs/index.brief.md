@@ -20,7 +20,7 @@ descriptions, and load-tier labels exactly; do NOT reorder rows, alter descripti
 add project-specific files, or improvise any cell. Output under the `# Memory Bank
 Index` heading:
 
-```
+```markdown
 # Memory Bank Index
 
 **Last derived from MASTER-SPEC.md @ {{ts}}**
