@@ -78,3 +78,23 @@ sd_branch_push() {
   fi
   return 0
 }
+
+# sd_remote_check — verify canonical has an 'origin' remote AND gh is present +
+# authenticated. rc 0 on success; rc 1 + actionable message otherwise.
+sd_remote_check() {
+  local canonical
+  canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_remote_check: no canonical.root"; return 1; }
+  if ! git -C "$canonical" remote get-url origin >/dev/null 2>&1; then
+    sd_log_error "sd_remote_check: no 'origin' remote on canonical. Add one (git remote add origin <url>) — pr_hierarchical mode opens PRs against it."
+    return 1
+  fi
+  if ! command -v gh >/dev/null 2>&1; then
+    sd_log_error "sd_remote_check: 'gh' not in PATH. Install GitHub CLI — pr_hierarchical mode opens PRs via gh."
+    return 1
+  fi
+  if ! gh auth status >/dev/null 2>&1; then
+    sd_log_error "sd_remote_check: 'gh' is not authenticated. Run 'gh auth login' — pr_hierarchical mode needs it to open PRs."
+    return 1
+  fi
+  return 0
+}

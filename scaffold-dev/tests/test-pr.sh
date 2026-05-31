@@ -132,4 +132,38 @@ test_branch_push_no_remote() {
 test_branch_push
 test_branch_push_no_remote
 
+# 10. remote_check passes with origin + authed gh shim
+test_remote_check_ok() {
+  echo "test_remote_check_ok:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_remote_check 2>/dev/null; local rc=$?; :
+  assert_eq "remote_check ok rc=0" "0" "$rc"
+}
+
+# 11. remote_check fails with no origin
+test_remote_check_no_remote() {
+  echo "test_remote_check_no_remote:"
+  _setup_pr_workspace
+  git -C "$TMP_CANONICAL" remote remove origin
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_remote_check 2>/dev/null; local rc=$?; :
+  assert_ne "no-remote rc!=0" "0" "$rc"
+}
+
+# 12. remote_check fails when gh auth fails
+test_remote_check_auth_fail() {
+  echo "test_remote_check_auth_fail:"
+  _setup_pr_workspace
+  export GH_SHIM_AUTH_RC=1
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_remote_check 2>/dev/null; local rc=$?; :
+  unset GH_SHIM_AUTH_RC
+  assert_ne "auth-fail rc!=0" "0" "$rc"
+}
+
+test_remote_check_ok
+test_remote_check_no_remote
+test_remote_check_auth_fail
+
 sd_test_summary
