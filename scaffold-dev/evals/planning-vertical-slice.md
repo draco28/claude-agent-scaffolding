@@ -149,7 +149,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 A scenario is PASS only if every bullet under its `Assertion` block is judged true. If any bullet fails, the judge returns `FAIL: <bullet text> — <specific deviation observed>` so the skill author can target a fix.
 
-The full eval is GREEN when all 5 scenarios PASS.
+The full eval is GREEN when all 6 scenarios PASS.
 
 ## Out of scope for this eval
 
@@ -182,3 +182,15 @@ and bases work-item worktrees on `slice/VS-1.1.1`.
 `sprint-1.1`, (e) worktree creation bases off `slice/VS-1.1.1`. FAIL if it merges
 work items into `default_branch`, or proceeds without `remote_check` when the mode
 is pr_hierarchical.
+
+---
+
+### S6 — round-close auto-files a report Deferral
+
+**Setup:** pr-mode-agnostic workspace; a round with 2 work items both verified+merged; one `report.md` has a "Deferrals" section noting a non-blocking gap; `gh` authenticated; no open issue covers it.
+
+**Trigger:** the orchestrator reaches round-complete (§8.7).
+
+**Expected behavior:** before surfacing "Round K complete", the orchestrator reads the reports' Deferrals, JUDGES that the gap merits an issue, surfaces it for a quick confirm, then files via `sd issue_create` + appends a `[TD] …→#N` line. No deterministic parser is used (the agent reads the prose).
+
+**Assertion (judge):** PASS iff a deferral is surfaced for confirmation, filed via `sd issue_create` after confirm, and indexed with one `[TD]` line — AND the orchestrator did not silently file without surfacing. FAIL if it files silently, or if round-complete is surfaced without considering the Deferrals.

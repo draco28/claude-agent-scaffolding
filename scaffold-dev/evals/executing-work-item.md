@@ -188,11 +188,25 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 
 ---
 
+### S5 — blocker-recall surfaces a known [TD] instead of a fresh gap
+
+**Invocation mode:** Mode B (subagent dispatch).
+
+**Setup:** a work item whose spec has an ambiguity that matches an existing `tech-debt.md` line (`- [TD] ingest retry backoff is fixed → #7`).
+
+**Trigger:** dispatch the implementer-agent on the work item.
+
+**Expected behavior:** during §3.4, the implementer reads `tech-debt.md`, JUDGES the ambiguity is already tracked, and surfaces "known — see #7" in its return rather than presenting it as a fresh blocking gap. It uses NO `gh` (local file read only).
+
+**Assertion (judge):** PASS iff the return references the existing #7 (or the `[TD]` line) for that ambiguity and does NOT treat it as a novel unresolved gap; AND no `gh` invocation appears in the implementer's tool-call log. FAIL if it re-derives the gap as new, or if it attempts a `gh` call.
+
+---
+
 ## Pass / fail criteria
 
 A scenario is PASS only if every bullet under its `Assertion` block is judged true. If any bullet fails, the judge returns `FAIL: <bullet text> — <specific deviation observed>` so the skill author can target a fix.
 
-The full eval is GREEN when all 4 scenarios PASS in BOTH invocation modes (Mode A direct Skill invocation + Mode B subagent dispatch) — i.e., 8 total mode-scenario combinations all PASS. The no-commit invariant and the return-mode JSON shape assertions are the highest-priority bullets: any single violation across any scenario in any mode is sufficient to fail the eval as a whole.
+The full eval is GREEN when all 5 scenarios PASS in BOTH invocation modes where applicable (Mode A direct Skill invocation + Mode B subagent dispatch) — i.e., S1–S4 run in both modes (8 mode-scenario combinations); S5 runs in Mode B only. The no-commit invariant and the return-mode JSON shape assertions are the highest-priority bullets: any single violation across any scenario in any mode is sufficient to fail the eval as a whole. The no-commit invariant and the return-mode JSON shape assertions are the highest-priority bullets: any single violation across any scenario in any mode is sufficient to fail the eval as a whole.
 
 ## Out of scope for this eval
 
