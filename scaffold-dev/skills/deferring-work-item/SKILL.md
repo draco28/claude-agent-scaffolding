@@ -53,6 +53,11 @@ Write the composed body to a temp file, then:
 sd issue_create "<title>" "<body-file>" --label tech-debt
 ```
 
+If `gh` rejects the label because the project repo does not have `tech-debt`
+yet, retry once without `--label tech-debt`, surface that the issue was filed
+unlabeled, and continue to the index append. Do NOT make label setup a blocker
+for recording the debt.
+
 Capture the `#N` from the echoed URL/number.
 
 ## 5. Append the lean index line

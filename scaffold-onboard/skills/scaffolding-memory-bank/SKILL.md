@@ -55,10 +55,10 @@ The core 11-file memory bank from v0.1.0 is preserved; a 12th file (`tech-debt.m
 |---|---|---|---|
 | Derived | `00-project-brief`, `01-product-context`, `02-system-patterns`, `03-code-patterns`, `04-tech-context`, `07-constraints`, `08-governance`, `index` (8 files) | Render from `templates/memory-bank/<f>.md.tmpl` with MASTER-SPEC-derived args | Re-render and overwrite (idempotent for unchanged spec) |
 | Live-seed | `05-active-context`, `06-progress` (2 files) | Render seed content from template | **Preserve existing file** — do not overwrite the user's work |
-| Static | `WORKFLOW.md` (1 file) | Copy verbatim from `templates/memory-bank/WORKFLOW.md` | Copy only if missing |
+| Static | `WORKFLOW.md` (1 file) | Copy verbatim from `templates/memory-bank/WORKFLOW.md` | Copy only if missing on normal re-derive; overwrite when invoked with `--force` |
 | Seeded index | `tech-debt.md` (1 file) | Render header-only from `templates/memory-bank/tech-debt.md.tmpl` — no `[TD]` entries | **Preserve existing file** — scaffold-dev's `/defer` and round-close sweep append entries over time |
 
-**Helper:** `sf_memory_bank_derive` (lib/memory-bank.sh) implements all three behaviors. It accepts an optional `--force` flag that overrides the live-seed preservation (use only on explicit `/scaffold-project --regenerate`); `--force` does NOT overwrite WORKFLOW.md, which is project-agnostic and never warrants regeneration.
+**Helper:** `sf_memory_bank_derive` (lib/memory-bank.sh) implements all three behaviors. It accepts an optional `--force` flag that overrides the live-seed preservation and refreshes static `WORKFLOW.md` from `templates/memory-bank/WORKFLOW.md`; normal re-derive and `--regenerate` preserve an existing `WORKFLOW.md`.
 
 **Discipline:**
 

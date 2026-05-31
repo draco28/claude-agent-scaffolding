@@ -16,7 +16,7 @@
 
 ---
 
-### Task 1: Extend the `gh` shim + issue-list fixture
+## Task 1: Extend the `gh` shim + issue-list fixture
 
 **Files:**
 - Modify: `scaffold-dev/tests/fixtures/gh-shim/gh`
@@ -268,7 +268,7 @@ git commit -m "feat(scaffold-onboard): seed tech-debt.md lean-index memory-bank 
 
 `scaffold-dev/commands/defer.md`:
 
-```markdown
+````markdown
 ---
 description: Defer a non-blocking gap — file a project-repo GitHub issue + add a lean [TD] index line. Usage: /defer <what to defer>
 argument-hint: "<short description of the deferred item>"
@@ -296,7 +296,7 @@ Now invoke the skill in-conversation.
 **`Skill(scaffold-dev:deferring-work-item)`** — pass the deferral description
 parsed from `$SCAFFOLD_DEV_ARGS`. The skill body owns the remote/gh pre-flight,
 issue composition, de-dup, filing, and index append.
-```
+````
 
 - [ ] **Step 2: Create the skill body**
 
@@ -582,8 +582,8 @@ Run: `cd /Volumes/master_ssd/projects/claude-agent-scaffolding && bash tests/tes
 - [ ] **Step 4: Update README**
 
 Edit `README.md`:
-- scaffold-onboard version-table row: `v0.3.7` → `v0.3.8`; append to its description: ` Seeds a lean tech-debt.md index for scaffold-dev's /defer loop (#33).`
-- scaffold-dev version-table row: keep `v0.2.0`, but update its skill/command counts if the row states them (it says "9 skills, 4 slash commands" — now 10 skills, 5 commands with `deferring-work-item` + `/defer`); append ` Adds /defer + blocker-recall (#33).`
+- scaffold-onboard version-table row: `v0.3.7` → `v0.3.8`; append to its description: `Seeds a lean tech-debt.md index for scaffold-dev's /defer loop (#33).`
+- scaffold-dev version-table row: keep `v0.2.0`, but update its skill/command counts if the row states them (it says "9 skills, 4 slash commands" — now 10 skills, 5 commands with `deferring-work-item` + `/defer`); append `Adds /defer + blocker-recall (#33).`
 - Directory-tree comment: bump any scaffold-onboard version mention to v0.3.8.
 
 - [ ] **Step 5: Commit**

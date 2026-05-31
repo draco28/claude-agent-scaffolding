@@ -20,7 +20,7 @@ git checkout -b feat/pr-hierarchical-merge-mode main
 
 ---
 
-### Task 1: Test harness — `gh` PATH-shim + canned PR-state fixtures
+## Task 1: Test harness — `gh` PATH-shim + canned PR-state fixtures
 
 A fake `gh` lets us test the `gh`-wrapping primitives with no network. Canned JSON files model the PR states the agent-driven gate reasons over.
 
@@ -65,9 +65,10 @@ Then: `chmod +x scaffold-dev/tests/fixtures/gh-shim/gh`
   "mergeStateStatus": "CLEAN",
   "statusCheckRollup": [{"name": "ci", "conclusion": "SUCCESS"}],
   "reviews": [],
-  "reviewThreads": [],
   "latestReviews": [],
-  "comments": []
+  "comments": [],
+  "reviewDecision": "",
+  "commits": []
 }
 ```
 
@@ -78,9 +79,10 @@ Then: `chmod +x scaffold-dev/tests/fixtures/gh-shim/gh`
   "mergeStateStatus": "CLEAN",
   "statusCheckRollup": [{"name": "ci", "conclusion": "SUCCESS"}],
   "reviews": [{"author": {"login": "chatgpt-codex-connector"}, "state": "COMMENTED", "body": "Possible off-by-one in the retry loop."}],
-  "reviewThreads": [{"isResolved": false, "comments": [{"body": "Possible off-by-one in the retry loop."}]}],
   "latestReviews": [{"author": {"login": "chatgpt-codex-connector"}, "state": "COMMENTED"}],
-  "comments": []
+  "comments": [],
+  "reviewDecision": "",
+  "commits": []
 }
 ```
 
@@ -180,7 +182,7 @@ test_sprint_branch_name() {
   echo "test_sprint_branch_name:"
   _setup_pr_workspace
   cd "$TMP_AI_WORKSPACE"
-  assert_eq "sprint branch default" "sprint-1.1" "$(_sd_sprint_branch_name "1.1")"
+  assert_eq "sprint branch default" "sprint-1.1" "$(sd_sprint_branch_name "1.1")"
 }
 
 # 4. slice branch name default template
@@ -188,7 +190,7 @@ test_slice_branch_name() {
   echo "test_slice_branch_name:"
   _setup_pr_workspace
   cd "$TMP_AI_WORKSPACE"
-  assert_eq "slice branch default" "slice/VS-1.1.1" "$(_sd_slice_branch_name "VS-1.1.1")"
+  assert_eq "slice branch default" "slice/VS-1.1.1" "$(sd_slice_branch_name "VS-1.1.1")"
 }
 ```
 
@@ -241,17 +243,17 @@ sd_merge_mode() {
   echo "$m"
 }
 
-# _sd_sprint_branch_name <sprint_id> — substitute {sprint_id} in the template
+# sd_sprint_branch_name <sprint_id> — substitute {sprint_id} in the template
 # (during_dev.sprint_branch_naming; default "sprint-{sprint_id}").
-_sd_sprint_branch_name() {
+sd_sprint_branch_name() {
   local sprint_id="$1" tpl
   tpl="$(sd_manifest_get '.during_dev.sprint_branch_naming')" || tpl="sprint-{sprint_id}"
   echo "${tpl//\{sprint_id\}/$sprint_id}"
 }
 
-# _sd_slice_branch_name <vs_id> — substitute {vs_id} in the template
+# sd_slice_branch_name <vs_id> — substitute {vs_id} in the template
 # (during_dev.slice_branch_naming; default "slice/{vs_id}").
-_sd_slice_branch_name() {
+sd_slice_branch_name() {
   local vs_id="$1" tpl
   tpl="$(sd_manifest_get '.during_dev.slice_branch_naming')" || tpl="slice/{vs_id}"
   echo "${tpl//\{vs_id\}/$vs_id}"
@@ -593,17 +595,17 @@ test_pr_state_clean() {
   cd "$TMP_AI_WORKSPACE"
   local json; json="$(sd_pr_state 123 2>/dev/null)"
   assert_eq "mergeStateStatus passthrough" "CLEAN" "$(echo "$json" | jq -r '.mergeStateStatus')"
-  assert_eq "no review comments" "0" "$(echo "$json" | jq -r '.reviewThreads | length')"
+  assert_eq "no reviews" "0" "$(echo "$json" | jq -r '.reviews | length')"
 }
 
-# 15. pr_state surfaces an unresolved review-comment state verbatim
+# 15. pr_state surfaces review-comment state verbatim through supported gh fields
 test_pr_state_with_comment() {
   echo "test_pr_state_with_comment:"
   _setup_pr_workspace
   export GH_SHIM_PR_VIEW_JSON="$HERE/fixtures/pr-view-with-review-comment.json"
   cd "$TMP_AI_WORKSPACE"
   local json; json="$(sd_pr_state 123 2>/dev/null)"
-  assert_eq "unresolved thread present" "false" "$(echo "$json" | jq -r '.reviewThreads[0].isResolved')"
+  assert_contains "review body present" "Possible off-by-one" "$(echo "$json" | jq -r '.reviews[0].body')"
 }
 ```
 
@@ -626,7 +628,7 @@ sd_pr_state() {
     sd_log_error "sd_pr_state: 'gh' not in PATH."
     return 1
   fi
-  (cd "$canonical" && gh pr view "$pr" --json mergeStateStatus,statusCheckRollup,reviews,reviewThreads,latestReviews,comments)
+  (cd "$canonical" && gh pr view "$pr" --json mergeStateStatus,statusCheckRollup,reviews,latestReviews,comments,reviewDecision,commits)
 }
 ```
 
@@ -926,11 +928,12 @@ Invoke via the `sd` dispatcher. Each does ONE git/`gh` op; the agent reasons ove
 - `sd remote_check` → verify origin remote + authenticated `gh`.
 - `sd pr_open <head> <base> <title> <body-file>` → `gh pr create`; echoes PR url.
 - `sd pr_state <pr>` → raw `gh pr view --json …` (mergeStateStatus, statusCheckRollup,
-  reviews, reviewThreads, latestReviews, comments). NO interpretation.
-- `sd pr_merge <pr> [--auto]` → `gh pr merge`.
+  reviews, latestReviews, comments, reviewDecision, commits). NO interpretation.
+- `sd pr_merge <pr> [--auto]` → `gh pr merge --merge` by default; callers may pass
+  `--rebase` or `--squash` explicitly.
 
-Branch names: `sd`-internal helpers `_sd_sprint_branch_name <sprint_id>` (default
-`sprint-{sprint_id}`) and `_sd_slice_branch_name <vs_id>` (default `slice/{vs_id}`),
+Branch names: `sd sprint_branch_name <sprint_id>` (default `sprint-{sprint_id}`)
+and `sd slice_branch_name <vs_id>` (default `slice/{vs_id}`),
 configurable via `during_dev.sprint_branch_naming` / `during_dev.slice_branch_naming`.
 
 ## Slice-ordering rule (pr_hierarchical)
@@ -1021,7 +1024,7 @@ If `merge_mode == "pr_hierarchical"`:
 2. **Ensure the sprint integration branch exists** (create off `default_branch`
    at the first slice of the sprint; reuse otherwise):
    ```bash
-   sprint_branch="sprint-${sprint_id}"          # or per during_dev.sprint_branch_naming
+   sprint_branch="$(sd sprint_branch_name "$sprint_id")"
    default_branch="$(sd manifest_get '.canonical.default_branch')" || default_branch="main"
    sd branch_create_from "$default_branch" "$sprint_branch"
    ```
@@ -1030,7 +1033,7 @@ If `merge_mode == "pr_hierarchical"`:
    for the user before continuing.
 4. **Create the slice branch off the sprint branch:**
    ```bash
-   slice_branch="slice/${vs_id}"                # or per during_dev.slice_branch_naming
+   slice_branch="$(sd slice_branch_name "$vs_id")"
    sd branch_create_from "$sprint_branch" "$slice_branch"
    ```
    Carry `$slice_branch` forward — §8.1 bases work-item worktrees on it and §8.6
@@ -1101,7 +1104,7 @@ lives on the slice branch, not `default_branch`. Check it out before demos:
 
 ```bash
 if [[ "$(sd merge_mode)" == "pr_hierarchical" ]]; then
-  git -C "$canonical" checkout -q "slice/${vs_id}"   # or per during_dev.slice_branch_naming
+  git -C "$canonical" checkout -q "$(sd slice_branch_name "$vs_id")"
 fi
 ```
 Restore is unnecessary — the slice branch is the integration target until its PR merges.
@@ -1119,13 +1122,18 @@ worktree cleanup (work-item worktree/branch cleanup is decoupled from this PR �
 the slice branch already holds every work-item commit; see
 `references/git-workflow.md`).
 
-1. **Push the slice branch:** `sd branch_push "slice/${vs_id}"`.
+1. **Resolve and push the integration branches:**
+   ```bash
+   slice_branch="$(sd slice_branch_name "$vs_id")"
+   sprint_branch="$(sd sprint_branch_name "$sprint_id")"
+   sd branch_push "$slice_branch"
+   ```
 2. **Compose the PR body** to a temp file: the slice README (with the populated
    Demo-verification section) + the architect-critic close-depth summary (§7) +
    any linked tech-debt/issue references.
 3. **Open the PR:**
    ```bash
-   sd pr_open "slice/${vs_id}" "sprint-${sprint_id}" "VS-${vs_id}: <slice title>" "<body-file>"
+   sd pr_open "$slice_branch" "$sprint_branch" "${vs_id}: <slice title>" "<body-file>"
    ```
 4. **Run the agent-driven pre-merge gate** per `references/git-workflow.md`
    (`sd pr_state` → reason over CI **and** review comments → surface → ask).
@@ -1141,7 +1149,7 @@ the slice branch already holds every work-item commit; see
 Run:
 ```bash
 grep -q "Open the slice→sprint PR (pr_hierarchical only)" scaffold-dev/skills/closing-vertical-slice/SKILL.md \
-  && grep -q 'sd pr_open "slice/${vs_id}" "sprint-${sprint_id}"' scaffold-dev/skills/closing-vertical-slice/SKILL.md \
+  && grep -q 'sd pr_open "$slice_branch" "$sprint_branch"' scaffold-dev/skills/closing-vertical-slice/SKILL.md \
   && echo "CLOSING-WIRED"
 ```
 Expected: `CLOSING-WIRED`.
@@ -1168,19 +1176,23 @@ Append a new section (after the retrospective is authored; place it as the final
 ## Open the sprint→main PR (pr_hierarchical only)
 
 Runs only when `sd merge_mode` == `pr_hierarchical`, AFTER the sprint
-retrospective is authored and all slice PRs into `sprint-${sprint_id}` have
+retrospective is authored and all slice PRs into `sprint-${N}` have
 merged. See `references/git-workflow.md` (cited by `planning-vertical-slice`) for
 the topology and the binding pre-merge gate.
 
-1. **Confirm slice PRs merged:** if any slice PR into `sprint-${sprint_id}` is
+1. **Confirm slice PRs merged:** if any slice PR into `sprint-${N}` is
    still open, surface it and stop — the sprint isn't ready to integrate to `main`.
-2. **Push the sprint branch:** `sd branch_push "sprint-${sprint_id}"`.
+2. **Resolve and push the sprint branch:**
+   ```bash
+   sprint_branch="$(sd sprint_branch_name "$N")"
+   sd branch_push "$sprint_branch"
+   ```
 3. **Compose the PR body:** the sprint retrospective summary + the slice list +
    linked issues.
 4. **Open the PR:**
    ```bash
-   sd pr_open "sprint-${sprint_id}" "$(sd manifest_get '.canonical.default_branch' || echo main)" \
-     "Sprint ${sprint_id}: <summary>" "<body-file>"
+   sd pr_open "$sprint_branch" "$(sd manifest_get '.canonical.default_branch' || echo main)" \
+     "Sprint ${N}: <summary>" "<body-file>"
    ```
 5. **Run the agent-driven pre-merge gate** per `references/git-workflow.md`
    (`sd pr_state` → reason over CI **and** review comments → surface → ask). This
@@ -1195,7 +1207,7 @@ the topology and the binding pre-merge gate.
 Run:
 ```bash
 grep -q "Open the sprint→main PR (pr_hierarchical only)" scaffold-dev/skills/writing-sprint-retrospective/SKILL.md \
-  && grep -q 'sd pr_open "sprint-${sprint_id}"' scaffold-dev/skills/writing-sprint-retrospective/SKILL.md \
+  && grep -q 'sd pr_open "$sprint_branch"' scaffold-dev/skills/writing-sprint-retrospective/SKILL.md \
   && echo "SPRINT-WIRED"
 ```
 Expected: `SPRINT-WIRED`.
@@ -1334,7 +1346,7 @@ Expected: PASS — `scaffold-dev codex manifest version (0.2.0) matches claude m
 - [ ] **Step 4: Bump the README**
 
 Edit `README.md`:
-- Line ~12 (plugin version table): `| [`scaffold-dev`](./scaffold-dev/) | v0.1.7 |` → `v0.2.0`, and extend the description sentence with: ` Opt-in pr_hierarchical merge mode (work-item → slice → sprint → main) with agent-driven PR gates.`
+- Line ~12 (plugin version table): change the `scaffold-dev` row version from `v0.1.7` to `v0.2.0`, and extend the description sentence with: `Opt-in pr_hierarchical merge mode (work-item → slice → sprint → main) with agent-driven PR gates.`
 - Line ~120 (directory-tree comment): `# scaffold-dev plugin (v0.1.7)` → `(v0.2.0)`.
 
 - [ ] **Step 5: Commit**
@@ -1366,4 +1378,4 @@ feature branch.
 
 **2. Placeholder scan** — no TBD/TODO/"handle edge cases"; every code + content step is complete.
 
-**3. Type/name consistency** — `sd_merge_mode`/`sd merge_mode`, `sd_branch_create_from`, `sd_branch_push`, `sd_remote_check`, `sd_pr_open`, `sd_pr_state`, `sd_pr_merge`, `slice/${vs_id}`, `sprint-${sprint_id}` used identically across the lib, tests, doc, and skill tasks. `sd_merge_work_item`'s 3rd arg and `sd_worktree_add`'s 5th arg are referenced consistently between definition (Tasks 9/10) and callers (Tasks 12/13).
+**3. Type/name consistency** — `sd_merge_mode`/`sd merge_mode`, `sd_branch_create_from`, `sd_branch_push`, `sd_sprint_branch_name`/`sd sprint_branch_name`, `sd_slice_branch_name`/`sd slice_branch_name`, `sd_remote_check`, `sd_pr_open`, `sd_pr_state`, `sd_pr_merge`, `slice_branch`, and `sprint_branch` used identically across the lib, tests, doc, and skill tasks. `sd_merge_work_item`'s 3rd arg and `sd_worktree_add`'s 5th arg are referenced consistently between definition (Tasks 9/10) and callers (Tasks 12/13).

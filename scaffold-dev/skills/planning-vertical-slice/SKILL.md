@@ -115,7 +115,7 @@ if [[ -z "$vs_kebab" ]]; then
 fi
 ```
 
-If no slice matches the id, `sd_roadmap_slice_json` fails and its error lists the available ids; surface this to the user (S3 contract):
+If no slice matches the id, `sd roadmap_slice_json` fails and its error lists the available ids; surface this to the user (S3 contract):
 
 > VS-<id> not found in the published roadmap (`<roadmap_state path>`). Available: <ids>. Run `/plan-roadmap --add-slice <id>` to author the slice first, then `/plan-roadmap` to re-publish the structured state.
 
@@ -145,7 +145,7 @@ If `merge_mode == "pr_hierarchical"`:
 2. **Ensure the sprint integration branch exists** (create off `default_branch`
    at the first slice of the sprint; reuse otherwise):
    ```bash
-   sprint_branch="sprint-${sprint_id}"          # or per during_dev.sprint_branch_naming
+   sprint_branch="$(sd sprint_branch_name "$sprint_id")"
    default_branch="$(sd manifest_get '.canonical.default_branch')" || default_branch="main"
    sd branch_create_from "$default_branch" "$sprint_branch"
    ```
@@ -154,7 +154,7 @@ If `merge_mode == "pr_hierarchical"`:
    for the user before continuing.
 4. **Create the slice branch off the sprint branch:**
    ```bash
-   slice_branch="slice/${vs_id}"                # or per during_dev.slice_branch_naming
+   slice_branch="$(sd slice_branch_name "$vs_id")"
    sd branch_create_from "$sprint_branch" "$slice_branch"
    ```
    Carry `$slice_branch` forward — §8.1 bases work-item worktrees on it and §8.6
@@ -344,11 +344,11 @@ sd worktree_add "${work_id}" "${vs_id}" "${kebab}" "${sprint_id}"
 # Creates ${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}
 # Branches per ${branch_naming} template — {N} = sprint_id (e.g. sprint-1.1),
 # field-read in §3.3, NOT split from the slice id
-# Base: canonical main HEAD at creation
+# Base: canonical default branch HEAD at creation
 ```
 
 Under `merge_mode=pr_hierarchical`, pass the slice branch as the base so the
-worktree branches off the slice (not `default_branch`):
+worktree branches off the slice (not the canonical default branch):
 
 ```bash
 sd worktree_add "${work_id}" "${vs_id}" "${kebab}" "${sprint_id}" "${slice_branch}"

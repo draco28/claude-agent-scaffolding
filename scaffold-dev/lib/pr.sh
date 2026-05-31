@@ -20,29 +20,35 @@ if ! declare -F sd_manifest_get >/dev/null 2>&1; then
   source "$_SD_LIB_DIR/manifest.sh"
 fi
 
-# sd_merge_mode — echo during_dev.merge_mode, defaulting to "direct".
+# sd_merge_mode — echo during_dev.merge_mode, defaulting unknown values to "direct".
 sd_merge_mode() {
   local m
   m="$(sd_manifest_get '.during_dev.merge_mode')" || m="direct"
-  [[ -z "$m" ]] && m="direct"
+  case "$m" in
+    ""|"direct"|"pr_hierarchical") ;;
+    *) m="direct" ;;
+  esac
   echo "$m"
 }
 
-# _sd_sprint_branch_name <sprint_id> — substitute {sprint_id} in the template
+# sd_sprint_branch_name <sprint_id> — substitute {sprint_id} in the template
 # (during_dev.sprint_branch_naming; default "sprint-{sprint_id}").
-_sd_sprint_branch_name() {
+sd_sprint_branch_name() {
   local sprint_id="$1" tpl
   tpl="$(sd_manifest_get '.during_dev.sprint_branch_naming')" || tpl="sprint-{sprint_id}"
   echo "${tpl//\{sprint_id\}/$sprint_id}"
 }
 
-# _sd_slice_branch_name <vs_id> — substitute {vs_id} in the template
+# sd_slice_branch_name <vs_id> — substitute {vs_id} in the template
 # (during_dev.slice_branch_naming; default "slice/{vs_id}").
-_sd_slice_branch_name() {
+sd_slice_branch_name() {
   local vs_id="$1" tpl
   tpl="$(sd_manifest_get '.during_dev.slice_branch_naming')" || tpl="slice/{vs_id}"
   echo "${tpl//\{vs_id\}/$vs_id}"
 }
+
+_sd_sprint_branch_name() { sd_sprint_branch_name "$@"; }
+_sd_slice_branch_name() { sd_slice_branch_name "$@"; }
 
 # sd_branch_create_from <base> <new> — create <new> off <base> in canonical.
 # Idempotent: rc 0 if <new> already exists. rc 1 if <base> is missing.
@@ -126,18 +132,28 @@ sd_pr_state() {
     sd_log_error "sd_pr_state: 'gh' not in PATH."
     return 1
   fi
-  (cd "$canonical" && gh pr view "$pr" --json mergeStateStatus,statusCheckRollup,reviews,reviewThreads,latestReviews,comments)
+  (cd "$canonical" && gh pr view "$pr" --json mergeStateStatus,statusCheckRollup,reviews,latestReviews,comments,reviewDecision,commits)
 }
 
-# sd_pr_merge <pr> [extra gh args...] — wraps gh pr merge. Pass --auto to enable
-# auto-merge once required checks pass.
+# sd_pr_merge <pr> [extra gh args...] — wraps gh pr merge. Defaults to --merge
+# when no explicit --merge/--rebase/--squash strategy is supplied. Pass --auto
+# to enable auto-merge once required checks pass.
 sd_pr_merge() {
   local pr="$1"; shift
-  local canonical
+  local canonical has_strategy arg
   canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_pr_merge: no canonical.root"; return 1; }
   if ! command -v gh >/dev/null 2>&1; then
     sd_log_error "sd_pr_merge: 'gh' not in PATH."
     return 1
+  fi
+  has_strategy=0
+  for arg in "$@"; do
+    case "$arg" in
+      --merge|--rebase|--squash) has_strategy=1 ;;
+    esac
+  done
+  if [[ "$has_strategy" -eq 0 ]]; then
+    set -- --merge "$@"
   fi
   (cd "$canonical" && gh pr merge "$pr" "$@")
 }

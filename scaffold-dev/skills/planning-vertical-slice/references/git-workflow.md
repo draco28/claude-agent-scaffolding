@@ -11,7 +11,7 @@ Behavior is selected by `during_dev.merge_mode` (read via `sd merge_mode`).
   No remote, no `gh`, no PR. Nothing in this doc's `pr_hierarchical` sections runs.
 - **`pr_hierarchical`** — a three-tier integration hierarchy with PR gates:
 
-```
+```text
 main  ───────────────────────────────●   PR: sprint-N → main   (protected; real CI + review gate)
   └─ sprint-N                  (off main; whole sprint)
        ├─ slice/VS-N.M.1       (off sprint-N)
@@ -32,13 +32,16 @@ Invoke via the `sd` dispatcher. Each does ONE git/`gh` op; the agent reasons ove
 - `sd branch_create_from <base> <new>` → idempotent branch create in canonical.
 - `sd branch_push <branch>` → push to origin; errors if no remote.
 - `sd remote_check` → verify origin remote + authenticated `gh`.
+- `sd sprint_branch_name <sprint_id>` / `sd slice_branch_name <vs_id>` → branch
+  names from manifest templates.
 - `sd pr_open <head> <base> <title> <body-file>` → `gh pr create`; echoes PR url.
 - `sd pr_state <pr>` → raw `gh pr view --json …` (mergeStateStatus, statusCheckRollup,
-  reviews, reviewThreads, latestReviews, comments). NO interpretation.
-- `sd pr_merge <pr> [--auto]` → `gh pr merge`.
+  reviews, latestReviews, comments, reviewDecision, commits). NO interpretation.
+- `sd pr_merge <pr> [--auto]` → `gh pr merge --merge` by default; callers may pass
+  `--rebase` or `--squash` explicitly.
 
-Branch names: `sd`-internal helpers `_sd_sprint_branch_name <sprint_id>` (default
-`sprint-{sprint_id}`) and `_sd_slice_branch_name <vs_id>` (default `slice/{vs_id}`),
+Branch names: `sd sprint_branch_name <sprint_id>` (default `sprint-{sprint_id}`)
+and `sd slice_branch_name <vs_id>` (default `slice/{vs_id}`),
 configurable via `during_dev.sprint_branch_naming` / `during_dev.slice_branch_naming`.
 
 ## Slice-ordering rule (pr_hierarchical)
@@ -53,7 +56,7 @@ Never silently branch off a stale `sprint-N`.
 
 Before merging ANY PR (slice→sprint or sprint→main), the orchestrator:
 
-1. Calls `sd pr_state <pr>` → full state (CI rollup **and** review threads/comments).
+1. Calls `sd pr_state <pr>` → full state (CI rollup **and** reviews/comments).
 2. Reasons over the FULL state — **not just** `statusCheckRollup` / `mergeStateStatus`:
    - Review-app and human review **comments** are usually NOT modeled as required
      status checks, so `mergeStateStatus == CLEAN` can coexist with an unresolved

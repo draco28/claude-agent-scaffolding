@@ -6,7 +6,7 @@
 set -uo pipefail
 
 PLUGIN_ROOT="$(cd "$(dirname "$0")" && pwd)"
-cd "$PLUGIN_ROOT"
+cd "$PLUGIN_ROOT" || { echo "run-tests.sh: cannot cd to $PLUGIN_ROOT" >&2; exit 1; }
 
 FILES=0
 FAILED_FILES=()

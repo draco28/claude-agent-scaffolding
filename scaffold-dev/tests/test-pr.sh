@@ -56,12 +56,22 @@ test_merge_mode_pr() {
   assert_eq "reads pr_hierarchical" "pr_hierarchical" "$(sd_merge_mode)"
 }
 
+# 2a. merge_mode normalizes unknown manifest values to "direct"
+test_merge_mode_unknown_defaults_direct() {
+  echo "test_merge_mode_unknown_defaults_direct:"
+  _setup_pr_workspace
+  local tmp; tmp="$(mktemp)"
+  jq '.during_dev.merge_mode = "banana"' "$TMP_MANIFEST" > "$tmp" && mv "$tmp" "$TMP_MANIFEST"
+  cd "$TMP_AI_WORKSPACE"
+  assert_eq "unknown merge_mode defaults direct" "direct" "$(sd_merge_mode)"
+}
+
 # 3. sprint branch name default template
 test_sprint_branch_name() {
   echo "test_sprint_branch_name:"
   _setup_pr_workspace
   cd "$TMP_AI_WORKSPACE"
-  assert_eq "sprint branch default" "sprint-1.1" "$(_sd_sprint_branch_name "1.1")"
+  assert_eq "sprint branch default" "sprint-1.1" "$(sd_sprint_branch_name "1.1")"
 }
 
 # 4. slice branch name default template
@@ -69,11 +79,12 @@ test_slice_branch_name() {
   echo "test_slice_branch_name:"
   _setup_pr_workspace
   cd "$TMP_AI_WORKSPACE"
-  assert_eq "slice branch default" "slice/VS-1.1.1" "$(_sd_slice_branch_name "VS-1.1.1")"
+  assert_eq "slice branch default" "slice/VS-1.1.1" "$(sd_slice_branch_name "VS-1.1.1")"
 }
 
 test_merge_mode_default
 test_merge_mode_pr
+test_merge_mode_unknown_defaults_direct
 test_sprint_branch_name
 test_slice_branch_name
 
@@ -187,39 +198,56 @@ test_pr_state_clean() {
   cd "$TMP_AI_WORKSPACE"
   local json; json="$(sd_pr_state 123 2>/dev/null)"
   assert_eq "mergeStateStatus passthrough" "CLEAN" "$(echo "$json" | jq -r '.mergeStateStatus')"
-  assert_eq "no review comments" "0" "$(echo "$json" | jq -r '.reviewThreads | length')"
+  assert_eq "no reviews" "0" "$(echo "$json" | jq -r '.reviews | length')"
+  assert_file_contains "$GH_SHIM_LOG" "pr view 123 --json mergeStateStatus,statusCheckRollup,reviews,latestReviews,comments,reviewDecision,commits"
+  if grep -q 'reviewThreads' "$GH_SHIM_LOG"; then
+    FAIL=$((FAIL+1))
+    echo "  $(_color_fail 'FAIL') gh pr view requested unsupported reviewThreads field"
+  else
+    PASS=$((PASS+1))
+    echo "  $(_color_pass 'PASS') gh pr view omits unsupported reviewThreads field"
+  fi
 }
 
-# 15. pr_state surfaces an unresolved review-comment state verbatim
+# 15. pr_state surfaces review-comment state verbatim through supported gh fields
 test_pr_state_with_comment() {
   echo "test_pr_state_with_comment:"
   _setup_pr_workspace
   export GH_SHIM_PR_VIEW_JSON="$HERE/fixtures/pr-view-with-review-comment.json"
   cd "$TMP_AI_WORKSPACE"
   local json; json="$(sd_pr_state 123 2>/dev/null)"
-  assert_eq "unresolved thread present" "false" "$(echo "$json" | jq -r '.reviewThreads[0].isResolved')"
+  assert_contains "review body present" "Possible off-by-one" "$(echo "$json" | jq -r '.reviews[0].body')"
 }
 
 test_pr_state_clean
 test_pr_state_with_comment
 
-# 16. pr_merge invokes gh pr merge with the pr number
+# 16. pr_merge invokes gh pr merge with a non-interactive default strategy
 test_pr_merge() {
   echo "test_pr_merge:"
   _setup_pr_workspace
   cd "$TMP_AI_WORKSPACE"
   set +e; sd_pr_merge 123 2>/dev/null; local rc=$?; :
   assert_eq "merge rc=0" "0" "$rc"
-  assert_file_contains "$GH_SHIM_LOG" "pr merge 123"
+  assert_file_contains "$GH_SHIM_LOG" "pr merge 123 --merge"
 }
 
-# 17. pr_merge --auto passes the flag through
+# 17. pr_merge --auto keeps the default strategy and passes the flag through
 test_pr_merge_auto() {
   echo "test_pr_merge_auto:"
   _setup_pr_workspace
   cd "$TMP_AI_WORKSPACE"
   sd_pr_merge 123 --auto 2>/dev/null
-  assert_file_contains "$GH_SHIM_LOG" "pr merge 123 --auto"
+  assert_file_contains "$GH_SHIM_LOG" "pr merge 123 --merge --auto"
+}
+
+# 17a. pr_merge preserves an explicit strategy
+test_pr_merge_explicit_strategy() {
+  echo "test_pr_merge_explicit_strategy:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  sd_pr_merge 123 --squash --auto 2>/dev/null
+  assert_file_contains "$GH_SHIM_LOG" "pr merge 123 --squash --auto"
 }
 
 # 18. dispatcher exposes the new functions
@@ -230,10 +258,13 @@ test_dispatcher_lists_pr_fns() {
   assert_contains "lists pr_open" "pr_open" "$listed"
   assert_contains "lists pr_state" "pr_state" "$listed"
   assert_contains "lists merge_mode" "merge_mode" "$listed"
+  assert_contains "lists sprint_branch_name" "sprint_branch_name" "$listed"
+  assert_contains "lists slice_branch_name" "slice_branch_name" "$listed"
 }
 
 test_pr_merge
 test_pr_merge_auto
+test_pr_merge_explicit_strategy
 test_dispatcher_lists_pr_fns
 
 # 19. issue_create echoes the issue url and calls gh with the right args

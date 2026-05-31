@@ -6,6 +6,10 @@ case "${1:-} ${2:-}" in
   "auth status") exit "${GH_SHIM_AUTH_RC:-0}" ;;
   "pr create")   echo "${GH_SHIM_PR_URL:-https://github.com/test/repo/pull/123}"; exit 0 ;;
   "pr view")
+    if printf '%s\n' "$*" | grep -q 'reviewThreads'; then
+      echo "unknown JSON field: reviewThreads" >&2
+      exit 1
+    fi
     if [[ -n "${GH_SHIM_PR_VIEW_JSON:-}" && -f "$GH_SHIM_PR_VIEW_JSON" ]]; then
       cat "$GH_SHIM_PR_VIEW_JSON"
     else

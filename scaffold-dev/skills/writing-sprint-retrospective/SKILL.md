@@ -295,19 +295,23 @@ Do NOT close with self-congratulatory boilerplate.
 ## Open the sprint→main PR (pr_hierarchical only)
 
 Runs only when `sd merge_mode` == `pr_hierarchical`, AFTER the sprint
-retrospective is authored and all slice PRs into `sprint-${sprint_id}` have
+retrospective is authored and all slice PRs into `sprint-${N}` have
 merged. See `references/git-workflow.md` (cited by `planning-vertical-slice`) for
 the topology and the binding pre-merge gate.
 
-1. **Confirm slice PRs merged:** if any slice PR into `sprint-${sprint_id}` is
+1. **Confirm slice PRs merged:** if any slice PR into `sprint-${N}` is
    still open, surface it and stop — the sprint isn't ready to integrate to `main`.
-2. **Push the sprint branch:** `sd branch_push "sprint-${sprint_id}"`.
+2. **Resolve and push the sprint branch:**
+   ```bash
+   sprint_branch="$(sd sprint_branch_name "$N")"
+   sd branch_push "$sprint_branch"
+   ```
 3. **Compose the PR body:** the sprint retrospective summary + the slice list +
    linked issues.
 4. **Open the PR:**
    ```bash
-   sd pr_open "sprint-${sprint_id}" "$(sd manifest_get '.canonical.default_branch' || echo main)" \
-     "Sprint ${sprint_id}: <summary>" "<body-file>"
+   sd pr_open "$sprint_branch" "$(sd manifest_get '.canonical.default_branch' || echo main)" \
+     "Sprint ${N}: <summary>" "<body-file>"
    ```
 5. **Run the agent-driven pre-merge gate** per `references/git-workflow.md`
    (`sd pr_state` → reason over CI **and** review comments → surface → ask). This

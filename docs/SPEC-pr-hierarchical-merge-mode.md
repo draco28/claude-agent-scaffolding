@@ -33,7 +33,7 @@ An **opt-in, manifest-configured** merge mode that routes slice and sprint integ
 
 ## 3. Branch topology (`pr_hierarchical`)
 
-```
+```text
 main  ───────────────────────────────────────────────●   PR: sprint-N → main   (protected; real CI + review gate)
   └─ sprint-N                       (off main; lives the whole sprint)
        ├─ slice/VS-N.M.1            (off sprint-N)
@@ -76,11 +76,13 @@ New library. Each function performs **one** mechanical git/`gh` operation, retur
 
 | Function | Contract |
 |---|---|
+| `sd_sprint_branch_name <sprint_id>` | Resolve the sprint branch name from `during_dev.sprint_branch_naming` (default `sprint-{sprint_id}`). Dispatcher-accessible so skills never hard-code configured branch names. |
+| `sd_slice_branch_name <vs_id>` | Resolve the slice branch name from `during_dev.slice_branch_naming` (default `slice/{vs_id}`). Dispatcher-accessible so skills never hard-code configured branch names. |
 | `sd_branch_create_from <base> <new>` | Ensure `<base>` exists in canonical; create `<new>` off it. **Idempotent** — no-op (rc 0) if `<new>` already exists. |
 | `sd_branch_push <branch>` | Push `<branch>` to `origin`, set upstream. Clean error if no remote configured. |
 | `sd_pr_open <head> <base> <title> <body-file>` | Wraps `gh pr create --head <head> --base <base> --title <title> --body-file <body-file>`; echoes PR number/URL. Clean error if `gh` absent/unauthenticated. |
-| `sd_pr_state <pr>` | Emits `gh pr view <pr> --json mergeStateStatus,statusCheckRollup,reviews,reviewThreads,latestReviews,comments`. **No interpretation** — raw JSON for the agent to reason over. |
-| `sd_pr_merge <pr> [--auto]` | Wraps `gh pr merge <pr> [--auto]`. |
+| `sd_pr_state <pr>` | Emits `gh pr view <pr> --json mergeStateStatus,statusCheckRollup,reviews,latestReviews,comments,reviewDecision,commits`. **No interpretation** — raw JSON for the agent to reason over. |
+| `sd_pr_merge <pr> [--auto]` | Wraps `gh pr merge <pr> --merge [--auto]` by default; callers may pass `--rebase` or `--squash` explicitly. |
 | `sd_remote_check` | Verify canonical has a remote **and** `gh` is authenticated. rc 0 / non-zero + actionable message. |
 
 ### 5.1 Signature changes to existing helpers

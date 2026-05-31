@@ -166,7 +166,7 @@ lives on the slice branch, not `default_branch`. Check it out before demos:
 
 ```bash
 if [[ "$(sd merge_mode)" == "pr_hierarchical" ]]; then
-  git -C "$canonical" checkout -q "slice/${vs_id}"   # or per during_dev.slice_branch_naming
+  git -C "$canonical" checkout -q "$(sd slice_branch_name "$vs_id")"
 fi
 ```
 Restore is unnecessary — the slice branch is the integration target until its PR merges.
@@ -407,13 +407,18 @@ worktree cleanup (work-item worktree/branch cleanup is decoupled from this PR �
 the slice branch already holds every work-item commit; see
 `references/git-workflow.md`).
 
-1. **Push the slice branch:** `sd branch_push "slice/${vs_id}"`.
+1. **Resolve and push the integration branches:**
+   ```bash
+   slice_branch="$(sd slice_branch_name "$vs_id")"
+   sprint_branch="$(sd sprint_branch_name "$sprint_id")"
+   sd branch_push "$slice_branch"
+   ```
 2. **Compose the PR body** to a temp file: the slice README (with the populated
    Demo-verification section) + the architect-critic close-depth summary (§7) +
    any linked tech-debt/issue references.
 3. **Open the PR:**
    ```bash
-   sd pr_open "slice/${vs_id}" "sprint-${sprint_id}" "VS-${vs_id}: <slice title>" "<body-file>"
+   sd pr_open "$slice_branch" "$sprint_branch" "${vs_id}: <slice title>" "<body-file>"
    ```
 4. **Run the agent-driven pre-merge gate** per `references/git-workflow.md`
    (`sd pr_state` → reason over CI **and** review comments → surface → ask).
