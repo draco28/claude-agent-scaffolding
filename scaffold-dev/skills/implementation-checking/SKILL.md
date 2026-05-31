@@ -161,7 +161,7 @@ Then stop. The worktree is the implementer's sandbox; verifying without it produ
 
 ## 4. AC parsing (per SPEC §14.1 grammar)
 
-Read `${work_dir}/spec.md` and locate the **Acceptance Criteria** section. The spec is authored from `templates/work-item-spec.md.tmpl` (8 sections per SPEC §9); section 6 is "Acceptance criteria + verification".
+Read `${work_dir}/spec.md` and locate the **Acceptance Criteria** section. The spec is authored from `templates/work-item-spec.md.tmpl` (8 sections per SPEC §9); section 6 is "Acceptance criteria (machine-checkable)".
 
 For each AC line matching the `auto:` grammar:
 
@@ -177,6 +177,17 @@ Extract:
 Build an ordered list of `(ac_label, command, expectation)` tuples. The `ac_label` is the 1-indexed position (`AC-1`, `AC-2`, …).
 
 Lines with `user:` prefix are manual demo steps, not auto ACs — they're verified at slice-close per `closing-vertical-slice` §14.2, NOT here. Skip them silently in this gate.
+
+**Zero-AC degrade (issue #36).** If, after scanning §6, the `auto:` tuple list is
+**empty**, do NOT proceed to a green summary. Emit a blocking advisory tagged `[AC]`:
+
+> `[AC] No machine-runnable auto: ACs found in <spec path>. The gate cannot
+> auto-verify this work item — manual verification is required before merge.`
+
+Surface this as a §12.2-style menu row (so the user explicitly chooses to proceed
+with manual verification, re-author the spec with `auto:` lines, or abort) rather
+than silently reporting the work item ready. A zero-AC spec is a spec-authoring
+defect, not a pass.
 
 ---
 
@@ -313,6 +324,9 @@ On no violations: proceed to §9.1 all-pass green summary.
 Five mutually-exclusive outcome paths. Exactly one fires per invocation.
 
 ### 9.1 All-pass + rules present (S1 / S3 happy path)
+
+Precondition: at least one `auto:` AC executed and passed. If the tuple list was
+empty, the §4 zero-AC degrade advisory fires instead of this green summary.
 
 Emit a green verification summary naming each AC and the rule check:
 

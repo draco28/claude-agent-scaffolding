@@ -227,8 +227,7 @@ Use `sd_render` (lib/render.sh, ported from scaffold-onboard) to fill templates:
 
 - `templates/vertical-slice-readme.md.tmpl` → `${slice_root}/README.md`
   - Vars: `vs_id`, `vs_name`, `vs_description`, `demo_criteria` (the `auto:` / `user:` lines from ROADMAP), `work_items_table`, `round_plan`, `sprint_context`.
-- `templates/work-item-spec.md.tmpl` → each `work-N.NN-<kebab>/spec.md` (Wabash Format B, 8 sections per SPEC §9).
-  - Vars: `vs_id`, `work_id`, `round`, `worktree_abs_path` (computed but not yet created — `${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}`), `branch` (computed from `branch_naming` template), context, decisions, `traceability_block`, files to modify, ACs with verification, demo contribution, anti-actions, reference index.
+- `templates/work-item-spec.md.tmpl` → each `work-N.NN-<kebab>/spec.md` (8 sections per SPEC §9). Author §6 `acs_block` as machine-checkable `auto:` / `user:` lines per the SPEC §14.1 grammar — one `auto:` line per programmatically-verifiable AC (`- [ ] auto: <bash command> → expected: <exit 0 | output contains "<pat>" | count > 0>`), and `user:` lines for manual demo steps. These lines are the single AC source of truth the `implementation-checking` gate parses (§4). Do NOT author a parallel prose AC table — the table/`auto:` split is what caused the gate to find zero ACs (#36).
 
 The worktree path and branch are computed at spec-authoring time (so the spec is self-contained as a fresh-session starter per §6.4) but the actual `git worktree add` does NOT happen until the round starts (§8.1).
 

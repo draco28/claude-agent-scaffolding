@@ -10,7 +10,7 @@
   decisions_baked_in     bulleted decisions pre-pinned by spec authoring + audit
   traceability_block     FR/NFR/BACKLOG IDs inherited from the ROADMAP vertical slice
   files_to_modify        bulleted list of paths (added | modified)
-  acs_table              markdown table: AC-N | description | verification
+  acs_block              §14.1 machine-checkable AC lines (the gate parses these): `- [ ] auto: <cmd> → expected: <predicate>` / `- [ ] user: <manual step>`
   verification_block     fenced bash block listing executable verification commands
   demo_contribution      one paragraph: how this work item advances slice demo criteria
   not_in_scope           bulleted list of out-of-scope items (anti-actions)
@@ -42,9 +42,12 @@
 
 {{files_to_modify}}
 
-## 6. ACs with verification
+## 6. Acceptance criteria (machine-checkable)
 
-{{acs_table}}
+> Authoritative AC source of truth. `implementation-checking` parses these lines.
+> `auto:` lines run at the per-work-item gate; `user:` lines are manual demo steps.
+
+{{acs_block}}
 
 ## 7. Verification (executable)
 

@@ -156,11 +156,34 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 ---
 
+### S5 — Zero machine-runnable ACs → loud-degrade advisory (no false-green)
+
+**Setup:**
+- Same dual-repo + roadmap/cursor fixture as S1.
+- Work item `1.05` spec.md §6 contains only prose / `user:` lines — **no `auto:` lines** (simulates a spec authored before the #36 fix, or a deletion-only work item).
+- `report.md` claims `complete`.
+- Canonical worktree contains staged changes.
+
+**Trigger:** target subagent user message: `verify work item 1.05`
+
+**Expected behavior:**
+- Skill parses §6, builds an empty `auto:` tuple list.
+- Skill does NOT emit a green summary and does NOT report the work item ready for commit.
+- Skill emits the `[AC]` zero-AC advisory ("No machine-runnable auto: ACs found … manual verification is required") and surfaces a §12.2-style menu with ≥3 options (proceed-with-manual-verification, re-author-spec, abort).
+
+**Assertion (judge subagent verifies):**
+- The target subagent's output contains the `[AC]` zero-AC advisory and a ≥3-option menu.
+- The target subagent does NOT emit a "ready for commit/merge" / green line.
+- No commit/merge/`report.md`-edit tool calls appear.
+- The target subagent's tool-call log shows NO Bash invocation running an `auto:` command from §6 — the gate must not attempt to execute ACs when the tuple list is empty.
+
+---
+
 ## Pass / fail criteria
 
 A scenario is PASS only if every bullet under its `Assertion` block is judged true. If any bullet fails, the judge returns `FAIL: <bullet text> — <specific deviation observed>` so the skill author can target a fix.
 
-The full eval is GREEN when all 4 scenarios PASS.
+The full eval is GREEN when all 5 scenarios PASS.
 
 ## Out of scope for this eval
 
