@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # scaffold-dev/lib/merge.sh
-# Per-work-item branch merge into canonical's default branch (typically main).
+# Per-work-item branch merge into a target branch on canonical — the default
+# branch (typically main) when no explicit target is given, or an integration
+# branch (e.g. the slice branch under pr_hierarchical merge mode) when passed.
 # Commits any staged changes in the worktree (orchestrator-driven policy);
 # then merges via --no-ff. Halts on conflict; sd_merge_abort aborts the
 # in-progress merge state on canonical.
