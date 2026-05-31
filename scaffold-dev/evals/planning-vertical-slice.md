@@ -149,7 +149,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 A scenario is PASS only if every bullet under its `Assertion` block is judged true. If any bullet fails, the judge returns `FAIL: <bullet text> — <specific deviation observed>` so the skill author can target a fix.
 
-The full eval is GREEN when all 4 scenarios PASS.
+The full eval is GREEN when all 5 scenarios PASS.
 
 ## Out of scope for this eval
 
@@ -164,7 +164,7 @@ The full eval is GREEN when all 4 scenarios PASS.
 
 ---
 
-### Scenario: pr_hierarchical pre-flight creates the branch hierarchy
+### S5 — pr_hierarchical pre-flight creates the branch hierarchy
 
 **Setup:** dual-repo workspace with `during_dev.merge_mode = "pr_hierarchical"`,
 canonical has an `origin` remote, `gh` is authenticated (test harness may stub gh).

@@ -111,7 +111,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 A scenario is PASS only if every bullet under its `Assertion` block is judged true AND the cross-scenario 6-section invariant is satisfied on every file written (S1). If any bullet fails, the judge returns `FAIL: <bullet text> — <specific deviation observed>`.
 
-The full eval is GREEN when both scenarios PASS.
+The full eval is GREEN when all 3 scenarios PASS.
 
 ## Out of scope for this eval
 
@@ -126,7 +126,7 @@ The full eval is GREEN when both scenarios PASS.
 
 ---
 
-### Scenario: pr_hierarchical sprint close opens the sprint→main PR
+### S3 — pr_hierarchical sprint close opens the sprint→main PR
 
 **Setup:** pr_hierarchical workspace; final slice of sprint 1.1 closed (its
 slice→sprint PR merged); sprint retrospective just authored.
