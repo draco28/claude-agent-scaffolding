@@ -22,7 +22,7 @@ _setup_pr_workspace() {
   export GH_SHIM_LOG="$TMP_DIR/gh-calls.log"
   : > "$GH_SHIM_LOG"
   # Reset shim env to defaults each setup.
-  unset GH_SHIM_AUTH_RC GH_SHIM_MERGE_RC GH_SHIM_PR_VIEW_JSON
+  unset GH_SHIM_AUTH_RC GH_SHIM_MERGE_RC GH_SHIM_PR_VIEW_JSON GH_SHIM_ISSUE_LIST_JSON GH_SHIM_ISSUE_URL
   export GH_SHIM_PR_URL="https://github.com/test/repo/pull/123"
 }
 
@@ -249,5 +249,28 @@ test_issue_create() {
 }
 
 test_issue_create
+
+# 20. issue_list passes gh's JSON through (for agent recall/de-dup)
+test_issue_list() {
+  echo "test_issue_list:"
+  _setup_pr_workspace
+  export GH_SHIM_ISSUE_LIST_JSON="$HERE/fixtures/issue-list.json"
+  cd "$TMP_AI_WORKSPACE"
+  local json; json="$(sd_issue_list 2>/dev/null)"
+  assert_eq "first issue number" "7" "$(echo "$json" | jq -r '.[0].number')"
+  assert_eq "first issue label" "tech-debt" "$(echo "$json" | jq -r '.[0].labels[0].name')"
+}
+
+# 21. issue_list returns empty array when no issues
+test_issue_list_empty() {
+  echo "test_issue_list_empty:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  local json; json="$(sd_issue_list 2>/dev/null)"
+  assert_eq "empty list" "0" "$(echo "$json" | jq -r 'length')"
+}
+
+test_issue_list
+test_issue_list_empty
 
 sd_test_summary

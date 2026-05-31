@@ -160,3 +160,15 @@ sd_issue_create() {
   echo "$out"
   return 0
 }
+
+# sd_issue_list [extra gh args...] — emit open issues as JSON for the agent to
+# reason over (blocker-recall / de-dup). NO interpretation here. rc 1 if gh absent.
+sd_issue_list() {
+  local canonical
+  canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_issue_list: no canonical.root"; return 1; }
+  if ! command -v gh >/dev/null 2>&1; then
+    sd_log_error "sd_issue_list: 'gh' not in PATH."
+    return 1
+  fi
+  (cd "$canonical" && gh issue list --state open --json number,title,body,labels "$@")
+}
