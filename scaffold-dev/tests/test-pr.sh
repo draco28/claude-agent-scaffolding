@@ -190,6 +190,18 @@ test_pr_open() {
 
 test_pr_open
 
+# 13a. pr_open resolves a relative body-file before cd'ing into canonical
+test_pr_open_relative_body_file() {
+  echo "test_pr_open_relative_body_file:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  echo "body text" > pr-body.md
+  sd_pr_open "slice/VS-1.1.1" "sprint-1.1" "VS-1.1.1: title" "pr-body.md" >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_LOG" "--body-file $TMP_AI_WORKSPACE/pr-body.md"
+}
+
+test_pr_open_relative_body_file
+
 # 14. pr_state passes through gh's JSON unchanged (clean state)
 test_pr_state_clean() {
   echo "test_pr_state_clean:"
@@ -282,6 +294,18 @@ test_issue_create() {
 }
 
 test_issue_create
+
+# 19a. issue_create resolves a relative body-file before cd'ing into canonical
+test_issue_create_relative_body_file() {
+  echo "test_issue_create_relative_body_file:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  echo "deferred: tune backoff" > issue-body.md
+  sd_issue_create "Tune retry backoff" "issue-body.md" --label tech-debt >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_LOG" "--body-file $TMP_AI_WORKSPACE/issue-body.md"
+}
+
+test_issue_create_relative_body_file
 
 # 20. issue_list passes gh's JSON through (for agent recall/de-dup)
 test_issue_list() {

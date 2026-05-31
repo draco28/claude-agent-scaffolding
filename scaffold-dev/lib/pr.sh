@@ -136,6 +136,8 @@ sd_remote_check() {
 sd_pr_open() {
   local head="$1" base="$2" title="$3" body_file="$4" canonical out
   canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_pr_open: no canonical.root"; return 1; }
+  body_file="$(sd_abs_path "$body_file")"
+  [[ -f "$body_file" ]] || { sd_log_error "sd_pr_open: body file not found: $body_file"; return 1; }
   if ! command -v gh >/dev/null 2>&1; then
     sd_log_error "sd_pr_open: 'gh' not in PATH."
     return 1
@@ -216,6 +218,8 @@ sd_issue_create() {
   local title="$1" body_file="$2"; shift 2
   local canonical out
   canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_issue_create: no canonical.root"; return 1; }
+  body_file="$(sd_abs_path "$body_file")"
+  [[ -f "$body_file" ]] || { sd_log_error "sd_issue_create: body file not found: $body_file"; return 1; }
   if ! command -v gh >/dev/null 2>&1; then
     sd_log_error "sd_issue_create: 'gh' not in PATH."
     return 1
