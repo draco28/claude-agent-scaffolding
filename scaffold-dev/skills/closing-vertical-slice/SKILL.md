@@ -9,7 +9,7 @@ You are the slice-close ceremony for scaffold-dev v0.1's vertical-slice lifecycl
 
 The ceremony order is binding. The §11 M2 marker — worktrees + branches removed ONLY after harvest completes — is the load-bearing discipline this body enforces. Halt-on-first-auto-demo-failure preserves worktrees for inspection (eval S2). Warn-and-proceed on architect-critic absence keeps the ceremony moving without blocking (eval S3). Source-tagged harvest with literal `[report]` / `[handoff]` brackets and the provenance trailer carries SPEC §15.2's 8-step contract through eval S4.
 
-Bash helpers in `lib/manifest.sh`, `lib/render.sh`, `lib/worktree.sh`, and `lib/compose.sh` do the bookkeeping (manifest resolution, demo-line parsing, template substitution, filesystem probes, worktree teardown). The judgment work — which §12.2 menu row matches the failing auto-demo, how to phrase the source-tagged harvest candidates, when to count the rejected handoff item as "left in handoff" — happens here, in conversation.
+Bash helpers in `lib/manifest.sh`, `lib/render.sh`, `lib/worktree.sh`, and `lib/compose.sh` do the bookkeeping (manifest resolution, template substitution, filesystem probes, worktree teardown). Demo-line parsing happens directly in the orchestrator (trivial two-field split on ` → expected: `); demo-criterion evaluation is agent-judged for content expectations. The judgment work — which §12.2 menu row matches the failing auto-demo, whether captured output satisfies a content expectation (with a recorded reason), how to phrase the source-tagged harvest candidates, when to count the rejected handoff item as "left in handoff" — happens here, in conversation.
 
 This skill is the slice-close terminal step. It does NOT plan slices (that's `planning-vertical-slice` per §5), does NOT verify per-work-item ACs (that's `implementation-checking` per §12.1), and does NOT author the work-item bodies (that's the `scaffold-dev:implementer-agent` subagent body via `executing-work-item` per §6). It is invoked at the end of the slice when all rounds complete, either by trigger phrase or by the `/close-slice VS-N.M.K` slash command.
 
@@ -21,7 +21,7 @@ When invoked, you:
 
 1. Discover the workspace-init pairing manifest; refuse fail-fast if absent (mirrors `planning-vertical-slice` §3.1).
 2. Resolve the target VS-id from the user message (or active-context cursor) and locate the slice directory under `<ai-workspace>/docs/specs/sprint-<sprint_id>/VS-<id>-<kebab>/` (e.g. `sprint-1.1/VS-1.1.1-<kebab>/`), with `sprint_id` field-read from the structured roadmap.
-3. Read the VS README; parse `auto:` and `user:` demo criteria per SPEC §14.1 grammar via `lib/render.sh::sd_demo_parse_block`.
+3. Read the VS README; parse `auto:` and `user:` demo criteria per SPEC §14.1 grammar directly in the orchestrator (split each line on the literal ` → expected: ` after stripping the `auto:`/`user:` prefix).
 4. **Layer 1 — auto-demo:** run each `auto:` command in canonical (NOT in any work-item worktree), evaluate the expectation, halt on first failure. Record outcomes in the VS README's "Demo verification" section.
 5. **Layer 2 — manual-demo:** surface each `user:` step to the user with the expected outcome; capture pass/fail/partial + notes. Record outcomes in "Demo verification".
 6. **Layer 3 — architect-critic at close depth:** probe via `lib/compose.sh::sd_compose_detect_architect_critic`; if v0.2 present, invoke `Skill(architect-critic:critiquing-spec)` in-conversation at `depth=close` with the slice diff + VS README + work-item specs as context; if absent, emit one warning naming `architect-critic` or `adversarial review` and proceed.
@@ -134,13 +134,13 @@ Then stop. The ceremony depends on all work items having committed + merged outp
 
 ## 4. Demo-criteria parse (per §14.1 grammar)
 
-Read `${slice_root}/README.md`. Locate the demo-criteria block (rendered into the README at `planning-vertical-slice` §6 from the ROADMAP's `auto:`/`user:` lines). Parse via `lib/render.sh::sd_demo_parse_block`:
+Read `${slice_root}/README.md`. Locate the demo-criteria block (rendered into the README at `planning-vertical-slice` §6 from the ROADMAP's `auto:`/`user:` lines). Parse each demo line directly in the orchestrator — no lib parser is needed, because parsing a two-field line is trivial and the evaluation is agent-driven anyway.
 
-```bash
-demo_lines="$(sd demo_parse_block "${slice_root}/README.md")"
-```
+For each line under the `## Demo criteria` (or `##### Demo criteria`) section, strip the leading `- [ ] ` checkbox and check the prefix:
 
-Each parsed line yields a `(prefix, command-or-action, expectation)` tuple where `prefix` is one of `auto` or `user`, separated by the literal U+2192 arrow character (`→`, NOT the ASCII `->` digraph — same grammar as scaffold-onboard's R3 per SPEC §14.1).
+- Lines starting with `auto: ` → split on the literal ` → expected: ` (U+2192 arrow, NOT ASCII `->`) to yield `(command, expectation)`.
+- Lines starting with `user: ` → split the same way to yield `(action, expectation)`.
+- Lines not matching either prefix → skip (section headers, blank lines, etc.).
 
 Build two ordered lists: `auto_steps` (the `auto:` tuples in declared order) and `user_steps` (the `user:` tuples in declared order). If both lists are empty, surface:
 
@@ -171,16 +171,16 @@ fi
 ```
 Restore is unnecessary — the slice branch is the integration target until its PR merges.
 
-Evaluate `expectation` per §14.1:
-- `exit 0` → pass iff `result_exit == 0`.
-- `output contains "<pat>"` → pass iff `result_stdout` substring-matches the literal pattern.
-- `count > 0` / numeric comparisons → arithmetic against the trimmed `result_stdout`.
+Evaluate `expectation` using a **run-then-judge** approach:
 
-Record each outcome in the VS README's `## Demo verification` section (append if absent), one line per step:
+- If `expectation` is an **exit-code form** (`exit 0` or `exit <N>`): **deterministic** — pass iff `result_exit == N`. This is a mechanical fact; no agent judgment needed.
+- If `expectation` is any **content form** (`output contains …`, `output matches …`, `count > 0`, `> 5 rows`, or free-form prose): the orchestrator **judges** whether `result_stdout` satisfies the stated expectation and records a one-line reason. No bash substring or arithmetic parsing.
+
+Record each outcome in the VS README's `## Demo verification` section (append if absent), one line per step, including the agent's reason:
 
 ```
-- [x] auto: <cmd> → expected: <exp> → observed: pass (exit 0)
-- [x] auto: <cmd> → expected: <exp> → observed: fail (exit 1) — <stderr-excerpt>
+- [x] auto: <cmd> → expected: <exp> → observed: pass — <one-line reason>
+- [x] auto: <cmd> → expected: <exp> → observed: fail — <one-line reason or stderr excerpt>
 ```
 
 **Halt-on-first-fail is binding.** On any fail:
@@ -518,7 +518,7 @@ Eval S1 / S3 / S4 assert the target subagent's final assistant message indicates
 ## 15. Notes on tool boundaries
 
 - **You** (Claude reading this skill body) make every judgment call: how to phrase the failing-step recovery menu, how to categorize each harvest candidate by target memory-bank file, how to surface the source-tagged candidates with enough context for the user's per-item decision, how to phrase the closing handoff message.
-- **Bash helpers** (`lib/manifest.sh`, `lib/render.sh`, `lib/compose.sh`, `lib/worktree.sh`) handle pure I/O: manifest reads, demo-line parsing, template substitution, filesystem probes, worktree teardown.
+- **Bash helpers** (`lib/manifest.sh`, `lib/render.sh`, `lib/compose.sh`, `lib/worktree.sh`) handle pure I/O: manifest reads, template substitution, filesystem probes, worktree teardown. Demo-line parsing is done inline in the orchestrator (split on ` → expected: `); demo-criterion evaluation for content expectations is agent-judged.
 - **`architect-critic:critiquing-spec`** owns the adversarial review at close depth; you invoke it once between Layer 2 and §8 retrospective authoring, and it runs its own sequential rebuttal cycle before returning control. This skill never enters that cycle; the user does, in conversation.
 - **`writing-sprint-retrospective`** (separate skill, T1.7) owns the sprint-level retrospective. This skill does NOT author it — only the slice retrospective + the conditional handoff sweep at §11.
 - **`scaffold-onboard:authoring-vertical-slice-demo`** owns demo-criteria authoring. When the user picks recovery option 1 ("re-author the demo step"), this skill hands off to that flow; it does NOT edit the VS README's demo criteria itself.
