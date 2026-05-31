@@ -58,11 +58,11 @@ The core 11-file memory bank from v0.1.0 is preserved; a 12th file (`tech-debt.m
 | Static | `WORKFLOW.md` (1 file) | Copy verbatim from `templates/memory-bank/WORKFLOW.md` | Copy only if missing on normal re-derive; overwrite when invoked with `--force` |
 | Seeded index | `tech-debt.md` (1 file) | Render header-only from `templates/memory-bank/tech-debt.md.tmpl` — no `[TD]` entries | **Preserve existing file** — scaffold-dev's `/defer` and round-close sweep append entries over time |
 
-**Helper:** `sf_memory_bank_derive` (lib/memory-bank.sh) implements all three behaviors. It accepts an optional `--force` flag that overrides the live-seed preservation and refreshes static `WORKFLOW.md` from `templates/memory-bank/WORKFLOW.md`; normal re-derive and `--regenerate` preserve an existing `WORKFLOW.md`.
+**Helper:** `sf_memory_bank_derive` (lib/memory-bank.sh) implements all three behaviors. It accepts an optional `--force` flag (which `--regenerate` passes) that overrides the live-seed preservation **and** refreshes static `WORKFLOW.md` from `templates/memory-bank/WORKFLOW.md`. A *normal* re-derive (no `--force`/`--regenerate`) preserves an existing `WORKFLOW.md` (copy-only-if-missing); `--force`/`--regenerate` overwrites it — so `WORKFLOW.md` must be named in the `--force` confirmation alongside the live-seed files.
 
 **Discipline:**
 
-- Always confirm with the user before passing `--force`. Live-seed files often hold weeks of in-flight context (`05-active-context.md` is the daily working scratchpad); silently overwriting them is a data-loss bug.
+- Always confirm with the user before passing `--force`. It overwrites the live-seed files (`05-active-context.md`, `06-progress.md`) **and** refreshes `WORKFLOW.md` — name all three paths in the confirmation. Live-seed files often hold weeks of in-flight context, and a user may have customized `WORKFLOW.md`; silently overwriting any of them is a data-loss bug.
 - The 8 derived files share a substitution arg-list assembled by `_memory_bank_args` (timestamp, project_class, every state answer prefixed `phase_<qid>=`, and gate flags `ui_branch`, `dx_branch`, `backend_branch`, `frontend_branch`, `library_branch`). Do not re-inline that logic here; call the helper.
 
 ---
@@ -178,7 +178,7 @@ The `/scaffold-project` slash command wrapper (`commands/scaffold-project.md`) e
 Supported flags:
 
 - *(no flag)* — derive memory bank; preserve live-seed files (`05-active-context.md`, `06-progress.md`); skip WORKFLOW.md if present; route via manifest if present, else `$(pwd)`.
-- `--regenerate` — pass `--force` to `sf_memory_bank_derive`. Overwrites live-seed files (with explicit user confirmation). Does NOT overwrite WORKFLOW.md (static, project-agnostic). Always asks confirmation before clobbering `05-active-context.md` / `06-progress.md` — surface the path(s) that will be overwritten and require an explicit `yes`.
+- `--regenerate` — pass `--force` to `sf_memory_bank_derive`. Overwrites live-seed files **and** refreshes `WORKFLOW.md` (with explicit user confirmation). Always asks confirmation before clobbering `05-active-context.md` / `06-progress.md` / `WORKFLOW.md` — surface every path that will be overwritten and require an explicit `yes`.
 
 Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly. If `$ARGUMENTS` contains a flag this skill doesn't recognize, surface a one-line error listing the supported flags and stop — do not silently ignore.
 
@@ -210,7 +210,7 @@ These are pseudocode references — the implementations are in their respective 
 - **Emitting actual `<!-- mcrule:start -->` rule blocks from this skill.** R2 section seeding is heading-plus-invitation only. Rule authoring belongs to `scaffold-onboard:authoring-machine-checkable-rules` (SPEC §5.5). Lane discipline matters — eval scenario S2 will FAIL on any rule block emitted by this skill.
 - **Using the fenced-block mcrule alternative** (e.g., ` ```mcrule ... ``` ` fences). The v0.2 grammar is HTML-sentinel only (SPEC §8.2). Fenced blocks were drafted and rejected because their boundaries are invisible in rendered markdown.
 - **Overwriting live-seed files (`05-active-context.md`, `06-progress.md`) silently on re-derive.** Always preserve unless `--regenerate` is explicit AND the user has confirmed. These files hold the user's in-flight work; silent clobber is a data-loss bug.
-- **Overwriting WORKFLOW.md on `--regenerate`.** It's static project-agnostic content; the v0.1.0 helper deliberately treats it as copy-once. `--force` doesn't touch it.
+- **Overwriting `WORKFLOW.md` on `--regenerate` WITHOUT naming it in the confirmation.** `--force` (which `--regenerate` passes) DOES refresh `WORKFLOW.md` from the template — intentional, since it's project-agnostic — but a user may have customized it, so it MUST appear in the `--force` confirmation alongside the live-seed files; never clobber it silently.
 - **Hardcoding `.claude/memory-bank/` against `$(pwd)`.** Always route via `sf_resolve_output_path memory_bank .claude/memory-bank/...`.
 - **Reading `composition.json` to detect architect-critic.** Use `sf_compose_detect_architect_critic` (filesystem probe). The composition.json registry tracks ai-mentor + superpowers only in v0.2 (per ac v0.2 settlement #1).
 - **Invoking `Skill(architect-critic:critique)`.** That's the v0.1.x slash-command-shaped name, removed in ac v0.2. Use `Skill(architect-critic:critiquing-spec)`.

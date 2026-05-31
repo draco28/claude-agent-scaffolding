@@ -280,31 +280,21 @@ The Write of `sprint-retrospective.md` is under `${sprint_dir}` directly (NOT un
 
 ---
 
-## 9. Final assistant message
-
-After the write, emit a paragraph naming:
-
-1. **The absolute path of the written file.** Code-formatted block. Eval S1 explicitly checks for the absolute path.
-2. **The aggregation summary.** E.g., *"Aggregated 3 slice retros (`VS-3.1`, `VS-3.2`, `VS-3.3`) into the sprint-3 retrospective; 6 sections populated, 5 memory-bank items totaled across 3 files."*.
-3. **Next step.** Typically the sprint-close handoff: *"If sprint-${N+1} is up next, compose the carry-forward handoff via `handing-off-session` (`/handoff --scope sprint --purpose to-${N+1}-handoff`)."*.
-
-Do NOT close with self-congratulatory boilerplate.
-
----
-
-## Open the sprint→main PR (pr_hierarchical only)
+## 8a. Open the sprint→main PR (pr_hierarchical only)
 
 Runs only when `sd merge_mode` == `pr_hierarchical`, AFTER the sprint
-retrospective is authored and all slice PRs into `sprint-${N}` have
-merged. See `references/git-workflow.md` (cited by `planning-vertical-slice`) for
-the topology and the binding pre-merge gate.
+retrospective is authored and all slice PRs into `sprint-${N}` have merged, and
+**BEFORE §9's final message** (so the turn never ends before the PR is opened).
+See `references/git-workflow.md` (cited by `planning-vertical-slice`) for the
+topology and the binding pre-merge gate.
 
 1. **Confirm slice PRs merged:** if any slice PR into `sprint-${N}` is
    still open, surface it and stop — the sprint isn't ready to integrate to `main`.
-2. **Resolve and push the sprint branch:**
+2. **Resolve, sync, then push the sprint branch:**
    ```bash
    sprint_branch="$(sd sprint_branch_name "$N")"
-   sd branch_push "$sprint_branch"
+   sd branch_sync "$sprint_branch"   # FIRST: fast-forward the local base to origin (slice PRs advanced it remotely)
+   sd branch_push "$sprint_branch"   # THEN: push (a stale local base would be rejected non-fast-forward)
    ```
 3. **Compose the PR body:** the sprint retrospective summary + the slice list +
    linked issues.
@@ -314,11 +304,28 @@ the topology and the binding pre-merge gate.
      "Sprint ${N}: <summary>" "<body-file>"
    ```
 5. **Run the agent-driven pre-merge gate** per `references/git-workflow.md`
-   (`sd pr_state` → reason over CI **and** review comments → surface → ask). This
-   is the protected boundary — be especially explicit about unresolved review
-   findings. Merge via `sd pr_merge` only on explicit user acknowledgment.
+   (`sd pr_state` + `sd pr_review_comments` → reason over CI **and** inline review
+   comments → surface → ask). This is the protected boundary — be especially
+   explicit about unresolved review findings. Merge via `sd pr_merge` only on
+   explicit user acknowledgment.
 
 `direct` mode skips this section — there is no sprint branch and no PR.
+
+---
+
+## 9. Final assistant message
+
+In `pr_hierarchical` mode, complete §8a (open the sprint→main PR + run the gate)
+**before** emitting this message, and include the opened PR (number/URL) + the
+gate outcome in it.
+
+After the write, emit a paragraph naming:
+
+1. **The absolute path of the written file.** Code-formatted block. Eval S1 explicitly checks for the absolute path.
+2. **The aggregation summary.** E.g., *"Aggregated 3 slice retros (`VS-3.1`, `VS-3.2`, `VS-3.3`) into the sprint-3 retrospective; 6 sections populated, 5 memory-bank items totaled across 3 files."*.
+3. **Next step.** Typically the sprint-close handoff: *"If sprint-${N+1} is up next, compose the carry-forward handoff via `handing-off-session` (`/handoff --scope sprint --purpose to-${N+1}-handoff`)."*.
+
+Do NOT close with self-congratulatory boilerplate.
 
 ---
 

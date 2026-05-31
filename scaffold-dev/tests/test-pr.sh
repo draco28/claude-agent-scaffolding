@@ -329,13 +329,16 @@ test_issue_list_explicit_limit() {
   fi
 }
 
-# 24. pr_review_comments fetches inline review comments via gh api (not gh pr view)
+# 24. pr_review_comments fetches inline review comments via gh api (not gh pr view),
+#     accepts a PR URL (normalizes to the numeric id), and returns one flat array.
 test_pr_review_comments() {
   echo "test_pr_review_comments:"
   _setup_pr_workspace
   export GH_SHIM_PR_COMMENTS_JSON="$HERE/fixtures/pr-review-comments.json"
   cd "$TMP_AI_WORKSPACE"
-  local json; json="$(sd_pr_review_comments 7 2>/dev/null)"
+  # Pass a PR URL (what sd_pr_open echoes) — must normalize to pulls/7/comments.
+  local json; json="$(sd_pr_review_comments "https://github.com/test/repo/pull/7" 2>/dev/null)"
+  assert_eq "flat top-level array" "1" "$(echo "$json" | jq -r 'if type=="array" then length else "notarray" end')"
   assert_eq "inline comment path" "scaffold-dev/lib/pr.sh" "$(echo "$json" | jq -r '.[0].path')"
   assert_contains "inline comment body" "unresolved inline finding" "$(echo "$json" | jq -r '.[0].body')"
   assert_file_contains "$GH_SHIM_LOG" "api"

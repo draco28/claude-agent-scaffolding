@@ -167,13 +167,18 @@ sd_pr_state() {
 # fetch these so it never merges over unresolved inline feedback while CI is green.
 # Emits the raw JSON array. NO interpretation. rc 1 if gh absent.
 sd_pr_review_comments() {
-  local pr="$1" canonical
+  local pr="$1" canonical num
   canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_pr_review_comments: no canonical.root"; return 1; }
   if ! command -v gh >/dev/null 2>&1; then
     sd_log_error "sd_pr_review_comments: 'gh' not in PATH."
     return 1
   fi
-  (cd "$canonical" && gh api --paginate "repos/{owner}/{repo}/pulls/$pr/comments")
+  # Accept a PR URL (gh pr create echoes one) OR a bare number — the REST path
+  # needs the numeric id. Strip everything up to the last '/'.
+  num="${pr##*/}"
+  # --paginate emits one JSON array PER PAGE; merge them into a single flat array
+  # (jq -s 'add') so the contract stays "one JSON array" regardless of page count.
+  (cd "$canonical" && gh api --paginate "repos/{owner}/{repo}/pulls/$num/comments") | jq -s 'add // []'
 }
 
 # sd_pr_merge <pr> [extra gh args...] — wraps gh pr merge. Defaults to --merge
