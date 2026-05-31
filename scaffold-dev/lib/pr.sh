@@ -116,3 +116,15 @@ sd_pr_open() {
   echo "$out"
   return 0
 }
+
+# sd_pr_state <pr> — emit gh pr view JSON for the agent-driven gate to reason
+# over. NO interpretation here. rc 1 if gh absent.
+sd_pr_state() {
+  local pr="$1" canonical
+  canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_pr_state: no canonical.root"; return 1; }
+  if ! command -v gh >/dev/null 2>&1; then
+    sd_log_error "sd_pr_state: 'gh' not in PATH."
+    return 1
+  fi
+  (cd "$canonical" && gh pr view "$pr" --json mergeStateStatus,statusCheckRollup,reviews,reviewThreads,latestReviews,comments)
+}

@@ -179,4 +179,28 @@ test_pr_open() {
 
 test_pr_open
 
+# 14. pr_state passes through gh's JSON unchanged (clean state)
+test_pr_state_clean() {
+  echo "test_pr_state_clean:"
+  _setup_pr_workspace
+  export GH_SHIM_PR_VIEW_JSON="$HERE/fixtures/pr-view-clean.json"
+  cd "$TMP_AI_WORKSPACE"
+  local json; json="$(sd_pr_state 123 2>/dev/null)"
+  assert_eq "mergeStateStatus passthrough" "CLEAN" "$(echo "$json" | jq -r '.mergeStateStatus')"
+  assert_eq "no review comments" "0" "$(echo "$json" | jq -r '.reviewThreads | length')"
+}
+
+# 15. pr_state surfaces an unresolved review-comment state verbatim
+test_pr_state_with_comment() {
+  echo "test_pr_state_with_comment:"
+  _setup_pr_workspace
+  export GH_SHIM_PR_VIEW_JSON="$HERE/fixtures/pr-view-with-review-comment.json"
+  cd "$TMP_AI_WORKSPACE"
+  local json; json="$(sd_pr_state 123 2>/dev/null)"
+  assert_eq "unresolved thread present" "false" "$(echo "$json" | jq -r '.reviewThreads[0].isResolved')"
+}
+
+test_pr_state_clean
+test_pr_state_with_comment
+
 sd_test_summary
