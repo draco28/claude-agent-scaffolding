@@ -2,6 +2,12 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.1.7] — 2026-05-31
+
+### Fixed
+- **#35 — invalid YAML frontmatter made Codex skip four skills.** The `description:` frontmatter on `implementation-checking`, `appending-changelog-entry`, `authoring-runbook`, and `executing-work-item` contained unquoted `: ` (colon-space) sequences (`Read-only:`, `changelog: <entry>`, `six sections:`, `Dual-use:`) that Codex's Psych loader parsed as a nested mapping → `Psych::SyntaxError`, so the four skills were silently dropped on load. Each value is now single-quoted (trigger phrases preserved byte-for-byte). The dual-publish suite (`tests/test-codex-dual-publish.sh`) now parses every published `SKILL.md` frontmatter with Ruby Psych and fails on any future unquoted-`: ` regression.
+- **#36 — per-work-item gate silently false-greened on normally-authored specs.** `implementation-checking` §4 parses `auto:` acceptance-criteria lines from a work-item spec's section 6, but `work-item-spec.md.tmpl` §6 rendered a markdown table (`{{acs_table}}`) the parser could not read — so a real spec yielded zero ACs and the gate fell through with nothing verified. §6 now renders machine-checkable `auto:`/`user:` lines (`{{acs_block}}`) as the **single AC source of truth** (the parallel table var is removed — it was the drift vector); `planning-vertical-slice` authors that block; and the gate **degrades loudly** (`[AC]` advisory + a ≥3-option menu, never a green) when zero `auto:` ACs are found. New render-contract test (`scaffold-dev/tests/test-render.sh`) locks the template §6 → parseable `auto:` lines, and eval scenario S5 covers the zero-AC loud-degrade path (the prior evals hand-authored `auto:` fixtures the real template never produced, which is why the bug escaped the suite).
+
 ## [0.1.6] — 2026-05-30
 
 ### Fixed
