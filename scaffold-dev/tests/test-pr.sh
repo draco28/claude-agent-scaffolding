@@ -37,4 +37,44 @@ test_shim_smoke() {
 
 test_shim_smoke
 
+# 1. merge_mode defaults to "direct" when unset
+test_merge_mode_default() {
+  echo "test_merge_mode_default:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  assert_eq "default merge_mode" "direct" "$(sd_merge_mode)"
+}
+
+# 2. merge_mode reads pr_hierarchical from manifest
+test_merge_mode_pr() {
+  echo "test_merge_mode_pr:"
+  _setup_pr_workspace
+  # inject merge_mode into the manifest
+  local tmp; tmp="$(mktemp)"
+  jq '.during_dev.merge_mode = "pr_hierarchical"' "$TMP_MANIFEST" > "$tmp" && mv "$tmp" "$TMP_MANIFEST"
+  cd "$TMP_AI_WORKSPACE"
+  assert_eq "reads pr_hierarchical" "pr_hierarchical" "$(sd_merge_mode)"
+}
+
+# 3. sprint branch name default template
+test_sprint_branch_name() {
+  echo "test_sprint_branch_name:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  assert_eq "sprint branch default" "sprint-1.1" "$(_sd_sprint_branch_name "1.1")"
+}
+
+# 4. slice branch name default template
+test_slice_branch_name() {
+  echo "test_slice_branch_name:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  assert_eq "slice branch default" "slice/VS-1.1.1" "$(_sd_slice_branch_name "VS-1.1.1")"
+}
+
+test_merge_mode_default
+test_merge_mode_pr
+test_sprint_branch_name
+test_slice_branch_name
+
 sd_test_summary
