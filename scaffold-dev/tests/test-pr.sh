@@ -22,7 +22,7 @@ _setup_pr_workspace() {
   export GH_SHIM_LOG="$TMP_DIR/gh-calls.log"
   : > "$GH_SHIM_LOG"
   # Reset shim env to defaults each setup.
-  unset GH_SHIM_AUTH_RC GH_SHIM_MERGE_RC GH_SHIM_PR_VIEW_JSON GH_SHIM_ISSUE_LIST_JSON GH_SHIM_ISSUE_URL
+  unset GH_SHIM_AUTH_RC GH_SHIM_MERGE_RC GH_SHIM_PR_VIEW_JSON GH_SHIM_ISSUE_LIST_JSON GH_SHIM_ISSUE_URL GH_SHIM_PR_COMMENTS_JSON
   export GH_SHIM_PR_URL="https://github.com/test/repo/pull/123"
 }
 
@@ -260,6 +260,8 @@ test_dispatcher_lists_pr_fns() {
   assert_contains "lists merge_mode" "merge_mode" "$listed"
   assert_contains "lists sprint_branch_name" "sprint_branch_name" "$listed"
   assert_contains "lists slice_branch_name" "slice_branch_name" "$listed"
+  assert_contains "lists branch_sync" "branch_sync" "$listed"
+  assert_contains "lists pr_review_comments" "pr_review_comments" "$listed"
 }
 
 test_pr_merge
@@ -303,5 +305,71 @@ test_issue_list_empty() {
 
 test_issue_list
 test_issue_list_empty
+
+# 22. issue_list defaults to a high --limit (gh's own default of 30 hides older issues)
+test_issue_list_default_limit() {
+  echo "test_issue_list_default_limit:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  sd_issue_list >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_LOG" "issue list --state open --json number,title,body,labels --limit 200"
+}
+
+# 23. a caller-supplied --limit overrides the default (no double --limit)
+test_issue_list_explicit_limit() {
+  echo "test_issue_list_explicit_limit:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  sd_issue_list --limit 5 >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_LOG" "--limit 5"
+  if grep -q -- "--limit 200" "$GH_SHIM_LOG"; then
+    FAIL=$((FAIL+1)); echo "  $(_color_fail 'FAIL') default --limit 200 should not be added when caller passes --limit"
+  else
+    PASS=$((PASS+1)); echo "  $(_color_pass 'PASS') caller --limit overrides the default"
+  fi
+}
+
+# 24. pr_review_comments fetches inline review comments via gh api (not gh pr view)
+test_pr_review_comments() {
+  echo "test_pr_review_comments:"
+  _setup_pr_workspace
+  export GH_SHIM_PR_COMMENTS_JSON="$HERE/fixtures/pr-review-comments.json"
+  cd "$TMP_AI_WORKSPACE"
+  local json; json="$(sd_pr_review_comments 7 2>/dev/null)"
+  assert_eq "inline comment path" "scaffold-dev/lib/pr.sh" "$(echo "$json" | jq -r '.[0].path')"
+  assert_contains "inline comment body" "unresolved inline finding" "$(echo "$json" | jq -r '.[0].body')"
+  assert_file_contains "$GH_SHIM_LOG" "api"
+  assert_file_contains "$GH_SHIM_LOG" "pulls/7/comments"
+}
+
+# 25. branch_sync fast-forwards a stale local integration branch to origin
+test_branch_sync() {
+  echo "test_branch_sync:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  # Create + push an integration branch, then advance origin behind the local ref's back.
+  sd_branch_create_from "main" "sprint-9.9" 2>/dev/null
+  sd_branch_push "sprint-9.9" 2>/dev/null
+  # Simulate a child PR merging on the remote: add a commit to origin's sprint-9.9
+  # via a second clone, so the local sprint-9.9 is now stale (behind origin).
+  local clone="$TMP_DIR/clone"
+  git clone -q "$BARE_ORIGIN" "$clone"
+  git -C "$clone" config user.email t@e.com; git -C "$clone" config user.name T
+  git -C "$clone" checkout -q sprint-9.9
+  echo "merged-on-remote" > "$clone/remote-only.txt"
+  git -C "$clone" add remote-only.txt; git -C "$clone" commit -q -m "merged slice on remote"
+  git -C "$clone" push -q origin sprint-9.9
+  # Local sprint-9.9 does NOT yet have remote-only.txt.
+  set +e; git -C "$TMP_CANONICAL" rev-parse --verify --quiet "sprint-9.9:remote-only.txt" >/dev/null 2>&1; local before=$?; :
+  assert_ne "local stale before sync" "0" "$before"
+  sd_branch_sync "sprint-9.9" 2>/dev/null
+  set +e; git -C "$TMP_CANONICAL" rev-parse --verify --quiet "sprint-9.9:remote-only.txt" >/dev/null 2>&1; local after=$?; :
+  assert_eq "local fast-forwarded after sync" "0" "$after"
+}
+
+test_issue_list_default_limit
+test_issue_list_explicit_limit
+test_pr_review_comments
+test_branch_sync
 
 sd_test_summary

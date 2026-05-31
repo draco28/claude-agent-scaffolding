@@ -25,5 +25,13 @@ case "${1:-} ${2:-}" in
       echo '[]'
     fi
     exit 0 ;;
+  "api "*)
+    # gh api … (e.g. pulls/<pr>/comments) — emit canned inline review comments
+    if [[ -n "${GH_SHIM_PR_COMMENTS_JSON:-}" && -f "$GH_SHIM_PR_COMMENTS_JSON" ]]; then
+      cat "$GH_SHIM_PR_COMMENTS_JSON"
+    else
+      echo '[]'
+    fi
+    exit 0 ;;
   *)             exit 0 ;;
 esac

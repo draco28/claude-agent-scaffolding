@@ -142,13 +142,21 @@ If `merge_mode == "pr_hierarchical"`:
    sd remote_check || exit 1   # surfaces the actionable error verbatim
    ```
    Do NOT silently fall back to `direct`.
-2. **Ensure the sprint integration branch exists** (create off `default_branch`
-   at the first slice of the sprint; reuse otherwise):
+2. **Ensure the sprint integration branch exists — on origin and current**
+   (create off `default_branch` at the first slice; reuse otherwise):
    ```bash
    sprint_branch="$(sd sprint_branch_name "$sprint_id")"
    default_branch="$(sd manifest_get '.canonical.default_branch')" || default_branch="main"
    sd branch_create_from "$default_branch" "$sprint_branch"
+   sd branch_push "$sprint_branch"   # base must exist on origin for the slice→sprint PR
+   sd branch_sync "$sprint_branch"   # fast-forward a reused base if a prior slice PR already merged
    ```
+   `branch_push` makes `$sprint_branch` a valid PR base on origin (the first slice
+   creates it only locally otherwise). `branch_sync` fast-forwards a **reused**
+   sprint branch to `origin/$sprint_branch` **before** the next slice branches off
+   it — a merged slice PR advances `sprint-N` on the remote, so the local base
+   would otherwise be stale (later slices would miss merged commits and the
+   eventual `sprint-N` push would be rejected non-fast-forward).
 3. **Slice-ordering check:** if a prior slice's PR into `$sprint_branch` is still
    open, surface it per `references/git-workflow.md` (slice-ordering rule) and wait
    for the user before continuing.

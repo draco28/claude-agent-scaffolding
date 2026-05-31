@@ -85,6 +85,31 @@ sd_branch_push() {
   return 0
 }
 
+# sd_branch_sync <branch> — fast-forward the local <branch> to origin/<branch>
+# before it is reused as a base. An integration branch (e.g. sprint-N) advances
+# on the remote when a child slice PR merges; without this, the next slice would
+# branch off a stale local base and a later push would be rejected non-ff.
+# No-op when there is no 'origin' remote or no remote <branch>; never force-moves
+# a diverged branch (fast-forward only — a divergence is surfaced, left for the
+# caller). rc 0 in the no-op / synced cases.
+sd_branch_sync() {
+  local branch="$1" canonical cur
+  canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_branch_sync: no canonical.root"; return 1; }
+  git -C "$canonical" remote get-url origin >/dev/null 2>&1 || return 0
+  git -C "$canonical" fetch -q origin "$branch" 2>/dev/null || return 0
+  git -C "$canonical" rev-parse --verify --quiet "refs/remotes/origin/$branch" >/dev/null || return 0
+  cur="$(git -C "$canonical" rev-parse --abbrev-ref HEAD 2>/dev/null)"
+  if [[ "$cur" == "$branch" ]]; then
+    git -C "$canonical" merge --ff-only -q "origin/$branch" 2>/dev/null \
+      || sd_log_warn "sd_branch_sync: $branch diverged from origin/$branch; not fast-forwarded"
+  elif git -C "$canonical" merge-base --is-ancestor "$branch" "origin/$branch" 2>/dev/null; then
+    git -C "$canonical" branch -f "$branch" "origin/$branch" >/dev/null 2>&1 || true
+  else
+    sd_log_warn "sd_branch_sync: $branch diverged from origin/$branch; not fast-forwarded"
+  fi
+  return 0
+}
+
 # sd_remote_check — verify canonical has an 'origin' remote AND gh is present +
 # authenticated. rc 0 on success; rc 1 + actionable message otherwise.
 sd_remote_check() {
@@ -135,6 +160,22 @@ sd_pr_state() {
   (cd "$canonical" && gh pr view "$pr" --json mergeStateStatus,statusCheckRollup,reviews,latestReviews,comments,reviewDecision,commits)
 }
 
+# sd_pr_review_comments <pr> — fetch INLINE (line-level) review comments via the
+# REST API. `gh pr view --json` returns only review summaries (reviews/
+# latestReviews) and conversation comments — NOT the line-level comments where a
+# bot (Codex/CodeRabbit) or human leaves inline findings. The pre-merge gate must
+# fetch these so it never merges over unresolved inline feedback while CI is green.
+# Emits the raw JSON array. NO interpretation. rc 1 if gh absent.
+sd_pr_review_comments() {
+  local pr="$1" canonical
+  canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_pr_review_comments: no canonical.root"; return 1; }
+  if ! command -v gh >/dev/null 2>&1; then
+    sd_log_error "sd_pr_review_comments: 'gh' not in PATH."
+    return 1
+  fi
+  (cd "$canonical" && gh api --paginate "repos/{owner}/{repo}/pulls/$pr/comments")
+}
+
 # sd_pr_merge <pr> [extra gh args...] — wraps gh pr merge. Defaults to --merge
 # when no explicit --merge/--rebase/--squash strategy is supplied. Pass --auto
 # to enable auto-merge once required checks pass.
@@ -179,12 +220,20 @@ sd_issue_create() {
 
 # sd_issue_list [extra gh args...] — emit open issues as JSON for the agent to
 # reason over (blocker-recall / de-dup). NO interpretation here. rc 1 if gh absent.
+# Defaults to --limit 200 (gh's own default is only 30, which would hide older
+# matching issues from de-dup/recall); a caller-supplied --limit overrides it.
 sd_issue_list() {
-  local canonical
+  local canonical has_limit=0 arg
   canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_issue_list: no canonical.root"; return 1; }
   if ! command -v gh >/dev/null 2>&1; then
     sd_log_error "sd_issue_list: 'gh' not in PATH."
     return 1
+  fi
+  for arg in "$@"; do
+    case "$arg" in --limit|--limit=*) has_limit=1 ;; esac
+  done
+  if [[ "$has_limit" -eq 0 ]]; then
+    set -- --limit 200 "$@"
   fi
   (cd "$canonical" && gh issue list --state open --json number,title,body,labels "$@")
 }
