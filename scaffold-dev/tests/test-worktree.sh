@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/test-worktree.sh — 16 tests for lib/worktree.sh
+# tests/test-worktree.sh — 17 tests for lib/worktree.sh
 #
 # #28 Phase 3: slice ids are 3-part (VS-<phase>.<sprint>.<slice>) and the branch
 # template's {N} sprint segment is the field-read sprint_id (e.g. "3.2" for
@@ -195,6 +195,24 @@ test_same_work_id_kebab_allowed_across_sprints() {
   assert_eq "second sprint path" "$TMP_CANONICAL/.worktrees/sprint-2.1/work-1.01-init-models" "$wt2"
 }
 
+# 17. base-branch param: worktree branches off the given base, not main
+test_worktree_add_base_branch() {
+  echo "test_worktree_add_base_branch:"
+  setup_tmp_workspace
+  cd "$TMP_AI_WORKSPACE"
+  # A slice branch with a commit main does NOT have.
+  git -C "$TMP_CANONICAL" branch slice/VS-1.1.1 main
+  git -C "$TMP_CANONICAL" checkout -q slice/VS-1.1.1
+  echo "base-only" > "$TMP_CANONICAL/base.txt"
+  git -C "$TMP_CANONICAL" add base.txt
+  git -C "$TMP_CANONICAL" commit -q -m "base-only commit"
+  git -C "$TMP_CANONICAL" checkout -q main
+  local wt
+  wt="$(sd_worktree_add "1.01" "VS-1.1.1" "feat" "1.1" "slice/VS-1.1.1" 2>/dev/null)"
+  # The worktree, based on the slice branch, sees base.txt.
+  assert_file_exists "$wt/base.txt"
+}
+
 # 16. manifest worktrees_dir is authoritative; callers may route worktrees to a
 #     non-default location under the canonical repo.
 test_add_uses_manifest_worktrees_dir() {
@@ -223,5 +241,6 @@ test_branch_sprint_derived_from_3part_id
 test_add_path_namespaced_by_sprint_id
 test_same_work_id_kebab_allowed_across_sprints
 test_add_uses_manifest_worktrees_dir
+test_worktree_add_base_branch
 
 sd_test_summary

@@ -44,16 +44,16 @@ _sd_worktree_branch_name() {
   echo "$branch"
 }
 
-# sd_worktree_add <work-id> <slice-id> <kebab> [sprint-id]
+# sd_worktree_add <work-id> <slice-id> <kebab> [sprint-id] [base-branch]
 # Creates a worktree under <canonical.root>/.worktrees and a fresh branch.
-# Echoes the absolute worktree path on stdout. Branches from canonical's
-# default_branch (typically main). sprint-id (field-read from the roadmap) feeds
-# the branch template's {N} sprint segment.
+# Echoes the absolute worktree path on stdout. Branches from <base-branch> when
+# given (the slice branch under pr_hierarchical), else canonical's default_branch.
 sd_worktree_add() {
-  local work_id="$1" slice_id="$2" kebab="$3" sprint_id="${4:-}"
-  local canonical default_branch raw_worktrees_dir worktrees_dir branch wt_path
+  local work_id="$1" slice_id="$2" kebab="$3" sprint_id="${4:-}" base_branch="${5:-}"
+  local canonical default_branch raw_worktrees_dir worktrees_dir branch wt_path base_ref
   canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "no canonical.root"; return 1; }
   default_branch="$(sd_manifest_get '.canonical.default_branch')" || default_branch="main"
+  if [[ -n "$base_branch" ]]; then base_ref="$base_branch"; else base_ref="$default_branch"; fi
   if raw_worktrees_dir="$(sd_manifest_get '.during_dev.worktrees_dir')"; then
     worktrees_dir="$(sd_manifest_resolve "$(sd_manifest_get '.ai_workspace.root')" "$raw_worktrees_dir")" || return 1
   else
@@ -69,7 +69,7 @@ sd_worktree_add() {
 
   mkdir -p "${worktrees_dir}/sprint-${n}" || return 1
 
-  if ! git -C "$canonical" worktree add -b "$branch" "$wt_path" "$default_branch" >/dev/null 2>&1; then
+  if ! git -C "$canonical" worktree add -b "$branch" "$wt_path" "$base_ref" >/dev/null 2>&1; then
     sd_log_error "sd_worktree_add: git worktree add failed for $wt_path (branch=$branch)"
     return 1
   fi
