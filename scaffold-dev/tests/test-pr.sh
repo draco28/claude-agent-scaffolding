@@ -203,4 +203,37 @@ test_pr_state_with_comment() {
 test_pr_state_clean
 test_pr_state_with_comment
 
+# 16. pr_merge invokes gh pr merge with the pr number
+test_pr_merge() {
+  echo "test_pr_merge:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_pr_merge 123 2>/dev/null; local rc=$?; :
+  assert_eq "merge rc=0" "0" "$rc"
+  assert_file_contains "$GH_SHIM_LOG" "pr merge 123"
+}
+
+# 17. pr_merge --auto passes the flag through
+test_pr_merge_auto() {
+  echo "test_pr_merge_auto:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  sd_pr_merge 123 --auto 2>/dev/null
+  assert_file_contains "$GH_SHIM_LOG" "pr merge 123 --auto"
+}
+
+# 18. dispatcher exposes the new functions
+test_dispatcher_lists_pr_fns() {
+  echo "test_dispatcher_lists_pr_fns:"
+  local listed; listed="$("$HERE/../bin/sd" --list)"
+  assert_contains "lists branch_create_from" "branch_create_from" "$listed"
+  assert_contains "lists pr_open" "pr_open" "$listed"
+  assert_contains "lists pr_state" "pr_state" "$listed"
+  assert_contains "lists merge_mode" "merge_mode" "$listed"
+}
+
+test_pr_merge
+test_pr_merge_auto
+test_dispatcher_lists_pr_fns
+
 sd_test_summary

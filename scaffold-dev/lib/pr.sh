@@ -128,3 +128,16 @@ sd_pr_state() {
   fi
   (cd "$canonical" && gh pr view "$pr" --json mergeStateStatus,statusCheckRollup,reviews,reviewThreads,latestReviews,comments)
 }
+
+# sd_pr_merge <pr> [extra gh args...] — wraps gh pr merge. Pass --auto to enable
+# auto-merge once required checks pass.
+sd_pr_merge() {
+  local pr="$1"; shift
+  local canonical
+  canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_pr_merge: no canonical.root"; return 1; }
+  if ! command -v gh >/dev/null 2>&1; then
+    sd_log_error "sd_pr_merge: 'gh' not in PATH."
+    return 1
+  fi
+  (cd "$canonical" && gh pr merge "$pr" "$@")
+}
