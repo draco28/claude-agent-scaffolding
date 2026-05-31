@@ -161,6 +161,16 @@ result_stdout="$(eval "$command" 2>&1)"; result_exit=$?
 
 The `cd "$canonical"` is binding — eval S1's judge confirms either the absence of any `cd <worktree>` prefix OR the explicit presence of a canonical-root marker. Auto-demo against a work-item worktree produces false-greens (the worktree's branch may be at a pre-merge HEAD).
 
+Under `merge_mode=pr_hierarchical` (read via `sd merge_mode`), the slice's work
+lives on the slice branch, not `default_branch`. Check it out before demos:
+
+```bash
+if [[ "$(sd merge_mode)" == "pr_hierarchical" ]]; then
+  git -C "$canonical" checkout -q "slice/${vs_id}"   # or per during_dev.slice_branch_naming
+fi
+```
+Restore is unnecessary — the slice branch is the integration target until its PR merges.
+
 Evaluate `expectation` per §14.1:
 - `exit 0` → pass iff `result_exit == 0`.
 - `output contains "<pat>"` → pass iff `result_stdout` substring-matches the literal pattern.
@@ -387,6 +397,31 @@ sd worktree_remove "${worktree_matches[0]}"
 ### 10.2 Branch deletion
 
 Branch deletion is bundled into `sd_worktree_remove` per `lib/worktree.sh`'s contract. After §10.1 completes, all `work-N.NN-*` branches are gone. Final filesystem state shows `${worktrees_dir}/sprint-${sprint_id}/work-*` directories absent and `git branch` listing in canonical does not contain any `work-*` branch.
+
+---
+
+## 10a. Open the slice→sprint PR (pr_hierarchical only)
+
+Runs only when `sd merge_mode` == `pr_hierarchical`, AFTER §9 harvest + §10
+worktree cleanup (work-item worktree/branch cleanup is decoupled from this PR —
+the slice branch already holds every work-item commit; see
+`references/git-workflow.md`).
+
+1. **Push the slice branch:** `sd branch_push "slice/${vs_id}"`.
+2. **Compose the PR body** to a temp file: the slice README (with the populated
+   Demo-verification section) + the architect-critic close-depth summary (§7) +
+   any linked tech-debt/issue references.
+3. **Open the PR:**
+   ```bash
+   sd pr_open "slice/${vs_id}" "sprint-${sprint_id}" "VS-${vs_id}: <slice title>" "<body-file>"
+   ```
+4. **Run the agent-driven pre-merge gate** per `references/git-workflow.md`
+   (`sd pr_state` → reason over CI **and** review comments → surface → ask).
+   Merge via `sd pr_merge` only on explicit user acknowledgment, or leave the PR
+   open for asynchronous CI/review. Do NOT busy-wait.
+
+`direct` mode skips this section entirely — work items already merged into
+`default_branch` at §8.6, exactly as in v0.1.
 
 ---
 
