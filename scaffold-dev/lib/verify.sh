@@ -90,10 +90,14 @@ sd_verify_report_cross_check() {
   # every normally-authored spec. Also exclude "- [ ] AC-N user: ..." rows: manual
   # demo steps are verified at slice-close, not recorded in the work-item report,
   # so requiring them here would wrongly fail every spec that has a manual AC.
+  # Extract ONLY the leading label of each row (the AC id right after the bullet /
+  # checkbox), so an AC-looking token inside the command or the expected predicate
+  # (e.g. `printf AC-99` or `output contains AC-99`) cannot become a phantom
+  # required outcome.
   local ids
   ids="$(grep -E '^- (\[[ xX]\] )?AC-[A-Za-z0-9.]+' "$spec" \
     | grep -vE '^- \[[ xX]\] AC-[A-Za-z0-9.]+[[:space:]]+user:' \
-    | grep -oE 'AC-[A-Za-z0-9.]+' | sort -u)"
+    | sed -nE 's/^- (\[[ xX]\] )?(AC-[A-Za-z0-9.]+).*/\2/p' | sort -u)"
   if [[ -z "$ids" ]]; then
     return 0
   fi

@@ -204,8 +204,10 @@ EOF
   assert_eq "prose AC-9 / AC-<n> ignored; only the AC-1 row counts → rc=0" "0" "$rc"
 }
 
-# 16. report cross-check — labeled `user:` rows are manual (slice-close) and must NOT
-#     be required in the work-item report (PR #41 regression).
+# 16. report cross-check — `user:` rows are manual (slice-close) and must NOT be
+#     required in the work-item report. The grammar says user rows carry NO AC-N;
+#     this fixture deliberately MIS-labels one (`AC-2 user:`) to prove the cross-check
+#     excludes it even when incorrectly labeled (PR #41 regression).
 test_report_cross_check_excludes_user_rows() {
   echo "test_report_cross_check_excludes_user_rows:"
   setup_tmp_repo
@@ -222,7 +224,27 @@ EOF
   sd_verify_report_cross_check report.md spec.md >/dev/null 2>&1
   local rc=$?
   :
-  assert_eq "user-row AC-2 excluded; only auto AC-1 required → rc=0" "0" "$rc"
+  assert_eq "mislabeled user-row AC-2 excluded; only auto AC-1 required → rc=0" "0" "$rc"
+}
+
+# 17. report cross-check — an AC-looking token INSIDE a command or predicate must NOT
+#     become a phantom required outcome; only the leading row label counts (PR #41).
+test_report_cross_check_ignores_inline_ac_token() {
+  echo "test_report_cross_check_ignores_inline_ac_token:"
+  setup_tmp_repo
+  cat > spec.md <<'EOF'
+## 6. Acceptance criteria (machine-checkable)
+- [ ] AC-1 auto: `printf AC-99` → expected: output contains AC-99
+EOF
+  cat > report.md <<'EOF'
+# Report
+- AC-1: passed
+EOF
+  set +e
+  sd_verify_report_cross_check report.md spec.md >/dev/null 2>&1
+  local rc=$?
+  :
+  assert_eq "inline AC-99 in command/predicate ignored; only AC-1 required → rc=0" "0" "$rc"
 }
 
 test_auto_exit0_pass
@@ -239,6 +261,7 @@ test_report_cross_check_no_report
 test_report_cross_check_no_acs
 test_report_cross_check_ignores_prose
 test_report_cross_check_excludes_user_rows
+test_report_cross_check_ignores_inline_ac_token
 test_auto_output_includes_stderr
 test_auto_unicode_arrow
 

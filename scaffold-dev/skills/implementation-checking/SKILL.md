@@ -423,7 +423,7 @@ This skill never bash-orchestrates judgment work (which menu row applies, how to
 
 **Manifest (lib/manifest.sh — T3.2):** `sd_manifest_require`, `sd_manifest_get`, `sd_manifest_resolve`.
 
-**Verify (lib/verify.sh — T3.6):** `sd_verify_auto_step <cmd> <expectation> <worktree>` — runs a single `auto:` step and checks the expectation.
+**Verify (lib/verify.sh — T3.6):** `sd_verify_auto_step <auto-line>` — line-level utility that parses one full `auto:` line (extracts the command from the backticks + the `expected:` predicate) and checks the expectation, running in the **current directory**. The gate itself runs each command in the worktree (§6); this helper is what `tests/test-verify.sh` exercises. `sd_verify_report_cross_check <report> <spec>` — confirms each declared `auto:` `AC-N` row in the spec is referenced in the report.
 
 **Rules (lib/rules.sh — T3.7):** `sd_rules_apply <rules_json> <worktree> <modified_files...>` — scaffold-dev's adapter; dispatches per rule type and halts on first violation.
 

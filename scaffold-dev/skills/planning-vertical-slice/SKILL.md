@@ -390,7 +390,7 @@ After complete-mode return, invoke `implementation-checking` on the work item:
 Skill(scaffold-dev:implementation-checking) with: work_item_id=<N.NN>
 ```
 
-That skill (per SPEC §12.1) runs the `auto:` AC steps via `sd_verify_auto_step`, cross-checks the report against actuals, and consults `sd_rules_check` for R2 mcrule violations. On fail: surface the failure-response menu (§12.2 — AC fail, report cross-check, or rule check row as applicable).
+That skill (per SPEC §12.1) runs each `auto:` AC step in the worktree, cross-checks the report against actuals, and consults `sd_rules_check` for R2 mcrule violations. On fail: surface the failure-response menu (§12.2 — AC fail, report cross-check, or rule check row as applicable).
 
 **Fix-up grill-me (gate 3):** if the menu choice is "replan" or "re-spawn with fix-up", offer grill-me before re-authoring:
 
