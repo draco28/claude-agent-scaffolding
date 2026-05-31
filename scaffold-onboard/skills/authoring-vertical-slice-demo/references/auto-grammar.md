@@ -68,7 +68,7 @@ Most common shape across Python-heavy projects. The command is fully self-contai
 - [ ] auto: `curl -s localhost:8000/api/insights | jq '.[]'` → expected: output contains "action_needed"
 ```
 
-The pipeline curls a local dev server, extracts JSON array entries via `jq`, and the slice-close runner grep-checks stdout for the substring `action_needed`. Assumes the dev server is up at slice-close time — see §4 on setup commands.
+The pipeline curls a local dev server and extracts JSON array entries via `jq`; the slice-close orchestrator then judges whether the captured stdout satisfies the expectation (here, that it contains `action_needed`). Assumes the dev server is up at slice-close time — see §4 on setup commands.
 
 ### 3.3 Database query (pattern mode, informal predicate)
 
@@ -76,7 +76,7 @@ The pipeline curls a local dev server, extracts JSON array entries via `jq`, and
 - [ ] auto: `psql -d insights -c "SELECT count(*) FROM action_needed"` → expected: count > 0
 ```
 
-The expected tail is an informal predicate (`count > 0`) that the slice-close runner interprets contextually — it reads the `count` column from the psql output and verifies the inequality. Use this shape when the binary "did the command run" answer is less interesting than "did it return non-empty data".
+The expected tail is an informal predicate (`count > 0`) that the slice-close orchestrator judges contextually — it reads the `count` value from the psql output and decides whether the inequality holds. Use this shape when the binary "did the command run" answer is less interesting than "did it return non-empty data".
 
 ### 3.4 Go test suite (exit-code mode, package globbing)
 
