@@ -13,5 +13,13 @@ case "${1:-} ${2:-}" in
     fi
     exit 0 ;;
   "pr merge")    exit "${GH_SHIM_MERGE_RC:-0}" ;;
+  "issue create") echo "${GH_SHIM_ISSUE_URL:-https://github.com/test/repo/issues/7}"; exit 0 ;;
+  "issue list")
+    if [[ -n "${GH_SHIM_ISSUE_LIST_JSON:-}" && -f "$GH_SHIM_ISSUE_LIST_JSON" ]]; then
+      cat "$GH_SHIM_ISSUE_LIST_JSON"
+    else
+      echo '[]'
+    fi
+    exit 0 ;;
   *)             exit 0 ;;
 esac
