@@ -166,4 +166,17 @@ test_remote_check_ok
 test_remote_check_no_remote
 test_remote_check_auth_fail
 
+# 13. pr_open echoes the PR url and calls gh with the right args
+test_pr_open() {
+  echo "test_pr_open:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  local body; body="$(mktemp)"; echo "body text" > "$body"
+  local out; out="$(sd_pr_open "slice/VS-1.1.1" "sprint-1.1" "VS-1.1.1: title" "$body" 2>/dev/null)"
+  assert_contains "echoes PR url" "pull/123" "$out"
+  assert_file_contains "$GH_SHIM_LOG" "pr create --head slice/VS-1.1.1 --base sprint-1.1"
+}
+
+test_pr_open
+
 sd_test_summary

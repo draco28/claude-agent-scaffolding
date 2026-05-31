@@ -98,3 +98,21 @@ sd_remote_check() {
   fi
   return 0
 }
+
+# sd_pr_open <head> <base> <title> <body-file> — wraps gh pr create (run from
+# canonical so gh resolves the repo from origin). Echoes gh's stdout (PR url or
+# number). rc 1 if gh absent or the create fails.
+sd_pr_open() {
+  local head="$1" base="$2" title="$3" body_file="$4" canonical out
+  canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_pr_open: no canonical.root"; return 1; }
+  if ! command -v gh >/dev/null 2>&1; then
+    sd_log_error "sd_pr_open: 'gh' not in PATH."
+    return 1
+  fi
+  if ! out="$(cd "$canonical" && gh pr create --head "$head" --base "$base" --title "$title" --body-file "$body_file" 2>&1)"; then
+    sd_log_error "sd_pr_open: gh pr create failed: $out"
+    return 1
+  fi
+  echo "$out"
+  return 0
+}
