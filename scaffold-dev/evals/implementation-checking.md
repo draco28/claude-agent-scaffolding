@@ -33,8 +33,8 @@ Each scenario is executed inside a single Claude Code subscription session by an
 **Setup:**
 - Dual-repo fixture: manifest at the parent, `routing.worktrees_dir` resolves to `${canonical.root}/.worktrees/`.
 - Roadmap/cursor fixture: `<ai-workspace>/.workspace/project-roadmap.json` contains `{"id":"VS-3.2.1","sprint_id":"3.2","name":"<kebab>",...}` and scaffold-dev's active cursor state names `active_slice=VS-3.2.1`.
-- Work item `1.01` exists at `<ai-workspace>/docs/specs/sprint-3.2/VS-3.2.1-<kebab>/work-1.01-<kebab>/` with a `spec.md` containing 3 `auto:` ACs per §14.1 grammar: e.g., `- [ ] auto: \`pytest tests/test_foo.py\` → expected: exit 0`, `- [ ] auto: \`grep -q "TARGET" src/foo.py\` → expected: exit 0`, `- [ ] auto: \`python -c "import foo; print(foo.VERSION)"\` → expected: output contains "1.0"`.
-- `report.md` is authored per template, with a "Status" line stating `complete` and an "AC outcomes" section claiming all 3 ACs passed.
+- Work item `1.01` exists at `<ai-workspace>/docs/specs/sprint-3.2/VS-3.2.1-<kebab>/work-1.01-<kebab>/` with a `spec.md` containing 3 `auto:` ACs per §14.1 grammar (backtick-wrapped command + `AC-N` label): `- [ ] AC-1 auto: \`pytest tests/test_foo.py\` → expected: exit 0`, `- [ ] AC-2 auto: \`grep -q "TARGET" src/foo.py\` → expected: exit 0`, `- [ ] AC-3 auto: \`python -c "import foo; print(foo.VERSION)"\` → expected: output contains 1.0` (the `output contains` substring is unquoted — `grep -F` matches it literally).
+- `report.md` is authored per template, with a "Status" line stating `complete` and an "AC outcomes" section referencing `AC-1`/`AC-2`/`AC-3` and claiming all 3 passed (so the `AC-N` report cross-check is exercised).
 - Canonical worktree at `${canonical.root}/.worktrees/sprint-3.2/work-1.01-<kebab>` contains staged-but-uncommitted changes that DO satisfy all 3 ACs (i.e., running each verification command in the worktree yields the expected exit/output).
 - `<ai-workspace>/.claude/memory-bank/03-code-patterns.md` exists but contains NO `<!-- mcrule:start ... -->` blocks (R2 rules absent — fallback path).
 - Pre-injected user follow-ups: none required (happy path; skill should report green and surface a "ready for commit" handoff without prompting).
@@ -45,7 +45,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 - Skill triggers via description-match on the "verify work item" trigger phrase (per SPEC §7.1 + §12 triggers list).
 - Skill resolves the work item's worktree path via the manifest (`${canonical.root}/.worktrees/sprint-3.2/work-1.01-<kebab>`) and reads the spec.md to extract the `auto:` AC list per §14.1 grammar (each line parsed into a `(command, expectation)` tuple).
 - Skill probes `<ai-workspace>/.claude/memory-bank/03-code-patterns.md` for R2 mcrule blocks; finds none; takes the AC-only fallback path per §12.1 (no `sf_rules_*` invocation needed beyond the absence-detection probe).
-- Skill executes each `auto:` command sequentially in the worktree (via `cd <abs worktree> && <cmd>` or `git -C` for git ops, per §6.5), checks exit code against `expected: exit 0` or matches output against `expected: output contains "<pattern>"` per §14.1 grammar.
+- Skill executes each `auto:` command sequentially in the worktree (via `cd <abs worktree> && <cmd>` or `git -C` for git ops, per §6.5), checks exit code against `expected: exit 0` or matches output against `expected: output contains <pattern>` (unquoted) per §14.1 grammar.
 - All 3 ACs pass.
 - Skill reads `report.md` and cross-checks the "AC outcomes" claims against its own freshly-measured outcomes; the report's claims match observed reality.
 - Skill emits a green verification summary and a handoff line indicating the work item is ready for the orchestrator's commit + merge step (per §13 step 4).
@@ -156,11 +156,34 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 ---
 
+### S5 — Zero machine-runnable ACs → loud-degrade advisory (no false-green)
+
+**Setup:**
+- Same dual-repo + roadmap/cursor fixture as S1.
+- Work item `1.05` spec.md §6 contains only prose / `user:` lines — **no `auto:` lines** (simulates a spec authored before the #36 fix, or a deletion-only work item).
+- `report.md` claims `complete`.
+- Canonical worktree contains staged changes.
+
+**Trigger:** target subagent user message: `verify work item 1.05`
+
+**Expected behavior:**
+- Skill parses §6, builds an empty `auto:` tuple list.
+- Skill does NOT emit a green summary and does NOT report the work item ready for commit.
+- Skill emits the `[AC]` zero-AC advisory ("No machine-runnable auto: ACs found … manual verification is required") and surfaces a §12.2-style menu with ≥3 options (proceed-with-manual-verification, re-author-spec, abort).
+
+**Assertion (judge subagent verifies):**
+- The target subagent's output contains the `[AC]` zero-AC advisory and a ≥3-option menu.
+- The target subagent does NOT emit a "ready for commit/merge" / green line.
+- No commit/merge/`report.md`-edit tool calls appear.
+- The target subagent's tool-call log shows NO Bash invocation running an `auto:` command from §6 — the gate must not attempt to execute ACs when the tuple list is empty.
+
+---
+
 ## Pass / fail criteria
 
 A scenario is PASS only if every bullet under its `Assertion` block is judged true. If any bullet fails, the judge returns `FAIL: <bullet text> — <specific deviation observed>` so the skill author can target a fix.
 
-The full eval is GREEN when all 4 scenarios PASS.
+The full eval is GREEN when all 5 scenarios PASS.
 
 ## Out of scope for this eval
 

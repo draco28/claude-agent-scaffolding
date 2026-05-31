@@ -1,6 +1,6 @@
 ---
 name: implementation-checking
-description: Per-work-item verification gate — runs `auto:` AC lines (halt-on-first-fail), cross-checks `report.md` outcomes, checks machine-checkable rules from `03-code-patterns.md`; surfaces source-tagged errors (`[AC]`, `[report cross-check]`, `[rule]`) + menu on fail; reports green on all-pass. Use this when the user wants to verify work item N.NN, check round 1, asks "is this work item done", or says "verify the implementation". Read-only: never commits, merges, or auto-fixes.
+description: 'Per-work-item verification gate — runs `auto:` AC lines (halt-on-first-fail), cross-checks `report.md` outcomes, checks machine-checkable rules from `03-code-patterns.md`; surfaces source-tagged errors (`[AC]`, `[report cross-check]`, `[rule]`) + menu on fail; reports green on all-pass. Use this when the user wants to verify work item N.NN, check round 1, asks "is this work item done", or says "verify the implementation". Read-only: never commits, merges, or auto-fixes.'
 ---
 
 # implementation-checking
@@ -161,22 +161,39 @@ Then stop. The worktree is the implementer's sandbox; verifying without it produ
 
 ## 4. AC parsing (per SPEC §14.1 grammar)
 
-Read `${work_dir}/spec.md` and locate the **Acceptance Criteria** section. The spec is authored from `templates/work-item-spec.md.tmpl` (8 sections per SPEC §9); section 6 is "Acceptance criteria + verification".
+Read `${work_dir}/spec.md` and locate the **Acceptance Criteria** section. The spec is authored from `templates/work-item-spec.md.tmpl` (8 sections per SPEC §9); section 6 is "Acceptance criteria (machine-checkable)".
 
 For each AC line matching the `auto:` grammar:
 
 ```
-- [ ] auto: <bash command> → expected: <exit code 0 | output contains "<pattern>" | count > 0 | ...>
+- [ ] AC-1 auto: `<bash command>` → expected: <exit 0 | exit N | output contains <substring>>
 ```
+
+(use a real number — `AC-1`, `AC-2`, … — not the literal `AC-N`, which the report cross-check would grep as a phantom id.)
 
 Extract:
 
-- **`command`** — the bash command between `auto:` and `→` (literal U+2192 arrow, NOT `->`).
-- **`expectation`** — the predicate after `expected:`: `exit 0`, `output contains "<pat>"`, numeric comparisons (`count > 0`), or other §14.1 forms.
+- **`command`** — the bash command **inside the backticks** after `auto:` (`sd_verify_auto_step` extracts it from the backticks; an un-backticked command is rejected as malformed). The literal U+2192 arrow `→` (NOT `->`) separates it from `expected:`.
+- **`expectation`** — the predicate after `expected:`. Only three forms are supported by `sd_verify_auto_step`: `exit 0`, `exit N`, and `output contains <substring>` (substring **unquoted** — it is matched literally via `grep -F`, so wrapping quotes would be required in the output).
 
-Build an ordered list of `(ac_label, command, expectation)` tuples. The `ac_label` is the 1-indexed position (`AC-1`, `AC-2`, …).
+Build an ordered list of `(ac_label, command, expectation)` tuples. The `ac_label` is the line's `AC-N` ID (1-indexed) — these IDs also drive the report cross-check (§7), so every **`auto:`** AC line must carry one.
 
-Lines with `user:` prefix are manual demo steps, not auto ACs — they're verified at slice-close per `closing-vertical-slice` §14.2, NOT here. Skip them silently in this gate.
+Lines with `user:` prefix are manual demo steps, not auto ACs — they carry **no** `AC-N` and are verified at slice-close per `closing-vertical-slice` §14.2, NOT here. Skip them silently in this gate (the §7 report cross-check also ignores `user:` rows, so they are not required in `report.md`).
+
+**Zero-AC degrade (issue #36).** If, after scanning §6, the `auto:` tuple list is
+**empty**, do NOT proceed to a green summary. Emit a blocking advisory tagged `[AC]`:
+
+> `[AC] No machine-runnable auto: ACs found in <spec path>. The gate cannot
+> auto-verify this work item — manual verification is required before merge.`
+
+Then surface a §12.2-style menu (≥3 options, matching the §9.3 / §9.5 fail-path
+menus) so the user explicitly chooses — never silently report the work item ready:
+
+1. Proceed with manual verification (operator vouches for the ACs out-of-band).
+2. Re-author the spec with `auto:` lines, then re-run the gate from §4.
+3. Abort and return the work item to the implementer.
+
+A zero-AC spec is a spec-authoring defect, not a pass.
 
 ---
 
@@ -204,27 +221,28 @@ fi
 
 ## 6. AC verification loop (halt on first fail)
 
-Iterate the `(ac_label, command, expectation)` tuples in declared order. For each, call:
+Iterate the `(ac_label, command, expectation)` tuples in declared order. For each, run the command **in the worktree** and check the expectation directly — the same `cd "$worktree" && <cmd>` discipline the implementer uses in `executing-work-item` §5:
 
-```bash
-sd verify_auto_step "$command" "$expectation" "$worktree"
-```
+- Run `cd "$worktree" && eval "$command"` for shell commands (or `git -C "$worktree" <subcommand>` for git ops, per SPEC §6.5); capture the exit code + combined stdout/stderr.
+- Check `expectation` per §14.1 — the only three supported forms: `exit 0` → exit code is 0; `exit N` → exit code is N; `output contains <substring>` → captured output contains the **unquoted** substring (literal `grep -F`).
+- On pass, record `${label}:pass`. On the **first** fail, halt and keep `(failing_ac_label, failing_cmd, observed exit + output excerpt)` for the §12.2 menu.
 
-`sd_verify_auto_step` (lib/verify.sh):
-- Executes `command` in `$worktree` (uses `cd "$worktree" && eval "$command"` for shell commands; `git -C "$worktree" ...` for git ops per SPEC §6.5).
-- Captures exit code + stdout + stderr.
-- Evaluates `expectation` per §14.1: `exit 0` → exit-code check; `output contains "<pat>"` → substring match against stdout; numeric comparisons → arithmetic against captured output.
-- Returns 0 on pass, non-zero on fail. Emits a structured result line on stderr: `STATUS=<pass|fail> EXIT=<n> OUTPUT_HEAD=<first 200 chars>`.
+(`lib/verify.sh::sd_verify_auto_step "<full auto: line>"` runs the same parse-and-check on a **single full line** — it extracts the command from the backticks and runs in the **current directory**. It is the line-level utility `tests/test-verify.sh` exercises, NOT a worktree-scoped 3-arg call; the gate runs in the worktree as above.)
 
 **Halt-on-first-fail is binding.** Eval S2 asserts that on AC-1 fail, AC-2 and AC-3 MUST NOT appear in the Bash tool-call log. Do NOT continue iterating "to gather more failures" — the user picks a §12.2 option, the implementer-agent re-runs, and verification re-starts from AC-1 on the next pass.
 
 ```bash
 for tuple in "${ac_tuples[@]}"; do
   IFS='|' read -r label cmd expect <<<"$tuple"
-  if ! sd_verify_auto_step "$cmd" "$expect" "$worktree" 2>verify.err; then
-    failing_ac_label="$label"
-    failing_cmd="$cmd"
-    failing_output="$(cat verify.err)"
+  output="$(cd "$worktree" && eval "$cmd" 2>&1)"; ec=$?
+  ok=0
+  case "$expect" in
+    "exit 0")            [[ $ec -eq 0 ]] && ok=1 ;;
+    "exit "*)            [[ $ec -eq "${expect#exit }" ]] && ok=1 ;;
+    "output contains "*) printf '%s' "$output" | grep -qF -- "${expect#output contains }" && ok=1 ;;
+  esac
+  if [[ $ok -ne 1 ]]; then
+    failing_ac_label="$label"; failing_cmd="$cmd"; failing_output="$output"
     break  # HALT — do not continue
   fi
   ac_results+=("${label}:pass")
@@ -314,6 +332,9 @@ Five mutually-exclusive outcome paths. Exactly one fires per invocation.
 
 ### 9.1 All-pass + rules present (S1 / S3 happy path)
 
+Precondition: at least one `auto:` AC executed and passed. If the tuple list was
+empty, the §4 zero-AC degrade advisory fires instead of this green summary.
+
 Emit a green verification summary naming each AC and the rule check:
 
 > Work item `<work_id>` verified.
@@ -402,7 +423,7 @@ This skill never bash-orchestrates judgment work (which menu row applies, how to
 
 **Manifest (lib/manifest.sh — T3.2):** `sd_manifest_require`, `sd_manifest_get`, `sd_manifest_resolve`.
 
-**Verify (lib/verify.sh — T3.6):** `sd_verify_auto_step <cmd> <expectation> <worktree>` — runs a single `auto:` step and checks the expectation.
+**Verify (lib/verify.sh — T3.6):** `sd_verify_auto_step <auto-line>` — line-level utility that parses one full `auto:` line (extracts the command from the backticks + the `expected:` predicate) and checks the expectation, running in the **current directory**. The gate itself runs each command in the worktree (§6); this helper is what `tests/test-verify.sh` exercises. `sd_verify_report_cross_check <report> <spec>` — confirms each declared `auto:` `AC-N` row in the spec is referenced in the report.
 
 **Rules (lib/rules.sh — T3.7):** `sd_rules_apply <rules_json> <worktree> <modified_files...>` — scaffold-dev's adapter; dispatches per rule type and halts on first violation.
 

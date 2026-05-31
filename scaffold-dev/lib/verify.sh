@@ -83,9 +83,21 @@ sd_verify_report_cross_check() {
     return 1
   fi
 
-  # Collect AC IDs from spec (e.g., "AC-1", "AC-12a").
+  # Collect AC IDs ONLY from declared auto-AC rows — list items ("- AC-1: ...") or
+  # checklist rows ("- [ ] AC-1 auto: ..."). Do NOT grep the whole file: prose,
+  # blockquotes, and template boilerplate often mention an AC id (or a literal
+  # "AC-N" placeholder), which would otherwise be required in report.md and fail
+  # every normally-authored spec. Also exclude "- [ ] AC-N user: ..." rows: manual
+  # demo steps are verified at slice-close, not recorded in the work-item report,
+  # so requiring them here would wrongly fail every spec that has a manual AC.
+  # Extract ONLY the leading label of each row (the AC id right after the bullet /
+  # checkbox), so an AC-looking token inside the command or the expected predicate
+  # (e.g. `printf AC-99` or `output contains AC-99`) cannot become a phantom
+  # required outcome.
   local ids
-  ids="$(grep -oE 'AC-[A-Za-z0-9.]+' "$spec" | sort -u)"
+  ids="$(grep -E '^- (\[[ xX]\] )?AC-[A-Za-z0-9.]+' "$spec" \
+    | grep -vE '^- \[[ xX]\] AC-[A-Za-z0-9.]+[[:space:]]+user:' \
+    | sed -nE 's/^- (\[[ xX]\] )?(AC-[A-Za-z0-9.]+).*/\2/p' | sort -u)"
   if [[ -z "$ids" ]]; then
     return 0
   fi

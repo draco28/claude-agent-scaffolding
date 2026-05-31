@@ -1,6 +1,6 @@
 ---
 name: appending-changelog-entry
-description: Append a Keep-a-Changelog 1.1.0 bullet to `<canonical>/CHANGELOG.md` under `## [Unreleased]` in one of six categories (Added / Changed / Deprecated / Removed / Fixed / Security); prompts for category AND entry text, never silently picks. Use this when the user says `add changelog entry`, `append to changelog`, `log changelog`, `changelog: <entry>`, or invokes `/changelog`. Does NOT cut a release section. Fails fast when `CHANGELOG.md` is absent — surfaces a `/scaffold-docs` hint.
+description: 'Append a Keep-a-Changelog 1.1.0 bullet to `<canonical>/CHANGELOG.md` under `## [Unreleased]` in one of six categories (Added / Changed / Deprecated / Removed / Fixed / Security); prompts for category AND entry text, never silently picks. Use this when the user says `add changelog entry`, `append to changelog`, `log changelog`, `changelog: <entry>`, or invokes `/changelog`. Does NOT cut a release section. Fails fast when `CHANGELOG.md` is absent — surfaces a `/scaffold-docs` hint.'
 ---
 
 # appending-changelog-entry

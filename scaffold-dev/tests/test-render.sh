@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/test-render.sh — 10 tests for lib/render.sh
+# tests/test-render.sh — 11 tests for lib/render.sh
 
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -126,6 +126,36 @@ test_handoff_template_contains_traceability() {
   assert_file_contains "$tmpl" "{{traceability_block}}"
 }
 
+# 11. work-item-spec template §6 must render machine-checkable auto: AC lines (#36)
+test_work_item_spec_acs_block_renders_auto() {
+  echo "test_work_item_spec_acs_block_renders_auto:"
+  setup_tmp_repo
+  local tmpl="$HERE/../templates/work-item-spec.md.tmpl"
+  local vars
+  vars='{"work_item_id":"work-3.2.01","work_item_title":"t","vs_id":"VS-3.2","vs_kebab":"k","round_id":"R1","worktree_abs_path":"/tmp/wt","branch_name":"b","context_paragraph":"c","decisions_baked_in":"-","traceability_block":"-","files_to_modify":"-","acs_block":"- [ ] AC-1 auto: `pytest tests/test_foo.py` → expected: exit 0","verification_block":"-","demo_contribution":"d","not_in_scope":"-","reference_index":"-"}'
+  local out
+  out="$(sd_render_template "$tmpl" "$vars")"
+  # Assert the CONCRETE injected content — "AC-1 auto:" and "pytest tests/test_foo.py"
+  # appear ONLY in the rendered acs_block, never in §6's instructional/comment text — so a
+  # pass proves the payload actually rendered (not that prose merely mentions "auto:").
+  assert_contains "work-item §6 renders the injected AC label" "AC-1 auto:" "$out"
+  assert_contains "work-item §6 renders the concrete injected command" "pytest tests/test_foo.py" "$out"
+  if printf '%s' "$out" | grep -q '{{acs_block}}'; then
+    FAIL=$((FAIL+1))
+    echo "  $(_color_fail 'FAIL') work-item template left unresolved {{acs_block}} placeholder"
+  else
+    PASS=$((PASS+1))
+    echo "  $(_color_pass 'PASS') work-item template resolved {{acs_block}}"
+  fi
+  if printf '%s' "$out" | grep -q '{{acs_table}}'; then
+    FAIL=$((FAIL+1))
+    echo "  $(_color_fail 'FAIL') work-item template still references removed {{acs_table}} placeholder"
+  else
+    PASS=$((PASS+1))
+    echo "  $(_color_pass 'PASS') work-item template no longer references {{acs_table}}"
+  fi
+}
+
 test_simple_substitution
 test_multi_keys
 test_repeated_key
@@ -138,5 +168,6 @@ test_no_nested_expansion
 test_dotted_key
 test_work_item_template_contains_traceability
 test_handoff_template_contains_traceability
+test_work_item_spec_acs_block_renders_auto
 
 sd_test_summary

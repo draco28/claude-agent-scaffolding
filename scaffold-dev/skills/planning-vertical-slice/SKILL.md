@@ -227,8 +227,15 @@ Use `sd_render` (lib/render.sh, ported from scaffold-onboard) to fill templates:
 
 - `templates/vertical-slice-readme.md.tmpl` → `${slice_root}/README.md`
   - Vars: `vs_id`, `vs_name`, `vs_description`, `demo_criteria` (the `auto:` / `user:` lines from ROADMAP), `work_items_table`, `round_plan`, `sprint_context`.
-- `templates/work-item-spec.md.tmpl` → each `work-N.NN-<kebab>/spec.md` (Wabash Format B, 8 sections per SPEC §9).
-  - Vars: `vs_id`, `work_id`, `round`, `worktree_abs_path` (computed but not yet created — `${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}`), `branch` (computed from `branch_naming` template), context, decisions, `traceability_block`, files to modify, ACs with verification, demo contribution, anti-actions, reference index.
+- `templates/work-item-spec.md.tmpl` → each `work-N.NN-<kebab>/spec.md` (8 sections per SPEC §9). Author §6 `acs_block` as machine-checkable `auto:` / `user:` lines per the SPEC §14.1 grammar — one `auto:` line per programmatically-verifiable AC, in exactly this shape:
+
+  ```
+  - [ ] AC-1 auto: `pytest tests/test_foo.py` → expected: exit 0
+  - [ ] AC-2 auto: `grep -q "TARGET" src/foo.py` → expected: exit 0
+  - [ ] user: click "Export" and confirm a CSV downloads
+  ```
+
+  Two hard requirements the `lib/verify.sh` helpers enforce — get either wrong and the gate misfires: **(a)** the command MUST be wrapped in backticks — `sd_verify_auto_step` extracts the command from the backticks, and an un-backticked command is rejected as malformed so the AC never runs; **(b)** every **`auto:`** AC line MUST carry an `AC-N` label — `sd_verify_report_cross_check` keys off `AC-N` IDs, and a spec with none *silently skips* the report cross-check. Use ONLY the supported `expected:` forms: `exit 0`, `exit N`, `output contains <substring>` — the substring is **unquoted** (`sd_verify_auto_step` passes everything after `output contains ` straight to `grep -F`, so wrapping quotes would become part of the required output). No `count > 0` / arithmetic — unsupported. `user:` lines are manual demo steps and carry **no** `AC-N` — they're verified at slice-close, not cross-checked against `report.md` (a labeled `user:` row would be wrongly required in the report). These lines are the single AC source of truth the `implementation-checking` gate parses (§4). Do NOT author a parallel prose AC table — the table/`auto:` split is what caused the gate to find zero ACs (#36).
 
 The worktree path and branch are computed at spec-authoring time (so the spec is self-contained as a fresh-session starter per §6.4) but the actual `git worktree add` does NOT happen until the round starts (§8.1).
 
@@ -383,7 +390,7 @@ After complete-mode return, invoke `implementation-checking` on the work item:
 Skill(scaffold-dev:implementation-checking) with: work_item_id=<N.NN>
 ```
 
-That skill (per SPEC §12.1) runs the `auto:` AC steps via `sd_verify_auto_step`, cross-checks the report against actuals, and consults `sd_rules_check` for R2 mcrule violations. On fail: surface the failure-response menu (§12.2 — AC fail, report cross-check, or rule check row as applicable).
+That skill (per SPEC §12.1) runs each `auto:` AC step in the worktree, cross-checks the report against actuals, and consults `sd_rules_check` for R2 mcrule violations. On fail: surface the failure-response menu (§12.2 — AC fail, report cross-check, or rule check row as applicable).
 
 **Fix-up grill-me (gate 3):** if the menu choice is "replan" or "re-spawn with fix-up", offer grill-me before re-authoring:
 
