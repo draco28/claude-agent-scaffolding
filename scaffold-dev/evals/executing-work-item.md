@@ -206,7 +206,7 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 
 A scenario is PASS only if every bullet under its `Assertion` block is judged true. If any bullet fails, the judge returns `FAIL: <bullet text> — <specific deviation observed>` so the skill author can target a fix.
 
-The full eval is GREEN when all 5 scenarios PASS in BOTH invocation modes where applicable (Mode A direct Skill invocation + Mode B subagent dispatch) — i.e., S1–S4 run in both modes (8 mode-scenario combinations); S5 runs in Mode B only. The no-commit invariant and the return-mode JSON shape assertions are the highest-priority bullets: any single violation across any scenario in any mode is sufficient to fail the eval as a whole. The no-commit invariant and the return-mode JSON shape assertions are the highest-priority bullets: any single violation across any scenario in any mode is sufficient to fail the eval as a whole.
+The full eval is GREEN when all 5 scenarios PASS in BOTH invocation modes where applicable (Mode A direct Skill invocation + Mode B subagent dispatch) — i.e., S1–S4 run in both modes (8 mode-scenario combinations); S5 runs in Mode B only. The no-commit invariant and the return-mode JSON shape assertions are the highest-priority bullets: any single violation across any scenario in any mode is sufficient to fail the eval as a whole.
 
 ## Out of scope for this eval
 

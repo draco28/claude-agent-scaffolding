@@ -194,3 +194,5 @@ is pr_hierarchical.
 **Expected behavior:** before surfacing "Round K complete", the orchestrator reads the reports' Deferrals, JUDGES that the gap merits an issue, surfaces it for a quick confirm, then files via `sd issue_create` + appends a `[TD] …→#N` line. No deterministic parser is used (the agent reads the prose).
 
 **Assertion (judge):** PASS iff a deferral is surfaced for confirmation, filed via `sd issue_create` after confirm, and indexed with one `[TD]` line — AND the orchestrator did not silently file without surfacing. FAIL if it files silently, or if round-complete is surfaced without considering the Deferrals.
+
+---
