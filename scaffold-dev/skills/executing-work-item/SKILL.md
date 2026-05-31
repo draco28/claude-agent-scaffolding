@@ -82,7 +82,7 @@ Resolve the spec path from the handoff's Vertical-slice-context section. Read vi
 
 The spec is Wabash Format B with 8 sections per SPEC §9 (Header → Context → Decisions baked in → Files to modify → ACs with verification → Verification → Demo contribution → Anti-actions → Reference index). Extract:
 
-- **`auto:` AC list** — section 6 (Acceptance criteria + verification). Each AC matches the §14.1 grammar: `- [ ] auto: <bash command> → expected: <exit code 0 | output contains "<pat>" | count > 0 | ...>` with the literal U+2192 arrow character (NOT the ASCII `->` digraph). Build an ordered list of `(ac_label, command, expectation)` tuples; `ac_label` is the 1-indexed position (`AC-1`, `AC-2`, …).
+- **`auto:` AC list** — section 6 (Acceptance criteria, machine-checkable). Each AC matches the §14.1 grammar: `- [ ] AC-1 auto: ` + a **backtick-wrapped** command + ` → expected: <exit 0 | exit N | output contains <substring>>` with the literal U+2192 arrow character (NOT the ASCII `->` digraph). The command lives **inside the backticks** and the `output contains` substring is **unquoted** (matched literally via `grep -F`). Build an ordered list of `(ac_label, command, expectation)` tuples; `ac_label` is the line's `AC-N` id. `user:` rows are manual demo steps (no `AC-N`) — skip them here; they're verified at slice-close.
 - **Decisions baked in** — section 3. Scan for ambiguity markers (see §3.4).
 - **Files to modify** — section 4. Hints at the worktree paths you'll Read/Write/Edit in §4.
 - **`user:` demo steps** — also in section 6. SKIP them in this skill; they're verified at slice-close per `closing-vertical-slice` §14.2.
@@ -128,7 +128,7 @@ Per SPEC §13 + the `superpowers:test-driven-development` discipline. Iterate th
 
 For each AC:
 
-1. **Write a failing test** (or extend an existing test file) that exercises the AC's behavior. The test's failure mode should match the AC's `expectation`: for `exit 0` expectations, the test asserts the behavior under test produces a clean exit; for `output contains "<pat>"` expectations, the test asserts the captured output contains the pattern; for `count > 0` expectations, the test asserts the relevant count clears the threshold.
+1. **Write a failing test** (or extend an existing test file) that exercises the AC's behavior. The test's failure mode should match the AC's `expectation`: for `exit 0` / `exit N` expectations, the test asserts the behavior under test produces that exit code; for `output contains <substring>` expectations, the test asserts the captured output contains the (unquoted) substring.
 2. **Run the test, watch it fail.** Run via `cd "$worktree" && <test-runner-command>` or `git -C "$worktree" <op>` per §6.5. Capture the failure output. The fail confirms the test is exercising the real behavior, not a tautology.
 3. **Write the minimum implementation** to make the test pass. Edit source files in the worktree via Read/Write/Edit with **absolute paths** per §6.5. Prefer Edit (string replacement) over Write (full overwrite) where the file already exists; Write only when authoring a new file.
 4. **Run the test again, watch it pass.** Same harness as step 2.

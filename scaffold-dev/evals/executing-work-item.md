@@ -64,7 +64,7 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 **Setup:**
 - Dual-repo fixture: manifest at the parent, `routing.worktrees_dir` resolves to `${canonical.root}/.worktrees/`.
 - Work item `1.04` exists at `<ai-workspace>/docs/specs/sprint-2.1/VS-2.1.1-<kebab>/work-1.04-<kebab>/` with:
-  - `spec.md` containing 3 unambiguous `auto:` ACs per §14.1 grammar (e.g., `- [ ] auto: \`pytest tests/test_foo.py::test_new_behavior\` → expected: exit 0`, `- [ ] auto: \`grep -q "FEATURE_FLAG_X" src/foo.py\` → expected: exit 0`, `- [ ] auto: \`python -c "from foo import bar; print(bar())"\` → expected: output contains "expected_value"`).
+  - `spec.md` containing 3 unambiguous `auto:` ACs per §14.1 grammar — backtick-wrapped command, `AC-N` label, unquoted `output contains` (e.g., `- [ ] AC-1 auto: \`pytest tests/test_foo.py::test_new_behavior\` → expected: exit 0`, `- [ ] AC-2 auto: \`grep -q "FEATURE_FLAG_X" src/foo.py\` → expected: exit 0`, `- [ ] AC-3 auto: \`python -c "from foo import bar; print(bar())"\` → expected: output contains expected_value`).
   - `handoff.md` per §10 shape with all 12 sections populated; Header names the worktree absolute path; "Verification commands embedded" section restates the 3 ACs as runnable lines; "Constraints" section states `git_policy: STAGE-not-commit` + subagent return JSON shape.
   - `report.md` exists as an empty template placeholder.
 - Canonical worktree at `${canonical.root}/.worktrees/sprint-2.1/work-1.04-<kebab>` exists, is on the work-item branch per `during_dev.branch_naming`, has a clean working tree (no uncommitted modifications, no staged changes), and `git -C <worktree> status` returns "nothing to commit, working tree clean".

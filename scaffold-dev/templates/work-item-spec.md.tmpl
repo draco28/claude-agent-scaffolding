@@ -10,7 +10,7 @@
   decisions_baked_in     bulleted decisions pre-pinned by spec authoring + audit
   traceability_block     FR/NFR/BACKLOG IDs inherited from the ROADMAP vertical slice
   files_to_modify        bulleted list of paths (added | modified)
-  acs_block              §14.1 machine-checkable AC lines the gate parses AND runs. Each auto line: "- [ ] AC-<n> auto: `<command>` -> expected: <exit 0 | exit N | output contains <text>>" (use a real number for <n>, e.g. AC-1). The command MUST be backtick-wrapped (sd_verify_auto_step extracts it from the backticks); each line MUST carry a real AC-<n> label (sd_verify_report_cross_check keys off it); 'output contains' takes the substring UNQUOTED (quotes become part of the needle). Manual: "- [ ] AC-<n> user: <manual demo step>".
+  acs_block              §14.1 machine-checkable AC lines the gate parses AND runs. Each auto line: "- [ ] AC-<n> auto: `<command>` -> expected: <exit 0 | exit N | output contains <text>>" (use a real number for <n>). The command MUST be backtick-wrapped (sd_verify_auto_step extracts it from the backticks); each AUTO line MUST carry a real AC-<n> label (sd_verify_report_cross_check keys off it); 'output contains' takes the substring UNQUOTED (quotes become part of the needle). Manual demo steps: "- [ ] user: <manual demo step>" — NO AC id (user rows are verified at slice-close, not report-cross-checked).
   verification_block     fenced bash block listing executable verification commands
   demo_contribution      one paragraph: how this work item advances slice demo criteria
   not_in_scope           bulleted list of out-of-scope items (anti-actions)
@@ -48,8 +48,8 @@
 > Each AC is a numbered checklist row: `- [ ] AC-<n> auto:` then the command **wrapped in backticks**,
 > then `→ expected:` and one of `exit 0` / `exit N` / `output contains <text>` (substring **unquoted**).
 > The verifier extracts the command from the backticks and the report cross-check keys off the real
-> `AC-<n>` ids, so **both are required**. `user:` lines (`- [ ] AC-<n> user: <step>`) are manual demo
-> steps, verified at slice close. (Author real numbers — `AC-1`, `AC-2`, … — in the rows below.)
+> `AC-<n>` ids, so **both are required**. `user:` lines (`- [ ] user: <step>`, **no** AC id) are manual
+> demo steps, verified at slice close. (Author real numbers — `AC-1`, `AC-2`, … — on the auto rows below.)
 
 {{acs_block}}
 

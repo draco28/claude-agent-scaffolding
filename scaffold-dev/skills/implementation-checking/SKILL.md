@@ -176,9 +176,9 @@ Extract:
 - **`command`** — the bash command **inside the backticks** after `auto:` (`sd_verify_auto_step` extracts it from the backticks; an un-backticked command is rejected as malformed). The literal U+2192 arrow `→` (NOT `->`) separates it from `expected:`.
 - **`expectation`** — the predicate after `expected:`. Only three forms are supported by `sd_verify_auto_step`: `exit 0`, `exit N`, and `output contains <substring>` (substring **unquoted** — it is matched literally via `grep -F`, so wrapping quotes would be required in the output).
 
-Build an ordered list of `(ac_label, command, expectation)` tuples. The `ac_label` is the line's `AC-N` ID (1-indexed) — these IDs also drive the report cross-check (§7), so every AC line must carry one.
+Build an ordered list of `(ac_label, command, expectation)` tuples. The `ac_label` is the line's `AC-N` ID (1-indexed) — these IDs also drive the report cross-check (§7), so every **`auto:`** AC line must carry one.
 
-Lines with `user:` prefix are manual demo steps, not auto ACs — they're verified at slice-close per `closing-vertical-slice` §14.2, NOT here. Skip them silently in this gate.
+Lines with `user:` prefix are manual demo steps, not auto ACs — they carry **no** `AC-N` and are verified at slice-close per `closing-vertical-slice` §14.2, NOT here. Skip them silently in this gate (the §7 report cross-check also ignores `user:` rows, so they are not required in `report.md`).
 
 **Zero-AC degrade (issue #36).** If, after scanning §6, the `auto:` tuple list is
 **empty**, do NOT proceed to a green summary. Emit a blocking advisory tagged `[AC]`:
@@ -221,27 +221,28 @@ fi
 
 ## 6. AC verification loop (halt on first fail)
 
-Iterate the `(ac_label, command, expectation)` tuples in declared order. For each, call:
+Iterate the `(ac_label, command, expectation)` tuples in declared order. For each, run the command **in the worktree** and check the expectation directly — the same `cd "$worktree" && <cmd>` discipline the implementer uses in `executing-work-item` §5:
 
-```bash
-sd verify_auto_step "$command" "$expectation" "$worktree"
-```
+- Run `cd "$worktree" && eval "$command"` for shell commands (or `git -C "$worktree" <subcommand>` for git ops, per SPEC §6.5); capture the exit code + combined stdout/stderr.
+- Check `expectation` per §14.1 — the only three supported forms: `exit 0` → exit code is 0; `exit N` → exit code is N; `output contains <substring>` → captured output contains the **unquoted** substring (literal `grep -F`).
+- On pass, record `${label}:pass`. On the **first** fail, halt and keep `(failing_ac_label, failing_cmd, observed exit + output excerpt)` for the §12.2 menu.
 
-`sd_verify_auto_step` (lib/verify.sh):
-- Executes `command` in `$worktree` (uses `cd "$worktree" && eval "$command"` for shell commands; `git -C "$worktree" ...` for git ops per SPEC §6.5).
-- Captures exit code + stdout + stderr.
-- Evaluates `expectation` per §14.1: `exit 0` → exit-code check; `output contains "<pat>"` → substring match against stdout; numeric comparisons → arithmetic against captured output.
-- Returns 0 on pass, non-zero on fail. Emits a structured result line on stderr: `STATUS=<pass|fail> EXIT=<n> OUTPUT_HEAD=<first 200 chars>`.
+(`lib/verify.sh::sd_verify_auto_step "<full auto: line>"` runs the same parse-and-check on a **single full line** — it extracts the command from the backticks and runs in the **current directory**. It is the line-level utility `tests/test-verify.sh` exercises, NOT a worktree-scoped 3-arg call; the gate runs in the worktree as above.)
 
 **Halt-on-first-fail is binding.** Eval S2 asserts that on AC-1 fail, AC-2 and AC-3 MUST NOT appear in the Bash tool-call log. Do NOT continue iterating "to gather more failures" — the user picks a §12.2 option, the implementer-agent re-runs, and verification re-starts from AC-1 on the next pass.
 
 ```bash
 for tuple in "${ac_tuples[@]}"; do
   IFS='|' read -r label cmd expect <<<"$tuple"
-  if ! sd_verify_auto_step "$cmd" "$expect" "$worktree" 2>verify.err; then
-    failing_ac_label="$label"
-    failing_cmd="$cmd"
-    failing_output="$(cat verify.err)"
+  output="$(cd "$worktree" && eval "$cmd" 2>&1)"; ec=$?
+  ok=0
+  case "$expect" in
+    "exit 0")            [[ $ec -eq 0 ]] && ok=1 ;;
+    "exit "*)            [[ $ec -eq "${expect#exit }" ]] && ok=1 ;;
+    "output contains "*) printf '%s' "$output" | grep -qF -- "${expect#output contains }" && ok=1 ;;
+  esac
+  if [[ $ok -ne 1 ]]; then
+    failing_ac_label="$label"; failing_cmd="$cmd"; failing_output="$output"
     break  # HALT — do not continue
   fi
   ac_results+=("${label}:pass")
