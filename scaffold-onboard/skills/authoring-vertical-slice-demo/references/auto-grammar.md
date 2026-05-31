@@ -26,25 +26,25 @@ Components, in order:
 
 The `expected:` tail has exactly two well-formed shapes. Pick one per line; never combine both.
 
-### 2.1 Exit-code mode (default success criterion)
+### 2.1 Exit-code mode (deterministic)
 
 ```
 expected: exit 0
 expected: exit <N>     (non-zero permitted for negative-test slices, e.g., expected: exit 1)
 ```
 
-scaffold-dev's execution runs the command via `bash -c` (subshell) and asserts `$? == <N>`. Stdout/stderr are captured for the slice-close log but NOT pattern-checked. Use exit-code mode when the command's own assertions (pytest, go test, jest, `set -e` scripts) carry the verification weight — the binary pass/fail is the answer.
+**Evaluation: deterministic.** scaffold-dev's closing orchestrator runs the command via `bash -c` (subshell) and asserts `$? == <N>`. Stdout/stderr are captured for the slice-close log but NOT pattern-checked. The exit code is a mechanical fact — pass/fail is an integer comparison, no agent judgment involved. Use exit-code mode when the command's own assertions (pytest, go test, jest, `set -e` scripts) carry the verification weight.
 
-### 2.2 Pattern mode (output matching)
+### 2.2 Pattern mode (agent-judged at slice-close)
 
 ```
 expected: output contains "<substring>"
 expected: output matches /<regex>/
-expected: count > 0                        (informal predicate, judge-verified)
+expected: count > 0                        (predicate — agent-judged at slice-close)
 expected: stdout contains "<substring>"    (synonym for "output contains")
 ```
 
-scaffold-dev's execution runs the command and grep-checks captured stdout against the pattern. The pattern body is preserved byte-for-byte from authoring to execution — quoted substrings, regex anchors, and informal predicates (`count > 0`, `> 5 rows`) all pass through unchanged. The slice-close skill is responsible for matching the predicate shape; this skill only validates that the `expected:` tail is non-empty and follows the arrow.
+**Evaluation: agent-judged.** scaffold-dev's closing orchestrator runs the command, captures stdout/stderr, and then **judges** whether the captured output satisfies the stated expectation — recording a one-line reason alongside the pass/fail verdict. The closing orchestrator judges the captured output against the expectation; no bash grep or arithmetic parsing is applied. The pattern body is preserved byte-for-byte from authoring to execution — quoted substrings, regex anchors, and informal predicates (`count > 0`, `> 5 rows`) are all accepted as the expectation the judge evaluates. This skill only validates that the `expected:` tail is non-empty and follows the arrow; it does not constrain the predicate shape.
 
 **Pick one, not both.** A line like `expected: exit 0 AND output contains "ok"` validates as a single string (the parser doesn't reject it) but obscures the success criterion. Split into two `auto:` lines if both gates matter.
 
