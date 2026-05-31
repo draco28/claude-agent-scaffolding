@@ -236,4 +236,18 @@ test_pr_merge
 test_pr_merge_auto
 test_dispatcher_lists_pr_fns
 
+# 19. issue_create echoes the issue url and calls gh with the right args
+test_issue_create() {
+  echo "test_issue_create:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  local body; body="$(mktemp)"; echo "deferred: tune backoff" > "$body"
+  local out; out="$(sd_issue_create "Tune retry backoff" "$body" --label tech-debt 2>/dev/null)"
+  assert_contains "echoes issue url" "issues/7" "$out"
+  assert_file_contains "$GH_SHIM_LOG" "issue create --title Tune retry backoff --body-file"
+  assert_file_contains "$GH_SHIM_LOG" "--label tech-debt"
+}
+
+test_issue_create
+
 sd_test_summary

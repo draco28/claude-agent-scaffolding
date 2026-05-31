@@ -70,7 +70,7 @@ assert_file_contains() {
     echo "  $(_color_fail 'FAIL') file missing for contains-check: $path"
     return
   fi
-  if grep -qE "$pattern" "$path"; then
+  if grep -qE -- "$pattern" "$path"; then
     PASS=$((PASS+1))
     echo "  $(_color_pass 'PASS') $path contains /$pattern/"
   else

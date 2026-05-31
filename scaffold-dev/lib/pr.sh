@@ -141,3 +141,22 @@ sd_pr_merge() {
   fi
   (cd "$canonical" && gh pr merge "$pr" "$@")
 }
+
+# sd_issue_create <title> <body-file> [extra gh args...] — wraps gh issue create
+# (run from canonical so gh resolves the repo from origin). Echoes gh's stdout
+# (issue url/number). rc 1 if gh absent or the create fails.
+sd_issue_create() {
+  local title="$1" body_file="$2"; shift 2
+  local canonical out
+  canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_issue_create: no canonical.root"; return 1; }
+  if ! command -v gh >/dev/null 2>&1; then
+    sd_log_error "sd_issue_create: 'gh' not in PATH."
+    return 1
+  fi
+  if ! out="$(cd "$canonical" && gh issue create --title "$title" --body-file "$body_file" "$@" 2>&1)"; then
+    sd_log_error "sd_issue_create: gh issue create failed: $out"
+    return 1
+  fi
+  echo "$out"
+  return 0
+}
