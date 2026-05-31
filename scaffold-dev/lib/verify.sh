@@ -83,9 +83,13 @@ sd_verify_report_cross_check() {
     return 1
   fi
 
-  # Collect AC IDs from spec (e.g., "AC-1", "AC-12a").
+  # Collect AC IDs ONLY from declared AC rows — list items ("- AC-1: ...") or
+  # checklist rows ("- [ ] AC-1 auto: ..."). Do NOT grep the whole file: prose,
+  # blockquotes, and template boilerplate often mention an AC id (or a literal
+  # "AC-N" placeholder), which would otherwise be required in report.md and fail
+  # every normally-authored spec.
   local ids
-  ids="$(grep -oE 'AC-[A-Za-z0-9.]+' "$spec" | sort -u)"
+  ids="$(grep -oE '^- (\[[ xX]\] )?AC-[A-Za-z0-9.]+' "$spec" | grep -oE 'AC-[A-Za-z0-9.]+' | sort -u)"
   if [[ -z "$ids" ]]; then
     return 0
   fi

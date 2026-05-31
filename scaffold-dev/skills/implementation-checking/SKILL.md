@@ -166,13 +166,15 @@ Read `${work_dir}/spec.md` and locate the **Acceptance Criteria** section. The s
 For each AC line matching the `auto:` grammar:
 
 ```
-- [ ] AC-N auto: `<bash command>` → expected: <exit 0 | exit N | output contains "<substring>">
+- [ ] AC-1 auto: `<bash command>` → expected: <exit 0 | exit N | output contains <substring>>
 ```
+
+(use a real number — `AC-1`, `AC-2`, … — not the literal `AC-N`, which the report cross-check would grep as a phantom id.)
 
 Extract:
 
 - **`command`** — the bash command **inside the backticks** after `auto:` (`sd_verify_auto_step` extracts it from the backticks; an un-backticked command is rejected as malformed). The literal U+2192 arrow `→` (NOT `->`) separates it from `expected:`.
-- **`expectation`** — the predicate after `expected:`. Only three forms are supported by `sd_verify_auto_step`: `exit 0`, `exit N`, and `output contains "<substring>"`.
+- **`expectation`** — the predicate after `expected:`. Only three forms are supported by `sd_verify_auto_step`: `exit 0`, `exit N`, and `output contains <substring>` (substring **unquoted** — it is matched literally via `grep -F`, so wrapping quotes would be required in the output).
 
 Build an ordered list of `(ac_label, command, expectation)` tuples. The `ac_label` is the line's `AC-N` ID (1-indexed) — these IDs also drive the report cross-check (§7), so every AC line must carry one.
 
