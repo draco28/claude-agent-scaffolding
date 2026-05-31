@@ -123,6 +123,43 @@ The error MUST name the missing id explicitly, cite the resolved `project-roadma
 
 When the record is found, read every field directly from `vs_record` (all carried in the structured state — no prose parsing): VS `name`, one-paragraph `summary`, declared `demo_criteria` (the `auto:` / `user:` lines, per SPEC §14.1 grammar; rendered into the slice README at §6), and the traceability arrays `traces_fr` / `traces_nfr` / `traces_backlog`. Derive `vs_kebab` from the roadmap `name` field before §6.1 uses it in `slice_root`; if the name sanitizes to empty, stop and surface a roadmap data error rather than inventing a directory slug. Carry the trace IDs into every work-item spec and implementation handoff as `traceability_block`; if an array is empty, render `- FR: None`, `- NFR: None`, and `- Backlog: None` explicitly rather than inventing IDs.
 
+### 3.3a Merge-mode pre-flight (pr_hierarchical)
+
+Read the mode early (it gates §8.1 + §8.6 + slice-close). See
+`references/git-workflow.md` for the full topology and primitive contracts.
+
+```bash
+merge_mode="$(sd merge_mode)"   # "direct" (default) | "pr_hierarchical"
+```
+
+If `merge_mode == "direct"`: skip the rest of this subsection — behavior is
+unchanged from v0.1.
+
+If `merge_mode == "pr_hierarchical"`:
+
+1. **Refuse fast if the remote/gh prerequisites are missing:**
+   ```bash
+   sd remote_check || exit 1   # surfaces the actionable error verbatim
+   ```
+   Do NOT silently fall back to `direct`.
+2. **Ensure the sprint integration branch exists** (create off `default_branch`
+   at the first slice of the sprint; reuse otherwise):
+   ```bash
+   sprint_branch="sprint-${sprint_id}"          # or per during_dev.sprint_branch_naming
+   default_branch="$(sd manifest_get '.canonical.default_branch')" || default_branch="main"
+   sd branch_create_from "$default_branch" "$sprint_branch"
+   ```
+3. **Slice-ordering check:** if a prior slice's PR into `$sprint_branch` is still
+   open, surface it per `references/git-workflow.md` (slice-ordering rule) and wait
+   for the user before continuing.
+4. **Create the slice branch off the sprint branch:**
+   ```bash
+   slice_branch="slice/${vs_id}"                # or per during_dev.slice_branch_naming
+   sd branch_create_from "$sprint_branch" "$slice_branch"
+   ```
+   Carry `$slice_branch` forward — §8.1 bases work-item worktrees on it and §8.6
+   merges into it.
+
 ### 3.4 Read MASTER-SPEC + memory bank + cursor
 
 - **MASTER-SPEC.md** — read via the manifest-resolved master-spec path. Surfaces project class, constraints, tech stack — feeds decomposition rationale.
@@ -310,6 +347,13 @@ sd worktree_add "${work_id}" "${vs_id}" "${kebab}" "${sprint_id}"
 # Base: canonical main HEAD at creation
 ```
 
+Under `merge_mode=pr_hierarchical`, pass the slice branch as the base so the
+worktree branches off the slice (not `default_branch`):
+
+```bash
+sd worktree_add "${work_id}" "${vs_id}" "${kebab}" "${sprint_id}" "${slice_branch}"
+```
+
 Halt if `sd_worktree_add` fails (dirty canonical tree, existing branch, etc.). Surface the failure-response menu (SPEC §12.2 "Merge conflict" row adapted for setup conflicts).
 
 ### 8.2 Author handoff per work item
@@ -403,7 +447,15 @@ Per §4.1, probe ai-mentor first; offer only when detected.
 On verification pass:
 
 1. Commit in the work-item worktree per `git_policy` (e.g., `git -C <worktree> commit -m "${commit_message}"`). The subagent staged but did NOT commit (per SPEC §6.2 constraint); the orchestrator owns the commit boundary.
-2. Merge the work-item branch into canonical main via `sd_merge_work_item`. **HALT on conflict** per SPEC §11 — surface the failure-response menu ("Merge conflict" row): user resolves manually via `git merge --continue`, OR aborts via `git merge --abort` and replans integration.
+2. Merge the work-item branch into the integration target via `sd_merge_work_item`.
+   - `direct` mode: `sd merge_work_item "<worktree>" "<branch>"` (merges into
+     `default_branch` — today's behavior).
+   - `pr_hierarchical` mode: `sd merge_work_item "<worktree>" "<branch>" "${slice_branch}"`
+     (merges locally into the slice branch; **no push, no PR at this level**).
+
+   **HALT on conflict** per SPEC §11 — surface the failure-response menu ("Merge
+   conflict" row): user resolves via `git merge --continue`, OR aborts via
+   `git merge --abort` and replans integration.
 3. Update VS README: mark work-item status complete.
 
 Do **NOT** remove the worktree at round close — per SPEC §11, worktrees + branches survive until slice close for demo verification and retrospective harvest inspection.
