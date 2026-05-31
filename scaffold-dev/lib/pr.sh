@@ -165,9 +165,9 @@ sd_pr_state() {
 # latestReviews) and conversation comments — NOT the line-level comments where a
 # bot (Codex/CodeRabbit) or human leaves inline findings. The pre-merge gate must
 # fetch these so it never merges over unresolved inline feedback while CI is green.
-# Emits the raw JSON array. NO interpretation. rc 1 if gh absent.
+# Emits one raw JSON array. NO interpretation. rc 1 if gh/jq/api fails.
 sd_pr_review_comments() {
-  local pr="$1" canonical num
+  local pr="$1" canonical num out
   canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_pr_review_comments: no canonical.root"; return 1; }
   if ! command -v gh >/dev/null 2>&1; then
     sd_log_error "sd_pr_review_comments: 'gh' not in PATH."
@@ -176,9 +176,14 @@ sd_pr_review_comments() {
   # Accept a PR URL (gh pr create echoes one) OR a bare number — the REST path
   # needs the numeric id. Strip everything up to the last '/'.
   num="${pr##*/}"
-  # --paginate emits one JSON array PER PAGE; merge them into a single flat array
-  # (jq -s 'add') so the contract stays "one JSON array" regardless of page count.
-  (cd "$canonical" && gh api --paginate "repos/{owner}/{repo}/pulls/$num/comments") | jq -s 'add // []'
+  if ! out="$(cd "$canonical" && gh api --paginate --slurp "repos/{owner}/{repo}/pulls/$num/comments" 2>&1)"; then
+    sd_log_error "sd_pr_review_comments: gh api failed: $out"
+    return 1
+  fi
+  # Real `gh api --slurp` wraps paginated array responses as [page1, page2, ...].
+  # The test shim emits a flat array directly; accept both while preserving one
+  # flat-array contract for the agent gate.
+  printf '%s\n' "$out" | jq 'if type == "array" and (.[0] | type) == "array" then add else . end // []'
 }
 
 # sd_pr_merge <pr> [extra gh args...] — wraps gh pr merge. Defaults to --merge

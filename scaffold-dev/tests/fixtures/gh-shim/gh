@@ -27,6 +27,10 @@ case "${1:-} ${2:-}" in
     exit 0 ;;
   "api "*)
     # gh api … (e.g. pulls/<pr>/comments) — emit canned inline review comments
+    if [[ -n "${GH_SHIM_API_RC:-}" && "${GH_SHIM_API_RC}" != "0" ]]; then
+      echo "${GH_SHIM_API_ERR:-gh api failed}" >&2
+      exit "$GH_SHIM_API_RC"
+    fi
     if [[ -n "${GH_SHIM_PR_COMMENTS_JSON:-}" && -f "$GH_SHIM_PR_COMMENTS_JSON" ]]; then
       cat "$GH_SHIM_PR_COMMENTS_JSON"
     else

@@ -411,6 +411,8 @@ the slice branch already holds every work-item commit; see
    ```bash
    slice_branch="$(sd slice_branch_name "$vs_id")"
    sprint_branch="$(sd sprint_branch_name "$sprint_id")"
+   sd branch_sync "$sprint_branch"
+   sd branch_push "$sprint_branch"
    sd branch_push "$slice_branch"
    ```
 2. **Compose the PR body** to a temp file: the slice README (with the populated
@@ -418,12 +420,15 @@ the slice branch already holds every work-item commit; see
    any linked tech-debt/issue references.
 3. **Open the PR:**
    ```bash
-   sd pr_open "$slice_branch" "$sprint_branch" "${vs_id}: <slice title>" "<body-file>"
+   slice_pr="$(sd pr_open "$slice_branch" "$sprint_branch" "${vs_id}: <slice title>" "<body-file>")"
    ```
 4. **Run the agent-driven pre-merge gate** per `references/git-workflow.md`
-   (`sd pr_state` → reason over CI **and** review comments → surface → ask).
-   Merge via `sd pr_merge` only on explicit user acknowledgment, or leave the PR
-   open for asynchronous CI/review. Do NOT busy-wait.
+   (`sd pr_state "$slice_pr"` + `sd pr_review_comments "$slice_pr"` → reason
+   over CI **and** inline review comments → surface → ask). Merge via
+   `sd pr_merge` only on explicit user acknowledgment. If the PR is left open for
+   asynchronous CI/review, HALT before §11: report the PR URL/number and do NOT
+   run sprint-close cleanup or tell the user the slice/sprint is closed. Do NOT
+   busy-wait.
 
 `direct` mode skips this section entirely — work items already merged into
 `default_branch` at §8.6, exactly as in v0.1.

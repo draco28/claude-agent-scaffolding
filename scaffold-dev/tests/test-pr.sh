@@ -22,7 +22,7 @@ _setup_pr_workspace() {
   export GH_SHIM_LOG="$TMP_DIR/gh-calls.log"
   : > "$GH_SHIM_LOG"
   # Reset shim env to defaults each setup.
-  unset GH_SHIM_AUTH_RC GH_SHIM_MERGE_RC GH_SHIM_PR_VIEW_JSON GH_SHIM_ISSUE_LIST_JSON GH_SHIM_ISSUE_URL GH_SHIM_PR_COMMENTS_JSON
+  unset GH_SHIM_AUTH_RC GH_SHIM_MERGE_RC GH_SHIM_PR_VIEW_JSON GH_SHIM_ISSUE_LIST_JSON GH_SHIM_ISSUE_URL GH_SHIM_PR_COMMENTS_JSON GH_SHIM_API_RC GH_SHIM_API_ERR
   export GH_SHIM_PR_URL="https://github.com/test/repo/pull/123"
 }
 
@@ -342,10 +342,23 @@ test_pr_review_comments() {
   assert_eq "inline comment path" "scaffold-dev/lib/pr.sh" "$(echo "$json" | jq -r '.[0].path')"
   assert_contains "inline comment body" "unresolved inline finding" "$(echo "$json" | jq -r '.[0].body')"
   assert_file_contains "$GH_SHIM_LOG" "api"
+  assert_file_contains "$GH_SHIM_LOG" "--slurp"
   assert_file_contains "$GH_SHIM_LOG" "pulls/7/comments"
 }
 
-# 25. branch_sync fast-forwards a stale local integration branch to origin
+# 25. pr_review_comments propagates gh api failures instead of returning []
+test_pr_review_comments_api_failure() {
+  echo "test_pr_review_comments_api_failure:"
+  _setup_pr_workspace
+  export GH_SHIM_API_RC=42
+  export GH_SHIM_API_ERR="rate limit"
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_pr_review_comments 7 >/tmp/sd-pr-review-comments.out 2>/dev/null; local rc=$?; :
+  unset GH_SHIM_API_RC GH_SHIM_API_ERR
+  assert_ne "api failure rc!=0" "0" "$rc"
+}
+
+# 26. branch_sync fast-forwards a stale local integration branch to origin
 test_branch_sync() {
   echo "test_branch_sync:"
   _setup_pr_workspace
@@ -373,6 +386,7 @@ test_branch_sync() {
 test_issue_list_default_limit
 test_issue_list_explicit_limit
 test_pr_review_comments
+test_pr_review_comments_api_failure
 test_branch_sync
 
 sd_test_summary

@@ -147,17 +147,22 @@ If `merge_mode == "pr_hierarchical"`:
    ```bash
    sprint_branch="$(sd sprint_branch_name "$sprint_id")"
    default_branch="$(sd manifest_get '.canonical.default_branch')" || default_branch="main"
+   sd branch_sync "$default_branch"   # fast-forward local main/default after prior sprint→main PRs
    sd branch_create_from "$default_branch" "$sprint_branch"
    sd branch_sync "$sprint_branch"   # FIRST: fast-forward a reused base if a prior slice PR already merged
    sd branch_push "$sprint_branch"   # THEN: ensure the base exists on origin for the slice→sprint PR
    ```
-   **Order matters.** `branch_sync` runs **before** `branch_push`: a merged slice
-   PR advances `sprint-N` on the remote, so the local base is stale; pushing first
-   would be rejected non-fast-forward (and the next slice could never reach the
-   sync). Sync fast-forwards the reused local `$sprint_branch` to
-   `origin/$sprint_branch` (no-op on the first slice, when origin has no
-   `$sprint_branch` yet); then `branch_push` creates it on origin (first slice) or
-   is a no-op fast-forward (later slices). The slice then branches off the fresh base.
+   **Order matters.** Sync the local `$default_branch` before cutting a new
+   sprint branch; a prior sprint→main PR (or any remote update) advances
+   `origin/$default_branch`, and a stale local default branch would omit landed
+   commits from the next sprint. Then `branch_sync "$sprint_branch"` runs
+   **before** `branch_push`: a merged slice PR advances `sprint-N` on the remote,
+   so the local base is stale; pushing first would be rejected non-fast-forward
+   (and the next slice could never reach the sync). Sync fast-forwards the reused
+   local `$sprint_branch` to `origin/$sprint_branch` (no-op on the first slice,
+   when origin has no `$sprint_branch` yet); then `branch_push` creates it on
+   origin (first slice) or is a no-op fast-forward (later slices). The slice then
+   branches off the fresh base.
 3. **Slice-ordering check:** if a prior slice's PR into `$sprint_branch` is still
    open, surface it per `references/git-workflow.md` (slice-ordering rule) and wait
    for the user before continuing.
