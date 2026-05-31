@@ -227,7 +227,15 @@ Use `sd_render` (lib/render.sh, ported from scaffold-onboard) to fill templates:
 
 - `templates/vertical-slice-readme.md.tmpl` → `${slice_root}/README.md`
   - Vars: `vs_id`, `vs_name`, `vs_description`, `demo_criteria` (the `auto:` / `user:` lines from ROADMAP), `work_items_table`, `round_plan`, `sprint_context`.
-- `templates/work-item-spec.md.tmpl` → each `work-N.NN-<kebab>/spec.md` (8 sections per SPEC §9). Author §6 `acs_block` as machine-checkable `auto:` / `user:` lines per the SPEC §14.1 grammar — one `auto:` line per programmatically-verifiable AC (`- [ ] auto: <bash command> → expected: <exit 0 | output contains "<pat>" | count > 0>`), and `user:` lines for manual demo steps. These lines are the single AC source of truth the `implementation-checking` gate parses (§4). Do NOT author a parallel prose AC table — the table/`auto:` split is what caused the gate to find zero ACs (#36).
+- `templates/work-item-spec.md.tmpl` → each `work-N.NN-<kebab>/spec.md` (8 sections per SPEC §9). Author §6 `acs_block` as machine-checkable `auto:` / `user:` lines per the SPEC §14.1 grammar — one `auto:` line per programmatically-verifiable AC, in exactly this shape:
+
+  ```
+  - [ ] AC-1 auto: `pytest tests/test_foo.py` → expected: exit 0
+  - [ ] AC-2 auto: `grep -q "TARGET" src/foo.py` → expected: exit 0
+  - [ ] AC-3 user: click "Export" and confirm a CSV downloads
+  ```
+
+  Two hard requirements the `lib/verify.sh` helpers enforce — get either wrong and the gate misfires: **(a)** the command MUST be wrapped in backticks — `sd_verify_auto_step` extracts the command from the backticks, and an un-backticked command is rejected as malformed so the AC never runs; **(b)** every AC line MUST carry an `AC-N` label — `sd_verify_report_cross_check` keys off `AC-N` IDs, and a spec with none *silently skips* the report cross-check. Use ONLY the supported `expected:` forms: `exit 0`, `exit N`, `output contains "<substring>"` (no `count > 0` / arithmetic — unsupported). `user:` lines are manual demo steps. These lines are the single AC source of truth the `implementation-checking` gate parses (§4). Do NOT author a parallel prose AC table — the table/`auto:` split is what caused the gate to find zero ACs (#36).
 
 The worktree path and branch are computed at spec-authoring time (so the spec is self-contained as a fresh-session starter per §6.4) but the actual `git worktree add` does NOT happen until the round starts (§8.1).
 

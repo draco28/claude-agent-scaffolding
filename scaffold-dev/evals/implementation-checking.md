@@ -33,8 +33,8 @@ Each scenario is executed inside a single Claude Code subscription session by an
 **Setup:**
 - Dual-repo fixture: manifest at the parent, `routing.worktrees_dir` resolves to `${canonical.root}/.worktrees/`.
 - Roadmap/cursor fixture: `<ai-workspace>/.workspace/project-roadmap.json` contains `{"id":"VS-3.2.1","sprint_id":"3.2","name":"<kebab>",...}` and scaffold-dev's active cursor state names `active_slice=VS-3.2.1`.
-- Work item `1.01` exists at `<ai-workspace>/docs/specs/sprint-3.2/VS-3.2.1-<kebab>/work-1.01-<kebab>/` with a `spec.md` containing 3 `auto:` ACs per §14.1 grammar: e.g., `- [ ] auto: \`pytest tests/test_foo.py\` → expected: exit 0`, `- [ ] auto: \`grep -q "TARGET" src/foo.py\` → expected: exit 0`, `- [ ] auto: \`python -c "import foo; print(foo.VERSION)"\` → expected: output contains "1.0"`.
-- `report.md` is authored per template, with a "Status" line stating `complete` and an "AC outcomes" section claiming all 3 ACs passed.
+- Work item `1.01` exists at `<ai-workspace>/docs/specs/sprint-3.2/VS-3.2.1-<kebab>/work-1.01-<kebab>/` with a `spec.md` containing 3 `auto:` ACs per §14.1 grammar (backtick-wrapped command + `AC-N` label): `- [ ] AC-1 auto: \`pytest tests/test_foo.py\` → expected: exit 0`, `- [ ] AC-2 auto: \`grep -q "TARGET" src/foo.py\` → expected: exit 0`, `- [ ] AC-3 auto: \`python -c "import foo; print(foo.VERSION)"\` → expected: output contains "1.0"`.
+- `report.md` is authored per template, with a "Status" line stating `complete` and an "AC outcomes" section referencing `AC-1`/`AC-2`/`AC-3` and claiming all 3 passed (so the `AC-N` report cross-check is exercised).
 - Canonical worktree at `${canonical.root}/.worktrees/sprint-3.2/work-1.01-<kebab>` contains staged-but-uncommitted changes that DO satisfy all 3 ACs (i.e., running each verification command in the worktree yields the expected exit/output).
 - `<ai-workspace>/.claude/memory-bank/03-code-patterns.md` exists but contains NO `<!-- mcrule:start ... -->` blocks (R2 rules absent — fallback path).
 - Pre-injected user follow-ups: none required (happy path; skill should report green and surface a "ready for commit" handoff without prompting).

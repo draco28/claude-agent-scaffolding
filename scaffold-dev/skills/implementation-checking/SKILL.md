@@ -166,15 +166,15 @@ Read `${work_dir}/spec.md` and locate the **Acceptance Criteria** section. The s
 For each AC line matching the `auto:` grammar:
 
 ```
-- [ ] auto: <bash command> → expected: <exit code 0 | output contains "<pattern>" | count > 0 | ...>
+- [ ] AC-N auto: `<bash command>` → expected: <exit 0 | exit N | output contains "<substring>">
 ```
 
 Extract:
 
-- **`command`** — the bash command between `auto:` and `→` (literal U+2192 arrow, NOT `->`).
-- **`expectation`** — the predicate after `expected:`: `exit 0`, `output contains "<pat>"`, numeric comparisons (`count > 0`), or other §14.1 forms.
+- **`command`** — the bash command **inside the backticks** after `auto:` (`sd_verify_auto_step` extracts it from the backticks; an un-backticked command is rejected as malformed). The literal U+2192 arrow `→` (NOT `->`) separates it from `expected:`.
+- **`expectation`** — the predicate after `expected:`. Only three forms are supported by `sd_verify_auto_step`: `exit 0`, `exit N`, and `output contains "<substring>"`.
 
-Build an ordered list of `(ac_label, command, expectation)` tuples. The `ac_label` is the 1-indexed position (`AC-1`, `AC-2`, …).
+Build an ordered list of `(ac_label, command, expectation)` tuples. The `ac_label` is the line's `AC-N` ID (1-indexed) — these IDs also drive the report cross-check (§7), so every AC line must carry one.
 
 Lines with `user:` prefix are manual demo steps, not auto ACs — they're verified at slice-close per `closing-vertical-slice` §14.2, NOT here. Skip them silently in this gate.
 

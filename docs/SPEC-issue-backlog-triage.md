@@ -124,13 +124,16 @@ gate falls through with no AC executed (false-green unless a human verifies out-
 
 **Decision (settled):** **Option 1 + Option 3.**
 
-- **Option 1 — align the template to the parser (the structural fix).** Add an
-  `auto:`/`user:` AC block to `work-item-spec.md.tmpl`, and have
-  `planning-vertical-slice` author executable `auto:` lines in the §14.1 grammar. The
-  markdown table stays as human-readable prose. This **unifies the `auto:`/`user:`
-  grammar across both the slice-demo level and the work-item AC level** as a single
-  source of truth (the deliberate trade-off noted in #36; you confirmed you prefer the
-  single-SoT outcome).
+- **Option 1 — align the template to the parser (the structural fix).** Make
+  `work-item-spec.md.tmpl` §6 render machine-checkable `auto:`/`user:` lines (`acs_block`)
+  as the **single AC source of truth**, and have `planning-vertical-slice` author them.
+  **The prior markdown AC table is removed** — a parallel hand-authored table is the drift
+  vector that caused #36 (you confirmed the single-SoT outcome). Each line carries an
+  `AC-N` label and a backtick-wrapped command per §14.1, so both `lib/verify.sh` helpers
+  engage: `sd_verify_auto_step` (runs the command, extracted from the backticks) and
+  `sd_verify_report_cross_check` (keys off the `AC-N` IDs). *Implementation note: the first
+  pass shipped the `auto:` lines without backticks/`AC-N`, which the PR-#41 bot review
+  caught — the verifier needs both; corrected before merge.*
 - **Option 3 — loud-degrade safety net.** If §4 finds zero machine-runnable `auto:`
   lines, `implementation-checking` emits an explicit advisory — *"no machine-runnable ACs
   found in spec — manual verification required"* — instead of passing silently. Cheap,
