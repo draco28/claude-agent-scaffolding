@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Verify that the `scaffold-dev:deferring-work-item` skill (per SPEC §8.8 + #33) correctly handles a user-surfaced technical-debt deferral: runs `sd remote_check` before any write, composes a coherent issue (title + why-deferred + unblock-condition), files it via `sd issue_create` (not raw `gh`), captures the issue number, and appends exactly one `- [TD] … → #N` line to `tech-debt.md` with no body duplication in the memory bank. Also verifies that the skill de-duplicates against existing open issues — surfacing the match and offering to skip filing rather than opening a duplicate.
+Verify that the `scaffold-dev:deferring-work-item` skill (per `docs/SPEC-lean-index-defer.md` §4 + #33) correctly handles a user-surfaced technical-debt deferral: runs `sd remote_check` before any write, composes a coherent issue (title + why-deferred + unblock-condition), files it via `sd issue_create` (not raw `gh`), captures the issue number, and appends exactly one `- [TD] … → #N` line to `tech-debt.md` with no body duplication in the memory bank. Also verifies that the skill de-duplicates against existing open issues — surfacing the match and offering to skip filing rather than opening a duplicate.
 
 This eval validates the *deferral-filing skill's* agent decisions — not the round-close auto-file path (covered by `evals/planning-vertical-slice.md` S6), nor the blocker-recall read path (covered by `evals/executing-work-item.md` S5).
 
