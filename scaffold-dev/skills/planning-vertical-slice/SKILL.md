@@ -422,6 +422,8 @@ For each work item in decomposition order:
 
 **`mode: gaps-surfaced`** — surface the gaps to the user in conversation, gather clarifications, append a `## Clarifications` section to the work item's `handoff.md`, then re-invoke the same Task dispatch with the same handoff path. Loop until pre-flight passes. If gaps loop 3+ iterations: halt and surface the failure-response menu (§12.2 "Subagent loops in gaps-mode" row) — suggest replan or manual implementer session.
 
+**Blocker-recall (issues, #33).** On a `gaps-surfaced` return, before re-dispatching or escalating to the §12.2 menu, run `sd issue_list` and JUDGE whether an open issue already covers the surfaced gap. If one does, surface "known — see #N" and fold that into the clarification appended to the handoff (so the re-dispatched implementer proceeds informed) rather than treating the gap as novel. Judgment, not string-matching; skip silently if `sd remote_check` fails.
+
 **`mode: complete`** — read `report.md` from disk (path returned by subagent), proceed to §8.5 verification.
 
 **Malformed / crash / timeout** — halt and surface the failure-response menu (§12.2 "Subagent crash" row). Options: re-invoke, extend timeout + re-invoke, fall back to manual session per §6.4, abandon.

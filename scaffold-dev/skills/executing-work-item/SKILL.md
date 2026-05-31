@@ -114,6 +114,8 @@ For each ambiguity found, build a gap entry with three fields:
 - `question`: a concrete one-sentence question the user can answer (e.g., `"Should FEATURE_FLAG_X be a Python constant or a config-file lookup?"`). NOT a vague paraphrase of the ambiguity (`"AC-2 unclear"` is a fail per the eval S2 advisory).
 - `severity`: `"blocking"` (no implementation possible without resolution) or `"nice-to-have"` (a reasonable default exists; resolution would improve the implementation but not block it).
 
+**Blocker-recall (local, #33).** Before building a gap entry for an ambiguity that reads like "X is missing / why wasn't this done?", READ the memory-bank `tech-debt.md` (lean `[TD] …→#N` index; resolve its path via the manifest memory-bank location). If you JUDGE that the gap is already a known/tracked deferral, surface it in your return as "known — see #N" rather than as a fresh unresolved gap. This reads the local file only (you have no `gh` access). It is advisory recall — a genuine new blocker is still a blocker; you are only avoiding re-deriving something already tracked.
+
 ### 3.5 Branch on pre-flight outcome
 
 If §3.3 found the worktree dirty OR missing OR on the wrong branch, OR §3.4 found at least one blocking ambiguity: return gaps-mode (§6) immediately. Do NOT proceed to §4 TDD, §5 verification, §6 report, or §7 stage. Do NOT touch any worktree source file. Do NOT run `git add`.
