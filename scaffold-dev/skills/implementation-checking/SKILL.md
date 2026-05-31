@@ -1,6 +1,6 @@
 ---
 name: implementation-checking
-description: Per-work-item verification gate — runs `auto:` AC lines (halt-on-first-fail), cross-checks `report.md` outcomes, checks machine-checkable rules from `03-code-patterns.md`; surfaces source-tagged errors (`[AC]`, `[report cross-check]`, `[rule]`) + menu on fail; reports green on all-pass. Use this when the user wants to verify work item N.NN, check round 1, asks "is this work item done", or says "verify the implementation". Read-only: never commits, merges, or auto-fixes.
+description: 'Per-work-item verification gate — runs `auto:` AC lines (halt-on-first-fail), cross-checks `report.md` outcomes, checks machine-checkable rules from `03-code-patterns.md`; surfaces source-tagged errors (`[AC]`, `[report cross-check]`, `[rule]`) + menu on fail; reports green on all-pass. Use this when the user wants to verify work item N.NN, check round 1, asks "is this work item done", or says "verify the implementation". Read-only: never commits, merges, or auto-fixes.'
 ---
 
 # implementation-checking

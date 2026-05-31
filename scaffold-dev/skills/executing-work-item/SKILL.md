@@ -1,6 +1,6 @@
 ---
 name: executing-work-item
-description: Execute one work item per its handoff doc — pre-flight gates clean state + spec ambiguity, then TDD loop + verification commands + `report.md`; stages but NEVER commits (orchestrator owns the commit boundary). Dual-use: standalone skill (`/work-item <handoff-path>`) AND system prompt for `scaffold-dev:implementer-agent` subagent. Use this when the user says `execute work item N.NN`, `implement the work item`, `handoff at <path>`, or `/work-item <handoff-path>`.
+description: 'Execute one work item per its handoff doc — pre-flight gates clean state + spec ambiguity, then TDD loop + verification commands + `report.md`; stages but NEVER commits (orchestrator owns the commit boundary). Dual-use: standalone skill (`/work-item <handoff-path>`) AND system prompt for `scaffold-dev:implementer-agent` subagent. Use this when the user says `execute work item N.NN`, `implement the work item`, `handoff at <path>`, or `/work-item <handoff-path>`.'
 ---
 
 # executing-work-item

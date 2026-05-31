@@ -1,6 +1,6 @@
 ---
 name: authoring-runbook
-description: Author a new SRE-style operational runbook under `<canonical>/docs/runbooks/<topic-kebab>.md` (six sections: Overview, Symptoms, Immediate response, Diagnosis, Mitigation, Postmortem link); extracts topic inline or prompts; collision-aware (2-option menu on duplicate). Use this when the user says `author runbook for X`, `write a runbook`, `create operational runbook`, `write runbook`, or invokes `/runbook [topic]`. Does NOT execute runbooks (operator behavior).
+description: 'Author a new SRE-style operational runbook under `<canonical>/docs/runbooks/<topic-kebab>.md` (six sections: Overview, Symptoms, Immediate response, Diagnosis, Mitigation, Postmortem link); extracts topic inline or prompts; collision-aware (2-option menu on duplicate). Use this when the user says `author runbook for X`, `write a runbook`, `create operational runbook`, `write runbook`, or invokes `/runbook [topic]`. Does NOT execute runbooks (operator behavior).'
 ---
 
 # authoring-runbook

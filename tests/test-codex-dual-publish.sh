@@ -101,5 +101,34 @@ for plugin in $DEFERRED_PLUGINS; do
   fi
 done
 
+# --- SKILL.md frontmatter must parse as valid YAML (issue #35) ---
+# The repo dual-publishes SKILL.md to Claude Code AND Codex; Codex's loader
+# (Ruby Psych) skips any skill whose frontmatter fails to parse. Unquoted
+# description: values containing ': ' (colon-space) parse as a nested mapping
+# and raise Psych::SyntaxError. Assert every published SKILL.md frontmatter
+# block parses. This is a mechanical parse check, not semantic linting.
+assert_yaml_frontmatter() {
+  local file="$1" label="$2" fm
+  # Extract the frontmatter block: lines between the first '---' and the next '---'.
+  fm="$(awk 'NR==1 && $0=="---"{f=1;next} f && $0=="---"{exit} f{print}' "$file")"
+  if [[ -z "$fm" ]]; then
+    fail "$label (no frontmatter block found)"
+    return
+  fi
+  if printf '%s\n' "$fm" | /usr/bin/ruby -ryaml -e 'Psych.parse($stdin.read)' >/dev/null 2>&1; then
+    pass "$label"
+  else
+    fail "$label"
+  fi
+}
+
+for plugin in $V0_PLUGINS; do
+  [[ -d "$ROOT/$plugin/skills" ]] || continue
+  while IFS= read -r skill_md; do
+    skill_name="$(basename "$(dirname "$skill_md")")"
+    assert_yaml_frontmatter "$skill_md" "$plugin/$skill_name SKILL.md frontmatter parses as YAML"
+  done < <(find "$ROOT/$plugin/skills" -name SKILL.md 2>/dev/null | sort)
+done
+
 printf '\nPassed: %d  Failed: %d\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]
