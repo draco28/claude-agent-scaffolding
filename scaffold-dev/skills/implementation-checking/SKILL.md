@@ -184,10 +184,14 @@ Lines with `user:` prefix are manual demo steps, not auto ACs — they're verifi
 > `[AC] No machine-runnable auto: ACs found in <spec path>. The gate cannot
 > auto-verify this work item — manual verification is required before merge.`
 
-Surface this as a §12.2-style menu row (so the user explicitly chooses to proceed
-with manual verification, re-author the spec with `auto:` lines, or abort) rather
-than silently reporting the work item ready. A zero-AC spec is a spec-authoring
-defect, not a pass.
+Then surface a §12.2-style menu (≥3 options, matching the §9.3 / §9.5 fail-path
+menus) so the user explicitly chooses — never silently report the work item ready:
+
+1. Proceed with manual verification (operator vouches for the ACs out-of-band).
+2. Re-author the spec with `auto:` lines, then re-run the gate from §4.
+3. Abort and return the work item to the implementer.
+
+A zero-AC spec is a spec-authoring defect, not a pass.
 
 ---
 
