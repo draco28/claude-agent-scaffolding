@@ -77,4 +77,36 @@ test_merge_mode_pr
 test_sprint_branch_name
 test_slice_branch_name
 
+# 5. create branch off base
+test_branch_create() {
+  echo "test_branch_create:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  sd_branch_create_from "main" "sprint-1.1" 2>/dev/null
+  assert_exit_code 0 git -C "$TMP_CANONICAL" rev-parse --verify --quiet "refs/heads/sprint-1.1"
+}
+
+# 6. idempotent — second create is a no-op rc 0
+test_branch_create_idempotent() {
+  echo "test_branch_create_idempotent:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  sd_branch_create_from "main" "sprint-1.1" 2>/dev/null
+  set +e; sd_branch_create_from "main" "sprint-1.1" 2>/dev/null; local rc=$?; :
+  assert_eq "re-create rc=0" "0" "$rc"
+}
+
+# 7. missing base fails
+test_branch_create_missing_base() {
+  echo "test_branch_create_missing_base:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_branch_create_from "no-such-base" "x" 2>/dev/null; local rc=$?; :
+  assert_ne "missing base rc!=0" "0" "$rc"
+}
+
+test_branch_create
+test_branch_create_idempotent
+test_branch_create_missing_base
+
 sd_test_summary

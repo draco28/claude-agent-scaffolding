@@ -43,3 +43,22 @@ _sd_slice_branch_name() {
   tpl="$(sd_manifest_get '.during_dev.slice_branch_naming')" || tpl="slice/{vs_id}"
   echo "${tpl//\{vs_id\}/$vs_id}"
 }
+
+# sd_branch_create_from <base> <new> — create <new> off <base> in canonical.
+# Idempotent: rc 0 if <new> already exists. rc 1 if <base> is missing.
+sd_branch_create_from() {
+  local base="$1" new="$2" canonical
+  canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_branch_create_from: no canonical.root"; return 1; }
+  if git -C "$canonical" rev-parse --verify --quiet "refs/heads/$new" >/dev/null; then
+    return 0
+  fi
+  if ! git -C "$canonical" rev-parse --verify --quiet "refs/heads/$base" >/dev/null; then
+    sd_log_error "sd_branch_create_from: base branch not found: $base"
+    return 1
+  fi
+  if ! git -C "$canonical" branch "$new" "$base" >/dev/null 2>&1; then
+    sd_log_error "sd_branch_create_from: failed to create $new off $base"
+    return 1
+  fi
+  return 0
+}
