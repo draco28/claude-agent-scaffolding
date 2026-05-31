@@ -465,7 +465,15 @@ Do **NOT** remove the worktree at round close — per SPEC §11, worktrees + bra
 After all work items in the round are processed (committed + merged):
 
 1. Update VS README: round status → complete.
-2. Surface:
+2. **Deferral auto-file (agent-driven, #33).** Before surfacing round-complete, review each work item's `report.md` **"Deferrals"** section (you already read these reports during §8.4–8.5 — re-read the Deferrals section). This is judgment, not parsing:
+
+   1. For each deferral, DECIDE whether it warrants a tracked GitHub issue (skip trivia and anything already tracked — use `sd issue_list` and judge for de-dup).
+   2. Surface the proposed issues to the user as a single batch for a quick confirm (title + one-line why each). Never file silently.
+   3. For each confirmed item, file + index via the same logic as `/defer`: `Skill(scaffold-dev:deferring-work-item)` (or inline `sd issue_create` + append the `[TD] …→#N` line).
+
+   If `sd remote_check` fails (no gh/remote), SKIP filing — note that the deferrals remain in the reports' Deferrals sections for later — and proceed to round-complete WITHOUT blocking. There is **no deterministic parser** of the Deferrals section; you read and judge.
+
+3. Surface:
 
 > Round K complete (M items committed + merged). Ready for round K+1, or close VS-<N.M.K>?
 
