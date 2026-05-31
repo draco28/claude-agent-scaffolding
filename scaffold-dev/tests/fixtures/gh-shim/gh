@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Fake gh for scaffold-dev tests. Records args to $GH_SHIM_LOG; emits canned
+# output controlled by env vars. NO network. Subcommand matched on "$1 $2".
+[[ -n "${GH_SHIM_LOG:-}" ]] && printf '%s\n' "$*" >> "$GH_SHIM_LOG"
+case "${1:-} ${2:-}" in
+  "auth status") exit "${GH_SHIM_AUTH_RC:-0}" ;;
+  "pr create")   echo "${GH_SHIM_PR_URL:-https://github.com/test/repo/pull/123}"; exit 0 ;;
+  "pr view")
+    if [[ -n "${GH_SHIM_PR_VIEW_JSON:-}" && -f "$GH_SHIM_PR_VIEW_JSON" ]]; then
+      cat "$GH_SHIM_PR_VIEW_JSON"
+    else
+      echo '{}'
+    fi
+    exit 0 ;;
+  "pr merge")    exit "${GH_SHIM_MERGE_RC:-0}" ;;
+  *)             exit 0 ;;
+esac
