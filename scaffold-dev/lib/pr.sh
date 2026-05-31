@@ -62,3 +62,19 @@ sd_branch_create_from() {
   fi
   return 0
 }
+
+# sd_branch_push <branch> — push <branch> to origin with upstream. rc 1 if no
+# 'origin' remote configured on canonical.
+sd_branch_push() {
+  local branch="$1" canonical
+  canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_branch_push: no canonical.root"; return 1; }
+  if ! git -C "$canonical" remote get-url origin >/dev/null 2>&1; then
+    sd_log_error "sd_branch_push: no 'origin' remote on canonical; pr_hierarchical mode requires a remote."
+    return 1
+  fi
+  if ! git -C "$canonical" push -u origin "$branch" >/dev/null 2>&1; then
+    sd_log_error "sd_branch_push: failed to push $branch to origin"
+    return 1
+  fi
+  return 0
+}

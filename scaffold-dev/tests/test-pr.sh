@@ -109,4 +109,27 @@ test_branch_create
 test_branch_create_idempotent
 test_branch_create_missing_base
 
+# 8. push lands the branch on the bare origin
+test_branch_push() {
+  echo "test_branch_push:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  sd_branch_create_from "main" "sprint-1.1" 2>/dev/null
+  sd_branch_push "sprint-1.1" 2>/dev/null
+  assert_exit_code 0 git -C "$BARE_ORIGIN" rev-parse --verify --quiet "refs/heads/sprint-1.1"
+}
+
+# 9. push fails cleanly with no origin remote
+test_branch_push_no_remote() {
+  echo "test_branch_push_no_remote:"
+  _setup_pr_workspace
+  git -C "$TMP_CANONICAL" remote remove origin
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_branch_push "main" 2>/dev/null; local rc=$?; :
+  assert_ne "no-remote push rc!=0" "0" "$rc"
+}
+
+test_branch_push
+test_branch_push_no_remote
+
 sd_test_summary
