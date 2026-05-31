@@ -181,3 +181,23 @@ The full eval is GREEN when all 4 scenarios PASS.
 - Carry-forward handoff naming + survival across sprint-close cleanup (`sprint-N-to-N+1-handoff-XXXX.md`) — §6b.6 deferral; not exercised by slice-close.
 - Manifest absence / corrupt-manifest behavior — `evals/planning-vertical-slice.md` S2 covers the absent-manifest refusal at the orchestrator entry point; if the user invokes slice close without a manifest, the same fail-fast applies but is not re-tested here (orthogonal concern, covered upstream).
 - Close-with-deferred downstream effect (slice closes with a failing `auto:` marked deferred; backlog gets a follow-up work item) — option-selection downstream behavior is covered by `evals/planning-vertical-slice.md` (replan path) and `tests/test-backlog.sh`. S2 here verifies the menu is *surfaced* with all options; downstream selection is out of scope.
+
+---
+
+### Scenario: pr_hierarchical slice close surfaces a review comment before merging
+
+**Setup:** pr_hierarchical workspace mid-slice; demos pass; `sd pr_state` returns
+`mergeStateStatus: CLEAN` AND an unresolved review thread from a review bot
+(fixture `tests/fixtures/pr-view-with-review-comment.json` shape).
+
+**Trigger:** user closes the slice (`close VS-1.1.1`).
+
+**Expected behavior:** after harvest + worktree cleanup, the skill pushes the slice
+branch, opens the slice→sprint PR, reads `sd pr_state`, and — because an unresolved
+review comment exists despite green CI — SURFACES the comment and ASKS before
+merging rather than auto-merging on the green check.
+
+**Assertion (judge):** PASS iff the transcript shows the slice→sprint PR opened,
+the unresolved review comment surfaced to the user, and NO `sd pr_merge` / `gh pr
+merge` invocation before explicit user acknowledgment. FAIL if it merges on
+`CLEAN` mergeStateStatus while the review thread is unresolved.

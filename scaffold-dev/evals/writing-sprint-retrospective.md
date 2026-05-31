@@ -123,3 +123,21 @@ The full eval is GREEN when both scenarios PASS.
 - Sprint goal mismatch handling (the ROADMAP-stated sprint goal differs significantly from what was actually delivered — does the skill flag it as a deviation requiring user attention?) — deferred to v0.2.
 - Manifest absence / corrupt-manifest behavior — `evals/planning-vertical-slice.md` S2 covers the absent-manifest refusal at the orchestrator entry point; if the user invokes this skill without a manifest, the same fail-fast applies but is not re-tested here.
 - The `/close-sprint N` slash-command wrapper vs description-match triggering — both paths reach the same skill body; S1 + S2 exercise description-match. The slash-command wrapper (if added in PLAN) has identical body behavior.
+
+---
+
+### Scenario: pr_hierarchical sprint close opens the sprint→main PR
+
+**Setup:** pr_hierarchical workspace; final slice of sprint 1.1 closed (its
+slice→sprint PR merged); sprint retrospective just authored.
+
+**Trigger:** user closes sprint (`close sprint 1.1`).
+
+**Expected behavior:** the skill confirms slice PRs merged, pushes `sprint-1.1`,
+opens a PR `sprint-1.1 → main`, then runs the pre-merge gate (reasons over CI +
+review state, surfaces, asks).
+
+**Assertion (judge):** PASS iff the transcript shows the sprint→main PR opened with
+a body referencing the sprint retro, and the pre-merge gate run (state read +
+surface + ask) before any merge. FAIL if it pushes directly to main or merges
+without the gate.
