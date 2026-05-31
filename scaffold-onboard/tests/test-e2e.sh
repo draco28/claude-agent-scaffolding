@@ -89,7 +89,7 @@ test_e2e_fresh_repo_cli() {
   assert_exit_code 0 sf_spec_validate ./MASTER-SPEC.md
   # Memory bank
   local f
-  for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 05-active-context 06-progress 07-constraints 08-governance index WORKFLOW; do
+  for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 05-active-context 06-progress 07-constraints 08-governance index WORKFLOW tech-debt; do
     assert_file_exists "./.claude/memory-bank/${f}.md"
   done
   # CLAUDE.md

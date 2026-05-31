@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # scaffold-onboard/lib/memory-bank.sh
-# Memory-bank derivation: 9 derived files + 2 live (seeded once) + 1 static.
+# Memory-bank derivation: 9 derived files + 2 live (seeded once) + 1 static + 1 seeded index (tech-debt.md).
 
 set -u
 source "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"
@@ -103,6 +103,15 @@ sf_memory_bank_derive() {
   # substitution), so a --force overwrite cannot clobber project-specific content.
   if [[ ! -f ".claude/memory-bank/WORKFLOW.md" || "$force" -eq 1 ]]; then
     cp "$tmpl_dir/WORKFLOW.md" ".claude/memory-bank/WORKFLOW.md"
+  fi
+
+  # 1 seeded index — seed header only if missing; scaffold-dev's /defer command
+  # and round-close auto-file sweep append [TD] entries into it over time (#33).
+  local td_target=".claude/memory-bank/tech-debt.md"
+  if [[ ! -f "$td_target" ]]; then
+    sf_render "$tmpl_dir/tech-debt.md.tmpl" "${args[@]}" > "$td_target"
+  else
+    sf_log_info "preserved seeded index: $td_target"
   fi
 }
 
