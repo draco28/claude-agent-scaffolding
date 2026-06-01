@@ -29,11 +29,16 @@ main  ────────────────────────�
 Invoke via the `sd` dispatcher. Each does ONE git/`gh` op; the agent reasons over output.
 
 - `sd merge_mode` → `direct` | `pr_hierarchical`.
-- `sd branch_create_from <base> <new>` → idempotent branch create in canonical.
+- `sd branch_create_from <base> <new>` → idempotent local-branch create. If
+  `origin/<new>` exists (the integration branch already advanced remotely — fresh
+  clone / deleted local), it REUSES `origin/<new>`; only falls back to `<base>` for
+  the first slice (no `origin/<new>` yet).
 - `sd branch_push <branch>` → push to origin; errors if no remote.
 - `sd branch_sync <branch>` → fetch + fast-forward the local `<branch>` to
   `origin/<branch>` before reusing it as a base (an integration branch advances on
   the remote when a child PR merges); ff-only, no-op without a remote/remote-branch.
+  **HARD-FAILS (rc 1)** if the local branch has diverged or can't be fast-forwarded —
+  callers must halt rather than build off a stale/diverged base.
 - `sd remote_check` → verify origin remote + authenticated `gh`.
 - `sd sprint_branch_name <sprint_id>` / `sd slice_branch_name <vs_id>` → branch
   names from manifest templates.

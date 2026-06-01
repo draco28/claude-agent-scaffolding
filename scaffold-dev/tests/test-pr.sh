@@ -407,10 +407,52 @@ test_branch_sync() {
   assert_eq "local fast-forwarded after sync" "0" "$after"
 }
 
+# 25a. branch_sync HARD-FAILS (rc 1) when the local branch has diverged from origin
+test_branch_sync_diverged() {
+  echo "test_branch_sync_diverged:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  sd_branch_create_from "main" "sprint-8.8" 2>/dev/null
+  sd_branch_push "sprint-8.8" 2>/dev/null
+  # Advance origin/sprint-8.8 with a remote-only commit (via a clone).
+  local clone="$TMP_DIR/clone8"
+  git clone -q "$BARE_ORIGIN" "$clone"
+  git -C "$clone" config user.email t@e.com; git -C "$clone" config user.name T
+  git -C "$clone" checkout -q sprint-8.8
+  echo remote > "$clone/r.txt"; git -C "$clone" add r.txt; git -C "$clone" commit -q -m "remote commit"
+  git -C "$clone" push -q origin sprint-8.8
+  # Diverge the LOCAL sprint-8.8 with a different commit (not a fast-forward of origin).
+  git -C "$TMP_CANONICAL" checkout -q sprint-8.8
+  echo local > "$TMP_CANONICAL/l.txt"; git -C "$TMP_CANONICAL" add l.txt; git -C "$TMP_CANONICAL" commit -q -m "local commit"
+  git -C "$TMP_CANONICAL" checkout -q main
+  set +e; sd_branch_sync "sprint-8.8" 2>/dev/null; local rc=$?; :
+  assert_ne "diverged sync hard-fails" "0" "$rc"
+}
+
+# 25b. branch_create_from REUSES origin/<new> when local is absent (fresh clone)
+test_branch_create_reuses_origin() {
+  echo "test_branch_create_reuses_origin:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  # Put a sprint-only commit on origin/sprint-7.7, then delete the local branch.
+  sd_branch_create_from "main" "sprint-7.7" 2>/dev/null
+  git -C "$TMP_CANONICAL" checkout -q sprint-7.7
+  echo on-sprint > "$TMP_CANONICAL/sprint-only.txt"
+  git -C "$TMP_CANONICAL" add sprint-only.txt; git -C "$TMP_CANONICAL" commit -q -m "sprint-only commit"
+  sd_branch_push "sprint-7.7" 2>/dev/null
+  git -C "$TMP_CANONICAL" checkout -q main
+  git -C "$TMP_CANONICAL" branch -D sprint-7.7 >/dev/null 2>&1
+  # Recreate: must reuse origin/sprint-7.7 (has sprint-only.txt), NOT cut fresh from main.
+  sd_branch_create_from "main" "sprint-7.7" 2>/dev/null
+  assert_eq "reused origin sprint history" "on-sprint" "$(git -C "$TMP_CANONICAL" show sprint-7.7:sprint-only.txt 2>/dev/null)"
+}
+
 test_issue_list_default_limit
 test_issue_list_explicit_limit
 test_pr_review_comments
 test_pr_review_comments_api_failure
 test_branch_sync
+test_branch_sync_diverged
+test_branch_create_reuses_origin
 
 sd_test_summary

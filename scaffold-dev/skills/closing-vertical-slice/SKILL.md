@@ -142,6 +142,8 @@ For each line under the `## Demo criteria` (or `##### Demo criteria`) section, s
 - Lines starting with `user: ` → split the same way to yield `(action, expectation)`.
 - Lines not matching either prefix → skip (section headers, blank lines, etc.).
 
+**Strip the command's surrounding backticks.** The `auto:` grammar wraps the command in backticks (e.g. `` auto: `pytest tests/x.py` → expected: exit 0 ``). After the split, remove a single leading and trailing backtick from `command` (then trim surrounding whitespace) so the tuple holds the bare command. Skipping this is a real bug: §5's `eval "$command"` on a still-backticked string runs the inner text as **command substitution** (so `` `echo ok` `` would run `echo ok`, then try to execute its output `ok`), failing slice-close even though the demo actually passes.
+
 Build two ordered lists: `auto_steps` (the `auto:` tuples in declared order) and `user_steps` (the `user:` tuples in declared order). If both lists are empty, surface:
 
 > VS README at `<resolved-path>` declares no demo criteria. Author at least one `auto:` or `user:` line (per §14.1 grammar) before closing the slice.

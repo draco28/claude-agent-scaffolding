@@ -296,6 +296,10 @@ topology and the binding pre-merge gate.
    sd branch_sync "$sprint_branch"   # FIRST: fast-forward the local base to origin (slice PRs advanced it remotely)
    sd branch_push "$sprint_branch"   # THEN: push (a stale local base would be rejected non-fast-forward)
    ```
+   **Halt on a non-zero return.** `branch_sync` HARD-FAILS if the local
+   `$sprint_branch` has diverged from `origin` (or can't be fast-forwarded);
+   surface the error and have the user reconcile it before opening the sprint→main
+   PR — do not push/PR a diverged base.
 3. **Compose the PR body:** the sprint retrospective summary + the slice list +
    linked issues.
 4. **Open the PR:**

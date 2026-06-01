@@ -50,13 +50,30 @@ sd_slice_branch_name() {
 _sd_sprint_branch_name() { sd_sprint_branch_name "$@"; }
 _sd_slice_branch_name() { sd_slice_branch_name "$@"; }
 
-# sd_branch_create_from <base> <new> — create <new> off <base> in canonical.
-# Idempotent: rc 0 if <new> already exists. rc 1 if <base> is missing.
+# sd_branch_create_from <base> <new> — ensure local <new> exists in canonical.
+# Idempotent: rc 0 if <new> already exists locally. Otherwise, if `origin/<new>`
+# exists (the integration branch already advanced on the remote — e.g. a fresh
+# clone or a deleted local branch, where the remote holds earlier merged slice
+# PRs), create <new> from `origin/<new>` to REUSE that history rather than
+# recreating it off <base> and diverging. Only when there is no `origin/<new>`
+# does it fall back to creating <new> off <base> (the first-slice path).
+# rc 1 if neither `origin/<new>` nor <base> is available.
 sd_branch_create_from() {
   local base="$1" new="$2" canonical
   canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_branch_create_from: no canonical.root"; return 1; }
   if git -C "$canonical" rev-parse --verify --quiet "refs/heads/$new" >/dev/null; then
     return 0
+  fi
+  # Prefer an existing remote <new> (reuse merged integration history) over <base>.
+  if git -C "$canonical" remote get-url origin >/dev/null 2>&1; then
+    git -C "$canonical" fetch -q origin "$new" 2>/dev/null || true
+    if git -C "$canonical" rev-parse --verify --quiet "refs/remotes/origin/$new" >/dev/null; then
+      if ! git -C "$canonical" branch "$new" "origin/$new" >/dev/null 2>&1; then
+        sd_log_error "sd_branch_create_from: failed to create $new from origin/$new"
+        return 1
+      fi
+      return 0
+    fi
   fi
   if ! git -C "$canonical" rev-parse --verify --quiet "refs/heads/$base" >/dev/null; then
     sd_log_error "sd_branch_create_from: base branch not found: $base"
@@ -87,25 +104,40 @@ sd_branch_push() {
 
 # sd_branch_sync <branch> — fast-forward the local <branch> to origin/<branch>
 # before it is reused as a base. An integration branch (e.g. sprint-N) advances
-# on the remote when a child slice PR merges; without this, the next slice would
-# branch off a stale local base and a later push would be rejected non-ff.
-# No-op when there is no 'origin' remote or no remote <branch>; never force-moves
-# a diverged branch (fast-forward only — a divergence is surfaced, left for the
-# caller). rc 0 in the no-op / synced cases.
+# on the remote when a child slice PR merges; a stale local base would omit those
+# commits and a later push would be rejected non-fast-forward.
+#
+# rc 0 (no-op) when: no 'origin' remote, no remote <branch>, no local <branch>,
+#   or the local branch already CONTAINS origin/<branch> (up-to-date or ahead).
+# Fast-forwards when the local branch is strictly behind origin.
+# rc 1 (HARD FAIL) when the local branch has DIVERGED from origin/<branch> or
+#   cannot be fast-forwarded (dirty checkout, checked out in another worktree).
+#   The caller MUST NOT reuse a diverged base — these gates halt and surface it
+#   rather than silently building off stale history.
 sd_branch_sync() {
   local branch="$1" canonical cur
   canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_branch_sync: no canonical.root"; return 1; }
   git -C "$canonical" remote get-url origin >/dev/null 2>&1 || return 0
   git -C "$canonical" fetch -q origin "$branch" 2>/dev/null || return 0
   git -C "$canonical" rev-parse --verify --quiet "refs/remotes/origin/$branch" >/dev/null || return 0
+  git -C "$canonical" rev-parse --verify --quiet "refs/heads/$branch" >/dev/null || return 0
+  # Local already contains origin (equal or ahead) → nothing to fast-forward.
+  if git -C "$canonical" merge-base --is-ancestor "origin/$branch" "$branch" 2>/dev/null; then
+    return 0
+  fi
+  # Local is NOT strictly behind origin (and not ahead) → diverged. HARD FAIL.
+  if ! git -C "$canonical" merge-base --is-ancestor "$branch" "origin/$branch" 2>/dev/null; then
+    sd_log_error "sd_branch_sync: $branch has diverged from origin/$branch; reconcile manually before reusing it as a base."
+    return 1
+  fi
+  # Local strictly behind origin → fast-forward.
   cur="$(git -C "$canonical" rev-parse --abbrev-ref HEAD 2>/dev/null)"
   if [[ "$cur" == "$branch" ]]; then
     git -C "$canonical" merge --ff-only -q "origin/$branch" 2>/dev/null \
-      || sd_log_warn "sd_branch_sync: $branch diverged from origin/$branch; not fast-forwarded"
-  elif git -C "$canonical" merge-base --is-ancestor "$branch" "origin/$branch" 2>/dev/null; then
-    git -C "$canonical" branch -f "$branch" "origin/$branch" >/dev/null 2>&1 || true
+      || { sd_log_error "sd_branch_sync: cannot fast-forward checked-out $branch (dirty working tree?); reconcile manually."; return 1; }
   else
-    sd_log_warn "sd_branch_sync: $branch diverged from origin/$branch; not fast-forwarded"
+    git -C "$canonical" branch -f "$branch" "origin/$branch" >/dev/null 2>&1 \
+      || { sd_log_error "sd_branch_sync: cannot fast-forward $branch to origin/$branch (checked out in another worktree?); reconcile manually."; return 1; }
   fi
   return 0
 }
