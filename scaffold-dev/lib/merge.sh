@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # scaffold-dev/lib/merge.sh
-# Per-work-item branch merge into canonical's default branch (typically main).
+# Per-work-item branch merge into a target branch on canonical — the default
+# branch (typically main) when no explicit target is given, or an integration
+# branch (e.g. the slice branch under pr_hierarchical merge mode) when passed.
 # Commits any staged changes in the worktree (orchestrator-driven policy);
 # then merges via --no-ff. Halts on conflict; sd_merge_abort aborts the
 # in-progress merge state on canonical.
@@ -17,14 +19,19 @@ if ! declare -F sd_manifest_get >/dev/null 2>&1; then
   source "$_SD_LIB_DIR/manifest.sh"
 fi
 
-# sd_merge_work_item <wt-path> <branch>
-# Commits any staged changes in the worktree, then merges <branch> into the
-# canonical default_branch via --no-ff. Returns non-zero on conflict.
+# sd_merge_work_item <wt-path> <branch> [<target-branch>]
+# Commits any staged changes in the worktree, then merges <branch> into
+# <target-branch> via --no-ff. When <target-branch> is omitted, derives
+# .canonical.default_branch (today's behavior). Returns non-zero on conflict.
 sd_merge_work_item() {
-  local wt="$1" branch="$2"
-  local canonical default_branch
+  local wt="$1" branch="$2" target="${3:-}"
+  local canonical target_branch
   canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_merge_work_item: no canonical.root"; return 1; }
-  default_branch="$(sd_manifest_get '.canonical.default_branch')" || default_branch="main"
+  if [[ -n "$target" ]]; then
+    target_branch="$target"
+  else
+    target_branch="$(sd_manifest_get '.canonical.default_branch')" || target_branch="main"
+  fi
 
   if [[ ! -d "$wt" ]]; then
     sd_log_error "sd_merge_work_item: worktree path missing: $wt"
@@ -45,13 +52,13 @@ sd_merge_work_item() {
     fi
   fi
 
-  # Ensure canonical is on default_branch before merging (worktrees use the
-  # branch on their own checkout; canonical itself stays on default_branch).
+  # Ensure canonical is on target_branch before merging (worktrees use the
+  # branch on their own checkout; canonical itself stays on target_branch).
   local cur_branch
   cur_branch="$(git -C "$canonical" rev-parse --abbrev-ref HEAD 2>/dev/null)"
-  if [[ "$cur_branch" != "$default_branch" ]]; then
-    if ! git -C "$canonical" checkout -q "$default_branch" 2>/dev/null; then
-      sd_log_error "sd_merge_work_item: canonical not on $default_branch (got $cur_branch); checkout failed"
+  if [[ "$cur_branch" != "$target_branch" ]]; then
+    if ! git -C "$canonical" checkout -q "$target_branch" 2>/dev/null; then
+      sd_log_error "sd_merge_work_item: canonical not on $target_branch (got $cur_branch); checkout failed"
       return 1
     fi
   fi

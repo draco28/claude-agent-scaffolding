@@ -118,7 +118,7 @@ test_all_derived_files_present() {
   seed_master_spec
   sf_memory_bank_derive
   local f
-  for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 05-active-context 06-progress 07-constraints 08-governance index WORKFLOW; do
+  for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 05-active-context 06-progress 07-constraints 08-governance index WORKFLOW tech-debt; do
     assert_file_exists "./.claude/memory-bank/${f}.md"
   done
 }

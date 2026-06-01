@@ -280,7 +280,48 @@ The Write of `sprint-retrospective.md` is under `${sprint_dir}` directly (NOT un
 
 ---
 
+## 8a. Open the sprint→main PR (pr_hierarchical only)
+
+Runs only when `sd merge_mode` == `pr_hierarchical`, AFTER the sprint
+retrospective is authored and all slice PRs into `sprint-${N}` have merged, and
+**BEFORE §9's final message** (so the turn never ends before the PR is opened).
+See `references/git-workflow.md` (cited by `planning-vertical-slice`) for the
+topology and the binding pre-merge gate.
+
+1. **Confirm slice PRs merged:** if any slice PR into `sprint-${N}` is
+   still open, surface it and stop — the sprint isn't ready to integrate to `main`.
+2. **Resolve, sync, then push the sprint branch:**
+   ```bash
+   sprint_branch="$(sd sprint_branch_name "$N")"
+   sd branch_sync "$sprint_branch"   # FIRST: fast-forward the local base to origin (slice PRs advanced it remotely)
+   sd branch_push "$sprint_branch"   # THEN: push (a stale local base would be rejected non-fast-forward)
+   ```
+   **Halt on a non-zero return.** `branch_sync` HARD-FAILS if the local
+   `$sprint_branch` has diverged from `origin` (or can't be fast-forwarded);
+   surface the error and have the user reconcile it before opening the sprint→main
+   PR — do not push/PR a diverged base.
+3. **Compose the PR body:** the sprint retrospective summary + the slice list +
+   linked issues.
+4. **Open the PR:**
+   ```bash
+   sd pr_open "$sprint_branch" "$(sd manifest_get '.canonical.default_branch' || echo main)" \
+     "Sprint ${N}: <summary>" "<body-file>"
+   ```
+5. **Run the agent-driven pre-merge gate** per `references/git-workflow.md`
+   (`sd pr_state` + `sd pr_review_comments` → reason over CI **and** inline review
+   comments → surface → ask). This is the protected boundary — be especially
+   explicit about unresolved review findings. Merge via `sd pr_merge` only on
+   explicit user acknowledgment.
+
+`direct` mode skips this section — there is no sprint branch and no PR.
+
+---
+
 ## 9. Final assistant message
+
+In `pr_hierarchical` mode, complete §8a (open the sprint→main PR + run the gate)
+**before** emitting this message, and include the opened PR (number/URL) + the
+gate outcome in it.
 
 After the write, emit a paragraph naming:
 

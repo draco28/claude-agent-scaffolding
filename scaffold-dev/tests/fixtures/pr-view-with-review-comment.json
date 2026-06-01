@@ -1,0 +1,9 @@
+{
+  "mergeStateStatus": "CLEAN",
+  "statusCheckRollup": [{"name": "ci", "conclusion": "SUCCESS"}],
+  "reviews": [{"author": {"login": "chatgpt-codex-connector"}, "state": "COMMENTED", "body": "Possible off-by-one in the retry loop."}],
+  "latestReviews": [{"author": {"login": "chatgpt-codex-connector"}, "state": "COMMENTED"}],
+  "comments": [],
+  "reviewDecision": "",
+  "commits": []
+}

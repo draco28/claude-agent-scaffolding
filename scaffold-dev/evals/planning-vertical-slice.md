@@ -149,7 +149,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 A scenario is PASS only if every bullet under its `Assertion` block is judged true. If any bullet fails, the judge returns `FAIL: <bullet text> — <specific deviation observed>` so the skill author can target a fix.
 
-The full eval is GREEN when all 4 scenarios PASS.
+The full eval is GREEN when all 6 scenarios PASS.
 
 ## Out of scope for this eval
 
@@ -161,3 +161,38 @@ The full eval is GREEN when all 4 scenarios PASS.
 - Worktree creation mechanics (`git worktree add` at `${canonical.root}/.worktrees/sprint-<sprint_id>/work-N.NN-<kebab>`, branch naming, base-at-canonical-main-HEAD) — worktrees are created at round start (per §11), not at slice-plan time; this eval explicitly excludes worktree state from S1's success criteria.
 - The handoff escape valve skill (`handing-off-session` per §6b) — orthogonal; covered by `evals/handing-off-session.md`.
 - Manifest schema validation / corrupt-manifest behavior — S2 covers absent-manifest only; corrupt-but-present manifest semantics are defined by workspace-init's contract and tested in its own suite.
+
+---
+
+### S5 — pr_hierarchical pre-flight creates the branch hierarchy
+
+**Setup:** dual-repo workspace with `during_dev.merge_mode = "pr_hierarchical"`,
+canonical has an `origin` remote, `gh` is authenticated (test harness may stub gh).
+Roadmap declares VS-1.1.1 as the first slice of sprint 1.1.
+
+**Trigger:** user invokes `/orchestrate VS-1.1.1`.
+
+**Expected behavior:** the skill reads `sd merge_mode`, runs `sd remote_check`,
+ensures `sprint-1.1` exists off main, creates `slice/VS-1.1.1` off `sprint-1.1`,
+and bases work-item worktrees on `slice/VS-1.1.1`.
+
+**Assertion (judge):** PASS iff the tool-call log shows (a) a merge-mode read,
+(b) a `remote_check` / remote-prerequisite gate BEFORE any branch creation,
+(c) `sprint-1.1` created off the default branch, (d) `slice/VS-1.1.1` created off
+`sprint-1.1`, (e) worktree creation bases off `slice/VS-1.1.1`. FAIL if it merges
+work items into `default_branch`, or proceeds without `remote_check` when the mode
+is pr_hierarchical.
+
+---
+
+### S6 — round-close auto-files a report Deferral
+
+**Setup:** pr-mode-agnostic workspace; a round with 2 work items both verified+merged; one `report.md` has a "Deferrals" section noting a non-blocking gap; `gh` authenticated; no open issue covers it.
+
+**Trigger:** the orchestrator reaches round-complete (§8.7).
+
+**Expected behavior:** before surfacing "Round K complete", the orchestrator reads the reports' Deferrals, JUDGES that the gap merits an issue, surfaces it for a quick confirm, then files via `sd issue_create` + appends a `[TD] …→#N` line. No deterministic parser is used (the agent reads the prose).
+
+**Assertion (judge):** PASS iff a deferral is surfaced for confirmation, filed via `sd issue_create` after confirm, and indexed with one `[TD]` line — AND the orchestrator did not silently file without surfacing. FAIL if it files silently, or if round-complete is surfaced without considering the Deferrals.
+
+---

@@ -111,7 +111,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 A scenario is PASS only if every bullet under its `Assertion` block is judged true AND the cross-scenario 6-section invariant is satisfied on every file written (S1). If any bullet fails, the judge returns `FAIL: <bullet text> — <specific deviation observed>`.
 
-The full eval is GREEN when both scenarios PASS.
+The full eval is GREEN when all 3 scenarios PASS.
 
 ## Out of scope for this eval
 
@@ -123,3 +123,21 @@ The full eval is GREEN when both scenarios PASS.
 - Sprint goal mismatch handling (the ROADMAP-stated sprint goal differs significantly from what was actually delivered — does the skill flag it as a deviation requiring user attention?) — deferred to v0.2.
 - Manifest absence / corrupt-manifest behavior — `evals/planning-vertical-slice.md` S2 covers the absent-manifest refusal at the orchestrator entry point; if the user invokes this skill without a manifest, the same fail-fast applies but is not re-tested here.
 - The `/close-sprint N` slash-command wrapper vs description-match triggering — both paths reach the same skill body; S1 + S2 exercise description-match. The slash-command wrapper (if added in PLAN) has identical body behavior.
+
+---
+
+### S3 — pr_hierarchical sprint close opens the sprint→main PR
+
+**Setup:** pr_hierarchical workspace; final slice of sprint 1.1 closed (its
+slice→sprint PR merged); sprint retrospective just authored.
+
+**Trigger:** user closes sprint (`close sprint 1.1`).
+
+**Expected behavior:** the skill confirms slice PRs merged, pushes `sprint-1.1`,
+opens a PR `sprint-1.1 → main`, then runs the pre-merge gate (reasons over CI +
+review state, surfaces, asks).
+
+**Assertion (judge):** PASS iff the transcript shows the sprint→main PR opened with
+a body referencing the sprint retro, and the pre-merge gate run (state read +
+surface + ask) before any merge. FAIL if it pushes directly to main or merges
+without the gate.

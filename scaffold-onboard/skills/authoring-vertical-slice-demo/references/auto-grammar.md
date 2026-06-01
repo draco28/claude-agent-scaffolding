@@ -26,25 +26,25 @@ Components, in order:
 
 The `expected:` tail has exactly two well-formed shapes. Pick one per line; never combine both.
 
-### 2.1 Exit-code mode (default success criterion)
+### 2.1 Exit-code mode (deterministic)
 
 ```
 expected: exit 0
 expected: exit <N>     (non-zero permitted for negative-test slices, e.g., expected: exit 1)
 ```
 
-scaffold-dev's execution runs the command via `bash -c` (subshell) and asserts `$? == <N>`. Stdout/stderr are captured for the slice-close log but NOT pattern-checked. Use exit-code mode when the command's own assertions (pytest, go test, jest, `set -e` scripts) carry the verification weight — the binary pass/fail is the answer.
+**Evaluation: deterministic.** scaffold-dev's closing orchestrator runs the command via `bash -c` (subshell) and asserts `$? == <N>`. Stdout/stderr are captured for the slice-close log but NOT pattern-checked. The exit code is a mechanical fact — pass/fail is an integer comparison, no agent judgment involved. Use exit-code mode when the command's own assertions (pytest, go test, jest, `set -e` scripts) carry the verification weight.
 
-### 2.2 Pattern mode (output matching)
+### 2.2 Pattern mode (agent-judged at slice-close)
 
 ```
 expected: output contains "<substring>"
 expected: output matches /<regex>/
-expected: count > 0                        (informal predicate, judge-verified)
+expected: count > 0                        (predicate — agent-judged at slice-close)
 expected: stdout contains "<substring>"    (synonym for "output contains")
 ```
 
-scaffold-dev's execution runs the command and grep-checks captured stdout against the pattern. The pattern body is preserved byte-for-byte from authoring to execution — quoted substrings, regex anchors, and informal predicates (`count > 0`, `> 5 rows`) all pass through unchanged. The slice-close skill is responsible for matching the predicate shape; this skill only validates that the `expected:` tail is non-empty and follows the arrow.
+**Evaluation: agent-judged.** scaffold-dev's closing orchestrator runs the command, captures stdout/stderr, and then **judges** whether the captured output satisfies the stated expectation — recording a one-line reason alongside the pass/fail verdict. The closing orchestrator judges the captured output against the expectation; no bash grep or arithmetic parsing is applied. The pattern body is preserved byte-for-byte from authoring to execution — quoted substrings, regex anchors, and informal predicates (`count > 0`, `> 5 rows`) are all accepted as the expectation the judge evaluates. This skill only validates that the `expected:` tail is non-empty and follows the arrow; it does not constrain the predicate shape.
 
 **Pick one, not both.** A line like `expected: exit 0 AND output contains "ok"` validates as a single string (the parser doesn't reject it) but obscures the success criterion. Split into two `auto:` lines if both gates matter.
 
@@ -68,7 +68,7 @@ Most common shape across Python-heavy projects. The command is fully self-contai
 - [ ] auto: `curl -s localhost:8000/api/insights | jq '.[]'` → expected: output contains "action_needed"
 ```
 
-The pipeline curls a local dev server, extracts JSON array entries via `jq`, and the slice-close runner grep-checks stdout for the substring `action_needed`. Assumes the dev server is up at slice-close time — see §4 on setup commands.
+The pipeline curls a local dev server and extracts JSON array entries via `jq`; the slice-close orchestrator then judges whether the captured stdout satisfies the expectation (here, that it contains `action_needed`). Assumes the dev server is up at slice-close time — see §4 on setup commands.
 
 ### 3.3 Database query (pattern mode, informal predicate)
 
@@ -76,7 +76,7 @@ The pipeline curls a local dev server, extracts JSON array entries via `jq`, and
 - [ ] auto: `psql -d insights -c "SELECT count(*) FROM action_needed"` → expected: count > 0
 ```
 
-The expected tail is an informal predicate (`count > 0`) that the slice-close runner interprets contextually — it reads the `count` column from the psql output and verifies the inequality. Use this shape when the binary "did the command run" answer is less interesting than "did it return non-empty data".
+The expected tail is an informal predicate (`count > 0`) that the slice-close orchestrator judges contextually — it reads the `count` value from the psql output and decides whether the inequality holds. Use this shape when the binary "did the command run" answer is less interesting than "did it return non-empty data".
 
 ### 3.4 Go test suite (exit-code mode, package globbing)
 

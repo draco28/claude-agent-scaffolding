@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/test-merge.sh — 14 tests for lib/merge.sh
+# tests/test-merge.sh — 15 tests for lib/merge.sh
 
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -265,6 +265,26 @@ test_merge_conflict_logs() {
   sd_merge_abort 2>/dev/null || true
 }
 
+# 15. explicit target-branch arg merges into that branch, not main
+test_merge_into_target_branch() {
+  echo "test_merge_into_target_branch:"
+  setup_tmp_workspace
+  cd "$TMP_AI_WORKSPACE"
+  # Create a slice integration branch off main on canonical.
+  git -C "$TMP_CANONICAL" branch slice/VS-1.1.1 main
+  local wt
+  wt="$(sd_worktree_add "1.01" "VS-1.1.1" "feat" "1.1" 2>/dev/null)"
+  _make_commit "$wt" "feat.txt" "hello"
+  local branch
+  branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD)"
+  sd_merge_work_item "$wt" "$branch" "slice/VS-1.1.1" 2>/dev/null
+  # File is on the slice branch...
+  assert_eq "feat on slice branch" "hello" "$(git -C "$TMP_CANONICAL" show "slice/VS-1.1.1:feat.txt" 2>/dev/null)"
+  # ...and NOT on main.
+  set +e; git -C "$TMP_CANONICAL" show "main:feat.txt" >/dev/null 2>&1; local on_main=$?; :
+  assert_ne "feat NOT on main" "0" "$on_main"
+}
+
 # 14. merge with empty branch (no new commits) is a no-op fast path
 test_merge_empty_branch() {
   echo "test_merge_empty_branch:"
@@ -296,5 +316,6 @@ test_merge_no_manifest
 test_merge_bogus_branch
 test_merge_conflict_logs
 test_merge_empty_branch
+test_merge_into_target_branch
 
 sd_test_summary

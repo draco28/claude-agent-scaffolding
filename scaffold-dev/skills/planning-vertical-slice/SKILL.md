@@ -115,13 +115,68 @@ if [[ -z "$vs_kebab" ]]; then
 fi
 ```
 
-If no slice matches the id, `sd_roadmap_slice_json` fails and its error lists the available ids; surface this to the user (S3 contract):
+If no slice matches the id, `sd roadmap_slice_json` fails and its error lists the available ids; surface this to the user (S3 contract):
 
 > VS-<id> not found in the published roadmap (`<roadmap_state path>`). Available: <ids>. Run `/plan-roadmap --add-slice <id>` to author the slice first, then `/plan-roadmap` to re-publish the structured state.
 
 The error MUST name the missing id explicitly, cite the resolved `project-roadmap.json` path, and include the literal `/plan-roadmap --add-slice` token. Then stop — do NOT auto-fix the roadmap, do NOT create `docs/specs/sprint-<sprint_id>/` directories, do NOT invoke architect-critic.
 
 When the record is found, read every field directly from `vs_record` (all carried in the structured state — no prose parsing): VS `name`, one-paragraph `summary`, declared `demo_criteria` (the `auto:` / `user:` lines, per SPEC §14.1 grammar; rendered into the slice README at §6), and the traceability arrays `traces_fr` / `traces_nfr` / `traces_backlog`. Derive `vs_kebab` from the roadmap `name` field before §6.1 uses it in `slice_root`; if the name sanitizes to empty, stop and surface a roadmap data error rather than inventing a directory slug. Carry the trace IDs into every work-item spec and implementation handoff as `traceability_block`; if an array is empty, render `- FR: None`, `- NFR: None`, and `- Backlog: None` explicitly rather than inventing IDs.
+
+### 3.3a Merge-mode pre-flight (pr_hierarchical)
+
+Read the mode early (it gates §8.1 + §8.6 + slice-close). See
+`references/git-workflow.md` for the full topology and primitive contracts.
+
+```bash
+merge_mode="$(sd merge_mode)"   # "direct" (default) | "pr_hierarchical"
+```
+
+If `merge_mode == "direct"`: skip the rest of this subsection — behavior is
+unchanged from v0.1.
+
+If `merge_mode == "pr_hierarchical"`:
+
+1. **Refuse fast if the remote/gh prerequisites are missing:**
+   ```bash
+   sd remote_check || exit 1   # surfaces the actionable error verbatim
+   ```
+   Do NOT silently fall back to `direct`.
+2. **Ensure the sprint integration branch exists — on origin and current**
+   (create off `default_branch` at the first slice; reuse otherwise):
+   ```bash
+   sprint_branch="$(sd sprint_branch_name "$sprint_id")"
+   default_branch="$(sd manifest_get '.canonical.default_branch')" || default_branch="main"
+   sd branch_sync "$default_branch"   # fast-forward local main/default after prior sprint→main PRs
+   sd branch_create_from "$default_branch" "$sprint_branch"   # reuses origin/$sprint_branch when it exists (fresh clone / deleted local); else cuts from $default_branch (first slice)
+   sd branch_sync "$sprint_branch"   # FIRST: fast-forward a reused base if a prior slice PR already merged
+   sd branch_push "$sprint_branch"   # THEN: ensure the base exists on origin for the slice→sprint PR
+   ```
+   **Halt on any non-zero return above.** `branch_sync` HARD-FAILS when a local
+   base has *diverged* from `origin` (or cannot be fast-forwarded). On any failure,
+   surface the helper's error verbatim and have the user reconcile the branch
+   manually — do NOT branch the slice off a stale or diverged base.
+   **Order matters.** Sync the local `$default_branch` before cutting a new
+   sprint branch; a prior sprint→main PR (or any remote update) advances
+   `origin/$default_branch`, and a stale local default branch would omit landed
+   commits from the next sprint. Then `branch_sync "$sprint_branch"` runs
+   **before** `branch_push`: a merged slice PR advances `sprint-N` on the remote,
+   so the local base is stale; pushing first would be rejected non-fast-forward
+   (and the next slice could never reach the sync). Sync fast-forwards the reused
+   local `$sprint_branch` to `origin/$sprint_branch` (no-op on the first slice,
+   when origin has no `$sprint_branch` yet); then `branch_push` creates it on
+   origin (first slice) or is a no-op fast-forward (later slices). The slice then
+   branches off the fresh base.
+3. **Slice-ordering check:** if a prior slice's PR into `$sprint_branch` is still
+   open, surface it per `references/git-workflow.md` (slice-ordering rule) and wait
+   for the user before continuing.
+4. **Create the slice branch off the sprint branch:**
+   ```bash
+   slice_branch="$(sd slice_branch_name "$vs_id")"
+   sd branch_create_from "$sprint_branch" "$slice_branch"
+   ```
+   Carry `$slice_branch` forward — §8.1 bases work-item worktrees on it and §8.6
+   merges into it.
 
 ### 3.4 Read MASTER-SPEC + memory bank + cursor
 
@@ -307,7 +362,14 @@ sd worktree_add "${work_id}" "${vs_id}" "${kebab}" "${sprint_id}"
 # Creates ${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}
 # Branches per ${branch_naming} template — {N} = sprint_id (e.g. sprint-1.1),
 # field-read in §3.3, NOT split from the slice id
-# Base: canonical main HEAD at creation
+# Base: canonical default branch HEAD at creation
+```
+
+Under `merge_mode=pr_hierarchical`, pass the slice branch as the base so the
+worktree branches off the slice (not the canonical default branch):
+
+```bash
+sd worktree_add "${work_id}" "${vs_id}" "${kebab}" "${sprint_id}" "${slice_branch}"
 ```
 
 Halt if `sd_worktree_add` fails (dirty canonical tree, existing branch, etc.). Surface the failure-response menu (SPEC §12.2 "Merge conflict" row adapted for setup conflicts).
@@ -378,6 +440,8 @@ For each work item in decomposition order:
 
 **`mode: gaps-surfaced`** — surface the gaps to the user in conversation, gather clarifications, append a `## Clarifications` section to the work item's `handoff.md`, then re-invoke the same Task dispatch with the same handoff path. Loop until pre-flight passes. If gaps loop 3+ iterations: halt and surface the failure-response menu (§12.2 "Subagent loops in gaps-mode" row) — suggest replan or manual implementer session.
 
+**Blocker-recall (issues, #33).** On a `gaps-surfaced` return, before re-dispatching or escalating to the §12.2 menu, run `sd issue_list` and JUDGE whether an open issue already covers the surfaced gap. If one does, surface "known — see #N" and fold that into the clarification appended to the handoff (so the re-dispatched implementer proceeds informed) rather than treating the gap as novel. Judgment, not string-matching; skip silently if `sd remote_check` fails.
+
 **`mode: complete`** — read `report.md` from disk (path returned by subagent), proceed to §8.5 verification.
 
 **Malformed / crash / timeout** — halt and surface the failure-response menu (§12.2 "Subagent crash" row). Options: re-invoke, extend timeout + re-invoke, fall back to manual session per §6.4, abandon.
@@ -403,7 +467,15 @@ Per §4.1, probe ai-mentor first; offer only when detected.
 On verification pass:
 
 1. Commit in the work-item worktree per `git_policy` (e.g., `git -C <worktree> commit -m "${commit_message}"`). The subagent staged but did NOT commit (per SPEC §6.2 constraint); the orchestrator owns the commit boundary.
-2. Merge the work-item branch into canonical main via `sd_merge_work_item`. **HALT on conflict** per SPEC §11 — surface the failure-response menu ("Merge conflict" row): user resolves manually via `git merge --continue`, OR aborts via `git merge --abort` and replans integration.
+2. Merge the work-item branch into the integration target via `sd_merge_work_item`.
+   - `direct` mode: `sd merge_work_item "<worktree>" "<branch>"` (merges into
+     `default_branch` — today's behavior).
+   - `pr_hierarchical` mode: `sd merge_work_item "<worktree>" "<branch>" "${slice_branch}"`
+     (merges locally into the slice branch; **no push, no PR at this level**).
+
+   **HALT on conflict** per SPEC §11 — surface the failure-response menu ("Merge
+   conflict" row): user resolves via `git merge --continue`, OR aborts via
+   `git merge --abort` and replans integration.
 3. Update VS README: mark work-item status complete.
 
 Do **NOT** remove the worktree at round close — per SPEC §11, worktrees + branches survive until slice close for demo verification and retrospective harvest inspection.
@@ -413,7 +485,15 @@ Do **NOT** remove the worktree at round close — per SPEC §11, worktrees + bra
 After all work items in the round are processed (committed + merged):
 
 1. Update VS README: round status → complete.
-2. Surface:
+2. **Deferral auto-file (agent-driven, #33).** Before surfacing round-complete, review each work item's `report.md` **"Deferrals"** section (you already read these reports during §8.4–8.5 — re-read the Deferrals section). This is judgment, not parsing:
+
+   1. For each deferral, DECIDE whether it warrants a tracked GitHub issue (skip trivia and anything already tracked — use `sd issue_list` and judge for de-dup).
+   2. Surface the proposed issues to the user as a single batch for a quick confirm (title + one-line why each). Never file silently.
+   3. For each confirmed item, file + index via the same logic as `/defer`: `Skill(scaffold-dev:deferring-work-item)` (or inline `sd issue_create` + append the `[TD] …→#N` line).
+
+   If `sd remote_check` fails (no gh/remote), SKIP filing — note that the deferrals remain in the reports' Deferrals sections for later — and proceed to round-complete WITHOUT blocking. There is **no deterministic parser** of the Deferrals section; you read and judge.
+
+3. Surface:
 
 > Round K complete (M items committed + merged). Ready for round K+1, or close VS-<N.M.K>?
 

@@ -114,6 +114,8 @@ For each ambiguity found, build a gap entry with three fields:
 - `question`: a concrete one-sentence question the user can answer (e.g., `"Should FEATURE_FLAG_X be a Python constant or a config-file lookup?"`). NOT a vague paraphrase of the ambiguity (`"AC-2 unclear"` is a fail per the eval S2 advisory).
 - `severity`: `"blocking"` (no implementation possible without resolution) or `"nice-to-have"` (a reasonable default exists; resolution would improve the implementation but not block it).
 
+**Blocker-recall (local, #33).** Before building a gap entry for an ambiguity that reads like "X is missing / why wasn't this done?", READ the memory-bank `tech-debt.md` (lean `[TD] …→#N` index; resolve its path via the manifest memory-bank location). If you JUDGE that the gap is already a known/tracked deferral, surface it in your return as "known — see #N" rather than as a fresh unresolved gap. This reads the local file only (you have no `gh` access). It is advisory recall — a genuine new blocker is still a blocker; you are only avoiding re-deriving something already tracked.
+
 ### 3.5 Branch on pre-flight outcome
 
 If §3.3 found the worktree dirty OR missing OR on the wrong branch, OR §3.4 found at least one blocking ambiguity: return gaps-mode (§6) immediately. Do NOT proceed to §4 TDD, §5 verification, §6 report, or §7 stage. Do NOT touch any worktree source file. Do NOT run `git add`.
@@ -187,7 +189,7 @@ The 9 sections (per SPEC §10b):
 3. **Files changed** — list of canonical worktree files Read/Write/Edited during §4, with one-line descriptions of the change.
 4. **TDD log** — per-AC: which test file was written/extended, the failing-then-passing trace (one line per phase). Brief; the goal is auditability, not a transcript.
 5. **Verification results** — per-AC: claimed outcome (`pass` / `fail`) + observed exit code + stderr/stdout excerpt for any failures. If AC-N failed, name it as `AC-N: fail` and include the captured error.
-6. **Deferrals** — any nice-to-have gaps from §3.4 that did not block execution but represent open questions worth re-surfacing at slice close; any AC where you took a defensible default but the spec is silent.
+6. **Deferrals** — any nice-to-have gaps from §3.4 that did not block execution but represent open questions worth re-surfacing at slice close; any AC where you took a defensible default but the spec is silent. **The orchestrator reads this section at round-close (`planning-vertical-slice` §8.7) and decides which entries to file as project-repo GitHub issues (#33) — write each deferral as a clear one-line prose note (what + why non-blocking) so that decision is well-informed.**
 7. **Suggestions for memory bank** — patterns or invariants you noticed during execution that might belong in `<ai-workspace>/.claude/memory-bank/03-code-patterns.md`, `09-known-issues.md`, or another file. May be empty (heading still present). The orchestrator's slice-close harvest (`closing-vertical-slice` §9) sweeps this section.
 8. **Blockers** — anything you observed that prevented full execution but did not surface as a pre-flight gap (e.g., a referenced helper missing mid-TDD; a test harness flakiness). May be empty.
 9. **Next steps** — what the orchestrator should look at first: the failing AC if any, the most-changed file, the highest-confidence sub-task that landed cleanly.

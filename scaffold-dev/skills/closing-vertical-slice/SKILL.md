@@ -9,7 +9,7 @@ You are the slice-close ceremony for scaffold-dev v0.1's vertical-slice lifecycl
 
 The ceremony order is binding. The §11 M2 marker — worktrees + branches removed ONLY after harvest completes — is the load-bearing discipline this body enforces. Halt-on-first-auto-demo-failure preserves worktrees for inspection (eval S2). Warn-and-proceed on architect-critic absence keeps the ceremony moving without blocking (eval S3). Source-tagged harvest with literal `[report]` / `[handoff]` brackets and the provenance trailer carries SPEC §15.2's 8-step contract through eval S4.
 
-Bash helpers in `lib/manifest.sh`, `lib/render.sh`, `lib/worktree.sh`, and `lib/compose.sh` do the bookkeeping (manifest resolution, demo-line parsing, template substitution, filesystem probes, worktree teardown). The judgment work — which §12.2 menu row matches the failing auto-demo, how to phrase the source-tagged harvest candidates, when to count the rejected handoff item as "left in handoff" — happens here, in conversation.
+Bash helpers in `lib/manifest.sh`, `lib/render.sh`, `lib/worktree.sh`, and `lib/compose.sh` do the bookkeeping (manifest resolution, template substitution, filesystem probes, worktree teardown). Demo-line parsing happens directly in the orchestrator (trivial two-field split on ` → expected: `); demo-criterion evaluation is agent-judged for content expectations. The judgment work — which §12.2 menu row matches the failing auto-demo, whether captured output satisfies a content expectation (with a recorded reason), how to phrase the source-tagged harvest candidates, when to count the rejected handoff item as "left in handoff" — happens here, in conversation.
 
 This skill is the slice-close terminal step. It does NOT plan slices (that's `planning-vertical-slice` per §5), does NOT verify per-work-item ACs (that's `implementation-checking` per §12.1), and does NOT author the work-item bodies (that's the `scaffold-dev:implementer-agent` subagent body via `executing-work-item` per §6). It is invoked at the end of the slice when all rounds complete, either by trigger phrase or by the `/close-slice VS-N.M.K` slash command.
 
@@ -21,7 +21,7 @@ When invoked, you:
 
 1. Discover the workspace-init pairing manifest; refuse fail-fast if absent (mirrors `planning-vertical-slice` §3.1).
 2. Resolve the target VS-id from the user message (or active-context cursor) and locate the slice directory under `<ai-workspace>/docs/specs/sprint-<sprint_id>/VS-<id>-<kebab>/` (e.g. `sprint-1.1/VS-1.1.1-<kebab>/`), with `sprint_id` field-read from the structured roadmap.
-3. Read the VS README; parse `auto:` and `user:` demo criteria per SPEC §14.1 grammar via `lib/render.sh::sd_demo_parse_block`.
+3. Read the VS README; parse `auto:` and `user:` demo criteria per SPEC §14.1 grammar directly in the orchestrator (split each line on the literal ` → expected: ` after stripping the `auto:`/`user:` prefix).
 4. **Layer 1 — auto-demo:** run each `auto:` command in canonical (NOT in any work-item worktree), evaluate the expectation, halt on first failure. Record outcomes in the VS README's "Demo verification" section.
 5. **Layer 2 — manual-demo:** surface each `user:` step to the user with the expected outcome; capture pass/fail/partial + notes. Record outcomes in "Demo verification".
 6. **Layer 3 — architect-critic at close depth:** probe via `lib/compose.sh::sd_compose_detect_architect_critic`; if v0.2 present, invoke `Skill(architect-critic:critiquing-spec)` in-conversation at `depth=close` with the slice diff + VS README + work-item specs as context; if absent, emit one warning naming `architect-critic` or `adversarial review` and proceed.
@@ -134,13 +134,15 @@ Then stop. The ceremony depends on all work items having committed + merged outp
 
 ## 4. Demo-criteria parse (per §14.1 grammar)
 
-Read `${slice_root}/README.md`. Locate the demo-criteria block (rendered into the README at `planning-vertical-slice` §6 from the ROADMAP's `auto:`/`user:` lines). Parse via `lib/render.sh::sd_demo_parse_block`:
+Read `${slice_root}/README.md`. Locate the demo-criteria block (rendered into the README at `planning-vertical-slice` §6 from the ROADMAP's `auto:`/`user:` lines). Parse each demo line directly in the orchestrator — no lib parser is needed, because parsing a two-field line is trivial and the evaluation is agent-driven anyway.
 
-```bash
-demo_lines="$(sd demo_parse_block "${slice_root}/README.md")"
-```
+For each line under the `## Demo criteria` (or `##### Demo criteria`) section, strip the leading `- [ ] ` checkbox and check the prefix:
 
-Each parsed line yields a `(prefix, command-or-action, expectation)` tuple where `prefix` is one of `auto` or `user`, separated by the literal U+2192 arrow character (`→`, NOT the ASCII `->` digraph — same grammar as scaffold-onboard's R3 per SPEC §14.1).
+- Lines starting with `auto: ` → split on the literal ` → expected: ` (U+2192 arrow, NOT ASCII `->`) to yield `(command, expectation)`.
+- Lines starting with `user: ` → split the same way to yield `(action, expectation)`.
+- Lines not matching either prefix → skip (section headers, blank lines, etc.).
+
+**Strip the command's surrounding backticks.** The `auto:` grammar wraps the command in backticks (e.g. `` auto: `pytest tests/x.py` → expected: exit 0 ``). After the split, remove a single leading and trailing backtick from `command` (then trim surrounding whitespace) so the tuple holds the bare command. Skipping this is a real bug: §5's `eval "$command"` on a still-backticked string runs the inner text as **command substitution** (so `` `echo ok` `` would run `echo ok`, then try to execute its output `ok`), failing slice-close even though the demo actually passes.
 
 Build two ordered lists: `auto_steps` (the `auto:` tuples in declared order) and `user_steps` (the `user:` tuples in declared order). If both lists are empty, surface:
 
@@ -161,16 +163,27 @@ result_stdout="$(eval "$command" 2>&1)"; result_exit=$?
 
 The `cd "$canonical"` is binding — eval S1's judge confirms either the absence of any `cd <worktree>` prefix OR the explicit presence of a canonical-root marker. Auto-demo against a work-item worktree produces false-greens (the worktree's branch may be at a pre-merge HEAD).
 
-Evaluate `expectation` per §14.1:
-- `exit 0` → pass iff `result_exit == 0`.
-- `output contains "<pat>"` → pass iff `result_stdout` substring-matches the literal pattern.
-- `count > 0` / numeric comparisons → arithmetic against the trimmed `result_stdout`.
+Under `merge_mode=pr_hierarchical` (read via `sd merge_mode`), the slice's work
+lives on the slice branch, not `default_branch`. Check it out before demos:
 
-Record each outcome in the VS README's `## Demo verification` section (append if absent), one line per step:
+```bash
+if [[ "$(sd merge_mode)" == "pr_hierarchical" ]]; then
+  git -C "$canonical" checkout -q "$(sd slice_branch_name "$vs_id")" \
+    || { printf 'Cannot check out the slice branch in canonical (dirty tree or checked out elsewhere?); resolve before running auto-demos.\n' >&2; exit 1; }
+fi
+```
+**Guard the checkout.** A failed `checkout` (dirty canonical tree, branch checked out in another worktree) would leave canonical on the *wrong* branch and the `auto:` demos below would run against it — a silent false green/red. HALT on failure and surface it; never demo against an unverified checkout. Restore is unnecessary on success — the slice branch is the integration target until its PR merges.
+
+Evaluate `expectation` using a **run-then-judge** approach:
+
+- If `expectation` is an **exit-code form** (`exit 0` or `exit <N>`): **deterministic** — pass iff `result_exit == N`. This is a mechanical fact; no agent judgment needed.
+- If `expectation` is any **content form** (`output contains …`, `output matches …`, `count > 0`, `> 5 rows`, or free-form prose): the orchestrator **judges** whether `result_stdout` satisfies the stated expectation and records a one-line reason. No bash substring or arithmetic parsing.
+
+Record each outcome in the VS README's `## Demo verification` section (append if absent), one line per step, including the agent's reason:
 
 ```
-- [x] auto: <cmd> → expected: <exp> → observed: pass (exit 0)
-- [x] auto: <cmd> → expected: <exp> → observed: fail (exit 1) — <stderr-excerpt>
+- [x] auto: <cmd> → expected: <exp> → observed: pass — <one-line reason>
+- [x] auto: <cmd> → expected: <exp> → observed: fail — <one-line reason or stderr excerpt>
 ```
 
 **Halt-on-first-fail is binding.** On any fail:
@@ -390,6 +403,41 @@ Branch deletion is bundled into `sd_worktree_remove` per `lib/worktree.sh`'s con
 
 ---
 
+## 10a. Open the slice→sprint PR (pr_hierarchical only)
+
+Runs only when `sd merge_mode` == `pr_hierarchical`, AFTER §9 harvest + §10
+worktree cleanup (work-item worktree/branch cleanup is decoupled from this PR —
+the slice branch already holds every work-item commit; see
+`references/git-workflow.md`).
+
+1. **Resolve and push the integration branches:**
+   ```bash
+   slice_branch="$(sd slice_branch_name "$vs_id")"
+   sprint_branch="$(sd sprint_branch_name "$sprint_id")"
+   sd branch_sync "$sprint_branch"
+   sd branch_push "$sprint_branch"
+   sd branch_push "$slice_branch"
+   ```
+2. **Compose the PR body** to a temp file: the slice README (with the populated
+   Demo-verification section) + the architect-critic close-depth summary (§7) +
+   any linked tech-debt/issue references.
+3. **Open the PR:**
+   ```bash
+   slice_pr="$(sd pr_open "$slice_branch" "$sprint_branch" "${vs_id}: <slice title>" "<body-file>")"
+   ```
+4. **Run the agent-driven pre-merge gate** per `references/git-workflow.md`
+   (`sd pr_state "$slice_pr"` + `sd pr_review_comments "$slice_pr"` → reason
+   over CI **and** inline review comments → surface → ask). Merge via
+   `sd pr_merge` only on explicit user acknowledgment. If the PR is left open for
+   asynchronous CI/review, HALT before §11: report the PR URL/number and do NOT
+   run sprint-close cleanup or tell the user the slice/sprint is closed. Do NOT
+   busy-wait.
+
+`direct` mode skips this section entirely — work items already merged into
+`default_branch` at §8.6, exactly as in v0.1.
+
+---
+
 ## 11. Sprint-close branch (final slice of the sprint)
 
 If this slice is the FINAL slice of its sprint (resolved by field-reading the structured roadmap for any later slice with the same `sprint_id`), run the sprint-close cleanup per §6b.6.
@@ -483,7 +531,7 @@ Eval S1 / S3 / S4 assert the target subagent's final assistant message indicates
 ## 15. Notes on tool boundaries
 
 - **You** (Claude reading this skill body) make every judgment call: how to phrase the failing-step recovery menu, how to categorize each harvest candidate by target memory-bank file, how to surface the source-tagged candidates with enough context for the user's per-item decision, how to phrase the closing handoff message.
-- **Bash helpers** (`lib/manifest.sh`, `lib/render.sh`, `lib/compose.sh`, `lib/worktree.sh`) handle pure I/O: manifest reads, demo-line parsing, template substitution, filesystem probes, worktree teardown.
+- **Bash helpers** (`lib/manifest.sh`, `lib/render.sh`, `lib/compose.sh`, `lib/worktree.sh`) handle pure I/O: manifest reads, template substitution, filesystem probes, worktree teardown. Demo-line parsing is done inline in the orchestrator (split on ` → expected: `); demo-criterion evaluation for content expectations is agent-judged.
 - **`architect-critic:critiquing-spec`** owns the adversarial review at close depth; you invoke it once between Layer 2 and §8 retrospective authoring, and it runs its own sequential rebuttal cycle before returning control. This skill never enters that cycle; the user does, in conversation.
 - **`writing-sprint-retrospective`** (separate skill, T1.7) owns the sprint-level retrospective. This skill does NOT author it — only the slice retrospective + the conditional handoff sweep at §11.
 - **`scaffold-onboard:authoring-vertical-slice-demo`** owns demo-criteria authoring. When the user picks recovery option 1 ("re-author the demo step"), this skill hands off to that flow; it does NOT edit the VS README's demo criteria itself.

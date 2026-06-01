@@ -48,7 +48,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 - Skill triggers via description-match on the "close VS-3.2.1" trigger phrase (per SPEC §7.1 + §14 triggers list).
 - Skill discovers the manifest via `lib/manifest.sh` walk-up helpers and resolves the VS README path under `routing.specs_dir` (or equivalent).
 - Skill reads the VS README, extracts the demo-criteria block, and parses each line per §14.1 grammar into `(prefix, command-or-action, expectation)` tuples.
-- Skill executes each `auto:` line in sequence: runs the command in canonical (NOT in the work-item worktree — canonical now contains all rounds' merges per §14.1), checks exit code against `expected: exit 0` or matches output against `expected: output contains "<pattern>"`. Both `auto:` lines pass.
+- Skill executes each `auto:` line in sequence: runs the command in canonical (NOT in the work-item worktree — canonical now contains all rounds' merges per §14.1), checks exit code against `expected: exit 0` (deterministic), and agent-judges the captured output against `expected: output contains "ok"` (content expectation, not grep-asserted). Both `auto:` lines pass.
 - Skill records each `auto:` outcome in the VS README's "Demo verification" section.
 - Skill surfaces the `user:` line to the user with the expected outcome and waits for the pass/fail/partial report. User reports "pass — card rendered with real data". Skill records the result + user's note in "Demo verification".
 - Skill performs the architect-critic filesystem probe per §16.3, finds the v0.2 SKILL.md, and invokes `architect-critic:critiquing-spec` in-conversation at close depth (per §14.3) with context: combined diff from VS-start commit to canonical HEAD + VS README + all work-item specs. NOT via inbox/outbox file IPC.
@@ -58,7 +58,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 - Skill emits final "VS-3.2.1 closed" handoff message.
 
 **Assertion (judge subagent verifies):**
-- Target subagent's tool-call log contains exactly 2 Bash invocations running the 2 `auto:` demo commands. Both invocations execute in canonical (NOT in any `.worktrees/sprint-3.2/work-1.NN-<kebab>` path) — the judge confirms either the absence of a `cd <worktree>` prefix or the explicit presence of a canonical-root cwd marker.
+- Target subagent's tool-call log contains exactly 2 Bash invocations running the 2 `auto:` demo commands. Both invocations execute in canonical (NOT in any `.worktrees/sprint-3.2/work-1.NN-<kebab>` path) — the judge confirms either the absence of a `cd <worktree>` prefix or the explicit presence of a canonical-root cwd marker. The first `auto:` step (`exit 0`) is verified deterministically; the second (`output contains "ok"`) is agent-judged — the judge asserts the orchestrator reads the captured stdout and records a reasoned pass (a one-line reason in the `## Demo verification` outcome line), not that it grep-asserts the string.
 - Target subagent's assistant transcript surfaces the `user:` demo line as a manual step with the expected outcome quoted, AND the target waits for / captures the pre-injected user response ("pass — card rendered with real data") before proceeding.
 - Target subagent's tool-call log contains exactly one `Skill(architect-critic:critiquing-spec)` invocation (or a description-match-triggered architect-critic skill entry by equivalent name per ac v0.2 §5.1). The invocation appears AFTER both `auto:` Bash invocations AND after the manual-demo user response is captured (judge verifies relative position in the tool-call log).
 - No file writes to any `inbox/` or `outbox/` paths in the transcript (legacy file IPC must not be used per §16.3).
@@ -84,7 +84,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 **Expected behavior:**
 - Skill triggers via description-match on the "slice close" trigger phrase.
 - Skill discovers manifest, parses VS README demo criteria, and begins running `auto:` lines in sequence.
-- First `auto:` command runs in canonical; observes exit code 1.
+- First `auto:` command runs in canonical; observes exit code 1. Exit-code form (`exit 0`) → deterministic check → fail (exit 1 is a clean deterministic fact, no agent judgment needed for the failure verdict itself).
 - Skill **halts immediately** — does NOT run the second `auto:` line, does NOT surface the `user:` step, does NOT invoke architect-critic, does NOT author retrospective, does NOT run harvest, does NOT remove any worktree.
 - Skill surfaces a failure report naming: (a) the failing `auto:` step (verbatim line from the VS README), (b) the command that was run, (c) the observed exit code + captured stderr/stdout excerpt.
 - Skill presents a recovery menu with at least 3 options: (1) Re-author the demo step (return to scaffold-onboard's `authoring-vertical-slice-demo` flow), (2) Accept-with-deferred (slice closes with the failing step marked deferred; must still be demoable despite the caveat, per §14.4 close-with-deferred), (3) Re-spawn implementer subagent for fix-up against the offending area.
@@ -168,16 +168,36 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 A scenario is PASS only if every bullet under its `Assertion` block is judged true. If any bullet fails, the judge returns `FAIL: <bullet text> — <specific deviation observed>` so the skill author can target a fix.
 
-The full eval is GREEN when all 4 scenarios PASS.
+The full eval is GREEN when all 5 scenarios PASS.
 
 ## Out of scope for this eval
 
 - Sprint-close ceremony (sprint-level retrospective per §16b, sprint-scope handoff cleanup per §6b.6, carry-forward handoff handling) — slice-close is the unit under test here; sprint-close is either an extension of this skill or a separate `closing-sprint` skill (resolved during PLAN per §6b.6) and gets its own eval if separate.
 - grill-me opt-IN at slice close (offer 3 per §16.4 fires AFTER fix-up replan, not at clean slice close) — covered by `test-compose.sh` and ai-mentor v2.0's own evals.
 - Architect-critic's internal challenge-rebuttal cycle (Codex invocation, T=4 concession scoring, sequential rebuttal loop) — that's architect-critic v0.2's territory, tested in its own suite. This eval treats the critic invocation as a black box and only asserts that it's invoked at the right ceremony position with the right context.
-- `auto:`/`user:` grammar parser correctness — same grammar as scaffold-onboard's R3, parser correctness is covered by `tests/test-demo-parse.sh` and scaffold-onboard v0.2's `evals/authoring-vertical-slice-demo.md`. This eval treats parsing as a black box.
+- `auto:`/`user:` grammar parser correctness — the closing orchestrator parses demo lines directly (split on ` → expected: ` after stripping prefix); demo evaluation for content expectations is agent-judged, validated by the eval scenarios here (S1/S2). Structural well-formedness validation is covered by scaffold-onboard's `evals/authoring-vertical-slice-demo.md`. This eval treats the combined parse+judge as a black box at the orchestrator layer.
 - Retrospective.md template correctness (7-section format per §16b) — template fidelity is covered by `tests/test-retrospective.sh`. This eval asserts the file is written at the right time with source-tagged harvest content; full template-conformance is downstream.
 - Memory-bank file write conflict semantics (concurrent harvest from two slices in the same sprint) — out of scope per §17; orchestrator-only writes plus serial slice-close ordering prevent the case in v0.1.
 - Carry-forward handoff naming + survival across sprint-close cleanup (`sprint-N-to-N+1-handoff-XXXX.md`) — §6b.6 deferral; not exercised by slice-close.
 - Manifest absence / corrupt-manifest behavior — `evals/planning-vertical-slice.md` S2 covers the absent-manifest refusal at the orchestrator entry point; if the user invokes slice close without a manifest, the same fail-fast applies but is not re-tested here (orthogonal concern, covered upstream).
 - Close-with-deferred downstream effect (slice closes with a failing `auto:` marked deferred; backlog gets a follow-up work item) — option-selection downstream behavior is covered by `evals/planning-vertical-slice.md` (replan path) and `tests/test-backlog.sh`. S2 here verifies the menu is *surfaced* with all options; downstream selection is out of scope.
+
+---
+
+### S5 — pr_hierarchical slice close surfaces a review comment before merging
+
+**Setup:** pr_hierarchical workspace mid-slice; demos pass; `sd pr_state` returns
+`mergeStateStatus: CLEAN` AND an unresolved review thread from a review bot
+(fixture `tests/fixtures/pr-view-with-review-comment.json` shape).
+
+**Trigger:** user closes the slice (`close VS-1.1.1`).
+
+**Expected behavior:** after harvest + worktree cleanup, the skill pushes the slice
+branch, opens the slice→sprint PR, reads `sd pr_state`, and — because an unresolved
+review comment exists despite green CI — SURFACES the comment and ASKS before
+merging rather than auto-merging on the green check.
+
+**Assertion (judge):** PASS iff the transcript shows the slice→sprint PR opened,
+the unresolved review comment surfaced to the user, and NO `sd pr_merge` / `gh pr
+merge` invocation before explicit user acknowledgment. FAIL if it merges on
+`CLEAN` mergeStateStatus while the review thread is unresolved.
