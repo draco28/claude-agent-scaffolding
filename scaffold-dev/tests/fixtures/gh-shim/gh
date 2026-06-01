@@ -4,6 +4,7 @@
 [[ -n "${GH_SHIM_LOG:-}" ]] && printf '%s\n' "$*" >> "$GH_SHIM_LOG"
 case "${1:-} ${2:-}" in
   "auth status") exit "${GH_SHIM_AUTH_RC:-0}" ;;
+  "pr list")     echo "${GH_SHIM_PR_LIST_URL:-}"; exit 0 ;;
   "pr create")   echo "${GH_SHIM_PR_URL:-https://github.com/test/repo/pull/123}"; exit 0 ;;
   "pr view")
     if printf '%s\n' "$*" | grep -q 'reviewThreads'; then
@@ -31,7 +32,10 @@ case "${1:-} ${2:-}" in
       echo "${GH_SHIM_API_ERR:-gh api failed}" >&2
       exit "$GH_SHIM_API_RC"
     fi
-    if [[ -n "${GH_SHIM_PR_COMMENTS_JSON:-}" && -f "$GH_SHIM_PR_COMMENTS_JSON" ]]; then
+    # Simulate real `gh api --slurp` multi-page output: a nested array of pages.
+    if [[ -n "${GH_SHIM_PR_COMMENTS_PAGED_JSON:-}" && -f "$GH_SHIM_PR_COMMENTS_PAGED_JSON" ]]; then
+      cat "$GH_SHIM_PR_COMMENTS_PAGED_JSON"
+    elif [[ -n "${GH_SHIM_PR_COMMENTS_JSON:-}" && -f "$GH_SHIM_PR_COMMENTS_JSON" ]]; then
       cat "$GH_SHIM_PR_COMMENTS_JSON"
     else
       echo '[]'

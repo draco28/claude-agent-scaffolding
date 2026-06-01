@@ -168,10 +168,11 @@ lives on the slice branch, not `default_branch`. Check it out before demos:
 
 ```bash
 if [[ "$(sd merge_mode)" == "pr_hierarchical" ]]; then
-  git -C "$canonical" checkout -q "$(sd slice_branch_name "$vs_id")"
+  git -C "$canonical" checkout -q "$(sd slice_branch_name "$vs_id")" \
+    || { printf 'Cannot check out the slice branch in canonical (dirty tree or checked out elsewhere?); resolve before running auto-demos.\n' >&2; exit 1; }
 fi
 ```
-Restore is unnecessary — the slice branch is the integration target until its PR merges.
+**Guard the checkout.** A failed `checkout` (dirty canonical tree, branch checked out in another worktree) would leave canonical on the *wrong* branch and the `auto:` demos below would run against it — a silent false green/red. HALT on failure and surface it; never demo against an unverified checkout. Restore is unnecessary on success — the slice branch is the integration target until its PR merges.
 
 Evaluate `expectation` using a **run-then-judge** approach:
 

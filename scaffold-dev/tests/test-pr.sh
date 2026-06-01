@@ -22,7 +22,7 @@ _setup_pr_workspace() {
   export GH_SHIM_LOG="$TMP_DIR/gh-calls.log"
   : > "$GH_SHIM_LOG"
   # Reset shim env to defaults each setup.
-  unset GH_SHIM_AUTH_RC GH_SHIM_MERGE_RC GH_SHIM_PR_VIEW_JSON GH_SHIM_ISSUE_LIST_JSON GH_SHIM_ISSUE_URL GH_SHIM_PR_COMMENTS_JSON GH_SHIM_API_RC GH_SHIM_API_ERR
+  unset GH_SHIM_AUTH_RC GH_SHIM_MERGE_RC GH_SHIM_PR_VIEW_JSON GH_SHIM_ISSUE_LIST_JSON GH_SHIM_ISSUE_URL GH_SHIM_PR_COMMENTS_JSON GH_SHIM_PR_COMMENTS_PAGED_JSON GH_SHIM_API_RC GH_SHIM_API_ERR GH_SHIM_PR_LIST_URL
   export GH_SHIM_PR_URL="https://github.com/test/repo/pull/123"
 }
 
@@ -447,9 +447,39 @@ test_branch_create_reuses_origin() {
   assert_eq "reused origin sprint history" "on-sprint" "$(git -C "$TMP_CANONICAL" show sprint-7.7:sprint-only.txt 2>/dev/null)"
 }
 
+# 13a. pr_open is idempotent — reuse an existing open PR for <head>, no gh pr create
+test_pr_open_idempotent() {
+  echo "test_pr_open_idempotent:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  export GH_SHIM_PR_LIST_URL="https://github.com/test/repo/pull/999"
+  local body; body="$(mktemp)"; echo body > "$body"
+  local out; out="$(sd_pr_open "slice/VS-1.1.1" "sprint-1.1" "T" "$body" 2>/dev/null)"
+  assert_eq "reuses existing open PR url" "https://github.com/test/repo/pull/999" "$out"
+  if grep -q 'pr create' "$GH_SHIM_LOG"; then
+    FAIL=$((FAIL+1)); echo "  $(_color_fail 'FAIL') should NOT call gh pr create when an open PR exists"
+  else
+    PASS=$((PASS+1)); echo "  $(_color_pass 'PASS') idempotent: no gh pr create when an open PR exists"
+  fi
+}
+
+# 24b. pr_review_comments flattens real --slurp multi-page output into one array
+test_pr_review_comments_paginated() {
+  echo "test_pr_review_comments_paginated:"
+  _setup_pr_workspace
+  export GH_SHIM_PR_COMMENTS_PAGED_JSON="$HERE/fixtures/pr-review-comments-paged.json"
+  cd "$TMP_AI_WORKSPACE"
+  local json; json="$(sd_pr_review_comments 7 2>/dev/null)"
+  assert_eq "paginated pages flattened" "2" "$(echo "$json" | jq -r 'length')"
+  assert_eq "first page entry" "page-one finding" "$(echo "$json" | jq -r '.[0].body')"
+  assert_eq "second page entry" "page-two finding" "$(echo "$json" | jq -r '.[1].body')"
+}
+
+test_pr_open_idempotent
 test_issue_list_default_limit
 test_issue_list_explicit_limit
 test_pr_review_comments
+test_pr_review_comments_paginated
 test_pr_review_comments_api_failure
 test_branch_sync
 test_branch_sync_diverged

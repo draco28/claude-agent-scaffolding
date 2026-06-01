@@ -163,16 +163,24 @@ sd_remote_check() {
 }
 
 # sd_pr_open <head> <base> <title> <body-file> — wraps gh pr create (run from
-# canonical so gh resolves the repo from origin). Echoes gh's stdout (PR url or
-# number). rc 1 if gh absent or the create fails.
+# canonical so gh resolves the repo from origin). Echoes the PR url. rc 1 if gh
+# absent or the create fails.
+# IDEMPOTENT: if an open PR already exists for <head>, reuse it (echo its url)
+# instead of erroring with "a pull request for branch … already exists" — so a
+# slice/sprint close that left the PR open for async CI can be safely re-run.
 sd_pr_open() {
-  local head="$1" base="$2" title="$3" body_file="$4" canonical out
+  local head="$1" base="$2" title="$3" body_file="$4" canonical out existing
   canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_pr_open: no canonical.root"; return 1; }
   body_file="$(sd_abs_path "$body_file")"
   [[ -f "$body_file" ]] || { sd_log_error "sd_pr_open: body file not found: $body_file"; return 1; }
   if ! command -v gh >/dev/null 2>&1; then
     sd_log_error "sd_pr_open: 'gh' not in PATH."
     return 1
+  fi
+  existing="$(cd "$canonical" && gh pr list --head "$head" --state open --json url --jq '.[0].url // empty' 2>/dev/null)"
+  if [[ -n "$existing" ]]; then
+    echo "$existing"
+    return 0
   fi
   if ! out="$(cd "$canonical" && gh pr create --head "$head" --base "$base" --title "$title" --body-file "$body_file" 2>&1)"; then
     sd_log_error "sd_pr_open: gh pr create failed: $out"
@@ -210,10 +218,18 @@ sd_pr_review_comments() {
   # Accept a PR URL (gh pr create echoes one) OR a bare number — the REST path
   # needs the numeric id. Strip everything up to the last '/'.
   num="${pr##*/}"
-  if ! out="$(cd "$canonical" && gh api --paginate --slurp "repos/{owner}/{repo}/pulls/$num/comments" 2>&1)"; then
-    sd_log_error "sd_pr_review_comments: gh api failed: $out"
+  # Capture stdout ONLY — folding gh's stderr (warnings / paginate progress) into
+  # stdout via 2>&1 would corrupt the JSON and break the jq parse below on the
+  # SUCCESS path. Send stderr to a temp file so a real failure stays diagnosable.
+  local errf; errf="$(mktemp)"
+  if ! out="$(cd "$canonical" && gh api --paginate --slurp "repos/{owner}/{repo}/pulls/$num/comments" 2>"$errf")"; then
+    sd_log_error "sd_pr_review_comments: gh api failed: $(cat "$errf")"
+    rm -f "$errf"
     return 1
   fi
+  rm -f "$errf"
+  # Empty stdout (no body) → emit an empty array, not an empty string.
+  [[ -n "$out" ]] || { printf '%s\n' '[]'; return 0; }
   # Real `gh api --slurp` wraps paginated array responses as [page1, page2, ...].
   # The test shim emits a flat array directly; accept both while preserving one
   # flat-array contract for the agent gate.

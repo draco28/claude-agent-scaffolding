@@ -58,7 +58,7 @@ The core 11-file memory bank from v0.1.0 is preserved; a 12th file (`tech-debt.m
 | Static | `WORKFLOW.md` (1 file) | Copy verbatim from `templates/memory-bank/WORKFLOW.md` | Copy only if missing on normal re-derive; overwrite when invoked with `--force` |
 | Seeded index | `tech-debt.md` (1 file) | Render header-only from `templates/memory-bank/tech-debt.md.tmpl` — no `[TD]` entries | **Preserve existing file** — scaffold-dev's `/defer` and round-close sweep append entries over time |
 
-**Helper:** `sf_memory_bank_derive` (lib/memory-bank.sh) implements all three behaviors. It accepts an optional `--force` flag (which `--regenerate` passes) that overrides the live-seed preservation **and** refreshes static `WORKFLOW.md` from `templates/memory-bank/WORKFLOW.md`. A *normal* re-derive (no `--force`/`--regenerate`) preserves an existing `WORKFLOW.md` (copy-only-if-missing); `--force`/`--regenerate` overwrites it — so `WORKFLOW.md` must be named in the `--force` confirmation alongside the live-seed files.
+**Helper:** `sf_memory_bank_derive` (lib/memory-bank.sh) implements all four behaviors. It accepts an optional `--force` flag (which `--regenerate` passes) that overrides the live-seed preservation **and** refreshes static `WORKFLOW.md` from `templates/memory-bank/WORKFLOW.md`. A *normal* re-derive (no `--force`/`--regenerate`) preserves an existing `WORKFLOW.md` (copy-only-if-missing); `--force`/`--regenerate` overwrites it — so `WORKFLOW.md` must be named in the `--force` confirmation alongside the live-seed files.
 
 **Discipline:**
 
