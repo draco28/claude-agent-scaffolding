@@ -74,17 +74,25 @@ The core 11-file memory bank from v0.1.0 is preserved; three further files bring
 Inside `03-code-patterns.md`, the v0.2 template adds a new section near the end:
 
 ```markdown
+<!-- mcrules:preserve:start -->
+<!-- This zone is PRESERVED across /scaffold-project re-derive. Everything else in
+     this file re-renders from MASTER-SPEC.md. Rules added here by
+     authoring-machine-checkable-rules survive regeneration. See
+     `memory-bank/WORKFLOW.md` → **Memory-bank update cadence**. -->
 ## Machine-checkable rules
-<!-- TODO: add machine-checkable rules.
-     Use `Skill(scaffold-onboard:authoring-machine-checkable-rules)` for guided authoring,
-     or hand-author per SPEC §8.2 grammar (HTML-sentinel `<!-- mcrule:start type=... -->` blocks).
-     scaffold-dev's `implementation-checking` skill consumes the rules at PR-verification time. -->
+
+<!--
+  Project rules live below in the HTML-sentinel `mcrule` DSL (SPEC §8.2).
+  Use `/add-project-rule` (skill: authoring-machine-checkable-rules) to add
+  rules; this section is intentionally seeded empty for tools that parse it.
+-->
+<!-- mcrules:preserve:end -->
 ```
 
 **Critical:** this skill **seeds** the section — it emits the heading and the invitation comment only. It does NOT emit any actual `<!-- mcrule:start -->` rule blocks. Authoring rules is the responsibility of `scaffold-onboard:authoring-machine-checkable-rules` (SPEC §5.5). Keep the lanes clean:
 
 - Your output (this skill): zero `<!-- mcrule:start` sentinels in any derived file. Just the heading and invitation comment.
-- Skill 5.5's output (later): one or more `<!-- mcrule:start type=<T> -->` ... `<!-- mcrule:end -->` blocks inserted between the heading and the next `## ` heading.
+- Skill 5.5's output (later): one or more `<!-- mcrule:start type=<T> -->` ... `<!-- mcrule:end -->` blocks inserted inside the preserve zone, before `<!-- mcrules:preserve:end -->`.
 
 The HTML-sentinel format is the only supported rule grammar (per SPEC §8.2). A fenced-block alternative (` ```mcrule ... ``` `) was drafted but rejected — fence boundaries are invisible to Claude in rendered markdown, breaking the human/machine dual-readability requirement. Never emit fenced rule blocks even as examples in this seed.
 
@@ -140,7 +148,7 @@ For each of the 14 memory-bank files, resolve per-file:
 ```
 brief_path="$(sf_resolve_output_path memory_bank .claude/memory-bank/00-project-brief.md)"
 patterns_path="$(sf_resolve_output_path memory_bank .claude/memory-bank/03-code-patterns.md)"
-# ...etc for the other 9
+# ...etc for the other 12
 ```
 
 Behavior:
@@ -347,8 +355,11 @@ On `mode:failed` or any validation failure: `sf_log_warn "<artifact> synthesis f
 After all 9 artifacts complete, seed the live files and copy the static file:
 
 ```bash
-sf_memory_bank_derive --fast   # seeds 05/06/09/10 only if missing; copies WORKFLOW.md if missing
-                               # --fast prevents re-synthesizing; only live/static paths run
+if [[ "$regenerate" == "1" ]]; then
+  sf_memory_bank_derive --fast --force   # regenerate mode: confirmed live/static overwrite path
+else
+  sf_memory_bank_derive --fast           # normal mode: preserve live files; copy WORKFLOW only if missing
+fi
 ```
 
 Then emit `.claude/settings.json` and the AGENTS.md managed section via their helpers (unchanged from v0.2):

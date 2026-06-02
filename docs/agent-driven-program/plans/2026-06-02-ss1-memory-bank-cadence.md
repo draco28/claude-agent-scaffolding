@@ -376,7 +376,7 @@ Expected: PASS — `test_03_rules_zone_preserved_on_rederive` green. Also confir
 
 In `scaffold-onboard/skills/scaffolding-memory-bank/SKILL.md` §13.3, expand the existing "03-code-patterns special note" (line ~311). Replace it with:
 
-```markdown
+````markdown
 **03-code-patterns special note (preserved rules zone — SS-1 W2):** `03` carries a
 `<!-- mcrules:preserve:start -->` … `<!-- mcrules:preserve:end -->` zone that must
 survive re-derive. BEFORE dispatching the `03-code-patterns` sub-agent, capture the
@@ -403,7 +403,7 @@ If the sub-agent fails to emit the sentinels, `_sf_mb_reinject_preserve_zone` re
 non-zero → fall back to the deterministic `03` render (which always has the sentinels),
 then re-inject. The deterministic template is the labeled fallback, never a silent
 default (program north star: one source of truth per job).
-```
+````
 
 In `scaffold-onboard/templates/synthesis-briefs/03-code-patterns.brief.md`, add to the Synthesis guidance an explicit instruction (so the agent emits the sentinels). Append a paragraph:
 
@@ -426,7 +426,7 @@ Also verify the brief's `required_sections` still lists "Machine-checkable rules
 
 - [ ] **Step 7: Fix the rule-insertion boundary in authoring-machine-checkable-rules**
 
-In `scaffold-onboard/skills/authoring-machine-checkable-rules/SKILL.md` §8, the insertion logic currently inserts "after the last `<!-- mcrule:end -->` before the next `## ` heading (or EOF)". With the preserve sentinels, new rules MUST land before `<!-- mcrules:preserve:end -->` (otherwise they fall outside the preserved zone and get clobbered on re-derive). Update §8 step 1 and step 2:
+In `scaffold-onboard/skills/authoring-machine-checkable-rules/SKILL.md` §8, the insertion logic currently inserts "after the last `<!-- mcrule:end -->` before the next `##` heading (or EOF)". With the preserve sentinels, new rules MUST land before `<!-- mcrules:preserve:end -->` (otherwise they fall outside the preserved zone and get clobbered on re-derive). Update §8 step 1 and step 2:
 
 Replace step 1:
 
@@ -444,13 +444,13 @@ Replace step 2:
 
 ```markdown
 2. **Find the insertion point.** The section's lower boundary is
-   `<!-- mcrules:preserve:end -->` when present (NOT the next `## ` heading — that is
+   `<!-- mcrules:preserve:end -->` when present (NOT the next `##` heading — that is
    now outside the preserved zone). Search forward from the heading for the last
    `<!-- mcrule:end -->` before `<!-- mcrules:preserve:end -->`; insert the new block
    after that line, preceded by a blank line. If no `<!-- mcrule:end -->` exists yet,
    insert after the invitation comment, immediately before `<!-- mcrules:preserve:end -->`.
    (Legacy files without the preserve markers fall back to the old boundary: before the
-   next `## ` heading or EOF.)
+   next `##` heading or EOF.)
 ```
 
 - [ ] **Step 8: Run full scaffold-onboard suite + commit**
@@ -937,13 +937,13 @@ git commit -m "test(scaffold-onboard): grep-guard enforces single-source cadence
 
 ---
 
-## Task 7 (W7): One-time migration — relocate provenance-trailed content out of `03`/`04`
+## Task 7 (W7): One-time migration — relocate provenance-trailed content out of spec-derived files
 
 **Files:**
 - Modify: `scaffold-onboard/lib/memory-bank.sh` (`_sf_mb_migrate_harvested` + call it at the top of `sf_memory_bank_derive`)
 - Test: `scaffold-onboard/tests/test-memory-bank.sh`
 
-**Design:** Existing projects (e.g. the PulseTrader test project) already have harvest content appended into derived `03`/`04` with provenance trailers `<!-- Added from VS… -->`. Before regenerating those files (which would clobber the content), detect provenance-trailed entries in `03`/`04`, **relocate** them to `09-known-issues.md` (catch-all), print a summary, and never silent-drop. Idempotent: once relocated, the derived file no longer matches, so a second run is a no-op. The relocation must run BEFORE the derive loop overwrites `03`/`04`. Migration relocates from `03` **outside** its preserve zone only (the preserve zone is handled by W2; user mcrule blocks are not "harvested prose").
+**Design:** Existing projects can have harvest content appended into any file now classified as spec-derived (`00,01,02,03,04,07,08,index`) with provenance trailers `<!-- Added from VS… -->`. Before regenerating those files (which would clobber the content), detect provenance-trailed entries across the full spec-derived set, **relocate** them to `09-known-issues.md` (catch-all), print a summary, and never silent-drop. Idempotent: once relocated, the derived file no longer matches, so a second run is a no-op. The relocation must run BEFORE the derive loop overwrites those files. Migration relocates from `03` **outside** its preserve zone only (the preserve zone is handled by W2; user mcrule blocks are not "harvested prose").
 
 - [ ] **Step 1: Write failing test for migration**
 
@@ -1003,7 +1003,7 @@ In `scaffold-onboard/lib/memory-bank.sh`, add this helper (after the preserve-zo
 ```bash
 # One-time migration (SS-1 W7): relocate provenance-trailed harvest content
 # (a "- <text>" line immediately followed by a "<!-- Added from VS… -->" trailer)
-# out of derived files 03/04 into 09-known-issues.md, BEFORE those files are
+# out of spec-derived files into 09-known-issues.md, BEFORE those files are
 # re-rendered. Never silent-drop: every relocated entry is appended to 09 (with its
 # trailer) and a summary is logged. Idempotent: relocated entries no longer match.
 # For 03, only content OUTSIDE the mcrules preserve zone is migrated.
@@ -1011,7 +1011,7 @@ _sf_mb_migrate_harvested() {
   local mb=".claude/memory-bank"
   local known="$mb/09-known-issues.md"
   local moved=0 src
-  for src in "$mb/03-code-patterns.md" "$mb/04-tech-context.md"; do
+  for src in "$mb/00-project-brief.md" "$mb/01-product-context.md" "$mb/02-system-patterns.md" "$mb/03-code-patterns.md" "$mb/04-tech-context.md" "$mb/07-constraints.md" "$mb/08-governance.md" "$mb/index.md"; do
     [[ -f "$src" ]] || continue
     local relocated kept
     relocated="$(mktemp)"; kept="$(mktemp)"
@@ -1043,7 +1043,7 @@ _sf_mb_migrate_harvested() {
     [[ "$have_prev" -eq 1 ]] && printf '%s\n' "$prev" >> "$kept"
 
     if [[ -s "$relocated" ]]; then
-      [[ -f "$known" ]] || printf '# Known Issues\n' > "$known"
+      [[ -f "$known" ]] || sf_render "$(sf_plugin_root)/templates/memory-bank/09-known-issues.md.tmpl" > "$known"
       {
         echo ""
         echo "## Migrated from $(basename "$src") (SS-1)"
@@ -1069,7 +1069,7 @@ Wire it into `sf_memory_bank_derive` — call it AFTER `mkdir -p .claude/memory-
   mkdir -p .claude/memory-bank
 
   # SS-1 W7: one-time relocate of provenance-trailed harvest content out of derived
-  # 03/04 before they are regenerated. No-op on fresh projects.
+  # files before they are regenerated. No-op on fresh projects.
   _sf_mb_migrate_harvested
 ```
 
@@ -1090,7 +1090,7 @@ Run: `bash scaffold-onboard/run-tests.sh` → all PASS
 
 ```bash
 git add scaffold-onboard/lib/memory-bank.sh scaffold-onboard/tests/test-memory-bank.sh
-git commit -m "feat(scaffold-onboard): one-time migration of harvested content out of derived 03/04 (SS-1 W7, SP-5, #45)"
+git commit -m "feat(scaffold-onboard): migrate harvested content out of spec-derived files (SS-1 W7, SP-5, #45)"
 ```
 
 ---

@@ -257,6 +257,36 @@ test_03_empty_zone_idempotent() {
   fi
 }
 
+# SS-1 review fix — legacy projects may have authored mcrule blocks under the
+# heading-only section before preserve sentinels existed. First upgrade must wrap
+# and preserve that legacy section instead of overwriting it.
+test_legacy_rules_without_preserve_markers_survive_upgrade() {
+  echo "test_legacy_rules_without_preserve_markers_survive_upgrade:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  cat > ".claude/memory-bank/03-code-patterns.md" <<'EOF'
+# Code Patterns
+
+## Module / package boundaries
+legacy derived body
+
+## Machine-checkable rules
+
+<!-- mcrule:start type=banned_imports -->
+forbid: [requests]
+<!-- mcrule:end -->
+
+## User-global defaults
+- legacy defaults
+EOF
+  sf_memory_bank_derive
+  assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "mcrules:preserve:start"
+  assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "mcrule:start type=banned_imports"
+  assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "forbid: \\[requests\\]"
+  assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "mcrules:preserve:end"
+}
+
 # SS-1 W3 — the canonical cadence policy lives in WORKFLOW.md and carries the
 # uniqueness marker; the three ownership classes are named.
 test_cadence_policy_canonical() {
@@ -287,6 +317,50 @@ test_migration_relocates_harvested_content() {
   sf_memory_bank_derive
   assert_file_contains "./.claude/memory-bank/09-known-issues.md" "prefer atomic writes for the registry"
   assert_file_not_contains "./.claude/memory-bank/04-tech-context.md" "prefer atomic writes for the registry"
+}
+
+# SS-1 review fix — pre-SS-1 harvest could target any file later classified as
+# spec-derived, not only 03/04. All provenance-trailed entries must move before
+# the derived-file render loop overwrites them.
+test_migration_relocates_harvested_content_from_all_derived_files() {
+  echo "test_migration_relocates_harvested_content_from_all_derived_files:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  local f note path
+  for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 07-constraints 08-governance index; do
+    path=".claude/memory-bank/${f}.md"
+    note="legacy harvested note from ${f}"
+    {
+      echo ""
+      echo "- ${note}"
+      echo "<!-- Added from VS-9.9.9 retrospective, 2026-05-03; source: report -->"
+    } >> "$path"
+  done
+  sf_memory_bank_derive
+  for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 07-constraints 08-governance index; do
+    note="legacy harvested note from ${f}"
+    assert_file_contains "./.claude/memory-bank/09-known-issues.md" "$note"
+    assert_file_not_contains "./.claude/memory-bank/${f}.md" "$note"
+  done
+}
+
+# SS-1 review fix — --force refreshes live files, but if migration appended to
+# 09-known-issues.md earlier in the same derive call, that migrated content must
+# not be clobbered by the live-file force overwrite loop.
+test_migration_preserves_09_on_force_after_relocation() {
+  echo "test_migration_preserves_09_on_force_after_relocation:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  {
+    echo ""
+    echo "- legacy force note: preserve after migration"
+    echo "<!-- Added from VS-4.4.4 retrospective, 2026-05-04; source: report -->"
+  } >> ".claude/memory-bank/04-tech-context.md"
+  sf_memory_bank_derive --force
+  assert_file_contains "./.claude/memory-bank/09-known-issues.md" "legacy force note: preserve after migration"
+  assert_file_contains "./.claude/memory-bank/09-known-issues.md" "Memory-bank update cadence"
 }
 
 # Idempotent — a second re-derive does not duplicate.
@@ -368,8 +442,11 @@ test_new_dev_files_seeded
 test_new_dev_files_preserved_on_rederive
 test_03_rules_zone_preserved_on_rederive
 test_03_empty_zone_idempotent
+test_legacy_rules_without_preserve_markers_survive_upgrade
 test_cadence_policy_canonical
 test_migration_relocates_harvested_content
+test_migration_relocates_harvested_content_from_all_derived_files
+test_migration_preserves_09_on_force_after_relocation
 test_migration_idempotent
 test_migration_leaves_preserve_zone
 test_migration_creates_09_with_full_template

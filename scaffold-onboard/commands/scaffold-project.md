@@ -23,6 +23,7 @@ ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
 Now invoke the skill in-conversation:
 
 **`Skill(scaffold-onboard:scaffolding-memory-bank)`** — pass the parsed flags
-above. The skill body handles `--regenerate` (overwrite live files including
-`05-active-context.md` / `06-progress.md` after confirmation) and the default
+above. The skill body handles `--regenerate` (overwrite live/static files
+`05-active-context.md` / `06-progress.md` / `09-known-issues.md` /
+`10-decisions-log.md` / `WORKFLOW.md` after confirmation) and the default
 no-flag case (idempotent derivation that preserves live state files).

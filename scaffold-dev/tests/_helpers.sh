@@ -82,8 +82,8 @@ assert_file_contains() {
 assert_file_not_contains() {
   local path="$1" pattern="$2"
   if [[ ! -e "$path" ]]; then
-    PASS=$((PASS+1))
-    echo "  $(_color_pass 'PASS') file absent (not-contains trivially true): $path"
+    FAIL=$((FAIL+1))
+    echo "  $(_color_fail 'FAIL') file missing for not-contains-check: $path"
     return
   fi
   if grep -qE -- "$pattern" "$path"; then

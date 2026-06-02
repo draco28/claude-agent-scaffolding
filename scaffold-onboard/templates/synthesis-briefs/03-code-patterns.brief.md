@@ -52,7 +52,7 @@ wrapped EXACTLY in the two `mcrules:preserve` HTML-comment sentinels. Do NOT syn
 any machine-checkable rules here (zero `<!-- mcrule:start -->` blocks). Output the
 sentinels, heading, and invitation block EXACTLY as they appear in the template:
 
-```
+```markdown
 <!-- mcrules:preserve:start -->
 <!-- This zone is PRESERVED across /scaffold-project re-derive. Everything else in
      this file re-renders from MASTER-SPEC.md. Rules added here by

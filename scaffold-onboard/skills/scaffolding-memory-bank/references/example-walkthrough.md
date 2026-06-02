@@ -105,14 +105,22 @@ The 8 derived files re-render and overwrite on `/scaffold-project` re-runs (idem
 Near the end of `03-code-patterns.md`, the v0.2 template emits exactly this block:
 
 ```markdown
+<!-- mcrules:preserve:start -->
+<!-- This zone is PRESERVED across /scaffold-project re-derive. Everything else in
+     this file re-renders from MASTER-SPEC.md. Rules added here by
+     authoring-machine-checkable-rules survive regeneration. See
+     `memory-bank/WORKFLOW.md` → **Memory-bank update cadence**. -->
 ## Machine-checkable rules
-<!-- TODO: add machine-checkable rules.
-     Use `Skill(scaffold-onboard:authoring-machine-checkable-rules)` for guided authoring,
-     or hand-author per SPEC §8.2 grammar (HTML-sentinel `<!-- mcrule:start type=... -->` blocks).
-     scaffold-dev's `implementation-checking` skill consumes the rules at PR-verification time. -->
+
+<!--
+  Project rules live below in the HTML-sentinel `mcrule` DSL (SPEC §8.2).
+  Use `/add-project-rule` (skill: authoring-machine-checkable-rules) to add
+  rules; this section is intentionally seeded empty for tools that parse it.
+-->
+<!-- mcrules:preserve:end -->
 ```
 
-Heading + invitation comment only. **Zero `<!-- mcrule:start` sentinels are emitted by this skill.** Authoring rules is the responsibility of `scaffold-onboard:authoring-machine-checkable-rules` (SPEC §5.5) — that skill inserts `<!-- mcrule:start type=<T> --> ... <!-- mcrule:end -->` blocks between this heading and the next `## ` heading. Lane discipline matters: eval S2 explicitly fails any rule block emitted from this skill.
+Heading + invitation comment only, wrapped by preserve sentinels. **Zero `<!-- mcrule:start` sentinels are emitted by this skill.** Authoring rules is the responsibility of `scaffold-onboard:authoring-machine-checkable-rules` (SPEC §5.5) — that skill inserts `<!-- mcrule:start type=<T> --> ... <!-- mcrule:end -->` blocks inside the preserve zone, before `<!-- mcrules:preserve:end -->`. Lane discipline matters: eval S2 explicitly fails any rule block emitted from this skill.
 
 The fenced-block alternative (` ```mcrule ... ``` `) was drafted and rejected during v0.2 SPEC review — fence boundaries are invisible to Claude in rendered markdown, breaking the human/machine dual-readability requirement. Never emit fenced rule blocks even as examples (§5, §11).
 

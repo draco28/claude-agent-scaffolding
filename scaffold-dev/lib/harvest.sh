@@ -25,6 +25,31 @@ _sd_harvest_is_derived() {
   return 1
 }
 
+_sd_harvest_known_issues_template() {
+  local candidate
+  for candidate in \
+    "$_SD_LIB_DIR/../../scaffold-onboard/templates/memory-bank/09-known-issues.md.tmpl" \
+    "$_SD_LIB_DIR/../../../scaffold-onboard"/*/templates/memory-bank/09-known-issues.md.tmpl; do
+    if [[ -f "$candidate" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+_sd_harvest_seed_known_issues() {
+  local file="$1"
+  [[ -f "$file" ]] && return 0
+  mkdir -p "$(dirname "$file")"
+  local tmpl
+  if tmpl="$(_sd_harvest_known_issues_template)"; then
+    cp "$tmpl" "$file"
+  else
+    printf '# Known Issues\n' > "$file"
+  fi
+}
+
 _SD_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if ! declare -F sd_log_info >/dev/null 2>&1; then
   # shellcheck disable=SC1091
@@ -204,7 +229,11 @@ sd_harvest_apply() {
     fi
 
     local file="$mb/$target"
-    [[ -f "$file" ]] || { mkdir -p "$(dirname "$file")"; echo "# $target" > "$file"; }
+    if [[ "$target" == "09-known-issues.md" ]]; then
+      _sd_harvest_seed_known_issues "$file"
+    else
+      [[ -f "$file" ]] || { mkdir -p "$(dirname "$file")"; echo "# $target" > "$file"; }
+    fi
 
     # Idempotency: skip if line text already present.
     if grep -Fq "$text" "$file"; then

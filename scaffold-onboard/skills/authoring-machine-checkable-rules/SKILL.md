@@ -193,13 +193,13 @@ The section is appended to, never rewritten in place. The contract:
    zone (start marker, heading, invitation, end marker) at EOF and treat the new block
    as the first under it.
 2. **Find the insertion point.** The section's lower boundary is
-   `<!-- mcrules:preserve:end -->` when present (NOT the next `## ` heading — that is
+   `<!-- mcrules:preserve:end -->` when present (NOT the next `##` heading — that is
    now outside the preserved zone). Search forward from the heading for the last
    `<!-- mcrule:end -->` before `<!-- mcrules:preserve:end -->`; insert the new block
    after that line, preceded by a blank line. If no `<!-- mcrule:end -->` exists yet,
    insert after the invitation comment, immediately before `<!-- mcrules:preserve:end -->`.
    (Legacy files without the preserve markers fall back to the old boundary: before the
-   next `## ` heading or EOF.)
+   next `##` heading or EOF.)
 3. **Idempotent on verbatim-identical blocks.** Before writing, scan existing `<!-- mcrule:start ... -->` … `<!-- mcrule:end -->` blocks in the section. If a block with byte-identical body (after whitespace normalization) already exists, skip the write and surface: *"This rule is already present in `03-code-patterns.md` — no change needed."* Do not duplicate.
 4. **Never overwrite existing rules.** Pre-existing rule blocks in the section are byte-identical preserved (the S5 eval scenario verifies this). Your write is an in-place insertion, not a rewrite.
 5. **Preserve surrounding prose.** Any human-authored prose between rule blocks (e.g., "We forbid sync HTTP libraries because they block the event loop.") stays untouched.

@@ -85,7 +85,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 **Assertion (judge subagent verifies):**
 - `03-code-patterns.md` exists at `$(pwd)/.claude/memory-bank/03-code-patterns.md`.
 - The file contains the exact literal heading `## Machine-checkable rules`.
-- Within that section (between the `## Machine-checkable rules` heading and either the next `## ` heading or EOF), the count of occurrences of the substring `<!-- mcrule:start` is exactly zero.
+- Within that preserve zone (between `<!-- mcrules:preserve:start -->` and `<!-- mcrules:preserve:end -->`), the count of occurrences of the substring `<!-- mcrule:start` is exactly zero.
 - Within that section, an invitation to author rules is present — either prose text mentioning "add rules" / "machine-checkable" / "rules can be authored" or an HTML comment such as `<!-- TODO: add machine-checkable rules ... -->`. The invitation references the `authoring-machine-checkable-rules` skill, the §8.2 sentinel grammar, or both.
 - The remainder of `03-code-patterns.md` (content outside the `## Machine-checkable rules` section) still contains MASTER-SPEC-derived code-pattern content (judge spot-checks for substituted content rather than raw `{{...}}` placeholders).
 - CLAUDE.md does NOT contain the Karpathy attribution line `Behavioral guidelines inspired by Karpathy's observations (Chang, 2026; MIT)` (opt-in was "no" in this scenario).
@@ -113,14 +113,14 @@ Each scenario is executed inside a single Claude Code subscription session by an
 **Expected behavior:**
 - Skill discovers the manifest via `sf_discover_manifest` (per SPEC §10.2).
 - Skill resolves `memory_bank` → `<tmp>/ai_workspace/.claude/memory-bank/` (NOT `<tmp>/canonical/.claude/memory-bank/`).
-- All 11 memory-bank files land under `<tmp>/ai_workspace/.claude/memory-bank/`.
+- All 14 memory-bank files land under `<tmp>/ai_workspace/.claude/memory-bank/`.
 - `CLAUDE.md` is emitted at `<tmp>/ai_workspace/CLAUDE.md` (routes per `claude_md` entry).
 - `.claude/settings.json` is emitted under the ai_workspace destination per `scaffold_project_outputs`.
 - The Karpathy "Behavioral Discipline" section appears in the emitted CLAUDE.md (opt-in was "yes" for this scenario, providing the cross-S1/S3 Karpathy attribution check).
 - The canonical repo (`<tmp>/canonical/`) receives **no** memory-bank, CLAUDE.md, or scaffold-project outputs (routing must not double-write).
 
 **Assertion (judge subagent verifies):**
-- `<tmp>/ai_workspace/.claude/memory-bank/` exists and contains all 11 expected files (same names as S1).
+- `<tmp>/ai_workspace/.claude/memory-bank/` exists and contains all 14 expected files (same names as S1).
 - `<tmp>/canonical/.claude/memory-bank/` does NOT exist (no routing leakage to the canonical repo).
 - `<tmp>/ai_workspace/CLAUDE.md` exists; `<tmp>/canonical/CLAUDE.md` does NOT exist.
 - `<tmp>/ai_workspace/CLAUDE.md` contains the verbatim string `Behavioral guidelines inspired by Karpathy's observations (Chang, 2026; MIT)` and all four principle names (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution).
@@ -144,13 +144,13 @@ Each scenario is executed inside a single Claude Code subscription session by an
 **Expected behavior:**
 - Skill runs `sf_discover_manifest` (per SPEC §10.2); the walk reaches `/` without finding a pairing manifest and returns empty.
 - Per SPEC §10.3 single-repo fallback, all outputs route to `$(pwd)/<rel_path>` — exactly the v0.1.0 behavior.
-- 11 memory-bank files land under `$(pwd)/.claude/memory-bank/`.
+- 14 memory-bank files land under `$(pwd)/.claude/memory-bank/`.
 - `CLAUDE.md` lands at `$(pwd)/CLAUDE.md`.
 - `.claude/settings.json` lands at `$(pwd)/.claude/settings.json`.
 - No writes to any path outside `$(pwd)`.
 
 **Assertion (judge subagent verifies):**
-- `$(pwd)/.claude/memory-bank/` exists and contains all 11 expected files.
+- `$(pwd)/.claude/memory-bank/` exists and contains all 14 expected files.
 - `$(pwd)/CLAUDE.md` exists.
 - `$(pwd)/CLAUDE.md` does NOT contain the Karpathy attribution string (opt-in was "no" in this scenario).
 - `$(pwd)/.claude/settings.json` exists and parses as valid JSON.
