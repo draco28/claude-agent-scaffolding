@@ -39,7 +39,7 @@ Done. The user can re-invoke for the next rule. There is no batch mode in v0.2 �
 
 **Do NOT auto-invoke when:**
 
-- The user wants to **derive the memory bank** (the 11-file scaffold + `## Machine-checkable rules` section seeding) — that's `scaffold-onboard:scaffolding-memory-bank` via `/scaffold-project`. Your skill assumes the section either already exists or is about to be created on first rule; it does not bootstrap the whole memory bank.
+- The user wants to **derive the memory bank** (the 14-file scaffold + `## Machine-checkable rules` section seeding) — that's `scaffold-onboard:scaffolding-memory-bank` via `/scaffold-project`. Your skill assumes the section either already exists or is about to be created on first rule; it does not bootstrap the whole memory bank.
 - The user wants to author **governance docs** (PRD, SRS, BACKLOG, ADRs, RISK_REGISTER, etc.) — that's `scaffold-onboard:scaffolding-governance-docs` via `/scaffold-docs`. Governance docs live outside `03-code-patterns.md`.
 - The user wants to author the **Phase → Sprint → Vertical-Slice hierarchy** (ROADMAP.md) — that's `scaffold-onboard:planning-project-roadmap` via `/plan-roadmap`. Demo criteria, slice IDs, sprint planning all live there, not here.
 - The user wants to author **demo criteria** for a vertical slice (`auto:` / `user:` grammar) — that's `scaffold-onboard:authoring-vertical-slice-demo` (SPEC §5.6). Different DSL, different target file.

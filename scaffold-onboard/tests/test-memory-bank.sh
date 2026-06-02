@@ -329,6 +329,28 @@ test_migration_leaves_preserve_zone() {
   assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "banned: requests"
 }
 
+# SS-1 W7 (final-review fix) — legacy upgrade path: when 09 does NOT exist yet and
+# 03/04 carry harvested content, migration must seed 09 from its TEMPLATE (full
+# header/sections/cadence pointer), not a bare header — then preserve it.
+test_migration_creates_09_with_full_template() {
+  echo "test_migration_creates_09_with_full_template:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  # Simulate a legacy 12-file bank: remove 09, inject harvested content into 04.
+  rm -f ".claude/memory-bank/09-known-issues.md"
+  {
+    echo ""
+    echo "- legacy note: prefer atomic writes for the registry"
+    echo "<!-- Added from VS-1.1.1 retrospective, 2026-05-01; source: report -->"
+  } >> ".claude/memory-bank/04-tech-context.md"
+  sf_memory_bank_derive
+  # 09 has the migrated content AND the full template (cadence pointer + a section heading).
+  assert_file_contains "./.claude/memory-bank/09-known-issues.md" "prefer atomic writes for the registry"
+  assert_file_contains "./.claude/memory-bank/09-known-issues.md" "Memory-bank update cadence"
+  assert_file_contains "./.claude/memory-bank/09-known-issues.md" "Caveats & gotchas"
+}
+
 test_derive_00_project_brief
 test_live_files_preserved
 test_live_files_force_overwritten
@@ -350,4 +372,5 @@ test_cadence_policy_canonical
 test_migration_relocates_harvested_content
 test_migration_idempotent
 test_migration_leaves_preserve_zone
+test_migration_creates_09_with_full_template
 report_results

@@ -143,7 +143,15 @@ _sf_mb_migrate_harvested() {
     [[ "$have_prev" -eq 1 ]] && printf '%s\n' "$prev" >> "$kept"
 
     if [[ -s "$relocated" ]]; then
-      [[ -f "$known" ]] || printf '# Known Issues\n' > "$known"
+      # If 09 doesn't exist yet (legacy bank being upgraded), seed it from its
+      # template FIRST so it keeps the proper header/sections/cadence pointer — the
+      # later live-seed loop will then preserve it (seed-if-missing). Falling back to
+      # a bare header would permanently strip the template on exactly the upgrade
+      # path this migration serves (final-review IMPORTANT).
+      if [[ ! -f "$known" ]]; then
+        local _ki_tmpl; _ki_tmpl="$(sf_plugin_root)/templates/memory-bank/09-known-issues.md.tmpl"
+        if [[ -f "$_ki_tmpl" ]]; then sf_render "$_ki_tmpl" > "$known"; else printf '# Known Issues\n' > "$known"; fi
+      fi
       {
         echo ""
         echo "## Migrated from $(basename "$src") (SS-1)"
