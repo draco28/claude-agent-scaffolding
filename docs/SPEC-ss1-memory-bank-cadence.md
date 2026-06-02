@@ -24,7 +24,7 @@ Classify every memory-bank file by **who owns its content**, and #45 shrinks fro
 ## 2. Settled decisions
 
 1. **Separate files + rules stay in `03`.** Add two pure-dev (live-seed) files for harvested learnings; keep machine-checkable rules in `03` (they *are* code-patterns) inside a marked preserved zone. `04` returns to pure-derived (no harvest into it).
-2. **New live-seed files:** `09-known-issues.md`, `10-decisions-log.md` — seeded header-only on first `/scaffold-project`, preserved on re-derive (same bucket as `05`/`06`).
+2. **New live-seed files:** `09-known-issues.md`, `10-decisions-log.md` — seeded header-only on first `/scaffold-project`, preserved on re-derive (same bucket as `05`/`06`). **Scope (SP-2):** `09` = caveats/gotchas/workarounds **+ dev-discovered stack/tech notes** ("things that bite / behaviors to watch"); `10` = build-time decisions **+ advisory patterns/conventions** ("things we chose / established"). Enforceable patterns do NOT go here — they escalate to machine-checkable rules in `03`. **Load-tier (SP-4):** `09` = Tier 0 (always-load); `10` = on-demand/branch-load.
 3. **`03` preserved zone:** the `## Machine-checkable rules` section is wrapped in markers and survives re-derive via deterministic extract-before-render / re-inject-after. Everything else in `03` re-renders from MASTER-SPEC.
 4. **Single-point cadence policy.** One canonical "Memory-bank update cadence" policy (event × bank × who) is the *only* place the cadence is stated. **De-contamination sweep:** every other skill/template/plugin mention of when/which-bank-updates is rewritten to *point to* the policy — no restatements, no conflicting assertions (§5).
 5. **Harvest target-set fix.** Kill the phantom targets in `closing-vertical-slice` (`09`/`10`/`06-product-context` were never real files); route harvest to the new pure-dev files per the policy; never append into derived `03`/`04` prose. (Discovered enforceable patterns become machine-checkable rules via the authoring flow → `03` rules zone, not a raw harvest append.)
@@ -39,7 +39,7 @@ Classify every memory-bank file by **who owns its content**, and #45 shrinks fro
 | **Onboard / `/scaffold-project`** | derive `00-04,07,08,index` (preserve `03` rules zone); seed-if-missing `05,06,09,10,tech-debt,WORKFLOW` | scaffolding-memory-bank (agent synthesis default; bash `--fast`) | derive + seed |
 | **Work-item close** | **none** — suggestions captured in `report.md §7` for later harvest | implementer-agent | — |
 | **Vertical-slice close** | `05` cursor; `09-known-issues` + `10-decisions-log` (harvest, agent-judged); `tech-debt` (auto-file sweep); `03` rules zone *only if* a discovered pattern is promoted to a rule | closing-vertical-slice orchestrator | agent-judged append to pure-dev files |
-| **Sprint close** | **OPEN** — currently none (§7 settle-point) | writing-sprint-retrospective | — |
+| **Sprint close** | **none** (write-nothing — SP-3 confirmed; sprint-retro stays read-only aggregation, writes `sprint-retrospective.md` which is not a memory-bank file) | writing-sprint-retrospective | — |
 | **Continuous** | `05` cursor (orchestrator); `06` progress (changelog/hand); `03` rules (authoring-machine-checkable-rules); `tech-debt` (`/defer`) | various | append |
 | **Enhancement re-derive** | re-derive spec files (preserve `03` rules zone); all pure-dev files untouched | `/scaffold-project` re-run | mechanical preservation — no agent merge |
 
@@ -53,6 +53,7 @@ Classify every memory-bank file by **who owns its content**, and #45 shrinks fro
 - **W4 (scaffold-dev):** rewrite `closing-vertical-slice` harvest target-set → route to `09`/`10` per policy; kill phantoms; fix the file-count wording.
 - **W5 (both plugins):** de-contamination sweep (§5) — redirect every cadence mention to the policy.
 - **W6:** tests — new-file seeding + preservation, `03` rules-zone survives re-derive, harvest routes correctly, no skill restates cadence (a grep-guard test).
+- **W7 (scaffold-onboard, migration — SP-5):** one-time relocate step in the derive path — detect provenance-trailed harvest content (`<!-- Added from VS… -->`) in `03`/`04`, **relocate** it to `09`/`10` before regenerating those files, and print a summary. **Never silent-drop.** Covers existing projects on the 12-file bank (e.g. the PulseTrader test project).
 
 ---
 
@@ -83,10 +84,10 @@ Classify every memory-bank file by **who owns its content**, and #45 shrinks fro
 
 ---
 
-## 7. Open settle-points (resolve in the SS-1 plan, not blocking the spec)
+## 7. Settle-points — ALL RESOLVED (2026-06-02)
 
-- **SP-1 — Policy location:** single policy lives in `WORKFLOW.md` (expand its existing section) vs a dedicated `policy`/governance file referenced by WORKFLOW.md. Lean: WORKFLOW.md (it's the dev-loop doc; static/project-agnostic fits a plugin-defined policy).
-- **SP-2 — Harvest routing taxonomy:** known-issues→`09`, decisions→`10` are clear. Where do harvested *advisory patterns* (not enforceable as rules) and dev-discovered *stack notes* (old `04` target) go? Options: fold into `09`/`10`, or add a `10`-style "lessons" bucket. Avoid over-fragmenting.
-- **SP-3 — Sprint-close promotion:** keep write-nothing, or define cross-slice pattern promotion at sprint close? (Currently deferred OQ.)
-- **SP-4 — Load-tier** for `09`/`10` in `index` (Tier 0 always-load vs branch-load).
-- **SP-5 — Migration:** existing projects on the 12-file bank — does re-derive create `09`/`10` on next run (seed-if-missing handles it) and is any back-fill of already-harvested-into-`03`/`04` content needed?
+- **SP-1 — Policy location → `WORKFLOW.md`.** Canonical "Memory-bank update cadence" policy authored in scaffold-onboard's `WORKFLOW.md` template (Static/project-agnostic, already has a "When to update" section). Every skill points to `memory-bank/WORKFLOW.md → Memory-bank update cadence`. One source, materialized once per project.
+- **SP-2 — Routing → two buckets.** `09` absorbs known-issues + stack/tech notes; `10` absorbs decisions + advisory patterns; enforceable patterns → machine-checkable rules in `03`. No third file. (Folded into §2.2.)
+- **SP-3 — Sprint-close → write-nothing.** Slice close stays the single promotion event; sprint-retro is read-only aggregation. (Folded into §3.)
+- **SP-4 — Load-tier →** `09` Tier 0 (always-load), `10` on-demand/branch-load. Tunable later. (Folded into §2.2.)
+- **SP-5 — Migration → one-time relocate, never silent-drop.** (New work item W7, §4.)
