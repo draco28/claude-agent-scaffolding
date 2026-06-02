@@ -1,6 +1,6 @@
 # SS-1 — Memory-Bank Ownership + Single-Point Update Cadence (closes #45)
 
-**Status:** Draft (sub-spec of `docs/SPEC-agent-driven-program.md` → SS-1) · **Date:** 2026-06-02
+**Status:** Draft (sub-spec of `docs/agent-driven-program/SPEC-agent-driven-program.md` → SS-1) · **Date:** 2026-06-02
 **Closes:** `#45` (harvest ↔ derived-file SSoT contradiction). **Related:** `#52`/N4 (harvest grammar — SS-4), `#48` C/D/E.
 **Plugins touched:** `scaffold-onboard` (memory-bank derive, templates, SSoT note) + `scaffold-dev` (harvest, /defer, sprint-retro) — cross-plugin.
 

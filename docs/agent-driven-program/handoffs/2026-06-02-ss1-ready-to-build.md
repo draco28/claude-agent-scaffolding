@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-02 · **Repo:** `claude-agent-scaffolding` (plugin **source** repo — no `.workspace/pairing.json`, so scaffold-dev's slice/handoff skills refuse here; develop with the plain **brainstorm → writing-plans → subagent-driven-development** superpowers flow. Handoffs are manual `docs/HANDOFF-*.md`.)
 **Repo state:** `main` @ `89f6f70` (all design docs committed; nothing pushed to origin) · **0 open PRs** · untracked `.claude/` (do NOT commit).
-**Resume by:** reading `docs/SPEC-agent-driven-program.md` (the program) then `docs/SPEC-ss1-memory-bank-cadence.md` (SS-1, design-locked). Then **build SS-1**.
+**Resume by:** reading `docs/agent-driven-program/SPEC-agent-driven-program.md` (the program) then `docs/agent-driven-program/specs/SS-1-memory-bank-cadence.md` (SS-1, design-locked). Then **build SS-1**.
 
 ---
 
@@ -12,7 +12,7 @@ Started at "triage #45," reframed into a full program (user chose **Option C** �
 
 - **Triaged #45** → confirmed real, live-biting, cross-plugin (worse than reported: phantom harvest targets + latent mcrules clobber). Labeled `bug, scaffold-dev, scaffold-onboard, v0.2`; full findings on the issue.
 - **Six-stream audit** of the whole flow → **three root anti-patterns**: **A** regeneration-not-reconciliation · **B** transcription-where-synthesis-belongs · **C** dual-path/grammar-collision. Answered the MASTER-SPEC question: it's **mechanical transcription**, not synthesis.
-- **Program spec** `docs/SPEC-agent-driven-program.md` — 6 phased sub-specs (SS-1..SS-6) + issue ledger → **zero backlog**.
+- **Program spec** `docs/agent-driven-program/SPEC-agent-driven-program.md` — 6 phased sub-specs (SS-1..SS-6) + issue ledger → **zero backlog**.
 - **Filed 5 new issues** from the audit: **#49** EXEC-SUMMARY hole · **#50** verify "dark" synthesis (CRITICAL, = OQ-1) · **#51** MASTER-SPEC→agent synthesis · **#52** harvest grammar-collision · **#53** no CI. (Zero unfiled deferrals — backlog all tracked.)
 - **Codex daily-run findings triaged** (program spec §7): #44 + version findings STALE (Codex ran the pre-merge branch); only #53 (no CI) genuine.
 - **SS-1 design-locked** + all five settle-points resolved (see §3).
@@ -36,7 +36,7 @@ Commits on `main`: `82a51fd` (program spec), `9cb0983` (SS-1 sub-spec + program 
 
 ---
 
-## 3. SS-1 — what to build (design-locked: `docs/SPEC-ss1-memory-bank-cadence.md`)
+## 3. SS-1 — what to build (design-locked: `docs/agent-driven-program/specs/SS-1-memory-bank-cadence.md`)
 
 **Core idea:** classify each memory-bank file by ownership → #45 shrinks to **two files**. Dev-authored learnings move to their own pure-dev files; derived files become safely regenerable. **No agent-merge engine** (OQ-2 resolved) — just file separation + one mechanical preserved zone.
 
@@ -68,7 +68,7 @@ Commits on `main`: `82a51fd` (program spec), `9cb0983` (SS-1 sub-spec + program 
 ---
 
 ## 5. Must-read
-- `docs/SPEC-agent-driven-program.md` — the program (north star, anti-patterns, ledger, OQs).
-- `docs/SPEC-ss1-memory-bank-cadence.md` — SS-1, design-locked (§4 work items, §5 sweep targets, §6 tests, §7 resolved settle-points).
+- `docs/agent-driven-program/SPEC-agent-driven-program.md` — the program (north star, anti-patterns, ledger, OQs).
+- `docs/agent-driven-program/specs/SS-1-memory-bank-cadence.md` — SS-1, design-locked (§4 work items, §5 sweep targets, §6 tests, §7 resolved settle-points).
 - Memory: `project_agent_driven_first_class_pivot` (full pivot state + SS-1 resolution), `feedback_agent_review_over_deterministic_gates`, `feedback_subagent_vs_inline_threshold`.
 - Audit evidence is in this session's transcript (six per-flow reports); the program spec §2–§3 distills it.

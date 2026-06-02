@@ -75,7 +75,7 @@ A mechanical parser *and* an agent path both claim one job; prose that doesn't m
 Each sub-spec gets its own `brainstorm → writing-plans → build → bot-review → release` cycle later. Sequencing respects dependencies; cleanup interleaves.
 
 ### SS-1 — Memory-bank ownership + single-point update cadence (anti-pattern A core) · **FOUNDATIONAL, FIRST** · design-locked
-**Design-locked in `docs/SPEC-ss1-memory-bank-cadence.md` (2026-06-02).** Key resolution: classify each bank by ownership (pure spec-derived / pure dev-authored / mixed) — which shrinks #45 to **two files**. Separate dev-authored learnings into **new live-seed files (`09-known-issues`, `10-decisions-log`)**; keep machine-checkable rules in `03` inside one **mechanically-preserved zone**. **OQ-2 resolved: no agent-merge engine needed** — file separation + mechanical zone-preservation suffices (preservation is a non-reasoning fact). Plus a **single-point cadence policy** (event × bank × who) with a de-contamination sweep so no skill restates the cadence.
+**Design-locked in `docs/agent-driven-program/specs/SS-1-memory-bank-cadence.md` (2026-06-02).** Key resolution: classify each bank by ownership (pure spec-derived / pure dev-authored / mixed) — which shrinks #45 to **two files**. Separate dev-authored learnings into **new live-seed files (`09-known-issues`, `10-decisions-log`)**; keep machine-checkable rules in `03` inside one **mechanically-preserved zone**. **OQ-2 resolved: no agent-merge engine needed** — file separation + mechanical zone-preservation suffices (preservation is a non-reasoning fact). Plus a **single-point cadence policy** (event × bank × who) with a de-contamination sweep so no skill restates the cadence.
 **Closes:** `#45`. **Partially:** `#48` C/D/E.
 
 ### SS-2 — Turn synthesis ON + verify + post-derivation review (anti-pattern A/B) · depends on SS-1
@@ -150,7 +150,7 @@ Codex ran against the **stale pre-merge branch** (reported "44 commits ahead of 
 ## 8. Open questions (settle before/within the relevant sub-spec)
 
 - **OQ-1 (gates SS-2):** Does `/scaffold-project` + `/scaffold-docs` *actually* dispatch synthesis on a default run, or fall through to deterministic stubs? Verify by tracing one real invocation. Memory + three audit streams suggest "dark," but this must be confirmed before SS-2 framing. **If dark → SS-2 is "turn it on"; if live → SS-2 is "fix the model."**
-- **OQ-2 (SS-1): RESOLVED 2026-06-02.** No agent-merge engine. Separating dev-authored learnings into their own pure-dev files makes derived files safely regenerable; the only in-place preservation is `03`'s machine-checkable-rules zone (deterministic marker extract/re-inject — a non-reasoning fact). See `docs/SPEC-ss1-memory-bank-cadence.md`.
+- **OQ-2 (SS-1): RESOLVED 2026-06-02.** No agent-merge engine. Separating dev-authored learnings into their own pure-dev files makes derived files safely regenerable; the only in-place preservation is `03`'s machine-checkable-rules zone (deterministic marker extract/re-inject — a non-reasoning fact). See `docs/agent-driven-program/specs/SS-1-memory-bank-cadence.md`.
 - **OQ-3 (SS-3):** Phased-discussion file format + location + lifecycle (resumable schema; where it lives; deletion timing; whether to keep an archived copy for audit vs. hard-delete).
 - **OQ-4 (cross-cutting):** Codify the "what stays bash" boundary as a memory-bank/governance artifact so future sessions don't re-litigate.
 
