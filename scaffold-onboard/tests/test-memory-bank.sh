@@ -257,6 +257,19 @@ test_03_empty_zone_idempotent() {
   fi
 }
 
+# SS-1 W3 — the canonical cadence policy lives in WORKFLOW.md and carries the
+# uniqueness marker; the three ownership classes are named.
+test_cadence_policy_canonical() {
+  echo "test_cadence_policy_canonical:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  assert_file_contains "./.claude/memory-bank/WORKFLOW.md" "cadence-policy:canonical"
+  assert_file_contains "./.claude/memory-bank/WORKFLOW.md" "Memory-bank update cadence"
+  assert_file_contains "./.claude/memory-bank/WORKFLOW.md" "Spec-derived"
+  assert_file_contains "./.claude/memory-bank/WORKFLOW.md" "Dev-authored"
+}
+
 test_derive_00_project_brief
 test_live_files_preserved
 test_live_files_force_overwritten
@@ -274,4 +287,5 @@ test_new_dev_files_seeded
 test_new_dev_files_preserved_on_rederive
 test_03_rules_zone_preserved_on_rederive
 test_03_empty_zone_idempotent
+test_cadence_policy_canonical
 report_results
