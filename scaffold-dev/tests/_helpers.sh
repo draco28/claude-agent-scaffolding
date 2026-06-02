@@ -79,6 +79,22 @@ assert_file_contains() {
   fi
 }
 
+assert_file_not_contains() {
+  local path="$1" pattern="$2"
+  if [[ ! -e "$path" ]]; then
+    PASS=$((PASS+1))
+    echo "  $(_color_pass 'PASS') file absent (not-contains trivially true): $path"
+    return
+  fi
+  if grep -qE -- "$pattern" "$path"; then
+    FAIL=$((FAIL+1))
+    echo "  $(_color_fail 'FAIL') $path unexpectedly contains /$pattern/"
+  else
+    PASS=$((PASS+1))
+    echo "  $(_color_pass 'PASS') $path does not contain /$pattern/"
+  fi
+}
+
 assert_contains() {
   local label="$1" needle="$2" haystack="$3"
   if [[ "$haystack" == *"$needle"* ]]; then

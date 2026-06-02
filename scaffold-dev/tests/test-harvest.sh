@@ -196,6 +196,32 @@ test_apply_empty() {
   assert_eq "empty apply rc=0" "0" "$rc"
 }
 
+# SS-1 W4 — harvest aimed at a spec-derived file is rerouted to 09-known-issues
+# (never silently appended into the derived file).
+test_apply_reroutes_derived_target() {
+  echo "test_apply_reroutes_derived_target:"
+  setup_tmp_workspace
+  cd "$TMP_AI_WORKSPACE"
+  mkdir -p "$TMP_AI_WORKSPACE/.claude/memory-bank"
+  echo "# Code Patterns" > "$TMP_AI_WORKSPACE/.claude/memory-bank/02-system-patterns.md"
+  local items='[{"source":"report","work_item":"1.01","target_file":"02-system-patterns.md","suggestion":"watch the startup race"}]'
+  sd_harvest_apply "$items" "VS-3.2.1" 2>/dev/null
+  # The derived file is untouched; the note landed in 09-known-issues.md instead.
+  assert_file_not_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/02-system-patterns.md" "startup race"
+  assert_file_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/09-known-issues.md" "startup race"
+}
+
+# 09 / 10 (dev-authored) remain valid targets.
+test_apply_allows_dev_authored_target() {
+  echo "test_apply_allows_dev_authored_target:"
+  setup_tmp_workspace
+  cd "$TMP_AI_WORKSPACE"
+  mkdir -p "$TMP_AI_WORKSPACE/.claude/memory-bank"
+  local items='[{"source":"handoff","handoff_file":"vs-3.2.1-x.md","target_file":"10-decisions-log.md","item":"chose file-lock for the registry"}]'
+  sd_harvest_apply "$items" "VS-3.2.1"
+  assert_file_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/10-decisions-log.md" "chose file-lock for the registry"
+}
+
 test_reports_sweep_basic
 test_reports_source_tag
 test_reports_work_item
@@ -208,5 +234,7 @@ test_handoffs_filter
 test_apply_writes_trailer
 test_apply_idempotent
 test_apply_empty
+test_apply_reroutes_derived_target
+test_apply_allows_dev_authored_target
 
 sd_test_summary

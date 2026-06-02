@@ -311,7 +311,16 @@ From each `vs-N.M.K-*.md` handoff: extract **section 4 — "What's NOT in memory
 
 ### 9.4 Step 4 — Categorize by target memory-bank file
 
-For each candidate, decide which memory-bank file it belongs in (per scaffold-onboard's 11-file taxonomy): typically `03-code-patterns.md` (patterns + R2 rules), `04-tech-context.md` (stack-specific notes), `09-known-issues.md` (caveats + workarounds), `10-decisions-log.md` (ADR-worthy notes), or `06-product-context.md` (product-shape notes). Surface the proposed target alongside the candidate at step 5.
+For each candidate, decide which **dev-authored** memory-bank file it belongs in, per
+the cadence policy (`memory-bank/WORKFLOW.md` → **Memory-bank update cadence**, harvest
+routing): caveats / gotchas / stack notes → `09-known-issues.md`; decisions / advisory
+patterns → `10-decisions-log.md`; an enforceable pattern → NOT a raw harvest append —
+route the user to `Skill(scaffold-onboard:authoring-machine-checkable-rules)` so it
+lands in `03`'s preserved rules zone. Spec-derived files (`00,01,02,04,07,08,index`)
+and `03`'s derived prose are **never** harvest targets; `sd_harvest_apply` reroutes any
+such target to `09-known-issues.md` and warns. (There is no `06-product-context.md`
+file — `06` is `06-progress`; `01` is product-context.) Surface the proposed target
+alongside the candidate at step 5.
 
 ### 9.5 Step 5 — Surface candidates with source-tag prefix
 

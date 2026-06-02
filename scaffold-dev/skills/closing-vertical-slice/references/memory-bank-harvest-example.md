@@ -2,6 +2,8 @@
 
 The harvest step (SPEC §15.2) sweeps slice work-item reports + slice handoffs and surfaces promote-worthy items to the user. This walks through the harvest for VS-3.2's slice-close.
 
+> Routing follows the cadence policy: `memory-bank/WORKFLOW.md` → **Memory-bank update cadence**. Harvested prose goes to dev-authored files (09/10), never spec-derived ones.
+
 ## Inputs
 
 The skill body reads:
@@ -37,14 +39,14 @@ Skill body proposes targets based on item content + memory-bank file conventions
 
 | Item | Proposed target | Source tag |
 |---|---|---|
-| `Depends(verify_bearer_token)` API pattern | `02-system-patterns.md` (API conventions) | [report] |
-| mypy not configured | `04-tech-context.md` (tooling state) OR backlog | [report] |
-| Frontend card `empty_state` prop | `02-system-patterns.md` (frontend conventions) | [report] |
-| Dashboard CSS grid layout | `02-system-patterns.md` (frontend conventions) | [report] |
-| Chatbot intent auto-load | `02-system-patterns.md` (chatbot conventions) | [report] |
-| auth raises, never returns None | `02-system-patterns.md` (API auth conventions) | [handoff] |
+| `Depends(verify_bearer_token)` API pattern | `09-known-issues.md` (stack/convention note) | [report] |
+| mypy not configured | `09-known-issues.md` (tooling caveat) OR backlog | [report] |
+| Frontend card `empty_state` prop | `09-known-issues.md` (stack convention note) | [report] |
+| Dashboard CSS grid layout | `09-known-issues.md` (stack convention note) | [report] |
+| Chatbot intent auto-load | `09-known-issues.md` (stack convention note) | [report] |
+| auth raises, never returns None | `09-known-issues.md` (API auth caveat) | [handoff] |
 | auth-expired UX gap | BACKLOG (not memory bank) | [handoff] |
-| auth-test expired-token mcrule | `03-code-patterns.md` mcrule | [handoff] |
+| auth-test expired-token mcrule | `03-code-patterns.md` rules zone — via `authoring-machine-checkable-rules`, NOT a raw harvest append | [handoff] |
 
 ## Step 3 — Surface to user
 
@@ -57,7 +59,7 @@ Text:
   "API routes that wrap a query function use `Depends(verify_bearer_token)` pattern;
    query function takes user_id (extracted from token) as first arg."
 
-Proposed target: `.claude/memory-bank/02-system-patterns.md` (API conventions section)
+Proposed target: `.claude/memory-bank/09-known-issues.md` (stack/convention note)
 
 Action: accept / edit / reject / defer / change-target?
 ```
@@ -70,11 +72,11 @@ Continuing through items:
 
 | Item | User decision | Final target |
 |---|---|---|
-| `Depends(verify_bearer_token)` API pattern | accept | `02-system-patterns.md` |
+| `Depends(verify_bearer_token)` API pattern | accept | `09-known-issues.md` |
 | mypy not configured | change-target -> BACKLOG (not memory bank) | (backlog item) |
 | Frontend `empty_state` prop | defer (still divergent across VS-3.2 and VS-3.3 implementations; harmonize later) | (re-surface at sprint-3 carry-forward) |
 | Dashboard CSS grid layout | reject (too implementation-detail; not a re-use pattern) | (none) |
-| Chatbot intent auto-load | accept, edit (clarify wording) | `02-system-patterns.md` |
+| Chatbot intent auto-load | accept, edit (clarify wording) | `09-known-issues.md` |
 | auth raises, never returns None | defer (one instance; need 3rd before promoting) | (re-surface at sprint-3 carry-forward) |
 | auth-expired UX gap | accept as backlog | (backlog item) |
 | auth-test expired-token mcrule | defer (low frequency) | (none yet) |
@@ -85,7 +87,7 @@ Continuing through items:
 
 For accepted items, skill body appends to the target file with provenance trailer:
 
-Example append to `.claude/memory-bank/02-system-patterns.md`:
+Example append to `.claude/memory-bank/09-known-issues.md`:
 
 ```markdown
 ### API auth via bearer-token dependency
@@ -119,11 +121,11 @@ The slice retrospective doc records all 8 decisions:
 
 | Item | Source | Decision | Target |
 |---|---|---|---|
-| API auth `Depends(verify_bearer_token)` | report | accepted | 02-system-patterns.md |
+| API auth `Depends(verify_bearer_token)` | report | accepted | 09-known-issues.md |
 | mypy not configured | report | backlog | (backlog item BL-127) |
 | Frontend `empty_state` prop | report | deferred | sprint-3 carry-forward |
 | Dashboard CSS grid layout | report | rejected | n/a |
-| Chatbot intent auto-load | report | accepted (edited) | 02-system-patterns.md |
+| Chatbot intent auto-load | report | accepted (edited) | 09-known-issues.md |
 | auth raises, never returns None | handoff | deferred | sprint-3 carry-forward |
 | auth-expired UX gap | handoff | backlog | (backlog item BL-128) |
 | auth-test expired-token mcrule | handoff | deferred | n/a (low freq) |

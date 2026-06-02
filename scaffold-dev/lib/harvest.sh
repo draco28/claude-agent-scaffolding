@@ -11,6 +11,20 @@
 
 set -u
 
+# Spec-derived memory-bank basenames — harvest must NEVER append prose into these
+# (SS-1 W4 / #45). Per the cadence policy (memory-bank/WORKFLOW.md), harvested prose
+# routes to dev-authored files. 03-code-patterns is mixed: its derived body is off
+# limits to raw harvest; enforceable patterns go through authoring-machine-checkable-rules.
+_SD_HARVEST_DERIVED_FILES="00-project-brief.md 01-product-context.md 02-system-patterns.md 03-code-patterns.md 04-tech-context.md 07-constraints.md 08-governance.md index.md"
+
+_sd_harvest_is_derived() {
+  local f="$1" d
+  for d in $_SD_HARVEST_DERIVED_FILES; do
+    [[ "$f" == "$d" ]] && return 0
+  done
+  return 1
+}
+
 _SD_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if ! declare -F sd_log_info >/dev/null 2>&1; then
   # shellcheck disable=SC1091
@@ -179,6 +193,14 @@ sd_harvest_apply() {
     if [[ -z "$target" ]]; then
       sd_log_warn "sd_harvest_apply: skipping item with no target_file: $text"
       continue
+    fi
+
+    # SS-1 W4: never append harvested prose into a spec-derived file — reroute to
+    # the dev-authored catch-all (09-known-issues.md) and warn. Enforceable patterns
+    # belong in 03's rules zone via authoring-machine-checkable-rules, not here.
+    if _sd_harvest_is_derived "$target"; then
+      sd_log_warn "sd_harvest_apply: '$target' is spec-derived — rerouting to 09-known-issues.md (cadence policy: memory-bank/WORKFLOW.md)"
+      target="09-known-issues.md"
     fi
 
     local file="$mb/$target"
