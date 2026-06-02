@@ -185,8 +185,21 @@ sf_rules_validate_block <block_body_text>
 
 The section is appended to, never rewritten in place. The contract:
 
-1. **Locate the section.** Find the line matching `^## Machine-checkable rules` in the file. If absent, append the heading at end-of-file (plus a blank line above and below) and treat the new block as the first under it.
-2. **Find the insertion point.** Search forward from the section heading for the last `<!-- mcrule:end -->` before the next `## ` heading (or EOF). Insert the new block after that line, preceded by a blank line. If no existing `<!-- mcrule:end -->` is present in the section, insert after any invitation comment / prose, before the next H2 (or EOF).
+1. **Locate the section.** Find the line matching `^## Machine-checkable rules`. In a
+   scaffold-onboard-derived `03-code-patterns.md` it sits inside a preserved zone
+   delimited by `<!-- mcrules:preserve:start -->` … `<!-- mcrules:preserve:end -->`
+   (SS-1 W2 — that zone is what survives `/scaffold-project` re-derive; rules placed
+   outside it would be lost). If the heading is absent, append the full sentinel-wrapped
+   zone (start marker, heading, invitation, end marker) at EOF and treat the new block
+   as the first under it.
+2. **Find the insertion point.** The section's lower boundary is
+   `<!-- mcrules:preserve:end -->` when present (NOT the next `## ` heading — that is
+   now outside the preserved zone). Search forward from the heading for the last
+   `<!-- mcrule:end -->` before `<!-- mcrules:preserve:end -->`; insert the new block
+   after that line, preceded by a blank line. If no `<!-- mcrule:end -->` exists yet,
+   insert after the invitation comment, immediately before `<!-- mcrules:preserve:end -->`.
+   (Legacy files without the preserve markers fall back to the old boundary: before the
+   next `## ` heading or EOF.)
 3. **Idempotent on verbatim-identical blocks.** Before writing, scan existing `<!-- mcrule:start ... -->` … `<!-- mcrule:end -->` blocks in the section. If a block with byte-identical body (after whitespace normalization) already exists, skip the write and surface: *"This rule is already present in `03-code-patterns.md` — no change needed."* Do not duplicate.
 4. **Never overwrite existing rules.** Pre-existing rule blocks in the section are byte-identical preserved (the S5 eval scenario verifies this). Your write is an in-place insertion, not a rewrite.
 5. **Preserve surrounding prose.** Any human-authored prose between rule blocks (e.g., "We forbid sync HTTP libraries because they block the event loop.") stays untouched.

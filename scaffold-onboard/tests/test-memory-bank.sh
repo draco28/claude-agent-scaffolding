@@ -210,6 +210,53 @@ test_new_dev_files_preserved_on_rederive() {
   assert_file_contains "./.claude/memory-bank/10-decisions-log.md" "use file-lock for the registry"
 }
 
+# SS-1 W2 — a machine-checkable rule authored into 03 survives a plain re-derive;
+# the derived prose around it still refreshes.
+test_03_rules_zone_preserved_on_rederive() {
+  echo "test_03_rules_zone_preserved_on_rederive:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  # Simulate authoring-machine-checkable-rules inserting a rule inside the zone:
+  # insert a rule block immediately before the preserve:end marker.
+  awk '
+    /<!-- mcrules:preserve:end -->/ && !done {
+      print "<!-- mcrule:start type=banned-imports -->"
+      print "banned: requests"
+      print "<!-- mcrule:end -->"
+      done=1
+    }
+    { print }
+  ' ".claude/memory-bank/03-code-patterns.md" > ".claude/memory-bank/03-code-patterns.md.tmp"
+  mv ".claude/memory-bank/03-code-patterns.md.tmp" ".claude/memory-bank/03-code-patterns.md"
+  sf_memory_bank_derive
+  assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "mcrule:start type=banned-imports"
+  assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "banned: requests"
+  # derived prose still present (the zone is not the whole file)
+  assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "User-global defaults"
+}
+
+# SS-1 W2 — empty-zone idempotency: a fresh project with NO authored rules survives
+# repeated re-derive without corrupting 03 (the [[ -n "$saved_zone" ]] guard path).
+test_03_empty_zone_idempotent() {
+  echo "test_03_empty_zone_idempotent:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  sf_memory_bank_derive
+  sf_memory_bank_derive
+  # Sentinels present exactly once each; heading intact; no duplication.
+  local starts ends headings
+  starts="$(grep -c 'mcrules:preserve:start' ".claude/memory-bank/03-code-patterns.md")"
+  ends="$(grep -c 'mcrules:preserve:end' ".claude/memory-bank/03-code-patterns.md")"
+  headings="$(grep -c '^## Machine-checkable rules' ".claude/memory-bank/03-code-patterns.md")"
+  if [[ "$starts" == "1" && "$ends" == "1" && "$headings" == "1" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ empty zone stable across repeated re-derive"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ zone corrupted: starts=$starts ends=$ends headings=$headings"
+  fi
+}
+
 test_derive_00_project_brief
 test_live_files_preserved
 test_live_files_force_overwritten
@@ -225,4 +272,6 @@ test_claude_md_karpathy_opt_out
 test_derive_seeds_machine_checkable_rules_section
 test_new_dev_files_seeded
 test_new_dev_files_preserved_on_rederive
+test_03_rules_zone_preserved_on_rederive
+test_03_empty_zone_idempotent
 report_results

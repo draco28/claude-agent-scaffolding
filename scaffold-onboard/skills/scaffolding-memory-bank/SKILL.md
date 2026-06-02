@@ -308,7 +308,28 @@ The 9 artifacts and their output paths:
 - `05-active-context.md`, `06-progress.md`, `09-known-issues.md`, and `10-decisions-log.md` keep today's seed-once behavior — `sf_memory_bank_derive` handles them (preserve if present, seed only if missing). Do not dispatch sub-agents for them.
 - `WORKFLOW.md` remains a static copy. Do not dispatch a sub-agent for it.
 
-**03-code-patterns special note:** the brief already instructs the sub-agent to keep the `## Machine-checkable rules` section empty (heading + invitation comment, zero `<!-- mcrule:start -->` blocks). Dispatch it normally — do not special-case beyond using its brief.
+**03-code-patterns special note (preserved rules zone — SS-1 W2):** `03` carries a
+`<!-- mcrules:preserve:start -->` … `<!-- mcrules:preserve:end -->` zone that must
+survive re-derive. BEFORE dispatching the `03-code-patterns` sub-agent, capture the
+existing zone with the lib helper:
+
+    saved_zone="$(_sf_mb_extract_preserve_zone "$out_03")"   # $out_03 = resolved 03 path
+
+The brief instructs the agent to emit the section wrapped in those exact sentinels
+(empty: heading + invitation only). AFTER the agent returns `mode:complete` and the
+file is written, re-inject the captured zone:
+
+    if [[ -n "$saved_zone" ]]; then
+      _sf_mb_reinject_preserve_zone "$out_03" "$saved_zone" \
+        || { sf_log_warn "03 synthesis omitted preserve markers — falling back to deterministic render"; \
+             sf_render "${CLAUDE_PLUGIN_ROOT}/templates/memory-bank/03-code-patterns.md.tmpl" "${args[@]}" > "$out_03"; \
+             _sf_mb_reinject_preserve_zone "$out_03" "$saved_zone"; }
+    fi
+
+If the sub-agent fails to emit the sentinels, `_sf_mb_reinject_preserve_zone` returns
+non-zero → fall back to the deterministic `03` render (which always has the sentinels),
+then re-inject. The deterministic template is the labeled fallback, never a silent
+default (program north star: one source of truth per job).
 
 On `mode:complete` for each artifact: merge returned IDs and validate:
 

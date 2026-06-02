@@ -55,6 +55,52 @@ _memory_bank_args() {
   printf '%s\n' "${args[@]}"
 }
 
+# Echo the preserved rules zone (start..end sentinels inclusive) from $1.
+# Empty output if the file or the markers are absent.
+_sf_mb_extract_preserve_zone() {
+  local file="$1"
+  [[ -f "$file" ]] || return 0
+  awk '
+    /<!-- mcrules:preserve:start -->/ { cap=1 }
+    cap { print }
+    /<!-- mcrules:preserve:end -->/   { if (cap) exit }
+  ' "$file"
+}
+
+# Replace the freshly-rendered preserve zone in $1 with the saved zone text ($2).
+# Returns non-zero (and leaves $1 untouched) if $1 has no preserve markers, so the
+# caller can fall back. macOS-portable (no in-place sed -i).
+#
+# The saved zone is multi-line. Passing a multi-line value through awk -v is
+# unreliable across awk variants (BSD awk in particular mangles embedded
+# newlines), so we stage the saved zone in a temp FILE and have awk slurp it via
+# getline — the only thing crossing the -v boundary is the single-line filename,
+# which is always safe. This guarantees the zone round-trips byte-faithfully.
+_sf_mb_reinject_preserve_zone() {
+  local file="$1" saved="$2"
+  grep -q '<!-- mcrules:preserve:start -->' "$file" || return 1
+  grep -q '<!-- mcrules:preserve:end -->'   "$file" || return 1
+  local tmp savedfile
+  tmp="$(mktemp)"
+  savedfile="$(mktemp)"
+  printf '%s\n' "$saved" > "$savedfile"
+  awk -v sf="$savedfile" '
+    /<!-- mcrules:preserve:start -->/ {
+      while ((getline line < sf) > 0) print line
+      close(sf)
+      skip=1; next
+    }
+    /<!-- mcrules:preserve:end -->/   { if (skip) { skip=0; next } }
+    skip { next }
+    { print }
+  ' "$file" > "$tmp" && mv "$tmp" "$file"
+  local rc=$?
+  # Clean both temp files. On the success path `mv` already moved $tmp away, so
+  # `rm -f` is a harmless no-op; on the awk-failure path it reclaims the orphan.
+  rm -f "$savedfile" "$tmp"
+  return $rc
+}
+
 # Derive memory-bank: regenerate derived files, seed live files only if missing,
 # copy static file only if missing.
 # Args: --force  (optional) to overwrite live files too.
@@ -82,10 +128,22 @@ sf_memory_bank_derive() {
   local args=()
   while IFS= read -r line; do args+=("$line"); done < <(_memory_bank_args "$ts")
 
-  # 8 derived files
+  # 8 derived files. 03-code-patterns keeps a preserved rules zone (SS-1 W2):
+  # capture the existing zone, re-render, re-inject.
   local f
   for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 07-constraints 08-governance index; do
-    sf_render "$tmpl_dir/${f}.md.tmpl" "${args[@]}" > ".claude/memory-bank/${f}.md"
+    local out=".claude/memory-bank/${f}.md"
+    if [[ "$f" == "03-code-patterns" ]]; then
+      local saved_zone
+      saved_zone="$(_sf_mb_extract_preserve_zone "$out")"
+      sf_render "$tmpl_dir/${f}.md.tmpl" "${args[@]}" > "$out"
+      if [[ -n "$saved_zone" ]]; then
+        _sf_mb_reinject_preserve_zone "$out" "$saved_zone" \
+          || sf_log_warn "03-code-patterns: could not re-inject preserved rules zone"
+      fi
+    else
+      sf_render "$tmpl_dir/${f}.md.tmpl" "${args[@]}" > "$out"
+    fi
   done
 
   # 4 live files — seed only if missing (unless --force)
