@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Verify that the `scaffold-onboard:scaffolding-memory-bank` skill (per SPEC §5.2 + §10 routing + §14 Karpathy section) deterministically derives the 11-file memory bank from MASTER-SPEC.md, seeds the R2 `## Machine-checkable rules` section in `03-code-patterns.md` as empty (heading + invitation comment, zero rule blocks), routes outputs per manifest, and conditionally emits the Karpathy "Behavioral Discipline" section in CLAUDE.md based on the Phase 10.4 opt-in state answer.
+Verify that the `scaffold-onboard:scaffolding-memory-bank` skill (per SPEC §5.2 + §10 routing + §14 Karpathy section) deterministically derives the 14-file memory bank from MASTER-SPEC.md, seeds the R2 `## Machine-checkable rules` section in `03-code-patterns.md` as empty (heading + invitation comment, zero rule blocks), routes outputs per manifest, and conditionally emits the Karpathy "Behavioral Discipline" section in CLAUDE.md based on the Phase 10.4 opt-in state answer.
 
 ## Harness
 
@@ -41,19 +41,20 @@ Each scenario is executed inside a single Claude Code subscription session by an
 **Expected behavior:**
 - Skill triggers on `/scaffold-project` (resolves to `scaffold-onboard:scaffolding-memory-bank`).
 - Skill validates MASTER-SPEC.md via `sf_spec_validate` (no errors raised on the fixture).
-- Skill derives and emits all 11 memory-bank files under `$(pwd)/.claude/memory-bank/`:
+- Skill derives and emits all 14 memory-bank files under `$(pwd)/.claude/memory-bank/`:
   - **8 derived from MASTER-SPEC** — `00-project-brief.md`, `01-product-context.md`, `02-system-patterns.md`, `03-code-patterns.md`, `04-tech-context.md`, `07-constraints.md`, `08-governance.md`, `index.md`. Content is materialized from the corresponding `.tmpl` files with MASTER-SPEC-derived substitutions.
-  - **2 live-seed (preserve on re-derive)** — `05-active-context.md`, `06-progress.md`. On fresh derivation these are emitted with their initial seeded content (effectively starter scaffolding the user will fill in).
+  - **4 live-seed (preserve on re-derive)** — `05-active-context.md`, `06-progress.md`, `09-known-issues.md`, `10-decisions-log.md`. On fresh derivation these are emitted with their initial seeded content (effectively starter scaffolding the user will fill in).
   - **1 static (copy-once)** — `WORKFLOW.md`. Copied verbatim from the template.
+  - **1 seeded index** — `tech-debt.md`. Rendered header-only from template; scaffold-dev appends entries over time.
 - `03-code-patterns.md` contains a `## Machine-checkable rules` section heading near the end, with a seeded invitation comment (e.g., a comment line inviting the user to add rules manually or via the `authoring-machine-checkable-rules` skill) and **zero** populated `<!-- mcrule:start ... -->` blocks.
 - Skill emits `CLAUDE.md` at the routing destination (single-repo: `$(pwd)/CLAUDE.md`). Because `phase_10.4.include_karpathy = "yes"`, CLAUDE.md contains the Karpathy "Behavioral Discipline" section with the verbatim attribution language *"Behavioral guidelines inspired by Karpathy's observations (Chang, 2026; MIT)"* and all four principles (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution).
 - Skill emits `.claude/settings.json` at the routing destination (single-repo: `$(pwd)/.claude/settings.json`).
 - No legacy IPC file writes (no `inbox/` / `outbox/` activity).
 
 **Assertion (judge subagent verifies):**
-- After the turn, the directory `$(pwd)/.claude/memory-bank/` exists and contains exactly these 11 files: `00-project-brief.md`, `01-product-context.md`, `02-system-patterns.md`, `03-code-patterns.md`, `04-tech-context.md`, `05-active-context.md`, `06-progress.md`, `07-constraints.md`, `08-governance.md`, `index.md`, `WORKFLOW.md`.
+- After the turn, the directory `$(pwd)/.claude/memory-bank/` exists and contains exactly these 14 files: `00-project-brief.md`, `01-product-context.md`, `02-system-patterns.md`, `03-code-patterns.md`, `04-tech-context.md`, `05-active-context.md`, `06-progress.md`, `07-constraints.md`, `08-governance.md`, `09-known-issues.md`, `10-decisions-log.md`, `index.md`, `WORKFLOW.md`, `tech-debt.md`.
 - The 8 derived files contain content shaped by MASTER-SPEC (judge spot-checks at least 2 of them for substituted project-specific content rather than raw template placeholders like `{{project_name}}`).
-- The 2 live-seed files (`05-active-context.md`, `06-progress.md`) are present and contain initial seeded scaffolding (judge verifies they read as a starter file, not as a copy of MASTER-SPEC content).
+- The 4 live-seed files (`05-active-context.md`, `06-progress.md`, `09-known-issues.md`, `10-decisions-log.md`) are present and contain initial seeded scaffolding (judge verifies they read as a starter file, not as a copy of MASTER-SPEC content).
 - `WORKFLOW.md` is byte-equivalent to the static template (judge spot-checks first heading + opening paragraph match).
 - `03-code-patterns.md` contains the literal heading `## Machine-checkable rules` AND contains an invitation comment pointing the user at the `authoring-machine-checkable-rules` skill (or equivalent natural-language invitation), AND contains zero `<!-- mcrule:start` sentinels (the section is seeded as empty by design).
 - `CLAUDE.md` exists at `$(pwd)/CLAUDE.md` and contains the verbatim string `Behavioral guidelines inspired by Karpathy's observations (Chang, 2026; MIT)` and all four principle names (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution).

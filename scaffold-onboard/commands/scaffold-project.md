@@ -6,7 +6,7 @@ allowed-tools: Bash(bash:*), Read, Write, Edit, SlashCommand
 
 Parse flags from `$ARGUMENTS` using the env-var bridge (no positional `$1`/`$2`/`$N`),
 then invoke the `scaffold-onboard:scaffolding-memory-bank` skill. The skill body
-owns MASTER-SPEC validation, the 11-file memory-bank derivation, CLAUDE.md
+owns MASTER-SPEC validation, the 14-file memory-bank derivation, CLAUDE.md
 generation, and `.claude/settings.json` emission per scaffold-onboard SPEC §5.2.
 
 ```bash

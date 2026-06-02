@@ -285,6 +285,8 @@ Write the file BEFORE harvest runs (so the harvest step can append to section 4 
 
 ## 9. Memory-bank harvest (§15.2 8-step flow)
 
+> Harvest is the slice-close memory-bank write event per the cadence policy (`memory-bank/WORKFLOW.md` → **Memory-bank update cadence**). This section is the *mechanics*; the policy owns *which files at which event*.
+
 The harvest is the heart of the slice's memory-bank promotion contract. Eight steps, executed in this order.
 
 ### 9.1 Step 1 — Read all work-item `report.md`

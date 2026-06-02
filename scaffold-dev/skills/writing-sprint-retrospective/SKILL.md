@@ -7,7 +7,7 @@ description: Aggregate per-slice retrospectives for a closed sprint and author `
 
 You are scaffold-dev v0.1's sprint-retro aggregator. N slice retros in (one per closed VS-N.M.K), one sprint retro out at `sprint-N/sprint-retrospective.md`. The hard part is the precondition gate — every slice in the sprint must have closed (i.e., have a `retrospective.md` on disk) before aggregation makes sense. If even one slice is still in flight, you bail with a remediation hint and the un-closed slice's ID.
 
-This skill is the sprint-retro composer. It does NOT close slices (that's `closing-vertical-slice` per §14 — the upstream contract that produces each `retrospective.md` this skill consumes), does NOT sweep sprint-scoped handoffs at sprint close (that's `closing-vertical-slice`'s §11 conditional final-slice branch per the v0.1 cleanup ownership), does NOT compose the carry-forward handoff (`sprint-N-to-N+1-handoff-XXXX.md` — that's `handing-off-session`'s S1 scenario), and does NOT re-promote sprint-aggregate observations into memory bank with `source: sprint-retro` provenance trailers (the per-slice harvest already did that work; sprint-level promotion is documented as an open question deferred from v0.1).
+This skill is the sprint-retro composer. It does NOT close slices (that's `closing-vertical-slice` per §14 — the upstream contract that produces each `retrospective.md` this skill consumes), does NOT sweep sprint-scoped handoffs at sprint close (that's `closing-vertical-slice`'s §11 conditional final-slice branch per the v0.1 cleanup ownership), does NOT compose the carry-forward handoff (`sprint-N-to-N+1-handoff-XXXX.md` — that's `handing-off-session`'s S1 scenario), and does NOT re-promote sprint-aggregate observations into memory bank. Sprint close writes **nothing** to the memory bank — the per-slice harvest is the single promotion event (see `memory-bank/WORKFLOW.md` → **Memory-bank update cadence**). The sprint retro AGGREGATES counts; it does NOT re-promote items.
 
 Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/writing-sprint-retrospective.md` — the two scenarios there (S1 happy-path aggregation of 3 closed slices, S2 mid-sprint refusal naming the un-closed slice) are the binding spec.
 
@@ -345,7 +345,7 @@ Do NOT close with self-congratulatory boilerplate.
 - **Qualitative memory-bank counts.** Eval S1 rejects "several items added" / "many slices touched memory bank" — counts must be numeric.
 - **Dropping a slice from the per-slice rollup.** Eval S1 verifies all 3 slice IDs appear in section 3 of the written file.
 - **Reading manifest fields via raw `jq`.** All manifest reads route through `sd_manifest_get` / `sd_manifest_resolve`.
-- **Re-promoting sprint-aggregate items into memory bank with `source: sprint-retro` trailers.** Deferred from v0.1 — the per-slice harvest at `closing-vertical-slice` §15.2 covers slice-scope items; sprint-level promotion is an open question. The sprint retro AGGREGATES counts; it does NOT re-promote items.
+- **Re-promoting sprint-aggregate items into memory bank with `source: sprint-retro` trailers.** Sprint close writes **nothing** to the memory bank — the per-slice harvest is the single promotion event (see `memory-bank/WORKFLOW.md` → **Memory-bank update cadence**). The sprint retro AGGREGATES counts; it does NOT re-promote items.
 - **Letting this body exceed 350 lines.** Hard cap per PLAN T1.9 line budget.
 
 ---

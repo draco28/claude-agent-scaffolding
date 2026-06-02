@@ -210,6 +210,8 @@ The section is appended to, never rewritten in place. The contract:
 - Surface a one-line warning to the user: *"Note: encountered `<!-- mcrule:start type=dependency_age -->` block in section — this is a forward-compat type not recognized by v0.2. Preserving as-is."* (or equivalent natural-language acknowledgment).
 - The unknown block remains in the file unchanged. Skip means skip during the *semantic* layer, not delete from disk. The §8.5 contract is forward-compat preservation, not erasure.
 
+> Cadence note: rules are added continuously by this skill; the full update cadence lives in `memory-bank/WORKFLOW.md` → **Memory-bank update cadence**.
+
 ---
 
 ## 9. Extensibility (§8.5)

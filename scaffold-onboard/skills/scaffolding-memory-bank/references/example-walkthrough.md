@@ -1,6 +1,6 @@
 # Example walkthrough: `/scaffold-project` on `todo-cli`
 
-A concrete trace of `/scaffold-project` deriving the 11-file memory bank + `CLAUDE.md` + `.claude/settings.json` from a closed `MASTER-SPEC.md`. The project is the same **todo-cli** (Rust CLI, `project_class = "CLI tool"`) that the onboarding-project walkthrough finished. We pick up after `/onboard` closed with `phase_10.4.include_karpathy = yes`.
+A concrete trace of `/scaffold-project` deriving the 14-file memory bank + `CLAUDE.md` + `.claude/settings.json` from a closed `MASTER-SPEC.md`. The project is the same **todo-cli** (Rust CLI, `project_class = "CLI tool"`) that the onboarding-project walkthrough finished. We pick up after `/onboard` closed with `phase_10.4.include_karpathy = yes`.
 
 Two variants are shown side-by-side: a **single-repo run** (no workspace-init manifest) and a **dual-repo run** (manifest routes `memory_bank` / `claude_md` / `scaffold_project_outputs` to `ai_workspace`). Both run from the same MASTER-SPEC; the only difference is the routing helper's answer.
 
@@ -73,9 +73,9 @@ ac_status="$(sf_compose_detect_architect_critic)"
 
 ---
 
-## Step 4 — Derive the 11-file memory bank
+## Step 4 — Derive the 14-file memory bank
 
-Skill calls `sf_memory_bank_derive` (no `--force` — first run, nothing to preserve). The helper renders all 11 files using `_memory_bank_args` (timestamp, `project_class=CLI tool`, every `phase_<qid>=<answer>` from the state file, plus gate flags `ui_branch=true` / `dx_branch=true` / `backend_branch=false` / `frontend_branch=false` / `library_branch=false`).
+Skill calls `sf_memory_bank_derive` (no `--force` — first run, nothing to preserve). The helper renders all 14 files using `_memory_bank_args` (timestamp, `project_class=CLI tool`, every `phase_<qid>=<answer>` from the state file, plus gate flags `ui_branch=true` / `dx_branch=true` / `backend_branch=false` / `frontend_branch=false` / `library_branch=false`).
 
 **Files written under `/Users/<you>/work/todo-cli/.claude/memory-bank/`:**
 
@@ -90,10 +90,13 @@ Skill calls `sf_memory_bank_derive` (no `--force` — first run, nothing to pres
 | `06-progress.md` | live-seed | Initial scaffolding ("Phase 0: scaffolding complete. Phase 1: TBD."). PRESERVED on re-derive. |
 | `07-constraints.md` | derived | Phase 4 (no PII, no auth, no network) + Phase 8 (cargo + Homebrew distribution constraints). |
 | `08-governance.md` | derived | Pre-merge gates, success metric (100 installs in 60 days), risk register summary. |
-| `index.md` | derived | Tier-2 entry point with relative links to 00–08 + WORKFLOW. |
+| `09-known-issues.md` | live-seed | Seeded header-only ("Caveats & gotchas / Stack notes — none yet"). PRESERVED on re-derive. Slice-close harvest promotes caveats/gotchas here. |
+| `10-decisions-log.md` | live-seed | Seeded header-only ("Decisions / Advisory patterns — none yet"). PRESERVED on re-derive. Slice-close harvest promotes decisions here. |
+| `index.md` | derived | Tier-2 entry point with relative links to 00–10 + WORKFLOW. |
 | `WORKFLOW.md` | static | Copy-once from `templates/memory-bank/WORKFLOW.md` — project-agnostic, never re-rendered. |
+| `tech-debt.md` | seeded index | Header-only seed — no `[TD]` entries. PRESERVED on re-derive; scaffold-dev's `/defer` and round-close sweep append entries. |
 
-The 8 derived files re-render and overwrite on `/scaffold-project` re-runs (idempotent for unchanged spec). The 2 live-seed files are emitted with starter content on first run and preserved on every subsequent run unless `--regenerate` is passed AND the user confirms (§4 + §9). `WORKFLOW.md` is copy-once regardless of `--regenerate` (§4 helper contract; `--force` does not touch it).
+The 8 derived files re-render and overwrite on `/scaffold-project` re-runs (idempotent for unchanged spec). The 4 live-seed files are emitted with starter content on first run and preserved on every subsequent run unless `--regenerate` is passed AND the user confirms (§4 + §9). `WORKFLOW.md` is copy-once regardless of `--regenerate` (§4 helper contract; `--force` does not touch it).
 
 ---
 
@@ -198,13 +201,13 @@ sf_resolve_output_path master_spec MASTER-SPEC.md
 # → /Users/<you>/work/todo-cli-pair/canonical/MASTER-SPEC.md   (read source from canonical)
 ```
 
-The 11 memory-bank files land under `<ai_workspace>/.claude/memory-bank/`. CLAUDE.md lands at `<ai_workspace>/CLAUDE.md`. `<canonical>/.claude/memory-bank/` is never created (no double-write). MASTER-SPEC.md is read from canonical but never mutated.
+The 14 memory-bank files land under `<ai_workspace>/.claude/memory-bank/`. CLAUDE.md lands at `<ai_workspace>/CLAUDE.md`. `<canonical>/.claude/memory-bank/` is never created (no double-write). MASTER-SPEC.md is read from canonical but never mutated.
 
 ---
 
 ## What this walkthrough demonstrates
 
-- The 11-file shape is preserved byte-for-byte from v0.1.0 (8 derived + 2 live-seed + 1 static) — v0.2 changes routing and adds two new behaviors (R2 section seed, conditional Karpathy section); the doc-set cardinality and bucket assignments are unchanged.
+- The v0.1.0 core (8 derived + 2 live-seed + 1 static = 11 files) is preserved byte-for-byte — v0.2 changed routing and added R2 section seed + conditional Karpathy section without altering those 11 files. SS-1 then added `tech-debt.md` (seeded index) + `09-known-issues.md` + `10-decisions-log.md` (both live-seed) to bring the current total to **14 files** (8 derived + 4 live-seed + 1 static + 1 seeded index).
 - `## Machine-checkable rules` is seeded as heading + invitation comment only; the section is intentionally empty of `<!-- mcrule:start -->` blocks at scaffold time.
 - Karpathy emission is gated strictly on the literal string `yes` for `phase_10.4.include_karpathy`. Attribution is verbatim and points at Chang (MIT) — not directly at Karpathy.
 - ai-mentor + superpowers detection flows through `composition.json` (refreshed via `sf_compose_refresh`). architect-critic detection is a separate filesystem probe (`sf_compose_detect_architect_critic`) and never enters `composition.json`.

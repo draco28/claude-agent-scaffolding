@@ -1,6 +1,6 @@
 # scaffold-onboard
 
-Run-once project onboarding plugin for Claude Code and Codex. Walks you through 10 expert-role phases (~54 questions) to author `MASTER-SPEC.md`, then deterministically derives a `.claude/memory-bank/` (11 files), a tiered `CLAUDE.md` session-start router, a managed Codex section in `AGENTS.md`, and 5 (or 14 with `--full`) governance docs.
+Run-once project onboarding plugin for Claude Code and Codex. Walks you through 10 expert-role phases (~54 questions) to author `MASTER-SPEC.md`, then deterministically derives a `.claude/memory-bank/` (14 files), a tiered `CLAUDE.md` session-start router, a managed Codex section in `AGENTS.md`, and 5 (or 14 with `--full`) governance docs.
 
 Composes with `ai-mentor` (cognitive mode), `architect-critic` (anti-sycophancy review), and `superpowers` (visual brainstorming + skills library) if installed — but works fully standalone.
 
@@ -30,7 +30,7 @@ After that, install and use the companion `scaffold` plugin for slice-driven imp
 | Command | What it does | Time |
 |---|---|---|
 | `/onboard` | Guided 10-phase conversation; produces `MASTER-SPEC.md` + `EXECUTIVE-SUMMARY.md` | ~30–45 min |
-| `/scaffold-project [--force]` | Derives `.claude/memory-bank/` (11 files) + `CLAUDE.md` + managed `AGENTS.md` section + `.claude/settings.json` | ~10s |
+| `/scaffold-project [--force]` | Derives `.claude/memory-bank/` (14 files) + `CLAUDE.md` + managed `AGENTS.md` section + `.claude/settings.json` | ~10s |
 | `/scaffold-docs [--full] [--regenerate]` | Derives `docs/PRD.md`, `SRS.md`, `BACKLOG.md`, `PROJECT_PLAN.md`, `adr/0001-*.md` (`--full` adds 9 more) | ~10s |
 
 ## How it works
