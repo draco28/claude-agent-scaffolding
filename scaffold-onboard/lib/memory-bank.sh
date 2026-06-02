@@ -101,6 +101,69 @@ _sf_mb_reinject_preserve_zone() {
   return $rc
 }
 
+# One-time migration (SS-1 W7): relocate provenance-trailed harvest content
+# (a "- <text>" bullet immediately followed by a "<!-- Added from VS… -->" trailer)
+# out of derived files 03/04 into 09-known-issues.md, BEFORE those files are
+# re-rendered. Never silent-drop: every relocated pair is appended to 09 and a
+# summary is logged. Idempotent: once relocated, nothing matches on the next run.
+# For 03, content inside the mcrules preserve zone is skipped (never migrated).
+_sf_mb_migrate_harvested() {
+  local mb=".claude/memory-bank"
+  local known="$mb/09-known-issues.md"
+  local moved=0 src
+  for src in "$mb/03-code-patterns.md" "$mb/04-tech-context.md"; do
+    [[ -f "$src" ]] || continue
+    local relocated kept
+    relocated="$(mktemp)"; kept="$(mktemp)"
+    : > "$relocated"; : > "$kept"
+    local prev="" have_prev=0 inzone=0
+    while IFS= read -r cur || [[ -n "$cur" ]]; do
+      # Track the preserve zone; lines inside it are kept verbatim, never migrated.
+      case "$cur" in
+        *"<!-- mcrules:preserve:start -->"*) inzone=1 ;;
+      esac
+      if [[ "$inzone" -eq 1 ]]; then
+        # flush any pending prev first (it was outside the zone)
+        if [[ "$have_prev" -eq 1 ]]; then printf '%s\n' "$prev" >> "$kept"; have_prev=0; prev=""; fi
+        printf '%s\n' "$cur" >> "$kept"
+        case "$cur" in
+          *"<!-- mcrules:preserve:end -->"*) inzone=0 ;;
+        esac
+        continue
+      fi
+      # Outside the zone: detect a bullet (prev) followed by an "Added from VS" trailer (cur).
+      if [[ "$cur" == *"<!-- Added from VS"* && "$have_prev" -eq 1 && "$prev" == -* ]]; then
+        printf '%s\n%s\n' "$prev" "$cur" >> "$relocated"
+        have_prev=0; prev=""
+        continue
+      fi
+      if [[ "$have_prev" -eq 1 ]]; then printf '%s\n' "$prev" >> "$kept"; fi
+      prev="$cur"; have_prev=1
+    done < "$src"
+    [[ "$have_prev" -eq 1 ]] && printf '%s\n' "$prev" >> "$kept"
+
+    if [[ -s "$relocated" ]]; then
+      [[ -f "$known" ]] || printf '# Known Issues\n' > "$known"
+      {
+        echo ""
+        echo "## Migrated from $(basename "$src") (SS-1)"
+        cat "$relocated"
+      } >> "$known"
+      mv "$kept" "$src"
+      local c; c="$(grep -c '<!-- Added from VS' "$relocated")"
+      moved=$((moved + c))
+      if [[ "$c" -eq 1 ]]; then
+        sf_log_warn "migrated 1 harvested entry from $(basename "$src") → 09-known-issues.md (SS-1 W7)"
+      else
+        sf_log_warn "migrated $c harvested entries from $(basename "$src") → 09-known-issues.md (SS-1 W7)"
+      fi
+    fi
+    rm -f "$relocated" "$kept"
+  done
+  [[ "$moved" -gt 0 ]] && sf_log_info "SS-1 migration: relocated $moved harvested entries into 09-known-issues.md"
+  return 0
+}
+
 # Derive memory-bank: regenerate derived files, seed live files only if missing,
 # copy static file only if missing.
 # Args: --force  (optional) to overwrite live files too.
@@ -123,6 +186,10 @@ sf_memory_bank_derive() {
   ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
   mkdir -p .claude/memory-bank
+
+  # SS-1 W7: one-time relocate of provenance-trailed harvest content out of derived
+  # 03/04 before they are regenerated. No-op on fresh projects.
+  _sf_mb_migrate_harvested
 
   # Collect args once
   local args=()

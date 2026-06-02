@@ -270,6 +270,65 @@ test_cadence_policy_canonical() {
   assert_file_contains "./.claude/memory-bank/WORKFLOW.md" "Dev-authored"
 }
 
+# SS-1 W7 — provenance-trailed harvest content in a derived file is relocated to
+# 09-known-issues.md before re-derive, never silently dropped.
+test_migration_relocates_harvested_content() {
+  echo "test_migration_relocates_harvested_content:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  # Simulate an old project: harvest content was appended into derived 04.
+  {
+    echo ""
+    echo "- legacy harvested note: prefer atomic writes for the registry"
+    echo "<!-- Added from VS-1.1.1 retrospective, 2026-05-01; source: report -->"
+  } >> ".claude/memory-bank/04-tech-context.md"
+  # Re-derive: migration must move it to 09 before 04 is regenerated.
+  sf_memory_bank_derive
+  assert_file_contains "./.claude/memory-bank/09-known-issues.md" "prefer atomic writes for the registry"
+  assert_file_not_contains "./.claude/memory-bank/04-tech-context.md" "prefer atomic writes for the registry"
+}
+
+# Idempotent — a second re-derive does not duplicate.
+test_migration_idempotent() {
+  echo "test_migration_idempotent:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  {
+    echo ""
+    echo "- legacy note: one-shot relocate me"
+    echo "<!-- Added from VS-2.1.1 retrospective, 2026-05-02; source: handoff -->"
+  } >> ".claude/memory-bank/03-code-patterns.md"
+  sf_memory_bank_derive
+  sf_memory_bank_derive
+  local count
+  count="$(grep -c "one-shot relocate me" "./.claude/memory-bank/09-known-issues.md")"
+  if [[ "$count" == "1" ]]; then PASS=$((PASS+1)); echo "  ✓ relocated exactly once";
+  else FAIL=$((FAIL+1)); echo "  ✗ expected 1 relocation, found $count"; fi
+}
+
+# SS-1 W7 — migration must not touch content inside the 03 preserve zone.
+test_migration_leaves_preserve_zone() {
+  echo "test_migration_leaves_preserve_zone:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  # Put a rule block inside the preserve zone (no provenance trailer).
+  awk '
+    /<!-- mcrules:preserve:end -->/ && !done {
+      print "<!-- mcrule:start type=banned-imports -->"
+      print "banned: requests"
+      print "<!-- mcrule:end -->"
+      done=1
+    }
+    { print }
+  ' ".claude/memory-bank/03-code-patterns.md" > ".claude/memory-bank/03-code-patterns.md.tmp"
+  mv ".claude/memory-bank/03-code-patterns.md.tmp" ".claude/memory-bank/03-code-patterns.md"
+  sf_memory_bank_derive
+  assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "banned: requests"
+}
+
 test_derive_00_project_brief
 test_live_files_preserved
 test_live_files_force_overwritten
@@ -288,4 +347,7 @@ test_new_dev_files_preserved_on_rederive
 test_03_rules_zone_preserved_on_rederive
 test_03_empty_zone_idempotent
 test_cadence_policy_canonical
+test_migration_relocates_harvested_content
+test_migration_idempotent
+test_migration_leaves_preserve_zone
 report_results
