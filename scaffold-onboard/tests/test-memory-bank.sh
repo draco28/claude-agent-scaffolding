@@ -118,7 +118,7 @@ test_all_derived_files_present() {
   seed_master_spec
   sf_memory_bank_derive
   local f
-  for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 05-active-context 06-progress 07-constraints 08-governance index WORKFLOW tech-debt; do
+  for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 05-active-context 06-progress 07-constraints 08-governance 09-known-issues 10-decisions-log index WORKFLOW tech-debt; do
     assert_file_exists "./.claude/memory-bank/${f}.md"
   done
 }
@@ -186,6 +186,30 @@ test_derive_seeds_machine_checkable_rules_section() {
   assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "^## Machine-checkable rules"
 }
 
+# SS-1 W1 — new pure-dev files seeded header-only and preserved on re-derive.
+test_new_dev_files_seeded() {
+  echo "test_new_dev_files_seeded:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  assert_file_exists "./.claude/memory-bank/09-known-issues.md"
+  assert_file_exists "./.claude/memory-bank/10-decisions-log.md"
+  assert_file_contains "./.claude/memory-bank/09-known-issues.md" "# Known Issues"
+  assert_file_contains "./.claude/memory-bank/10-decisions-log.md" "# Decisions Log"
+}
+
+test_new_dev_files_preserved_on_rederive() {
+  echo "test_new_dev_files_preserved_on_rederive:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  echo "- gotcha: widgets race on startup" >> ".claude/memory-bank/09-known-issues.md"
+  echo "- decided: use file-lock for the registry" >> ".claude/memory-bank/10-decisions-log.md"
+  sf_memory_bank_derive
+  assert_file_contains "./.claude/memory-bank/09-known-issues.md" "widgets race on startup"
+  assert_file_contains "./.claude/memory-bank/10-decisions-log.md" "use file-lock for the registry"
+}
+
 test_derive_00_project_brief
 test_live_files_preserved
 test_live_files_force_overwritten
@@ -199,4 +223,6 @@ test_claude_md_plugin_awareness_when_no_composition
 test_claude_md_karpathy_opt_in
 test_claude_md_karpathy_opt_out
 test_derive_seeds_machine_checkable_rules_section
+test_new_dev_files_seeded
+test_new_dev_files_preserved_on_rederive
 report_results

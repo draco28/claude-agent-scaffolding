@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # scaffold-onboard/lib/memory-bank.sh
-# Memory-bank derivation: 9 derived files + 2 live (seeded once) + 1 static + 1 seeded index (tech-debt.md).
+# Memory-bank derivation: 8 derived files (00-04,07,08,index) + 4 live (05,06,09,10 — seeded once)
+# + 1 static (WORKFLOW.md) + 1 seeded index (tech-debt.md). 03 keeps a preserved rules zone (SS-1 W2).
 
 set -u
 source "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"
@@ -87,8 +88,8 @@ sf_memory_bank_derive() {
     sf_render "$tmpl_dir/${f}.md.tmpl" "${args[@]}" > ".claude/memory-bank/${f}.md"
   done
 
-  # 2 live files — seed only if missing (unless --force)
-  for f in 05-active-context 06-progress; do
+  # 4 live files — seed only if missing (unless --force)
+  for f in 05-active-context 06-progress 09-known-issues 10-decisions-log; do
     local target=".claude/memory-bank/${f}.md"
     if [[ ! -f "$target" || "$force" -eq 1 ]]; then
       sf_render "$tmpl_dir/${f}.md.tmpl" "${args[@]}" > "$target"
