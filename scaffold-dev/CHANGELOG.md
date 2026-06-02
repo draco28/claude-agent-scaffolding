@@ -2,6 +2,14 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.3.0] — 2026-06-02
+
+SS-1 — slice-close harvest aligns with memory-bank ownership (part of #45; cross-plugin with scaffold-onboard 0.4.0).
+
+### Changed
+- **Slice-close harvest no longer writes into spec-derived memory-bank files.** `sd_harvest_apply` now refuses any spec-derived target (`00,01,02,03,04,07,08,index`) and **reroutes** it to the dev-authored catch-all `09-known-issues.md` with a warning — harvested prose appended into a derived file would be clobbered on the next `/scaffold-project` (the root of #45). `closing-vertical-slice` §9.4 + the harvest worked-example now route caveats/stack notes → `09-known-issues.md`, decisions/advisory patterns → `10-decisions-log.md`, and enforceable patterns → `authoring-machine-checkable-rules` (03's preserved rules zone); the phantom `06-product-context.md` target is removed.
+- Every cadence mention across scaffold-dev skills (`executing-work-item`, `deferring-work-item`, `writing-sprint-retrospective`, `closing-vertical-slice`) now points to the single canonical policy (`memory-bank/WORKFLOW.md` → **Memory-bank update cadence**) instead of restating it; sprint-close is documented as the settled write-nothing policy rather than a deferred open question.
+
 ## [0.1.7] — 2026-05-31
 
 ### Fixed
