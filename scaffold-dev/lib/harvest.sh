@@ -44,9 +44,27 @@ _sd_harvest_seed_known_issues() {
   mkdir -p "$(dirname "$file")"
   local tmpl
   if tmpl="$(_sd_harvest_known_issues_template)"; then
+    # Primary path: copy scaffold-onboard's canonical 09 template (single source).
     cp "$tmpl" "$file"
   else
-    printf '# Known Issues\n' > "$file"
+    # Degraded fallback — only when the scaffold-onboard template can't be located
+    # (exotic cross-plugin install layout). Emit a STRUCTURALLY-VALID minimal 09 (not
+    # a bare header): it carries the cadence pointer + the two section headings, so a
+    # later /scaffold-project that preserves this file (live-seed) still has the
+    # contract shape and the original P2 (bare-header clobber) cannot re-surface.
+    cat > "$file" <<'EOF'
+# Known Issues
+
+> Live file — dev-authored, never auto-regenerated. Caveats / gotchas / workarounds
+> + dev-discovered stack notes. Update cadence: see `memory-bank/WORKFLOW.md` →
+> **Memory-bank update cadence**.
+
+## Caveats & gotchas
+*(none yet)*
+
+## Stack / tech notes
+*(none yet)*
+EOF
   fi
 }
 
