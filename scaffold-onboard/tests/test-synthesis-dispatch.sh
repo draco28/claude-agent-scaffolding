@@ -160,8 +160,21 @@ test_exec_summary_brief_validates() {
   fi
 }
 
+# SS-2 W3 — advisory read-only derivation-reviewer agent is registered.
+test_derivation_reviewer_agent_registered() {
+  echo "test_derivation_reviewer_agent_registered:"
+  local a="$ROOT/agents/derivation-reviewer.md"
+  if [[ -f "$a" ]] && grep -q 'name: derivation-reviewer' "$a" && grep -qE 'tools:.*Read' "$a" \
+     && ! grep -qE 'tools:.*Write' "$a" && ! grep -qE 'tools:.*Task' "$a"; then
+    PASS=$((PASS+1)); echo "  ✓ derivation-reviewer registered, read-only (no Write/Task)"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ derivation-reviewer missing or not read-only"
+  fi
+}
+
 test_memory_bank_dispatch_sources_its_helpers
 test_governance_dispatch_sources_its_helpers
+test_derivation_reviewer_agent_registered
 test_fast_path_has_real_control_flow
 test_render_exec_summary_from_section
 test_render_exec_summary_multiline_body

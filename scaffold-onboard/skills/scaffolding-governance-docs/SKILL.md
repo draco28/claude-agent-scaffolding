@@ -349,3 +349,38 @@ Synthesis honors the same skip-if-exists / `--regenerate` semantics as the deter
 - **The user** is the final authority. For destructive operations (`--regenerate` against pre-existing user-authored governance docs), require explicit confirmation listing the absolute paths that will be clobbered.
 
 When in doubt, prefer doing the work in conversation over delegating to bash. v0.1.x got this wrong — `/scaffold-docs` lived almost entirely inside `bash -c` blocks Claude never read; v0.2 corrects that by making this skill body the readable orchestration layer and keeping bash to bookkeeping.
+
+---
+
+## 13. Post-derivation review (#42 — advisory, SS-2)
+
+> Numbered §13 (not §12) because §12 "Notes on tool boundaries" already exists; this is the next free number per the SS-2 plan.
+
+After the synthesis waves complete (synthesize mode only — skip under `--fast`),
+dispatch ONE read-only review over the governance bundle. Non-blocking: surface
+the report, do not gate. The `derivation-reviewer` agent is structurally read-only
+(no Write, no Task) — it returns its full report **in its final message**, and
+**you (the orchestrator) persist it**, mirroring how `synthesis-agent`'s
+`mode:complete` returns are consumed in §11.3.
+
+```bash
+master_hash="$(cksum < "$master" | awk '{print $1"-"$2}')"
+# Anchor the docs bundle dir on the same routing destination PRD/SRS/BACKLOG use (§11).
+bundle="$(sf_resolve_output_path prd docs)"
+review_prompt="Review the freshly synthesized governance docs bundle at ${bundle} (PRD.md, SRS.md, BACKLOG.md, PROJECT_PLAN.md, adr/0001-record-architecture-decisions.md, plus any --full docs) against MASTER-SPEC ${master} (cksum:${master_hash}) and EXECUTIVE-SUMMARY ${exec_summary}. Return your review report per your contract."
+Task(subagent_type="scaffold-onboard:derivation-reviewer",
+     description="Review governance-docs derivation",
+     model="claude-sonnet-4-5",
+     prompt="$review_prompt")
+```
+
+On `review-complete`: write the returned report body (the markdown table the agent
+emitted — NOT the trailing sentinel JSON) to `${bundle}/derivation-review.md`,
+print the report path + a one-line summary, and for each `regenerate <file>` finding
+surface the apply command `/scaffold-docs --regenerate=<file>`. The user decides;
+nothing is auto-applied.
+
+**Targeted regenerate (apply path):** `--regenerate=<file>` scopes regeneration to
+one artifact; if the deterministic `sf_docs_derive` doesn't accept a per-file filter,
+achieve it by re-dispatching just that artifact's synthesis brief (the §11.3 dispatch
+loop is per-artifact already). No new lib flag is required for SS-2.

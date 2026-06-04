@@ -404,3 +404,33 @@ sf_synth_coverage_report "$ledger" "<all cited IDs, newline-separated>"
 ```
 
 This surfaces any FR/NFR that no artifact cited so the user can identify gaps before committing the bundle.
+
+## 14. Post-derivation review (#42 — advisory, SS-2)
+
+After the synthesis waves complete (synthesize mode only — skip under `--fast`),
+dispatch ONE read-only review over the bundle. Non-blocking: surface the report,
+do not gate. The `derivation-reviewer` agent is structurally read-only (no Write,
+no Task) — it returns its full report **in its final message**, and **you (the
+orchestrator) persist it**, mirroring how `synthesis-agent`'s `mode:complete`
+returns are consumed in §13.3.
+
+```bash
+master_hash="$(cksum < "$master" | awk '{print $1"-"$2}')"
+bundle="$(sf_resolve_output_path memory_bank .claude/memory-bank)"
+review_prompt="Review the freshly synthesized memory-bank bundle at ${bundle} (00-04,07,08,index.md + CLAUDE.md) against MASTER-SPEC ${master} (cksum:${master_hash}) and EXECUTIVE-SUMMARY ${exec_summary}. Return your review report per your contract."
+Task(subagent_type="scaffold-onboard:derivation-reviewer",
+     description="Review memory-bank derivation",
+     model="claude-sonnet-4-5",
+     prompt="$review_prompt")
+```
+
+On `review-complete`: write the returned report body (the markdown table the agent
+emitted — NOT the trailing sentinel JSON) to `${bundle}/derivation-review.md`,
+print the report path + a one-line summary, and for each `regenerate <file>` finding
+surface the apply command `/scaffold-project --regenerate=<file>`. The user decides;
+nothing is auto-applied.
+
+**Targeted regenerate (apply path):** `--regenerate=<file>` scopes regeneration to
+one artifact; if the deterministic `sf_memory_bank_derive` doesn't accept a per-file
+filter, achieve it by re-dispatching just that artifact's synthesis brief (the §13.3
+dispatch loop is per-artifact already). No new lib flag is required for SS-2.
