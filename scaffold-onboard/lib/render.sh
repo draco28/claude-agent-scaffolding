@@ -112,6 +112,7 @@ sf_render() {
 # Echo the body of MASTER-SPEC's "## <heading>" section (first match),
 # stopping at the next "## " heading. Empty output if absent. Warns (stderr)
 # when a SECOND identical heading exists — spec §2.3 "first wins + warn".
+# NOTE: <heading> is assumed ERE-metachar-free (only "Executive Summary" is passed today).
 sf_master_spec_section() {
   local file="$1" heading="$2"
   local count
@@ -162,7 +163,8 @@ sf_render_executive_summary() {
       }
       return out line
     }
-    /\{\{executive_summary\}\}/ { print ENVIRON["EXEC_BODY"]; next }
+    # body placeholder must be standalone on its line; we replace the whole line with the multi-line body
+    /^[[:space:]]*\{\{executive_summary\}\}[[:space:]]*$/ { print ENVIRON["EXEC_BODY"]; next }
     { print subst_all($0) }
   ' "$tmpl" > "$out"
   printf '\n<!-- derived from MASTER-SPEC.md cksum:%s -->\n' "$(cksum < "$master" | awk '{print $1"-"$2}')" >> "$out"
