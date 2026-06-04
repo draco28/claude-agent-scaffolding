@@ -222,6 +222,11 @@ test_apply_allows_dev_authored_target() {
   local items='[{"source":"handoff","handoff_file":"vs-3.2.1-x.md","target_file":"10-decisions-log.md","item":"chose file-lock for the registry"}]'
   sd_harvest_apply "$items" "VS-3.2.1"
   assert_file_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/10-decisions-log.md" "chose file-lock for the registry"
+  # SS-1 review fix — a missing 10-decisions-log.md is seeded from its template
+  # (cadence pointer + Decisions section), not a bare header, so a later
+  # /scaffold-project preserving it keeps the contract shape.
+  assert_file_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/10-decisions-log.md" "Memory-bank update cadence"
+  assert_file_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/10-decisions-log.md" "Decisions"
 }
 
 test_assert_file_not_contains_missing_file_fails() {

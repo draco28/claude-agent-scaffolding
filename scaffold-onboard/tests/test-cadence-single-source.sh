@@ -46,6 +46,7 @@ test_sweep_targets_point_to_policy() {
     "$REPO_ROOT/scaffold-onboard/templates/memory-bank/05-active-context.md.tmpl" \
     "$REPO_ROOT/scaffold-onboard/templates/memory-bank/06-progress.md.tmpl" \
     "$REPO_ROOT/scaffold-onboard/templates/memory-bank/tech-debt.md.tmpl" \
+    "$REPO_ROOT/scaffold-onboard/templates/memory-bank/08-governance.md.tmpl" \
     "$REPO_ROOT/scaffold-onboard/templates/memory-bank/09-known-issues.md.tmpl" \
     "$REPO_ROOT/scaffold-onboard/templates/memory-bank/10-decisions-log.md.tmpl" \
     "$REPO_ROOT/scaffold-dev/skills/executing-work-item/SKILL.md" \

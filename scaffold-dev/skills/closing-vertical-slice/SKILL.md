@@ -333,19 +333,25 @@ Example surface:
 ```
 Harvest candidates for VS-1.1.1 (4 items):
 
-1. [report] from work-1.01/report.md → target: 03-code-patterns.md
+1. [report] from work-1.01/report.md → target: 09-known-issues.md
    "subagent must use absolute paths when reading worktree files (relative paths break under Task dispatch)"
 
 2. [report] from work-1.03/report.md → target: 09-known-issues.md
    "merge conflict surface on shared schema.json when two parallel work items both touch it"
 
-3. [handoff] from vs-1.1.1-bugfix-auth-a1b2.md section 4 → target: 03-code-patterns.md
+3. [handoff] from vs-1.1.1-bugfix-auth-a1b2.md section 4 → target: 10-decisions-log.md
    "auth retry pattern: exponential backoff with 3 attempts, jitter 100-500ms"
 
 4. [handoff] from vs-1.1.1-techdebt-logging-e5f6.md section 4 → target: 09-known-issues.md
    "log-rotation cron caveat — rotation fires at 03:00 UTC and races with the scheduled backup"
 
 Per item: accept (apply as-is) / edit (give me the revised text) / reject (drop).
+
+> Targets are dev-authored files only (`09`/`10`). A candidate that is a strictly
+> **enforceable** rule (not advisory prose) is NOT harvested into `03` as raw text —
+> route it to `Skill(scaffold-onboard:authoring-machine-checkable-rules)` so it lands
+> in `03`'s preserved rules zone as a machine-checkable rule. `sd_harvest_apply`
+> reroutes any spec-derived target to `09-known-issues.md` and warns.
 ```
 
 ### 9.6 Step 6 — Consume per-item decisions

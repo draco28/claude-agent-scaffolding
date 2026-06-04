@@ -25,11 +25,14 @@ _sd_harvest_is_derived() {
   return 1
 }
 
-_sd_harvest_known_issues_template() {
-  local candidate
+# Locate scaffold-onboard's canonical template for a memory-bank basename
+# (e.g. "09-known-issues.md.tmpl"). Tries the sibling repo layout and the
+# versioned plugin-cache layout. Returns 1 if not found.
+_sd_harvest_onboard_template() {
+  local name="$1" candidate
   for candidate in \
-    "$_SD_LIB_DIR/../../scaffold-onboard/templates/memory-bank/09-known-issues.md.tmpl" \
-    "$_SD_LIB_DIR/../../../scaffold-onboard"/*/templates/memory-bank/09-known-issues.md.tmpl; do
+    "$_SD_LIB_DIR/../../scaffold-onboard/templates/memory-bank/$name" \
+    "$_SD_LIB_DIR/../../../scaffold-onboard"/*/templates/memory-bank/"$name"; do
     if [[ -f "$candidate" ]]; then
       echo "$candidate"
       return 0
@@ -38,34 +41,34 @@ _sd_harvest_known_issues_template() {
   return 1
 }
 
-_sd_harvest_seed_known_issues() {
-  local file="$1"
+# Seed a missing dev-authored live file (09-known-issues.md / 10-decisions-log.md)
+# from scaffold-onboard's canonical template (single source). When that template
+# can't be located (exotic cross-plugin install layout), fall back to a
+# STRUCTURALLY-VALID minimal file (title + cadence pointer + a section), NOT a bare
+# header — so a later /scaffold-project that preserves this live file still has the
+# contract shape and the bare-header-clobber bug cannot re-surface.
+_sd_harvest_seed_live_file() {
+  local file="$1" base="$2"   # base e.g. "09-known-issues.md"
   [[ -f "$file" ]] && return 0
   mkdir -p "$(dirname "$file")"
   local tmpl
-  if tmpl="$(_sd_harvest_known_issues_template)"; then
-    # Primary path: copy scaffold-onboard's canonical 09 template (single source).
+  if tmpl="$(_sd_harvest_onboard_template "${base}.tmpl")"; then
     cp "$tmpl" "$file"
-  else
-    # Degraded fallback — only when the scaffold-onboard template can't be located
-    # (exotic cross-plugin install layout). Emit a STRUCTURALLY-VALID minimal 09 (not
-    # a bare header): it carries the cadence pointer + the two section headings, so a
-    # later /scaffold-project that preserves this file (live-seed) still has the
-    # contract shape and the original P2 (bare-header clobber) cannot re-surface.
-    cat > "$file" <<'EOF'
-# Known Issues
-
-> Live file — dev-authored, never auto-regenerated. Caveats / gotchas / workarounds
-> + dev-discovered stack notes. Update cadence: see `memory-bank/WORKFLOW.md` →
-> **Memory-bank update cadence**.
-
-## Caveats & gotchas
-*(none yet)*
-
-## Stack / tech notes
-*(none yet)*
-EOF
+    return 0
   fi
+  local title section
+  case "$base" in
+    09-known-issues.md)  title="Known Issues" ; section="## Caveats & gotchas" ;;
+    10-decisions-log.md) title="Decisions Log" ; section="## Decisions" ;;
+    *)                   title="${base%.md}" ; section="## Notes" ;;
+  esac
+  {
+    printf '# %s\n\n' "$title"
+    printf '> Live file — dev-authored, never auto-regenerated. Update cadence: see\n'
+    printf '> `memory-bank/WORKFLOW.md` → **Memory-bank update cadence**.\n\n'
+    printf '%s\n*(none yet)*\n' "$section"
+  } > "$file"
+  return 0
 }
 
 _SD_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -247,11 +250,12 @@ sd_harvest_apply() {
     fi
 
     local file="$mb/$target"
-    if [[ "$target" == "09-known-issues.md" ]]; then
-      _sd_harvest_seed_known_issues "$file"
-    else
-      [[ -f "$file" ]] || { mkdir -p "$(dirname "$file")"; echo "# $target" > "$file"; }
-    fi
+    case "$target" in
+      09-known-issues.md|10-decisions-log.md)
+        _sd_harvest_seed_live_file "$file" "$target" ;;
+      *)
+        [[ -f "$file" ]] || { mkdir -p "$(dirname "$file")"; echo "# $target" > "$file"; } ;;
+    esac
 
     # Idempotency: skip if line text already present.
     if grep -Fq "$text" "$file"; then

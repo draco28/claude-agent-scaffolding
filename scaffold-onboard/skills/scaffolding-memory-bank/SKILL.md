@@ -188,7 +188,7 @@ The `/scaffold-project` slash command wrapper (`commands/scaffold-project.md`) e
 Supported flags:
 
 - *(no flag)* — derive memory bank; preserve live-seed files (`05-active-context.md`, `06-progress.md`, `09-known-issues.md`, `10-decisions-log.md`); skip WORKFLOW.md if present; route via manifest if present, else `$(pwd)`.
-- `--regenerate` — pass `--force` to `sf_memory_bank_derive`. Overwrites live-seed files **and** refreshes `WORKFLOW.md` (with explicit user confirmation). Always asks confirmation before clobbering `05-active-context.md` / `06-progress.md` / `09-known-issues.md` / `10-decisions-log.md` / `WORKFLOW.md` — surface every path that will be overwritten and require an explicit `yes`. **Exception (data-safety):** if the one-time SS-1 migration relocated legacy harvested content into `09-known-issues.md` during this same run, `09` is preserved rather than force-overwritten — otherwise the just-migrated notes would be lost in the same call. The other live files still follow the confirmed-overwrite path.
+- `--regenerate` — pass `--force` to `sf_memory_bank_derive`. Overwrites live-seed files **and** refreshes `WORKFLOW.md` (with explicit user confirmation). Always asks confirmation before clobbering `05-active-context.md` / `06-progress.md` / `09-known-issues.md` / `10-decisions-log.md` / `WORKFLOW.md` — surface every path that will be overwritten and require an explicit `yes`. **Exception (data-safety):** if the one-time SS-1 migration relocated legacy harvested content into `09-known-issues.md` during this same run, `sf_memory_bank_derive` **automatically preserves** `09` rather than force-overwriting it (it tracks the in-run migration internally via `_SF_MB_MIGRATED_TO_KNOWN_ISSUES` — the orchestrator does not special-case it) — otherwise the just-migrated notes would be lost in the same call. The other live files still follow the confirmed-overwrite path.
 
 Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly. If `$ARGUMENTS` contains a flag this skill doesn't recognize, surface a one-line error listing the supported flags and stop — do not silently ignore.
 
@@ -198,7 +198,7 @@ Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly. If `$ARGUMENTS
 
 This skill never bash-orchestrates the judgment work (whether to overwrite live-seed, whether to suggest a composition companion, how to phrase the destination prompt). It calls helpers for I/O and templating only.
 
-**Memory-bank derivation (lib/memory-bank.sh):** `sf_memory_bank_derive` (with optional `--force`), `sf_claude_md_generate`, `sf_agents_md_generate`, `sf_claude_settings_generate`, `_memory_bank_args` (internal), `_composition_args` (internal).
+**Memory-bank derivation (lib/memory-bank.sh):** `sf_memory_bank_derive` (with optional `--force`), `sf_claude_md_generate`, `sf_agents_md_generate`, `sf_claude_settings_generate`, `_memory_bank_args` (internal), `_composition_args` (internal), `_sf_mb_extract_preserve_zone` / `_sf_mb_reinject_preserve_zone` (internal — the `03` rules-zone preserve helpers §13 uses), `_sf_mb_migrate_harvested` (internal — the SS-1 one-time harvest migration).
 
 **Rendering (lib/render.sh):** `sf_render` (generic template substitution — used by the derivation helpers; rarely called directly from this skill).
 
@@ -332,9 +332,14 @@ file is written, re-inject the captured zone:
     if [[ -n "$saved_zone" ]]; then
       _sf_mb_reinject_preserve_zone "$out_03" "$saved_zone" \
         || { sf_log_warn "03 synthesis omitted preserve markers — falling back to deterministic render"; \
-             sf_render "${CLAUDE_PLUGIN_ROOT}/templates/memory-bank/03-code-patterns.md.tmpl" "${args[@]}" > "$out_03"; \
+             mb_args=(); while IFS= read -r _ln; do mb_args+=("$_ln"); done < <(_memory_bank_args "$(date -u +%Y-%m-%dT%H:%M:%SZ)"); \
+             sf_render "${CLAUDE_PLUGIN_ROOT}/templates/memory-bank/03-code-patterns.md.tmpl" "${mb_args[@]}" > "$out_03"; \
              _sf_mb_reinject_preserve_zone "$out_03" "$saved_zone"; }
     fi
+
+The render args (`mb_args`) must be built before this `sf_render` — `_memory_bank_args`
+is the same helper `sf_memory_bank_derive` uses. Don't reference an `${args[@]}` that
+§13 never defines (it would abort under the slash command's `set -u`).
 
 If the sub-agent fails to emit the sentinels, `_sf_mb_reinject_preserve_zone` returns
 non-zero → fall back to the deterministic `03` render (which always has the sentinels),
