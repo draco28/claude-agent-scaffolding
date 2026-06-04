@@ -60,7 +60,8 @@ _sd_harvest_seed_live_file() {
   case "$base" in
     09-known-issues.md)  title="Known Issues" ; section="## Caveats & gotchas" ;;
     10-decisions-log.md) title="Decisions Log" ; section="## Decisions" ;;
-    *)                   title="${base%.md}" ; section="## Notes" ;;
+    *)                   sd_log_warn "_sd_harvest_seed_live_file: unexpected basename '$base' — using generic structure"; \
+                         title="${base%.md}" ; section="## Notes" ;;
   esac
   {
     printf '# %s\n\n' "$title"
