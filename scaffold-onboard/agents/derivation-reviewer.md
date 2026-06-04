@@ -34,7 +34,7 @@ Emit exactly this structure, one row per finding, tagged by the **target filenam
 ```
 
 Disposition vocabulary: `accept` / `regenerate <file>` / `edit`. For every
-`regenerate <file>`, the orchestrator surfaces the concrete command
-`/scaffold-project --regenerate=<file>` (or the governance equivalent) — so the
-finding is actionable. End your message with exactly:
+`regenerate <file>`, the orchestrator surfaces the concrete `--regenerate=<file>`
+apply command for the bundle it dispatched you against — so the finding is
+actionable. End your message with exactly:
 `{"mode":"review-complete","report_relpath":"derivation-review.md","findings":<N>}`
