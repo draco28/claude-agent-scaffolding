@@ -31,7 +31,7 @@ test_memory_bank_dispatch_sources_its_helpers() {
            _sf_mb_reinject_preserve_zone sf_render; do
     if printf '%s' "$body" | grep -q "$h"; then
       # it's called — assert §13 sources a lib that defines it
-      if ! grep -qE 'source .*/lib/(memory-bank|render)\.sh' "$MB_SKILL"; then
+      if ! printf '%s' "$body" | grep -qE 'source .*/lib/(memory-bank|render)\.sh'; then
         echo "  ✗ §13 calls $h but never sources memory-bank.sh/render.sh"; missing=$((missing+1)); break
       fi
     fi
@@ -43,7 +43,7 @@ test_governance_dispatch_sources_its_helpers() {
   echo "test_governance_dispatch_sources_its_helpers:"
   local body; body="$(_extract_section_bash "$GOV_SKILL" "## 11")"
   if printf '%s' "$body" | grep -qE 'sf_docs_derive|_write_or_skip'; then
-    if grep -qE 'source .*/lib/docs\.sh' "$GOV_SKILL"; then
+    if printf '%s' "$body" | grep -qE 'source .*/lib/docs\.sh'; then
       PASS=$((PASS+1)); echo "  ✓ §11 sources docs.sh"
     else
       FAIL=$((FAIL+1)); echo "  ✗ §11 calls sf_docs_derive but never sources docs.sh"
@@ -59,6 +59,7 @@ test_fast_path_has_real_control_flow() {
   local ok=1 f
   for f in "$MB_SKILL" "$GOV_SKILL"; do
     # the fast-path block must contain an explicit return/exit, not just "# STOP"
+    # Bound on the ``` code-fence (not the section heading) so we capture exactly the fast-path block.
     if ! awk '/sf_synth_mode.*==.*"fast"/{f=1} f&&/^```/{f=0} f' "$f" | grep -qE '\b(return|exit)\b'; then
       echo "  ✗ $(basename "$(dirname "$f")") fast-path has no real return/exit"; ok=0
     fi
