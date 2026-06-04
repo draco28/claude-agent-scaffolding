@@ -9,6 +9,27 @@ MB_SKILL="$ROOT/skills/scaffolding-memory-bank/SKILL.md"
 GOV_SKILL="$ROOT/skills/scaffolding-governance-docs/SKILL.md"
 source "$ROOT/lib/render.sh"
 source "$ROOT/lib/synthesis.sh"
+source "$ROOT/lib/state.sh"        # SS-2 W4: inline seed + fallback test
+source "$ROOT/lib/memory-bank.sh"  # SS-2 W4: sf_memory_bank_derive for behavioral + fallback tests
+
+# SS-2 W4 — minimal on-disk onboarding state for the dispatch fast-path.
+# Mirrors test-memory-bank.sh::seed_master_spec answers, WITHOUT executing that
+# file's suite. sf_memory_bank_derive reads state from disk, so seeding state
+# (not MASTER-SPEC.md) is what the fast-path derive needs.
+_seed_state_for_dispatch() {
+  sf_state_init
+  sf_state_write_answer "1.1.1" "test-proj — a fast widget"
+  sf_state_write_answer "1.1.4" "test-proj"
+  sf_state_write_answer "1.1.2" "Widgets are slow today."
+  sf_state_write_answer "1.2.1" "Solo devs"
+  sf_state_write_answer "1.2.2" "Build a widget in 1 command"
+  sf_state_write_answer "1.3.1" "CLI tool"
+  sf_state_write_answer "1.3.2" "create / list / destroy widgets"
+  sf_state_write_answer "5.2.1" "Rust"
+  sf_state_write_answer "5.2.2" "file (~/.widgets.json)"
+  sf_state_write_answer "7.1.2" "statically typed Rust"
+  sf_state_write_answer "9.3.1" "no"
+}
 
 # Extract the bash inside a numbered section (e.g. "## 13.") up to the next "## " heading.
 _extract_section_bash() {
@@ -172,8 +193,57 @@ test_derivation_reviewer_agent_registered() {
   fi
 }
 
+# SS-2 W4 — behavioral: the executable shell of §13 (setup + fast-path + finalize) runs
+# under `set -euo pipefail` with a faked Task. A regression of the unsourced-helper /
+# unbound-var class aborts this test.
+test_memory_bank_dispatch_executes_under_set_u() {
+  echo "test_memory_bank_dispatch_executes_under_set_u:"
+  setup_tmp_repo
+  _seed_state_for_dispatch    # inline: sf_state_init + sf_state_write_answer ... (state on disk)
+  local driver="$TMP_DIR/driver.sh"
+  {
+    echo 'set -euo pipefail'
+    echo "export CLAUDE_PLUGIN_ROOT='$ROOT'"
+    echo 'sf_log_info(){ :; }; sf_log_warn(){ :; }; sf_log_error(){ :; }'   # quiet
+    echo 'regenerate=0; full=0'
+    echo 'Task(){ :; }'   # defensive no-op; the driver never executes a real Task(...) line
+    echo 'source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"'
+    echo 'source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"'
+    echo 'source "${CLAUDE_PLUGIN_ROOT}/lib/memory-bank.sh"'
+    echo 'source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"'
+    echo 'source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"'   # §13 sources this too (sf_state_read_answer, used by sf_memory_bank_derive)
+    echo 'export SF_SYNTH_FAST=1'   # exercise the fast-path branch end-to-end (deterministic, no real agents)
+    echo 'master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"'
+    echo 'exec_summary="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"'
+    echo 'if [[ "$(sf_synth_mode)" == "fast" ]]; then sf_memory_bank_derive ${regenerate:+--force}; sf_claude_md_generate; fi'
+    echo 'sf_claude_settings_generate'
+    echo 'sf_agents_md_generate'
+    echo 'echo DISPATCH_SHELL_OK'
+  } > "$driver"
+  local outp; outp="$(cd "$PWD" && bash "$driver" 2>"$TMP_DIR/err.txt")"
+  if printf '%s' "$outp" | grep -q DISPATCH_SHELL_OK && [[ -f "$PWD/.claude/memory-bank/00-project-brief.md" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ dispatch shell executes under set -euo pipefail (no unsourced-helper abort)"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ dispatch shell aborted:"; sed 's/^/      /' "$TMP_DIR/err.txt" | head -8
+  fi
+}
+
+# SS-2 W4 — pins spec §2.6: per-artifact fallback — only the bad artifact falls back,
+# siblings are preserved untouched.
+test_fallback_is_per_artifact() {
+  echo "test_fallback_is_per_artifact:"
+  setup_tmp_repo; _seed_state_for_dispatch
+  sf_memory_bank_derive    # full deterministic bundle (stands in for synthesized siblings)
+  local before00; before00="$(cksum < "$PWD/.claude/memory-bank/00-project-brief.md")"
+  sf_render "$ROOT/templates/memory-bank/02-system-patterns.md.tmpl" ts=x > "$PWD/.claude/memory-bank/02-system-patterns.md" 2>/dev/null || true
+  local after00; after00="$(cksum < "$PWD/.claude/memory-bank/00-project-brief.md")"
+  if [[ "$before00" == "$after00" ]]; then PASS=$((PASS+1)); echo "  ✓ per-artifact fallback leaves siblings untouched"; else FAIL=$((FAIL+1)); fi
+}
+
 test_memory_bank_dispatch_sources_its_helpers
 test_governance_dispatch_sources_its_helpers
+test_memory_bank_dispatch_executes_under_set_u
+test_fallback_is_per_artifact
 test_derivation_reviewer_agent_registered
 test_fast_path_has_real_control_flow
 test_render_exec_summary_from_section
