@@ -215,6 +215,7 @@ Source both synthesis and routing helpers:
 ```bash
 source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
 source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
+source "${CLAUDE_PLUGIN_ROOT}/lib/docs.sh"   # sf_docs_derive + _write_or_skip (fast-path + per-artifact fallback)
 ```
 
 Resolve the source documents:
@@ -249,8 +250,8 @@ Check the synthesis mode immediately after setup:
 
 ```bash
 if [[ "$(sf_synth_mode)" == "fast" ]]; then
-  sf_docs_derive [--full] --fast   # deterministic path; --full passed through if the user passed it
-  # STOP — do not execute synthesis waves
+  sf_docs_derive ${full:+--full} --fast   # deterministic path; --full passed through if the user passed it
+  return 0   # STOP: do NOT fall through into the synthesis waves below
 fi
 ```
 

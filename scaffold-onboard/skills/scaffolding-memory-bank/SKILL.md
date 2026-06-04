@@ -252,6 +252,8 @@ Source both synthesis and routing helpers:
 ```bash
 source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
 source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
+source "${CLAUDE_PLUGIN_ROOT}/lib/memory-bank.sh"   # sf_memory_bank_derive, sf_claude_*, _memory_bank_args, _sf_mb_*
+source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"        # sf_render (per-artifact fallback)
 ```
 
 Resolve source documents:
@@ -267,11 +269,13 @@ Check the synthesis mode immediately after setup:
 
 ```bash
 if [[ "$(sf_synth_mode)" == "fast" ]]; then
-  sf_memory_bank_derive [--force]   # deterministic path; --force passed through if --regenerate was set
+  sf_memory_bank_derive ${regenerate:+--force}   # deterministic path; --force when --regenerate set
   sf_claude_md_generate
-  # STOP — do not execute synthesis waves
+  return 0   # STOP: do NOT fall through into the synthesis waves below
 fi
 ```
+
+The `return 0` is load-bearing — a bare `# STOP` comment does not stop execution; the fast-path must exit the dispatch routine before the waves.
 
 `sf_synth_mode` echoes `fast` when `SF_SYNTH_FAST=1`. This flag is set by `sf_memory_bank_derive --fast` (which now exports `SF_SYNTH_FAST=1` per the v0.3 lib change) or when the user passes `--fast` in `$ARGUMENTS`. Parse `--fast` from `$ARGUMENTS` in the same flag loop as `--regenerate` (§9) and call `sf_memory_bank_derive --fast` when present.
 
