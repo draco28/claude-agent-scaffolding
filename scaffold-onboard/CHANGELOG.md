@@ -2,6 +2,20 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.5.0] — 2026-06-04
+
+SS-2 — synthesis live & verified + EXECUTIVE-SUMMARY + advisory post-derivation review (closes #50, #49, #42). Makes the v0.3 LLM-synthesis dispatch actually execute end-to-end on `/scaffold-project` and `/scaffold-docs`, gives EXECUTIVE-SUMMARY a real spec-derived producer, and adds an advisory content-quality review — guarded by a behavioral dispatch harness so a broken dispatch can no longer merge green. **scaffold-onboard only**; scaffold-dev untouched (no output-contract change → no cross-plugin version skew).
+
+### Added
+- **EXECUTIVE-SUMMARY is now synthesized from MASTER-SPEC (#49).** New `templates/synthesis-briefs/EXECUTIVE-SUMMARY.brief.md` plus a real deterministic renderer `sf_render_executive_summary` (previously a phantom reference, defined nowhere). It is produced by **exactly one authoritative producer — `onboarding-project` at onboarding-close** (synthesis by default; deterministic under `--fast`). `/scaffold-project` and `/scaffold-docs` only **consume** it: produce-once-if-missing for legacy projects, **never refresh**, and **warn** when it is stale vs MASTER-SPEC (content-hash trailer). Spec-derived ownership (hand-edits overwritten on the authoritative refresh). The `--fast` parser contract extracts MASTER-SPEC's pinned `## Executive Summary` section and **errors loudly** on an absent/empty section — never a silent thin summary.
+- **Advisory post-derivation review (#42).** New read-only `agents/derivation-reviewer.md` (Read/Grep/Glob; no Write, no Task) dispatched once after the synthesis waves on each surface. **Non-blocking**, with a recorded artifact-linked **disposition lifecycle**: findings tagged by target filename + the MASTER-SPEC content-hash they were reviewed against, each carrying `accept` / `regenerate <file>` / `edit`, where `regenerate <file>` surfaces a concrete `--regenerate=<file>` apply command. The report is written to `<bundle>/derivation-review.md`.
+- **Behavioral dispatch harness (`tests/test-synthesis-dispatch.sh`).** Executes the actual dispatch/fallback/finalize shell under `set -euo pipefail` with faked agent outputs, so the OQ-1 unsourced-helper class fails CI for real; plus source-guard, parser-contract, staleness, per-artifact-fallback, fragile-flag-expansion, and live-seed-preservation regression tests.
+
+### Fixed
+- **Synthesis dispatch was live-but-buggy (#50 / OQ-1).** Both synthesis-dispatch SKILL sections (`scaffolding-memory-bank` §13, `scaffolding-governance-docs` §11) now `source` every lib their dispatch/fallback/finalize body calls (`memory-bank.sh` + `render.sh`; `docs.sh`) — previously they sourced only `synthesis.sh` + `routing.sh` and aborted under the slash command's `set -u`. The comment-only `# STOP` fast-path short-circuits are now real `return 0`.
+- **Fast-path could silently clobber live-seed files.** The fast-path no longer uses the fragile `${regenerate:+--force}` / `${full:+--full}` idiom (which expands on the string `"0"`, not just when the flag is present); it uses explicit `== "1"` tests, so a normal `--fast` run can no longer force-overwrite the user's in-flight live-seed files (`05`/`06`/`09`/`10`) or `WORKFLOW.md` without an explicit `--regenerate`.
+- **Doubled `---` separator in the EXEC-SUMMARY render.** The deterministic renderer strips a trailing horizontal-rule from the extracted MASTER-SPEC section, so it no longer doubles the template's own separator.
+
 ## [0.4.0] — 2026-06-02
 
 SS-1 — memory-bank ownership + single-point update cadence (closes #45; the agent-driven program's foundational sub-spec). The memory bank grows from 12 to **14 files**.
