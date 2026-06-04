@@ -261,12 +261,18 @@ Check the synthesis mode immediately after setup:
 
 ```bash
 if [[ "$(sf_synth_mode)" == "fast" ]]; then
-  sf_docs_derive ${full:+--full} --fast   # deterministic path; --full passed through if the user passed it
+  if [[ "${full:-0}" == "1" ]]; then
+    sf_docs_derive --full --fast   # --full: emit the 14-doc set
+  else
+    sf_docs_derive --fast          # default 5-doc set
+  fi
   return 0   # STOP: do NOT fall through into the synthesis waves below
 fi
 ```
 
 `sf_synth_mode` echoes `fast` when `SF_SYNTH_FAST=1` (set by the `--fast` flag, which `sf_docs_derive`'s own arg-parse loop now recognises). In fast mode the full deterministic pipeline runs and you return.
+
+Do not collapse this to `sf_docs_derive ${full:+--full} --fast` — `${var:+}` triggers on the string `0` (non-empty), so it would always emit the 14-doc `--full` set on a normal `--fast` run even when the user never passed `--full`.
 
 ### 11.3 Synthesis wave dispatch
 

@@ -215,7 +215,7 @@ test_memory_bank_dispatch_executes_under_set_u() {
     echo 'export SF_SYNTH_FAST=1'   # exercise the fast-path branch end-to-end (deterministic, no real agents)
     echo 'master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"'
     echo 'exec_summary="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"'
-    echo 'if [[ "$(sf_synth_mode)" == "fast" ]]; then sf_memory_bank_derive ${regenerate:+--force}; sf_claude_md_generate; fi'
+    echo 'if [[ "$(sf_synth_mode)" == "fast" ]]; then if [[ "${regenerate:-0}" == "1" ]]; then sf_memory_bank_derive --force; else sf_memory_bank_derive; fi; sf_claude_md_generate; fi'
     echo 'sf_claude_settings_generate'
     echo 'sf_agents_md_generate'
     echo 'echo DISPATCH_SHELL_OK'
@@ -240,12 +240,46 @@ test_fallback_is_per_artifact() {
   if [[ "$before00" == "$after00" ]]; then PASS=$((PASS+1)); echo "  ✓ per-artifact fallback leaves siblings untouched"; else FAIL=$((FAIL+1)); fi
 }
 
+# SS-2 W4 (review fix) — a normal --fast run (regenerate=0) must NOT pass --force,
+# i.e. must NOT clobber live-seed files. Guards the ${regenerate:+--force} data-loss bug.
+test_fast_path_no_regenerate_preserves_live_seed() {
+  echo "test_fast_path_no_regenerate_preserves_live_seed:"
+  setup_tmp_repo; _seed_state_for_dispatch
+  sf_memory_bank_derive          # create the bundle incl. live-seed files
+  local live=".claude/memory-bank/05-active-context.md"
+  [[ -f "$PWD/$live" ]] || { sf_state_init >/dev/null 2>&1; }   # ensure file exists; if your derive names it differently, adjust
+  echo "USER-IN-FLIGHT-SENTINEL" >> "$PWD/$live"
+  # reproduce the FIXED fast-path expression with regenerate unset/0:
+  local regenerate=0
+  if [[ "${regenerate:-0}" == "1" ]]; then sf_memory_bank_derive --force; else sf_memory_bank_derive; fi
+  if grep -q "USER-IN-FLIGHT-SENTINEL" "$PWD/$live"; then
+    PASS=$((PASS+1)); echo "  ✓ no-regenerate --fast preserves live-seed content"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ live-seed content was clobbered on a no-flag run (data loss)"
+  fi
+}
+
+# SS-2 W4 (review fix) — cheap static guard: the buggy ${var:+--flag} idiom must not
+# silently return to either fast-path. Scope the grep to the executable fast-path
+# code-fence block (bounded on the ``` fence, like test_fast_path_has_real_control_flow)
+# so the deliberate "do not collapse to ${regenerate:+--force}" warning PROSE that the
+# fix adds below the fence does not trip this guard.
+test_fast_path_avoids_fragile_flag_expansion() {
+  echo "test_fast_path_avoids_fragile_flag_expansion:"
+  local bad=0
+  if awk '/sf_synth_mode.*==.*"fast"/{f=1} f&&/^```/{f=0} f' "$MB_SKILL" | grep -qE '\$\{regenerate:\+'; then echo "  ✗ memory-bank §13.2 uses fragile \${regenerate:+--force}"; bad=1; fi
+  if awk '/sf_synth_mode.*==.*"fast"/{f=1} f&&/^```/{f=0} f' "$GOV_SKILL" | grep -qE '\$\{full:\+'; then echo "  ✗ governance §11.2 uses fragile \${full:+--full}"; bad=1; fi
+  if [[ "$bad" == "0" ]]; then PASS=$((PASS+1)); echo "  ✓ fast-paths use explicit ==1 tests, not \${var:+}"; else FAIL=$((FAIL+1)); fi
+}
+
 test_memory_bank_dispatch_sources_its_helpers
 test_governance_dispatch_sources_its_helpers
 test_memory_bank_dispatch_executes_under_set_u
 test_fallback_is_per_artifact
 test_derivation_reviewer_agent_registered
 test_fast_path_has_real_control_flow
+test_fast_path_no_regenerate_preserves_live_seed
+test_fast_path_avoids_fragile_flag_expansion
 test_render_exec_summary_from_section
 test_render_exec_summary_multiline_body
 test_render_exec_summary_errors_on_missing_section

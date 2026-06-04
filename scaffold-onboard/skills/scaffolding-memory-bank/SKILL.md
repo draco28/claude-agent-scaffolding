@@ -280,13 +280,19 @@ Check the synthesis mode immediately after setup:
 
 ```bash
 if [[ "$(sf_synth_mode)" == "fast" ]]; then
-  sf_memory_bank_derive ${regenerate:+--force}   # deterministic path; --force when --regenerate set
+  if [[ "${regenerate:-0}" == "1" ]]; then
+    sf_memory_bank_derive --force   # --regenerate: confirmed live/static overwrite path (§4/§9)
+  else
+    sf_memory_bank_derive           # preserve live-seed files (no silent clobber)
+  fi
   sf_claude_md_generate
   return 0   # STOP: do NOT fall through into the synthesis waves below
 fi
 ```
 
 The `return 0` is load-bearing — a bare `# STOP` comment does not stop execution; the fast-path must exit the dispatch routine before the waves.
+
+Do not collapse this to `sf_memory_bank_derive ${regenerate:+--force}` — `${var:+}` triggers on the string `0` (non-empty), so it would pass `--force` on a normal `--fast` run and silently clobber live-seed files.
 
 `sf_synth_mode` echoes `fast` when `SF_SYNTH_FAST=1`. This flag is set by `sf_memory_bank_derive --fast` (which now exports `SF_SYNTH_FAST=1` per the v0.3 lib change) or when the user passes `--fast` in `$ARGUMENTS`. Parse `--fast` from `$ARGUMENTS` in the same flag loop as `--regenerate` (§9) and call `sf_memory_bank_derive --fast` when present.
 
