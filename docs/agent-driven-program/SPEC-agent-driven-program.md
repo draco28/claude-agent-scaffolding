@@ -74,8 +74,8 @@ A mechanical parser *and* an agent path both claim one job; prose that doesn't m
 
 Each sub-spec gets its own `brainstorm → writing-plans → build → bot-review → release` cycle later. Sequencing respects dependencies; cleanup interleaves.
 
-### SS-1 — Memory-bank ownership + single-point update cadence (anti-pattern A core) · **FOUNDATIONAL, FIRST** · design-locked
-**Design-locked in `docs/agent-driven-program/specs/SS-1-memory-bank-cadence.md` (2026-06-02).** Key resolution: classify each bank by ownership (pure spec-derived / pure dev-authored / mixed) — which shrinks #45 to **two files**. Separate dev-authored learnings into **new live-seed files (`09-known-issues`, `10-decisions-log`)**; keep machine-checkable rules in `03` inside one **mechanically-preserved zone**. **OQ-2 resolved: no agent-merge engine needed** — file separation + mechanical zone-preservation suffices (preservation is a non-reasoning fact). Plus a **single-point cadence policy** (event × bank × who) with a de-contamination sweep so no skill restates the cadence.
+### SS-1 — Memory-bank ownership + single-point update cadence (anti-pattern A core) · **FOUNDATIONAL, FIRST** · ✅ SHIPPED 2026-06-04
+**SHIPPED 2026-06-04** (PR #54, squash `237675d`; tags `scaffold-onboard-v0.4.0` + `scaffold-dev-v0.3.0`; closed #45). Built via subagent-driven-development; converged after a Codex/CodeRabbit review cycle that caught 4 real data-loss-on-upgrade defects the build missed (legacy-mcrule preserve, `--force` 09 carve-out, migrate-from-all-derived-files, 08-governance stale cadence). Design-locked in `docs/agent-driven-program/specs/SS-1-memory-bank-cadence.md` (2026-06-02). Key resolution: classify each bank by ownership (pure spec-derived / pure dev-authored / mixed) — which shrinks #45 to **two files**. Separate dev-authored learnings into **new live-seed files (`09-known-issues`, `10-decisions-log`)**; keep machine-checkable rules in `03` inside one **mechanically-preserved zone**. **OQ-2 resolved: no agent-merge engine needed** — file separation + mechanical zone-preservation suffices (preservation is a non-reasoning fact). Plus a **single-point cadence policy** (event × bank × who) with a de-contamination sweep so no skill restates the cadence.
 **Closes:** `#45`. **Partially:** `#48` C/D/E.
 
 ### SS-2 — Turn synthesis ON + verify + post-derivation review (anti-pattern A/B) · depends on SS-1
@@ -107,7 +107,7 @@ Every open issue + every new audit finding, mapped to a sub-spec. **Target: 0 op
 
 | # | Title (short) | Pivot relation | Sub-spec | Target |
 |---|---|---|---|---|
-| **#45** | harvest ↔ derived-file SSoT contradiction | wedge / partial | **SS-1** | v0.2 |
+| ~~**#45**~~ | harvest ↔ derived-file SSoT contradiction | wedge / partial | **SS-1** | ✅ CLOSED 2026-06-04 (PR #54) |
 | **#42** | agent-driven post-derivation doc review | **dissolved** (is the refactor) | **SS-2** | v0.2 |
 | **#7** | verifying-spec-citations (agent-assisted) | **dissolved** | **SS-4** | v0.2 |
 | **#5** | pre-flight RED-tests gate | partial (reframe) | **SS-4** | v0.2 |
