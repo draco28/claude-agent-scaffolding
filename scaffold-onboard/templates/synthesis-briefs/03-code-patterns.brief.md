@@ -47,11 +47,17 @@ synthesize:
   - Public API surface + versioning: from `phase_7.4.1`
   Omit this section entirely for projects that are not a library/SDK.
 
-**IMPORTANT — Machine-checkable rules:** emit this section as an EMPTY seeded section.
-Do NOT synthesize machine-checkable rules here. Output the section heading and the
-HTML-comment invitation block EXACTLY as it appears in the template:
+**IMPORTANT — Machine-checkable rules:** emit this section as an EMPTY seeded section,
+wrapped EXACTLY in the two `mcrules:preserve` HTML-comment sentinels. Do NOT synthesize
+any machine-checkable rules here (zero `<!-- mcrule:start -->` blocks). Output the
+sentinels, heading, and invitation block EXACTLY as they appear in the template:
 
-```
+```markdown
+<!-- mcrules:preserve:start -->
+<!-- This zone is PRESERVED across /scaffold-project re-derive. Everything else in
+     this file re-renders from MASTER-SPEC.md. Rules added here by
+     authoring-machine-checkable-rules survive regeneration. See
+     `memory-bank/WORKFLOW.md` → **Memory-bank update cadence**. -->
 ## Machine-checkable rules
 
 <!--
@@ -59,11 +65,14 @@ HTML-comment invitation block EXACTLY as it appears in the template:
   Use `/add-project-rule` (skill: authoring-machine-checkable-rules) to add
   rules; this section is intentionally seeded empty for tools that parse it.
 -->
+<!-- mcrules:preserve:end -->
 ```
 
-Leave no additional content under this heading. Machine-checkable rules are authored
-by the `authoring-machine-checkable-rules` skill and must NOT be pre-populated by
-synthesis.
+Leave no additional content between the sentinels beyond the heading and invitation.
+Machine-checkable rules are authored by the `authoring-machine-checkable-rules` skill
+and must NOT be pre-populated by synthesis. The orchestrator preserves whatever rules
+already exist between those sentinels across re-derive; your job is only to emit the
+empty, sentinel-wrapped section.
 
 User-global defaults (apply unless overridden above): copy the canonical defaults
 block VERBATIM from the template — do NOT modify the list items or add project-

@@ -39,7 +39,7 @@ Done. The user can re-invoke for the next rule. There is no batch mode in v0.2 �
 
 **Do NOT auto-invoke when:**
 
-- The user wants to **derive the memory bank** (the 11-file scaffold + `## Machine-checkable rules` section seeding) — that's `scaffold-onboard:scaffolding-memory-bank` via `/scaffold-project`. Your skill assumes the section either already exists or is about to be created on first rule; it does not bootstrap the whole memory bank.
+- The user wants to **derive the memory bank** (the 14-file scaffold + `## Machine-checkable rules` section seeding) — that's `scaffold-onboard:scaffolding-memory-bank` via `/scaffold-project`. Your skill assumes the section either already exists or is about to be created on first rule; it does not bootstrap the whole memory bank.
 - The user wants to author **governance docs** (PRD, SRS, BACKLOG, ADRs, RISK_REGISTER, etc.) — that's `scaffold-onboard:scaffolding-governance-docs` via `/scaffold-docs`. Governance docs live outside `03-code-patterns.md`.
 - The user wants to author the **Phase → Sprint → Vertical-Slice hierarchy** (ROADMAP.md) — that's `scaffold-onboard:planning-project-roadmap` via `/plan-roadmap`. Demo criteria, slice IDs, sprint planning all live there, not here.
 - The user wants to author **demo criteria** for a vertical slice (`auto:` / `user:` grammar) — that's `scaffold-onboard:authoring-vertical-slice-demo` (SPEC §5.6). Different DSL, different target file.
@@ -185,8 +185,21 @@ sf_rules_validate_block <block_body_text>
 
 The section is appended to, never rewritten in place. The contract:
 
-1. **Locate the section.** Find the line matching `^## Machine-checkable rules` in the file. If absent, append the heading at end-of-file (plus a blank line above and below) and treat the new block as the first under it.
-2. **Find the insertion point.** Search forward from the section heading for the last `<!-- mcrule:end -->` before the next `## ` heading (or EOF). Insert the new block after that line, preceded by a blank line. If no existing `<!-- mcrule:end -->` is present in the section, insert after any invitation comment / prose, before the next H2 (or EOF).
+1. **Locate the section.** Find the line matching `^## Machine-checkable rules`. In a
+   scaffold-onboard-derived `03-code-patterns.md` it sits inside a preserved zone
+   delimited by `<!-- mcrules:preserve:start -->` … `<!-- mcrules:preserve:end -->`
+   (SS-1 W2 — that zone is what survives `/scaffold-project` re-derive; rules placed
+   outside it would be lost). If the heading is absent, append the full sentinel-wrapped
+   zone (start marker, heading, invitation, end marker) at EOF and treat the new block
+   as the first under it.
+2. **Find the insertion point.** The section's lower boundary is
+   `<!-- mcrules:preserve:end -->` when present (NOT the next `##` heading — that is
+   now outside the preserved zone). Search forward from the heading for the last
+   `<!-- mcrule:end -->` before `<!-- mcrules:preserve:end -->`; insert the new block
+   after that line, preceded by a blank line. If no `<!-- mcrule:end -->` exists yet,
+   insert after the invitation comment, immediately before `<!-- mcrules:preserve:end -->`.
+   (Legacy files without the preserve markers fall back to the old boundary: before the
+   next `##` heading or EOF.)
 3. **Idempotent on verbatim-identical blocks.** Before writing, scan existing `<!-- mcrule:start ... -->` … `<!-- mcrule:end -->` blocks in the section. If a block with byte-identical body (after whitespace normalization) already exists, skip the write and surface: *"This rule is already present in `03-code-patterns.md` — no change needed."* Do not duplicate.
 4. **Never overwrite existing rules.** Pre-existing rule blocks in the section are byte-identical preserved (the S5 eval scenario verifies this). Your write is an in-place insertion, not a rewrite.
 5. **Preserve surrounding prose.** Any human-authored prose between rule blocks (e.g., "We forbid sync HTTP libraries because they block the event loop.") stays untouched.
@@ -196,6 +209,8 @@ The section is appended to, never rewritten in place. The contract:
 - The skill's section-detection / pre-write scan **must not crash** on unknown types. Treat them as opaque blocks to skip over.
 - Surface a one-line warning to the user: *"Note: encountered `<!-- mcrule:start type=dependency_age -->` block in section — this is a forward-compat type not recognized by v0.2. Preserving as-is."* (or equivalent natural-language acknowledgment).
 - The unknown block remains in the file unchanged. Skip means skip during the *semantic* layer, not delete from disk. The §8.5 contract is forward-compat preservation, not erasure.
+
+> Cadence note: rules are added continuously by this skill; the full update cadence lives in `memory-bank/WORKFLOW.md` → **Memory-bank update cadence**.
 
 ---
 

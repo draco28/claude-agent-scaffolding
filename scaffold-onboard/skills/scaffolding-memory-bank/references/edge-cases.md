@@ -66,9 +66,10 @@ Do NOT block derivation. The fallback is the documented v0.1.0-equivalent path; 
 
 ## 5. User-edited `03-code-patterns.md` mcrule blocks preserved on re-derive
 
-**Trigger:** after first `/scaffold-project`, the user invoked `Skill(scaffold-onboard:authoring-machine-checkable-rules)` and added 3 mcrule blocks between the `## Machine-checkable rules` heading and the next `## ` heading. Their `03-code-patterns.md` now contains:
+**Trigger:** after first `/scaffold-project`, the user invoked `Skill(scaffold-onboard:authoring-machine-checkable-rules)` and added 3 mcrule blocks inside the `## Machine-checkable rules` preserve zone, before `<!-- mcrules:preserve:end -->`. Their `03-code-patterns.md` now contains:
 
 ```markdown
+<!-- mcrules:preserve:start -->
 ## Machine-checkable rules
 <!-- TODO: add machine-checkable rules. ... -->
 
@@ -86,13 +87,14 @@ Do NOT block derivation. The fallback is the documented v0.1.0-equivalent path; 
 <!-- mcrule:scope tests/**/*.rs -->
 <!-- mcrule:rule Every public CLI command MUST have at least one integration test. -->
 <!-- mcrule:end -->
+<!-- mcrules:preserve:end -->
 ```
 
 Now the user runs `/scaffold-project` again (no `--regenerate`) — maybe MASTER-SPEC was edited to clarify Phase 3 entities.
 
 **What MUST happen:** the 8-derived bucket includes `03-code-patterns.md`, which means the file IS re-rendered from the template. **However, the template-rendered file ONLY seeds the `## Machine-checkable rules` heading + invitation comment** — it has zero rule blocks. If the helper naively overwrites the existing file, the user's 3 hand-authored mcrule blocks are LOST.
 
-**Helper behavior (v0.2 contract):** `sf_memory_bank_derive` performs a **section-preserving merge** for `03-code-patterns.md`: it re-renders the file from the template, then for the `## Machine-checkable rules` section it preserves any `<!-- mcrule:start ... --> ... <!-- mcrule:end -->` blocks already present in the on-disk file, splicing them into the re-rendered section between the heading and the next `## ` heading. The invitation comment is preserved (or restored if absent) as the section's first child.
+**Helper behavior (v0.2 contract):** `sf_memory_bank_derive` performs a **zone-preserving merge** for `03-code-patterns.md`: it captures the full `<!-- mcrules:preserve:start -->` ... `<!-- mcrules:preserve:end -->` zone before re-render, then re-injects it into the freshly rendered file. Legacy files that only have the `## Machine-checkable rules` heading are wrapped in the new sentinels on first upgrade so existing `<!-- mcrule:start ... --> ... <!-- mcrule:end -->` blocks survive.
 
 **Skill body discipline:** this skill **seeds the SECTION** — it does not own the SECTION's content. mcrule blocks are owned by `authoring-machine-checkable-rules` (SPEC §5.5); the seeding skill must preserve them on re-derive. Document this clearly in any user-facing surfacing on re-derive:
 

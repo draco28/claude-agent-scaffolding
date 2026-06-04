@@ -285,6 +285,8 @@ Write the file BEFORE harvest runs (so the harvest step can append to section 4 
 
 ## 9. Memory-bank harvest (§15.2 8-step flow)
 
+> Harvest is the slice-close memory-bank write event per the cadence policy (`memory-bank/WORKFLOW.md` → **Memory-bank update cadence**). This section is the *mechanics*; the policy owns *which files at which event*.
+
 The harvest is the heart of the slice's memory-bank promotion contract. Eight steps, executed in this order.
 
 ### 9.1 Step 1 — Read all work-item `report.md`
@@ -311,7 +313,16 @@ From each `vs-N.M.K-*.md` handoff: extract **section 4 — "What's NOT in memory
 
 ### 9.4 Step 4 — Categorize by target memory-bank file
 
-For each candidate, decide which memory-bank file it belongs in (per scaffold-onboard's 11-file taxonomy): typically `03-code-patterns.md` (patterns + R2 rules), `04-tech-context.md` (stack-specific notes), `09-known-issues.md` (caveats + workarounds), `10-decisions-log.md` (ADR-worthy notes), or `06-product-context.md` (product-shape notes). Surface the proposed target alongside the candidate at step 5.
+For each candidate, decide which **dev-authored** memory-bank file it belongs in, per
+the cadence policy (`memory-bank/WORKFLOW.md` → **Memory-bank update cadence**, harvest
+routing): caveats / gotchas / stack notes → `09-known-issues.md`; decisions / advisory
+patterns → `10-decisions-log.md`; an enforceable pattern → NOT a raw harvest append —
+route the user to `Skill(scaffold-onboard:authoring-machine-checkable-rules)` so it
+lands in `03`'s preserved rules zone. Spec-derived files (`00,01,02,04,07,08,index`)
+and `03`'s derived prose are **never** harvest targets; `sd_harvest_apply` reroutes any
+such target to `09-known-issues.md` and warns. (There is no `06-product-context.md`
+file — `06` is `06-progress`; `01` is product-context.) Surface the proposed target
+alongside the candidate at step 5.
 
 ### 9.5 Step 5 — Surface candidates with source-tag prefix
 
@@ -322,19 +333,25 @@ Example surface:
 ```
 Harvest candidates for VS-1.1.1 (4 items):
 
-1. [report] from work-1.01/report.md → target: 03-code-patterns.md
+1. [report] from work-1.01/report.md → target: 09-known-issues.md
    "subagent must use absolute paths when reading worktree files (relative paths break under Task dispatch)"
 
 2. [report] from work-1.03/report.md → target: 09-known-issues.md
    "merge conflict surface on shared schema.json when two parallel work items both touch it"
 
-3. [handoff] from vs-1.1.1-bugfix-auth-a1b2.md section 4 → target: 03-code-patterns.md
+3. [handoff] from vs-1.1.1-bugfix-auth-a1b2.md section 4 → target: 10-decisions-log.md
    "auth retry pattern: exponential backoff with 3 attempts, jitter 100-500ms"
 
 4. [handoff] from vs-1.1.1-techdebt-logging-e5f6.md section 4 → target: 09-known-issues.md
    "log-rotation cron caveat — rotation fires at 03:00 UTC and races with the scheduled backup"
 
 Per item: accept (apply as-is) / edit (give me the revised text) / reject (drop).
+
+> Targets are dev-authored files only (`09`/`10`). A candidate that is a strictly
+> **enforceable** rule (not advisory prose) is NOT harvested into `03` as raw text —
+> route it to `Skill(scaffold-onboard:authoring-machine-checkable-rules)` so it lands
+> in `03`'s preserved rules zone as a machine-checkable rule. `sd_harvest_apply`
+> reroutes any spec-derived target to `09-known-issues.md` and warns.
 ```
 
 ### 9.6 Step 6 — Consume per-item decisions

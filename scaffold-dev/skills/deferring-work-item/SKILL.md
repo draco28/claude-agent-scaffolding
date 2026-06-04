@@ -72,6 +72,8 @@ header from scaffold-onboard's template, then append):
 
 No prose duplication of the issue body — the index is pointers only.
 
+> Cadence: `tech-debt.md` is dev-authored; see `memory-bank/WORKFLOW.md` → **Memory-bank update cadence**.
+
 ## 6. Confirm
 
 Tell the user: filed issue #N (title) in <repo>, indexed in tech-debt.md. Done.

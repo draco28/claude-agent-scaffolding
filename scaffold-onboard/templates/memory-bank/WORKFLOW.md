@@ -21,11 +21,40 @@ are planned and dispatched, not hand-stepped:
 
 At sprint boundaries, say `close sprint N` to aggregate the per-slice retrospectives.
 
-## When to update memory-bank
+## Memory-bank update cadence
 
-- **05-active-context.md** — update as you switch slices or change focus. Hand-edit freely.
-- **06-progress.md** — append after every commit (via `add changelog entry` or by hand). One line per change.
-- **00–04, 07, 08, index** — never hand-edit; re-run `/scaffold-project` after editing MASTER-SPEC.md.
+<!-- cadence-policy:canonical -->
+
+> **This section is the single source of truth for when and by whom each memory-bank
+> file is updated.** Every scaffold-onboard / scaffold-dev skill that touches the
+> memory bank points here instead of restating the rule. Change the cadence here only.
+
+Files fall into three ownership classes:
+
+- **Spec-derived** — `00-project-brief`, `01-product-context`, `02-system-patterns`,
+  `04-tech-context`, `07-constraints`, `08-governance`, `index`. Regenerated from
+  `MASTER-SPEC.md` by `/scaffold-project`. Never hand-edit; edit MASTER-SPEC.md and
+  re-derive.
+- **Dev-authored** — `05-active-context`, `06-progress`, `09-known-issues`,
+  `10-decisions-log`, `tech-debt`. Written while building; **preserved** across
+  re-derive (seeded once if missing).
+- **Mixed** — `03-code-patterns`. Spec-derived prose PLUS one preserved
+  `## Machine-checkable rules` zone (between `<!-- mcrules:preserve:start/end -->`)
+  that survives re-derive.
+
+| Event | Files updated | By whom |
+|---|---|---|
+| `/onboard`, `/scaffold-project` | derive spec-derived files + `03` prose (preserve `03` rules zone); seed dev-authored files if missing | `scaffolding-memory-bank` |
+| Work-item close | **none** — suggestions captured in `report.md` for later harvest | `implementer-agent` |
+| Slice close | `05` cursor; `09-known-issues` + `10-decisions-log` (agent-judged harvest); `tech-debt` (auto-file sweep); `03` rules zone *only if* a discovered pattern is promoted to a rule | `closing-vertical-slice` |
+| Sprint close | **none** — sprint retro is read-only aggregation | `writing-sprint-retrospective` |
+| Continuous | `05` (focus changes); `06` (`add changelog entry` / by hand); `03` rules (`authoring-machine-checkable-rules`); `tech-debt` (`/defer`) | you / the named skill |
+| Re-derive after MASTER-SPEC change | re-derive spec-derived files + `03` prose (rules zone preserved); dev-authored files untouched | `/scaffold-project` |
+
+**Harvest routing (slice close):** caveats / gotchas / stack notes → `09-known-issues`;
+decisions / advisory patterns → `10-decisions-log`; enforceable patterns → a
+machine-checkable rule in `03` (via `authoring-machine-checkable-rules`). **Never**
+append harvested prose into the spec-derived body of `03` / `04`.
 
 ## When to update governance docs
 

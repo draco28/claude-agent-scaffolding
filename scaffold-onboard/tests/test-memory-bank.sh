@@ -118,7 +118,7 @@ test_all_derived_files_present() {
   seed_master_spec
   sf_memory_bank_derive
   local f
-  for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 05-active-context 06-progress 07-constraints 08-governance index WORKFLOW tech-debt; do
+  for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 05-active-context 06-progress 07-constraints 08-governance 09-known-issues 10-decisions-log index WORKFLOW tech-debt; do
     assert_file_exists "./.claude/memory-bank/${f}.md"
   done
 }
@@ -186,6 +186,245 @@ test_derive_seeds_machine_checkable_rules_section() {
   assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "^## Machine-checkable rules"
 }
 
+# SS-1 W1 — new pure-dev files seeded header-only and preserved on re-derive.
+test_new_dev_files_seeded() {
+  echo "test_new_dev_files_seeded:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  assert_file_exists "./.claude/memory-bank/09-known-issues.md"
+  assert_file_exists "./.claude/memory-bank/10-decisions-log.md"
+  assert_file_contains "./.claude/memory-bank/09-known-issues.md" "# Known Issues"
+  assert_file_contains "./.claude/memory-bank/10-decisions-log.md" "# Decisions Log"
+}
+
+test_new_dev_files_preserved_on_rederive() {
+  echo "test_new_dev_files_preserved_on_rederive:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  echo "- gotcha: widgets race on startup" >> ".claude/memory-bank/09-known-issues.md"
+  echo "- decided: use file-lock for the registry" >> ".claude/memory-bank/10-decisions-log.md"
+  sf_memory_bank_derive
+  assert_file_contains "./.claude/memory-bank/09-known-issues.md" "widgets race on startup"
+  assert_file_contains "./.claude/memory-bank/10-decisions-log.md" "use file-lock for the registry"
+}
+
+# SS-1 W2 — a machine-checkable rule authored into 03 survives a plain re-derive;
+# the derived prose around it still refreshes.
+test_03_rules_zone_preserved_on_rederive() {
+  echo "test_03_rules_zone_preserved_on_rederive:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  # Simulate authoring-machine-checkable-rules inserting a rule inside the zone:
+  # insert a rule block immediately before the preserve:end marker.
+  awk '
+    /<!-- mcrules:preserve:end -->/ && !done {
+      print "<!-- mcrule:start type=banned-imports -->"
+      print "banned: requests"
+      print "<!-- mcrule:end -->"
+      done=1
+    }
+    { print }
+  ' ".claude/memory-bank/03-code-patterns.md" > ".claude/memory-bank/03-code-patterns.md.tmp"
+  mv ".claude/memory-bank/03-code-patterns.md.tmp" ".claude/memory-bank/03-code-patterns.md"
+  sf_memory_bank_derive
+  assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "mcrule:start type=banned-imports"
+  assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "banned: requests"
+  # derived prose still present (the zone is not the whole file)
+  assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "User-global defaults"
+}
+
+# SS-1 W2 — empty-zone idempotency: a fresh project with NO authored rules survives
+# repeated re-derive without corrupting 03 (the [[ -n "$saved_zone" ]] guard path).
+test_03_empty_zone_idempotent() {
+  echo "test_03_empty_zone_idempotent:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  sf_memory_bank_derive
+  sf_memory_bank_derive
+  # Sentinels present exactly once each; heading intact; no duplication.
+  local starts ends headings
+  starts="$(grep -c 'mcrules:preserve:start' ".claude/memory-bank/03-code-patterns.md")"
+  ends="$(grep -c 'mcrules:preserve:end' ".claude/memory-bank/03-code-patterns.md")"
+  headings="$(grep -c '^## Machine-checkable rules' ".claude/memory-bank/03-code-patterns.md")"
+  if [[ "$starts" == "1" && "$ends" == "1" && "$headings" == "1" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ empty zone stable across repeated re-derive"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ zone corrupted: starts=$starts ends=$ends headings=$headings"
+  fi
+}
+
+# SS-1 review fix — legacy projects may have authored mcrule blocks under the
+# heading-only section before preserve sentinels existed. First upgrade must wrap
+# and preserve that legacy section instead of overwriting it.
+test_legacy_rules_without_preserve_markers_survive_upgrade() {
+  echo "test_legacy_rules_without_preserve_markers_survive_upgrade:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  cat > ".claude/memory-bank/03-code-patterns.md" <<'EOF'
+# Code Patterns
+
+## Module / package boundaries
+legacy derived body
+
+## Machine-checkable rules
+
+<!-- mcrule:start type=banned_imports -->
+forbid: [requests]
+<!-- mcrule:end -->
+
+## User-global defaults
+- legacy defaults
+EOF
+  sf_memory_bank_derive
+  assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "mcrules:preserve:start"
+  assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "mcrule:start type=banned_imports"
+  assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "forbid: \\[requests\\]"
+  assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "mcrules:preserve:end"
+}
+
+# SS-1 W3 — the canonical cadence policy lives in WORKFLOW.md and carries the
+# uniqueness marker; the three ownership classes are named.
+test_cadence_policy_canonical() {
+  echo "test_cadence_policy_canonical:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  assert_file_contains "./.claude/memory-bank/WORKFLOW.md" "cadence-policy:canonical"
+  assert_file_contains "./.claude/memory-bank/WORKFLOW.md" "Memory-bank update cadence"
+  assert_file_contains "./.claude/memory-bank/WORKFLOW.md" "Spec-derived"
+  assert_file_contains "./.claude/memory-bank/WORKFLOW.md" "Dev-authored"
+}
+
+# SS-1 W7 — provenance-trailed harvest content in a derived file is relocated to
+# 09-known-issues.md before re-derive, never silently dropped.
+test_migration_relocates_harvested_content() {
+  echo "test_migration_relocates_harvested_content:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  # Simulate an old project: harvest content was appended into derived 04.
+  {
+    echo ""
+    echo "- legacy harvested note: prefer atomic writes for the registry"
+    echo "<!-- Added from VS-1.1.1 retrospective, 2026-05-01; source: report -->"
+  } >> ".claude/memory-bank/04-tech-context.md"
+  # Re-derive: migration must move it to 09 before 04 is regenerated.
+  sf_memory_bank_derive
+  assert_file_contains "./.claude/memory-bank/09-known-issues.md" "prefer atomic writes for the registry"
+  assert_file_not_contains "./.claude/memory-bank/04-tech-context.md" "prefer atomic writes for the registry"
+}
+
+# SS-1 review fix — pre-SS-1 harvest could target any file later classified as
+# spec-derived, not only 03/04. All provenance-trailed entries must move before
+# the derived-file render loop overwrites them.
+test_migration_relocates_harvested_content_from_all_derived_files() {
+  echo "test_migration_relocates_harvested_content_from_all_derived_files:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  local f note path
+  for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 07-constraints 08-governance index; do
+    path=".claude/memory-bank/${f}.md"
+    note="legacy harvested note from ${f}"
+    {
+      echo ""
+      echo "- ${note}"
+      echo "<!-- Added from VS-9.9.9 retrospective, 2026-05-03; source: report -->"
+    } >> "$path"
+  done
+  sf_memory_bank_derive
+  for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 07-constraints 08-governance index; do
+    note="legacy harvested note from ${f}"
+    assert_file_contains "./.claude/memory-bank/09-known-issues.md" "$note"
+    assert_file_not_contains "./.claude/memory-bank/${f}.md" "$note"
+  done
+}
+
+# SS-1 review fix — --force refreshes live files, but if migration appended to
+# 09-known-issues.md earlier in the same derive call, that migrated content must
+# not be clobbered by the live-file force overwrite loop.
+test_migration_preserves_09_on_force_after_relocation() {
+  echo "test_migration_preserves_09_on_force_after_relocation:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  {
+    echo ""
+    echo "- legacy force note: preserve after migration"
+    echo "<!-- Added from VS-4.4.4 retrospective, 2026-05-04; source: report -->"
+  } >> ".claude/memory-bank/04-tech-context.md"
+  sf_memory_bank_derive --force
+  assert_file_contains "./.claude/memory-bank/09-known-issues.md" "legacy force note: preserve after migration"
+  assert_file_contains "./.claude/memory-bank/09-known-issues.md" "Memory-bank update cadence"
+}
+
+# Idempotent — a second re-derive does not duplicate.
+test_migration_idempotent() {
+  echo "test_migration_idempotent:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  {
+    echo ""
+    echo "- legacy note: one-shot relocate me"
+    echo "<!-- Added from VS-2.1.1 retrospective, 2026-05-02; source: handoff -->"
+  } >> ".claude/memory-bank/03-code-patterns.md"
+  sf_memory_bank_derive
+  sf_memory_bank_derive
+  local count
+  count="$(grep -c "one-shot relocate me" "./.claude/memory-bank/09-known-issues.md")"
+  if [[ "$count" == "1" ]]; then PASS=$((PASS+1)); echo "  ✓ relocated exactly once";
+  else FAIL=$((FAIL+1)); echo "  ✗ expected 1 relocation, found $count"; fi
+}
+
+# SS-1 W7 — migration must not touch content inside the 03 preserve zone.
+test_migration_leaves_preserve_zone() {
+  echo "test_migration_leaves_preserve_zone:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  # Put a rule block inside the preserve zone (no provenance trailer).
+  awk '
+    /<!-- mcrules:preserve:end -->/ && !done {
+      print "<!-- mcrule:start type=banned-imports -->"
+      print "banned: requests"
+      print "<!-- mcrule:end -->"
+      done=1
+    }
+    { print }
+  ' ".claude/memory-bank/03-code-patterns.md" > ".claude/memory-bank/03-code-patterns.md.tmp"
+  mv ".claude/memory-bank/03-code-patterns.md.tmp" ".claude/memory-bank/03-code-patterns.md"
+  sf_memory_bank_derive
+  assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "banned: requests"
+}
+
+# SS-1 W7 (final-review fix) — legacy upgrade path: when 09 does NOT exist yet and
+# 03/04 carry harvested content, migration must seed 09 from its TEMPLATE (full
+# header/sections/cadence pointer), not a bare header — then preserve it.
+test_migration_creates_09_with_full_template() {
+  echo "test_migration_creates_09_with_full_template:"
+  setup_tmp_repo
+  seed_master_spec
+  sf_memory_bank_derive
+  # Simulate a legacy 12-file bank: remove 09, inject harvested content into 04.
+  rm -f ".claude/memory-bank/09-known-issues.md"
+  {
+    echo ""
+    echo "- legacy note: prefer atomic writes for the registry"
+    echo "<!-- Added from VS-1.1.1 retrospective, 2026-05-01; source: report -->"
+  } >> ".claude/memory-bank/04-tech-context.md"
+  sf_memory_bank_derive
+  # 09 has the migrated content AND the full template (cadence pointer + a section heading).
+  assert_file_contains "./.claude/memory-bank/09-known-issues.md" "prefer atomic writes for the registry"
+  assert_file_contains "./.claude/memory-bank/09-known-issues.md" "Memory-bank update cadence"
+  assert_file_contains "./.claude/memory-bank/09-known-issues.md" "Caveats & gotchas"
+}
+
 test_derive_00_project_brief
 test_live_files_preserved
 test_live_files_force_overwritten
@@ -199,4 +438,16 @@ test_claude_md_plugin_awareness_when_no_composition
 test_claude_md_karpathy_opt_in
 test_claude_md_karpathy_opt_out
 test_derive_seeds_machine_checkable_rules_section
+test_new_dev_files_seeded
+test_new_dev_files_preserved_on_rederive
+test_03_rules_zone_preserved_on_rederive
+test_03_empty_zone_idempotent
+test_legacy_rules_without_preserve_markers_survive_upgrade
+test_cadence_policy_canonical
+test_migration_relocates_harvested_content
+test_migration_relocates_harvested_content_from_all_derived_files
+test_migration_preserves_09_on_force_after_relocation
+test_migration_idempotent
+test_migration_leaves_preserve_zone
+test_migration_creates_09_with_full_template
 report_results

@@ -2,6 +2,20 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.4.0] — 2026-06-02
+
+SS-1 — memory-bank ownership + single-point update cadence (closes #45; the agent-driven program's foundational sub-spec). The memory bank grows from 12 to **14 files**.
+
+### Added
+- **Two pure-dev-authored live-seed files: `09-known-issues.md` + `10-decisions-log.md`.** `09` holds caveats / gotchas / workarounds + dev-discovered stack notes (Tier 0, always-loaded); `10` holds build-time decisions + advisory patterns (on-demand). Both seeded header-only on first `/scaffold-project` and **preserved** across re-derive (same bucket as `05`/`06`). Registered in `index.md`, the CLAUDE.md Tier-0 preload (09), and the load-tier matrix.
+- **Single canonical "Memory-bank update cadence" policy** in `WORKFLOW.md` (marked with the `cadence-policy:canonical` sentinel comment): one event × file × who table, three ownership classes (spec-derived / dev-authored / mixed), and the slice-close harvest routing rule. Every other skill now points here instead of restating cadence — enforced by a new grep-guard test (`tests/test-cadence-single-source.sh`).
+- **One-time migration (#45 / SP-5):** `/scaffold-project` now relocates provenance-trailed harvest content (`<!-- Added from VS… -->`) out of spec-derived memory-bank files into `09-known-issues.md` before regenerating them — never silent-drop. Seeds `09` from its template on the legacy-upgrade path so the header/sections/cadence pointer survive. No-op on fresh projects.
+
+### Changed
+- **`03-code-patterns.md` now preserves its `## Machine-checkable rules` section across re-derive.** The section is wrapped in `<!-- mcrules:preserve:start/end -->` sentinels; `sf_memory_bank_derive` (and the synthesis path) extract the zone before re-render and re-inject it after, so authored rules are no longer clobbered. `authoring-machine-checkable-rules` inserts new rules inside that zone. The rest of `03` still re-renders from MASTER-SPEC.
+- **CLAUDE.md SSoT note + CLAUDE.brief.md synthesis guidance rewritten** to distinguish spec-derived (regenerated) from dev-authored (preserved) files and point to the single cadence policy.
+- De-contamination sweep: every cadence restatement across templates + skills now points to the policy; stale "11/12-file" current-count references updated to 14.
+
 ## [0.3.6] — 2026-05-30
 
 ### Added

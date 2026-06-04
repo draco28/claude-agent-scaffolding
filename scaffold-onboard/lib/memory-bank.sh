@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # scaffold-onboard/lib/memory-bank.sh
-# Memory-bank derivation: 9 derived files + 2 live (seeded once) + 1 static + 1 seeded index (tech-debt.md).
+# Memory-bank derivation: 8 derived files (00-04,07,08,index) + 4 live (05,06,09,10 — seeded once)
+# + 1 static (WORKFLOW.md) + 1 seeded index (tech-debt.md). 03 keeps a preserved rules zone (SS-1 W2).
 
 set -u
 source "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"
@@ -54,6 +55,163 @@ _memory_bank_args() {
   printf '%s\n' "${args[@]}"
 }
 
+# Echo the legacy heading-only machine-checkable-rules section from $1.
+# This is the pre-SS-1 upgrade fallback: old projects can have authored mcrule
+# blocks under the heading but no preserve sentinels yet.
+_sf_mb_extract_legacy_rules_zone() {
+  local file="$1"
+  [[ -f "$file" ]] || return 0
+  awk '
+    /^## Machine-checkable rules[[:space:]]*$/ { cap=1 }
+    cap && /^## / && !/^## Machine-checkable rules[[:space:]]*$/ { exit }
+    cap { print }
+  ' "$file"
+}
+
+# Echo the preserved rules zone (start..end sentinels inclusive) from $1.
+# If the sentinels are absent but a legacy heading-only section exists, wrap that
+# legacy section in the new sentinels so authored rules survive first upgrade.
+# Empty output if the file and legacy section are absent.
+_sf_mb_extract_preserve_zone() {
+  local file="$1"
+  [[ -f "$file" ]] || return 0
+  local saved
+  saved="$(awk '
+    /<!-- mcrules:preserve:start -->/ { cap=1 }
+    cap { print }
+    /<!-- mcrules:preserve:end -->/   { if (cap) exit }
+  ' "$file")"
+  if [[ -n "$saved" ]]; then
+    printf '%s\n' "$saved"
+    return 0
+  fi
+
+  local legacy
+  legacy="$(_sf_mb_extract_legacy_rules_zone "$file")"
+  if [[ -n "$legacy" ]]; then
+    printf '%s\n' '<!-- mcrules:preserve:start -->'
+    printf '%s\n' '<!-- This zone is PRESERVED across /scaffold-project re-derive. Everything else in'
+    printf '%s\n' '     this file re-renders from MASTER-SPEC.md. Rules added here by'
+    printf '%s\n' '     authoring-machine-checkable-rules survive regeneration. See'
+    printf '%s\n' '     `memory-bank/WORKFLOW.md` → **Memory-bank update cadence**. -->'
+    printf '%s\n' "$legacy"
+    printf '%s\n' '<!-- mcrules:preserve:end -->'
+  fi
+}
+
+# Replace the freshly-rendered preserve zone in $1 with the saved zone text ($2).
+# Returns non-zero (and leaves $1 untouched) if $1 has no preserve markers, so the
+# caller can fall back. macOS-portable (no in-place sed -i).
+#
+# The saved zone is multi-line. Passing a multi-line value through awk -v is
+# unreliable across awk variants (BSD awk in particular mangles embedded
+# newlines), so we stage the saved zone in a temp FILE and have awk slurp it via
+# getline — the only thing crossing the -v boundary is the single-line filename,
+# which is always safe. This guarantees the zone round-trips byte-faithfully.
+_sf_mb_reinject_preserve_zone() {
+  local file="$1" saved="$2"
+  grep -q '<!-- mcrules:preserve:start -->' "$file" || return 1
+  grep -q '<!-- mcrules:preserve:end -->'   "$file" || return 1
+  local tmp savedfile
+  tmp="$(mktemp)"
+  savedfile="$(mktemp)"
+  printf '%s\n' "$saved" > "$savedfile"
+  awk -v sf="$savedfile" '
+    /<!-- mcrules:preserve:start -->/ {
+      while ((getline line < sf) > 0) print line
+      close(sf)
+      skip=1; next
+    }
+    /<!-- mcrules:preserve:end -->/   { if (skip) { skip=0; next } }
+    skip { next }
+    { print }
+  ' "$file" > "$tmp" && mv "$tmp" "$file"
+  local rc=$?
+  # Clean both temp files. On the success path `mv` already moved $tmp away, so
+  # `rm -f` is a harmless no-op; on the awk-failure path it reclaims the orphan.
+  rm -f "$savedfile" "$tmp"
+  return $rc
+}
+
+# One-time migration (SS-1 W7): relocate provenance-trailed harvest content
+# (a "- <text>" bullet immediately followed by a "<!-- Added from VS… -->" trailer)
+# out of spec-derived files into 09-known-issues.md, BEFORE those files are
+# re-rendered. Never silent-drop: every relocated pair is appended to 09 and a
+# summary is logged. Idempotent: once relocated, nothing matches on the next run.
+# For 03, content inside the mcrules preserve zone is skipped (never migrated).
+_sf_mb_migrate_harvested() {
+  local mb=".claude/memory-bank"
+  local known="$mb/09-known-issues.md"
+  local moved=0 src
+  for src in \
+    "$mb/00-project-brief.md" \
+    "$mb/01-product-context.md" \
+    "$mb/02-system-patterns.md" \
+    "$mb/03-code-patterns.md" \
+    "$mb/04-tech-context.md" \
+    "$mb/07-constraints.md" \
+    "$mb/08-governance.md" \
+    "$mb/index.md"; do
+    [[ -f "$src" ]] || continue
+    local relocated kept
+    relocated="$(mktemp)"; kept="$(mktemp)"
+    : > "$relocated"; : > "$kept"
+    local prev="" have_prev=0 inzone=0
+    while IFS= read -r cur || [[ -n "$cur" ]]; do
+      # Track the preserve zone; lines inside it are kept verbatim, never migrated.
+      case "$cur" in
+        *"<!-- mcrules:preserve:start -->"*) inzone=1 ;;
+      esac
+      if [[ "$inzone" -eq 1 ]]; then
+        # flush any pending prev first (it was outside the zone)
+        if [[ "$have_prev" -eq 1 ]]; then printf '%s\n' "$prev" >> "$kept"; have_prev=0; prev=""; fi
+        printf '%s\n' "$cur" >> "$kept"
+        case "$cur" in
+          *"<!-- mcrules:preserve:end -->"*) inzone=0 ;;
+        esac
+        continue
+      fi
+      # Outside the zone: detect a bullet (prev) followed by an "Added from VS" trailer (cur).
+      if [[ "$cur" == *"<!-- Added from VS"* && "$have_prev" -eq 1 && "$prev" == -* ]]; then
+        printf '%s\n%s\n' "$prev" "$cur" >> "$relocated"
+        have_prev=0; prev=""
+        continue
+      fi
+      if [[ "$have_prev" -eq 1 ]]; then printf '%s\n' "$prev" >> "$kept"; fi
+      prev="$cur"; have_prev=1
+    done < "$src"
+    [[ "$have_prev" -eq 1 ]] && printf '%s\n' "$prev" >> "$kept"
+
+    if [[ -s "$relocated" ]]; then
+      # If 09 doesn't exist yet (legacy bank being upgraded), seed it from its
+      # template FIRST so it keeps the proper header/sections/cadence pointer — the
+      # later live-seed loop will then preserve it (seed-if-missing). Falling back to
+      # a bare header would permanently strip the template on exactly the upgrade path.
+      if [[ ! -f "$known" ]]; then
+        local _ki_tmpl; _ki_tmpl="$(sf_plugin_root)/templates/memory-bank/09-known-issues.md.tmpl"
+        if [[ -f "$_ki_tmpl" ]]; then sf_render "$_ki_tmpl" > "$known"; else printf '# Known Issues\n' > "$known"; fi
+      fi
+      {
+        echo ""
+        echo "## Migrated from $(basename "$src") (SS-1)"
+        cat "$relocated"
+      } >> "$known"
+      _SF_MB_MIGRATED_TO_KNOWN_ISSUES=1
+      mv "$kept" "$src"
+      local c; c="$(grep -c '<!-- Added from VS' "$relocated")"
+      moved=$((moved + c))
+      if [[ "$c" -eq 1 ]]; then
+        sf_log_warn "migrated 1 harvested entry from $(basename "$src") → 09-known-issues.md (SS-1 W7)"
+      else
+        sf_log_warn "migrated $c harvested entries from $(basename "$src") → 09-known-issues.md (SS-1 W7)"
+      fi
+    fi
+    rm -f "$relocated" "$kept"
+  done
+  [[ "$moved" -gt 0 ]] && sf_log_info "SS-1 migration: relocated $moved harvested entries into 09-known-issues.md"
+  return 0
+}
+
 # Derive memory-bank: regenerate derived files, seed live files only if missing,
 # copy static file only if missing.
 # Args: --force  (optional) to overwrite live files too.
@@ -77,19 +235,40 @@ sf_memory_bank_derive() {
 
   mkdir -p .claude/memory-bank
 
+  # SS-1 W7: one-time relocate of provenance-trailed harvest content out of derived
+  # files before they are regenerated. No-op on fresh projects.
+  _SF_MB_MIGRATED_TO_KNOWN_ISSUES=0
+  _sf_mb_migrate_harvested
+
   # Collect args once
   local args=()
   while IFS= read -r line; do args+=("$line"); done < <(_memory_bank_args "$ts")
 
-  # 8 derived files
+  # 8 derived files. 03-code-patterns keeps a preserved rules zone (SS-1 W2):
+  # capture the existing zone, re-render, re-inject.
   local f
   for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 07-constraints 08-governance index; do
-    sf_render "$tmpl_dir/${f}.md.tmpl" "${args[@]}" > ".claude/memory-bank/${f}.md"
+    local out=".claude/memory-bank/${f}.md"
+    if [[ "$f" == "03-code-patterns" ]]; then
+      local saved_zone
+      saved_zone="$(_sf_mb_extract_preserve_zone "$out")"
+      sf_render "$tmpl_dir/${f}.md.tmpl" "${args[@]}" > "$out"
+      if [[ -n "$saved_zone" ]]; then
+        _sf_mb_reinject_preserve_zone "$out" "$saved_zone" \
+          || sf_log_warn "03-code-patterns: could not re-inject preserved rules zone"
+      fi
+    else
+      sf_render "$tmpl_dir/${f}.md.tmpl" "${args[@]}" > "$out"
+    fi
   done
 
-  # 2 live files — seed only if missing (unless --force)
-  for f in 05-active-context 06-progress; do
+  # 4 live files — seed only if missing (unless --force)
+  for f in 05-active-context 06-progress 09-known-issues 10-decisions-log; do
     local target=".claude/memory-bank/${f}.md"
+    if [[ "$f" == "09-known-issues" && "$force" -eq 1 && "${_SF_MB_MIGRATED_TO_KNOWN_ISSUES:-0}" -eq 1 ]]; then
+      sf_log_info "preserved live file with newly migrated content: $target"
+      continue
+    fi
     if [[ ! -f "$target" || "$force" -eq 1 ]]; then
       sf_render "$tmpl_dir/${f}.md.tmpl" "${args[@]}" > "$target"
     else

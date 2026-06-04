@@ -1,11 +1,11 @@
 ---
 name: scaffolding-memory-bank
-description: Derive the 12-file memory bank + CLAUDE.md + AGENTS.md Codex section + .claude/settings.json from MASTER-SPEC.md — LLM sub-agent synthesis by default, deterministic `--fast` fallback. Use this when the user wants to scaffold the memory bank, derive memory-bank artifacts, set up project memory, run /scaffold-project, or regenerate the tiered-context router after MASTER-SPEC changes. Seeds an empty Machine-checkable rules section, preserves user-authored AGENTS.md content, and conditionally emits the Karpathy Behavioral Discipline section per the Phase-10 opt-in.
+description: Derive the 14-file memory bank + CLAUDE.md + AGENTS.md Codex section + .claude/settings.json from MASTER-SPEC.md — LLM sub-agent synthesis by default, deterministic `--fast` fallback. Use this when the user wants to scaffold the memory bank, derive memory-bank artifacts, set up project memory, run /scaffold-project, or regenerate the tiered-context router after MASTER-SPEC changes. Seeds an empty Machine-checkable rules section, preserves user-authored AGENTS.md content, and conditionally emits the Karpathy Behavioral Discipline section per the Phase-10 opt-in.
 ---
 
 # scaffolding-memory-bank
 
-You wrap scaffold-onboard's v0.1.0 derivation pipeline (memory bank → CLAUDE.md → .claude/settings.json) and add three v0.2-specific responsibilities: manifest-aware routing, R2 rules-section seeding, and conditional Karpathy emission. The 11-file memory bank that v0.1.0 users know is preserved byte-for-byte where it can be — your job is to thread the new behaviors through without breaking that contract. A 12th file, `tech-debt.md`, is now seeded from `templates/memory-bank/tech-debt.md.tmpl` (header only, no `[TD]` entries); scaffold-dev's `/defer` command and round-close auto-file sweep append `[TD]` entries into it over the project lifetime.
+You wrap scaffold-onboard's v0.1.0 derivation pipeline (memory bank → CLAUDE.md → .claude/settings.json) and add three v0.2-specific responsibilities: manifest-aware routing, R2 rules-section seeding, and conditional Karpathy emission. The 11-file memory bank that v0.1.0 users know is preserved byte-for-byte where it can be — your job is to thread the new behaviors through without breaking that contract. A 12th file, `tech-debt.md`, is now seeded from `templates/memory-bank/tech-debt.md.tmpl` (header only, no `[TD]` entries); scaffold-dev's `/defer` command and round-close auto-file sweep append `[TD]` entries into it over the project lifetime. Two further live-seed files (`09-known-issues.md`, `10-decisions-log.md`) bring the total to 14 files (8 derived + 4 live-seed + 1 static + 1 seeded index).
 
 Bash helpers in `lib/memory-bank.sh`, `lib/routing.sh`, `lib/compose.sh`, and `lib/render.sh` do the I/O: state reads, template substitution, atomic writes, manifest resolution, filesystem probes. The judgment work — deciding when MASTER-SPEC is too thin to derive from, how to surface a routing destination to the user, whether to suggest composition-aware companions — happens here, in conversation.
 
@@ -13,7 +13,7 @@ Bash helpers in `lib/memory-bank.sh`, `lib/routing.sh`, `lib/compose.sh`, and `l
 
 ## 1. Overview
 
-When invoked, you read `MASTER-SPEC.md`, validate it with `sf_spec_validate`, and derive the 12-file memory bank under `.claude/memory-bank/` at the destination resolved by `sf_resolve_output_path memory_bank ...`. Eight files come from MASTER-SPEC (00–04, 07, 08, `index.md`). Two are live-seed (`05-active-context.md`, `06-progress.md`) — emitted only when missing, preserved on re-derive. One is static (`WORKFLOW.md`, copy-once). One is a seeded index (`tech-debt.md`, header-only seed from `tech-debt.md.tmpl`, preserved on re-derive — scaffold-dev appends entries). You then emit `CLAUDE.md` (with optional Karpathy section), section-merge the scaffold-managed Codex block into `AGENTS.md`, and emit `.claude/settings.json`, each routed via its own logical name. Inside `03-code-patterns.md` you seed an empty `## Machine-checkable rules` section — heading plus invitation comment, zero rule blocks.
+When invoked, you read `MASTER-SPEC.md`, validate it with `sf_spec_validate`, and derive the 14-file memory bank under `.claude/memory-bank/` at the destination resolved by `sf_resolve_output_path memory_bank ...`. Eight files come from MASTER-SPEC (00–04, 07, 08, `index.md`). Four are live-seed (`05-active-context.md`, `06-progress.md`, `09-known-issues.md`, `10-decisions-log.md`) — emitted only when missing, preserved on re-derive. One is static (`WORKFLOW.md`, copy-once). One is a seeded index (`tech-debt.md`, header-only seed from `tech-debt.md.tmpl`, preserved on re-derive — scaffold-dev appends entries). You then emit `CLAUDE.md` (with optional Karpathy section), section-merge the scaffold-managed Codex block into `AGENTS.md`, and emit `.claude/settings.json`, each routed via its own logical name. Inside `03-code-patterns.md` you seed an empty `## Machine-checkable rules` section — heading plus invitation comment, zero rule blocks.
 
 ---
 
@@ -47,22 +47,24 @@ Before any derivation step:
 
 ---
 
-## 4. Derivation flow (12 files, four behaviors)
+## 4. Derivation flow (14 files, four behaviors)
 
-The core 11-file memory bank from v0.1.0 is preserved; a 12th file (`tech-debt.md`) is added in this release. Each file falls into one of four behavioral buckets:
+The core 11-file memory bank from v0.1.0 is preserved; three further files bring the total to 14: `tech-debt.md` (seeded index), `09-known-issues.md`, and `10-decisions-log.md` (both live-seed). Each file falls into one of four behavioral buckets:
 
 | Bucket | Files | Behavior on first run | Behavior on re-derive |
 |---|---|---|---|
 | Derived | `00-project-brief`, `01-product-context`, `02-system-patterns`, `03-code-patterns`, `04-tech-context`, `07-constraints`, `08-governance`, `index` (8 files) | Render from `templates/memory-bank/<f>.md.tmpl` with MASTER-SPEC-derived args | Re-render and overwrite (idempotent for unchanged spec) |
-| Live-seed | `05-active-context`, `06-progress` (2 files) | Render seed content from template | **Preserve existing file** — do not overwrite the user's work |
+| Live-seed | `05-active-context`, `06-progress`, `09-known-issues`, `10-decisions-log` (4 files) | Render seed content from template | **Preserve existing file** — do not overwrite the user's work |
 | Static | `WORKFLOW.md` (1 file) | Copy verbatim from `templates/memory-bank/WORKFLOW.md` | Copy only if missing on normal re-derive; overwrite when invoked with `--force` |
 | Seeded index | `tech-debt.md` (1 file) | Render header-only from `templates/memory-bank/tech-debt.md.tmpl` — no `[TD]` entries | **Preserve existing file** — scaffold-dev's `/defer` and round-close sweep append entries over time |
+
+> The bucket table above describes derive *behavior*. For when each file is updated across the whole lifecycle (and by whom), the single source is `memory-bank/WORKFLOW.md` → **Memory-bank update cadence** — do not restate it here.
 
 **Helper:** `sf_memory_bank_derive` (lib/memory-bank.sh) implements all four behaviors. It accepts an optional `--force` flag (which `--regenerate` passes) that overrides the live-seed preservation **and** refreshes static `WORKFLOW.md` from `templates/memory-bank/WORKFLOW.md`. A *normal* re-derive (no `--force`/`--regenerate`) preserves an existing `WORKFLOW.md` (copy-only-if-missing); `--force`/`--regenerate` overwrites it — so `WORKFLOW.md` must be named in the `--force` confirmation alongside the live-seed files.
 
 **Discipline:**
 
-- Always confirm with the user before passing `--force`. It overwrites the live-seed files (`05-active-context.md`, `06-progress.md`) **and** refreshes `WORKFLOW.md` — name all three paths in the confirmation. Live-seed files often hold weeks of in-flight context, and a user may have customized `WORKFLOW.md`; silently overwriting any of them is a data-loss bug.
+- Always confirm with the user before passing `--force`. It overwrites the live-seed files (`05-active-context.md`, `06-progress.md`, `09-known-issues.md`, `10-decisions-log.md`) **and** refreshes `WORKFLOW.md` — name all five paths in the confirmation. Live-seed files often hold weeks of in-flight context, and a user may have customized `WORKFLOW.md`; silently overwriting any of them is a data-loss bug.
 - The 8 derived files share a substitution arg-list assembled by `_memory_bank_args` (timestamp, project_class, every state answer prefixed `phase_<qid>=`, and gate flags `ui_branch`, `dx_branch`, `backend_branch`, `frontend_branch`, `library_branch`). Do not re-inline that logic here; call the helper.
 
 ---
@@ -72,17 +74,25 @@ The core 11-file memory bank from v0.1.0 is preserved; a 12th file (`tech-debt.m
 Inside `03-code-patterns.md`, the v0.2 template adds a new section near the end:
 
 ```markdown
+<!-- mcrules:preserve:start -->
+<!-- This zone is PRESERVED across /scaffold-project re-derive. Everything else in
+     this file re-renders from MASTER-SPEC.md. Rules added here by
+     authoring-machine-checkable-rules survive regeneration. See
+     `memory-bank/WORKFLOW.md` → **Memory-bank update cadence**. -->
 ## Machine-checkable rules
-<!-- TODO: add machine-checkable rules.
-     Use `Skill(scaffold-onboard:authoring-machine-checkable-rules)` for guided authoring,
-     or hand-author per SPEC §8.2 grammar (HTML-sentinel `<!-- mcrule:start type=... -->` blocks).
-     scaffold-dev's `implementation-checking` skill consumes the rules at PR-verification time. -->
+
+<!--
+  Project rules live below in the HTML-sentinel `mcrule` DSL (SPEC §8.2).
+  Use `/add-project-rule` (skill: authoring-machine-checkable-rules) to add
+  rules; this section is intentionally seeded empty for tools that parse it.
+-->
+<!-- mcrules:preserve:end -->
 ```
 
 **Critical:** this skill **seeds** the section — it emits the heading and the invitation comment only. It does NOT emit any actual `<!-- mcrule:start -->` rule blocks. Authoring rules is the responsibility of `scaffold-onboard:authoring-machine-checkable-rules` (SPEC §5.5). Keep the lanes clean:
 
 - Your output (this skill): zero `<!-- mcrule:start` sentinels in any derived file. Just the heading and invitation comment.
-- Skill 5.5's output (later): one or more `<!-- mcrule:start type=<T> -->` ... `<!-- mcrule:end -->` blocks inserted between the heading and the next `## ` heading.
+- Skill 5.5's output (later): one or more `<!-- mcrule:start type=<T> -->` ... `<!-- mcrule:end -->` blocks inserted inside the preserve zone, before `<!-- mcrules:preserve:end -->`.
 
 The HTML-sentinel format is the only supported rule grammar (per SPEC §8.2). A fenced-block alternative (` ```mcrule ... ``` `) was drafted but rejected — fence boundaries are invisible to Claude in rendered markdown, breaking the human/machine dual-readability requirement. Never emit fenced rule blocks even as examples in this seed.
 
@@ -121,7 +131,7 @@ scaffold-onboard authors three logical outputs:
 
 | Logical name                | Default destination | Emitted by |
 |-----------------------------|---------------------|------------|
-| `memory_bank`               | `ai_workspace`      | this skill — each of the 12 files routes through this name |
+| `memory_bank`               | `ai_workspace`      | this skill — each of the 14 files routes through this name |
 | `claude_md`                 | `ai_workspace`      | this skill — CLAUDE.md routes through this name |
 | `scaffold_project_outputs`  | `ai_workspace`      | this skill — `.claude/settings.json` and other catch-all `/scaffold-project` outputs route through this name |
 
@@ -133,12 +143,12 @@ claude_md_path="$(sf_resolve_output_path claude_md CLAUDE.md)"
 settings_path="$(sf_resolve_output_path scaffold_project_outputs .claude/settings.json)"
 ```
 
-For each of the 11 memory-bank files, resolve per-file:
+For each of the 14 memory-bank files, resolve per-file:
 
 ```
 brief_path="$(sf_resolve_output_path memory_bank .claude/memory-bank/00-project-brief.md)"
 patterns_path="$(sf_resolve_output_path memory_bank .claude/memory-bank/03-code-patterns.md)"
-# ...etc for the other 9
+# ...etc for the other 12
 ```
 
 Behavior:
@@ -177,8 +187,8 @@ The `/scaffold-project` slash command wrapper (`commands/scaffold-project.md`) e
 
 Supported flags:
 
-- *(no flag)* — derive memory bank; preserve live-seed files (`05-active-context.md`, `06-progress.md`); skip WORKFLOW.md if present; route via manifest if present, else `$(pwd)`.
-- `--regenerate` — pass `--force` to `sf_memory_bank_derive`. Overwrites live-seed files **and** refreshes `WORKFLOW.md` (with explicit user confirmation). Always asks confirmation before clobbering `05-active-context.md` / `06-progress.md` / `WORKFLOW.md` — surface every path that will be overwritten and require an explicit `yes`.
+- *(no flag)* — derive memory bank; preserve live-seed files (`05-active-context.md`, `06-progress.md`, `09-known-issues.md`, `10-decisions-log.md`); skip WORKFLOW.md if present; route via manifest if present, else `$(pwd)`.
+- `--regenerate` — pass `--force` to `sf_memory_bank_derive`. Overwrites live-seed files **and** refreshes `WORKFLOW.md` (with explicit user confirmation). Always asks confirmation before clobbering `05-active-context.md` / `06-progress.md` / `09-known-issues.md` / `10-decisions-log.md` / `WORKFLOW.md` — surface every path that will be overwritten and require an explicit `yes`. **Exception (data-safety):** if the one-time SS-1 migration relocated legacy harvested content into `09-known-issues.md` during this same run, `sf_memory_bank_derive` **automatically preserves** `09` rather than force-overwriting it (it tracks the in-run migration internally via `_SF_MB_MIGRATED_TO_KNOWN_ISSUES` — the orchestrator does not special-case it) — otherwise the just-migrated notes would be lost in the same call. The other live files still follow the confirmed-overwrite path.
 
 Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly. If `$ARGUMENTS` contains a flag this skill doesn't recognize, surface a one-line error listing the supported flags and stop — do not silently ignore.
 
@@ -188,7 +198,7 @@ Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly. If `$ARGUMENTS
 
 This skill never bash-orchestrates the judgment work (whether to overwrite live-seed, whether to suggest a composition companion, how to phrase the destination prompt). It calls helpers for I/O and templating only.
 
-**Memory-bank derivation (lib/memory-bank.sh):** `sf_memory_bank_derive` (with optional `--force`), `sf_claude_md_generate`, `sf_agents_md_generate`, `sf_claude_settings_generate`, `_memory_bank_args` (internal), `_composition_args` (internal).
+**Memory-bank derivation (lib/memory-bank.sh):** `sf_memory_bank_derive` (with optional `--force`), `sf_claude_md_generate`, `sf_agents_md_generate`, `sf_claude_settings_generate`, `_memory_bank_args` (internal), `_composition_args` (internal), `_sf_mb_extract_preserve_zone` / `_sf_mb_reinject_preserve_zone` (internal — the `03` rules-zone preserve helpers §13 uses), `_sf_mb_migrate_harvested` (internal — the SS-1 one-time harvest migration).
 
 **Rendering (lib/render.sh):** `sf_render` (generic template substitution — used by the derivation helpers; rarely called directly from this skill).
 
@@ -206,10 +216,10 @@ These are pseudocode references — the implementations are in their respective 
 
 ## 11. Anti-patterns (do not do these)
 
-- **Inlining the 12-file template content in this skill body.** The templates live in `templates/memory-bank/` and `templates/claude-md/`. Pulling them in here inflates the body past the ≤500-line guidance and creates two sources of truth.
+- **Inlining the 14-file template content in this skill body.** The templates live in `templates/memory-bank/` and `templates/claude-md/`. Pulling them in here inflates the body past the ≤500-line guidance and creates two sources of truth.
 - **Emitting actual `<!-- mcrule:start -->` rule blocks from this skill.** R2 section seeding is heading-plus-invitation only. Rule authoring belongs to `scaffold-onboard:authoring-machine-checkable-rules` (SPEC §5.5). Lane discipline matters — eval scenario S2 will FAIL on any rule block emitted by this skill.
 - **Using the fenced-block mcrule alternative** (e.g., ` ```mcrule ... ``` ` fences). The v0.2 grammar is HTML-sentinel only (SPEC §8.2). Fenced blocks were drafted and rejected because their boundaries are invisible in rendered markdown.
-- **Overwriting live-seed files (`05-active-context.md`, `06-progress.md`) silently on re-derive.** Always preserve unless `--regenerate` is explicit AND the user has confirmed. These files hold the user's in-flight work; silent clobber is a data-loss bug.
+- **Overwriting live-seed files (`05-active-context.md`, `06-progress.md`, `09-known-issues.md`, `10-decisions-log.md`) silently on re-derive.** Always preserve unless `--regenerate` is explicit AND the user has confirmed. These files hold the user's in-flight work; silent clobber is a data-loss bug.
 - **Overwriting `WORKFLOW.md` on `--regenerate` WITHOUT naming it in the confirmation.** `--force` (which `--regenerate` passes) DOES refresh `WORKFLOW.md` from the template — intentional, since it's project-agnostic — but a user may have customized it, so it MUST appear in the `--force` confirmation alongside the live-seed files; never clobber it silently.
 - **Hardcoding `.claude/memory-bank/` against `$(pwd)`.** Always route via `sf_resolve_output_path memory_bank .claude/memory-bank/...`.
 - **Reading `composition.json` to detect architect-critic.** Use `sf_compose_detect_architect_critic` (filesystem probe). The composition.json registry tracks ai-mentor + superpowers only in v0.2 (per ac v0.2 settlement #1).
@@ -305,10 +315,36 @@ The 9 artifacts and their output paths:
 
 **Live files and WORKFLOW.md are NOT synthesized:**
 
-- `05-active-context.md` and `06-progress.md` keep today's seed-once behavior — `sf_memory_bank_derive` handles them (preserve if present, seed only if missing). Do not dispatch sub-agents for them.
+- `05-active-context.md`, `06-progress.md`, `09-known-issues.md`, and `10-decisions-log.md` keep today's seed-once behavior — `sf_memory_bank_derive` handles them (preserve if present, seed only if missing). Do not dispatch sub-agents for them.
 - `WORKFLOW.md` remains a static copy. Do not dispatch a sub-agent for it.
 
-**03-code-patterns special note:** the brief already instructs the sub-agent to keep the `## Machine-checkable rules` section empty (heading + invitation comment, zero `<!-- mcrule:start -->` blocks). Dispatch it normally — do not special-case beyond using its brief.
+**03-code-patterns special note (preserved rules zone — SS-1 W2):** `03` carries a
+`<!-- mcrules:preserve:start -->` … `<!-- mcrules:preserve:end -->` zone that must
+survive re-derive. BEFORE dispatching the `03-code-patterns` sub-agent, capture the
+existing zone with the lib helper:
+
+    saved_zone="$(_sf_mb_extract_preserve_zone "$out_03")"   # $out_03 = resolved 03 path
+
+The brief instructs the agent to emit the section wrapped in those exact sentinels
+(empty: heading + invitation only). AFTER the agent returns `mode:complete` and the
+file is written, re-inject the captured zone:
+
+    if [[ -n "$saved_zone" ]]; then
+      _sf_mb_reinject_preserve_zone "$out_03" "$saved_zone" \
+        || { sf_log_warn "03 synthesis omitted preserve markers — falling back to deterministic render"; \
+             mb_args=(); while IFS= read -r _ln; do mb_args+=("$_ln"); done < <(_memory_bank_args "$(date -u +%Y-%m-%dT%H:%M:%SZ)"); \
+             sf_render "${CLAUDE_PLUGIN_ROOT}/templates/memory-bank/03-code-patterns.md.tmpl" "${mb_args[@]}" > "$out_03"; \
+             _sf_mb_reinject_preserve_zone "$out_03" "$saved_zone"; }
+    fi
+
+The render args (`mb_args`) must be built before this `sf_render` — `_memory_bank_args`
+is the same helper `sf_memory_bank_derive` uses. Don't reference an `${args[@]}` that
+§13 never defines (it would abort under the slash command's `set -u`).
+
+If the sub-agent fails to emit the sentinels, `_sf_mb_reinject_preserve_zone` returns
+non-zero → fall back to the deterministic `03` render (which always has the sentinels),
+then re-inject. The deterministic template is the labeled fallback, never a silent
+default (program north star: one source of truth per job).
 
 On `mode:complete` for each artifact: merge returned IDs and validate:
 
@@ -324,8 +360,11 @@ On `mode:failed` or any validation failure: `sf_log_warn "<artifact> synthesis f
 After all 9 artifacts complete, seed the live files and copy the static file:
 
 ```bash
-sf_memory_bank_derive --fast   # seeds 05/06 only if missing; copies WORKFLOW.md if missing
-                               # --fast prevents re-synthesizing; only live/static paths run
+if [[ "$regenerate" == "1" ]]; then
+  sf_memory_bank_derive --fast --force   # regenerate mode: confirmed live/static overwrite path
+else
+  sf_memory_bank_derive --fast           # normal mode: preserve live files; copy WORKFLOW only if missing
+fi
 ```
 
 Then emit `.claude/settings.json` and the AGENTS.md managed section via their helpers (unchanged from v0.2):
@@ -339,7 +378,7 @@ sf_agents_md_generate
 
 Synthesis honors the same skip-if-exists / `--regenerate` semantics as the deterministic path. Before assembling a prompt for any derived artifact, check whether its resolved output path already exists; if it does and `--regenerate` was not passed, skip it (emit `sf_log_info "preserved: <path>"`) and do not dispatch a sub-agent for it. With `--regenerate`, dispatch unconditionally (same as the deterministic path's `force=1` behavior).
 
-For the 2 live files (`05-active-context.md`, `06-progress.md`), always apply the preserve-unless-`--regenerate` + explicit-confirmation discipline from §4 — even in synthesis mode. Sub-agents never touch live files.
+For the 4 live files (`05-active-context.md`, `06-progress.md`, `09-known-issues.md`, `10-decisions-log.md`), always apply the preserve-unless-`--regenerate` + explicit-confirmation discipline from §4 — even in synthesis mode. Sub-agents never touch live files.
 
 ### 13.5 Coverage report
 

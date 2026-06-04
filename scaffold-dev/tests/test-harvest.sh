@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/test-harvest.sh — 12 tests for lib/harvest.sh
+# tests/test-harvest.sh — 15 tests for lib/harvest.sh
 
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -196,6 +196,56 @@ test_apply_empty() {
   assert_eq "empty apply rc=0" "0" "$rc"
 }
 
+# SS-1 W4 — harvest aimed at a spec-derived file is rerouted to 09-known-issues
+# (never silently appended into the derived file).
+test_apply_reroutes_derived_target() {
+  echo "test_apply_reroutes_derived_target:"
+  setup_tmp_workspace
+  cd "$TMP_AI_WORKSPACE"
+  mkdir -p "$TMP_AI_WORKSPACE/.claude/memory-bank"
+  echo "# Code Patterns" > "$TMP_AI_WORKSPACE/.claude/memory-bank/02-system-patterns.md"
+  local items='[{"source":"report","work_item":"1.01","target_file":"02-system-patterns.md","suggestion":"watch the startup race"}]'
+  sd_harvest_apply "$items" "VS-3.2.1" 2>/dev/null
+  # The derived file is untouched; the note landed in 09-known-issues.md instead.
+  assert_file_not_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/02-system-patterns.md" "startup race"
+  assert_file_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/09-known-issues.md" "startup race"
+  assert_file_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/09-known-issues.md" "Memory-bank update cadence"
+  assert_file_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/09-known-issues.md" "Caveats & gotchas"
+}
+
+# 09 / 10 (dev-authored) remain valid targets.
+test_apply_allows_dev_authored_target() {
+  echo "test_apply_allows_dev_authored_target:"
+  setup_tmp_workspace
+  cd "$TMP_AI_WORKSPACE"
+  mkdir -p "$TMP_AI_WORKSPACE/.claude/memory-bank"
+  local items='[{"source":"handoff","handoff_file":"vs-3.2.1-x.md","target_file":"10-decisions-log.md","item":"chose file-lock for the registry"}]'
+  sd_harvest_apply "$items" "VS-3.2.1"
+  assert_file_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/10-decisions-log.md" "chose file-lock for the registry"
+  # SS-1 review fix — a missing 10-decisions-log.md is seeded from its template
+  # (cadence pointer + Decisions section), not a bare header, so a later
+  # /scaffold-project preserving it keeps the contract shape.
+  assert_file_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/10-decisions-log.md" "Memory-bank update cadence"
+  assert_file_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/10-decisions-log.md" "Decisions"
+}
+
+test_assert_file_not_contains_missing_file_fails() {
+  echo "test_assert_file_not_contains_missing_file_fails:"
+  setup_tmp_workspace
+  cd "$TMP_AI_WORKSPACE"
+  local pass_before fail_before out out_file delta
+  pass_before="$PASS"
+  fail_before="$FAIL"
+  out_file="$TMP_DIR/not-contains-missing.out"
+  assert_file_not_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/missing.md" "anything" > "$out_file" 2>&1
+  out="$(cat "$out_file")"
+  delta=$((FAIL - fail_before))
+  PASS="$pass_before"
+  FAIL="$fail_before"
+  assert_eq "missing file increments FAIL" "1" "$delta"
+  assert_contains "missing-file failure message" "file missing for not-contains-check" "$out"
+}
+
 test_reports_sweep_basic
 test_reports_source_tag
 test_reports_work_item
@@ -208,5 +258,8 @@ test_handoffs_filter
 test_apply_writes_trailer
 test_apply_idempotent
 test_apply_empty
+test_apply_reroutes_derived_target
+test_apply_allows_dev_authored_target
+test_assert_file_not_contains_missing_file_fails
 
 sd_test_summary
