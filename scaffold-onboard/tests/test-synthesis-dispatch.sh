@@ -140,6 +140,31 @@ test_render_exec_summary_multiline_body() {
   assert_file_not_contains "$PWD/EXECUTIVE-SUMMARY.md" "TODO:"    # no stray fill-in markers
 }
 
+test_render_exec_summary_strips_trailing_rule() {
+  echo "test_render_exec_summary_strips_trailing_rule:"
+  setup_tmp_repo
+  cat > "$PWD/MASTER-SPEC.md" <<'EOF'
+# p — Master Spec
+
+## Executive Summary
+Real summary content here.
+
+---
+
+## Phase 1
+stuff
+EOF
+  sf_render_executive_summary "$PWD/MASTER-SPEC.md" "$PWD/EXECUTIVE-SUMMARY.md" "p" "CLI tool"
+  # there must be exactly ONE '---' separator line in the rendered doc body region
+  local rules; rules="$(grep -cE '^[[:space:]]*-{3,}[[:space:]]*$' "$PWD/EXECUTIVE-SUMMARY.md")"
+  if [[ "$rules" -eq 1 ]]; then
+    PASS=$((PASS+1)); echo "  ✓ trailing MASTER-SPEC rule stripped — single separator"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ found $rules '---' rules (expected 1 — the template separator)"
+  fi
+  assert_file_contains "$PWD/EXECUTIVE-SUMMARY.md" "Real summary content here"
+}
+
 test_render_exec_summary_errors_on_missing_section() {
   echo "test_render_exec_summary_errors_on_missing_section:"
   setup_tmp_repo
@@ -282,6 +307,7 @@ test_fast_path_no_regenerate_preserves_live_seed
 test_fast_path_avoids_fragile_flag_expansion
 test_render_exec_summary_from_section
 test_render_exec_summary_multiline_body
+test_render_exec_summary_strips_trailing_rule
 test_render_exec_summary_errors_on_missing_section
 test_exec_summary_staleness_detects_master_change
 test_no_phantom_exec_summary_render

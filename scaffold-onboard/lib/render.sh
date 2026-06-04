@@ -134,8 +134,20 @@ sf_render_executive_summary() {
   local master="$1" out="$2" project_name="$3" project_class="$4"
   [[ -f "$master" ]] || { sf_log_error "sf_render_executive_summary: MASTER-SPEC not found: $master"; return 1; }
   local body; body="$(sf_master_spec_section "$master" "Executive Summary")"
-  # Trim leading + trailing blank lines (keep internal blanks).
-  body="$(printf '%s\n' "$body" | sed -e '/./,$!d' | awk 'NF{n=NR} {a[NR]=$0} END{for(i=1;i<=n;i++)print a[i]}')"
+  # Trim leading blank lines, then trailing blank lines AND trailing markdown
+  # horizontal rules (---, ***, ___, 3+). Real MASTER-SPEC sections conventionally
+  # end with a '---' before the next heading; the EXEC-SUMMARY template supplies its
+  # own '---' separator, so an inherited trailing rule would double it. Strip it here
+  # so the body ends at the last real content line (EXEC-SUMMARY-specific — the generic
+  # sf_master_spec_section extractor stays faithful). A section that is ONLY a rule
+  # becomes empty after stripping, which correctly trips the empty-section error below.
+  body="$(printf '%s\n' "$body" | sed -e '/./,$!d' | awk '
+    { a[NR]=$0 }
+    END {
+      n=NR
+      while (n>0 && (a[n] ~ /^[[:space:]]*$/ || a[n] ~ /^[[:space:]]*(-{3,}|\*{3,}|_{3,})[[:space:]]*$/)) n--
+      for (i=1;i<=n;i++) print a[i]
+    }')"
   if [[ -z "${body// /}" ]]; then
     sf_log_error "sf_render_executive_summary: MASTER-SPEC has no non-empty '## Executive Summary' section. Add one (it is the pinned source for EXECUTIVE-SUMMARY.md), then re-run."
     return 1
