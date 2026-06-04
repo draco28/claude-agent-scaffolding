@@ -261,6 +261,17 @@ Resolve source documents:
 ```bash
 master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
 exec_summary="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
+# EXEC-SUMMARY is produced by onboarding (single authoritative producer). Here we
+# only CONSUME it: produce-once if a legacy project lacks it, and warn (never
+# silently refresh) if it is stale vs MASTER-SPEC.
+if [[ ! -f "$exec_summary" ]]; then
+  source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"
+  source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"   # sf_project_name, sf_state_read_answer
+  sf_render_executive_summary "$master" "$exec_summary" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)" \
+    || sf_log_warn "could not produce EXECUTIVE-SUMMARY.md — run /onboard to author it"
+elif ! sf_exec_summary_staleness "$master" "$exec_summary"; then
+  sf_log_warn "EXECUTIVE-SUMMARY.md is older than MASTER-SPEC.md — re-run onboarding synthesis to refresh it (this command consumes but does not refresh the summary)."
+fi
 ```
 
 ### 13.2 Fast-path short-circuit

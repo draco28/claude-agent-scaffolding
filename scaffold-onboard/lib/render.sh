@@ -109,6 +109,75 @@ sf_render() {
   printf '%s\n' "$result"
 }
 
+# Echo the body of MASTER-SPEC's "## <heading>" section (first match),
+# stopping at the next "## " heading. Empty output if absent. Warns (stderr)
+# when a SECOND identical heading exists — spec §2.3 "first wins + warn".
+sf_master_spec_section() {
+  local file="$1" heading="$2"
+  local count
+  count="$(grep -cE "^## ${heading}\$" "$file" 2>/dev/null || true)"
+  if [[ "${count:-0}" -gt 1 ]]; then
+    sf_log_warn "MASTER-SPEC has $count '## $heading' sections; using the first (spec §2.3)."
+  fi
+  awk -v h="## $heading" '
+    $0==h { grab=1; next }
+    grab && /^## / { exit }
+    grab { print }
+  ' "$file"
+}
+
+# Deterministic EXEC-SUMMARY renderer. Args: <master-spec> <out> <project_name> <project_class>
+# Extracts MASTER-SPEC "## Executive Summary"; ERRORS (rc=1) if absent/empty.
+# Appends a cksum provenance trailer used for staleness detection.
+sf_render_executive_summary() {
+  local master="$1" out="$2" project_name="$3" project_class="$4"
+  [[ -f "$master" ]] || { sf_log_error "sf_render_executive_summary: MASTER-SPEC not found: $master"; return 1; }
+  local body; body="$(sf_master_spec_section "$master" "Executive Summary")"
+  # Trim leading + trailing blank lines (keep internal blanks).
+  body="$(printf '%s\n' "$body" | sed -e '/./,$!d' | awk 'NF{n=NR} {a[NR]=$0} END{for(i=1;i<=n;i++)print a[i]}')"
+  if [[ -z "${body// /}" ]]; then
+    sf_log_error "sf_render_executive_summary: MASTER-SPEC has no non-empty '## Executive Summary' section. Add one (it is the pinned source for EXECUTIVE-SUMMARY.md), then re-run."
+    return 1
+  fi
+  local root tmpl; root="$(sf_plugin_root)"; tmpl="$root/templates/master-spec/EXECUTIVE-SUMMARY.md.tmpl"
+  [[ -f "$tmpl" ]] || { sf_log_error "sf_render_executive_summary: template not found: $tmpl"; return 1; }
+  local created; created="$(date -u +%Y-%m-%d)"
+  # Substitute scalars + the MULTI-LINE body in a single awk pass that reads the
+  # body from ENVIRON["EXEC_BODY"] (correction A: sf_render newline-splits AWK_VALS
+  # and would corrupt a multi-line value). We do scalar substitution with index()/
+  # substr (no gsub — avoids replacement-string metacharacters like & being magic),
+  # and emit the body verbatim at the {{executive_summary}} line.
+  EXEC_PN="$project_name" EXEC_PC="$project_class" EXEC_DATE="$created" EXEC_BODY="$body" \
+  awk '
+    function subst_all(line,   key, val, out, p) {
+      # Replace every literal {{key}} occurrence with val (no regex metachar magic).
+      out = ""
+      while ((p = index(line, "{{"))!= 0) {
+        out = out substr(line, 1, p-1)
+        line = substr(line, p)
+        if (line ~ /^\{\{project_name\}\}/)        { out = out ENVIRON["EXEC_PN"];   line = substr(line, 17) }
+        else if (line ~ /^\{\{project_class\}\}/)   { out = out ENVIRON["EXEC_PC"];   line = substr(line, 18) }
+        else if (line ~ /^\{\{created_date\}\}/)    { out = out ENVIRON["EXEC_DATE"]; line = substr(line, 17) }
+        else { out = out "{{"; line = substr(line, 3) }
+      }
+      return out line
+    }
+    /\{\{executive_summary\}\}/ { print ENVIRON["EXEC_BODY"]; next }
+    { print subst_all($0) }
+  ' "$tmpl" > "$out"
+  printf '\n<!-- derived from MASTER-SPEC.md cksum:%s -->\n' "$(cksum < "$master" | awk '{print $1"-"$2}')" >> "$out"
+}
+
+# Return 0 if EXEC-SUMMARY is FRESH vs MASTER-SPEC, 1 if STALE / missing / no trailer.
+sf_exec_summary_staleness() {
+  local master="$1" exec_summary="$2"
+  [[ -f "$exec_summary" ]] || return 1
+  local cur trailer
+  cur="$(cksum < "$master" | awk '{print $1"-"$2}')"
+  trailer="$(grep -oE 'cksum:[0-9]+-[0-9]+' "$exec_summary" | tail -1 | sed 's/cksum://')"
+  [[ -n "$trailer" && "$trailer" == "$cur" ]]
+}
+
 # Initialize MASTER-SPEC.md from the template with project_name and project_class.
 # All other placeholders render as TODO: <key> at init; they get filled in
 # as phases complete (via sf_master_spec_update_phase).

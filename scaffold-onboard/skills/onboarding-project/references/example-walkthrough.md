@@ -210,7 +210,7 @@ Skill renders the full MASTER-SPEC via `sf_render_master_spec_init` + final phas
 4. architect-critic returns the close-depth summary. Any standing challenges are surfaced as final edit candidates for the MASTER-SPEC.
 5. User accepts (or applies edits and re-renders).
 
-EXECUTIVE-SUMMARY.md is rendered via `sf_render_executive_summary`. Paths are resolved through `sf_resolve_output_path`:
+EXECUTIVE-SUMMARY.md is produced at onboarding close — synthesized from MASTER-SPEC by default (the `EXECUTIVE-SUMMARY.brief.md` synthesis-agent), or deterministically via `sf_render_executive_summary` under `--fast`. Paths are resolved through `sf_resolve_output_path`:
 
 ```bash
 master_spec_path="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
