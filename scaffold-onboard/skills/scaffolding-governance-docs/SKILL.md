@@ -163,9 +163,12 @@ The `/scaffold-docs` slash command wrapper (`commands/scaffold-docs.md`) exports
 Supported flags:
 
 - *(no flag)* — derive the 5 default docs; skip the 9 `--full` docs; preserve any existing files in the routing destinations (existing files are never overwritten without `--regenerate`); route via manifest if present, else `$(pwd)`.
+- `--fast` — use the deterministic derivation path instead of LLM synthesis for the 5 default docs; preserve existing files unless combined with `--regenerate`.
 - `--full` — derive the 5 default docs PLUS the 9 `--full` docs (6 always-on + 3 LLM-gated by Phase 9.3.1).
 - `--regenerate` — overwrite existing docs at their resolved destinations. Always asks confirmation first, listing the absolute paths that will be clobbered. Preserves user customization is the v0.1.0 default; `--regenerate` is the explicit opt-in.
 - `--full --regenerate` — combine both.
+- `--fast --regenerate` — deterministic derivation for the 5 default docs, overwriting existing docs after confirmation.
+- `--fast --full --regenerate` — deterministic derivation for the full docs set, overwriting existing docs after confirmation.
 
 Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly. If `$ARGUMENTS` contains a flag this skill doesn't recognize, surface a one-line error listing the supported flags and stop — do not silently ignore.
 
@@ -215,6 +218,8 @@ Source both synthesis and routing helpers:
 ```bash
 source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
 source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
+source "${CLAUDE_PLUGIN_ROOT}/lib/docs.sh"   # sf_docs_derive + _write_or_skip (fast-path + per-artifact fallback)
+source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"  # sf_project_name, sf_state_read_answer, sf_state_gate_passes
 ```
 
 Resolve the source documents:
@@ -222,6 +227,18 @@ Resolve the source documents:
 ```bash
 master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
 exec_summary="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
+# EXEC-SUMMARY is produced by onboarding (single authoritative producer). Here we
+# only CONSUME it: produce-once if a legacy project lacks it, and warn (never
+# silently refresh) if it is stale vs MASTER-SPEC.
+source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"   # sf_render_executive_summary, sf_exec_summary_staleness
+if [[ ! -f "$exec_summary" ]]; then
+  if ! sf_render_executive_summary "$master" "$exec_summary" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"; then
+    sf_log_warn "could not produce EXECUTIVE-SUMMARY.md — synthesis prompts will use MASTER-SPEC only; run /onboard to author it"
+    exec_summary=""
+  fi
+elif ! sf_exec_summary_staleness "$master" "$exec_summary"; then
+  sf_log_warn "EXECUTIVE-SUMMARY.md is older than MASTER-SPEC.md — re-run onboarding synthesis to refresh it (this command consumes but does not refresh the summary)."
+fi
 ```
 
 Resolve each artifact's output path via `sf_resolve_output_path <routes_to> <relpath>` using the brief's `routes_to` field. The relpath matches today's `sf_docs_derive` output paths:
@@ -245,16 +262,32 @@ Resolve each artifact's output path via `sf_resolve_output_path <routes_to> <rel
 
 ### 11.2 Fast-path short-circuit
 
-Check the synthesis mode immediately after setup:
+Check the synthesis mode immediately after setup. First engage deterministic mode when the user passed `--fast` — this **must** run BEFORE the `sf_synth_mode` check, since `sf_synth_mode` keys off `SF_SYNTH_FAST` (nothing else exports it for the `--fast` arg; the wrapper only parses it into a local var). Without this, `/scaffold-docs --fast` would fall through into synthesis instead of fast mode:
 
 ```bash
+# Engage deterministic mode when the user passed --fast. Parse it from $ARGUMENTS in
+# the same flag loop as --regenerate/--full (§8); set BEFORE the sf_synth_mode check below.
+case " $ARGUMENTS " in *" --fast "*) export SF_SYNTH_FAST=1 ;; esac
+
 if [[ "$(sf_synth_mode)" == "fast" ]]; then
-  sf_docs_derive [--full] --fast   # deterministic path; --full passed through if the user passed it
-  # STOP — do not execute synthesis waves
+  if [[ "${full:-0}" == "1" ]]; then
+    if [[ "${regenerate:-0}" == "1" ]]; then
+      sf_docs_derive --full --regenerate --fast   # --full + overwrite after confirmation
+    else
+      sf_docs_derive --full --fast                # --full: emit the 14-doc set
+    fi
+  elif [[ "${regenerate:-0}" == "1" ]]; then
+    sf_docs_derive --regenerate --fast            # default set + overwrite after confirmation
+  else
+    sf_docs_derive --fast                         # default 5-doc set
+  fi
+  return 0   # STOP: do NOT fall through into the synthesis waves below
 fi
 ```
 
-`sf_synth_mode` echoes `fast` when `SF_SYNTH_FAST=1` (set by the `--fast` flag, which `sf_docs_derive`'s own arg-parse loop now recognises). In fast mode the full deterministic pipeline runs and you return.
+`sf_synth_mode` echoes `fast` only when `SF_SYNTH_FAST=1` is exported. The `case` line above exports it the moment `--fast` appears in `$ARGUMENTS`, so the gate engages on the very next line. (`sf_docs_derive`'s own arg-parse loop also exports `SF_SYNTH_FAST=1` on `--fast`, but that runs INSIDE the fast branch — after the check — so it cannot be what flips the mode; the explicit export above is what engages fast mode.) In fast mode the full deterministic pipeline runs and you return.
+
+Do not collapse this to `sf_docs_derive ${full:+--full} ${regenerate:+--regenerate} --fast` — `${var:+}` triggers on the string `0` (non-empty), so it would always emit the 14-doc `--full` set and clobber existing docs on a normal `--fast` run even when the user never passed either flag.
 
 ### 11.3 Synthesis wave dispatch
 
@@ -337,3 +370,52 @@ Synthesis honors the same skip-if-exists / `--regenerate` semantics as the deter
 - **The user** is the final authority. For destructive operations (`--regenerate` against pre-existing user-authored governance docs), require explicit confirmation listing the absolute paths that will be clobbered.
 
 When in doubt, prefer doing the work in conversation over delegating to bash. v0.1.x got this wrong — `/scaffold-docs` lived almost entirely inside `bash -c` blocks Claude never read; v0.2 corrects that by making this skill body the readable orchestration layer and keeping bash to bookkeeping.
+
+---
+
+## 13. Post-derivation review (#42 — advisory, SS-2)
+
+> Numbered §13 (not §12) because §12 "Notes on tool boundaries" already exists; this is the next free number per the SS-2 plan.
+
+After the synthesis waves complete (synthesize mode only — skip under `--fast`),
+dispatch ONE read-only review over the governance bundle. Non-blocking: surface
+the report, do not gate. The `derivation-reviewer` agent is structurally read-only
+(no Write, no Task) — it returns its full report **in its final message**, and
+**you (the orchestrator) persist it**, mirroring how `synthesis-agent`'s
+`mode:complete` returns are consumed in §11.3.
+
+```bash
+master_hash="$(cksum < "$master" | awk '{print $1"-"$2}')"
+bundle="$(sf_resolve_output_path prd docs)"
+artifact_paths="$(printf '%s, %s, %s, %s, %s' \
+  "$(sf_resolve_output_path prd docs/PRD.md)" \
+  "$(sf_resolve_output_path srs docs/SRS.md)" \
+  "$(sf_resolve_output_path backlog docs/BACKLOG.md)" \
+  "$(sf_resolve_output_path project_plan docs/PROJECT_PLAN.md)" \
+  "$(sf_resolve_output_path product_adrs docs/adr/0001-record-architecture-decisions.md)")"
+if [[ "${full:-0}" == "1" ]]; then
+  artifact_paths="${artifact_paths}, $(sf_resolve_output_path product_adrs docs/RISK_REGISTER.md), $(sf_resolve_output_path product_adrs docs/THREAT_MODEL.md), $(sf_resolve_output_path product_adrs docs/TEST_STRATEGY.md), $(sf_resolve_output_path process_adrs docs/DEFINITION_OF_DONE.md), $(sf_resolve_output_path product_adrs docs/CUTOVER_PLAN.md), $(sf_resolve_output_path process_adrs docs/DEMO_RUNBOOK.md)"
+  uses_llm="$(sf_state_read_answer 9.3.1)"
+  if [[ "$uses_llm" == "yes" || "$uses_llm" == "true" ]]; then
+    artifact_paths="${artifact_paths}, $(sf_resolve_output_path product_adrs docs/EVALS_PLAN.md), $(sf_resolve_output_path product_adrs docs/MODEL_CARD.md), $(sf_resolve_output_path process_adrs docs/PROMPT_GOVERNANCE.md)"
+  fi
+fi
+review_prompt="Review these freshly synthesized governance artifacts: ${artifact_paths}. Compare against MASTER-SPEC ${master} (cksum:${master_hash}) and EXECUTIVE-SUMMARY ${exec_summary}. Return your review report per your contract."
+Task(subagent_type="scaffold-onboard:derivation-reviewer",
+     description="Review governance-docs derivation",
+     model="claude-sonnet-4-5",
+     prompt="$review_prompt")
+```
+
+On `review-complete`: write the returned report body (the markdown table the agent
+emitted — NOT the trailing sentinel JSON) to `${bundle}/derivation-review.md`,
+print the report path + a one-line summary, and for each `regenerate <file>` finding
+surface `/scaffold-docs --regenerate` plus the single artifact name to
+re-dispatch internally through the §11.3 per-artifact loop. The user decides;
+nothing is auto-applied and no public per-file flag is introduced in SS-2.
+
+**Targeted regenerate (apply path):** keep the user-facing CLI aligned with §8's
+documented boolean `--regenerate`. Per-file targeting is an orchestration action:
+re-dispatch just that artifact's synthesis brief through the §11.3 loop, then run
+the normal validators/fallback for that one file. No new lib or slash-command flag
+is required for SS-2.

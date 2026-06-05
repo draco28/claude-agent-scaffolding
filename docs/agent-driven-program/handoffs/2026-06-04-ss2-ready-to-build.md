@@ -42,7 +42,7 @@ Issues labeled with sub-specs: **#52→SS-4, #49→SS-3, #53→SS-6** (so the da
 **The 6-task plan** (see the plan doc for exact code — TDD per task):
 - **W1** — source the dispatch libs in §13.1/§11.1; replace `# STOP` with `return 0`; + a **source-guard** test binding SKILL text → sourced libs.
 - **W2** — EXEC-SUMMARY = **single authoritative producer** (onboarding-close); `/scaffold-*` consume-if-missing + **staleness warn** (never refresh → kills the #45-class two-writer); implement the **real** `sf_render_executive_summary` with the pinned `## Executive Summary` **parser contract** (errors loudly on absent/empty) + `cksum` provenance trailer; remove the phantom.
-- **W3** — read-only `derivation-reviewer` agent; **advisory** review → `derivation-review.md` (artifact-linked, MASTER-SPEC-hash-tagged) with a targeted `--regenerate=<file>` apply path.
+- **W3** — read-only `derivation-reviewer` agent; **advisory** review → `derivation-review.md` (artifact-linked, MASTER-SPEC-hash-tagged) with supported boolean `--regenerate` surfaced to the user and targeted single-artifact re-dispatch handled internally by the orchestrator.
 - **W4 (the real OQ-1 closer)** — **behavioral harness**: extract §13's `bash` blocks, shim `Task()`, run under `set -euo pipefail` with faked agent outputs (a real abort fails CI) + per-artifact fallback-domain test. New `tests/test-synthesis-dispatch.sh`.
 - **W5** — one in-session **real** synthesize-mode smoke (supplementary evidence; the W4 harness is the repeatable signal).
 - **W6** — release: scaffold-onboard `0.4.0 → 0.5.0` (Claude+Codex parity), CHANGELOG/README, PR → bot-review → tag → close **#50, #49, #42**.

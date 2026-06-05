@@ -201,7 +201,7 @@ Always route through `sf_resolve_output_path` — never hardcode `MASTER-SPEC.md
 
 ## 7. Karpathy section opt-in (per SPEC §14)
 
-At Phase 10 close, **before** rendering EXECUTIVE-SUMMARY.md and running the close-depth critic, ask:
+At Phase 10 close, **before** producing EXECUTIVE-SUMMARY.md (§8) and running the close-depth critic, ask:
 
 > *"Include behavioral discipline section in CLAUDE.md? This adds 4 cognitive principles (Karpathy-inspired) to your agent's behavior. (yes/no, default yes)"*
 
@@ -220,7 +220,62 @@ All-or-nothing opt-in for v0.2. Per-principle granularity defers to v0.3+ if use
 
 ## 8. Phase 10 close action
 
-After the close-depth critic returns (or is skipped) and EXECUTIVE-SUMMARY.md is rendered, emit the close summary:
+After the close-depth critic returns (or is skipped), produce EXECUTIVE-SUMMARY.md, then emit the close summary.
+
+**Produce EXECUTIVE-SUMMARY.md (single authoritative producer).** EXEC-SUMMARY is
+spec-derived from MASTER-SPEC and authored HERE — `/scaffold-project` and
+`/scaffold-docs` only consume it. Default = synthesis; `--fast` = deterministic.
+
+- **Synthesis (default):** dispatch the EXEC-SUMMARY brief from MASTER-SPEC only:
+  ```bash
+  source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
+  source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
+  source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"
+  source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"
+  brief="${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/EXECUTIVE-SUMMARY.brief.md"
+  out="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
+  master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
+  prompt="$(sf_synth_brief_assemble "$brief" "$(sf_synth_ledger_empty)" "$out" "$master" "")"
+  Task(subagent_type="scaffold-onboard:synthesis-agent", description="Synthesize EXECUTIVE-SUMMARY", model="claude-sonnet-4-5", prompt="$prompt")
+  ```
+  After `mode:complete`, copy the synthesized body back into MASTER-SPEC's pinned
+  `## Executive Summary` section and render the canonical EXECUTIVE-SUMMARY with
+  a checksum from the updated source:
+  ```bash
+  if ! sf_render_executive_summary_from_synthesized "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"; then
+    sf_log_warn "Synthesized Executive Summary contained disallowed structure (## heading / --- rule / phase marker) or was empty; falling back to the deterministic renderer from MASTER-SPEC's pinned section."
+    sf_render_executive_summary "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)" ||
+      sf_render_executive_summary_from_state "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"
+  fi
+  ```
+  The write-back refuses a synthesized body that contains a section delimiter
+  (`## ` / `---` rule / phase marker) — it would corrupt MASTER-SPEC's pinned
+  section. On that rejection the close does NOT hard-fail: it warns and falls back
+  to the deterministic `sf_render_executive_summary` (clean MASTER-SPEC section),
+  and finally to `sf_render_executive_summary_from_state` for a brand-new spec.
+- **Deterministic (`--fast` / synthesis fallback):**
+  ```bash
+  source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
+  source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"
+  source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"
+  master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
+  out="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
+  if ! sf_render_executive_summary "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"; then
+    sf_render_executive_summary_from_state "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"
+  fi
+  ```
+  `sf_render_executive_summary` errors loudly if MASTER-SPEC has no `## Executive Summary`
+  section or still has the template placeholder. In the onboarding close path only,
+  `sf_render_executive_summary_from_state` may bootstrap the summary from Phase 1
+  answers when a brand-new MASTER-SPEC has not yet had its pinned summary section
+  filled. It still errors if Phase 1 state is too thin. Both helpers append the
+  provenance trailer themselves.
+
+EXEC-SUMMARY is produced/refreshed ONLY here; hand-edits are overwritten on the next
+authoritative refresh (spec §2.3). To change it, edit MASTER-SPEC's `## Executive Summary`
+section, then re-run onboarding to close.
+
+After EXECUTIVE-SUMMARY.md is produced, emit the close summary:
 
 ```
 MASTER-SPEC.md authored at <resolved_master_spec_path>.

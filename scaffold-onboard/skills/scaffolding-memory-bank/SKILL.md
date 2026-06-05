@@ -188,7 +188,9 @@ The `/scaffold-project` slash command wrapper (`commands/scaffold-project.md`) e
 Supported flags:
 
 - *(no flag)* — derive memory bank; preserve live-seed files (`05-active-context.md`, `06-progress.md`, `09-known-issues.md`, `10-decisions-log.md`); skip WORKFLOW.md if present; route via manifest if present, else `$(pwd)`.
+- `--fast` — use the deterministic derivation path instead of LLM synthesis; preserve live-seed files and skip `WORKFLOW.md` if present.
 - `--regenerate` — pass `--force` to `sf_memory_bank_derive`. Overwrites live-seed files **and** refreshes `WORKFLOW.md` (with explicit user confirmation). Always asks confirmation before clobbering `05-active-context.md` / `06-progress.md` / `09-known-issues.md` / `10-decisions-log.md` / `WORKFLOW.md` — surface every path that will be overwritten and require an explicit `yes`. **Exception (data-safety):** if the one-time SS-1 migration relocated legacy harvested content into `09-known-issues.md` during this same run, `sf_memory_bank_derive` **automatically preserves** `09` rather than force-overwriting it (it tracks the in-run migration internally via `_SF_MB_MIGRATED_TO_KNOWN_ISSUES` — the orchestrator does not special-case it) — otherwise the just-migrated notes would be lost in the same call. The other live files still follow the confirmed-overwrite path.
+- `--fast --regenerate` — combine both: deterministic derivation plus the confirmed live/static overwrite path.
 
 Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly. If `$ARGUMENTS` contains a flag this skill doesn't recognize, surface a one-line error listing the supported flags and stop — do not silently ignore.
 
@@ -252,6 +254,9 @@ Source both synthesis and routing helpers:
 ```bash
 source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
 source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
+source "${CLAUDE_PLUGIN_ROOT}/lib/memory-bank.sh"   # sf_memory_bank_derive, sf_claude_*, _memory_bank_args, _sf_mb_*
+source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"        # sf_render (per-artifact fallback)
+source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"         # sf_project_name, sf_state_read_answer, sf_state_gate_passes
 ```
 
 Resolve source documents:
@@ -259,21 +264,44 @@ Resolve source documents:
 ```bash
 master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
 exec_summary="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
+# EXEC-SUMMARY is produced by onboarding (single authoritative producer). Here we
+# only CONSUME it: produce-once if a legacy project lacks it, and warn (never
+# silently refresh) if it is stale vs MASTER-SPEC.
+if [[ ! -f "$exec_summary" ]]; then
+  if ! sf_render_executive_summary "$master" "$exec_summary" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"; then
+    sf_log_warn "could not produce EXECUTIVE-SUMMARY.md — synthesis prompts will use MASTER-SPEC only; run /onboard to author it"
+    exec_summary=""
+  fi
+elif ! sf_exec_summary_staleness "$master" "$exec_summary"; then
+  sf_log_warn "EXECUTIVE-SUMMARY.md is older than MASTER-SPEC.md — re-run onboarding synthesis to refresh it (this command consumes but does not refresh the summary)."
+fi
 ```
 
 ### 13.2 Fast-path short-circuit
 
-Check the synthesis mode immediately after setup:
+Check the synthesis mode immediately after setup. First engage deterministic mode when the user passed `--fast` — this **must** run BEFORE the `sf_synth_mode` check, since `sf_synth_mode` keys off `SF_SYNTH_FAST` (nothing else exports it for the `--fast` arg; the wrapper only parses it into a local var). Without this, `/scaffold-project --fast` would fall through into synthesis instead of fast mode:
 
 ```bash
+# Engage deterministic mode when the user passed --fast. Parse it from $ARGUMENTS in
+# the same flag loop as --regenerate (§9); set BEFORE the sf_synth_mode check below.
+case " $ARGUMENTS " in *" --fast "*) export SF_SYNTH_FAST=1 ;; esac
+
 if [[ "$(sf_synth_mode)" == "fast" ]]; then
-  sf_memory_bank_derive [--force]   # deterministic path; --force passed through if --regenerate was set
+  if [[ "${regenerate:-0}" == "1" ]]; then
+    sf_memory_bank_derive --force   # --regenerate: confirmed live/static overwrite path (§4/§9)
+  else
+    sf_memory_bank_derive           # preserve live-seed files (no silent clobber)
+  fi
   sf_claude_md_generate
-  # STOP — do not execute synthesis waves
+  return 0   # STOP: do NOT fall through into the synthesis waves below
 fi
 ```
 
-`sf_synth_mode` echoes `fast` when `SF_SYNTH_FAST=1`. This flag is set by `sf_memory_bank_derive --fast` (which now exports `SF_SYNTH_FAST=1` per the v0.3 lib change) or when the user passes `--fast` in `$ARGUMENTS`. Parse `--fast` from `$ARGUMENTS` in the same flag loop as `--regenerate` (§9) and call `sf_memory_bank_derive --fast` when present.
+The `return 0` is load-bearing — a bare `# STOP` comment does not stop execution; the fast-path must exit the dispatch routine before the waves.
+
+Do not collapse this to `sf_memory_bank_derive ${regenerate:+--force}` — `${var:+}` triggers on the string `0` (non-empty), so it would pass `--force` on a normal `--fast` run and silently clobber live-seed files.
+
+`sf_synth_mode` echoes `fast` only when `SF_SYNTH_FAST=1` is exported. The `case` line above exports it the moment `--fast` appears in `$ARGUMENTS`, so the `sf_synth_mode` gate engages on the very next line. (`sf_memory_bank_derive --fast` also exports `SF_SYNTH_FAST=1` per the v0.3 lib change, but that runs INSIDE the fast branch — after the check — so it cannot be what flips the mode; the explicit export above is what engages fast mode.) Parse `--fast` from `$ARGUMENTS` in the same flag loop as `--regenerate` (§9).
 
 ### 13.3 Synthesis wave dispatch
 
@@ -284,6 +312,23 @@ ledger="$(sf_synth_ledger_empty)"
 ```
 
 Briefs live at `${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/<name>.brief.md`.
+
+Before dispatching derived artifacts in `--regenerate` mode, run the SS-1
+harvest migration while the old derived files still exist. This preserves any
+provenance-trailed harvested entries before synthesis agents replace those files:
+
+```bash
+if [[ "${regenerate:-0}" == "1" ]]; then
+  # Run the migration AT the routed memory-bank root, not pwd. In a manifest-routed
+  # (dual-repo) workspace the memory_bank destination resolves OUTSIDE pwd, and
+  # _sf_mb_migrate_harvested scans/writes `.claude/memory-bank` relative to its cwd;
+  # a bare call would scan the wrong directory. The subshell keeps the orchestrator's
+  # cwd unchanged even on failure. (_sf_mb_migrate_harvested is sourced from
+  # memory-bank.sh in §13.1; a subshell inherits sourced functions.)
+  ( cd "$(sf_resolve_output_path memory_bank .)" && _sf_mb_migrate_harvested )
+fi
+# Wave 4 — all 9 artifacts may overwrite derived files after this point.
+```
 
 **Wave 4 — all 9 artifacts in parallel** (all model `sonnet`; `routes_to` per brief):
 
@@ -360,12 +405,32 @@ On `mode:failed` or any validation failure: `sf_log_warn "<artifact> synthesis f
 After all 9 artifacts complete, seed the live files and copy the static file:
 
 ```bash
-if [[ "$regenerate" == "1" ]]; then
-  sf_memory_bank_derive --fast --force   # regenerate mode: confirmed live/static overwrite path
-else
-  sf_memory_bank_derive --fast           # normal mode: preserve live files; copy WORKFLOW only if missing
-fi
+# Seed AT the routed memory-bank root, not pwd. sf_memory_bank_seed_live_static
+# writes the 4 live files (05/06/09/10), WORKFLOW.md, and tech-debt.md under
+# `.claude/memory-bank` relative to its cwd; in a manifest-routed workspace the
+# memory_bank destination resolves OUTSIDE pwd, so a bare call would split-brain
+# the bundle (synthesized derived files routed correctly, live files landing in
+# pwd). These are keep-forever files (dev-authored live + SS-1 migration target),
+# so they must route. (sf_memory_bank_seed_live_static is sourced from
+# memory-bank.sh in §13.1; the subshell inherits it.)
+( cd "$(sf_resolve_output_path memory_bank .)" && \
+  if [[ "$regenerate" == "1" ]]; then
+    sf_memory_bank_seed_live_static --force   # regenerate mode: confirmed live/static overwrite path
+  else
+    sf_memory_bank_seed_live_static           # normal mode: preserve live files; copy WORKFLOW only if missing
+  fi )
 ```
+
+This seed-only helper is load-bearing in synthesize mode: do not call
+`sf_memory_bank_derive` here, because that helper re-renders the 8 derived files
+and would overwrite the artifacts the synthesis agents just authored.
+
+Only the seed + harvest migration go inside the memory_bank `cd` — they touch
+memory-bank files exclusively, all under one `memory_bank` root. `.claude/settings.json`,
+`AGENTS.md`, and `CLAUDE.md` are emitted by SEPARATE helpers
+(`sf_claude_settings_generate`, `sf_agents_md_generate`, `sf_claude_md_generate`) that
+route via their OWN logical names (`scaffold_project_outputs`, `claude_md`); do NOT move
+those inside the memory_bank `cd` (they would land in the wrong root).
 
 Then emit `.claude/settings.json` and the AGENTS.md managed section via their helpers (unchanged from v0.2):
 
@@ -389,3 +454,46 @@ sf_synth_coverage_report "$ledger" "<all cited IDs, newline-separated>"
 ```
 
 This surfaces any FR/NFR that no artifact cited so the user can identify gaps before committing the bundle.
+
+## 14. Post-derivation review (#42 — advisory, SS-2)
+
+After the synthesis waves complete (synthesize mode only — skip under `--fast`),
+dispatch ONE read-only review over the bundle. Non-blocking: surface the report,
+do not gate. The `derivation-reviewer` agent is structurally read-only (no Write,
+no Task) — it returns its full report **in its final message**, and **you (the
+orchestrator) persist it**, mirroring how `synthesis-agent`'s `mode:complete`
+returns are consumed in §13.3.
+
+```bash
+master_hash="$(cksum < "$master" | awk '{print $1"-"$2}')"
+bundle="$(sf_resolve_output_path memory_bank .claude/memory-bank)"
+claude_path="$(sf_resolve_output_path claude_md CLAUDE.md)"
+artifacts="$(printf '%s, %s, %s, %s, %s, %s, %s, %s, %s' \
+  "$(sf_resolve_output_path memory_bank .claude/memory-bank/00-project-brief.md)" \
+  "$(sf_resolve_output_path memory_bank .claude/memory-bank/01-product-context.md)" \
+  "$(sf_resolve_output_path memory_bank .claude/memory-bank/02-system-patterns.md)" \
+  "$(sf_resolve_output_path memory_bank .claude/memory-bank/03-code-patterns.md)" \
+  "$(sf_resolve_output_path memory_bank .claude/memory-bank/04-tech-context.md)" \
+  "$(sf_resolve_output_path memory_bank .claude/memory-bank/07-constraints.md)" \
+  "$(sf_resolve_output_path memory_bank .claude/memory-bank/08-governance.md)" \
+  "$(sf_resolve_output_path memory_bank .claude/memory-bank/index.md)" \
+  "$claude_path")"
+review_prompt="Review these freshly synthesized memory-bank artifacts: ${artifacts}. Compare against MASTER-SPEC ${master} (cksum:${master_hash}) and EXECUTIVE-SUMMARY ${exec_summary}. Return your review report per your contract."
+Task(subagent_type="scaffold-onboard:derivation-reviewer",
+     description="Review memory-bank derivation",
+     model="claude-sonnet-4-5",
+     prompt="$review_prompt")
+```
+
+On `review-complete`: write the returned report body (the markdown table the agent
+emitted — NOT the trailing sentinel JSON) to `${bundle}/derivation-review.md`,
+print the report path + a one-line summary, and for each `regenerate <file>` finding
+surface `/scaffold-project --regenerate` plus the single artifact name to
+re-dispatch internally through the §13.3 per-artifact loop. The user decides;
+nothing is auto-applied and no public per-file flag is introduced in SS-2.
+
+**Targeted regenerate (apply path):** keep the user-facing CLI aligned with §9's
+documented boolean `--regenerate`. Per-file targeting is an orchestration action:
+re-dispatch just that artifact's synthesis brief through the §13.3 loop, then run
+the normal validators/fallback for that one file. No new lib or slash-command flag
+is required for SS-2.

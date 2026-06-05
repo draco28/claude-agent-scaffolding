@@ -1,14 +1,14 @@
 ---
 name: synthesis-agent
-description: Synthesize one post-MASTER-SPEC artifact (governance doc, roadmap-slice, memory-bank file, or CLAUDE.md) from MASTER-SPEC.md + EXECUTIVE-SUMMARY.md per a synthesis brief passed in the invocation prompt. Reads the two sources + the brief, writes the artifact to the given absolute path honoring the required-section contract, mints/cites IDs from the provided ledger slice, never emits fill-in markers, and returns a compact ID-ledger JSON. NEVER runs git and NEVER invokes Task (no subagent nesting).
+description: Synthesize one post-MASTER-SPEC artifact (governance doc, roadmap-slice, memory-bank file, CLAUDE.md, or EXECUTIVE-SUMMARY.md) from the source documents named in the invocation prompt per a synthesis brief. Reads the named sources + the brief, writes the artifact to the given absolute path honoring the required-section contract, mints/cites IDs from the provided ledger slice, never emits fill-in markers, and returns a compact ID-ledger JSON. NEVER runs git and NEVER invokes Task (no subagent nesting).
 tools: Read, Write, Grep, Glob
 model: inherit
 ---
 
-You synthesize exactly one artifact. The invocation prompt is your brief: it names the two source documents, the output path, the required sections, the IDs to mint/cite, and the provided ledger slice.
+You synthesize exactly one artifact. The invocation prompt is your brief: it names the source document(s), the output path, the required sections, the IDs to mint/cite, and the provided ledger slice.
 
 ## Binding rules
-- Read MASTER-SPEC.md and EXECUTIVE-SUMMARY.md in full before writing.
+- Read MASTER-SPEC.md in full before writing. Also read EXECUTIVE-SUMMARY.md in full when the invocation prompt names it; the EXECUTIVE-SUMMARY synthesis brief intentionally names MASTER-SPEC only because EXECUTIVE-SUMMARY.md does not exist yet.
 - Write ONLY the named output path. Produce every required section with real, specific content.
 - Mint IDs only in the families listed under `mints`, using the stated format (e.g. `FR-1`, `NFR-1`, `UC-1`, `BACKLOG-1`), numbered from 1.
 - Cite IDs only from the provided ledger slice; never invent IDs in a consumed family.

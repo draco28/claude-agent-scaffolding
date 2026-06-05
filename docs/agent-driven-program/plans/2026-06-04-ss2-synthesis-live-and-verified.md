@@ -517,9 +517,11 @@ For each finding, one row tagged by the **target filename** and a disposition:
 | index.md | ok | faithful | accept |
 ```
 Disposition vocabulary: `accept` / `regenerate <file>` / `edit`. For every
-`regenerate <file>`, the orchestrator surfaces the concrete command
-`/scaffold-project --regenerate=<file>` (or the governance equivalent) — so the
-finding is actionable. End your message with: `{"mode":"review-complete","report":"<abs path>","findings":<N>}`.
+`regenerate <file>`, the orchestrator surfaces the supported boolean command
+`/scaffold-project --regenerate` (or the governance equivalent) plus the artifact
+name to re-dispatch internally through the per-artifact synthesis loop — so the
+finding is actionable without adding a public per-file flag. End your message
+with: `{"mode":"review-complete","report":"<abs path>","findings":<N>}`.
 ```
 
 - [ ] **Step 4: Document the dispatch in both SKILLs**
@@ -541,13 +543,14 @@ Task(subagent_type="scaffold-onboard:derivation-reviewer", description="Review m
 ​```
 
 On `review-complete`: print the report path + a one-line summary, and for each
-`regenerate <file>` finding surface the apply command `/scaffold-project --regenerate=<file>`.
-The user decides; nothing is auto-applied.
+`regenerate <file>` finding surface `/scaffold-project --regenerate` plus the
+single artifact name to re-dispatch internally through the §13.3 per-artifact
+loop. The user decides; nothing is auto-applied.
 ```
 
-In `scaffolding-governance-docs/SKILL.md`, add the analogous section after §11 (§12), pointing `bundle` at `docs/` and listing the governance artifacts, with the apply command `/scaffold-docs --regenerate=<file>`.
+In `scaffolding-governance-docs/SKILL.md`, add the analogous section after §11 (§12), pointing `bundle` at `docs/` and listing the governance artifacts, with the supported boolean apply command `/scaffold-docs --regenerate` plus internal single-artifact re-dispatch.
 
-> **Targeted regenerate (apply path):** note in both that `--regenerate=<file>` scopes regeneration to one artifact. If the deterministic `sf_memory_bank_derive` / `sf_docs_derive` don't yet accept a per-file filter, the orchestrator achieves it by re-dispatching just that artifact's synthesis brief (the dispatch loop is per-artifact already). Document this; no new lib flag is required for SS-2.
+> **Targeted regenerate (apply path):** keep the user-facing CLI aligned with the supported boolean `--regenerate`. Per-file targeting is an orchestration action: re-dispatch just that artifact's synthesis brief (the dispatch loop is per-artifact already). Document this; no new lib or slash-command flag is required for SS-2.
 
 - [ ] **Step 5: Run + commit**
 
