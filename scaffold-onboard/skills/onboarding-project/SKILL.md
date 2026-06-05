@@ -231,15 +231,18 @@ spec-derived from MASTER-SPEC and authored HERE — `/scaffold-project` and
   source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
   source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
   source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"
+  source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"
   brief="${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/EXECUTIVE-SUMMARY.brief.md"
   out="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
   master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
   prompt="$(sf_synth_brief_assemble "$brief" "$(sf_synth_ledger_empty)" "$out" "$master" "")"
   Task(subagent_type="scaffold-onboard:synthesis-agent", description="Synthesize EXECUTIVE-SUMMARY", model="claude-sonnet-4-5", prompt="$prompt")
   ```
-  After `mode:complete`, append the provenance trailer (used for staleness detection):
+  After `mode:complete`, copy the synthesized body back into MASTER-SPEC's pinned
+  `## Executive Summary` section and render the canonical EXECUTIVE-SUMMARY with
+  a checksum from the updated source:
   ```bash
-  printf '\n<!-- derived from MASTER-SPEC.md cksum:%s -->\n' "$(cksum < "$master" | awk '{print $1"-"$2}')" >> "$out"
+  sf_render_executive_summary_from_synthesized "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"
   ```
 - **Deterministic (`--fast` / synthesis fallback):**
   ```bash

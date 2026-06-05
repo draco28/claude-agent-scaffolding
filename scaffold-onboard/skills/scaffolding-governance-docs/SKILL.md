@@ -232,8 +232,10 @@ exec_summary="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
 # silently refresh) if it is stale vs MASTER-SPEC.
 source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"   # sf_render_executive_summary, sf_exec_summary_staleness
 if [[ ! -f "$exec_summary" ]]; then
-  sf_render_executive_summary "$master" "$exec_summary" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)" \
-    || sf_log_warn "could not produce EXECUTIVE-SUMMARY.md — run /onboard to author it"
+  if ! sf_render_executive_summary "$master" "$exec_summary" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"; then
+    sf_log_warn "could not produce EXECUTIVE-SUMMARY.md — synthesis prompts will use MASTER-SPEC only; run /onboard to author it"
+    exec_summary=""
+  fi
 elif ! sf_exec_summary_staleness "$master" "$exec_summary"; then
   sf_log_warn "EXECUTIVE-SUMMARY.md is older than MASTER-SPEC.md — re-run onboarding synthesis to refresh it (this command consumes but does not refresh the summary)."
 fi

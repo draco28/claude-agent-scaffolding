@@ -194,7 +194,7 @@ _sf_master_spec_replace_section_body() {
   local rc=$?
   if [[ "$rc" != "0" ]]; then
     rm -f "$tmp"
-    sf_log_error "sf_render_executive_summary_from_state: could not update MASTER-SPEC '## $heading' section"
+    sf_log_error "_sf_master_spec_replace_section_body: could not update MASTER-SPEC '## $heading' section"
     return 1
   fi
   mv "$tmp" "$file"
@@ -272,6 +272,37 @@ sf_render_executive_summary_from_state() {
     sf_log_error "sf_render_executive_summary_from_state: onboarding state lacks enough Phase 1 answers to bootstrap EXECUTIVE-SUMMARY.md"
     return 1
   fi
+  _sf_master_spec_replace_section_body "$master" "Executive Summary" "$body" || return 1
+  _sf_render_executive_summary_body "$master" "$out" "$project_name" "$project_class" "$body"
+}
+
+# Onboarding synthesis path: the synthesis agent emits EXECUTIVE-SUMMARY.md
+# first, then this helper copies that synthesized body back into MASTER-SPEC's
+# pinned "## Executive Summary" section before rendering the canonical summary
+# file with a checksum from the updated source.
+sf_render_executive_summary_from_synthesized() {
+  local master="$1" out="$2" project_name="$3" project_class="$4"
+  [[ -f "$master" ]] || { sf_log_error "sf_render_executive_summary_from_synthesized: MASTER-SPEC not found: $master"; return 1; }
+  [[ -f "$out" ]] || { sf_log_error "sf_render_executive_summary_from_synthesized: EXECUTIVE-SUMMARY not found: $out"; return 1; }
+
+  local body
+  body="$(sf_master_spec_section "$out" "Executive Summary")"
+  body="$(printf '%s\n' "$body" | sed -e '/./,$!d' | awk '
+    { a[NR]=$0 }
+    END {
+      n=NR
+      while (n>0 && (a[n] ~ /^[[:space:]]*$/ || a[n] ~ /^[[:space:]]*(-{3,}|\*{3,}|_{3,})[[:space:]]*$/)) n--
+      for (i=1;i<=n;i++) print a[i]
+    }')"
+  if [[ -z "${body// /}" ]]; then
+    sf_log_error "sf_render_executive_summary_from_synthesized: synthesized EXECUTIVE-SUMMARY has no non-empty '## Executive Summary' body"
+    return 1
+  fi
+  if printf '%s\n' "$body" | grep -qiE '^[[:space:]]*(TODO:[[:space:]]*)?(\{\{)?executive_summary(\}\})?[[:space:]]*$'; then
+    sf_log_error "sf_render_executive_summary_from_synthesized: synthesized EXECUTIVE-SUMMARY is still a placeholder"
+    return 1
+  fi
+
   _sf_master_spec_replace_section_body "$master" "Executive Summary" "$body" || return 1
   _sf_render_executive_summary_body "$master" "$out" "$project_name" "$project_class" "$body"
 }

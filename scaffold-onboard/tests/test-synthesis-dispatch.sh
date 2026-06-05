@@ -266,6 +266,31 @@ test_render_exec_summary_from_state_bootstraps_placeholder_master_spec() {
   fi
 }
 
+test_exec_summary_synthesized_output_updates_master_spec_source() {
+  echo "test_exec_summary_synthesized_output_updates_master_spec_source:"
+  setup_tmp_repo
+  _mk_master_spec_with_exec "$PWD" "{{executive_summary}}"
+  cat > "$PWD/EXECUTIVE-SUMMARY.md" <<'EOF'
+## Executive Summary
+
+Synthesized summary from the agent.
+
+It names the users, MVP boundary, and success signal.
+EOF
+  if ! declare -F sf_render_executive_summary_from_synthesized >/dev/null 2>&1; then
+    FAIL=$((FAIL+1)); echo "  ✗ sf_render_executive_summary_from_synthesized helper is missing"; return
+  fi
+  sf_render_executive_summary_from_synthesized "$PWD/MASTER-SPEC.md" "$PWD/EXECUTIVE-SUMMARY.md" "test-proj" "CLI tool"
+  assert_file_contains "$PWD/MASTER-SPEC.md" "Synthesized summary from the agent"
+  assert_file_not_contains "$PWD/MASTER-SPEC.md" "\\{\\{executive_summary\\}\\}"
+  assert_file_contains "$PWD/EXECUTIVE-SUMMARY.md" "Synthesized summary from the agent"
+  if sf_exec_summary_staleness "$PWD/MASTER-SPEC.md" "$PWD/EXECUTIVE-SUMMARY.md"; then
+    PASS=$((PASS+1)); echo "  ✓ synthesized summary is copied into MASTER-SPEC before checksum"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ synthesized EXECUTIVE-SUMMARY is stale vs updated MASTER-SPEC"
+  fi
+}
+
 test_exec_summary_source_only_prompt_omits_missing_exec_summary() {
   echo "test_exec_summary_source_only_prompt_omits_missing_exec_summary:"
   setup_tmp_repo
@@ -275,6 +300,24 @@ test_exec_summary_source_only_prompt_omits_missing_exec_summary() {
     FAIL=$((FAIL+1)); echo "  ✗ source-only EXEC-SUMMARY prompt still names missing EXECUTIVE-SUMMARY"
   else
     PASS=$((PASS+1)); echo "  ✓ source-only EXEC-SUMMARY prompt names only MASTER-SPEC"
+  fi
+}
+
+test_missing_exec_summary_render_failure_clears_dispatch_source() {
+  echo "test_missing_exec_summary_render_failure_clears_dispatch_source:"
+  local ok=1 body
+  body="$(_extract_section_bash "$MB_SKILL" "## 13")"
+  if ! printf '%s\n' "$body" | grep -q 'exec_summary=""'; then
+    echo "  ✗ memory-bank setup does not clear EXEC-SUMMARY path after produce-once failure"; ok=0
+  fi
+  body="$(_extract_section_bash "$GOV_SKILL" "## 11")"
+  if ! printf '%s\n' "$body" | grep -q 'exec_summary=""'; then
+    echo "  ✗ governance setup does not clear EXEC-SUMMARY path after produce-once failure"; ok=0
+  fi
+  if [[ "$ok" == "1" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ failed produce-once render omits EXEC-SUMMARY from synthesis prompts"
+  else
+    FAIL=$((FAIL+1))
   fi
 }
 
@@ -346,7 +389,10 @@ test_no_public_regenerate_equals_guidance() {
     "$ROOT/skills/scaffolding-memory-bank/SKILL.md" \
     "$ROOT/skills/scaffolding-governance-docs/SKILL.md" \
     "$ROOT/agents/derivation-reviewer.md" \
-    "$ROOT/CHANGELOG.md" 2>/dev/null || true)"
+    "$ROOT/CHANGELOG.md" \
+    "$ROOT/../docs/agent-driven-program/specs/SS-2-synthesis-live-and-verified.md" \
+    "$ROOT/../docs/agent-driven-program/plans/2026-06-04-ss2-synthesis-live-and-verified.md" \
+    "$ROOT/../docs/agent-driven-program/handoffs/2026-06-04-ss2-ready-to-build.md" 2>/dev/null || true)"
   if [[ -z "$hits" ]]; then
     PASS=$((PASS+1)); echo "  ✓ no user-facing unsupported --regenerate=<file> guidance remains"
   else
@@ -428,6 +474,19 @@ test_memory_bank_live_static_seed_preserves_synthesized_derived_outputs() {
   fi
 }
 
+test_memory_bank_synthesis_regenerate_migrates_harvest_before_dispatch() {
+  echo "test_memory_bank_synthesis_regenerate_migrates_harvest_before_dispatch:"
+  local body migrate_line wave_line
+  body="$(_extract_section_bash "$MB_SKILL" "## 13")"
+  migrate_line="$(printf '%s\n' "$body" | awk '/_sf_mb_migrate_harvested/{print NR; exit}')"
+  wave_line="$(printf '%s\n' "$body" | awk '/Wave 4 — all 9 artifacts/{print NR; exit}')"
+  if [[ -n "$migrate_line" && -n "$wave_line" && "$migrate_line" -lt "$wave_line" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ synthesis regenerate migrates harvested entries before overwriting derived artifacts"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ synthesis regenerate does not run harvested-entry migration before Wave 4 dispatch"
+  fi
+}
+
 # SS-2 W4 — pins spec §2.6: per-artifact fallback — only the bad artifact falls back,
 # siblings are preserved untouched.
 test_fallback_is_per_artifact() {
@@ -489,6 +548,7 @@ test_governance_dispatch_sources_its_helpers
 test_dispatch_setup_sources_state_before_exec_summary_branch
 test_memory_bank_dispatch_executes_under_set_u
 test_memory_bank_live_static_seed_preserves_synthesized_derived_outputs
+test_memory_bank_synthesis_regenerate_migrates_harvest_before_dispatch
 test_fallback_is_per_artifact
 test_derivation_reviewer_agent_registered
 test_derivation_reviewer_example_fence_is_typed
@@ -508,7 +568,9 @@ test_render_exec_summary_accepts_heading_trailing_whitespace
 test_render_exec_summary_errors_on_missing_section
 test_render_exec_summary_errors_on_placeholder_only_section
 test_render_exec_summary_from_state_bootstraps_placeholder_master_spec
+test_exec_summary_synthesized_output_updates_master_spec_source
 test_exec_summary_source_only_prompt_omits_missing_exec_summary
+test_missing_exec_summary_render_failure_clears_dispatch_source
 test_exec_summary_staleness_detects_master_change
 test_no_phantom_exec_summary_render
 test_exec_summary_brief_validates

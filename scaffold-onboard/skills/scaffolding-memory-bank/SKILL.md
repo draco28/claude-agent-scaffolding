@@ -268,8 +268,10 @@ exec_summary="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
 # only CONSUME it: produce-once if a legacy project lacks it, and warn (never
 # silently refresh) if it is stale vs MASTER-SPEC.
 if [[ ! -f "$exec_summary" ]]; then
-  sf_render_executive_summary "$master" "$exec_summary" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)" \
-    || sf_log_warn "could not produce EXECUTIVE-SUMMARY.md — run /onboard to author it"
+  if ! sf_render_executive_summary "$master" "$exec_summary" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"; then
+    sf_log_warn "could not produce EXECUTIVE-SUMMARY.md — synthesis prompts will use MASTER-SPEC only; run /onboard to author it"
+    exec_summary=""
+  fi
 elif ! sf_exec_summary_staleness "$master" "$exec_summary"; then
   sf_log_warn "EXECUTIVE-SUMMARY.md is older than MASTER-SPEC.md — re-run onboarding synthesis to refresh it (this command consumes but does not refresh the summary)."
 fi
@@ -306,6 +308,17 @@ ledger="$(sf_synth_ledger_empty)"
 ```
 
 Briefs live at `${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/<name>.brief.md`.
+
+Before dispatching derived artifacts in `--regenerate` mode, run the SS-1
+harvest migration while the old derived files still exist. This preserves any
+provenance-trailed harvested entries before synthesis agents replace those files:
+
+```bash
+if [[ "${regenerate:-0}" == "1" ]]; then
+  _sf_mb_migrate_harvested
+fi
+# Wave 4 — all 9 artifacts may overwrite derived files after this point.
+```
 
 **Wave 4 — all 9 artifacts in parallel** (all model `sonnet`; `routes_to` per brief):
 
