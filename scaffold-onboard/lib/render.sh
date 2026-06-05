@@ -309,6 +309,45 @@ sf_render_executive_summary_from_synthesized() {
   [[ -f "$master" ]] || { sf_log_error "sf_render_executive_summary_from_synthesized: MASTER-SPEC not found: $master"; return 1; }
   [[ -f "$out" ]] || { sf_log_error "sf_render_executive_summary_from_synthesized: EXECUTIVE-SUMMARY not found: $out"; return 1; }
 
+  # Guard against silent truncation BEFORE extraction. sf_master_spec_section stops at
+  # the next `## `/`---`/phase-marker, so an agent body carrying an INTERIOR delimiter
+  # would be truncated to the text above it — slipping past the write-back guard, which
+  # only ever sees the already-truncated body. Read the agent's `## Executive Summary`
+  # region as the span from that H2 to the NEXT `## ` heading OR EOF (deliberately NOT
+  # stopping at `---`/phase-marker — we WANT to see those here), then drop a single
+  # TRAILING horizontal rule (the conventional section-ending `---` is fine; only an
+  # INTERIOR delimiter is corruption). If any delimiter remains, reject loudly.
+  # Capture from the agent's single `## Executive Summary` H2 to EOF (the agent doc has
+  # exactly one intended H2; any `## ` AFTER it is an interior heading the agent emitted,
+  # which is exactly what we must catch — so do NOT stop at the next `## `).
+  local raw_region
+  raw_region="$(awk '
+    BEGIN { h = "^## Executive Summary[[:space:]]*$" }
+    $0 ~ h && !grab { grab=1; next }
+    grab { print }
+  ' "$out")"
+  # Trim a single trailing rule (+ trailing blanks) so a body that merely ENDS with `---`
+  # still succeeds; only non-trailing delimiters are the corruption case.
+  raw_region="$(printf '%s\n' "$raw_region" | awk '
+    { a[NR]=$0 }
+    END {
+      n=NR
+      while (n>0 && (a[n] ~ /^[[:space:]]*$/ || a[n] ~ /^[[:space:]]*(-{3,}|\*{3,}|_{3,})[[:space:]]*$/)) n--
+      for (i=1;i<=n;i++) print a[i]
+    }')"
+  if printf '%s\n' "$raw_region" | grep -qE '^[[:space:]]*##[[:space:]]'; then
+    sf_log_error "sf_render_executive_summary_from_synthesized: the synthesized '## Executive Summary' body contains an interior section heading (## ...) — extracting it would silently TRUNCATE the summary. Re-run the synthesis agent and have it emit a prose/bullets-only Executive Summary (no nested ## headings)."
+    return 1
+  fi
+  if printf '%s\n' "$raw_region" | grep -qE '^[[:space:]]*(-{3,}|\*{3,}|_{3,})[[:space:]]*$'; then
+    sf_log_error "sf_render_executive_summary_from_synthesized: the synthesized '## Executive Summary' body contains an interior horizontal rule (--- / *** / ___) — extracting it would silently TRUNCATE the summary. Re-run the synthesis agent and have it emit a prose/bullets-only Executive Summary (no interior rules)."
+    return 1
+  fi
+  if printf '%s\n' "$raw_region" | grep -qE '^<!-- master-spec:phase'; then
+    sf_log_error "sf_render_executive_summary_from_synthesized: the synthesized '## Executive Summary' body contains a master-spec phase marker — extracting it would silently TRUNCATE the summary. Re-run the synthesis agent and have it emit a prose/bullets-only Executive Summary."
+    return 1
+  fi
+
   local body
   body="$(sf_master_spec_section "$out" "Executive Summary")"
   body="$(printf '%s\n' "$body" | sed -e '/./,$!d' | awk '

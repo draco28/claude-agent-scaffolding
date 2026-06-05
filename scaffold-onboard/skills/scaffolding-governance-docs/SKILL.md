@@ -262,9 +262,13 @@ Resolve each artifact's output path via `sf_resolve_output_path <routes_to> <rel
 
 ### 11.2 Fast-path short-circuit
 
-Check the synthesis mode immediately after setup:
+Check the synthesis mode immediately after setup. First engage deterministic mode when the user passed `--fast` — this **must** run BEFORE the `sf_synth_mode` check, since `sf_synth_mode` keys off `SF_SYNTH_FAST` (nothing else exports it for the `--fast` arg; the wrapper only parses it into a local var). Without this, `/scaffold-docs --fast` would fall through into synthesis instead of fast mode:
 
 ```bash
+# Engage deterministic mode when the user passed --fast. Parse it from $ARGUMENTS in
+# the same flag loop as --regenerate/--full (§8); set BEFORE the sf_synth_mode check below.
+case " $ARGUMENTS " in *" --fast "*) export SF_SYNTH_FAST=1 ;; esac
+
 if [[ "$(sf_synth_mode)" == "fast" ]]; then
   if [[ "${full:-0}" == "1" ]]; then
     if [[ "${regenerate:-0}" == "1" ]]; then
@@ -281,7 +285,7 @@ if [[ "$(sf_synth_mode)" == "fast" ]]; then
 fi
 ```
 
-`sf_synth_mode` echoes `fast` when `SF_SYNTH_FAST=1` (set by the `--fast` flag, which `sf_docs_derive`'s own arg-parse loop now recognises). In fast mode the full deterministic pipeline runs and you return.
+`sf_synth_mode` echoes `fast` only when `SF_SYNTH_FAST=1` is exported. The `case` line above exports it the moment `--fast` appears in `$ARGUMENTS`, so the gate engages on the very next line. (`sf_docs_derive`'s own arg-parse loop also exports `SF_SYNTH_FAST=1` on `--fast`, but that runs INSIDE the fast branch — after the check — so it cannot be what flips the mode; the explicit export above is what engages fast mode.) In fast mode the full deterministic pipeline runs and you return.
 
 Do not collapse this to `sf_docs_derive ${full:+--full} ${regenerate:+--regenerate} --fast` — `${var:+}` triggers on the string `0` (non-empty), so it would always emit the 14-doc `--full` set and clobber existing docs on a normal `--fast` run even when the user never passed either flag.
 

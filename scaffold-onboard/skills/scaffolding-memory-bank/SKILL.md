@@ -279,9 +279,13 @@ fi
 
 ### 13.2 Fast-path short-circuit
 
-Check the synthesis mode immediately after setup:
+Check the synthesis mode immediately after setup. First engage deterministic mode when the user passed `--fast` — this **must** run BEFORE the `sf_synth_mode` check, since `sf_synth_mode` keys off `SF_SYNTH_FAST` (nothing else exports it for the `--fast` arg; the wrapper only parses it into a local var). Without this, `/scaffold-project --fast` would fall through into synthesis instead of fast mode:
 
 ```bash
+# Engage deterministic mode when the user passed --fast. Parse it from $ARGUMENTS in
+# the same flag loop as --regenerate (§9); set BEFORE the sf_synth_mode check below.
+case " $ARGUMENTS " in *" --fast "*) export SF_SYNTH_FAST=1 ;; esac
+
 if [[ "$(sf_synth_mode)" == "fast" ]]; then
   if [[ "${regenerate:-0}" == "1" ]]; then
     sf_memory_bank_derive --force   # --regenerate: confirmed live/static overwrite path (§4/§9)
@@ -297,7 +301,7 @@ The `return 0` is load-bearing — a bare `# STOP` comment does not stop executi
 
 Do not collapse this to `sf_memory_bank_derive ${regenerate:+--force}` — `${var:+}` triggers on the string `0` (non-empty), so it would pass `--force` on a normal `--fast` run and silently clobber live-seed files.
 
-`sf_synth_mode` echoes `fast` when `SF_SYNTH_FAST=1`. This flag is set by `sf_memory_bank_derive --fast` (which now exports `SF_SYNTH_FAST=1` per the v0.3 lib change) or when the user passes `--fast` in `$ARGUMENTS`. Parse `--fast` from `$ARGUMENTS` in the same flag loop as `--regenerate` (§9) and call `sf_memory_bank_derive --fast` when present.
+`sf_synth_mode` echoes `fast` only when `SF_SYNTH_FAST=1` is exported. The `case` line above exports it the moment `--fast` appears in `$ARGUMENTS`, so the `sf_synth_mode` gate engages on the very next line. (`sf_memory_bank_derive --fast` also exports `SF_SYNTH_FAST=1` per the v0.3 lib change, but that runs INSIDE the fast branch — after the check — so it cannot be what flips the mode; the explicit export above is what engages fast mode.) Parse `--fast` from `$ARGUMENTS` in the same flag loop as `--regenerate` (§9).
 
 ### 13.3 Synthesis wave dispatch
 

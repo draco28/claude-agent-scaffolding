@@ -371,6 +371,96 @@ test_master_spec_writeback_accepts_clean_prose_and_bullets() {
   fi
 }
 
+# SS-2 PR#55 Codex P2 (FINDING 1) — the from_synthesized path extracts the agent's
+# Executive-Summary body with sf_master_spec_section, which STOPS at the next `## `/
+# `---`/phase-marker. An agent body carrying an INTERIOR delimiter would be silently
+# TRUNCATED before the write-back guard ever sees it. from_synthesized must instead
+# detect the interior delimiter in the agent's raw region and REJECT loudly, leaving
+# MASTER-SPEC byte-identical.
+_mk_synth_master_spec_two_sections() {
+  cat > "$PWD/MASTER-SPEC.md" <<'EOF'
+# test-proj — Master Spec
+
+## Executive Summary
+{{executive_summary}}
+
+## Phase 1: Foundation
+phase one stuff
+EOF
+}
+
+test_from_synthesized_rejects_interior_heading() {
+  echo "test_from_synthesized_rejects_interior_heading:"
+  setup_tmp_repo
+  _mk_synth_master_spec_two_sections
+  cat > "$PWD/EXECUTIVE-SUMMARY.md" <<'EOF'
+## Executive Summary
+
+Good first line.
+
+## Sneaky Heading
+
+Second.
+EOF
+  local before; before="$(cksum < "$PWD/MASTER-SPEC.md")"
+  local prev_opts="$-"; set +e
+  sf_render_executive_summary_from_synthesized "$PWD/MASTER-SPEC.md" "$PWD/EXECUTIVE-SUMMARY.md" "p" "CLI tool" 2>/dev/null
+  local rc=$?
+  if [[ "$prev_opts" == *e* ]]; then set -e; fi
+  local after; after="$(cksum < "$PWD/MASTER-SPEC.md")"
+  if [[ "$rc" != "0" && "$before" == "$after" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ rejected interior ## heading (rc=$rc), MASTER-SPEC byte-identical (no truncation)"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ rc=$rc; MASTER-SPEC changed=$([[ "$before" == "$after" ]] && echo no || echo YES) (truncation/corruption slipped through)"
+  fi
+}
+
+test_from_synthesized_rejects_interior_rule() {
+  echo "test_from_synthesized_rejects_interior_rule:"
+  setup_tmp_repo
+  _mk_synth_master_spec_two_sections
+  cat > "$PWD/EXECUTIVE-SUMMARY.md" <<'EOF'
+## Executive Summary
+
+Good first line.
+
+---
+
+Second sentence after a rule.
+EOF
+  local before; before="$(cksum < "$PWD/MASTER-SPEC.md")"
+  local prev_opts="$-"; set +e
+  sf_render_executive_summary_from_synthesized "$PWD/MASTER-SPEC.md" "$PWD/EXECUTIVE-SUMMARY.md" "p" "CLI tool" 2>/dev/null
+  local rc=$?
+  if [[ "$prev_opts" == *e* ]]; then set -e; fi
+  local after; after="$(cksum < "$PWD/MASTER-SPEC.md")"
+  if [[ "$rc" != "0" && "$before" == "$after" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ rejected interior --- rule (rc=$rc), MASTER-SPEC byte-identical"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ rc=$rc; MASTER-SPEC changed=$([[ "$before" == "$after" ]] && echo no || echo YES)"
+  fi
+}
+
+# SS-2 PR#55 Codex P2 (FINDING 2) — both dispatch SKILLs must export SF_SYNTH_FAST
+# (engage deterministic mode) when --fast is parsed, BEFORE the sf_synth_mode check,
+# not only inside the post-check fast-path branch.
+test_skill_exports_fast_mode_before_check() {
+  echo "test_skill_exports_fast_mode_before_check:"
+  local ok=1 f synth_line export_line
+  for f in "$MB_SKILL" "$GOV_SKILL"; do
+    if ! grep -q 'SF_SYNTH_FAST=1' "$f"; then
+      echo "  ✗ $(basename "$(dirname "$f")") never sets SF_SYNTH_FAST=1 for --fast"; ok=0; continue
+    fi
+    # the export must precede the sf_synth_mode == "fast" gate
+    export_line="$(grep -nE 'export SF_SYNTH_FAST=1' "$f" | head -1 | cut -d: -f1)"
+    synth_line="$(grep -nE 'sf_synth_mode.*==.*"fast"' "$f" | head -1 | cut -d: -f1)"
+    if [[ -z "$export_line" || -z "$synth_line" || "$export_line" -ge "$synth_line" ]]; then
+      echo "  ✗ $(basename "$(dirname "$f")") does not export SF_SYNTH_FAST before the sf_synth_mode check (export=$export_line check=$synth_line)"; ok=0
+    fi
+  done
+  if [[ "$ok" == "1" ]]; then PASS=$((PASS+1)); echo "  ✓ both SKILLs export SF_SYNTH_FAST for --fast before the fast-path check"; else FAIL=$((FAIL+1)); fi
+}
+
 test_exec_summary_source_only_prompt_omits_missing_exec_summary() {
   echo "test_exec_summary_source_only_prompt_omits_missing_exec_summary:"
   setup_tmp_repo
@@ -649,6 +739,9 @@ test_render_exec_summary_errors_on_missing_section
 test_render_exec_summary_errors_on_placeholder_only_section
 test_render_exec_summary_from_state_bootstraps_placeholder_master_spec
 test_exec_summary_synthesized_output_updates_master_spec_source
+test_from_synthesized_rejects_interior_heading
+test_from_synthesized_rejects_interior_rule
+test_skill_exports_fast_mode_before_check
 test_master_spec_writeback_rejects_embedded_rule
 test_master_spec_writeback_rejects_embedded_heading
 test_master_spec_writeback_accepts_clean_prose_and_bullets
