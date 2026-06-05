@@ -319,7 +319,13 @@ provenance-trailed harvested entries before synthesis agents replace those files
 
 ```bash
 if [[ "${regenerate:-0}" == "1" ]]; then
-  _sf_mb_migrate_harvested
+  # Run the migration AT the routed memory-bank root, not pwd. In a manifest-routed
+  # (dual-repo) workspace the memory_bank destination resolves OUTSIDE pwd, and
+  # _sf_mb_migrate_harvested scans/writes `.claude/memory-bank` relative to its cwd;
+  # a bare call would scan the wrong directory. The subshell keeps the orchestrator's
+  # cwd unchanged even on failure. (_sf_mb_migrate_harvested is sourced from
+  # memory-bank.sh in §13.1; a subshell inherits sourced functions.)
+  ( cd "$(sf_resolve_output_path memory_bank .)" && _sf_mb_migrate_harvested )
 fi
 # Wave 4 — all 9 artifacts may overwrite derived files after this point.
 ```
@@ -399,16 +405,32 @@ On `mode:failed` or any validation failure: `sf_log_warn "<artifact> synthesis f
 After all 9 artifacts complete, seed the live files and copy the static file:
 
 ```bash
-if [[ "$regenerate" == "1" ]]; then
-  sf_memory_bank_seed_live_static --force   # regenerate mode: confirmed live/static overwrite path
-else
-  sf_memory_bank_seed_live_static           # normal mode: preserve live files; copy WORKFLOW only if missing
-fi
+# Seed AT the routed memory-bank root, not pwd. sf_memory_bank_seed_live_static
+# writes the 4 live files (05/06/09/10), WORKFLOW.md, and tech-debt.md under
+# `.claude/memory-bank` relative to its cwd; in a manifest-routed workspace the
+# memory_bank destination resolves OUTSIDE pwd, so a bare call would split-brain
+# the bundle (synthesized derived files routed correctly, live files landing in
+# pwd). These are keep-forever files (dev-authored live + SS-1 migration target),
+# so they must route. (sf_memory_bank_seed_live_static is sourced from
+# memory-bank.sh in §13.1; the subshell inherits it.)
+( cd "$(sf_resolve_output_path memory_bank .)" && \
+  if [[ "$regenerate" == "1" ]]; then
+    sf_memory_bank_seed_live_static --force   # regenerate mode: confirmed live/static overwrite path
+  else
+    sf_memory_bank_seed_live_static           # normal mode: preserve live files; copy WORKFLOW only if missing
+  fi )
 ```
 
 This seed-only helper is load-bearing in synthesize mode: do not call
 `sf_memory_bank_derive` here, because that helper re-renders the 8 derived files
 and would overwrite the artifacts the synthesis agents just authored.
+
+Only the seed + harvest migration go inside the memory_bank `cd` — they touch
+memory-bank files exclusively, all under one `memory_bank` root. `.claude/settings.json`,
+`AGENTS.md`, and `CLAUDE.md` are emitted by SEPARATE helpers
+(`sf_claude_settings_generate`, `sf_agents_md_generate`, `sf_claude_md_generate`) that
+route via their OWN logical names (`scaffold_project_outputs`, `claude_md`); do NOT move
+those inside the memory_bank `cd` (they would land in the wrong root).
 
 Then emit `.claude/settings.json` and the AGENTS.md managed section via their helpers (unchanged from v0.2):
 

@@ -713,7 +713,56 @@ test_governance_fast_path_preserves_regenerate() {
   fi
 }
 
+# SS-2 PR#55 Codex P2 #3/#6 — the two NON-synthesis finalize steps on the
+# synthesize path (_sf_mb_migrate_harvested + sf_memory_bank_seed_live_static)
+# write/scan relative to cwd. In a manifest-routed workspace memory_bank resolves
+# OUTSIDE pwd, so both must run AT the routed memory-bank root. Assert each call
+# is wrapped in a `cd "$(sf_resolve_output_path memory_bank` (or `pushd ...memory_bank`)
+# on the same logical block — i.e. neither appears as a bare §13.3 call.
+test_synthesize_finalize_routes_to_memory_bank() {
+  echo "test_synthesize_finalize_routes_to_memory_bank:"
+  local ok=1 body
+  body="$(_extract_section_bash "$MB_SKILL" "## 13")"
+
+  # A "route" line opens a memory_bank-rooted subshell/block: it both routes via
+  # sf_resolve_output_path memory_bank AND uses cd or pushd to enter it. The
+  # _extract_section_bash helper concatenates §13's fenced blocks in order, so a
+  # route line preceding the call satisfies the same-logical-block contract while
+  # a bare top-of-§13.3 call (no preceding route) fails.
+
+  # A route line is the most recent line opening a memory_bank-rooted subshell/block:
+  # it routes via sf_resolve_output_path memory_bank AND uses cd or pushd. For each
+  # call we require a route line within a small window above it (same logical block),
+  # so a bare top-of-§13.3 call with no preceding wrapper fails. `route` carries the
+  # line number of the last route line; `n` is the current line number.
+
+  # 1) harvest migration must be wrapped in a memory_bank cd/pushd.
+  if ! printf '%s\n' "$body" | awk '
+      { n++ }
+      /sf_resolve_output_path memory_bank/ && (/[ (]cd / || /^cd / || / pushd / || /^pushd /) { route=n }
+      /_sf_mb_migrate_harvested/ { if (route && n - route <= 6) ok=1 }
+      END { exit (ok?0:1) }'; then
+    echo "  ✗ §13.3 _sf_mb_migrate_harvested is not wrapped in a memory_bank cd/pushd"; ok=0
+  fi
+
+  # 2) live/static seed must be wrapped in a memory_bank cd/pushd.
+  if ! printf '%s\n' "$body" | awk '
+      { n++ }
+      /sf_resolve_output_path memory_bank/ && (/[ (]cd / || /^cd / || / pushd / || /^pushd /) { route=n }
+      /sf_memory_bank_seed_live_static/ { if (route && n - route <= 6) ok=1 }
+      END { exit (ok?0:1) }'; then
+    echo "  ✗ §13.3 sf_memory_bank_seed_live_static is not wrapped in a memory_bank cd/pushd"; ok=0
+  fi
+
+  if [[ "$ok" == "1" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ §13.3 seed + harvest migration route to the manifest memory_bank destination"
+  else
+    FAIL=$((FAIL+1))
+  fi
+}
+
 test_memory_bank_dispatch_sources_its_helpers
+test_synthesize_finalize_routes_to_memory_bank
 test_governance_dispatch_sources_its_helpers
 test_dispatch_setup_sources_state_before_exec_summary_branch
 test_memory_bank_dispatch_executes_under_set_u
