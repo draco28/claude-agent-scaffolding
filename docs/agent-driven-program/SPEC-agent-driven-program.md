@@ -78,8 +78,8 @@ Each sub-spec gets its own `brainstorm → writing-plans → build → bot-revie
 **SHIPPED 2026-06-04** (PR #54, squash `237675d`; tags `scaffold-onboard-v0.4.0` + `scaffold-dev-v0.3.0`; closed #45). Built via subagent-driven-development; converged after a Codex/CodeRabbit review cycle that caught 4 real data-loss-on-upgrade defects the build missed (legacy-mcrule preserve, `--force` 09 carve-out, migrate-from-all-derived-files, 08-governance stale cadence). Design-locked in `docs/agent-driven-program/specs/SS-1-memory-bank-cadence.md` (2026-06-02). Key resolution: classify each bank by ownership (pure spec-derived / pure dev-authored / mixed) — which shrinks #45 to **two files**. Separate dev-authored learnings into **new live-seed files (`09-known-issues`, `10-decisions-log`)**; keep machine-checkable rules in `03` inside one **mechanically-preserved zone**. **OQ-2 resolved: no agent-merge engine needed** — file separation + mechanical zone-preservation suffices (preservation is a non-reasoning fact). Plus a **single-point cadence policy** (event × bank × who) with a de-contamination sweep so no skill restates the cadence.
 **Closes:** `#45`. **Partially:** `#48` C/D/E.
 
-### SS-2 — Synthesis Live & Verified + EXEC-SUMMARY + post-derivation review (anti-pattern A/B) · depends on SS-1 · **design-locked 2026-06-04**
-**Design-locked in `docs/agent-driven-program/specs/SS-2-synthesis-live-and-verified.md` (2026-06-04).** OQ-1 resolved: synthesis is **LIVE-BUT-BUGGY + untested**, not dark — so SS-2 is a blend of "turn it on" and "fix the model." Make the wired dispatch *executable* on both surfaces (source the libs the dispatch/fallback bodies call — §13.1 currently sources only synthesis.sh+routing.sh → `set -u` abort; replace comment-only `# STOP`), synthesize EXEC-SUMMARY from MASTER-SPEC (onboarding-close + Wave-0 refresh), add an **advisory** whole-bundle post-derivation review sub-agent (`derivation-reviewer`), and add the **missing dispatch integration test** (stubbed agent return) so a broken dispatch can't merge green. `--fast` stays the explicit fallback. **Reconciliation-into-re-derive is a NON-GOAL** (SS-1 dissolved it). scaffold-onboard-only.
+### SS-2 — Synthesis Live & Verified + EXEC-SUMMARY + post-derivation review (anti-pattern A/B) · depends on SS-1 · ✅ SHIPPED 2026-06-05
+**SHIPPED 2026-06-05** (PR #55, squash `90bcd19`; tag `scaffold-onboard-v0.5.0`; closed #50/#49/#42). Built via subagent-driven-development (implementer + two-stage spec/quality review per work item), then a Codex/CodeRabbit review cycle that caught real defects the build missed: a **MASTER-SPEC write-back corruption** (a synthesized summary containing `---`/`##` could silently truncate/corrupt the source-of-truth — found by an adversarial correctness review, not the green tests), a `--fast` finalize that **re-rendered (clobbered) the just-synthesized files** (now `sf_memory_bank_seed_live_static`), and the truncate-before-guard gap. EXEC-SUMMARY gained a single authoritative producer with **write-back into MASTER-SPEC** + cksum-staleness. The deterministic `--fast` routing on the path slated for removal was deferred to **#56** (agent-driven-only direction). Design-locked in `docs/agent-driven-program/specs/SS-2-synthesis-live-and-verified.md` (2026-06-04). OQ-1 resolved: synthesis is **LIVE-BUT-BUGGY + untested**, not dark — so SS-2 is a blend of "turn it on" and "fix the model." Make the wired dispatch *executable* on both surfaces (source the libs the dispatch/fallback bodies call — §13.1 currently sources only synthesis.sh+routing.sh → `set -u` abort; replace comment-only `# STOP`), synthesize EXEC-SUMMARY from MASTER-SPEC (onboarding-close + Wave-0 refresh), add an **advisory** whole-bundle post-derivation review sub-agent (`derivation-reviewer`), and add the **missing dispatch integration test** (stubbed agent return) so a broken dispatch can't merge green. `--fast` stays the explicit fallback. **Reconciliation-into-re-derive is a NON-GOAL** (SS-1 dissolved it). scaffold-onboard-only.
 **Closes:** `#42`, **N2**/`#50` (dark-synthesis), **N1**/`#49` (EXEC-SUMMARY hole). Dissolves the `TODO:`-stub problem.
 
 ### SS-3 — Agent-synthesized, resumable onboarding (anti-pattern B + resumability) · parallel-eligible after SS-1
@@ -108,7 +108,7 @@ Every open issue + every new audit finding, mapped to a sub-spec. **Target: 0 op
 | # | Title (short) | Pivot relation | Sub-spec | Target |
 |---|---|---|---|---|
 | ~~**#45**~~ | harvest ↔ derived-file SSoT contradiction | wedge / partial | **SS-1** | ✅ CLOSED 2026-06-04 (PR #54) |
-| **#42** | agent-driven post-derivation doc review | **dissolved** (is the refactor) | **SS-2** | v0.2 |
+| ~~**#42**~~ | agent-driven post-derivation doc review | **dissolved** (is the refactor) | **SS-2** | ✅ CLOSED 2026-06-05 (PR #55) |
 | **#7** | verifying-spec-citations (agent-assisted) | **dissolved** | **SS-4** | v0.2 |
 | **#5** | pre-flight RED-tests gate | partial (reframe) | **SS-4** | v0.2 |
 | **#48** | #33 C–F + /defer routing + label auto-create | partial | **SS-1** (C/D/E) + **SS-4** (F) + **SS-6** (routing/label) | v0.3 |
@@ -125,11 +125,12 @@ Every open issue + every new audit finding, mapped to a sub-spec. **Target: 0 op
 
 | ID | Issue | Title | Type | Sub-spec |
 |---|---|---|---|---|
-| **N1** | **#49** | scaffold-onboard: EXECUTIVE-SUMMARY placeholder has no source question / render fn (hole) | bug | SS-3 (or SS-2) |
-| **N2** | **#50** | scaffold-onboard: verify synthesis path actually dispatches by default (possibly "dark" / never exercised end-to-end) | bug · critical | SS-2 |
+| **N1** | ~~**#49**~~ | scaffold-onboard: EXECUTIVE-SUMMARY placeholder has no source question / render fn (hole) | bug | ✅ CLOSED 2026-06-05 (SS-2, PR #55) |
+| **N2** | ~~**#50**~~ | scaffold-onboard: verify synthesis path actually dispatches by default (possibly "dark" / never exercised end-to-end) | bug · critical | ✅ CLOSED 2026-06-05 (SS-2, PR #55) |
 | **N3** | **#51** | scaffold-onboard: MASTER-SPEC is mechanical transcription — move to agent synthesis from phased-discussion | enhancement | SS-3 |
 | **N4** | **#52** | scaffold-dev: harvest grammar-collision — AWK parser silently drops free-form Suggestions prose; single-authority agent read | bug | SS-4 |
 | **N5** | **#53** | repo: no `.github/workflows` CI for shell test suites | ops | SS-6 |
+| **N6** | **#56** | scaffold-onboard: remove deterministic `--fast` fallback (agent-driven only) — subsumes the deferred SS-2 `--fast`/governance split-routing findings | enhancement | SS-3+ (own sub-spec) |
 
 ---
 
