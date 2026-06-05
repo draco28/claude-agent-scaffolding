@@ -248,11 +248,16 @@ spec-derived from MASTER-SPEC and authored HERE — `/scaffold-project` and
   source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"
   master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
   out="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
-  sf_render_executive_summary "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"
+  if ! sf_render_executive_summary "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"; then
+    sf_render_executive_summary_from_state "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"
+  fi
   ```
   `sf_render_executive_summary` errors loudly if MASTER-SPEC has no `## Executive Summary`
-  section (the pinned parser contract) — never a silent thin summary. It appends the
-  provenance trailer itself.
+  section or still has the template placeholder. In the onboarding close path only,
+  `sf_render_executive_summary_from_state` may bootstrap the summary from Phase 1
+  answers when a brand-new MASTER-SPEC has not yet had its pinned summary section
+  filled. It still errors if Phase 1 state is too thin. Both helpers append the
+  provenance trailer themselves.
 
 EXEC-SUMMARY is produced/refreshed ONLY here; hand-edits are overwritten on the next
 authoritative refresh (spec §2.3). To change it, edit MASTER-SPEC's `## Executive Summary`

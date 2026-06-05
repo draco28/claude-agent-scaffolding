@@ -117,17 +117,87 @@ sf_render() {
 sf_master_spec_section() {
   local file="$1" heading="$2"
   local count
-  count="$(grep -cE "^## ${heading}\$" "$file" 2>/dev/null || true)"
+  count="$(grep -cE "^## ${heading}[[:space:]]*$" "$file" 2>/dev/null || true)"
   if [[ "${count:-0}" -gt 1 ]]; then
     sf_log_warn "MASTER-SPEC has $count '## $heading' sections; using the first (spec §2.3)."
   fi
-  awk -v h="## $heading" '
-    $0==h { grab=1; next }
+  awk -v heading="$heading" '
+    BEGIN { h = "^## " heading "[[:space:]]*$" }
+    $0 ~ h { grab=1; next }
     grab && /^## / { exit }
     grab && /^---[[:space:]]*$/ { exit }
     grab && /^<!-- master-spec:phase id=/ { exit }
     grab { print }
   ' "$file"
+}
+
+_sf_render_executive_summary_body() {
+  local master="$1" out="$2" project_name="$3" project_class="$4" body="$5"
+  local root tmpl; root="$(sf_plugin_root)"; tmpl="$root/templates/master-spec/EXECUTIVE-SUMMARY.md.tmpl"
+  [[ -f "$tmpl" ]] || { sf_log_error "sf_render_executive_summary: template not found: $tmpl"; return 1; }
+  local created; created="$(date -u +%Y-%m-%d)"
+  # Substitute scalars + the MULTI-LINE body in a single awk pass that reads the
+  # body from ENVIRON["EXEC_BODY"] (correction A: sf_render newline-splits AWK_VALS
+  # and would corrupt a multi-line value). We do scalar substitution with index()/
+  # substr (no gsub — avoids replacement-string metacharacters like & being magic),
+  # and emit the body verbatim at the {{executive_summary}} line.
+  EXEC_PN="$project_name" EXEC_PC="$project_class" EXEC_DATE="$created" EXEC_BODY="$body" \
+  awk '
+    function subst_all(line,   key, val, out, p) {
+      # Replace every literal {{key}} occurrence with val (no regex metachar magic).
+      out = ""
+      while ((p = index(line, "{{"))!= 0) {
+        out = out substr(line, 1, p-1)
+        line = substr(line, p)
+        if (line ~ /^\{\{project_name\}\}/)        { out = out ENVIRON["EXEC_PN"];   line = substr(line, 17) }
+        else if (line ~ /^\{\{project_class\}\}/)   { out = out ENVIRON["EXEC_PC"];   line = substr(line, 18) }
+        else if (line ~ /^\{\{created_date\}\}/)    { out = out ENVIRON["EXEC_DATE"]; line = substr(line, 17) }
+        else { out = out "{{"; line = substr(line, 3) }
+      }
+      return out line
+    }
+    # body placeholder must be standalone on its line; we replace the whole line with the multi-line body
+    /^[[:space:]]*\{\{executive_summary\}\}[[:space:]]*$/ { print ENVIRON["EXEC_BODY"]; next }
+    { print subst_all($0) }
+  ' "$tmpl" > "$out"
+  printf '\n<!-- derived from MASTER-SPEC.md cksum:%s -->\n' "$(cksum < "$master" | awk '{print $1"-"$2}')" >> "$out"
+}
+
+_sf_master_spec_replace_section_body() {
+  local file="$1" heading="$2" body="$3"
+  local tmp
+  tmp="$(mktemp "${file}.XXXXXX")" || return 1
+  MASTER_SPEC_BODY="$body" awk -v heading="$heading" '
+    BEGIN {
+      h = "^## " heading "[[:space:]]*$"
+      replaced = 0
+      skipping = 0
+    }
+    $0 ~ h && replaced == 0 {
+      print
+      print ""
+      print ENVIRON["MASTER_SPEC_BODY"]
+      print ""
+      skipping = 1
+      replaced = 1
+      next
+    }
+    skipping && (/^## / || /^---[[:space:]]*$/ || /^<!-- master-spec:phase id=/) {
+      skipping = 0
+      print
+      next
+    }
+    skipping { next }
+    { print }
+    END { if (replaced != 1) exit 42 }
+  ' "$file" > "$tmp"
+  local rc=$?
+  if [[ "$rc" != "0" ]]; then
+    rm -f "$tmp"
+    sf_log_error "sf_render_executive_summary_from_state: could not update MASTER-SPEC '## $heading' section"
+    return 1
+  fi
+  mv "$tmp" "$file"
 }
 
 # Deterministic EXEC-SUMMARY renderer. Args: <master-spec> <out> <project_name> <project_class>
@@ -159,34 +229,51 @@ sf_render_executive_summary() {
     sf_log_error "sf_render_executive_summary: MASTER-SPEC '## Executive Summary' is still a placeholder. Replace it with real summary content, then re-run."
     return 1
   fi
-  local root tmpl; root="$(sf_plugin_root)"; tmpl="$root/templates/master-spec/EXECUTIVE-SUMMARY.md.tmpl"
-  [[ -f "$tmpl" ]] || { sf_log_error "sf_render_executive_summary: template not found: $tmpl"; return 1; }
-  local created; created="$(date -u +%Y-%m-%d)"
-  # Substitute scalars + the MULTI-LINE body in a single awk pass that reads the
-  # body from ENVIRON["EXEC_BODY"] (correction A: sf_render newline-splits AWK_VALS
-  # and would corrupt a multi-line value). We do scalar substitution with index()/
-  # substr (no gsub — avoids replacement-string metacharacters like & being magic),
-  # and emit the body verbatim at the {{executive_summary}} line.
-  EXEC_PN="$project_name" EXEC_PC="$project_class" EXEC_DATE="$created" EXEC_BODY="$body" \
-  awk '
-    function subst_all(line,   key, val, out, p) {
-      # Replace every literal {{key}} occurrence with val (no regex metachar magic).
-      out = ""
-      while ((p = index(line, "{{"))!= 0) {
-        out = out substr(line, 1, p-1)
-        line = substr(line, p)
-        if (line ~ /^\{\{project_name\}\}/)        { out = out ENVIRON["EXEC_PN"];   line = substr(line, 17) }
-        else if (line ~ /^\{\{project_class\}\}/)   { out = out ENVIRON["EXEC_PC"];   line = substr(line, 18) }
-        else if (line ~ /^\{\{created_date\}\}/)    { out = out ENVIRON["EXEC_DATE"]; line = substr(line, 17) }
-        else { out = out "{{"; line = substr(line, 3) }
-      }
-      return out line
-    }
-    # body placeholder must be standalone on its line; we replace the whole line with the multi-line body
-    /^[[:space:]]*\{\{executive_summary\}\}[[:space:]]*$/ { print ENVIRON["EXEC_BODY"]; next }
-    { print subst_all($0) }
-  ' "$tmpl" > "$out"
-  printf '\n<!-- derived from MASTER-SPEC.md cksum:%s -->\n' "$(cksum < "$master" | awk '{print $1"-"$2}')" >> "$out"
+  _sf_render_executive_summary_body "$master" "$out" "$project_name" "$project_class" "$body"
+}
+
+# Onboarding-only deterministic bootstrap for brand-new specs whose MASTER-SPEC
+# still contains the template {{executive_summary}} placeholder. Downstream
+# commands remain strict consumers of the pinned MASTER-SPEC section.
+sf_render_executive_summary_from_state() {
+  local master="$1" out="$2" project_name="$3" project_class="$4"
+  [[ -f "$master" ]] || { sf_log_error "sf_render_executive_summary_from_state: MASTER-SPEC not found: $master"; return 1; }
+  if ! declare -F sf_state_read_answer >/dev/null 2>&1; then
+    sf_log_error "sf_render_executive_summary_from_state: state.sh is not sourced"
+    return 1
+  fi
+  local pitch problem users use_case mvp
+  pitch="$(sf_state_read_answer 1.1.1)"
+  problem="$(sf_state_read_answer 1.1.2)"
+  users="$(sf_state_read_answer 1.2.1)"
+  use_case="$(sf_state_read_answer 1.2.2)"
+  mvp="$(sf_state_read_answer 1.3.2)"
+
+  local body=""
+  if [[ -n "$pitch" && "$pitch" != "null" ]]; then
+    body="$pitch"
+  fi
+  if [[ -n "$users" && "$users" != "null" && -n "$use_case" && "$use_case" != "null" ]]; then
+    body="${body}${body:+
+
+}$project_name serves $users by $use_case."
+  fi
+  if [[ -n "$problem" && "$problem" != "null" ]]; then
+    body="${body}${body:+
+
+}It addresses this core problem: $problem"
+  fi
+  if [[ -n "$mvp" && "$mvp" != "null" ]]; then
+    body="${body}${body:+
+
+}The MVP scope centers on $mvp."
+  fi
+  if [[ -z "${body// /}" ]]; then
+    sf_log_error "sf_render_executive_summary_from_state: onboarding state lacks enough Phase 1 answers to bootstrap EXECUTIVE-SUMMARY.md"
+    return 1
+  fi
+  _sf_master_spec_replace_section_body "$master" "Executive Summary" "$body" || return 1
+  _sf_render_executive_summary_body "$master" "$out" "$project_name" "$project_class" "$body"
 }
 
 # Return 0 if EXEC-SUMMARY is FRESH vs MASTER-SPEC, 1 if STALE / missing / no trailer.

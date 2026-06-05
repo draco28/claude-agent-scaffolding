@@ -163,9 +163,12 @@ The `/scaffold-docs` slash command wrapper (`commands/scaffold-docs.md`) exports
 Supported flags:
 
 - *(no flag)* — derive the 5 default docs; skip the 9 `--full` docs; preserve any existing files in the routing destinations (existing files are never overwritten without `--regenerate`); route via manifest if present, else `$(pwd)`.
+- `--fast` — use the deterministic derivation path instead of LLM synthesis for the 5 default docs; preserve existing files unless combined with `--regenerate`.
 - `--full` — derive the 5 default docs PLUS the 9 `--full` docs (6 always-on + 3 LLM-gated by Phase 9.3.1).
 - `--regenerate` — overwrite existing docs at their resolved destinations. Always asks confirmation first, listing the absolute paths that will be clobbered. Preserves user customization is the v0.1.0 default; `--regenerate` is the explicit opt-in.
 - `--full --regenerate` — combine both.
+- `--fast --regenerate` — deterministic derivation for the 5 default docs, overwriting existing docs after confirmation.
+- `--fast --full --regenerate` — deterministic derivation for the full docs set, overwriting existing docs after confirmation.
 
 Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly. If `$ARGUMENTS` contains a flag this skill doesn't recognize, surface a one-line error listing the supported flags and stop — do not silently ignore.
 
@@ -262,9 +265,15 @@ Check the synthesis mode immediately after setup:
 ```bash
 if [[ "$(sf_synth_mode)" == "fast" ]]; then
   if [[ "${full:-0}" == "1" ]]; then
-    sf_docs_derive --full --fast   # --full: emit the 14-doc set
+    if [[ "${regenerate:-0}" == "1" ]]; then
+      sf_docs_derive --full --regenerate --fast   # --full + overwrite after confirmation
+    else
+      sf_docs_derive --full --fast                # --full: emit the 14-doc set
+    fi
+  elif [[ "${regenerate:-0}" == "1" ]]; then
+    sf_docs_derive --regenerate --fast            # default set + overwrite after confirmation
   else
-    sf_docs_derive --fast          # default 5-doc set
+    sf_docs_derive --fast                         # default 5-doc set
   fi
   return 0   # STOP: do NOT fall through into the synthesis waves below
 fi
@@ -272,7 +281,7 @@ fi
 
 `sf_synth_mode` echoes `fast` when `SF_SYNTH_FAST=1` (set by the `--fast` flag, which `sf_docs_derive`'s own arg-parse loop now recognises). In fast mode the full deterministic pipeline runs and you return.
 
-Do not collapse this to `sf_docs_derive ${full:+--full} --fast` — `${var:+}` triggers on the string `0` (non-empty), so it would always emit the 14-doc `--full` set on a normal `--fast` run even when the user never passed `--full`.
+Do not collapse this to `sf_docs_derive ${full:+--full} ${regenerate:+--regenerate} --fast` — `${var:+}` triggers on the string `0` (non-empty), so it would always emit the 14-doc `--full` set and clobber existing docs on a normal `--fast` run even when the user never passed either flag.
 
 ### 11.3 Synthesis wave dispatch
 

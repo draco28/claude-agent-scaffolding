@@ -206,6 +206,20 @@ EOF
   assert_file_not_contains "$PWD/EXECUTIVE-SUMMARY.md" "master-spec:phase"
 }
 
+test_render_exec_summary_accepts_heading_trailing_whitespace() {
+  echo "test_render_exec_summary_accepts_heading_trailing_whitespace:"
+  setup_tmp_repo
+  {
+    printf '# p — Master Spec\n\n'
+    printf '## Executive Summary   \n'
+    printf 'Real summary content with a spaced heading.\n\n'
+    printf '## Phase 1\n'
+    printf 'stuff\n'
+  } > "$PWD/MASTER-SPEC.md"
+  sf_render_executive_summary "$PWD/MASTER-SPEC.md" "$PWD/EXECUTIVE-SUMMARY.md" "p" "CLI tool"
+  assert_file_contains "$PWD/EXECUTIVE-SUMMARY.md" "spaced heading"
+}
+
 test_render_exec_summary_errors_on_missing_section() {
   echo "test_render_exec_summary_errors_on_missing_section:"
   setup_tmp_repo
@@ -228,6 +242,28 @@ test_render_exec_summary_errors_on_placeholder_only_section() {
   local rc=$?
   if [[ "$prev_opts" == *e* ]]; then set -e; fi
   if [[ "$rc" != "0" ]]; then PASS=$((PASS+1)); echo "  ✓ rejects placeholder-only Executive Summary"; else FAIL=$((FAIL+1)); echo "  ✗ accepted placeholder-only Executive Summary"; fi
+}
+
+test_render_exec_summary_from_state_bootstraps_placeholder_master_spec() {
+  echo "test_render_exec_summary_from_state_bootstraps_placeholder_master_spec:"
+  setup_tmp_repo; _seed_state_for_dispatch
+  _mk_master_spec_with_exec "$PWD" "{{executive_summary}}"
+  if ! declare -F sf_render_executive_summary_from_state >/dev/null 2>&1; then
+    FAIL=$((FAIL+1)); echo "  ✗ sf_render_executive_summary_from_state helper is missing"; return
+  fi
+  sf_render_executive_summary_from_state "$PWD/MASTER-SPEC.md" "$PWD/EXECUTIVE-SUMMARY.md" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"
+  assert_file_contains "$PWD/EXECUTIVE-SUMMARY.md" "test-proj"
+  assert_file_contains "$PWD/EXECUTIVE-SUMMARY.md" "Solo devs"
+  assert_file_contains "$PWD/EXECUTIVE-SUMMARY.md" "create / list / destroy widgets"
+  assert_file_not_contains "$PWD/EXECUTIVE-SUMMARY.md" "\\{\\{"
+  assert_file_not_contains "$PWD/EXECUTIVE-SUMMARY.md" "TODO:"
+  assert_file_contains "$PWD/MASTER-SPEC.md" "Solo devs"
+  assert_file_not_contains "$PWD/MASTER-SPEC.md" "\\{\\{executive_summary\\}\\}"
+  if sf_exec_summary_staleness "$PWD/MASTER-SPEC.md" "$PWD/EXECUTIVE-SUMMARY.md"; then
+    PASS=$((PASS+1)); echo "  ✓ bootstrapped summary provenance matches updated MASTER-SPEC"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ bootstrapped EXECUTIVE-SUMMARY is stale vs updated MASTER-SPEC"
+  fi
 }
 
 test_exec_summary_source_only_prompt_omits_missing_exec_summary() {
@@ -326,6 +362,21 @@ test_commands_expose_fast_flag() {
   if [[ "$ok" == "1" ]]; then PASS=$((PASS+1)); echo "  ✓ command wrappers expose --fast"; else FAIL=$((FAIL+1)); fi
 }
 
+test_skill_docs_support_fast_flag_contracts() {
+  echo "test_skill_docs_support_fast_flag_contracts:"
+  local ok=1
+  if ! awk '/Supported flags:/{f=1} f&&/^---/{exit} f' "$MB_SKILL" | grep -q -- '--fast'; then
+    echo "  ✗ memory-bank skill supported-flags list does not include --fast"; ok=0
+  fi
+  if ! awk '/Supported flags:/{f=1} f&&/^---/{exit} f' "$GOV_SKILL" | grep -q -- '--fast'; then
+    echo "  ✗ governance-docs skill supported-flags list does not include --fast"; ok=0
+  fi
+  if ! awk '/Supported flags:/{f=1} f&&/^---/{exit} f' "$GOV_SKILL" | grep -q -- '--fast --regenerate'; then
+    echo "  ✗ governance-docs skill supported-flags list does not include --fast --regenerate"; ok=0
+  fi
+  if [[ "$ok" == "1" ]]; then PASS=$((PASS+1)); echo "  ✓ skill supported-flags contracts include --fast"; else FAIL=$((FAIL+1)); fi
+}
+
 # SS-2 W4 — behavioral: the executable shell of §13 (setup + fast-path + finalize) runs
 # under `set -euo pipefail` with a faked Task. A regression of the unsourced-helper /
 # unbound-var class aborts this test.
@@ -421,6 +472,18 @@ test_fast_path_avoids_fragile_flag_expansion() {
   if [[ "$bad" == "0" ]]; then PASS=$((PASS+1)); echo "  ✓ fast-paths use explicit ==1 tests, not \${var:+}"; else FAIL=$((FAIL+1)); fi
 }
 
+test_governance_fast_path_preserves_regenerate() {
+  echo "test_governance_fast_path_preserves_regenerate:"
+  local block
+  block="$(awk '/### 11\.2 Fast-path short-circuit/{f=1} f&&/^```bash/{b=1; next} b&&/^```/{exit} b{print}' "$GOV_SKILL")"
+  if printf '%s\n' "$block" | grep -q -- 'sf_docs_derive --regenerate --fast' \
+     && printf '%s\n' "$block" | grep -q -- 'sf_docs_derive --full --regenerate --fast'; then
+    PASS=$((PASS+1)); echo "  ✓ governance fast-path preserves --regenerate"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ governance fast-path drops --regenerate"
+  fi
+}
+
 test_memory_bank_dispatch_sources_its_helpers
 test_governance_dispatch_sources_its_helpers
 test_dispatch_setup_sources_state_before_exec_summary_branch
@@ -432,15 +495,19 @@ test_derivation_reviewer_example_fence_is_typed
 test_review_prompts_pass_explicit_artifact_paths
 test_no_public_regenerate_equals_guidance
 test_commands_expose_fast_flag
+test_skill_docs_support_fast_flag_contracts
 test_fast_path_has_real_control_flow
 test_fast_path_no_regenerate_preserves_live_seed
 test_fast_path_avoids_fragile_flag_expansion
+test_governance_fast_path_preserves_regenerate
 test_render_exec_summary_from_section
 test_render_exec_summary_multiline_body
 test_render_exec_summary_strips_trailing_rule
 test_render_exec_summary_stops_before_phase_marker
+test_render_exec_summary_accepts_heading_trailing_whitespace
 test_render_exec_summary_errors_on_missing_section
 test_render_exec_summary_errors_on_placeholder_only_section
+test_render_exec_summary_from_state_bootstraps_placeholder_master_spec
 test_exec_summary_source_only_prompt_omits_missing_exec_summary
 test_exec_summary_staleness_detects_master_change
 test_no_phantom_exec_summary_render
