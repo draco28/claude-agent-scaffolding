@@ -145,7 +145,7 @@ _sf_synth_family_key() {
 
 sf_synth_brief_assemble() {
   local brief="$1" ledger="$2" out_path="$3" master="$4" exec_summary="$5"
-  local body slice fam key
+  local body slice fam key source_intro exec_summary_line
   body="$(awk 'NR==1 && $0=="---"{f=1;next} f && $0=="---"{f=0;skip=1;next} skip{print}' "$brief")"
 
   slice="$(sf_synth_ledger_empty)"
@@ -168,10 +168,18 @@ sf_synth_brief_assemble() {
     gated_block=$'\n\nConditional sections (include a section ONLY when its branch/gate applies — see Synthesis guidance; omit the heading entirely otherwise, never emit an empty heading):\n'"$(printf '%s' "$gated_list" | sed 's/^/- /')"
   fi
 
+  if [[ -n "$exec_summary" ]]; then
+    source_intro="Read both source documents in full first:"
+    exec_summary_line="- EXECUTIVE-SUMMARY: $exec_summary"
+  else
+    source_intro="Read the source document in full first:"
+    exec_summary_line=""
+  fi
+
   cat <<EOF
-You are synthesizing one artifact for the project. Read both source documents in full first:
+You are synthesizing one artifact for the project. $source_intro
 - MASTER-SPEC: $master
-- EXECUTIVE-SUMMARY: $exec_summary
+$exec_summary_line
 
 Write the artifact to: $out_path
 

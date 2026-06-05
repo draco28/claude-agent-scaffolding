@@ -109,9 +109,10 @@ sf_render() {
   printf '%s\n' "$result"
 }
 
-# Echo the body of MASTER-SPEC's "## <heading>" section (first match),
-# stopping at the next "## " heading. Empty output if absent. Warns (stderr)
-# when a SECOND identical heading exists — spec §2.3 "first wins + warn".
+# Echo the body of MASTER-SPEC's "## <heading>" section (first match), stopping
+# at the next section heading, top-level section delimiter, or master-spec phase
+# marker. Empty output if absent. Warns (stderr) when a SECOND identical heading
+# exists — spec §2.3 "first wins + warn".
 # NOTE: <heading> is assumed ERE-metachar-free (only "Executive Summary" is passed today).
 sf_master_spec_section() {
   local file="$1" heading="$2"
@@ -123,6 +124,8 @@ sf_master_spec_section() {
   awk -v h="## $heading" '
     $0==h { grab=1; next }
     grab && /^## / { exit }
+    grab && /^---[[:space:]]*$/ { exit }
+    grab && /^<!-- master-spec:phase id=/ { exit }
     grab { print }
   ' "$file"
 }
@@ -150,6 +153,10 @@ sf_render_executive_summary() {
     }')"
   if [[ -z "${body// /}" ]]; then
     sf_log_error "sf_render_executive_summary: MASTER-SPEC has no non-empty '## Executive Summary' section. Add one (it is the pinned source for EXECUTIVE-SUMMARY.md), then re-run."
+    return 1
+  fi
+  if printf '%s\n' "$body" | grep -qiE '^[[:space:]]*(TODO:[[:space:]]*)?(\{\{)?executive_summary(\}\})?[[:space:]]*$'; then
+    sf_log_error "sf_render_executive_summary: MASTER-SPEC '## Executive Summary' is still a placeholder. Replace it with real summary content, then re-run."
     return 1
   fi
   local root tmpl; root="$(sf_plugin_root)"; tmpl="$root/templates/master-spec/EXECUTIVE-SUMMARY.md.tmpl"

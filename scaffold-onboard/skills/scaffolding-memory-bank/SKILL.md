@@ -254,6 +254,7 @@ source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
 source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
 source "${CLAUDE_PLUGIN_ROOT}/lib/memory-bank.sh"   # sf_memory_bank_derive, sf_claude_*, _memory_bank_args, _sf_mb_*
 source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"        # sf_render (per-artifact fallback)
+source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"         # sf_project_name, sf_state_read_answer, sf_state_gate_passes
 ```
 
 Resolve source documents:
@@ -265,8 +266,6 @@ exec_summary="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
 # only CONSUME it: produce-once if a legacy project lacks it, and warn (never
 # silently refresh) if it is stale vs MASTER-SPEC.
 if [[ ! -f "$exec_summary" ]]; then
-  source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"
-  source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"   # sf_project_name, sf_state_read_answer
   sf_render_executive_summary "$master" "$exec_summary" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)" \
     || sf_log_warn "could not produce EXECUTIVE-SUMMARY.md — run /onboard to author it"
 elif ! sf_exec_summary_staleness "$master" "$exec_summary"; then
@@ -382,11 +381,15 @@ After all 9 artifacts complete, seed the live files and copy the static file:
 
 ```bash
 if [[ "$regenerate" == "1" ]]; then
-  sf_memory_bank_derive --fast --force   # regenerate mode: confirmed live/static overwrite path
+  sf_memory_bank_seed_live_static --force   # regenerate mode: confirmed live/static overwrite path
 else
-  sf_memory_bank_derive --fast           # normal mode: preserve live files; copy WORKFLOW only if missing
+  sf_memory_bank_seed_live_static           # normal mode: preserve live files; copy WORKFLOW only if missing
 fi
 ```
+
+This seed-only helper is load-bearing in synthesize mode: do not call
+`sf_memory_bank_derive` here, because that helper re-renders the 8 derived files
+and would overwrite the artifacts the synthesis agents just authored.
 
 Then emit `.claude/settings.json` and the AGENTS.md managed section via their helpers (unchanged from v0.2):
 
@@ -423,7 +426,18 @@ returns are consumed in §13.3.
 ```bash
 master_hash="$(cksum < "$master" | awk '{print $1"-"$2}')"
 bundle="$(sf_resolve_output_path memory_bank .claude/memory-bank)"
-review_prompt="Review the freshly synthesized memory-bank bundle at ${bundle} (00-04,07,08,index.md + CLAUDE.md) against MASTER-SPEC ${master} (cksum:${master_hash}) and EXECUTIVE-SUMMARY ${exec_summary}. Return your review report per your contract."
+claude_path="$(sf_resolve_output_path claude_md CLAUDE.md)"
+artifacts="$(printf '%s, %s, %s, %s, %s, %s, %s, %s, %s' \
+  "$(sf_resolve_output_path memory_bank .claude/memory-bank/00-project-brief.md)" \
+  "$(sf_resolve_output_path memory_bank .claude/memory-bank/01-product-context.md)" \
+  "$(sf_resolve_output_path memory_bank .claude/memory-bank/02-system-patterns.md)" \
+  "$(sf_resolve_output_path memory_bank .claude/memory-bank/03-code-patterns.md)" \
+  "$(sf_resolve_output_path memory_bank .claude/memory-bank/04-tech-context.md)" \
+  "$(sf_resolve_output_path memory_bank .claude/memory-bank/07-constraints.md)" \
+  "$(sf_resolve_output_path memory_bank .claude/memory-bank/08-governance.md)" \
+  "$(sf_resolve_output_path memory_bank .claude/memory-bank/index.md)" \
+  "$claude_path")"
+review_prompt="Review these freshly synthesized memory-bank artifacts: ${artifacts}. Compare against MASTER-SPEC ${master} (cksum:${master_hash}) and EXECUTIVE-SUMMARY ${exec_summary}. Return your review report per your contract."
 Task(subagent_type="scaffold-onboard:derivation-reviewer",
      description="Review memory-bank derivation",
      model="claude-sonnet-4-5",
@@ -433,10 +447,12 @@ Task(subagent_type="scaffold-onboard:derivation-reviewer",
 On `review-complete`: write the returned report body (the markdown table the agent
 emitted — NOT the trailing sentinel JSON) to `${bundle}/derivation-review.md`,
 print the report path + a one-line summary, and for each `regenerate <file>` finding
-surface the apply command `/scaffold-project --regenerate=<file>`. The user decides;
-nothing is auto-applied.
+surface `/scaffold-project --regenerate` plus the single artifact name to
+re-dispatch internally through the §13.3 per-artifact loop. The user decides;
+nothing is auto-applied and no public per-file flag is introduced in SS-2.
 
-**Targeted regenerate (apply path):** `--regenerate=<file>` scopes regeneration to
-one artifact; if the deterministic `sf_memory_bank_derive` doesn't accept a per-file
-filter, achieve it by re-dispatching just that artifact's synthesis brief (the §13.3
-dispatch loop is per-artifact already). No new lib flag is required for SS-2.
+**Targeted regenerate (apply path):** keep the user-facing CLI aligned with §9's
+documented boolean `--regenerate`. Per-file targeting is an orchestration action:
+re-dispatch just that artifact's synthesis brief through the §13.3 loop, then run
+the normal validators/fallback for that one file. No new lib or slash-command flag
+is required for SS-2.

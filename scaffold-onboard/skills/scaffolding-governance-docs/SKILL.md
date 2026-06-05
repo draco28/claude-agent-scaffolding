@@ -216,6 +216,7 @@ Source both synthesis and routing helpers:
 source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
 source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
 source "${CLAUDE_PLUGIN_ROOT}/lib/docs.sh"   # sf_docs_derive + _write_or_skip (fast-path + per-artifact fallback)
+source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"  # sf_project_name, sf_state_read_answer, sf_state_gate_passes
 ```
 
 Resolve the source documents:
@@ -228,7 +229,6 @@ exec_summary="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
 # silently refresh) if it is stale vs MASTER-SPEC.
 source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"   # sf_render_executive_summary, sf_exec_summary_staleness
 if [[ ! -f "$exec_summary" ]]; then
-  source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"  # sf_project_name, sf_state_read_answer
   sf_render_executive_summary "$master" "$exec_summary" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)" \
     || sf_log_warn "could not produce EXECUTIVE-SUMMARY.md — run /onboard to author it"
 elif ! sf_exec_summary_staleness "$master" "$exec_summary"; then
@@ -371,9 +371,21 @@ the report, do not gate. The `derivation-reviewer` agent is structurally read-on
 
 ```bash
 master_hash="$(cksum < "$master" | awk '{print $1"-"$2}')"
-# Anchor the docs bundle dir on the same routing destination PRD/SRS/BACKLOG use (§11).
 bundle="$(sf_resolve_output_path prd docs)"
-review_prompt="Review the freshly synthesized governance docs bundle at ${bundle} (PRD.md, SRS.md, BACKLOG.md, PROJECT_PLAN.md, adr/0001-record-architecture-decisions.md, plus any --full docs) against MASTER-SPEC ${master} (cksum:${master_hash}) and EXECUTIVE-SUMMARY ${exec_summary}. Return your review report per your contract."
+artifact_paths="$(printf '%s, %s, %s, %s, %s' \
+  "$(sf_resolve_output_path prd docs/PRD.md)" \
+  "$(sf_resolve_output_path srs docs/SRS.md)" \
+  "$(sf_resolve_output_path backlog docs/BACKLOG.md)" \
+  "$(sf_resolve_output_path project_plan docs/PROJECT_PLAN.md)" \
+  "$(sf_resolve_output_path product_adrs docs/adr/0001-record-architecture-decisions.md)")"
+if [[ "${full:-0}" == "1" ]]; then
+  artifact_paths="${artifact_paths}, $(sf_resolve_output_path product_adrs docs/RISK_REGISTER.md), $(sf_resolve_output_path product_adrs docs/THREAT_MODEL.md), $(sf_resolve_output_path product_adrs docs/TEST_STRATEGY.md), $(sf_resolve_output_path process_adrs docs/DEFINITION_OF_DONE.md), $(sf_resolve_output_path product_adrs docs/CUTOVER_PLAN.md), $(sf_resolve_output_path process_adrs docs/DEMO_RUNBOOK.md)"
+  uses_llm="$(sf_state_read_answer 9.3.1)"
+  if [[ "$uses_llm" == "yes" || "$uses_llm" == "true" ]]; then
+    artifact_paths="${artifact_paths}, $(sf_resolve_output_path product_adrs docs/EVALS_PLAN.md), $(sf_resolve_output_path product_adrs docs/MODEL_CARD.md), $(sf_resolve_output_path process_adrs docs/PROMPT_GOVERNANCE.md)"
+  fi
+fi
+review_prompt="Review these freshly synthesized governance artifacts: ${artifact_paths}. Compare against MASTER-SPEC ${master} (cksum:${master_hash}) and EXECUTIVE-SUMMARY ${exec_summary}. Return your review report per your contract."
 Task(subagent_type="scaffold-onboard:derivation-reviewer",
      description="Review governance-docs derivation",
      model="claude-sonnet-4-5",
@@ -383,10 +395,12 @@ Task(subagent_type="scaffold-onboard:derivation-reviewer",
 On `review-complete`: write the returned report body (the markdown table the agent
 emitted — NOT the trailing sentinel JSON) to `${bundle}/derivation-review.md`,
 print the report path + a one-line summary, and for each `regenerate <file>` finding
-surface the apply command `/scaffold-docs --regenerate=<file>`. The user decides;
-nothing is auto-applied.
+surface `/scaffold-docs --regenerate` plus the single artifact name to
+re-dispatch internally through the §11.3 per-artifact loop. The user decides;
+nothing is auto-applied and no public per-file flag is introduced in SS-2.
 
-**Targeted regenerate (apply path):** `--regenerate=<file>` scopes regeneration to
-one artifact; if the deterministic `sf_docs_derive` doesn't accept a per-file filter,
-achieve it by re-dispatching just that artifact's synthesis brief (the §11.3 dispatch
-loop is per-artifact already). No new lib flag is required for SS-2.
+**Targeted regenerate (apply path):** keep the user-facing CLI aligned with §8's
+documented boolean `--regenerate`. Per-file targeting is an orchestration action:
+re-dispatch just that artifact's synthesis brief through the §11.3 loop, then run
+the normal validators/fallback for that one file. No new lib or slash-command flag
+is required for SS-2.

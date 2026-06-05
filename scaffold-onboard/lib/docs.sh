@@ -4,6 +4,9 @@
 
 set -u
 source "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"
+if ! declare -F sf_state_read_answer >/dev/null 2>&1; then
+  source "$(dirname "${BASH_SOURCE[0]}")/state.sh"
+fi
 
 # Shared render args — same shape as memory-bank.sh's _memory_bank_args
 _docs_args() {

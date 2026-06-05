@@ -8,6 +8,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"
 if ! declare -F sf_agents_merge_managed_section >/dev/null 2>&1; then
   source "$(dirname "${BASH_SOURCE[0]}")/agents.sh"
 fi
+if ! declare -F sf_state_read_answer >/dev/null 2>&1; then
+  source "$(dirname "${BASH_SOURCE[0]}")/state.sh"
+fi
 
 # Render args used by every memory-bank file
 _memory_bank_args() {
@@ -261,6 +264,36 @@ sf_memory_bank_derive() {
       sf_render "$tmpl_dir/${f}.md.tmpl" "${args[@]}" > "$out"
     fi
   done
+
+  if [[ "$force" -eq 1 ]]; then
+    sf_memory_bank_seed_live_static --force
+  else
+    sf_memory_bank_seed_live_static
+  fi
+}
+
+# Seed only the live/static memory-bank files. Used after synthesis waves so the
+# agent-authored derived files are not overwritten by the deterministic renderer.
+# Args: --force (optional) to overwrite live files + WORKFLOW.md.
+sf_memory_bank_seed_live_static() {
+  local force=0
+  local arg
+  for arg in "$@"; do
+    case "$arg" in
+      --force) force=1 ;;
+      --fast)  export SF_SYNTH_FAST=1 ;;
+    esac
+  done
+
+  local root tmpl_dir ts
+  root="$(sf_plugin_root)"
+  tmpl_dir="$root/templates/memory-bank"
+  ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+  mkdir -p .claude/memory-bank
+
+  local args=()
+  while IFS= read -r line; do args+=("$line"); done < <(_memory_bank_args "$ts")
 
   # 4 live files — seed only if missing (unless --force)
   for f in 05-active-context 06-progress 09-known-issues 10-decisions-log; do

@@ -243,7 +243,11 @@ spec-derived from MASTER-SPEC and authored HERE — `/scaffold-project` and
   ```
 - **Deterministic (`--fast` / synthesis fallback):**
   ```bash
+  source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
   source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"
+  source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"
+  master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
+  out="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
   sf_render_executive_summary "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"
   ```
   `sf_render_executive_summary` errors loudly if MASTER-SPEC has no `## Executive Summary`

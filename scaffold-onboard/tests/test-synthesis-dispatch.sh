@@ -76,6 +76,27 @@ test_governance_dispatch_sources_its_helpers() {
   fi
 }
 
+test_dispatch_setup_sources_state_before_exec_summary_branch() {
+  echo "test_dispatch_setup_sources_state_before_exec_summary_branch:"
+  local ok=1 body state_line branch_line
+
+  body="$(_extract_section_bash "$MB_SKILL" "## 13")"
+  state_line="$(printf '%s\n' "$body" | awk '/source .*lib\/state\.sh/{print NR; exit}')"
+  branch_line="$(printf '%s\n' "$body" | awk '/if \[\[ ! -f "\$exec_summary"/{print NR; exit}')"
+  if [[ -z "$state_line" || -z "$branch_line" || "$state_line" -ge "$branch_line" ]]; then
+    echo "  ✗ memory-bank §13 must source state.sh before the EXEC-SUMMARY conditional"; ok=0
+  fi
+
+  body="$(_extract_section_bash "$GOV_SKILL" "## 11")"
+  state_line="$(printf '%s\n' "$body" | awk '/source .*lib\/state\.sh/{print NR; exit}')"
+  branch_line="$(printf '%s\n' "$body" | awk '/if \[\[ ! -f "\$exec_summary"/{print NR; exit}')"
+  if [[ -z "$state_line" || -z "$branch_line" || "$state_line" -ge "$branch_line" ]]; then
+    echo "  ✗ governance §11 must source state.sh before the EXEC-SUMMARY conditional"; ok=0
+  fi
+
+  if [[ "$ok" == "1" ]]; then PASS=$((PASS+1)); echo "  ✓ both dispatch setup blocks source state.sh unconditionally"; else FAIL=$((FAIL+1)); fi
+}
+
 # SS-2 W1 — the fast-path short-circuit must REALLY exit, not a comment-only STOP.
 test_fast_path_has_real_control_flow() {
   echo "test_fast_path_has_real_control_flow:"
@@ -165,15 +186,60 @@ EOF
   assert_file_contains "$PWD/EXECUTIVE-SUMMARY.md" "Real summary content here"
 }
 
+test_render_exec_summary_stops_before_phase_marker() {
+  echo "test_render_exec_summary_stops_before_phase_marker:"
+  setup_tmp_repo
+  cat > "$PWD/MASTER-SPEC.md" <<'EOF'
+# p — Master Spec
+
+## Executive Summary
+Real summary content here.
+
+---
+
+<!-- master-spec:phase id=1 name=foundation -->
+## Phase 1
+stuff
+EOF
+  sf_render_executive_summary "$PWD/MASTER-SPEC.md" "$PWD/EXECUTIVE-SUMMARY.md" "p" "CLI tool"
+  assert_file_contains "$PWD/EXECUTIVE-SUMMARY.md" "Real summary content here"
+  assert_file_not_contains "$PWD/EXECUTIVE-SUMMARY.md" "master-spec:phase"
+}
+
 test_render_exec_summary_errors_on_missing_section() {
   echo "test_render_exec_summary_errors_on_missing_section:"
   setup_tmp_repo
   printf '# test-proj\n\n## Phase 1\nstuff\n' > "$PWD/MASTER-SPEC.md"   # no Executive Summary
+  local prev_opts="$-"
   set +e
   sf_render_executive_summary "$PWD/MASTER-SPEC.md" "$PWD/EXECUTIVE-SUMMARY.md" "test-proj" "CLI tool" 2>/dev/null
   local rc=$?
-  set -e 2>/dev/null || true
+  if [[ "$prev_opts" == *e* ]]; then set -e; fi
   if [[ "$rc" != "0" ]]; then PASS=$((PASS+1)); echo "  ✓ errors (rc=$rc) on missing/empty Executive Summary"; else FAIL=$((FAIL+1)); echo "  ✗ silently produced a summary"; fi
+}
+
+test_render_exec_summary_errors_on_placeholder_only_section() {
+  echo "test_render_exec_summary_errors_on_placeholder_only_section:"
+  setup_tmp_repo
+  _mk_master_spec_with_exec "$PWD" "TODO: executive_summary"
+  local prev_opts="$-"
+  set +e
+  sf_render_executive_summary "$PWD/MASTER-SPEC.md" "$PWD/EXECUTIVE-SUMMARY.md" "test-proj" "CLI tool" 2>/dev/null
+  local rc=$?
+  if [[ "$prev_opts" == *e* ]]; then set -e; fi
+  if [[ "$rc" != "0" ]]; then PASS=$((PASS+1)); echo "  ✓ rejects placeholder-only Executive Summary"; else FAIL=$((FAIL+1)); echo "  ✗ accepted placeholder-only Executive Summary"; fi
+}
+
+test_exec_summary_source_only_prompt_omits_missing_exec_summary() {
+  echo "test_exec_summary_source_only_prompt_omits_missing_exec_summary:"
+  setup_tmp_repo
+  local brief="$ROOT/templates/synthesis-briefs/EXECUTIVE-SUMMARY.brief.md"
+  local out; out="$(sf_synth_brief_assemble "$brief" "$(sf_synth_ledger_empty)" "$PWD/EXECUTIVE-SUMMARY.md" "$PWD/MASTER-SPEC.md" "")"
+  if printf '%s\n' "$out" | grep -q 'EXECUTIVE-SUMMARY:'; then
+    FAIL=$((FAIL+1)); echo "  ✗ source-only EXEC-SUMMARY prompt still names missing EXECUTIVE-SUMMARY"
+  else
+    PASS=$((PASS+1)); echo "  ✓ source-only EXEC-SUMMARY prompt names only MASTER-SPEC"
+  fi
 }
 
 test_exec_summary_staleness_detects_master_change() {
@@ -218,6 +284,48 @@ test_derivation_reviewer_agent_registered() {
   fi
 }
 
+test_derivation_reviewer_example_fence_is_typed() {
+  echo "test_derivation_reviewer_example_fence_is_typed:"
+  local a="$ROOT/agents/derivation-reviewer.md"
+  if grep -q '^```markdown$' "$a"; then PASS=$((PASS+1)); echo "  ✓ derivation-reviewer example fence is typed"; else FAIL=$((FAIL+1)); echo "  ✗ derivation-reviewer example fence lacks markdown language tag"; fi
+}
+
+test_review_prompts_pass_explicit_artifact_paths() {
+  echo "test_review_prompts_pass_explicit_artifact_paths:"
+  local ok=1
+  if ! grep -q 'artifacts=' "$MB_SKILL" || ! grep -q 'sf_resolve_output_path claude_md CLAUDE.md' "$MB_SKILL"; then
+    echo "  ✗ memory-bank review prompt must pass explicit artifacts including CLAUDE.md"; ok=0
+  fi
+  if ! grep -q 'artifact_paths=' "$GOV_SKILL" || ! grep -q 'sf_resolve_output_path process_adrs docs/PROMPT_GOVERNANCE.md' "$GOV_SKILL"; then
+    echo "  ✗ governance review prompt must pass explicit artifact paths including process_adrs docs"; ok=0
+  fi
+  if [[ "$ok" == "1" ]]; then PASS=$((PASS+1)); echo "  ✓ review prompts pass explicit artifact paths"; else FAIL=$((FAIL+1)); fi
+}
+
+test_no_public_regenerate_equals_guidance() {
+  echo "test_no_public_regenerate_equals_guidance:"
+  local needle="--regenerate="
+  local hits
+  hits="$(grep -R -- "$needle" \
+    "$ROOT/skills/scaffolding-memory-bank/SKILL.md" \
+    "$ROOT/skills/scaffolding-governance-docs/SKILL.md" \
+    "$ROOT/agents/derivation-reviewer.md" \
+    "$ROOT/CHANGELOG.md" 2>/dev/null || true)"
+  if [[ -z "$hits" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ no user-facing unsupported --regenerate=<file> guidance remains"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ unsupported --regenerate= guidance remains:"; printf '%s\n' "$hits" | sed 's/^/      /'
+  fi
+}
+
+test_commands_expose_fast_flag() {
+  echo "test_commands_expose_fast_flag:"
+  local ok=1 project="$ROOT/commands/scaffold-project.md" docs="$ROOT/commands/scaffold-docs.md"
+  if ! grep -q -- '--fast' "$project"; then echo "  ✗ scaffold-project command does not expose --fast"; ok=0; fi
+  if ! grep -q -- '--fast' "$docs"; then echo "  ✗ scaffold-docs command does not expose --fast"; ok=0; fi
+  if [[ "$ok" == "1" ]]; then PASS=$((PASS+1)); echo "  ✓ command wrappers expose --fast"; else FAIL=$((FAIL+1)); fi
+}
+
 # SS-2 W4 — behavioral: the executable shell of §13 (setup + fast-path + finalize) runs
 # under `set -euo pipefail` with a faked Task. A regression of the unsourced-helper /
 # unbound-var class aborts this test.
@@ -236,7 +344,6 @@ test_memory_bank_dispatch_executes_under_set_u() {
     echo 'source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"'
     echo 'source "${CLAUDE_PLUGIN_ROOT}/lib/memory-bank.sh"'
     echo 'source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"'
-    echo 'source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"'   # §13 sources this too (sf_state_read_answer, used by sf_memory_bank_derive)
     echo 'export SF_SYNTH_FAST=1'   # exercise the fast-path branch end-to-end (deterministic, no real agents)
     echo 'master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"'
     echo 'exec_summary="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"'
@@ -250,6 +357,23 @@ test_memory_bank_dispatch_executes_under_set_u() {
     PASS=$((PASS+1)); echo "  ✓ dispatch shell executes under set -euo pipefail (no unsourced-helper abort)"
   else
     FAIL=$((FAIL+1)); echo "  ✗ dispatch shell aborted:"; sed 's/^/      /' "$TMP_DIR/err.txt" | head -8
+  fi
+}
+
+test_memory_bank_live_static_seed_preserves_synthesized_derived_outputs() {
+  echo "test_memory_bank_live_static_seed_preserves_synthesized_derived_outputs:"
+  setup_tmp_repo; _seed_state_for_dispatch
+  sf_memory_bank_derive
+  local derived="$PWD/.claude/memory-bank/00-project-brief.md"
+  printf '# Synthesized project brief\n\nSYNTHESIZED-SENTINEL\n' > "$derived"
+  if ! declare -F sf_memory_bank_seed_live_static >/dev/null 2>&1; then
+    FAIL=$((FAIL+1)); echo "  ✗ sf_memory_bank_seed_live_static helper is missing"; return
+  fi
+  sf_memory_bank_seed_live_static
+  if grep -q "SYNTHESIZED-SENTINEL" "$derived" && [[ -f "$PWD/.claude/memory-bank/05-active-context.md" ]] && [[ -f "$PWD/.claude/memory-bank/WORKFLOW.md" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ live/static seeding preserves synthesized derived outputs"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ live/static seeding overwrote synthesized derived outputs or missed seed files"
   fi
 }
 
@@ -299,16 +423,25 @@ test_fast_path_avoids_fragile_flag_expansion() {
 
 test_memory_bank_dispatch_sources_its_helpers
 test_governance_dispatch_sources_its_helpers
+test_dispatch_setup_sources_state_before_exec_summary_branch
 test_memory_bank_dispatch_executes_under_set_u
+test_memory_bank_live_static_seed_preserves_synthesized_derived_outputs
 test_fallback_is_per_artifact
 test_derivation_reviewer_agent_registered
+test_derivation_reviewer_example_fence_is_typed
+test_review_prompts_pass_explicit_artifact_paths
+test_no_public_regenerate_equals_guidance
+test_commands_expose_fast_flag
 test_fast_path_has_real_control_flow
 test_fast_path_no_regenerate_preserves_live_seed
 test_fast_path_avoids_fragile_flag_expansion
 test_render_exec_summary_from_section
 test_render_exec_summary_multiline_body
 test_render_exec_summary_strips_trailing_rule
+test_render_exec_summary_stops_before_phase_marker
 test_render_exec_summary_errors_on_missing_section
+test_render_exec_summary_errors_on_placeholder_only_section
+test_exec_summary_source_only_prompt_omits_missing_exec_summary
 test_exec_summary_staleness_detects_master_change
 test_no_phantom_exec_summary_render
 test_exec_summary_brief_validates

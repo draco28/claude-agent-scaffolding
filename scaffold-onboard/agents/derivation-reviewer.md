@@ -23,7 +23,7 @@ EXECUTIVE-SUMMARY.md, and the MASTER-SPEC content-hash you are reviewing against
 ## Output: return the report as your final message (the orchestrator persists it to `<bundle-dir>/derivation-review.md`)
 Emit exactly this structure, one row per finding, tagged by the **target filename** and a disposition:
 
-```
+```markdown
 ## Derivation review — <bundle> (against MASTER-SPEC cksum:<hash>)
 
 | file | severity | finding | disposition |
@@ -34,7 +34,8 @@ Emit exactly this structure, one row per finding, tagged by the **target filenam
 ```
 
 Disposition vocabulary: `accept` / `regenerate <file>` / `edit`. For every
-`regenerate <file>`, the orchestrator surfaces the concrete `--regenerate=<file>`
-apply command for the bundle it dispatched you against — so the finding is
-actionable. End your message with exactly:
+`regenerate <file>`, the orchestrator surfaces the supported boolean
+`--regenerate` command plus the internal single-artifact re-dispatch target for
+the bundle it dispatched you against — so the finding is actionable without
+inventing a new public flag. End your message with exactly:
 `{"mode":"review-complete","report_relpath":"derivation-review.md","findings":<N>}`
