@@ -165,6 +165,30 @@ _sf_render_executive_summary_body() {
 
 _sf_master_spec_replace_section_body() {
   local file="$1" heading="$2" body="$3"
+  # Guard the single write choke point: a body destined for MASTER-SPEC's pinned
+  # "## <heading>" section must NOT contain a section delimiter. The section's own
+  # extractor (sf_master_spec_section) stops at `## `, a `---`/`***`/`___` horizontal
+  # rule, or a `<!-- master-spec:phase` marker — so writing one of those back would
+  # silently truncate MASTER-SPEC, inject a bogus top-level section, or resurrect old
+  # stale-tail content. Reject loudly and leave MASTER-SPEC untouched. This protects
+  # ALL callers (from_synthesized, from_state, future). A single `-` bullet is fine;
+  # only a 3+ dash/star/underscore HORIZONTAL RULE is a delimiter.
+  if printf '%s\n' "$body" | grep -qE '^[[:space:]]*##[[:space:]]'; then
+    sf_log_error "_sf_master_spec_replace_section_body: refusing to write an Executive Summary body containing a section delimiter (## heading) — it would corrupt MASTER-SPEC. The summary must be prose/bullets only."
+    return 1
+  fi
+  if printf '%s\n' "$body" | grep -qE '^[[:space:]]*-{3,}[[:space:]]*$'; then
+    sf_log_error "_sf_master_spec_replace_section_body: refusing to write an Executive Summary body containing a section delimiter (--- rule) — it would corrupt MASTER-SPEC. The summary must be prose/bullets only."
+    return 1
+  fi
+  if printf '%s\n' "$body" | grep -qE '^[[:space:]]*(\*{3,}|_{3,})[[:space:]]*$'; then
+    sf_log_error "_sf_master_spec_replace_section_body: refusing to write an Executive Summary body containing a section delimiter (*** / ___ rule) — it would corrupt MASTER-SPEC. The summary must be prose/bullets only."
+    return 1
+  fi
+  if printf '%s\n' "$body" | grep -qE '^<!-- master-spec:phase'; then
+    sf_log_error "_sf_master_spec_replace_section_body: refusing to write an Executive Summary body containing a section delimiter (phase marker) — it would corrupt MASTER-SPEC. The summary must be prose/bullets only."
+    return 1
+  fi
   local tmp
   tmp="$(mktemp "${file}.XXXXXX")" || return 1
   MASTER_SPEC_BODY="$body" awk -v heading="$heading" '
@@ -295,7 +319,15 @@ sf_render_executive_summary_from_synthesized() {
       for (i=1;i<=n;i++) print a[i]
     }')"
   if [[ -z "${body// /}" ]]; then
-    sf_log_error "sf_render_executive_summary_from_synthesized: synthesized EXECUTIVE-SUMMARY has no non-empty '## Executive Summary' body"
+    # The agent emits a `## Executive Summary` H2 body; the rendered canonical file
+    # instead carries the template's `# <name> — Executive Summary` H1 shape. If we
+    # find that H1 (and no H2 body), this helper was re-invoked against an already-
+    # rendered file without a fresh agent write — call that out specifically.
+    if grep -qE '^# .* — Executive Summary[[:space:]]*$' "$out"; then
+      sf_log_error "sf_render_executive_summary_from_synthesized: \$out already holds a rendered EXECUTIVE-SUMMARY (H1 shape) with no '## Executive Summary' H2 body — re-run the synthesis agent so it writes a fresh '## Executive Summary' section before calling this helper."
+    else
+      sf_log_error "sf_render_executive_summary_from_synthesized: synthesized EXECUTIVE-SUMMARY has no non-empty '## Executive Summary' body"
+    fi
     return 1
   fi
   if printf '%s\n' "$body" | grep -qiE '^[[:space:]]*(TODO:[[:space:]]*)?(\{\{)?executive_summary(\}\})?[[:space:]]*$'; then

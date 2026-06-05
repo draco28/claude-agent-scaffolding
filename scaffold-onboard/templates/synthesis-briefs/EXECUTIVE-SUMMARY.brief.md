@@ -21,3 +21,9 @@ for whom; name the core problem; state the MVP boundary and the top success sign
 Use the project's own domain vocabulary — no generic filler, no fill-in markers.
 
 Emit exactly the `## Executive Summary` heading followed by the summary content.
+
+The summary content must be **prose and/or tight `-` bullets ONLY** — NO `##`
+subheadings, NO `---`/`***`/`___` horizontal rules, NO HTML comments or phase
+markers. This body is pinned back into MASTER-SPEC's `## Executive Summary`
+section; any of those delimiters would corrupt MASTER-SPEC and the write-back is
+rejected.

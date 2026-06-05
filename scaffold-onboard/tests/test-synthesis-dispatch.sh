@@ -291,6 +291,86 @@ EOF
   fi
 }
 
+# SS-2 PR#55 review — the MASTER-SPEC write-back choke point must refuse to write a
+# body that contains a section delimiter (## heading / --- rule / phase marker), since
+# the pinned "## Executive Summary" section's own extractor stops at those — writing one
+# back silently truncates / corrupts MASTER-SPEC.
+_mk_master_spec_two_sections() {
+  cat > "$PWD/MASTER-SPEC.md" <<'EOF'
+# test-proj — Master Spec
+
+## Executive Summary
+Original clean summary body.
+
+## Phase 1: Foundation
+phase one stuff
+EOF
+}
+
+test_master_spec_writeback_rejects_embedded_rule() {
+  echo "test_master_spec_writeback_rejects_embedded_rule:"
+  setup_tmp_repo
+  _mk_master_spec_two_sections
+  local before; before="$(cksum < "$PWD/MASTER-SPEC.md")"
+  local body
+  body="$(printf '%s\n' "First sentence of the summary." "---" "Second sentence after a rule.")"
+  local prev_opts="$-"; set +e
+  _sf_master_spec_replace_section_body "$PWD/MASTER-SPEC.md" "Executive Summary" "$body" 2>/dev/null
+  local rc=$?
+  if [[ "$prev_opts" == *e* ]]; then set -e; fi
+  local after; after="$(cksum < "$PWD/MASTER-SPEC.md")"
+  if [[ "$rc" != "0" && "$before" == "$after" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ rejected embedded --- rule (rc=$rc) and left MASTER-SPEC byte-identical"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ rc=$rc; MASTER-SPEC changed=$([[ "$before" == "$after" ]] && echo no || echo YES)"
+  fi
+}
+
+test_master_spec_writeback_rejects_embedded_heading() {
+  echo "test_master_spec_writeback_rejects_embedded_heading:"
+  setup_tmp_repo
+  _mk_master_spec_two_sections
+  local before; before="$(cksum < "$PWD/MASTER-SPEC.md")"
+  local body
+  body="$(printf '%s\n' "First sentence of the summary." "## Foo" "Tail after an injected heading.")"
+  local prev_opts="$-"; set +e
+  _sf_master_spec_replace_section_body "$PWD/MASTER-SPEC.md" "Executive Summary" "$body" 2>/dev/null
+  local rc=$?
+  if [[ "$prev_opts" == *e* ]]; then set -e; fi
+  local after; after="$(cksum < "$PWD/MASTER-SPEC.md")"
+  if [[ "$rc" != "0" && "$before" == "$after" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ rejected embedded ## heading (rc=$rc) and left MASTER-SPEC byte-identical"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ rc=$rc; MASTER-SPEC changed=$([[ "$before" == "$after" ]] && echo no || echo YES)"
+  fi
+}
+
+test_master_spec_writeback_accepts_clean_prose_and_bullets() {
+  echo "test_master_spec_writeback_accepts_clean_prose_and_bullets:"
+  setup_tmp_repo
+  _mk_master_spec_two_sections
+  local body
+  body="$(printf '%s\n' \
+    "test-proj orchestrates widgets for solo developers." \
+    "- It solves fragmented widget tooling." \
+    "- MVP boundary: single-tenant pipeline.")"
+  local prev_opts="$-"; set +e
+  _sf_master_spec_replace_section_body "$PWD/MASTER-SPEC.md" "Executive Summary" "$body"
+  local rc=$?
+  if [[ "$prev_opts" == *e* ]]; then set -e; fi
+  if [[ "$rc" != "0" ]]; then
+    FAIL=$((FAIL+1)); echo "  ✗ clean prose+bullets body was rejected (rc=$rc)"; return
+  fi
+  # round-trip: the extractor must return EXACTLY the body we wrote
+  local got; got="$(sf_master_spec_section "$PWD/MASTER-SPEC.md" "Executive Summary")"
+  got="$(printf '%s\n' "$got" | sed -e '/./,$!d' | awk '{a[NR]=$0} END{n=NR; while(n>0 && a[n]~/^[[:space:]]*$/)n--; for(i=1;i<=n;i++)print a[i]}')"
+  if [[ "$got" == "$body" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ clean body written and re-extracts EXACTLY (round-trip fidelity)"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ round-trip mismatch"; echo "    want: $body"; echo "    got:  $got"
+  fi
+}
+
 test_exec_summary_source_only_prompt_omits_missing_exec_summary() {
   echo "test_exec_summary_source_only_prompt_omits_missing_exec_summary:"
   setup_tmp_repo
@@ -569,6 +649,9 @@ test_render_exec_summary_errors_on_missing_section
 test_render_exec_summary_errors_on_placeholder_only_section
 test_render_exec_summary_from_state_bootstraps_placeholder_master_spec
 test_exec_summary_synthesized_output_updates_master_spec_source
+test_master_spec_writeback_rejects_embedded_rule
+test_master_spec_writeback_rejects_embedded_heading
+test_master_spec_writeback_accepts_clean_prose_and_bullets
 test_exec_summary_source_only_prompt_omits_missing_exec_summary
 test_missing_exec_summary_render_failure_clears_dispatch_source
 test_exec_summary_staleness_detects_master_change

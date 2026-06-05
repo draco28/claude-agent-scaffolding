@@ -242,8 +242,17 @@ spec-derived from MASTER-SPEC and authored HERE — `/scaffold-project` and
   `## Executive Summary` section and render the canonical EXECUTIVE-SUMMARY with
   a checksum from the updated source:
   ```bash
-  sf_render_executive_summary_from_synthesized "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"
+  if ! sf_render_executive_summary_from_synthesized "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"; then
+    sf_log_warn "Synthesized Executive Summary contained disallowed structure (## heading / --- rule / phase marker) or was empty; falling back to the deterministic renderer from MASTER-SPEC's pinned section."
+    sf_render_executive_summary "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)" ||
+      sf_render_executive_summary_from_state "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"
+  fi
   ```
+  The write-back refuses a synthesized body that contains a section delimiter
+  (`## ` / `---` rule / phase marker) — it would corrupt MASTER-SPEC's pinned
+  section. On that rejection the close does NOT hard-fail: it warns and falls back
+  to the deterministic `sf_render_executive_summary` (clean MASTER-SPEC section),
+  and finally to `sf_render_executive_summary_from_state` for a brand-new spec.
 - **Deterministic (`--fast` / synthesis fallback):**
   ```bash
   source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
