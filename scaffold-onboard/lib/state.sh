@@ -46,6 +46,7 @@ sf_state_init() {
     --arg now "$now" \
     --arg root "$project_root" \
     '{
+      schema_version: 2,
       status: "in_progress",
       current_phase: 1,
       current_question: null,
@@ -53,7 +54,9 @@ sf_state_init() {
       project_root: $root,
       created_at: $now,
       updated_at: $now,
-      answers: {}
+      answers: {},
+      phase_records: {},
+      touched_this_run: []
     }' > "$path"
 }
 
