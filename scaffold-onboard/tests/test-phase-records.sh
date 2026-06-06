@@ -100,4 +100,34 @@ test_phase_record_rejects_non_object_json() {
 
 test_phase_record_rejects_non_object_json
 
+test_legacy_state_migrates_on_write() {
+  echo "test_legacy_state_migrates_on_write:"
+  setup_tmp_repo
+  # A pre-SS-3 (v0.2.x) state file: no schema_version, no phase_records,
+  # no touched_this_run — only flat answers. This is the upgrade input class.
+  local path; path="$(sf_state_path)"
+  mkdir -p "$(dirname "$path")"
+  cat > "$path" <<JSON
+{
+  "status": "in_progress",
+  "current_phase": 4,
+  "project_root": "$(sf_project_identity_root)",
+  "created_at": "2026-06-01T00:00:00Z",
+  "updated_at": "2026-06-01T00:00:00Z",
+  "answers": { "1.1.1": "legacy-app — a thing", "1.3.1": "CLI tool" }
+}
+JSON
+  # Reads must not crash on the missing keys.
+  assert_eq "legacy read_phase_record null" "null" "$(sf_state_read_phase_record 1)"
+  assert_eq "legacy touched empty" "" "$(sf_state_phases_touched_this_run | tr -d '\n')"
+  # First write upgrades the file without dropping the legacy answers.
+  local rec="$TMP_DIR/r.json"; printf '{"decisions":"keep going"}' > "$rec"
+  sf_state_write_phase_record 4 "$rec"
+  assert_file_contains "$path" '"schema_version": 2'
+  assert_eq "legacy answer preserved" "legacy-app — a thing" "$(sf_state_read_answer 1.1.1)"
+  assert_eq "new record present" "keep going" "$(sf_state_read_phase_record 4 | jq -r '.decisions')"
+}
+
+test_legacy_state_migrates_on_write
+
 report_results
