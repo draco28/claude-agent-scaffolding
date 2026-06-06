@@ -125,10 +125,14 @@ After the last 5.x answer is persisted, skill authors the Phase 5 record and tri
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": 2,
   "status": "in_progress",
   "current_phase": 6,
-  "started_at": "2026-05-24T14:02:11Z",
+  "current_question": null,
+  "project_class": "CLI tool",
+  "project_root": "/Users/me/projects/todocli",
+  "created_at": "2026-05-24T13:40:00Z",
+  "updated_at": "2026-05-24T14:02:11Z",
   "answers": {
     "1.1.1": "A fast offline-first CLI for managing personal todos with tagging, due dates, and full-text search.",
     "1.1.2": "Developers who live in the terminal and want todo capture without leaving the shell.",
@@ -159,7 +163,18 @@ After the last 5.x answer is persisted, skill authors the Phase 5 record and tri
     "5.2.3": "none",
     "5.3.1": "~10k todos/user",
     "5.3.2": "sub-100ms for ls and search"
-  }
+  },
+  "phase_records": {
+    "5": {
+      "decisions": "Rust + sqlite with FTS5; CLI surface; synchronous I/O.",
+      "rationale": "Rust provides the sub-100ms performance budget; FTS5 gives ranked full-text search without a separate process.",
+      "alternatives_rejected": "Go considered; rejected — sqlite FTS5 binding less mature. TypeScript/Node rejected — startup latency.",
+      "constraints": "Must ship as a single static binary; no daemon.",
+      "critic_outcomes": "C-5.1 (data store ambiguity) stood — changed answer to 'sqlite with FTS5 extension enabled at build time'.",
+      "authored_at": "2026-05-24T14:02:11Z"
+    }
+  },
+  "touched_this_run": ["5"]
 }
 ```
 

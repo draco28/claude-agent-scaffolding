@@ -67,8 +67,13 @@ phases[].subsections[] → groups of questions
    compose a JSON object capturing the phase's reasoning — `decisions`,
    `rationale`, `alternatives_rejected`, `constraints`, `open_questions`,
    `critic_outcomes` (include only the keys that apply; content is free prose,
-   NOT a copy of the raw answers). Write it with your Write tool to a temp file,
-   then persist it: `sf state_write_phase_record <phase_id> <temp-file>`. This is
+   NOT a copy of the raw answers). **On a resumed or reconcile run, first read
+   any existing record with `sf state_read_phase_record <phase_id>` and fold its
+   still-valid content forward into the new record** — do not silently discard
+   prior rationale or critic-outcomes. (`sf state_write_phase_record` replaces
+   the stored object entirely, so the merge must happen in conversation before
+   the write.) Write the merged record with your Write tool to a temp file, then
+   persist it: `sf state_write_phase_record <phase_id> <temp-file>`. This is
    reasoning work — it is authored by YOU in conversation, never slot-filled. The
    verbatim answers are already persisted (step 3); the record adds the *why*.
    Then surface a 3–5 line recap **echoed from the record you just wrote** (no
@@ -97,17 +102,33 @@ phases[].subsections[] → groups of questions
 
 ## 4. State management
 
-State lives at `$(sf project_data_dir)/onboarding-state.json`. `sf project_data_dir` scopes state under the install-level plugin data root by project identity, so multiple projects can be mid-onboarding concurrently. The v0.1.0 schema is preserved in v0.2.
+State lives at `$(sf project_data_dir)/onboarding-state.json`. `sf project_data_dir` scopes state under the install-level plugin data root by project identity, so multiple projects can be mid-onboarding concurrently.
 
-**Schema (v0.1.0-compatible):**
+**Schema (v2):**
 
-```
+```json
 {
-  "schema_version": "1.0",
+  "schema_version": 2,
   "status": "in_progress" | "complete",
   "current_phase": 1..10,
-  "started_at": "<ISO8601>",
-  "answers": { "<qid>": "<answer text>", ... }
+  "current_question": null,
+  "project_class": null,
+  "project_root": "<absolute path>",
+  "created_at": "<ISO8601>",
+  "updated_at": "<ISO8601>",
+  "answers": { "<qid>": "<answer text>", ... },
+  "phase_records": {
+    "3": {
+      "decisions": "...",
+      "rationale": "...",
+      "alternatives_rejected": "...",
+      "constraints": "...",
+      "open_questions": "...",
+      "critic_outcomes": "...",
+      "authored_at": "<ISO8601>"
+    }
+  },
+  "touched_this_run": ["3"]
 }
 ```
 
@@ -135,7 +156,12 @@ State lives at `$(sf project_data_dir)/onboarding-state.json`. `sf project_data_
 - **Acquire the lock at skill entry.** If `sf_state_lock_acquire` fails, surface *"Onboarding already in progress in another session. Either close that session or re-run with `/onboard --force-unlock` after confirming no other session is active."* and stop.
 - **Reset the per-run tracker.** After acquiring the lock and determining mode, call `sf state_run_reset` once so `touched_this_run` reflects only phases (re)authored in THIS run — the reconcile hint for the close synthesis.
 - **Resume protocol.** On entry, call `sf state_mode`. If `resume`: read `current_phase`, announce position (*"Resuming at Phase N (Architecture). 3 of 5 questions remaining."*), and re-enter at the first unanswered question of that phase (detected via `sf state_read_answer <qid>` returning `null`).
-- **Re-onboard protocol.** If `sf state_mode` returns `reonboard` (status=complete + state file present + project_root matches): ask explicit confirmation *"Re-onboarding will overwrite MASTER-SPEC.md (backed up to `MASTER-SPEC.md.bak-<timestamp>`) and reset state to Phase 1. Continue? (yes/no, default no)"*. Default is cancel. Only proceed on explicit `yes`.
+- **Re-onboard protocol.** If `sf state_mode` returns `reonboard` (status=complete + state file present + project_root matches): DO NOT call `sf state_init` — that wipes `phase_records`, the durable reasoning the close-synthesis reconcile depends on. Instead:
+  1. Acquire the lock, then call `sf state_run_reset` (clears only `touched_this_run` for this run; leaves all phase records and answers intact).
+  2. Ask the user which phase(s) they want to revise: *"Which phases would you like to revisit? You can name a specific phase or set of phases (e.g., 'Phase 3' or 'Phases 2 and 5'), or say 'all' to walk all 10 phases again."* Wait for their answer.
+  3. Re-enter only the chosen phases: re-ask each phase's questions (the user may keep or change each answer), and re-author each revised phase's reasoning record (see §3 step 4 for the fold-forward rule). Only revised phases are persisted via `sf state_write_phase_record`, so `touched_this_run` lists exactly the phases changed this run.
+  4. At close, §8 runs in **reconcile mode** (existing MASTER-SPEC present): it refreshes only the touched phases and preserves untouched sections + any human edits, after backing up the prior spec to `MASTER-SPEC.md.bak-<ts>`.
+  5. **Escape hatch — start completely fresh:** if the user explicitly types `fresh` or `yes, discard everything` at the phase-selection prompt, confirm once more: *"This will discard all prior answers and phase reasoning records for this project and re-author the spec from Phase 1. Prior MASTER-SPEC.md is still backed up. Type 'confirm discard' to proceed or anything else to cancel."* Only on `confirm discard`: call `sf state_init` (fresh state, no records) and proceed from Phase 1. This wipe path MUST NOT be the default and MUST require this explicit double-confirmation distinct from the normal revise flow.
 - **Project-mismatch protocol.** If `sf state_mode` returns `project_mismatch`: fetch the stored path via `sf state_stored_project_root`, fetch the current identity via `sf project_identity_root`, and surface this prompt (substitute `<stored>` and `<current>`): *"Project-scoped onboarding state says it belongs to `<stored>`, but this session resolves the project as `<current>`. Options: (1) return to the original path / set `SF_PROJECT_ROOT=<stored>` and re-run /onboard, (2) start fresh for `<current>` — this overwrites only this project-scoped onboarding state, not other projects. Which? (1/2)"*. Wait for the user's pick. On `1`, exit non-zero with the path instruction; on `2`, call `sf state_init` and proceed at Phase 1.
 
 ---
@@ -165,7 +191,7 @@ At each critic moment, after the phase record is authored and the recap is surfa
    - `depth=premise-audit` (moments 1 + 2) or `depth=close` (moment 3).
    - `phase_id=<N>` so the critic knows which section of MASTER-SPEC.md to focus on.
 4. architect-critic runs its own challenge-resolution loop internally (sequential rebuttal, scoring, auto-promotion checks). It returns control via the structured summary block described in architect-critic's SPEC §10 ("Audit complete for ...").
-5. When control returns, present any challenges that stood to the user as edit candidates for the recap. When a critic challenge stands or the user revises or appends to the recap, re-author the phase record and re-call `sf state_write_phase_record` to persist it, so a later session inherits the resolved decision — never leave it only in conversation.
+5. When control returns, present any challenges that stood to the user as edit candidates for the recap. When a critic challenge stands or the user revises or appends to the recap, re-author the phase record: first read the current record with `sf state_read_phase_record <phase_id>` and fold its existing content forward (preserving rationale and prior critic-outcomes already captured), then merge the new challenge outcomes in, and re-call `sf state_write_phase_record` to persist it — so a later session inherits the full resolved picture, never leave it only in conversation.
 
 ### 5.3 Absent / warn-and-skip
 
@@ -356,9 +382,10 @@ The `/onboard` slash command wrapper (`commands/onboard.md`) exports the raw arg
 
 Supported flags:
 
-- *(no flag)* — default: `new` mode if no state file exists; `resume` mode if state is `in_progress`; `reonboard` confirm prompt if `status=complete`.
+- *(no flag)* — default: `new` mode if no state file exists; `resume` mode if state is `in_progress`; **reconcile-revise** (the §4 re-onboard protocol) if `status=complete`.
 - `--resume` — explicit resume; errors if no state file is present.
-- `--regenerate` — explicit reauthor; backs up existing MASTER-SPEC.md to `MASTER-SPEC.md.bak-<ISO8601>` and resets state to Phase 1. Always asks confirmation first.
+- `--regenerate` — explicit reconcile-aware revise: backs up existing MASTER-SPEC.md to `MASTER-SPEC.md.bak-<ISO8601>`, calls `sf state_run_reset` (preserves phase records and answers), then asks the user which phases to revisit. At close, §8 runs in reconcile mode — refreshes only the touched phases and preserves untouched sections + human edits. **Does NOT reset state to Phase 1 and does NOT wipe phase records.** Always asks which phases to revise before proceeding.
+- `--fresh` — full wipe-and-restart: discard all prior answers and phase reasoning records and re-author from Phase 1. Requires explicit double confirmation (see §4 re-onboard escape hatch). Use this only when you want to start the spec conversation from scratch. `--regenerate --fresh` is equivalent to `--fresh` alone.
 - `--force-unlock` — release a stale lock acquired by a crashed prior session. Requires user confirmation that no other session is active.
 
 Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly.

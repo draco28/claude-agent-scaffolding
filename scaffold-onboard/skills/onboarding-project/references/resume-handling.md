@@ -14,7 +14,7 @@ On every `/onboard` invocation the skill calls `sf state_mode` (the `sf` dispatc
 |--------------------|---------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
 | `new`              | No state file present                                                     | `sf state_init` → Phase 1                                                                                                    |
 | `resume`           | Project-scoped state file present, `status=in_progress`, `project_root` matches current project identity | Re-enter at first unanswered question                                                                                        |
-| `reonboard`        | Project-scoped state file present, `status=complete`, `project_root` matches current project identity    | Confirm prompt → `--regenerate` path                                                                                         |
+| `reonboard`        | Project-scoped state file present, `status=complete`, `project_root` matches current project identity    | Reconcile-revise: acquire lock → `sf state_run_reset` → ask which phases to revisit → re-author chosen phases → close in reconcile mode (preserves untouched sections; backs up prior spec). Use `--fresh` or say `fresh` at the phase-selection prompt for a full wipe-and-restart (requires double confirmation). |
 | `project_mismatch` | Project-scoped state file present, `project_root` ≠ current project identity (or stored `project_root` empty) | Prompt user to return to the original path / set `SF_PROJECT_ROOT`, or start fresh for the current project-scoped state.      |
 
 `project_mismatch` (v0.2.1+) originally prevented stale singleton state from another project from being resumed. In v0.2.3+, state is already project-scoped under `sf project_data_dir`, so this mode is now a same-project safety net for moved workspaces, changed `SF_PROJECT_ROOT`, or malformed legacy state. Stored `project_root` is captured by `sf state_init` from `sf project_identity_root`.
@@ -74,14 +74,29 @@ State file:
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": 2,
   "status": "in_progress",
   "current_phase": 4,
-  "started_at": "2026-05-24T13:40:00Z",
+  "current_question": null,
+  "project_class": "Web app",
+  "project_root": "/Users/me/projects/myapp",
+  "created_at": "2026-05-24T13:40:00Z",
+  "updated_at": "2026-05-24T14:02:00Z",
   "answers": {
-    "1.1.1": "...", "1.1.2": "...", ..., "3.3.1": "...",
+    "1.1.1": "...", "1.1.2": "...", "3.3.1": "...",
     "4.1.1": "none", "4.1.2": "none"
-  }
+  },
+  "phase_records": {
+    "1": {
+      "decisions": "Core product is a real-time analytics dashboard for SMB e-commerce.",
+      "rationale": "User validated that Shopify-tier complexity is the right scope.",
+      "alternatives_rejected": "Enterprise multi-tenant deferred to v2.",
+      "constraints": "MVP in 8 weeks; two-person team.",
+      "open_questions": "Pricing model TBD.",
+      "authored_at": "2026-05-24T13:55:00Z"
+    }
+  },
+  "touched_this_run": ["1"]
 }
 ```
 
@@ -101,11 +116,12 @@ Phases 1-3 + the first 2 questions of Phase 4 are **never re-asked**. Existing a
 
 ## 4. Flag matrix: --resume vs --regenerate vs no-flag default
 
-| Invocation              | State file: absent       | State file: `in_progress`   | State file: `complete`       |
-|-------------------------|--------------------------|------------------------------|------------------------------|
-| `/onboard` (no flag)    | Fresh: Phase 1           | Implicit resume               | Confirm → reonboard          |
-| `/onboard --resume`     | Error: "no state file"   | Explicit resume               | Error: "use --regenerate"    |
-| `/onboard --regenerate` | (treated as fresh)       | Confirm → backup + reset      | Confirm → backup + reset     |
+| Invocation              | State file: absent       | State file: `in_progress`      | State file: `complete`                          |
+|-------------------------|--------------------------|--------------------------------|-------------------------------------------------|
+| `/onboard` (no flag)    | Fresh: Phase 1           | Implicit resume                | Reconcile-revise: ask which phases to revisit   |
+| `/onboard --resume`     | Error: "no state file"   | Explicit resume                | Error: "use --regenerate"                       |
+| `/onboard --regenerate` | (treated as fresh)       | Reconcile-revise (run_reset)   | Reconcile-revise: backup + run_reset + ask phases |
+| `/onboard --fresh`      | (treated as fresh)       | Confirm → full wipe + Phase 1  | Double-confirm → full wipe + Phase 1            |
 | `/onboard --force-unlock` | Error: "no lock to release" | Confirm → release lock; user re-runs with intended flag | Same as in_progress |
 
 The no-flag default is *forgiving*: it does the most likely-intended thing based on state. The explicit flags are *strict*: they refuse to do anything other than what the flag names. This makes `/onboard --resume` safe to wire into hooks or scripts without worrying about it accidentally starting a fresh onboarding when state is missing.
