@@ -10,9 +10,12 @@ source "$HERE/../lib/memory-bank.sh"
 PLUGIN_ROOT="$HERE/.."
 export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
 
-# Build a minimal valid MASTER-SPEC.md in $PWD using the templates + state.
+# Build a minimal valid MASTER-SPEC.md in $PWD using a fixture + state.
+# sf_memory_bank_derive reads answers from state directly; MASTER-SPEC.md
+# is only needed for 00-project-brief (which checks for the pitch text) and
+# any sf_spec_validate calls. (sf_master_spec_init and sf_master_spec_update_phase
+# were removed in SS-3.)
 seed_master_spec() {
-  local tmpl="$PLUGIN_ROOT/templates/master-spec/MASTER-SPEC.md.tmpl"
   sf_state_init
   sf_state_write_answer "1.1.1" "test-proj — a fast widget"
   sf_state_write_answer "1.1.4" "test-proj"
@@ -25,11 +28,10 @@ seed_master_spec() {
   sf_state_write_answer "5.2.2" "file (~/.widgets.json)"
   sf_state_write_answer "7.1.2" "statically typed Rust"
   sf_state_write_answer "9.3.1" "no"
-  sf_master_spec_init "$tmpl" "test-proj" "CLI tool"
-  local i
-  for i in 1 2 3 4 5 6 7 8 9 10; do
-    sf_master_spec_update_phase "$tmpl" "$i"
-  done
+  # Write a structurally valid MASTER-SPEC.md fixture.
+  # sf_memory_bank_derive reads all template vars from state (not MASTER-SPEC.md),
+  # so the fixture is just a valid placeholder on disk.
+  seed_master_spec_fixture "./MASTER-SPEC.md" "test-proj" "CLI tool"
 }
 
 test_derive_00_project_brief() {

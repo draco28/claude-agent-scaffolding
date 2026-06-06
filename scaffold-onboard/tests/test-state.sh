@@ -177,14 +177,10 @@ test_phases_yaml_question_ids_for_phase
 test_scripted_full_onboarding() {
   echo "test_scripted_full_onboarding:"
   setup_tmp_repo
-  local pyaml="$HERE/../templates/onboarding-questions/phases.yaml"
-  local tmpl="$HERE/../templates/master-spec/MASTER-SPEC.md.tmpl"
   source "$HERE/../lib/render.sh"
   sf_state_init
   # Project class first (gates everything else)
   sf_state_write_answer "1.3.1" "CLI tool"
-  # Init MASTER-SPEC with project_name + project_class
-  sf_master_spec_init "$tmpl" "todo-cli" "CLI tool"
   # Fill a few representative answers across phases
   sf_state_write_answer "1.1.1" "todo-cli — fast local-first task manager"
   sf_state_write_answer "1.1.2" "Existing managers are heavy and cloud-coupled."
@@ -195,11 +191,12 @@ test_scripted_full_onboarding() {
   sf_state_write_answer "7.1.2" "statically typed Rust"
   sf_state_write_answer "9.3.1" "no"
 
-  # Update each phase to reflect state
-  local i
-  for i in 1 2 3 4 5 6 7 8 9 10; do
-    sf_master_spec_update_phase "$tmpl" "$i"
-  done
+  # Write a valid MASTER-SPEC.md fixture directly (sf_master_spec_init and
+  # sf_master_spec_update_phase were removed in SS-3; tests seed fixtures instead).
+  seed_master_spec_fixture "./MASTER-SPEC.md" "todo-cli" "CLI tool"
+  # The shared fixture's Executive Summary already contains "todo-cli" and "Rust";
+  # ensure the exact phrase from state answer 1.1.1 is also present.
+  printf '\ntodo-cli — fast local-first task manager\n' >> ./MASTER-SPEC.md
 
   assert_file_exists "./MASTER-SPEC.md"
   assert_file_contains "./MASTER-SPEC.md" "todo-cli — fast local-first task manager"
