@@ -120,6 +120,62 @@ sf_state_read_answer() {
   jq -r --arg q "$qid" '.answers[$q] // "null"' "$path"
 }
 
+# Write a per-phase reasoning record. <record_file> must be a file containing a
+# JSON object (the conducting agent authors it via its Write tool — keeps prose
+# escaping out of bash). Merges into .phase_records["<phase_id>"] atomically and
+# appends <phase_id> to .touched_this_run (unique). Bumps schema_version to 2 so
+# a legacy file becomes conformant on first write.
+sf_state_write_phase_record() {
+  local phase_id="$1" record_file="$2"
+  local path; path="$(sf_state_path)"
+  if [[ ! -f "$record_file" ]]; then
+    sf_log_error "sf_state_write_phase_record: record file not found: $record_file"
+    return 1
+  fi
+  if ! jq -e . "$record_file" >/dev/null 2>&1; then
+    sf_log_error "sf_state_write_phase_record: record file is not valid JSON: $record_file"
+    return 1
+  fi
+  local tmp now
+  tmp="$(mktemp "${path}.XXXXXX")"
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  jq --arg p "$phase_id" --arg now "$now" --slurpfile rec "$record_file" \
+    '
+    .schema_version = 2
+    | .phase_records = (.phase_records // {})
+    | .phase_records[$p] = ($rec[0] + {authored_at: $now})
+    | .touched_this_run = (((.touched_this_run // []) + [$p]) | unique)
+    | .updated_at = $now
+    ' "$path" > "$tmp"
+  mv "$tmp" "$path"
+}
+
+# Read .phase_records["<phase_id>"] as a JSON object. Prints "null" if absent.
+sf_state_read_phase_record() {
+  local phase_id="$1"
+  local path; path="$(sf_state_path)"
+  if [[ ! -f "$path" ]]; then echo "null"; return 0; fi
+  jq -c --arg p "$phase_id" '.phase_records[$p] // null' "$path"
+}
+
+# Reset the per-run touched-phases tracker. Call once at skill entry / resume so
+# the reconcile hint reflects only phases (re)authored in the current run.
+sf_state_run_reset() {
+  local path; path="$(sf_state_path)"
+  [[ -f "$path" ]] || return 0
+  local tmp; tmp="$(mktemp "${path}.XXXXXX")"
+  jq '.touched_this_run = []' "$path" > "$tmp"
+  mv "$tmp" "$path"
+}
+
+# Print phase IDs (re)authored in the current run, one per line, sorted.
+# Mechanical reconcile hint handed to the synthesis agent.
+sf_state_phases_touched_this_run() {
+  local path; path="$(sf_state_path)"
+  [[ -f "$path" ]] || return 0
+  jq -r '(.touched_this_run // []) | sort_by(tonumber) | .[]' "$path"
+}
+
 # Resolve a clean project name for titles/paths. Prefers the explicit onboarding
 # answer 1.1.4; falls back to the cwd basename. Never truncates the pitch on
 # em-dash (the v0.2.x bug that produced garbage H1 titles).
