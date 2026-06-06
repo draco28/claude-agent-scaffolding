@@ -48,7 +48,7 @@ Skill announces:
 
 **User:** `todo add`, `todo ls`, `todo done <id>`, `todo search <query>` — all persisting to a single sqlite file under `~/.todo-cli/db.sqlite`.
 
-Skill renders Phase 1 MASTER-SPEC section via `sf_master_spec_update_phase <tmpl> 1`, surfaces recap:
+Skill authors the Phase 1 record (decisions, rationale, etc.) and persists it via `sf state_write_phase_record 1 <temp-file>`, then surfaces the recap echoed from that record:
 
 > **Phase 1 recap (Foundation)**
 > - Vision: offline-first CLI for terminal-resident developers managing personal todos with tagging, due dates, search.
@@ -118,7 +118,7 @@ After the last 5.x answer is persisted, skill renders the Phase 5 section and tr
 6. Skill presents both challenges as edit candidates:
    > Two architect-critic challenges stood. Want to edit the Phase 5 recap to address either?
 7. User: address C-5.1 — change data store note to "sqlite with FTS5 extension enabled at build time."
-8. Skill re-renders Phase 5 section via `sf_master_spec_update_phase`, surfaces the updated recap, asks accept | edit | append.
+8. Skill re-authors the Phase 5 record to capture the revision (updated `decisions` / `critic_outcomes`) and re-calls `sf state_write_phase_record 5 <temp-file>`, then surfaces the updated recap, asks accept | edit | append.
 9. User: accept. `sf_state_advance_phase` → `current_phase` = 6.
 
 ### Representative state.answers snapshot after Phase 5 close
@@ -197,7 +197,7 @@ User: yes. `sf_state_write_answer phase_10.4.include_karpathy yes`.
 
 ## MASTER-SPEC close (critic moment 3)
 
-Skill renders the full MASTER-SPEC via `sf_render_master_spec_init` + final phase updates, then triggers the **MASTER-SPEC close critic**:
+At Phase 10 close, the skill triggers the **MASTER-SPEC close critic** (MASTER-SPEC is synthesized from phase records + answers at close — see SKILL.md §8; there is no per-phase render step):
 
 1. Filesystem probe → `v0.2`.
 2. Invocation:

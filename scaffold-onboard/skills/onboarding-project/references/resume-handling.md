@@ -112,26 +112,21 @@ The no-flag default is *forgiving*: it does the most likely-intended thing based
 
 ---
 
-## 5. Edge case: MASTER-SPEC hand-edited externally
+## 5. Edge case: phase record missing (crash between answer-write and record-write)
 
-State file is `in_progress` at Phase 7, but the user has manually edited `MASTER-SPEC.md` in their editor between sessions — added a new line under Phase 3, rephrased a Phase 1 bullet. On `/onboard --resume`, the skill detects drift:
+State file is `in_progress` at Phase 7, but a prior session crashed after persisting the answers for Phase 3 without writing the Phase 3 record. On `/onboard --resume`, the skill detects the gap:
 
-1. After lock acquisition, skill reads the on-disk MASTER-SPEC.md mtime + a content hash (lib/render.sh helper `sf_render_master_spec_hash`).
-2. Compares against the hash recorded at the last `sf_master_spec_update_phase` call (stored in the project-scoped `onboarding-state.json` under `answers["__internal.master_spec_hash"]` or a sibling field — implementation detail of T2.3 render helpers).
-3. If the hash differs, skill emits:
+1. After lock acquisition and `sf state_run_reset`, skill iterates phases 1 through `current_phase - 1` calling `sf_state_read_phase_record <phase_id>` on each.
+2. Since MASTER-SPEC is synthesized at close from phase records + answers (not rendered per phase), a missing record for a fully-answered phase is a recoverable gap: the answers are intact, the reasoning was never captured.
+3. If any phase records are missing for already-answered phases, skill emits:
 
-   > MASTER-SPEC.md has been edited outside the onboarding flow since the last persisted phase recap. Your manual edits may conflict with the auto-rendered sections.
-   >
-   > Choose one:
-   >   `revalidate` — re-render MASTER-SPEC from state.answers (your manual edits are backed up to `MASTER-SPEC.md.handedit-<ISO8601>` and replaced).
-   >   `merge`      — keep your manual edits; resume from Phase 7 question N. Future `sf_master_spec_update_phase` calls will only touch the Phase 7+ sections; earlier phases are left as-edited.
-   >   `cancel`     — stop. Inspect the file and re-run when ready.
+   > Phase N answers are all present but the reasoning record is missing (the prior session likely crashed before authoring it). I'll re-author the Phase N record now from the existing answers.
 
-This is a **warn-and-offer** flow, not a hard error. The user is authoritative; we never silently overwrite a hand-edit.
+   The skill re-authors the missing record in conversation (not by re-asking the user) and persists it via `sf state_write_phase_record <phase_id> <temp-file>`. This is a silent repair — the user is only notified, not re-prompted.
 
-The `merge` path requires the skill to skip `sf_master_spec_update_phase` for phases earlier than `current_phase`. Phase 1-6 sections become user-owned; Phase 7+ remain skill-owned. This is honestly best-effort — if the user hand-edits the Phase 5 section *and* the Phase 5 critic later wants to revise it, the user has to redo the merge by hand. We document the limitation rather than pretend to solve it.
+This is a **warn-and-repair** flow, not a hard error. The user's answers are authoritative and are never re-asked; only the reasoning record is reconstructed.
 
-The `revalidate` path is the clean restart: full re-render from `state.answers`, hand-edits archived in the `.handedit-<ISO8601>` backup. Equivalent to "trust the state file, distrust the file on disk."
+**Note:** MASTER-SPEC.md does not exist mid-onboarding (it is synthesized at close). If a user has manually created or edited a MASTER-SPEC.md in the project directory before close, that is an external artifact; the skill ignores it during the in-progress flow and overwrites it (with confirmation) at close.
 
 ---
 

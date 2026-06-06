@@ -63,9 +63,18 @@ phases[].subsections[] → groups of questions
 1. Read questions for the current phase via the helpers above.
 2. For each gated subsection, evaluate the gate against existing state answers. If gate fails, skip the subsection silently.
 3. Ask each question in declared order. Accept the user's answer, `TBD`, or `skip` (for non-required questions). Persist immediately via `sf_state_write_answer <qid> <value>`.
-4. After all questions in the phase are answered, re-render the MASTER-SPEC section for this phase via `sf_master_spec_update_phase <tmpl> <phase_id>` and surface a 3–5 line recap.
+4. After all questions in the phase are answered, **author the phase record**:
+   compose a JSON object capturing the phase's reasoning — `decisions`,
+   `rationale`, `alternatives_rejected`, `constraints`, `open_questions`,
+   `critic_outcomes` (include only the keys that apply; content is free prose,
+   NOT a copy of the raw answers). Write it with your Write tool to a temp file,
+   then persist it: `sf state_write_phase_record <phase_id> <temp-file>`. This is
+   reasoning work — it is authored by YOU in conversation, never slot-filled. The
+   verbatim answers are already persisted (step 3); the record adds the *why*.
+   Then surface a 3–5 line recap **echoed from the record you just wrote** (no
+   MASTER-SPEC file is rendered — none exists until close).
 5. If the current phase is 5 or 7 OR if this is the MASTER-SPEC close, invoke architect-critic per §5.
-6. Present the recap and ask `accept | edit | append a note`. Apply the choice (edit re-prompts; append adds an addendum to the Phase N section).
+6. Present the recap and ask `accept | edit | append a note`. Apply the choice (edit re-prompts; append adds an addendum to the phase record). When a critic challenge stands or the user edits/appends to the recap, fold that into the phase record (re-author it and re-call `sf state_write_phase_record`), so a later session inherits the resolved decision — never leave it only in conversation.
 7. Advance state via `sf_state_advance_phase`.
 8. If the new state is `status=complete` (Phase 10 finished), proceed to the Karpathy opt-in (§7) and the MASTER-SPEC close ceremony (§8).
 
@@ -82,7 +91,7 @@ phases[].subsections[] → groups of questions
 | 7 | Implementation Approach     | Engineer           | **premise-audit** |
 | 8 | DevOps & Environments       | DevOps             | —             |
 | 9 | Quality, Testing & Eval     | QA Engineer        | —             |
-| 10 | Operations & Support       | Release / Ops      | **close (after rendering)** |
+| 10 | Operations & Support       | Release / Ops      | **close (after synthesis)** |
 
 ---
 
@@ -124,6 +133,7 @@ State lives at `$(sf project_data_dir)/onboarding-state.json`. `sf project_data_
 
 - **Persist after every single answer.** An interruption mid-Phase-6 must never lose Phase 1–5's work.
 - **Acquire the lock at skill entry.** If `sf_state_lock_acquire` fails, surface *"Onboarding already in progress in another session. Either close that session or re-run with `/onboard --force-unlock` after confirming no other session is active."* and stop.
+- **Reset the per-run tracker.** After acquiring the lock and determining mode, call `sf state_run_reset` once so `touched_this_run` reflects only phases (re)authored in THIS run — the reconcile hint for the close synthesis.
 - **Resume protocol.** On entry, call `sf state_mode`. If `resume`: read `current_phase`, announce position (*"Resuming at Phase N (Architecture). 3 of 5 questions remaining."*), and re-enter at the first unanswered question of that phase (detected via `sf state_read_answer <qid>` returning `null`).
 - **Re-onboard protocol.** If `sf state_mode` returns `reonboard` (status=complete + state file present + project_root matches): ask explicit confirmation *"Re-onboarding will overwrite MASTER-SPEC.md (backed up to `MASTER-SPEC.md.bak-<timestamp>`) and reset state to Phase 1. Continue? (yes/no, default no)"*. Default is cancel. Only proceed on explicit `yes`.
 - **Project-mismatch protocol.** If `sf state_mode` returns `project_mismatch`: fetch the stored path via `sf state_stored_project_root`, fetch the current identity via `sf project_identity_root`, and surface this prompt (substitute `<stored>` and `<current>`): *"Project-scoped onboarding state says it belongs to `<stored>`, but this session resolves the project as `<current>`. Options: (1) return to the original path / set `SF_PROJECT_ROOT=<stored>` and re-run /onboard, (2) start fresh for `<current>` — this overwrites only this project-scoped onboarding state, not other projects. Which? (1/2)"*. Wait for the user's pick. On `1`, exit non-zero with the path instruction; on `2`, call `sf state_init` and proceed at Phase 1.
@@ -146,7 +156,7 @@ Call `sf_compose_detect_architect_critic` (lib/compose.sh). It walks known plugi
 
 ### 5.2 Invocation pattern
 
-At each critic moment, after the recap is rendered but before asking the user `accept | edit | append`:
+At each critic moment, after the phase record is authored and the recap is surfaced but before asking the user `accept | edit | append`:
 
 1. Announce: *"Phase N close — invoking architect-critic for `premise-audit` on the Phase N recap. Type `skip` if you want to bypass this fire."*
 2. End the turn and wait for the user's next message. If they type exactly `skip` (case-insensitive), log it and proceed to step 6 of the per-phase loop without calling the critic.
@@ -155,7 +165,7 @@ At each critic moment, after the recap is rendered but before asking the user `a
    - `depth=premise-audit` (moments 1 + 2) or `depth=close` (moment 3).
    - `phase_id=<N>` so the critic knows which section of MASTER-SPEC.md to focus on.
 4. architect-critic runs its own challenge-resolution loop internally (sequential rebuttal, scoring, auto-promotion checks). It returns control via the structured summary block described in architect-critic's SPEC §10 ("Audit complete for ...").
-5. When control returns, present any challenges that stood to the user as edit candidates for the recap. They may revise the recap; you re-render via `sf_master_spec_update_phase` to capture the revision.
+5. When control returns, present any challenges that stood to the user as edit candidates for the recap. They may revise the recap; when they do, re-author the phase record to capture the revision and re-call `sf state_write_phase_record` to persist it. When a critic challenge stands or the user edits/appends to the recap, fold that into the phase record (re-author it and re-call `sf state_write_phase_record`), so a later session inherits the resolved decision — never leave it only in conversation.
 
 ### 5.3 Absent / warn-and-skip
 
@@ -316,11 +326,11 @@ Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly.
 
 This skill never bash-orchestrates the judgment work (which question to ask next, how to recap a phase, whether to escalate a challenge). It calls helpers for I/O and templating only. The named helpers:
 
-**State (lib/state.sh + lib/_helpers.sh):** `sf_project_identity_root`, `sf_project_data_dir`, `sf_state_init`, `sf_state_mode`, `sf_state_path`, `sf_state_read_field`, `sf_state_read_answer`, `sf_state_write_answer`, `sf_state_write_atomic`, `sf_state_advance_phase`, `sf_state_lock_acquire`, `sf_state_lock_release`, `sf_state_gate_passes`.
+**State (lib/state.sh + lib/_helpers.sh):** `sf_project_identity_root`, `sf_project_data_dir`, `sf_state_init`, `sf_state_mode`, `sf_state_path`, `sf_state_read_field`, `sf_state_read_answer`, `sf_state_write_answer`, `sf_state_write_atomic`, `sf_state_advance_phase`, `sf_state_lock_acquire`, `sf_state_lock_release`, `sf_state_gate_passes`, `sf_state_write_phase_record`, `sf_state_read_phase_record`, `sf_state_run_reset`, `sf_state_phases_touched_this_run`, `sf_state_synthesis_digest`.
 
 **Phases (lib/state.sh / parser.sh):** `sf_phases_questions_for`, `sf_phases_question_text`, `sf_phases_question_gate`.
 
-**Rendering (lib/render.sh):** `sf_render_master_spec_init`, `sf_master_spec_update_phase`, `sf_render_executive_summary`, `sf_render` (generic template substitution).
+**Rendering (lib/render.sh):** `sf_render_executive_summary`, `sf_render_executive_summary_from_synthesized`, `sf_render_executive_summary_from_state`, `sf_render` (generic template substitution).
 
 **Composition (lib/compose.sh):** `sf_compose_detect_architect_critic`, `sf_compose_refresh` (for ai-mentor / superpowers via composition.json — separate from architect-critic detection).
 
@@ -350,6 +360,7 @@ These are suggestions, not gates. The user may decline or skip; you proceed to a
 - **Hardcoding `MASTER-SPEC.md` against `$(pwd)`.** Always route via `sf_resolve_output_path master_spec MASTER-SPEC.md`.
 - **Calling `Skill(architect-critic:critique)` (the v0.1.x slash-command name).** Use `Skill(architect-critic:critiquing-spec)` — the v0.2 skill.
 - **Bash-orchestrating the question loop.** Each question is a turn the user replies to; bash cannot read user input in non-TTY sessions (subagent, hooks, headless). Use Claude's native turn handling.
+- **Transcribing raw answers into a templated MASTER-SPEC.** There is no deterministic MASTER-SPEC renderer. MASTER-SPEC is synthesized once at close from the phase records + answers (see §8). Do not slot-fill a template per phase.
 
 ---
 

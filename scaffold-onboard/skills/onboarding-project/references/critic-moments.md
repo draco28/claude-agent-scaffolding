@@ -51,7 +51,7 @@ architect-critic v0.2 dropped its entry from the shared composition.json registr
 
 ## 3. Invocation pattern
 
-At each critic moment, after the phase recap is rendered but **before** asking the user `accept | edit | append`:
+At each critic moment, after the phase record is authored and the recap is surfaced but **before** asking the user `accept | edit | append`:
 
 1. **Announce.** Surface a one-line announcement:
 
@@ -86,7 +86,7 @@ At each critic moment, after the phase recap is rendered but **before** asking t
    > - C-5.1: &lt;challenge text&gt;
    > - C-5.2: &lt;challenge text&gt;
 
-8. **Apply edits.** If the user accepts any, re-render the affected MASTER-SPEC section via `sf_master_spec_update_phase` to capture the revision. If the user declines all, leave the recap as-is.
+8. **Apply edits.** If the user accepts any, re-author the phase record to capture the revision and re-call `sf state_write_phase_record <phase_id> <temp-file>` to persist it. If the user declines all, leave the recap as-is. (No MASTER-SPEC section is re-rendered per phase — MASTER-SPEC is synthesized once at close from the accumulated phase records + answers.)
 
 9. **Resume the per-phase loop at step 6** (the `accept | edit | append` prompt).
 
