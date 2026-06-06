@@ -230,7 +230,46 @@ All-or-nothing opt-in for v0.2. Per-principle granularity defers to v0.3+ if use
 
 ## 8. Phase 10 close action
 
-After the close-depth critic returns (or is skipped), produce EXECUTIVE-SUMMARY.md, then emit the close summary.
+After the close-depth critic returns (or is skipped), produce MASTER-SPEC.md, then EXECUTIVE-SUMMARY.md, then emit the close summary.
+
+**Produce MASTER-SPEC.md (agent synthesis — no deterministic renderer).**
+
+```bash
+source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"
+source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
+source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
+brief="${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/MASTER-SPEC.brief.md"
+master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
+digest="$(sf_state_synthesis_digest)"
+mode="first_author"; existing=""; touched=""
+if [[ -f "$master" ]]; then
+  mode="reconcile"; existing="$master"
+  touched="$(sf_state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
+  cp "$master" "${master}.bak-$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+fi
+prompt="$(sf_synth_master_spec_prompt "$brief" "$digest" "$master" "$mode" "$touched" "$existing")"
+```
+
+Then dispatch the synthesis agent with that prompt:
+
+```
+Task(subagent_type="scaffold-onboard:synthesis-agent",
+     description="Synthesize MASTER-SPEC",
+     model="claude-sonnet-4-5",
+     prompt="$prompt")
+```
+
+**Fallback (no dispatch available):** if you cannot dispatch a sub-agent (headless
+/ no Task tool), DO NOT fall back to any deterministic renderer — there is none.
+Instead, perform the synthesis yourself in this orchestration context: read the
+SAME assembled `$prompt` (it embeds the brief + digest + mode) and author
+`$master` directly with your Write tool, following the brief's guidance exactly.
+The host (Claude Code or Codex) is itself a capable synthesizer because the brief
+is a plugin asset. Only if the host runtime itself cannot write the file should
+you stop and tell the user to re-run `/onboard` close later — state is fully
+preserved, so nothing is lost.
+
+After `$master` exists (whether via sub-agent or inline), proceed to EXEC-SUMMARY.
 
 **Produce EXECUTIVE-SUMMARY.md (single authoritative producer).** EXEC-SUMMARY is
 spec-derived from MASTER-SPEC and authored HERE — `/scaffold-project` and
@@ -302,6 +341,10 @@ You can also run:
   /scaffold-project  → derive memory bank + CLAUDE.md + .claude/settings.json from MASTER-SPEC
   /scaffold-docs     → derive PRD / SRS / BACKLOG / PROJECT_PLAN / ADR-0001 from MASTER-SPEC
 ```
+
+On reconcile runs only (when `mode` was `reconcile`), append a second line after the MASTER-SPEC path line:
+`reconciled — refreshed phases: <touched>; previous spec backed up to MASTER-SPEC.md.bak-<ts>.`
+Omit this line on first-author runs.
 
 The R1 hierarchy doc emitted by `/plan-roadmap` is named `ROADMAP.md` (not `PROJECT_PLAN.md` — `/scaffold-docs`'s separate Phase-2-derived `PROJECT_PLAN.md` is unchanged from v0.1.0 to avoid filename collision; see SPEC §13.5).
 
