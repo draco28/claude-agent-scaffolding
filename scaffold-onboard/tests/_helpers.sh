@@ -181,16 +181,25 @@ EOF
   fi
 }
 
-# seed_master_spec_fixture <out_path> [project_name] [project_class]
+# seed_master_spec_fixture <out_path> [project_name] [project_class] [pitch]
 # Writes a structurally valid MASTER-SPEC.md fixture to <out_path>.
 # The file satisfies sf_spec_validate: top-level heading, ## Executive Summary,
 # **Project class:** kv, and phase markers for phases 1–10.
 # project_name defaults to "test-proj"; project_class defaults to "CLI tool".
+# When pitch is non-empty it is included verbatim in the Executive Summary body,
+# so an assert_file_contains check for that exact phrase is satisfied by the
+# fixture itself (no post-write printf patch needed).
 seed_master_spec_fixture() {
   local out_path="$1"
   local project_name="${2:-test-proj}"
   local project_class="${3:-CLI tool}"
+  local pitch="${4:-}"
   mkdir -p "$(dirname "$out_path")"
+  # Build the optional pitch line (empty string when pitch is omitted).
+  local pitch_line=""
+  if [[ -n "$pitch" ]]; then
+    pitch_line="${pitch}"$'\n'
+  fi
   cat > "$out_path" <<FIXTURE
 # ${project_name} — Master Specification
 
@@ -199,7 +208,7 @@ seed_master_spec_fixture() {
 
 ## Executive Summary
 
-${project_name} is a fast, local-first tool for ${project_class} workflows.
+${pitch_line}${project_name} is a fast, local-first tool for ${project_class} workflows.
 It solves the problem of slow, cloud-coupled alternatives by delivering
 a single-binary solution that works offline. Primary users are solo devs
 and ops engineers who need sub-200ms response times for everyday tasks.
@@ -265,7 +274,7 @@ The MVP scope centers on add/list/complete tasks persisted to a local file.
 
 <!-- master-spec:phase id=6 name=UX -->
 
-### 6A.1 UX
+### 6.1 UX
 
 **Interface type:** CLI
 **Primary user journey:** todo add 'feed cat' → todo list → todo done 1

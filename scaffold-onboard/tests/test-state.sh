@@ -177,7 +177,6 @@ test_phases_yaml_question_ids_for_phase
 test_scripted_full_onboarding() {
   echo "test_scripted_full_onboarding:"
   setup_tmp_repo
-  source "$HERE/../lib/render.sh"
   sf_state_init
   # Project class first (gates everything else)
   sf_state_write_answer "1.3.1" "CLI tool"
@@ -193,10 +192,9 @@ test_scripted_full_onboarding() {
 
   # Write a valid MASTER-SPEC.md fixture directly (sf_master_spec_init and
   # sf_master_spec_update_phase were removed in SS-3; tests seed fixtures instead).
-  seed_master_spec_fixture "./MASTER-SPEC.md" "todo-cli" "CLI tool"
-  # The shared fixture's Executive Summary already contains "todo-cli" and "Rust";
-  # ensure the exact phrase from state answer 1.1.1 is also present.
-  printf '\ntodo-cli — fast local-first task manager\n' >> ./MASTER-SPEC.md
+  # The pitch arg ensures the exact phrase from state answer 1.1.1 is present in
+  # the fixture's Executive Summary without a post-write printf patch.
+  seed_master_spec_fixture "./MASTER-SPEC.md" "todo-cli" "CLI tool" "todo-cli — fast local-first task manager"
 
   assert_file_exists "./MASTER-SPEC.md"
   assert_file_contains "./MASTER-SPEC.md" "todo-cli — fast local-first task manager"
