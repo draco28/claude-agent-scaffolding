@@ -200,6 +200,44 @@ Hard rules: no leftover fill-in placeholders — no "TODO:"/"TBD", and no impera
 EOF
 }
 
+# Assemble the MASTER-SPEC synthesis prompt. Unlike sf_synth_brief_assemble
+# (which synthesizes a downstream artifact FROM MASTER-SPEC), this synthesizes
+# MASTER-SPEC itself FROM the onboarding discussion digest.
+# Args: <brief> <digest_text> <out_path> <mode> <touched_csv> <existing_spec_path>
+#   mode = first_author | reconcile
+#   touched_csv / existing_spec_path are used only in reconcile mode.
+sf_synth_master_spec_prompt() {
+  local brief="$1" digest="$2" out_path="$3" mode="$4" touched="$5" existing="$6"
+  local body
+  body="$(awk 'NR==1 && $0=="---"{f=1;next} f && $0=="---"{f=0;skip=1;next} skip{print}' "$brief")"
+
+  local mode_block
+  if [[ "$mode" == "reconcile" ]]; then
+    mode_block="MODE: reconcile
+An existing MASTER-SPEC is at: $existing — read it in full.
+Refresh ONLY these phases, touched this run: ${touched:-(none)}
+Reproduce every other section verbatim, preserving human edits."
+  else
+    mode_block="MODE: first-author
+No existing MASTER-SPEC. Author the whole document fresh."
+  fi
+
+  cat <<EOF
+You are synthesizing the project's MASTER-SPEC.md from the onboarding discussion
+digest below.
+
+Write the artifact to: $out_path
+
+$mode_block
+
+--- BEGIN DISCUSSION DIGEST ---
+$digest
+--- END DISCUSSION DIGEST ---
+
+$body
+EOF
+}
+
 sf_synth_coverage_report() {
   local ledger="$1" covered="$2" id
   echo "## Requirement coverage"
