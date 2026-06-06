@@ -166,4 +166,65 @@ test_close_block_reconcile_backs_up_existing() {
 test_close_master_spec_block_executes_clean
 test_close_block_reconcile_backs_up_existing
 
+# Fake "synthesis": write a MASTER-SPEC that includes a marker per phase that has
+# either an answer or a record in the digest, plus the required Executive Summary
+# section. Stands in for the sub-agent so the integration path is deterministic.
+_fake_synthesize_master_spec() {
+  local out="$1" digest="$2"
+  {
+    echo "# $(sf_project_name)"
+    echo ""
+    echo "## Executive Summary"
+    echo "Placeholder summary line."
+    echo ""
+    # Echo each phase heading the digest carried content for.
+    printf '%s\n' "$digest" | awk '/^## Phase /{print}'
+  } > "$out"
+}
+
+test_resumability_uses_persisted_records_across_sessions() {
+  echo "test_resumability_uses_persisted_records_across_sessions:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_run_reset
+  # "Session A": phases 1-3 answered + records authored.
+  sf_state_write_answer "1.1.1" "todo-cli — fast tasks"
+  local r="$TMP_DIR/r.json"
+  printf '{"decisions":"single JSON file"}' > "$r"; sf_state_write_phase_record 1 "$r"
+  printf '{"decisions":"flat task schema"}' > "$r"; sf_state_write_phase_record 3 "$r"
+  # "Session B": fresh process re-reads state from disk (no in-memory carryover).
+  local digest; digest="$(sf_state_synthesis_digest)"
+  printf '%s' "$digest" | grep -q "single JSON file" || { FAIL=$((FAIL+1)); echo "  ✗ phase-1 record lost across session"; return; }
+  printf '%s' "$digest" | grep -q "flat task schema" || { FAIL=$((FAIL+1)); echo "  ✗ phase-3 record lost across session"; return; }
+  PASS=$((PASS+1)); echo "  ✓ persisted phase records survive a session boundary"
+}
+
+test_reconcile_preserves_untouched_human_edit() {
+  echo "test_reconcile_preserves_untouched_human_edit:"
+  setup_tmp_repo
+  sf_state_init
+  # First author at close.
+  sf_state_run_reset
+  sf_state_write_answer "1.1.1" "todo-cli"
+  local r="$TMP_DIR/r.json"; printf '{"decisions":"v1"}' > "$r"; sf_state_write_phase_record 1 "$r"
+  local master="$TMP_DIR/repo/MASTER-SPEC.md"
+  _fake_synthesize_master_spec "$master" "$(sf_state_synthesis_digest)"
+  # Human edits an UNTOUCHED section directly in the file.
+  printf '\n## Phase 8\nHAND-EDITED OPS NOTES — do not lose me.\n' >> "$master"
+  # Enhancement re-run: only phase 1 re-answered this run.
+  sf_state_run_reset
+  printf '{"decisions":"v2"}' > "$r"; sf_state_write_phase_record 1 "$r"
+  local touched; touched="$(sf_state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
+  assert_eq "only phase 1 touched" "1" "$touched"
+  # The reconcile prompt must carry the touched list AND point the agent at the
+  # existing spec (which still holds the human edit). Assert the contract inputs.
+  local prompt; prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$(sf_state_synthesis_digest)" "$master" reconcile "$touched" "$master")"
+  printf '%s' "$prompt" | grep -q "touched this run: 1" || { FAIL=$((FAIL+1)); echo "  ✗ touched list not in prompt"; return; }
+  grep -q "HAND-EDITED OPS NOTES" "$master" || { FAIL=$((FAIL+1)); echo "  ✗ human edit already lost before synthesis"; return; }
+  PASS=$((PASS+1)); echo "  ✓ reconcile feeds touched=1 + existing spec (human edit intact pre-synthesis)"
+}
+
+test_resumability_uses_persisted_records_across_sessions
+test_reconcile_preserves_untouched_human_edit
+
 report_results
