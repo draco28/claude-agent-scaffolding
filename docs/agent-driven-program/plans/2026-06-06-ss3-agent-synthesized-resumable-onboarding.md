@@ -573,11 +573,17 @@ Append to `lib/synthesis.sh`:
 # Assemble the MASTER-SPEC synthesis prompt. Unlike sf_synth_brief_assemble
 # (which synthesizes a downstream artifact FROM MASTER-SPEC), this synthesizes
 # MASTER-SPEC itself FROM the onboarding discussion digest.
-# Args: <brief> <digest_text> <out_path> <mode> <touched_csv> <existing_spec_path>
+# Args: <brief> <digest_file> <out_path> <mode> <touched> <existing_spec_path>
 #   mode = first_author | reconcile
-#   touched_csv / existing_spec_path are used only in reconcile mode.
+#   digest is passed as a FILE PATH (not inline text) to avoid ARG_MAX on large
+#   sessions; touched / existing_spec_path are used only in reconcile mode.
+#   NOTE (shipped contract): the function validates mode ∈ {first_author,reconcile}
+#   and guards the digest file is readable before assembling the prompt.
 sf_synth_master_spec_prompt() {
-  local brief="$1" digest="$2" out_path="$3" mode="$4" touched="$5" existing="$6"
+  local brief="$1" digest_file="$2" out_path="$3" mode="$4" touched="$5" existing="$6"
+  [[ -f "$digest_file" && -r "$digest_file" ]] || return 1
+  [[ "$mode" == "first_author" || "$mode" == "reconcile" ]] || return 1
+  local digest; digest="$(cat "$digest_file")"
   local body
   body="$(awk 'NR==1 && $0=="---"{f=1;next} f && $0=="---"{f=0;skip=1;next} skip{print}' "$brief")"
 
