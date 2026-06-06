@@ -141,7 +141,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 - Skill runs `sf_compose_detect_architect_critic` (filesystem probe per §12.2) — NOT a composition.json lookup.
 - Probe returns `v0.2`.
 - Skill writes a concrete phase recap artifact via `sf state_write_phase_artifact 5 "$phase_artifact"`.
-- Skill invokes `Skill(architect-critic:critiquing-spec)` with `target=master-spec-phase`, `depth=premise-audit`, `phase_id=5`, and `artifact_path="$phase_artifact"` (per §12.1 row 1), adversaries `[claude]`.
+- Skill invokes `Skill(architect-critic:critiquing-spec)` with `target=master-spec-phase`, `depth=premise-audit`, `phase_id=5`, and `artifact_path="$phase_artifact"` (per §12.1 row 1). architect-critic infers adversary availability internally — adversary selection is NOT a caller-passed argument and must NOT be asserted.
 - Skill does NOT use the legacy file-IPC pattern (`sf_compose_build_critic_request` / `sf_compose_read_critic_response` — both dropped per §12.3).
 - After critic returns control, skill advances to Phase 6 and asks the first phase-6 question.
 

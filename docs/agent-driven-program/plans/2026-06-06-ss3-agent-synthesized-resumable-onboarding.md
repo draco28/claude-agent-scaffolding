@@ -774,14 +774,16 @@ In §8, before the existing "Produce EXECUTIVE-SUMMARY.md" block, add a new MAST
 root="$(sf plugin_root)"
 brief="${root}/templates/synthesis-briefs/MASTER-SPEC.brief.md"
 master="$(sf resolve_output_path master_spec MASTER-SPEC.md)"
-digest="$(sf state_synthesis_digest)"
-mode="first_author"; existing=""; touched=""
+digest_file="$(mktemp "${TMPDIR:-/tmp}/sf-digest.XXXXXX")"
+sf state_synthesis_digest > "$digest_file"
+mode="first_author"; existing=""; touched=""; master_bak=""
 if [[ -f "$master" ]]; then
   mode="reconcile"; existing="$master"
   touched="$(sf state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
-  cp "$master" "${master}.bak-$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  master_bak="${master}.bak-$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  cp "$master" "$master_bak"
 fi
-prompt="$(sf synth_master_spec_prompt "$brief" "$digest" "$master" "$mode" "$touched" "$existing")"
+prompt="$(sf synth_master_spec_prompt "$brief" "$digest_file" "$master" "$mode" "$touched" "$existing")"
 ```
 
 Then dispatch the synthesis agent with that prompt:

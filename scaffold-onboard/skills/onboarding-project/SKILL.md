@@ -179,11 +179,13 @@ State lives at `$(sf project_data_dir)/onboarding-state.json`. `sf project_data_
 
 Three critic invocations during the flow:
 
-| # | Moment                | Target               | Depth          | Adversaries        |
-|---|-----------------------|----------------------|----------------|--------------------|
-| 1 | Phase 5 close (Architecture) | `master-spec-phase` | `premise-audit` | `[claude]`        |
-| 2 | Phase 7 close (Implementation) | `master-spec-phase` | `premise-audit` | `[claude]`        |
-| 3 | MASTER-SPEC close (after Phase-10 synthesis) | `master-spec-full` | `close` | `[claude, codex]` |
+| # | Moment                | Target               | Depth          | Adversary (inferred by ac) |
+|---|-----------------------|----------------------|----------------|----------------------------|
+| 1 | Phase 5 close (Architecture) | `master-spec-phase` | `premise-audit` | inferred internally       |
+| 2 | Phase 7 close (Implementation) | `master-spec-phase` | `premise-audit` | inferred internally      |
+| 3 | MASTER-SPEC close (after Phase-10 synthesis) | `master-spec-full` | `close` | inferred internally  |
+
+> **Note:** architect-critic v0.2 detects host-agent + adversary availability internally (per its contract / §12.2). The caller passes only `target`, `depth`, `artifact_path` (and `phase_id` for phase moments). Do NOT pass an `adversaries` argument — it is not part of the invocation contract.
 
 ### 5.1 Detection (binary v0.2-or-absent)
 
@@ -326,7 +328,7 @@ If validation fails:
 - Surface: *"State preserved (`status=close_pending`). Run `/onboard` or `/onboard --resume` to retry the close synthesis."*
 - Stop. Do NOT set `status=complete`. Do not run the close critic, EXEC-SUMMARY generation, `/plan-roadmap`, `/scaffold-project`, or `/scaffold-docs` from a malformed `MASTER-SPEC.md`. The next `/onboard` (or `/onboard --resume`) re-enters directly at §8 to retry synthesis.
 
-After validation passes, invoke `Skill(architect-critic:critiquing-spec)` with `target=master-spec-full`, `depth=close`, `artifact_path="$master"`, and adversaries `[claude, codex]` when architect-critic v0.2 is installed. Surface standing challenges as final edit candidates and apply accepted edits to `MASTER-SPEC.md`; if accepted edits change parser anchors or project class fields, re-run `sf spec_validate "$master"` before continuing. If architect-critic is absent or skipped, proceed directly. Then continue to EXEC-SUMMARY.
+After validation passes, invoke `Skill(architect-critic:critiquing-spec)` with `target=master-spec-full`, `depth=close`, and `artifact_path="$master"`. architect-critic detects host-agent and adversary availability internally — do not pass an `adversaries` argument. Surface standing challenges as final edit candidates and apply accepted edits to `MASTER-SPEC.md`; if accepted edits change parser anchors or project class fields, re-run `sf spec_validate "$master"` before continuing. If architect-critic is absent or skipped, proceed directly. Then continue to EXEC-SUMMARY.
 
 **Produce EXECUTIVE-SUMMARY.md (single authoritative producer).** EXEC-SUMMARY is
 spec-derived from MASTER-SPEC and authored HERE — `/scaffold-project` and

@@ -220,6 +220,12 @@ sf_synth_master_spec_prompt() {
     return 1
   fi
 
+  # Guard: mode must be one of the two defined values.
+  if [[ "$mode" != "first_author" && "$mode" != "reconcile" ]]; then
+    sf_log_error "sf_synth_master_spec_prompt: invalid mode '$mode' (expected first_author|reconcile)"
+    return 1
+  fi
+
   local digest body
   digest="$(cat "$digest_file")"
   body="$(awk 'NR==1 && $0=="---"{f=1;next} f && $0=="---"{f=0;skip=1;next} skip{print}' "$brief")"

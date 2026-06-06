@@ -312,14 +312,26 @@ test_prompt_reads_digest_from_file() {
   else
     FAIL=$((FAIL+1)); echo "  ✗ digest file content not found in assembled prompt"
   fi
-  # Missing digest file must return exit code 1.
-  if sf_synth_master_spec_prompt "$BRIEF" "/nonexistent/digest" "$out" first_author "" "" >/dev/null 2>&1; then
-    FAIL=$((FAIL+1)); echo "  ✗ missing digest file did not cause rc 1"
-  else
-    PASS=$((PASS+1)); echo "  ✓ missing digest file returns rc 1"
-  fi
+  # Missing digest file must return exit code 1 (exact rc, not just non-zero).
+  assert_exit_code 1 sf_synth_master_spec_prompt "$BRIEF" "/nonexistent/digest" "$out" first_author "" ""
 }
 
 test_prompt_reads_digest_from_file
+
+test_prompt_rejects_bogus_mode() {
+  echo "test_prompt_rejects_bogus_mode:"
+  setup_tmp_repo
+  sf_state_init
+  local digest_file out
+  digest_file="$TMP_DIR/digest-bogus.txt"
+  printf 'some digest content\n' > "$digest_file"
+  out="$TMP_DIR/repo/MASTER-SPEC.md"
+  # Any mode value other than first_author|reconcile must return rc=1.
+  assert_exit_code 1 sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" bogus_mode "" ""
+  assert_exit_code 1 sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" first-author "" ""
+  assert_exit_code 1 sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" "" "" ""
+}
+
+test_prompt_rejects_bogus_mode
 
 report_results

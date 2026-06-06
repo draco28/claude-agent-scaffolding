@@ -52,7 +52,7 @@ If acquisition fails (lock present and the recorded process is not the current s
 
 Release happens at:
 
-- Phase 10 close, after `sf_state_write_atomic status complete`.
+- Phase 10 close, after `sf state_write_atomic status complete`.
 - Any clean exit (user cancels at a confirm prompt; lock released before the skill returns).
 
 Crash-released locks are detected on next entry by stat'ing the recorded `pid`. If it's no longer alive (e.g., the Claude Code process was killed mid-Phase-4), `sf_state_mode` treats the lock as stale and offers `--force-unlock` in the warning text.
@@ -63,8 +63,8 @@ Crash-released locks are detected on next entry by stat'ing the recorded `pid`. 
 
 There's no separate `checkpoint` field in the state schema. Resume position is derived from two reads:
 
-1. `sf_state_read_field current_phase` → integer 1..10.
-2. For each question id in that phase (via `sf_phases_questions_for <yaml> <current_phase>`), call `sf_state_read_answer <qid>` and find the **first** that returns `null` *and* is either required or has not been explicitly marked `skip`.
+1. `sf state_read_field current_phase` → integer 1..10.
+2. For each question id in that phase (via `sf phases_questions_for <yaml> <current_phase>`), call `sf state_read_answer <qid>` and find the **first** that returns `null` *and* is either required or has not been explicitly marked `skip`.
 
 This is the resume point. If every question in `current_phase` is already answered, the resume point is the *first* question of `current_phase + 1` (the user crashed between question-answer-write and `sf_state_advance_phase`).
 
@@ -105,7 +105,7 @@ User runs `/onboard --resume`. Skill:
 1. Acquires lock.
 2. Reads `current_phase=4`.
 3. Repairs any fully answered earlier phase whose `phase_records[N]` is missing, without clearing `touched_this_run`.
-4. Iterates `sf_phases_questions_for phases.yaml 4` → `[4.1.1, 4.1.2, 4.2.1, 4.2.2, 4.3.1]`.
+4. Iterates `sf phases_questions_for phases.yaml 4` → `[4.1.1, 4.1.2, 4.2.1, 4.2.2, 4.3.1]`.
 5. Finds first unanswered → `4.2.1` ("Auth model: none / API keys / OAuth / SSO / custom?").
 6. Announces:
    > Resuming at Phase 4 (Security & Compliance), question 3 of 5. *3 of 5 questions remaining.* Last answered: 4.1.2 (regulated domain → none).
@@ -133,7 +133,7 @@ The no-flag default is *forgiving*: it does the most likely-intended thing based
 
 State file is `in_progress` at Phase 7, but a prior session crashed after persisting the answers for Phase 3 without writing the Phase 3 record. On `/onboard --resume`, the skill detects the gap:
 
-1. After lock acquisition, skill does not call `sf state_run_reset` in ordinary resume mode. It iterates phases 1 through `current_phase - 1` calling `sf_state_read_phase_record <phase_id>` on each.
+1. After lock acquisition, skill does not call `sf state_run_reset` in ordinary resume mode. It iterates phases 1 through `current_phase - 1` calling `sf state_read_phase_record <phase_id>` on each.
 2. Since MASTER-SPEC is synthesized at close from phase records + answers (not rendered per phase), a missing record for a fully-answered phase is a recoverable gap: the answers are intact, the reasoning was never captured.
 3. If any phase records are missing for already-answered phases, skill emits:
 
