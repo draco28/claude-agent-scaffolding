@@ -203,15 +203,18 @@ test_reconcile_preserves_untouched_human_edit() {
   echo "test_reconcile_preserves_untouched_human_edit:"
   setup_tmp_repo
   sf_state_init
-  # First author at close.
+  # First author at close: touches phases 1 AND 8.
   sf_state_run_reset
   sf_state_write_answer "1.1.1" "todo-cli"
   local r="$TMP_DIR/r.json"; printf '{"decisions":"v1"}' > "$r"; sf_state_write_phase_record 1 "$r"
+  printf '{"decisions":"ops v1"}' > "$r"; sf_state_write_phase_record 8 "$r"
   local master="$TMP_DIR/repo/MASTER-SPEC.md"
   _fake_synthesize_master_spec "$master" "$(sf_state_synthesis_digest)"
-  # Human edits an UNTOUCHED section directly in the file.
+  # Human edits the phase-8 section directly in the file (not re-touched in re-run).
   printf '\n## Phase 8\nHAND-EDITED OPS NOTES — do not lose me.\n' >> "$master"
-  # Enhancement re-run: only phase 1 re-answered this run.
+  # Enhancement re-run: ONLY phase 1 re-authored this run (phase 8 untouched).
+  # Without sf_state_run_reset here, touched would be "1 8" and the assertion below
+  # would fail — enforcing that run_reset correctly scopes the tracker.
   sf_state_run_reset
   printf '{"decisions":"v2"}' > "$r"; sf_state_write_phase_record 1 "$r"
   local touched; touched="$(sf_state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
