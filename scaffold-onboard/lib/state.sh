@@ -205,7 +205,7 @@ sf_state_synthesis_digest() {
       | to_entries
       | map(select(.key | startswith($p + ".")))
       | sort_by(.key)
-      | .[] | "- \(.key): \(.value)"
+      | .[] | "- \(.key): \(.value | tostring | gsub("\n"; " "))"
     ' "$path"
     echo ""
     local rec
@@ -215,7 +215,7 @@ sf_state_synthesis_digest() {
       printf '%s\n' "$rec" | jq -r '
         to_entries
         | map(select(.key != "authored_at"))
-        | .[] | "- **\(.key)**: \(.value)"
+        | .[] | "- **\(.key)**: \(.value | (if type == "string" then . else tojson end) | gsub("\n"; " "))"
       '
       echo ""
     fi

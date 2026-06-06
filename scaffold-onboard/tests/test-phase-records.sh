@@ -139,14 +139,42 @@ test_synthesis_digest_includes_answers_and_records() {
   local rec="$TMP_DIR/r1.json"
   printf '{"decisions":"single JSON file","rationale":"no DB requested"}' > "$rec"
   sf_state_write_phase_record 1 "$rec"
-  local digest; digest="$(sf_state_synthesis_digest)"
-  printf '%s' "$digest" | grep -q "1.1.1" || { echo "  ✗ missing qid"; exit 1; }
-  printf '%s' "$digest" | grep -q "todo-cli — a fast task manager" || { echo "  ✗ missing raw answer"; exit 1; }
-  printf '%s' "$digest" | grep -q "single JSON file" || { echo "  ✗ missing record decision"; exit 1; }
-  printf '%s' "$digest" | grep -q "no DB requested" || { echo "  ✗ missing record rationale"; exit 1; }
-  PASS=$((PASS+1)); echo "  ✓ digest carries answers + phase records"
+  local digest_file="$TMP_DIR/digest.md"
+  sf_state_synthesis_digest > "$digest_file"
+  assert_file_contains "$digest_file" "1\.1\.1"
+  assert_file_contains "$digest_file" "todo-cli — a fast task manager"
+  assert_file_contains "$digest_file" "single JSON file"
+  assert_file_contains "$digest_file" "no DB requested"
 }
 
 test_synthesis_digest_includes_answers_and_records
+
+test_synthesis_digest_errors_without_state() {
+  echo "test_synthesis_digest_errors_without_state:"
+  setup_tmp_repo
+  # no sf_state_init — no state file exists
+  assert_exit_code 1 sf_state_synthesis_digest
+}
+
+test_synthesis_digest_errors_without_state
+
+test_synthesis_digest_collapses_multiline_answer() {
+  echo "test_synthesis_digest_collapses_multiline_answer:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_answer "1.1.2" "$(printf 'line one\nline two')"
+  local digest_file="$TMP_DIR/d.md"
+  sf_state_synthesis_digest > "$digest_file"
+  # The answer must appear on ONE line: "- 1.1.2: line one line two"
+  assert_file_contains "$digest_file" "1\.1\.2: line one line two"
+  # And there must be no bare "line two" at start-of-line (would mean a broken bullet)
+  if grep -qE '^line two' "$digest_file"; then
+    FAIL=$((FAIL+1)); echo "  ✗ multiline answer broke the bullet (continuation at line start)"
+  else
+    PASS=$((PASS+1)); echo "  ✓ multiline answer collapsed to one line"
+  fi
+}
+
+test_synthesis_digest_collapses_multiline_answer
 
 report_results
