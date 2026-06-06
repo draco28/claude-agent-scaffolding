@@ -179,6 +179,28 @@ sf_state_read_phase_record() {
   jq -c --arg p "$phase_id" '.phase_records[$p] // null' "$path"
 }
 
+# Mark a single phase as touched in the current run without writing a full phase
+# record. Appends <phase_id> to .touched_this_run (unique), bumps updated_at.
+# Call at the START of revising a phase during re-onboard so that an interruption
+# after answers are overwritten but before sf_state_write_phase_record completes
+# cannot exclude the edited phase from the reconcile hint.
+sf_state_mark_touched() {
+  local phase_id="$1"
+  local path; path="$(sf_state_path)"
+  [[ -f "$path" ]] || { sf_log_error "sf_state_mark_touched: no state file"; return 1; }
+  local tmp now
+  tmp="$(mktemp "${path}.XXXXXX")"
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  if jq --arg p "$phase_id" --arg now "$now" \
+    '.touched_this_run = (((.touched_this_run // []) + [$p]) | unique) | .updated_at = $now' \
+    "$path" > "$tmp"; then
+    mv "$tmp" "$path"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
 # Reset the per-run touched-phases tracker. Call once at skill entry / resume so
 # the reconcile hint reflects only phases (re)authored in the current run.
 sf_state_run_reset() {

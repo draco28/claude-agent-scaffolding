@@ -87,6 +87,55 @@ test_run_reset_clears_touched() {
 
 test_run_reset_clears_touched
 
+# Fix 2: sf_state_mark_touched — pre-write crash-safety marker
+test_mark_touched_adds_phase_to_tracker() {
+  echo "test_mark_touched_adds_phase_to_tracker:"
+  setup_tmp_repo
+  sf_state_init
+  # Mark phase 4 touched WITHOUT writing a phase record (simulates start of revision
+  # before any answer overwrites — the crash-safety pre-write required by Fix 2).
+  sf_state_mark_touched 4
+  local touched
+  touched="$(sf_state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
+  assert_eq "mark_touched 4 appears in tracker" "4" "$touched"
+  # No phase record should exist yet (we only marked touched, didn't write a record).
+  assert_eq "no phase record yet after mark_touched" "null" "$(sf_state_read_phase_record 4)"
+}
+
+test_mark_touched_adds_phase_to_tracker
+
+test_mark_touched_is_idempotent() {
+  echo "test_mark_touched_is_idempotent:"
+  setup_tmp_repo
+  sf_state_init
+  # Calling mark_touched twice for the same phase must not double-list it.
+  sf_state_mark_touched 4
+  sf_state_mark_touched 4
+  local touched
+  touched="$(sf_state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
+  assert_eq "mark_touched twice does not double-list phase 4" "4" "$touched"
+}
+
+test_mark_touched_is_idempotent
+
+test_mark_touched_coexists_with_write_phase_record() {
+  echo "test_mark_touched_coexists_with_write_phase_record:"
+  setup_tmp_repo
+  sf_state_init
+  # mark_touched first (pre-write marker), then write the record — both use unique-append
+  # so the phase should appear exactly once in touched_this_run.
+  sf_state_mark_touched 3
+  local rec="$TMP_DIR/r.json"; printf '{"decisions":"folded forward"}' > "$rec"
+  sf_state_write_phase_record 3 "$rec"
+  local touched
+  touched="$(sf_state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
+  assert_eq "mark_touched + write_phase_record gives exactly one entry" "3" "$touched"
+  # Record must be persisted correctly.
+  assert_eq "record present after mark+write" "folded forward" "$(sf_state_read_phase_record 3 | jq -r '.decisions')"
+}
+
+test_mark_touched_coexists_with_write_phase_record
+
 test_phase_record_rejects_non_object_json() {
   echo "test_phase_record_rejects_non_object_json:"
   setup_tmp_repo
