@@ -230,9 +230,16 @@ sf_state_phases_touched_this_run() {
 # agent-authored phase record fields (if any). This is the synthesis SOURCE — it
 # replaces template transcription. Tool-agnostic: any agent that can read text
 # can consume it.
+#
+# Gate filtering: for each phase, only answers whose qid is in the ACTIVE
+# question set (gate-aware, via sf_phases_questions_for) are emitted. Stale
+# answers from an inactive branch (e.g. old 6A.* answers after a re-onboard
+# that switched project_class to a 6B-only type) are excluded from the digest
+# so they do not pollute the synthesis agent's input.
 sf_state_synthesis_digest() {
   local path; path="$(sf_state_path)"
   [[ -f "$path" ]] || { sf_log_error "sf_state_synthesis_digest: no state file"; return 1; }
+  local yaml; yaml="$(sf_plugin_root)/templates/onboarding-questions/phases.yaml"
   echo "# Onboarding discussion digest"
   echo ""
   echo "Project: $(sf_project_name)"
@@ -242,15 +249,26 @@ sf_state_synthesis_digest() {
     echo "## Phase $phase"
     echo ""
     echo "### Answers (verbatim)"
-    # Answers whose qid belongs to this phase. Phase 6 is split into gated
-    # subtracks (6A/6B) in phases.yaml, so include those prefixes as phase 6.
-    jq -r --arg p "$phase" '
-      .answers // {}
-      | to_entries
-      | map(select(.key | startswith($p + ".") or ($p == "6" and test("^6[AB]\\."))))
-      | sort_by(.key)
-      | .[] | "- \(.key): \(.value | tostring | gsub("\n"; " "))"
-    ' "$path"
+    # Build the set of active question IDs for this phase (gate-aware).
+    # sf_phases_questions_for evaluates subsection gates against current answers,
+    # so only questions in passing subsections are returned. We convert the list
+    # to a newline-delimited string and pass it to jq for filtering.
+    local active_qids
+    active_qids="$(sf_phases_questions_for "$yaml" "$phase" 2>/dev/null || true)"
+    # Emit only answers whose qid is in the active set.
+    # When active_qids is empty (no questions for this phase, or all gated out),
+    # no answers are emitted for the phase.
+    if [[ -n "$active_qids" ]]; then
+      local qids_json
+      qids_json="$(printf '%s\n' "$active_qids" | jq -R . | jq -s .)"
+      jq -r --argjson active "$qids_json" '
+        .answers // {}
+        | to_entries
+        | map(select(.key as $k | $active | index($k) != null))
+        | sort_by(.key)
+        | .[] | "- \(.key): \(.value | tostring | gsub("\n"; " "))"
+      ' "$path"
+    fi
     echo ""
     local rec
     rec="$(jq -c --arg p "$phase" '.phase_records[$p] // null' "$path")"
@@ -398,26 +416,58 @@ sf_state_gate_passes() {
 # phases.yaml reader helpers (BSD awk — no gawk 3-arg match)
 # ---------------------------------------------------------------------------
 
-# Return all question IDs for phase N from phases.yaml, one per line.
+# Return all question IDs for phase N from phases.yaml that are in active
+# (gate-passing) subsections, one per line.
+# Gates are on subsections (not individual questions); a subsection whose gate
+# fails is silently excluded, exactly as the §3 step-2 per-phase loop does.
 # Usage: sf_phases_questions_for <yaml> <target_phase>
 sf_phases_questions_for() {
   local yaml="$1" target="$2"
-  awk -v target="$target" '
+  # Phase 1: awk collects "qid|gate_expr" pairs (gate_expr empty when no gate).
+  # Subsection id lines:  ^      - id: "N..." (6 leading spaces)
+  # Gate lines:           ^        gate: "..."  (8 leading spaces)
+  # Question id lines:    ^          - id: "N.N.N" (10 leading spaces)
+  local pairs
+  pairs="$(awk -v target="$target" '
     /^  - id: [0-9]+$/ {
       line = $0
       sub(/^  - id: /, "", line)
       cur_phase = line
+      cur_gate = ""
+      in_target = (cur_phase == target)
       next
     }
-    /^          - id: "[0-9]+[A-Z]?\.[0-9]+\.[0-9]+"$/ {
-      if (cur_phase == target) {
-        line = $0
-        sub(/^          - id: "/, "", line)
-        sub(/"$/, "", line)
-        print line
-      }
+    in_target && /^      - id: "[0-9]/ {
+      cur_gate = ""
+      next
     }
-  ' "$yaml"
+    in_target && /^        gate:/ {
+      line = $0
+      sub(/^        gate:[[:space:]]*/, "", line)
+      sub(/^"/, "", line)
+      sub(/"$/, "", line)
+      cur_gate = line
+      next
+    }
+    in_target && /^          - id: "[0-9]+[A-Z]?\.[0-9]+\.[0-9]+"$/ {
+      line = $0
+      sub(/^          - id: "/, "", line)
+      sub(/"$/, "", line)
+      print line "|" cur_gate
+    }
+  ' "$yaml")"
+  # Phase 2: for each "qid|gate_expr" pair, evaluate the gate in bash.
+  local pair qid gate_expr
+  while IFS= read -r pair; do
+    [[ -z "$pair" ]] && continue
+    qid="${pair%%|*}"
+    gate_expr="${pair#*|}"
+    if [[ -z "$gate_expr" ]]; then
+      printf '%s\n' "$qid"
+    elif sf_state_gate_passes "$gate_expr"; then
+      printf '%s\n' "$qid"
+    fi
+  done <<< "$pairs"
 }
 
 # Return the text value of a question by id.

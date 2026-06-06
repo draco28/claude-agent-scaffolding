@@ -13,10 +13,15 @@ scaffold-onboard SPEC §5.1.
 ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
   set -u
   ARGS="${ARGS_FROM_CLAUDE:-}"
-  RESUME=$(printf "%s" "$ARGS" | grep -oE -- "--resume" | head -1 || true)
-  REGEN=$(printf "%s" "$ARGS" | grep -oE -- "--regenerate" | head -1 || true)
-  FRESH=$(printf "%s" "$ARGS" | grep -oE -- "--fresh" | head -1 || true)
-  FORCE_UNLOCK=$(printf "%s" "$ARGS" | grep -oE -- "--force-unlock" | head -1 || true)
+  RESUME="" REGEN="" FRESH="" FORCE_UNLOCK=""
+  for tok in $ARGS; do
+    case "$tok" in
+      --resume)       RESUME="--resume" ;;
+      --regenerate)   REGEN="--regenerate" ;;
+      --fresh)        FRESH="--fresh" ;;
+      --force-unlock) FORCE_UNLOCK="--force-unlock" ;;
+    esac
+  done
 
   echo "onboard: ARGS=${ARGS:-<none>}"
   echo "onboard: RESUME=${RESUME:-<unset>}"

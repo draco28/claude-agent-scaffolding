@@ -13,7 +13,7 @@ On every `/onboard` invocation the skill calls `sf state_mode` (the `sf` dispatc
 | Mode value         | Meaning                                                                   | Skill behavior                                                                                                              |
 |--------------------|---------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
 | `new`              | No state file present                                                     | `sf state_init` → Phase 1                                                                                                    |
-| `resume`           | Project-scoped state file present, `status=in_progress`, `project_root` matches current project identity | Re-enter at first unanswered question. Do not reset `touched_this_run`; it may be the persisted reconcile hint from an interrupted revision session. |
+| `resume`           | Project-scoped state file present, `status=in_progress` **OR** `status=close_pending`, `project_root` matches current project identity | `in_progress`: re-enter at first unanswered question. `close_pending`: all phases answered, close not yet finished — announce and proceed directly to §7 (Karpathy opt-in) + §8 (MASTER-SPEC close ceremony). Do not reset `touched_this_run` in either case; it may be the persisted reconcile hint from an interrupted revision session. |
 | `reonboard`        | Project-scoped state file present, `status=complete`, `project_root` matches current project identity    | Reconcile-revise: acquire lock → `sf state_run_reset` → ask which phases to revisit → re-author chosen phases → close in reconcile mode (preserves untouched sections; backs up prior spec). Use `--fresh` or say `fresh` at the phase-selection prompt for a full wipe-and-restart (requires double confirmation). |
 | `project_mismatch` | Project-scoped state file present, `project_root` ≠ current project identity (or stored `project_root` empty) | Prompt user to return to the original path / set `SF_PROJECT_ROOT`, or start fresh for the current project-scoped state.      |
 
@@ -117,13 +117,13 @@ Phases 1-3 + the first 2 questions of Phase 4 are **never re-asked**. Existing a
 
 ## 4. Flag matrix: --resume vs --regenerate vs no-flag default
 
-| Invocation              | State file: absent       | State file: `in_progress`      | State file: `complete`                          |
-|-------------------------|--------------------------|--------------------------------|-------------------------------------------------|
-| `/onboard` (no flag)    | Fresh: Phase 1           | Implicit resume                | Reconcile-revise: ask which phases to revisit   |
-| `/onboard --resume`     | Error: "no state file"   | Explicit resume                | Error: "use --regenerate"                       |
-| `/onboard --regenerate` | (treated as fresh)       | Reconcile-revise (run_reset)   | Reconcile-revise: backup + run_reset + ask phases |
-| `/onboard --fresh`      | (treated as fresh)       | Confirm → full wipe + Phase 1  | Double-confirm → full wipe + Phase 1            |
-| `/onboard --force-unlock` | Error: "no lock to release" | Confirm → release lock; user re-runs with intended flag | Same as in_progress |
+| Invocation              | State file: absent       | State file: `in_progress`      | State file: `close_pending`                     | State file: `complete`                          |
+|-------------------------|--------------------------|--------------------------------|-------------------------------------------------|-------------------------------------------------|
+| `/onboard` (no flag)    | Fresh: Phase 1           | Implicit resume                | Implicit resume → §8 close ceremony             | Reconcile-revise: ask which phases to revisit   |
+| `/onboard --resume`     | Error: "no state file"   | Explicit resume                | Explicit resume → §8 close ceremony             | Error: "use --regenerate"                       |
+| `/onboard --regenerate` | (treated as fresh)       | Reconcile-revise (run_reset)   | Reconcile-revise (run_reset)                    | Reconcile-revise: backup + run_reset + ask phases |
+| `/onboard --fresh`      | (treated as fresh)       | Confirm → full wipe + Phase 1  | Confirm → full wipe + Phase 1                   | Double-confirm → full wipe + Phase 1            |
+| `/onboard --force-unlock` | Error: "no lock to release" | Confirm → release lock; user re-runs with intended flag | Same as in_progress | Same as in_progress |
 
 The no-flag default is *forgiving*: it does the most likely-intended thing based on state. The explicit flags are *strict*: they refuse to do anything other than what the flag names. This makes `/onboard --resume` safe to wire into hooks or scripts without worrying about it accidentally starting a fresh onboarding when state is missing.
 

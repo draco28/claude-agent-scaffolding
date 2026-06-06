@@ -203,8 +203,10 @@ test_synthesis_digest_includes_answers_and_records() {
   setup_tmp_repo
   sf_state_init
   sf_state_write_answer "1.1.1" "todo-cli — a fast task manager"
+  # project_class = "CLI tool" activates the 6A branch, not the 6B branch.
   sf_state_write_answer "1.3.1" "CLI tool"
   sf_state_write_answer "6A.1.1" "CLI"
+  # Stale 6B answer written as if from a prior onboard that used a different class.
   sf_state_write_answer "6B.1.1" "API docs"
   local rec="$TMP_DIR/r1.json"
   printf '{"decisions":"single JSON file","rationale":"no DB requested"}' > "$rec"
@@ -215,10 +217,12 @@ test_synthesis_digest_includes_answers_and_records() {
   assert_file_contains "$digest_file" "todo-cli — a fast task manager"
   assert_file_contains "$digest_file" "single JSON file"
   assert_file_contains "$digest_file" "no DB requested"
+  # 6A.1.1 is in the active branch for "CLI tool" — must appear.
   assert_file_contains "$digest_file" "6A\.1\.1"
   assert_file_contains "$digest_file" "CLI"
-  assert_file_contains "$digest_file" "6B\.1\.1"
-  assert_file_contains "$digest_file" "API docs"
+  # 6B.1.1 is in the INACTIVE branch for "CLI tool" — must NOT appear in digest.
+  assert_file_not_contains "$digest_file" "6B\.1\.1"
+  assert_file_not_contains "$digest_file" "API docs"
 }
 
 test_synthesis_digest_includes_answers_and_records
@@ -265,6 +269,39 @@ test_synthesis_digest_errors_without_state() {
 }
 
 test_synthesis_digest_errors_without_state
+
+# Fix 5: sf_state_synthesis_digest gate-filter test.
+# Seeds a project_class that activates the 6A branch (CLI tool), writes both an
+# active-branch answer (6A.1.1) and a stale inactive-branch answer (6B.1.1).
+# Asserts the digest INCLUDES the active answer and EXCLUDES the inactive one.
+# Phase 6 in phases.yaml: 6A gate = "project_class in {Web app, Mobile app, CLI tool, ML or AI system, Agent or plugin, Other}";
+#                          6B gate = "project_class in {Library or SDK, Data pipeline, Web service (API only)}".
+test_synthesis_digest_filters_inactive_branch_answers() {
+  echo "test_synthesis_digest_filters_inactive_branch_answers:"
+  setup_tmp_repo
+  sf_state_init
+  # "CLI tool" activates 6A (gate passes), not 6B (gate fails).
+  sf_state_write_answer "1.3.1" "CLI tool"
+  # Active 6A branch answer — should appear in digest.
+  sf_state_write_answer "6A.1.1" "CLI surfaces only"
+  sf_state_write_answer "6A.1.2" "user types todo add, sees list"
+  # Stale 6B branch answer (from e.g. a prior onboard where class was Library) — must NOT appear.
+  sf_state_write_answer "6B.1.1" "stale-api-docs-answer"
+  sf_state_write_answer "6B.1.2" "stale-error-style-answer"
+  local digest_file="$TMP_DIR/digest-gate-filter.md"
+  sf_state_synthesis_digest > "$digest_file"
+  # Active branch answers must be present.
+  assert_file_contains "$digest_file" "6A\.1\.1"
+  assert_file_contains "$digest_file" "CLI surfaces only"
+  assert_file_contains "$digest_file" "6A\.1\.2"
+  # Inactive branch answers must be excluded.
+  assert_file_not_contains "$digest_file" "6B\.1\.1"
+  assert_file_not_contains "$digest_file" "stale-api-docs-answer"
+  assert_file_not_contains "$digest_file" "6B\.1\.2"
+  assert_file_not_contains "$digest_file" "stale-error-style-answer"
+}
+
+test_synthesis_digest_filters_inactive_branch_answers
 
 test_synthesis_digest_collapses_multiline_answer() {
   echo "test_synthesis_digest_collapses_multiline_answer:"
