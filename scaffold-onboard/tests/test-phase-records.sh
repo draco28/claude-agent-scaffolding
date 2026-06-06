@@ -130,4 +130,23 @@ JSON
 
 test_legacy_state_migrates_on_write
 
+test_synthesis_digest_includes_answers_and_records() {
+  echo "test_synthesis_digest_includes_answers_and_records:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_answer "1.1.1" "todo-cli — a fast task manager"
+  sf_state_write_answer "1.3.1" "CLI tool"
+  local rec="$TMP_DIR/r1.json"
+  printf '{"decisions":"single JSON file","rationale":"no DB requested"}' > "$rec"
+  sf_state_write_phase_record 1 "$rec"
+  local digest; digest="$(sf_state_synthesis_digest)"
+  printf '%s' "$digest" | grep -q "1.1.1" || { echo "  ✗ missing qid"; exit 1; }
+  printf '%s' "$digest" | grep -q "todo-cli — a fast task manager" || { echo "  ✗ missing raw answer"; exit 1; }
+  printf '%s' "$digest" | grep -q "single JSON file" || { echo "  ✗ missing record decision"; exit 1; }
+  printf '%s' "$digest" | grep -q "no DB requested" || { echo "  ✗ missing record rationale"; exit 1; }
+  PASS=$((PASS+1)); echo "  ✓ digest carries answers + phase records"
+}
+
+test_synthesis_digest_includes_answers_and_records
+
 report_results

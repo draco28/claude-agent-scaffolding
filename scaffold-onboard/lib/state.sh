@@ -182,6 +182,46 @@ sf_state_phases_touched_this_run() {
   jq -r '(.touched_this_run // []) | sort_by(. | tonumber? // .) | .[]' "$path"
 }
 
+# Emit a human-readable markdown digest of the enriched state for the MASTER-SPEC
+# synthesis agent: per phase, the verbatim answers (qid: value) followed by the
+# agent-authored phase record fields (if any). This is the synthesis SOURCE — it
+# replaces template transcription. Tool-agnostic: any agent that can read text
+# can consume it.
+sf_state_synthesis_digest() {
+  local path; path="$(sf_state_path)"
+  [[ -f "$path" ]] || { sf_log_error "sf_state_synthesis_digest: no state file"; return 1; }
+  echo "# Onboarding discussion digest"
+  echo ""
+  echo "Project: $(sf_project_name)"
+  echo ""
+  local phase
+  for phase in 1 2 3 4 5 6 7 8 9 10; do
+    echo "## Phase $phase"
+    echo ""
+    echo "### Answers (verbatim)"
+    # Answers whose qid starts with "<phase>." — numeric phase prefix match.
+    jq -r --arg p "$phase" '
+      .answers // {}
+      | to_entries
+      | map(select(.key | startswith($p + ".")))
+      | sort_by(.key)
+      | .[] | "- \(.key): \(.value)"
+    ' "$path"
+    echo ""
+    local rec
+    rec="$(jq -c --arg p "$phase" '.phase_records[$p] // null' "$path")"
+    if [[ "$rec" != "null" ]]; then
+      echo "### Synthesized phase record"
+      printf '%s\n' "$rec" | jq -r '
+        to_entries
+        | map(select(.key != "authored_at"))
+        | .[] | "- **\(.key)**: \(.value)"
+      '
+      echo ""
+    fi
+  done
+}
+
 # Resolve a clean project name for titles/paths. Prefers the explicit onboarding
 # answer 1.1.4; falls back to the cwd basename. Never truncates the pitch on
 # em-dash (the v0.2.x bug that produced garbage H1 titles).
