@@ -96,7 +96,9 @@ test_phase_complete_marks_status() {
   sf_state_advance_phase
   local status
   status="$(sf_state_read_field status)"
-  assert_eq "status after phase 10 advance" "complete" "$status"
+  # Phase-10 advance now sets close_pending (not complete); complete is set only
+  # by the §8 close ceremony on success (sf state_write_atomic status complete).
+  assert_eq "status after phase 10 advance" "close_pending" "$status"
 }
 
 test_branching_gate_ui() {
@@ -153,11 +155,50 @@ test_mode_reonboard() {
   assert_eq "complete -> reonboard" "reonboard" "$mode"
 }
 
+test_mode_close_pending_is_resume() {
+  echo "test_mode_close_pending_is_resume:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_atomic status close_pending
+  local mode
+  mode="$(sf_state_mode)"
+  assert_eq "close_pending -> resume" "resume" "$mode"
+}
+
+# Guard against regression: complete still routes to reonboard (unchanged).
+test_mode_complete_still_reonboard() {
+  echo "test_mode_complete_still_reonboard:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_atomic status complete
+  local mode
+  mode="$(sf_state_mode)"
+  assert_eq "complete -> reonboard (regression guard)" "reonboard" "$mode"
+}
+
+# After sf_state_init then advancing through phase 10, status=close_pending AND
+# sf_state_mode returns resume (not reonboard).
+test_advance_through_phase10_gives_close_pending_resume() {
+  echo "test_advance_through_phase10_gives_close_pending_resume:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_atomic current_phase 10
+  sf_state_advance_phase
+  local status mode
+  status="$(sf_state_read_field status)"
+  mode="$(sf_state_mode)"
+  assert_eq "status after phase-10 advance" "close_pending" "$status"
+  assert_eq "mode after phase-10 advance" "resume" "$mode"
+}
+
 test_branching_gate_ui
 test_branching_gate_dx
 test_mode_new
 test_mode_resume
 test_mode_reonboard
+test_mode_close_pending_is_resume
+test_mode_complete_still_reonboard
+test_advance_through_phase10_gives_close_pending_resume
 
 test_phases_yaml_question_ids_for_phase() {
   echo "test_phases_yaml_question_ids_for_phase:"

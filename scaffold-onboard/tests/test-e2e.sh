@@ -193,11 +193,18 @@ test_e2e_resume_mid_onboarding() {
   sf_state_write_answer "5.2.1" "Rust"
   sf_state_write_answer "9.3.1" "no"
   sf_state_write_atomic current_phase 10
-  sf_state_advance_phase  # → status=complete
+  sf_state_advance_phase  # → status=close_pending (§8 close not yet done)
 
   local status
   status="$(sf_state_read_field status)"
-  assert_eq "completed after resume" "complete" "$status"
+  # Phase-10 advance produces close_pending; sf_state_mode returns "resume" so
+  # the failed-close-retry path is reachable (SS-3 correctness fix).
+  assert_eq "close_pending after phase-10 advance" "close_pending" "$status"
+
+  # Simulate §8 close ceremony success: only here does status become "complete".
+  sf_state_write_atomic status complete
+  status="$(sf_state_read_field status)"
+  assert_eq "complete after §8 close ceremony" "complete" "$status"
 }
 
 test_e2e_with_composition_mocked() {

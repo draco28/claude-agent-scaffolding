@@ -81,7 +81,7 @@ phases[].subsections[] → groups of questions
 5. If the current phase is 5 or 7 OR if this is the MASTER-SPEC close, invoke architect-critic per §5.
 6. Present the recap and ask `accept | edit | append a note`. Apply the choice (edit re-prompts; append adds an addendum to the phase record). When a critic challenge stands or the user edits/appends to the recap, fold that into the phase record (re-author it and re-call `sf state_write_phase_record`), so a later session inherits the resolved decision — never leave it only in conversation.
 7. Advance state via `sf_state_advance_phase`.
-8. If the new state is `status=complete` (Phase 10 finished), proceed to the Karpathy opt-in (§7) and the MASTER-SPEC close ceremony (§8).
+8. If the new state is `status=close_pending` (Phase 10 answered, close not yet done), proceed to the Karpathy opt-in (§7) and the MASTER-SPEC close ceremony (§8).
 
 **Phase ↔ role table (for orienting prompts; questions are sourced from phases.yaml, not from this table):**
 
@@ -109,7 +109,7 @@ State lives at `$(sf project_data_dir)/onboarding-state.json`. `sf project_data_
 ```json
 {
   "schema_version": 2,
-  "status": "in_progress" | "complete",
+  "status": "in_progress" | "close_pending" | "complete",
   "current_phase": 1..10,
   "current_question": null,
   "project_class": null,
@@ -146,7 +146,7 @@ State lives at `$(sf project_data_dir)/onboarding-state.json`. `sf project_data_
 - `sf state_read_answer <qid>` — read a single answer; returns `null` if unanswered.
 - `sf state_write_answer <qid> <value>` — atomic write of one answer.
 - `sf state_write_atomic <key> <value>` — atomic write of a top-level field.
-- `sf state_advance_phase` — bump `current_phase`; if already at 10, set `status=complete`.
+- `sf state_advance_phase` — bump `current_phase`; if already at 10, set `status=close_pending` (NOT `complete`). The transition to `complete` is made by the §8 close ceremony via `sf state_write_atomic status complete`.
 - `sf state_lock_acquire` / `sf state_lock_release` — advisory lock so two sessions don't author into the same state file concurrently.
 - `sf state_gate_passes <gate_expr>` — evaluate a phases.yaml gate against current answers (e.g., `project_class in {Web app, ...}`).
 
@@ -155,9 +155,13 @@ State lives at `$(sf project_data_dir)/onboarding-state.json`. `sf project_data_
 - **Persist after every single answer.** An interruption mid-Phase-6 must never lose Phase 1–5's work.
 - **Acquire the lock at skill entry.** If `sf_state_lock_acquire` fails, surface *"Onboarding already in progress in another session. Either close that session or re-run with `/onboard --force-unlock` after confirming no other session is active."* and stop.
 - **Reset the per-run tracker only when starting a new revision session.** Do NOT call `sf state_run_reset` on ordinary `resume`: a prior process may have already re-authored phases in this in-flight revision before crashing, and `touched_this_run` is the persisted reconcile hint that must survive that resume. Fresh `new` mode gets an empty tracker from `sf state_init`; `reonboard` / `--regenerate` call `sf state_run_reset` after lock acquisition and before asking which phases to revise.
-- **Resume protocol.** On entry, call `sf state_mode`. If `resume`: read `current_phase`, announce position (*"Resuming at Phase N (Architecture). 3 of 5 questions remaining."*), repair any completed phases whose answers exist but whose phase record is missing, then re-enter at the first unanswered question of that phase (detected via `sf state_read_answer <qid>` returning `null`). For the repair pass, inspect phases before the resume point with `sf phases_questions_for` + `sf state_read_answer`; when all required answers for a phase are present but `sf state_read_phase_record <phase_id>` returns `null`, re-author that phase record from the stored answers in conversation and persist it with `sf state_write_phase_record` before advancing.
+- **Resume protocol.** On entry, call `sf state_mode`. If `resume`:
+  - **If `status` is `close_pending`** (all phases answered; close not yet finished): announce *"All phases complete — resuming the MASTER-SPEC close ceremony."* Do NOT re-walk the phase loop. Proceed directly to §7 (Karpathy opt-in, if not yet answered) and then §8 (MASTER-SPEC close ceremony), running in `first_author` mode if no `MASTER-SPEC.md` exists at the routing destination, or `reconcile` mode if it does. Do still run the missing-record repair pass (below) before §8 — a crashed first-author run may have left some phase records unwritten.
+  - **If `status` is `in_progress` AND `MASTER-SPEC.md` already exists** at the routing destination (an interrupted re-onboard revision): announce the phases revised so far (`sf state_phases_touched_this_run`) and ask whether to continue revising more phases or proceed directly to §8 close. Do NOT call `sf state_run_reset` (the Discipline bullet forbids it on resume), so `touched_this_run` is preserved for the reconcile hint.
+  - **Otherwise** (`status` is `in_progress`, normal mid-phase resume): read `current_phase`, announce position (*"Resuming at Phase N (Architecture). 3 of 5 questions remaining."*), then re-enter at the first unanswered question of that phase (detected via `sf state_read_answer <qid>` returning `null`).
+  - **Missing-record repair pass (all resume variants):** inspect phases before the resume point (or all 10 phases on a close_pending resume) with `sf phases_questions_for` + `sf state_read_answer`; when all required answers for a phase are present but `sf state_read_phase_record <phase_id>` returns `null`, re-author that phase record from the stored answers in conversation and persist it with `sf state_write_phase_record` before advancing.
 - **Re-onboard protocol.** If `sf state_mode` returns `reonboard` (status=complete + state file present + project_root matches): DO NOT call `sf state_init` — that wipes `phase_records`, the durable reasoning the close-synthesis reconcile depends on. Instead:
-  1. Acquire the lock, then call `sf state_run_reset` (clears only `touched_this_run` for this new revision run; leaves all phase records and answers intact).
+  1. Acquire the lock, then call `sf state_run_reset` (clears only `touched_this_run` for this new revision run; leaves all phase records and answers intact). Immediately after, mark the revision in-flight: `sf state_write_atomic status in_progress`. This ensures that if the session is interrupted mid-revision, the next `/onboard` re-enters as `resume` (not `reonboard`), preserving `touched_this_run` as the reconcile hint.
   2. Ask the user which phase(s) they want to revise: *"Which phases would you like to revisit? You can name a specific phase or set of phases (e.g., 'Phase 3' or 'Phases 2 and 5'), or say 'all' to walk all 10 phases again."* Wait for their answer.
   3. Re-enter only the chosen phases: re-ask each phase's questions (the user may keep or change each answer), and re-author each revised phase's reasoning record (see §3 step 4 for the fold-forward rule). Only revised phases are persisted via `sf state_write_phase_record`, so `touched_this_run` lists exactly the phases changed this run.
   4. At close, §8 runs in **reconcile mode** (existing MASTER-SPEC present): it refreshes only the touched phases and preserves untouched sections + any human edits, after backing up the prior spec to `MASTER-SPEC.md.bak-<ts>`.
@@ -307,7 +311,7 @@ Before invoking the close-depth critic or producing EXECUTIVE-SUMMARY, validate 
 sf spec_validate "$master"
 ```
 
-If validation fails, surface the validator stderr verbatim, stop the close flow, and tell the user the onboarding state is preserved so `/onboard --resume` can retry synthesis. Do not run the close critic, EXEC-SUMMARY generation, `/plan-roadmap`, `/scaffold-project`, or `/scaffold-docs` from a malformed `MASTER-SPEC.md`.
+If validation fails, surface the validator stderr verbatim and stop the close flow. Status remains `close_pending` (do NOT set `complete`), so `sf_state_mode` returns `resume` and the next `/onboard` (or `/onboard --resume`) re-enters directly at §8 to retry synthesis. Do not run the close critic, EXEC-SUMMARY generation, `/plan-roadmap`, `/scaffold-project`, or `/scaffold-docs` from a malformed `MASTER-SPEC.md`.
 
 After validation passes, invoke `Skill(architect-critic:critiquing-spec)` with `target=master-spec-full`, `depth=close`, `artifact_path="$master"`, and adversaries `[claude, codex]` when architect-critic v0.2 is installed. Surface standing challenges as final edit candidates and apply accepted edits to `MASTER-SPEC.md`; if accepted edits change parser anchors or project class fields, re-run `sf spec_validate "$master"` before continuing. If architect-critic is absent or skipped, proceed directly. Then continue to EXEC-SUMMARY.
 
@@ -382,6 +386,14 @@ You can also run:
   /scaffold-docs     → derive PRD / SRS / BACKLOG / PROJECT_PLAN / ADR-0001 from MASTER-SPEC
 ```
 
+After emitting the close summary, mark onboarding complete:
+
+```bash
+sf state_write_atomic status complete
+```
+
+This is the ONLY place `status` transitions to `complete`. Prior to this call the status is `close_pending`; if the skill body is interrupted before reaching here, the next `/onboard` re-enters as `resume` and retries the close ceremony from §8.
+
 On reconcile runs only (when `mode` was `reconcile`), append a second line after the MASTER-SPEC path line:
 `reconciled — refreshed phases: <touched>; previous spec backed up to MASTER-SPEC.md.bak-<ts>.`
 Omit this line on first-author runs.
@@ -396,8 +408,8 @@ The `/onboard` slash command wrapper (`commands/onboard.md`) exports the raw arg
 
 Supported flags:
 
-- *(no flag)* — default: `new` mode if no state file exists; `resume` mode if state is `in_progress`; **reconcile-revise** (the §4 re-onboard protocol) if `status=complete`.
-- `--resume` — explicit resume; errors if no state file is present.
+- *(no flag)* — default: `new` mode if no state file exists; `resume` mode if state is `in_progress` or `close_pending`; **reconcile-revise** (the §4 re-onboard protocol) if `status=complete`.
+- `--resume` — explicit resume; errors if no state file is present. Accepts `status=close_pending` (re-enters §8 close ceremony) as well as `status=in_progress` (re-enters the phase loop). Does NOT block on `status=close_pending`.
 - `--regenerate` — explicit reconcile-aware revise: backs up existing MASTER-SPEC.md to `MASTER-SPEC.md.bak-<ISO8601>`, calls `sf state_run_reset` (preserves phase records and answers), then asks the user which phases to revisit. At close, §8 runs in reconcile mode — refreshes only the touched phases and preserves untouched sections + human edits. **Does NOT reset state to Phase 1 and does NOT wipe phase records.** Always asks which phases to revise before proceeding.
 - `--fresh` — full wipe-and-restart: discard all prior answers and phase reasoning records and re-author from Phase 1. Requires explicit double confirmation (see §4 re-onboard escape hatch). Use this only when you want to start the spec conversation from scratch. `--regenerate --fresh` is equivalent to `--fresh` alone.
 - `--force-unlock` — release a stale lock acquired by a crashed prior session. Requires user confirmation that no other session is active.

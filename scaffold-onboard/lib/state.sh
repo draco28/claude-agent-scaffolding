@@ -316,12 +316,14 @@ sf_state_lock_release() {
   rm -f "$(sf_state_lock_path)"
 }
 
-# Advance current_phase by 1. If already at 10, set status=complete instead.
+# Advance current_phase by 1. If already at 10, set status=close_pending instead
+# of complete. The transition close_pending→complete is performed by the §8 close
+# ceremony on success (sf state_write_atomic status complete), NOT here.
 sf_state_advance_phase() {
   local cur
   cur="$(sf_state_read_field current_phase)"
   if [[ "$cur" == "10" ]]; then
-    sf_state_write_atomic status complete
+    sf_state_write_atomic status close_pending
   else
     sf_state_write_atomic current_phase "$((cur+1))"
   fi
@@ -480,9 +482,10 @@ sf_state_mode() {
   fi
 
   case "$status" in
-    "in_progress") echo "resume" ;;
-    "complete")    echo "reonboard" ;;
-    *)             echo "new" ;;  # malformed or unrecognized
+    "in_progress")   echo "resume" ;;
+    "close_pending") echo "resume" ;;  # all phases answered; close not yet done
+    "complete")      echo "reonboard" ;;
+    *)               echo "new" ;;  # malformed or unrecognized
   esac
 }
 
