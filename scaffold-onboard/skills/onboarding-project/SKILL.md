@@ -41,7 +41,7 @@ If you're uncertain whether to invoke, ask: *"Are you starting a fresh onboardin
 
 The phase structure and question list live in `templates/onboarding-questions/phases.yaml` — you read them via bash helpers, you do NOT inline 54 questions into this skill body. The yaml schema (preserved from v0.1.0):
 
-```
+```text
 phases[].id            → integer 1..10
 phases[].name          → snake_case slug
 phases[].title         → human-readable phase name
@@ -96,7 +96,7 @@ phases[].subsections[] → groups of questions
 | 7 | Implementation Approach     | Engineer           | **premise-audit** |
 | 8 | DevOps & Environments       | DevOps             | —             |
 | 9 | Quality, Testing & Eval     | QA Engineer        | —             |
-| 10 | Operations & Support       | Release / Ops      | **close (after synthesis)** |
+| 10 | Operations & Support       | Release / Ops      | **close (after MASTER-SPEC synthesis)** |
 
 ---
 
@@ -142,7 +142,7 @@ State lives at `$(sf project_data_dir)/onboarding-state.json`. `sf project_data_
 - `sf state_mode` — returns `new` | `resume` | `reonboard` | `project_mismatch` based on existing project-scoped state + `project_root` match. The `project_mismatch` value now catches moved or malformed state inside the current project data dir; switching to another project normally opens a different state file.
 - `sf state_stored_project_root` — return the stored `project_root` (or `unknown` for legacy state files lacking the field); useful for rendering the project-mismatch prompt.
 - `sf state_path` — print the absolute path of the state file.
-- `sf state_read_field <key>` — read a top-level field (`status`, `current_phase`, `project_root`, `started_at`).
+- `sf state_read_field <key>` — read a top-level field (`status`, `current_phase`, `project_root`, `updated_at`).
 - `sf state_read_answer <qid>` — read a single answer; returns `null` if unanswered.
 - `sf state_write_answer <qid> <value>` — atomic write of one answer.
 - `sf state_write_atomic <key> <value>` — atomic write of a top-level field.
@@ -154,10 +154,10 @@ State lives at `$(sf project_data_dir)/onboarding-state.json`. `sf project_data_
 
 - **Persist after every single answer.** An interruption mid-Phase-6 must never lose Phase 1–5's work.
 - **Acquire the lock at skill entry.** If `sf_state_lock_acquire` fails, surface *"Onboarding already in progress in another session. Either close that session or re-run with `/onboard --force-unlock` after confirming no other session is active."* and stop.
-- **Reset the per-run tracker.** After acquiring the lock and determining mode, call `sf state_run_reset` once so `touched_this_run` reflects only phases (re)authored in THIS run — the reconcile hint for the close synthesis.
-- **Resume protocol.** On entry, call `sf state_mode`. If `resume`: read `current_phase`, announce position (*"Resuming at Phase N (Architecture). 3 of 5 questions remaining."*), and re-enter at the first unanswered question of that phase (detected via `sf state_read_answer <qid>` returning `null`).
+- **Reset the per-run tracker only when starting a new revision session.** Do NOT call `sf state_run_reset` on ordinary `resume`: a prior process may have already re-authored phases in this in-flight revision before crashing, and `touched_this_run` is the persisted reconcile hint that must survive that resume. Fresh `new` mode gets an empty tracker from `sf state_init`; `reonboard` / `--regenerate` call `sf state_run_reset` after lock acquisition and before asking which phases to revise.
+- **Resume protocol.** On entry, call `sf state_mode`. If `resume`: read `current_phase`, announce position (*"Resuming at Phase N (Architecture). 3 of 5 questions remaining."*), repair any completed phases whose answers exist but whose phase record is missing, then re-enter at the first unanswered question of that phase (detected via `sf state_read_answer <qid>` returning `null`). For the repair pass, inspect phases before the resume point with `sf phases_questions_for` + `sf state_read_answer`; when all required answers for a phase are present but `sf state_read_phase_record <phase_id>` returns `null`, re-author that phase record from the stored answers in conversation and persist it with `sf state_write_phase_record` before advancing.
 - **Re-onboard protocol.** If `sf state_mode` returns `reonboard` (status=complete + state file present + project_root matches): DO NOT call `sf state_init` — that wipes `phase_records`, the durable reasoning the close-synthesis reconcile depends on. Instead:
-  1. Acquire the lock, then call `sf state_run_reset` (clears only `touched_this_run` for this run; leaves all phase records and answers intact).
+  1. Acquire the lock, then call `sf state_run_reset` (clears only `touched_this_run` for this new revision run; leaves all phase records and answers intact).
   2. Ask the user which phase(s) they want to revise: *"Which phases would you like to revisit? You can name a specific phase or set of phases (e.g., 'Phase 3' or 'Phases 2 and 5'), or say 'all' to walk all 10 phases again."* Wait for their answer.
   3. Re-enter only the chosen phases: re-ask each phase's questions (the user may keep or change each answer), and re-author each revised phase's reasoning record (see §3 step 4 for the fold-forward rule). Only revised phases are persisted via `sf state_write_phase_record`, so `touched_this_run` lists exactly the phases changed this run.
   4. At close, §8 runs in **reconcile mode** (existing MASTER-SPEC present): it refreshes only the touched phases and preserves untouched sections + any human edits, after backing up the prior spec to `MASTER-SPEC.md.bak-<ts>`.
@@ -174,7 +174,7 @@ Three critic invocations during the flow:
 |---|-----------------------|----------------------|----------------|--------------------|
 | 1 | Phase 5 close (Architecture) | `master-spec-phase` | `premise-audit` | `[claude]`        |
 | 2 | Phase 7 close (Implementation) | `master-spec-phase` | `premise-audit` | `[claude]`        |
-| 3 | MASTER-SPEC close (post-Phase-10) | `master-spec-full` | `close` | `[claude, codex]` |
+| 3 | MASTER-SPEC close (after Phase-10 synthesis) | `master-spec-full` | `close` | `[claude, codex]` |
 
 ### 5.1 Detection (binary v0.2-or-absent)
 
@@ -182,16 +182,18 @@ Call `sf_compose_detect_architect_critic` (lib/compose.sh). It walks known plugi
 
 ### 5.2 Invocation pattern
 
-At each critic moment, after the phase record is authored and the recap is surfaced but before asking the user `accept | edit | append`:
+At Phase 5 and Phase 7 critic moments, after the phase record is authored and the recap is surfaced but before asking the user `accept | edit | append`:
 
 1. Announce: *"Phase N close — invoking architect-critic for `premise-audit` on the Phase N recap. Type `skip` if you want to bypass this fire."*
 2. End the turn and wait for the user's next message. If they type exactly `skip` (case-insensitive), log it and proceed to step 6 of the per-phase loop without calling the critic.
 3. Otherwise, invoke `Skill(architect-critic:critiquing-spec)` with:
-   - `target=master-spec-phase` (for moments 1 + 2) or `target=master-spec-full` (for moment 3).
-   - `depth=premise-audit` (moments 1 + 2) or `depth=close` (moment 3).
+   - `target=master-spec-phase`.
+   - `depth=premise-audit`.
    - `phase_id=<N>` so the critic knows which section of MASTER-SPEC.md to focus on.
 4. architect-critic runs its own challenge-resolution loop internally (sequential rebuttal, scoring, auto-promotion checks). It returns control via the structured summary block described in architect-critic's SPEC §10 ("Audit complete for ...").
 5. When control returns, present any challenges that stood to the user as edit candidates for the recap. When a critic challenge stands or the user revises or appends to the recap, re-author the phase record: first read the current record with `sf state_read_phase_record <phase_id>` and fold its existing content forward (preserving rationale and prior critic-outcomes already captured), then merge the new challenge outcomes in, and re-call `sf state_write_phase_record` to persist it — so a later session inherits the full resolved picture, never leave it only in conversation.
+
+The MASTER-SPEC close critic is different: run it after §8 synthesizes `MASTER-SPEC.md`, with `target=master-spec-full` and `depth=close`, so the critic reviews the artifact that will be kept. Apply accepted close-critic edits to `MASTER-SPEC.md`, then continue to EXEC-SUMMARY synthesis.
 
 ### 5.3 Absent / warn-and-skip
 
@@ -220,7 +222,7 @@ When the user has run workspace-init, a manifest at `<ai-workspace>/.workspace/p
 
 **Helper:** `sf_resolve_output_path <logical_name> <relative_path>` (lib/routing.sh — T3.1):
 
-```
+```bash
 master_spec_path="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
 exec_summary_path="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
 ```
@@ -256,29 +258,27 @@ All-or-nothing opt-in for v0.2. Per-principle granularity defers to v0.3+ if use
 
 ## 8. Phase 10 close action
 
-After the close-depth critic returns (or is skipped), produce MASTER-SPEC.md, then EXECUTIVE-SUMMARY.md, then emit the close summary.
+Produce MASTER-SPEC.md first, run the close-depth critic/edit loop against that synthesized artifact, then produce EXECUTIVE-SUMMARY.md and emit the close summary. This ordering is required by the SS-3 contract: the `master-spec-full` critic must inspect the post-synthesis `MASTER-SPEC.md`, not a missing first-author artifact or a stale pre-reconcile file.
 
 **Produce MASTER-SPEC.md (agent synthesis — no deterministic renderer).**
 
 ```bash
-source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"
-source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
-source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
-brief="${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/MASTER-SPEC.brief.md"
-master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
-digest="$(sf_state_synthesis_digest)"
+root="$(sf plugin_root)"
+brief="${root}/templates/synthesis-briefs/MASTER-SPEC.brief.md"
+master="$(sf resolve_output_path master_spec MASTER-SPEC.md)"
+digest="$(sf state_synthesis_digest)"
 mode="first_author"; existing=""; touched=""
 if [[ -f "$master" ]]; then
   mode="reconcile"; existing="$master"
-  touched="$(sf_state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
+  touched="$(sf state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
   cp "$master" "${master}.bak-$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 fi
-prompt="$(sf_synth_master_spec_prompt "$brief" "$digest" "$master" "$mode" "$touched" "$existing")"
+prompt="$(sf synth_master_spec_prompt "$brief" "$digest" "$master" "$mode" "$touched" "$existing")"
 ```
 
 Then dispatch the synthesis agent with that prompt:
 
-```
+```text
 Task(subagent_type="scaffold-onboard:synthesis-agent",
      description="Synthesize MASTER-SPEC",
      model="claude-sonnet-4-5",
@@ -295,7 +295,7 @@ is a plugin asset. Only if the host runtime itself cannot write the file should
 you stop and tell the user to re-run `/onboard` close later — state is fully
 preserved, so nothing is lost.
 
-After `$master` exists (whether via sub-agent or inline), proceed to EXEC-SUMMARY.
+After `$master` exists (whether via sub-agent or inline), invoke `Skill(architect-critic:critiquing-spec)` with `target=master-spec-full`, `depth=close`, and adversaries `[claude, codex]` when architect-critic v0.2 is installed. Surface standing challenges as final edit candidates and apply accepted edits to `MASTER-SPEC.md`. If architect-critic is absent or skipped, proceed directly. Then continue to EXEC-SUMMARY.
 
 **Produce EXECUTIVE-SUMMARY.md (single authoritative producer).** EXEC-SUMMARY is
 spec-derived from MASTER-SPEC and authored HERE — `/scaffold-project` and
@@ -303,24 +303,27 @@ spec-derived from MASTER-SPEC and authored HERE — `/scaffold-project` and
 
 - **Synthesis (default):** dispatch the EXEC-SUMMARY brief from MASTER-SPEC only:
   ```bash
-  source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
-  source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
-  source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"
-  source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"
-  brief="${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/EXECUTIVE-SUMMARY.brief.md"
-  out="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
-  master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
-  prompt="$(sf_synth_brief_assemble "$brief" "$(sf_synth_ledger_empty)" "$out" "$master" "")"
-  Task(subagent_type="scaffold-onboard:synthesis-agent", description="Synthesize EXECUTIVE-SUMMARY", model="claude-sonnet-4-5", prompt="$prompt")
+  root="$(sf plugin_root)"
+  brief="${root}/templates/synthesis-briefs/EXECUTIVE-SUMMARY.brief.md"
+  out="$(sf resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
+  master="$(sf resolve_output_path master_spec MASTER-SPEC.md)"
+  prompt="$(sf synth_brief_assemble "$brief" "$(sf synth_ledger_empty)" "$out" "$master" "")"
+  ```
+  Then dispatch the synthesis agent:
+  ```text
+  Task(subagent_type="scaffold-onboard:synthesis-agent",
+       description="Synthesize EXECUTIVE-SUMMARY",
+       model="claude-sonnet-4-5",
+       prompt="$prompt")
   ```
   After `mode:complete`, copy the synthesized body back into MASTER-SPEC's pinned
   `## Executive Summary` section and render the canonical EXECUTIVE-SUMMARY with
   a checksum from the updated source:
   ```bash
-  if ! sf_render_executive_summary_from_synthesized "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"; then
-    sf_log_warn "Synthesized Executive Summary contained disallowed structure (## heading / --- rule / phase marker) or was empty; falling back to the deterministic renderer from MASTER-SPEC's pinned section."
-    sf_render_executive_summary "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)" ||
-      sf_render_executive_summary_from_state "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"
+  if ! sf render_executive_summary_from_synthesized "$master" "$out" "$(sf project_name)" "$(sf state_read_answer 1.3.1)"; then
+    echo "warn: Synthesized Executive Summary contained disallowed structure (## heading / --- rule / phase marker) or was empty; falling back to the deterministic renderer from MASTER-SPEC's pinned section." >&2
+    sf render_executive_summary "$master" "$out" "$(sf project_name)" "$(sf state_read_answer 1.3.1)" ||
+      sf render_executive_summary_from_state "$master" "$out" "$(sf project_name)" "$(sf state_read_answer 1.3.1)"
   fi
   ```
   The write-back refuses a synthesized body that contains a section delimiter
@@ -330,13 +333,10 @@ spec-derived from MASTER-SPEC and authored HERE — `/scaffold-project` and
   and finally to `sf_render_executive_summary_from_state` for a brand-new spec.
 - **Deterministic (`--fast` / synthesis fallback):**
   ```bash
-  source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
-  source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"
-  source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"
-  master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
-  out="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
-  if ! sf_render_executive_summary "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"; then
-    sf_render_executive_summary_from_state "$master" "$out" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"
+  master="$(sf resolve_output_path master_spec MASTER-SPEC.md)"
+  out="$(sf resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
+  if ! sf render_executive_summary "$master" "$out" "$(sf project_name)" "$(sf state_read_answer 1.3.1)"; then
+    sf render_executive_summary_from_state "$master" "$out" "$(sf project_name)" "$(sf state_read_answer 1.3.1)"
   fi
   ```
   `sf_render_executive_summary` errors loudly if MASTER-SPEC has no `## Executive Summary`
@@ -352,7 +352,7 @@ section, then re-run onboarding to close.
 
 After EXECUTIVE-SUMMARY.md is produced, emit the close summary:
 
-```
+```text
 MASTER-SPEC.md authored at <resolved_master_spec_path>.
 EXECUTIVE-SUMMARY.md authored at <resolved_exec_summary_path>.
 

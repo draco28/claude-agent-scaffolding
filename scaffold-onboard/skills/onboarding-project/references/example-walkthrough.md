@@ -8,7 +8,7 @@ This walkthrough uses `project_class = "CLI tool"` (one of the nine v0.1.0 enum 
 
 ## Setup
 
-```
+```bash
 $ cd ~/work/todo-cli
 $ git init
 $ /onboard
@@ -212,18 +212,19 @@ User: yes. `sf_state_write_answer phase_10.4.include_karpathy yes`.
 
 ## MASTER-SPEC close (critic moment 3)
 
-At Phase 10 close, the skill triggers the **MASTER-SPEC close critic** (MASTER-SPEC is synthesized from phase records + answers at close — see SKILL.md §8; there is no per-phase render step):
+At Phase 10 close, the skill first synthesizes `MASTER-SPEC.md` from phase records + answers (see SKILL.md §8; there is no per-phase render step), then triggers the **MASTER-SPEC close critic** against that freshly authored artifact:
 
-1. Filesystem probe → `v0.2`.
-2. Invocation:
+1. Produce `MASTER-SPEC.md` through the MASTER-SPEC synthesis prompt (sub-agent when available, inline host synthesis otherwise).
+2. Filesystem probe → `v0.2`.
+3. Invocation:
    ```
    Skill(architect-critic:critiquing-spec,
          target=master-spec-full,
          depth=close)
    ```
-3. At `depth=close`, ac v0.2 adversaries are `[claude, codex]` (per ac settlement #6). Codex spawn happens inside architect-critic; scaffold-onboard does not manage it.
-4. architect-critic returns the close-depth summary. Any standing challenges are surfaced as final edit candidates for the MASTER-SPEC.
-5. User accepts (or applies edits and re-authors the record).
+4. At `depth=close`, ac v0.2 adversaries are `[claude, codex]` (per ac settlement #6). Codex spawn happens inside architect-critic; scaffold-onboard does not manage it.
+5. architect-critic returns the close-depth summary. Any standing challenges are surfaced as final edit candidates for the synthesized MASTER-SPEC.
+6. User accepts or applies edits to `MASTER-SPEC.md`.
 
 EXECUTIVE-SUMMARY.md is produced at onboarding close — synthesized from MASTER-SPEC by default (the `EXECUTIVE-SUMMARY.brief.md` synthesis-agent), or deterministically via `sf_render_executive_summary` under `--fast`. Paths are resolved through `sf_resolve_output_path`:
 
@@ -240,7 +241,7 @@ For a single-repo todo-cli with no workspace-init manifest: both resolve to `$(p
 
 Skill emits:
 
-```
+```text
 MASTER-SPEC.md authored at /Users/<you>/work/todo-cli/MASTER-SPEC.md.
 EXECUTIVE-SUMMARY.md authored at /Users/<you>/work/todo-cli/EXECUTIVE-SUMMARY.md.
 

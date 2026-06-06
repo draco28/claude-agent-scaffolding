@@ -84,13 +84,22 @@ sf_state_write_atomic() {
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   # Detect numeric value (integer only)
   if [[ "$value" =~ ^-?[0-9]+$ ]]; then
-    jq --arg k "$key" --argjson v "$value" --arg now "$now" \
-      '.[$k] = $v | .updated_at = $now' "$path" > "$tmp"
+    if jq --arg k "$key" --argjson v "$value" --arg now "$now" \
+      '.[$k] = $v | .updated_at = $now' "$path" > "$tmp"; then
+      mv "$tmp" "$path"
+    else
+      rm -f "$tmp"
+      return 1
+    fi
   else
-    jq --arg k "$key" --arg v "$value" --arg now "$now" \
-      '.[$k] = $v | .updated_at = $now' "$path" > "$tmp"
+    if jq --arg k "$key" --arg v "$value" --arg now "$now" \
+      '.[$k] = $v | .updated_at = $now' "$path" > "$tmp"; then
+      mv "$tmp" "$path"
+    else
+      rm -f "$tmp"
+      return 1
+    fi
   fi
-  mv "$tmp" "$path"
 }
 
 # Write an answer to state.answers["<question_id>"]. value is treated as a
@@ -103,9 +112,13 @@ sf_state_write_answer() {
   tmp="$(mktemp "${path}.XXXXXX")"
   local now
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  jq --arg q "$qid" --arg v "$value" --arg now "$now" \
-    '.answers[$q] = $v | .updated_at = $now' "$path" > "$tmp"
-  mv "$tmp" "$path"
+  if jq --arg q "$qid" --arg v "$value" --arg now "$now" \
+    '.answers[$q] = $v | .updated_at = $now' "$path" > "$tmp"; then
+    mv "$tmp" "$path"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
 }
 
 # Read state.answers["<question_id>"]. Returns "null" if absent.
@@ -143,15 +156,19 @@ sf_state_write_phase_record() {
   local tmp now
   tmp="$(mktemp "${path}.XXXXXX")"
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  jq --arg p "$phase_id" --arg now "$now" --slurpfile rec "$record_file" \
+  if jq --arg p "$phase_id" --arg now "$now" --slurpfile rec "$record_file" \
     '
     .schema_version = 2
     | .phase_records = (.phase_records // {})
     | .phase_records[$p] = ($rec[0] + {authored_at: $now})
     | .touched_this_run = (((.touched_this_run // []) + [$p]) | unique)
     | .updated_at = $now
-    ' "$path" > "$tmp"
-  mv "$tmp" "$path"
+    ' "$path" > "$tmp"; then
+    mv "$tmp" "$path"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
 }
 
 # Read .phase_records["<phase_id>"] as a JSON object. Prints "null" if absent.
@@ -170,8 +187,12 @@ sf_state_run_reset() {
   local tmp now
   tmp="$(mktemp "${path}.XXXXXX")"
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  jq --arg now "$now" '.touched_this_run = [] | .updated_at = $now' "$path" > "$tmp"
-  mv "$tmp" "$path"
+  if jq --arg now "$now" '.touched_this_run = [] | .updated_at = $now' "$path" > "$tmp"; then
+    mv "$tmp" "$path"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
 }
 
 # Print phase IDs (re)authored in the current run, one per line, sorted.

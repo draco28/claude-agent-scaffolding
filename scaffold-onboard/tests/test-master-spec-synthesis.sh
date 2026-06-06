@@ -5,6 +5,7 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/_helpers.sh"
 ROOT="$HERE/.."
+export PATH="$ROOT/bin:$PATH"
 source "$ROOT/lib/state.sh"
 source "$ROOT/lib/synthesis.sh"
 source "$ROOT/lib/routing.sh"
@@ -28,6 +29,18 @@ test_brief_is_tool_agnostic() {
 
 test_brief_exists_and_valid_frontmatter
 test_brief_is_tool_agnostic
+
+test_brief_requires_parser_anchors() {
+  echo "test_brief_requires_parser_anchors:"
+  assert_file_contains "$BRIEF" '# <Project Name> — Master Specification'
+  assert_file_contains "$BRIEF" '\*\*Project class:\*\* <enum>'
+  assert_file_contains "$BRIEF" '\*\*Spec version:\*\* 1\.0'
+  assert_file_contains "$BRIEF" '<!-- master-spec:phase id=1 name=Foundation -->'
+  assert_file_contains "$BRIEF" '<!-- master-spec:phase id=10 name=Operations & Support -->'
+  assert_file_contains "$BRIEF" 'sf_spec_validate'
+}
+
+test_brief_requires_parser_anchors
 
 _seed_min_state() {
   sf_state_init
@@ -172,13 +185,23 @@ test_close_block_reconcile_backs_up_existing
 _fake_synthesize_master_spec() {
   local out="$1" digest="$2"
   {
-    echo "# $(sf_project_name)"
+    echo "# $(sf_project_name) — Master Specification"
+    echo ""
+    echo "**Project class:** CLI tool"
+    echo "**Spec version:** 1.0"
     echo ""
     echo "## Executive Summary"
     echo "Placeholder summary line."
     echo ""
     # Echo each phase heading the digest carried content for.
-    printf '%s\n' "$digest" | awk '/^## Phase /{print}'
+    local i
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+      echo "<!-- master-spec:phase id=$i name=Phase $i -->"
+      echo ""
+      echo "## Phase $i"
+      echo "Synthesized placeholder for phase $i."
+      echo ""
+    done
   } > "$out"
 }
 

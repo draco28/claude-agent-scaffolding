@@ -13,7 +13,7 @@ On every `/onboard` invocation the skill calls `sf state_mode` (the `sf` dispatc
 | Mode value         | Meaning                                                                   | Skill behavior                                                                                                              |
 |--------------------|---------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
 | `new`              | No state file present                                                     | `sf state_init` → Phase 1                                                                                                    |
-| `resume`           | Project-scoped state file present, `status=in_progress`, `project_root` matches current project identity | Re-enter at first unanswered question                                                                                        |
+| `resume`           | Project-scoped state file present, `status=in_progress`, `project_root` matches current project identity | Re-enter at first unanswered question. Do not reset `touched_this_run`; it may be the persisted reconcile hint from an interrupted revision session. |
 | `reonboard`        | Project-scoped state file present, `status=complete`, `project_root` matches current project identity    | Reconcile-revise: acquire lock → `sf state_run_reset` → ask which phases to revisit → re-author chosen phases → close in reconcile mode (preserves untouched sections; backs up prior spec). Use `--fresh` or say `fresh` at the phase-selection prompt for a full wipe-and-restart (requires double confirmation). |
 | `project_mismatch` | Project-scoped state file present, `project_root` ≠ current project identity (or stored `project_root` empty) | Prompt user to return to the original path / set `SF_PROJECT_ROOT`, or start fresh for the current project-scoped state.      |
 
@@ -36,7 +36,7 @@ The mode is computed once at skill entry. Explicit flags override:
 
 Every entry into the skill body acquires the advisory lock via `sf_state_lock_acquire`. The lock file lives next to the project-scoped `onboarding-state.json` as `onboarding.lock`. It records:
 
-```
+```json
 {
   "pid":         <int>,
   "acquired_at": "<ISO8601>",
@@ -104,11 +104,12 @@ User runs `/onboard --resume`. Skill:
 
 1. Acquires lock.
 2. Reads `current_phase=4`.
-3. Iterates `sf_phases_questions_for phases.yaml 4` → `[4.1.1, 4.1.2, 4.2.1, 4.2.2, 4.3.1]`.
-4. Finds first unanswered → `4.2.1` ("Auth model: none / API keys / OAuth / SSO / custom?").
-5. Announces:
+3. Repairs any fully answered earlier phase whose `phase_records[N]` is missing, without clearing `touched_this_run`.
+4. Iterates `sf_phases_questions_for phases.yaml 4` → `[4.1.1, 4.1.2, 4.2.1, 4.2.2, 4.3.1]`.
+5. Finds first unanswered → `4.2.1` ("Auth model: none / API keys / OAuth / SSO / custom?").
+6. Announces:
    > Resuming at Phase 4 (Security & Compliance), question 3 of 5. *3 of 5 questions remaining.* Last answered: 4.1.2 (regulated domain → none).
-6. Asks `4.2.1`.
+7. Asks `4.2.1`.
 
 Phases 1-3 + the first 2 questions of Phase 4 are **never re-asked**. Existing answers are read-only during resume.
 
@@ -132,7 +133,7 @@ The no-flag default is *forgiving*: it does the most likely-intended thing based
 
 State file is `in_progress` at Phase 7, but a prior session crashed after persisting the answers for Phase 3 without writing the Phase 3 record. On `/onboard --resume`, the skill detects the gap:
 
-1. After lock acquisition and `sf state_run_reset`, skill iterates phases 1 through `current_phase - 1` calling `sf_state_read_phase_record <phase_id>` on each.
+1. After lock acquisition, skill does not call `sf state_run_reset` in ordinary resume mode. It iterates phases 1 through `current_phase - 1` calling `sf_state_read_phase_record <phase_id>` on each.
 2. Since MASTER-SPEC is synthesized at close from phase records + answers (not rendered per phase), a missing record for a fully-answered phase is a recoverable gap: the answers are intact, the reasoning was never captured.
 3. If any phase records are missing for already-answered phases, skill emits:
 
@@ -157,6 +158,6 @@ The state file lives at `$(sf project_data_dir)/onboarding-state.json`, where `s
 - One state file and one lock per project identity under the install-level plugin data namespace.
 - Two sessions trying to onboard the same project at the same time: second one gets refused at lock acquisition.
 - Two sessions onboarding *different* projects with the same `CLAUDE_PLUGIN_DATA` value: independent, no contention.
-- Crash mid-write: atomic-mv via `sf_state_write_atomic` means the state file is never half-written. Worst case: the last unflushed answer is lost; resume picks up at that question.
+- Crash mid-write: state helpers write to a temp file and only `mv` it over the state path after `jq` exits successfully, so the state file is never replaced with a partial/empty transform. Worst case: the last unflushed answer is lost; resume picks up at that question.
 
 This is deliberately conservative. We don't try to merge concurrent onboarding sessions; that way lies madness. Lock-then-refuse is the contract.

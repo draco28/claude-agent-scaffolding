@@ -18,10 +18,37 @@ critic outcomes). SYNTHESIZE — do not transcribe. Turn the raw answers and the
 phase records into coherent specification prose in the project's own domain
 vocabulary. Never emit fill-in markers, `TODO:`, or `{{placeholder}}` tokens.
 
-Cover the ten role-scoped phases as top-level `## <Phase Name>` MASTER-SPEC sections (peers of the Executive Summary section): Foundation, Strategy,
-Domain & Data Model, Security & Compliance, Architecture, UX / Surfaces,
-Implementation Approach, DevOps & Environments, Quality/Testing/Eval, Operations
-& Support. Omit a phase section only when its digest has no answers and no record.
+The emitted document MUST satisfy scaffold-onboard's parser contract:
+
+- First line exactly follows `# <Project Name> — Master Specification`.
+- Include `**Project class:** <enum>` near the top, using one of the allowed enum
+  values from the digest: `CLI tool`, `Library or SDK`, `Web app`, `Web service
+  (API only)`, `Mobile app`, `ML or AI system`, `Agent or plugin`, `Data
+  pipeline`, or `Other`.
+- Include `**Spec version:** 1.0`.
+- Include exactly one marker before each phase section:
+  `<!-- master-spec:phase id=N name=<Phase Name> -->`, for N = 1 through 10.
+- Keep the marker comments on their own lines. Downstream `sf_spec_validate`
+  requires these markers before `/validate-master-spec`, `/scaffold-project`,
+  `/scaffold-docs`, and `/plan-roadmap` can consume the file.
+
+Cover the ten role-scoped phases as top-level sections (peers of the Executive
+Summary section) in this order:
+
+1. `<!-- master-spec:phase id=1 name=Foundation -->`
+2. `<!-- master-spec:phase id=2 name=Strategy -->`
+3. `<!-- master-spec:phase id=3 name=Domain & Data Model -->`
+4. `<!-- master-spec:phase id=4 name=Security & Compliance -->`
+5. `<!-- master-spec:phase id=5 name=Architecture -->`
+6. `<!-- master-spec:phase id=6 name=UX / Surfaces -->`
+7. `<!-- master-spec:phase id=7 name=Implementation Approach -->`
+8. `<!-- master-spec:phase id=8 name=DevOps & Environments -->`
+9. `<!-- master-spec:phase id=9 name=Quality/Testing/Eval -->`
+10. `<!-- master-spec:phase id=10 name=Operations & Support -->`
+
+Do not omit phase markers. If a phase has no answers and no record, still emit
+the marker and a short section noting that the phase was intentionally left
+thin or deferred.
 
 You MUST include a `## Executive Summary` section. Emit it as a single real sentence describing the project's purpose (a temporary
 placeholder — a separate step synthesizes the authoritative summary and pins it

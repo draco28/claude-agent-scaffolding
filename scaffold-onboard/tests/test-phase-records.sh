@@ -100,6 +100,25 @@ test_phase_record_rejects_non_object_json() {
 
 test_phase_record_rejects_non_object_json
 
+test_state_write_failure_does_not_replace_state() {
+  echo "test_state_write_failure_does_not_replace_state:"
+  setup_tmp_repo
+  sf_state_init
+  local path before
+  path="$(sf_state_path)"
+  before="$(cat "$path")"
+  # Corrupt the on-disk state so jq cannot parse the input file. The helper must
+  # return non-zero and leave the original bytes in place rather than mv'ing an
+  # empty/partial temp file over the state path.
+  printf '{not json' > "$path"
+  assert_exit_code 1 sf_state_write_answer "1.1.9" "lost?"
+  assert_eq "failed write leaves original state bytes" "{not json" "$(cat "$path")"
+  printf '%s' "$before" > "$path"
+  assert_eq "restored fixture remains valid json" "object" "$(jq -r 'type' "$path")"
+}
+
+test_state_write_failure_does_not_replace_state
+
 test_legacy_state_migrates_on_write() {
   echo "test_legacy_state_migrates_on_write:"
   setup_tmp_repo
