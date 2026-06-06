@@ -36,9 +36,9 @@ Now invoke the skill in-conversation:
 **`Skill(scaffold-onboard:onboarding-project)`** — pass the parsed flags above.
 The skill body handles:
 - `--resume` — continue at `current_phase` (or re-enter §8 if `status=close_pending`)
-- `--regenerate` — reconcile-aware revise: asks which phases to revisit, runs §8 in reconcile mode; does NOT wipe phase records
+- `--regenerate` — full re-walk re-synthesis: backs up MASTER-SPEC.md, re-walks all 10 phases (existing answers as defaults), re-synthesizes the whole spec (first-author); does NOT wipe phase records or answers
 - `--fresh` — full wipe-and-restart: discard all prior answers and phase records, re-author from Phase 1; requires explicit double-confirmation per SKILL §4 re-onboard escape hatch (`--regenerate --fresh` is equivalent to `--fresh` alone)
 - `--force-unlock` — release a stale lock from a crashed prior session; requires user confirmation
-- *(no flag)* — auto-detect: `new` if no state, `resume` if `in_progress`/`close_pending`, reconcile-revise (§4 re-onboard) if `complete`
+- *(no flag)* — auto-detect: `new` if no state, `resume` if `in_progress`/`close_pending`, full re-walk re-synthesis (§4 re-onboard) if `complete`
 
 See SKILL §9 for the full flag matrix and SKILL §4 for the re-onboard protocol.

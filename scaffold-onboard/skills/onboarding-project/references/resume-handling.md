@@ -13,8 +13,8 @@ On every `/onboard` invocation the skill calls `sf state_mode` (the `sf` dispatc
 | Mode value         | Meaning                                                                   | Skill behavior                                                                                                              |
 |--------------------|---------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
 | `new`              | No state file present                                                     | `sf state_init` → Phase 1                                                                                                    |
-| `resume`           | Project-scoped state file present, `status=in_progress` **OR** `status=close_pending`, `project_root` matches current project identity | `in_progress`: re-enter at first unanswered question. `close_pending`: all phases answered, close not yet finished — announce and proceed directly to §7 (Karpathy opt-in) + §8 (MASTER-SPEC close ceremony). Do not reset `touched_this_run` in either case; it may be the persisted reconcile hint from an interrupted revision session. |
-| `reonboard`        | Project-scoped state file present, `status=complete`, `project_root` matches current project identity    | Reconcile-revise: acquire lock → `sf state_run_reset` → ask which phases to revisit → re-author chosen phases → close in reconcile mode (preserves untouched sections; backs up prior spec). Use `--fresh` or say `fresh` at the phase-selection prompt for a full wipe-and-restart (requires double confirmation). |
+| `resume`           | Project-scoped state file present, `status=in_progress` **OR** `status=close_pending`, `project_root` matches current project identity | `in_progress`: re-enter at first unanswered question. `close_pending`: all phases answered, close not yet finished — announce and proceed directly to §7 (Karpathy opt-in) + §8 (MASTER-SPEC close ceremony). |
+| `reonboard`        | Project-scoped state file present, `status=complete`, `project_root` matches current project identity    | Full re-walk re-synthesis: acquire lock → set `current_phase=1` + `status=in_progress` → announce → re-walk all 10 phases (existing answers as defaults) → close in first-author mode (backs up prior MASTER-SPEC.md). Use `--fresh` for a full wipe-and-restart (requires double confirmation). Partial-reconcile (choosing only some phases) is deferred to a follow-up. |
 | `project_mismatch` | Project-scoped state file present, `project_root` ≠ current project identity (or stored `project_root` empty) | Prompt user to return to the original path / set `SF_PROJECT_ROOT`, or start fresh for the current project-scoped state.      |
 
 `project_mismatch` (v0.2.1+) originally prevented stale singleton state from another project from being resumed. In v0.2.3+, state is already project-scoped under `sf project_data_dir`, so this mode is now a same-project safety net for moved workspaces, changed `SF_PROJECT_ROOT`, or malformed legacy state. Stored `project_root` is captured by `sf state_init` from `sf project_identity_root`.
@@ -104,7 +104,7 @@ User runs `/onboard --resume`. Skill:
 
 1. Acquires lock.
 2. Reads `current_phase=4`.
-3. Repairs any fully answered earlier phase whose `phase_records[N]` is missing, without clearing `touched_this_run`.
+3. Repairs any earlier phase whose `phase_records[N]` is missing but has stored answers, by re-authoring the record in conversation.
 4. Iterates `sf phases_questions_for phases.yaml 4` → `[4.1.1, 4.1.2, 4.2.1, 4.2.2, 4.3.1]`.
 5. Finds first unanswered → `4.2.1` ("Auth model: none / API keys / OAuth / SSO / custom?").
 6. Announces:
@@ -119,9 +119,9 @@ Phases 1-3 + the first 2 questions of Phase 4 are **never re-asked**. Existing a
 
 | Invocation              | State file: absent       | State file: `in_progress`      | State file: `close_pending`                     | State file: `complete`                          |
 |-------------------------|--------------------------|--------------------------------|-------------------------------------------------|-------------------------------------------------|
-| `/onboard` (no flag)    | Fresh: Phase 1           | Implicit resume                | Implicit resume → §8 close ceremony             | Reconcile-revise: ask which phases to revisit   |
+| `/onboard` (no flag)    | Fresh: Phase 1           | Implicit resume                | Implicit resume → §8 close ceremony             | Full re-walk re-synthesis (all phases; prior spec backed up) |
 | `/onboard --resume`     | Error: "no state file"   | Explicit resume                | Explicit resume → §8 close ceremony             | Error: "use --regenerate"                       |
-| `/onboard --regenerate` | (treated as fresh)       | Reconcile-revise (run_reset)   | Reconcile-revise (run_reset)                    | Reconcile-revise: backup + run_reset + ask phases |
+| `/onboard --regenerate` | (treated as fresh)       | Full re-walk re-synthesis      | Full re-walk re-synthesis                       | Full re-walk re-synthesis: backup + re-walk all phases (existing answers as defaults) |
 | `/onboard --fresh`      | (treated as fresh)       | Confirm → full wipe + Phase 1  | Confirm → full wipe + Phase 1                   | Double-confirm → full wipe + Phase 1            |
 | `/onboard --force-unlock` | Error: "no lock to release" | Confirm → release lock; user re-runs with intended flag | Same as in_progress | Same as in_progress |
 

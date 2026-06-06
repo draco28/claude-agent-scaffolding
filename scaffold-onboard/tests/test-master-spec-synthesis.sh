@@ -185,12 +185,13 @@ test_close_block_reconcile_backs_up_existing() {
   printf '# todo-cli\n\n## Phase 1\nold\n' > "$TMP_DIR/repo/MASTER-SPEC.md"
   local block; block="$(_extract_bash_after "$SKILL" "Produce MASTER-SPEC.md")"
   bash -c "set -euo pipefail; $block; echo \"\$mode\" > $TMP_DIR/mode.out"
-  assert_eq "reconcile mode detected" "reconcile" "$(cat "$TMP_DIR/mode.out")"
-  # A .bak-* copy must now exist next to MASTER-SPEC.md.
+  # §8 now ALWAYS uses first_author mode (re-onboard does full re-synthesis).
+  assert_eq "first_author mode always (even when prior spec exists)" "first_author" "$(cat "$TMP_DIR/mode.out")"
+  # A .bak-* backup must still be created to preserve the prior spec.
   if ls "$TMP_DIR/repo/MASTER-SPEC.md.bak-"* >/dev/null 2>&1; then
-    PASS=$((PASS+1)); echo "  ✓ existing spec backed up before reconcile"
+    PASS=$((PASS+1)); echo "  ✓ existing spec backed up (prior to first-author re-synthesis)"
   else
-    FAIL=$((FAIL+1)); echo "  ✗ no backup created"
+    FAIL=$((FAIL+1)); echo "  ✗ no backup created — prior spec would be lost on re-synthesis"
   fi
 }
 

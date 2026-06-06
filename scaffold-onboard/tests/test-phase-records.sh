@@ -203,10 +203,11 @@ test_synthesis_digest_includes_answers_and_records() {
   setup_tmp_repo
   sf_state_init
   sf_state_write_answer "1.1.1" "todo-cli — a fast task manager"
-  # project_class = "CLI tool" activates the 6A branch, not the 6B branch.
+  # project_class = "CLI tool"
   sf_state_write_answer "1.3.1" "CLI tool"
   sf_state_write_answer "6A.1.1" "CLI"
-  # Stale 6B answer written as if from a prior onboard that used a different class.
+  # Phase 6 digest uses phase-prefix selection (both 6A and 6B included regardless
+  # of gate — gate-filtering is deferred to the reconcile follow-up).
   sf_state_write_answer "6B.1.1" "API docs"
   local rec="$TMP_DIR/r1.json"
   printf '{"decisions":"single JSON file","rationale":"no DB requested"}' > "$rec"
@@ -217,12 +218,12 @@ test_synthesis_digest_includes_answers_and_records() {
   assert_file_contains "$digest_file" "todo-cli — a fast task manager"
   assert_file_contains "$digest_file" "single JSON file"
   assert_file_contains "$digest_file" "no DB requested"
-  # 6A.1.1 is in the active branch for "CLI tool" — must appear.
+  # 6A.1.1 must appear (it's a phase-6 answer).
   assert_file_contains "$digest_file" "6A\.1\.1"
   assert_file_contains "$digest_file" "CLI"
-  # 6B.1.1 is in the INACTIVE branch for "CLI tool" — must NOT appear in digest.
-  assert_file_not_contains "$digest_file" "6B\.1\.1"
-  assert_file_not_contains "$digest_file" "API docs"
+  # 6B.1.1 is also included — digest is phase-prefix, not gate-filtered.
+  assert_file_contains "$digest_file" "6B\.1\.1"
+  assert_file_contains "$digest_file" "API docs"
 }
 
 test_synthesis_digest_includes_answers_and_records
@@ -270,38 +271,13 @@ test_synthesis_digest_errors_without_state() {
 
 test_synthesis_digest_errors_without_state
 
-# Fix 5: sf_state_synthesis_digest gate-filter test.
-# Seeds a project_class that activates the 6A branch (CLI tool), writes both an
-# active-branch answer (6A.1.1) and a stale inactive-branch answer (6B.1.1).
-# Asserts the digest INCLUDES the active answer and EXCLUDES the inactive one.
-# Phase 6 in phases.yaml: 6A gate = "project_class in {Web app, Mobile app, CLI tool, ML or AI system, Agent or plugin, Other}";
-#                          6B gate = "project_class in {Library or SDK, Data pipeline, Web service (API only)}".
-test_synthesis_digest_filters_inactive_branch_answers() {
-  echo "test_synthesis_digest_filters_inactive_branch_answers:"
-  setup_tmp_repo
-  sf_state_init
-  # "CLI tool" activates 6A (gate passes), not 6B (gate fails).
-  sf_state_write_answer "1.3.1" "CLI tool"
-  # Active 6A branch answer — should appear in digest.
-  sf_state_write_answer "6A.1.1" "CLI surfaces only"
-  sf_state_write_answer "6A.1.2" "user types todo add, sees list"
-  # Stale 6B branch answer (from e.g. a prior onboard where class was Library) — must NOT appear.
-  sf_state_write_answer "6B.1.1" "stale-api-docs-answer"
-  sf_state_write_answer "6B.1.2" "stale-error-style-answer"
-  local digest_file="$TMP_DIR/digest-gate-filter.md"
-  sf_state_synthesis_digest > "$digest_file"
-  # Active branch answers must be present.
-  assert_file_contains "$digest_file" "6A\.1\.1"
-  assert_file_contains "$digest_file" "CLI surfaces only"
-  assert_file_contains "$digest_file" "6A\.1\.2"
-  # Inactive branch answers must be excluded.
-  assert_file_not_contains "$digest_file" "6B\.1\.1"
-  assert_file_not_contains "$digest_file" "stale-api-docs-answer"
-  assert_file_not_contains "$digest_file" "6B\.1\.2"
-  assert_file_not_contains "$digest_file" "stale-error-style-answer"
-}
-
-test_synthesis_digest_filters_inactive_branch_answers
+# NOTE: test_synthesis_digest_filters_inactive_branch_answers was removed.
+# That test asserted gate-filtered digest (6B excluded for CLI tool project_class).
+# The sf_state_synthesis_digest helper was reverted to phase-prefix selection
+# (no gate-filtering) to fix the chicken-and-egg that gated out Phase 9's LLM
+# opt-in question. Gate-aware digest filtering is deferred to the reconcile
+# follow-up. The active-branch inclusion is still tested via
+# test_synthesis_digest_includes_answers_and_records above.
 
 test_synthesis_digest_collapses_multiline_answer() {
   echo "test_synthesis_digest_collapses_multiline_answer:"
@@ -321,5 +297,35 @@ test_synthesis_digest_collapses_multiline_answer() {
 }
 
 test_synthesis_digest_collapses_multiline_answer
+
+# Regression guard: sf_phases_questions_for must be NON-gating (emits ALL question
+# IDs for a phase, including those behind a gate). A prior attempt to gate-filter
+# inside this helper caused Phase 9's LLM opt-in question (9.3.1 / 9.3.2), which
+# lives under a gate of "uses_llm == true", to be gated OUT at the start of Phase 9
+# (before the user had a chance to answer it) — a chicken-and-egg that silently
+# dropped the LLM questions for every project. Gate-skipping is the conducting
+# agent's job in the per-phase loop (SKILL §3 step 2), not this helper's.
+test_phases_questions_for_phase9_includes_llm_questions() {
+  echo "test_phases_questions_for_phase9_includes_llm_questions:"
+  setup_tmp_repo
+  sf_state_init
+  local pyaml="$HERE/../templates/onboarding-questions/phases.yaml"
+  local ids
+  ids="$(sf_phases_questions_for "$pyaml" 9)"
+  # 9.3.1 and 9.3.2 are the LLM opt-in questions; they must NOT be gated out by
+  # the helper (uses_llm is unanswered = null at Phase 9 start).
+  if echo "$ids" | grep -q "9.3.1"; then
+    PASS=$((PASS+1)); echo "  ✓ sf_phases_questions_for 9 includes 9.3.1 (LLM opt-in not gated out)"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ sf_phases_questions_for 9 MISSING 9.3.1 — LLM opt-in gate regression"
+  fi
+  if echo "$ids" | grep -q "9.3.2"; then
+    PASS=$((PASS+1)); echo "  ✓ sf_phases_questions_for 9 includes 9.3.2"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ sf_phases_questions_for 9 MISSING 9.3.2 — LLM follow-up gated out"
+  fi
+}
+
+test_phases_questions_for_phase9_includes_llm_questions
 
 report_results
