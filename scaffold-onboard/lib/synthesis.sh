@@ -203,9 +203,10 @@ EOF
 # Assemble the MASTER-SPEC synthesis prompt. Unlike sf_synth_brief_assemble
 # (which synthesizes a downstream artifact FROM MASTER-SPEC), this synthesizes
 # MASTER-SPEC itself FROM the onboarding discussion digest.
-# Args: <brief> <digest_text> <out_path> <mode> <touched_csv> <existing_spec_path>
-#   mode = first_author | reconcile
-#   touched_csv / existing_spec_path are used only in reconcile mode.
+# Args: <brief> <digest_text> <out_path> <mode> <touched> <existing_spec_path>
+#   mode    = first_author | reconcile
+#   touched = space-separated list of phase IDs touched this run (reconcile mode only)
+#   existing_spec_path — used only in reconcile mode.
 sf_synth_master_spec_prompt() {
   local brief="$1" digest="$2" out_path="$3" mode="$4" touched="$5" existing="$6"
   local body
@@ -222,20 +223,23 @@ Reproduce every other section verbatim, preserving human edits."
 No existing MASTER-SPEC. Author the whole document fresh."
   fi
 
-  cat <<EOF
-You are synthesizing the project's MASTER-SPEC.md from the onboarding discussion
-digest below.
-
-Write the artifact to: $out_path
-
-$mode_block
-
---- BEGIN DISCUSSION DIGEST ---
-$digest
---- END DISCUSSION DIGEST ---
-
-$body
-EOF
+  # IMPORTANT: emit via printf with every dynamic value as a DATA argument.
+  # Do NOT use an unquoted heredoc here — $digest carries verbatim user-authored
+  # answer text, and an unquoted heredoc would run $(...) / backticks it contains
+  # (command injection) or silently expand $VARs in it.
+  printf '%s\n' \
+    "You are synthesizing the project's MASTER-SPEC.md from the onboarding discussion" \
+    "digest below." \
+    "" \
+    "Write the artifact to: $out_path" \
+    "" \
+    "$mode_block" \
+    "" \
+    "--- BEGIN DISCUSSION DIGEST ---" \
+    "$digest" \
+    "--- END DISCUSSION DIGEST ---" \
+    "" \
+    "$body"
 }
 
 sf_synth_coverage_report() {
