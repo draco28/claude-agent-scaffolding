@@ -2,7 +2,7 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
-## [0.6.0] — 2026-06-07
+## [0.6.0] — 2026-06-06
 
 SS-3 — agent-synthesized, resumable onboarding (closes #51). MASTER-SPEC is now synthesized by a sub-agent (or inline in main context) at Phase-10 close, replacing mechanical `{{placeholder}}` transcription. Onboarding state schema v2 captures per-phase records (decisions/rationale/rejected-alternatives/critic-outcomes) alongside verbatim answers, making sessions resumable across interruptions. Enhancement re-runs (`--regenerate`) do a full re-walk + first-author re-synthesis (all phases re-walked with existing answers as defaults; whole spec re-synthesized; prior spec backed up). **scaffold-onboard only**; scaffold-dev untouched. (True *partial* reconcile — touched-phase-only refresh preserving human edits + gate-aware digest — was descoped to follow-up #58 during review.)
 

@@ -66,7 +66,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 **Expected behavior:**
 - Skill detects existing state file.
 - Skill does NOT re-ask Phase 1-3 questions or overwrite existing answers.
-- Skill does NOT call `sf state_run_reset`; any existing `touched_this_run` values from an interrupted revision remain available for reconcile.
+- Skill does NOT call `sf state_run_reset`; any existing `touched_this_run` values from an interrupted session are preserved (the tracker is retained dormant for the deferred #58 reconcile work).
 - Skill restates current position (states current phase and approximate progress).
 - Skill asks the next unanswered question (phase 4, question 3).
 - State file is not reset; `current_phase` value remains 4.
@@ -89,18 +89,17 @@ Each scenario is executed inside a single Claude Code subscription session by an
 **Trigger:** target subagent user message: `/onboard --regenerate`
 
 **Expected behavior:**
-- Skill treats `--regenerate` as reconcile-aware revise, not destructive reset.
-- Skill calls `sf state_run_reset` after acquiring the lock, preserving prior `answers` and `phase_records`.
-- Skill asks which phase(s) to revisit. The orchestrator injects `Phase 3` as the user's follow-up.
-- Skill re-enters only the selected phase(s), re-authors their phase record, and leaves unselected phase records intact.
-- At close, skill backs up existing `MASTER-SPEC.md` and runs §8 in reconcile mode.
+- Skill treats `--regenerate` as a **full re-walk + first-author re-synthesis**, not a destructive wipe (true partial reconcile is deferred to #58).
+- Skill acquires the lock, then sets `current_phase=1` and `status=in_progress` — it does NOT call `sf state_init`, so prior `answers` and `phase_records` are kept as editable defaults (a wipe requires `--fresh` + `confirm discard`).
+- Skill announces it will re-walk all phases with existing answers shown as defaults, then re-enters at Phase 1 and proceeds through the normal per-phase loop.
+- At close, skill backs up existing `MASTER-SPEC.md` to `MASTER-SPEC.md.bak-*` and runs §8 in **first_author** mode (re-synthesizes the whole spec from the re-walked state).
 
 **Assertion (judge subagent verifies):**
-- Target subagent's first assistant message asks which phase(s) to revisit and does not ask for destructive reset confirmation.
-- A backup file matching `MASTER-SPEC.md.bak-*` exists before reconcile write-back.
-- `onboarding-state.json` keeps prior `answers` and `phase_records` except for the revised phase record.
-- `touched_this_run` lists only the revised phase(s).
-- No Phase 1 restart occurs unless the user explicitly requests `fresh` and confirms `confirm discard`.
+- Target subagent's first assistant message announces a full re-walk re-synthesis (existing answers shown as defaults) and does NOT ask "which phases to revisit" (partial reconcile is deferred) nor demand a destructive-reset confirmation (that is `--fresh`).
+- A backup file matching `MASTER-SPEC.md.bak-*` exists before the re-synthesized `MASTER-SPEC.md` is written.
+- `onboarding-state.json` retains prior `answers` and `phase_records` as the starting point (NOT wiped — wiping is the `--fresh` path).
+- `current_phase` is reset to 1 and `status` is `in_progress` (re-walk in flight); the skill re-enters at Phase 1.
+- No `sf state_init` / discard occurs unless the user explicitly runs `--fresh` and confirms `confirm discard`.
 
 ---
 
