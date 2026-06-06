@@ -116,4 +116,54 @@ test_no_deterministic_master_spec_renderer() {
 
 test_no_deterministic_master_spec_renderer
 
+SKILL="$ROOT/skills/onboarding-project/SKILL.md"
+
+# Extract the first ```bash block that follows a heading/line containing <marker>.
+_extract_bash_after() {
+  local file="$1" marker="$2"
+  awk -v m="$marker" '
+    index($0, m) { armed=1 }
+    armed && /^```bash/ { inb=1; next }
+    inb && /^```/ { exit }
+    inb { print }
+  ' "$file"
+}
+
+test_close_master_spec_block_executes_clean() {
+  echo "test_close_master_spec_block_executes_clean:"
+  setup_tmp_repo
+  _seed_min_state
+  export CLAUDE_PLUGIN_ROOT="$ROOT"
+  local block; block="$(_extract_bash_after "$SKILL" "Produce MASTER-SPEC.md")"
+  [[ -n "$block" ]] || { FAIL=$((FAIL+1)); echo "  ✗ no MASTER-SPEC bash block found"; return; }
+  # Execute the extracted setup block under strict mode; it must assemble the
+  # prompt without abort. (The Task() dispatch line is prose, not bash.)
+  if bash -c "set -euo pipefail; $block; [[ -n \"\$prompt\" ]] && [[ -n \"\$master\" ]]"; then
+    PASS=$((PASS+1)); echo "  ✓ first-author close block runs clean + assembles prompt"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ close block aborted under set -euo pipefail"
+  fi
+}
+
+test_close_block_reconcile_backs_up_existing() {
+  echo "test_close_block_reconcile_backs_up_existing:"
+  setup_tmp_repo
+  _seed_min_state
+  export CLAUDE_PLUGIN_ROOT="$ROOT"
+  # Pre-existing MASTER-SPEC at the resolved (single-repo → cwd) path.
+  printf '# todo-cli\n\n## Phase 1\nold\n' > "$TMP_DIR/repo/MASTER-SPEC.md"
+  local block; block="$(_extract_bash_after "$SKILL" "Produce MASTER-SPEC.md")"
+  bash -c "set -euo pipefail; $block; echo \"\$mode\" > $TMP_DIR/mode.out"
+  assert_eq "reconcile mode detected" "reconcile" "$(cat "$TMP_DIR/mode.out")"
+  # A .bak-* copy must now exist next to MASTER-SPEC.md.
+  if ls "$TMP_DIR/repo/MASTER-SPEC.md.bak-"* >/dev/null 2>&1; then
+    PASS=$((PASS+1)); echo "  ✓ existing spec backed up before reconcile"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ no backup created"
+  fi
+}
+
+test_close_master_spec_block_executes_clean
+test_close_block_reconcile_backs_up_existing
+
 report_results
