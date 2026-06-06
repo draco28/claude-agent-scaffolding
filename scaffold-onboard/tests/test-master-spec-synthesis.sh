@@ -53,10 +53,11 @@ test_prompt_first_author_contains_digest_and_mode() {
   echo "test_prompt_first_author_contains_digest_and_mode:"
   setup_tmp_repo
   _seed_min_state
-  local digest out prompt
-  digest="$(sf_state_synthesis_digest)"
+  local digest_file out prompt
+  digest_file="$TMP_DIR/digest.txt"
+  sf_state_synthesis_digest > "$digest_file"
   out="$TMP_DIR/repo/MASTER-SPEC.md"
-  prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$digest" "$out" first_author "" "")"
+  prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" first_author "" "")"
   printf '%s' "$prompt" | grep -q "todo-cli — a fast task manager" || { FAIL=$((FAIL+1)); echo "  ✗ digest not embedded"; return 1; }
   printf '%s' "$prompt" | grep -qi "MODE: first-author" || { FAIL=$((FAIL+1)); echo "  ✗ mode missing"; return 1; }
   printf '%s' "$prompt" | grep -q "$out" || { FAIL=$((FAIL+1)); echo "  ✗ out path missing"; return 1; }
@@ -69,9 +70,10 @@ test_prompt_reconcile_lists_touched_and_existing() {
   _seed_min_state
   local existing="$TMP_DIR/repo/MASTER-SPEC.md"
   printf '# todo-cli\n\n## Phase 1\nold content\n' > "$existing"
-  local digest prompt
-  digest="$(sf_state_synthesis_digest)"
-  prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$digest" "$existing" reconcile "1 5" "$existing")"
+  local digest_file prompt
+  digest_file="$TMP_DIR/digest.txt"
+  sf_state_synthesis_digest > "$digest_file"
+  prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$existing" reconcile "1 5" "$existing")"
   printf '%s' "$prompt" | grep -qi "MODE: reconcile" || { FAIL=$((FAIL+1)); echo "  ✗ reconcile mode missing"; return 1; }
   printf '%s' "$prompt" | grep -q "touched this run: 1 5" || { FAIL=$((FAIL+1)); echo "  ✗ touched list missing"; return 1; }
   printf '%s' "$prompt" | grep -q "$existing" || { FAIL=$((FAIL+1)); echo "  ✗ existing spec path missing"; return 1; }
@@ -87,10 +89,11 @@ test_prompt_does_not_expand_user_content() {
   sf_state_init
   # A hostile answer containing a command substitution + a backtick command.
   sf_state_write_answer "1.1.2" 'danger $(echo PWNED) and `echo ALSO`'
-  local digest out prompt
-  digest="$(sf_state_synthesis_digest)"
+  local digest_file out prompt
+  digest_file="$TMP_DIR/digest.txt"
+  sf_state_synthesis_digest > "$digest_file"
   out="$TMP_DIR/repo/MASTER-SPEC.md"
-  prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$digest" "$out" first_author "" "")"
+  prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" first_author "" "")"
   # The literal text must survive verbatim (NOT executed/expanded).
   if printf '%s' "$prompt" | grep -qF 'danger $(echo PWNED) and `echo ALSO`'; then
     PASS=$((PASS+1)); echo "  ✓ user content passed through literally (no expansion)"
@@ -281,7 +284,10 @@ test_reconcile_preserves_untouched_human_edit() {
   assert_eq "only phase 1 touched" "1" "$touched"
   # The reconcile prompt must carry the touched list AND point the agent at the
   # existing spec (which still holds the human edit). Assert the contract inputs.
-  local prompt; prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$(sf_state_synthesis_digest)" "$master" reconcile "$touched" "$master")"
+  local digest_file prompt
+  digest_file="$TMP_DIR/digest-reconcile.txt"
+  sf_state_synthesis_digest > "$digest_file"
+  prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$master" reconcile "$touched" "$master")"
   printf '%s' "$prompt" | grep -q "touched this run: 1" || { FAIL=$((FAIL+1)); echo "  ✗ touched list not in prompt"; return; }
   grep -q "HAND-EDITED OPS NOTES" "$master" || { FAIL=$((FAIL+1)); echo "  ✗ human edit already lost before synthesis"; return; }
   PASS=$((PASS+1)); echo "  ✓ reconcile feeds touched=1 + existing spec (human edit intact pre-synthesis)"
@@ -289,5 +295,31 @@ test_reconcile_preserves_untouched_human_edit() {
 
 test_resumability_uses_persisted_records_across_sessions
 test_reconcile_preserves_untouched_human_edit
+
+test_prompt_reads_digest_from_file() {
+  echo "test_prompt_reads_digest_from_file:"
+  setup_tmp_repo
+  sf_state_init
+  # Write a known marker into a digest file (bypassing state machinery entirely).
+  local digest_file out prompt
+  digest_file="$TMP_DIR/digest-marker.txt"
+  printf 'UNIQUE_MARKER_XYZ_12345\nsome other digest content\n' > "$digest_file"
+  out="$TMP_DIR/repo/MASTER-SPEC.md"
+  prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" first_author "" "")"
+  # The marker written to the file must appear verbatim in the assembled prompt.
+  if printf '%s' "$prompt" | grep -qF 'UNIQUE_MARKER_XYZ_12345'; then
+    PASS=$((PASS+1)); echo "  ✓ digest content read from file and embedded in prompt"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ digest file content not found in assembled prompt"
+  fi
+  # Missing digest file must return exit code 1.
+  if sf_synth_master_spec_prompt "$BRIEF" "/nonexistent/digest" "$out" first_author "" "" >/dev/null 2>&1; then
+    FAIL=$((FAIL+1)); echo "  ✗ missing digest file did not cause rc 1"
+  else
+    PASS=$((PASS+1)); echo "  ✓ missing digest file returns rc 1"
+  fi
+}
+
+test_prompt_reads_digest_from_file
 
 report_results

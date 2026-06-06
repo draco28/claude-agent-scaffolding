@@ -203,13 +203,25 @@ EOF
 # Assemble the MASTER-SPEC synthesis prompt. Unlike sf_synth_brief_assemble
 # (which synthesizes a downstream artifact FROM MASTER-SPEC), this synthesizes
 # MASTER-SPEC itself FROM the onboarding discussion digest.
-# Args: <brief> <digest_text> <out_path> <mode> <touched> <existing_spec_path>
-#   mode    = first_author | reconcile
-#   touched = space-separated list of phase IDs touched this run (reconcile mode only)
+# Args: <brief> <digest_file> <out_path> <mode> <touched> <existing_spec_path>
+#   digest_file — path to a FILE containing the digest text. Passed as a file
+#                 (not a string) to avoid ARG_MAX failures when the digest is
+#                 large (verbose answers + many phase records can exceed the OS
+#                 per-argument / ARG_MAX limit on the sf dispatcher exec call).
+#   mode        = first_author | reconcile
+#   touched     = space-separated list of phase IDs touched this run (reconcile mode only)
 #   existing_spec_path — used only in reconcile mode.
 sf_synth_master_spec_prompt() {
-  local brief="$1" digest="$2" out_path="$3" mode="$4" touched="$5" existing="$6"
-  local body
+  local brief="$1" digest_file="$2" out_path="$3" mode="$4" touched="$5" existing="$6"
+
+  # Guard: digest file must exist and be readable.
+  if [[ ! -f "$digest_file" || ! -r "$digest_file" ]]; then
+    sf_log_error "sf_synth_master_spec_prompt: digest file not found or not readable: $digest_file"
+    return 1
+  fi
+
+  local digest body
+  digest="$(cat "$digest_file")"
   body="$(awk 'NR==1 && $0=="---"{f=1;next} f && $0=="---"{f=0;skip=1;next} skip{print}' "$brief")"
 
   local mode_block
@@ -227,6 +239,9 @@ No existing MASTER-SPEC. Author the whole document fresh."
   # Do NOT use an unquoted heredoc here — $digest carries verbatim user-authored
   # answer text, and an unquoted heredoc would run $(...) / backticks it contains
   # (command injection) or silently expand $VARs in it.
+  # Reading the digest from a file via $(cat "$digest_file") does NOT re-expand
+  # command substitutions or backticks in the content — the shell only evaluates
+  # them once at the $(cat ...) assignment site, and the resulting string is inert.
   printf '%s\n' \
     "You are synthesizing the project's MASTER-SPEC.md from the onboarding discussion" \
     "digest below." \
