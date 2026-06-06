@@ -165,7 +165,7 @@ At each critic moment, after the phase record is authored and the recap is surfa
    - `depth=premise-audit` (moments 1 + 2) or `depth=close` (moment 3).
    - `phase_id=<N>` so the critic knows which section of MASTER-SPEC.md to focus on.
 4. architect-critic runs its own challenge-resolution loop internally (sequential rebuttal, scoring, auto-promotion checks). It returns control via the structured summary block described in architect-critic's SPEC §10 ("Audit complete for ...").
-5. When control returns, present any challenges that stood to the user as edit candidates for the recap. They may revise the recap; when they do, re-author the phase record to capture the revision and re-call `sf state_write_phase_record` to persist it. When a critic challenge stands or the user edits/appends to the recap, fold that into the phase record (re-author it and re-call `sf state_write_phase_record`), so a later session inherits the resolved decision — never leave it only in conversation.
+5. When control returns, present any challenges that stood to the user as edit candidates for the recap. When a critic challenge stands or the user revises or appends to the recap, re-author the phase record and re-call `sf state_write_phase_record` to persist it, so a later session inherits the resolved decision — never leave it only in conversation.
 
 ### 5.3 Absent / warn-and-skip
 
@@ -326,7 +326,7 @@ Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly.
 
 This skill never bash-orchestrates the judgment work (which question to ask next, how to recap a phase, whether to escalate a challenge). It calls helpers for I/O and templating only. The named helpers:
 
-**State (lib/state.sh + lib/_helpers.sh):** `sf_project_identity_root`, `sf_project_data_dir`, `sf_state_init`, `sf_state_mode`, `sf_state_path`, `sf_state_read_field`, `sf_state_read_answer`, `sf_state_write_answer`, `sf_state_write_atomic`, `sf_state_advance_phase`, `sf_state_lock_acquire`, `sf_state_lock_release`, `sf_state_gate_passes`, `sf_state_write_phase_record`, `sf_state_read_phase_record`, `sf_state_run_reset`, `sf_state_phases_touched_this_run`, `sf_state_synthesis_digest`.
+**State (lib/state.sh + lib/_helpers.sh):** `sf_project_identity_root`, `sf_project_data_dir`, `sf_state_init`, `sf_state_mode`, `sf_state_path`, `sf_state_read_field`, `sf_state_stored_project_root`, `sf_state_read_answer`, `sf_state_write_answer`, `sf_state_write_atomic`, `sf_state_advance_phase`, `sf_state_lock_acquire`, `sf_state_lock_release`, `sf_state_gate_passes`, `sf_state_write_phase_record`, `sf_state_read_phase_record`, `sf_state_run_reset`, `sf_state_phases_touched_this_run`, `sf_state_synthesis_digest`.
 
 **Phases (lib/state.sh / parser.sh):** `sf_phases_questions_for`, `sf_phases_question_text`, `sf_phases_question_gate`.
 

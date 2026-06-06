@@ -96,7 +96,7 @@ Entities: `Todo`, `Tag`, `TodoTag` (join). Relationships: many-to-many Todo↔Ta
 
 **5.3.1, 5.3.2 (optional):** scale = ~10k todos per user, latency = sub-100ms for `ls` and `search`.
 
-After the last 5.x answer is persisted, skill renders the Phase 5 section and triggers the **Phase 5 critic moment** (per SPEC §12.1 row 1).
+After the last 5.x answer is persisted, skill authors the Phase 5 record and triggers the **Phase 5 critic moment** (per SPEC §12.1 row 1).
 
 ### Phase 5 critic invocation
 
@@ -208,7 +208,7 @@ At Phase 10 close, the skill triggers the **MASTER-SPEC close critic** (MASTER-S
    ```
 3. At `depth=close`, ac v0.2 adversaries are `[claude, codex]` (per ac settlement #6). Codex spawn happens inside architect-critic; scaffold-onboard does not manage it.
 4. architect-critic returns the close-depth summary. Any standing challenges are surfaced as final edit candidates for the MASTER-SPEC.
-5. User accepts (or applies edits and re-renders).
+5. User accepts (or applies edits and re-authors the record).
 
 EXECUTIVE-SUMMARY.md is produced at onboarding close — synthesized from MASTER-SPEC by default (the `EXECUTIVE-SUMMARY.brief.md` synthesis-agent), or deterministically via `sf_render_executive_summary` under `--fast`. Paths are resolved through `sf_resolve_output_path`:
 
