@@ -155,6 +155,8 @@ test_synthesis_digest_includes_answers_and_records() {
   sf_state_init
   sf_state_write_answer "1.1.1" "todo-cli — a fast task manager"
   sf_state_write_answer "1.3.1" "CLI tool"
+  sf_state_write_answer "6A.1.1" "CLI"
+  sf_state_write_answer "6B.1.1" "API docs"
   local rec="$TMP_DIR/r1.json"
   printf '{"decisions":"single JSON file","rationale":"no DB requested"}' > "$rec"
   sf_state_write_phase_record 1 "$rec"
@@ -164,9 +166,47 @@ test_synthesis_digest_includes_answers_and_records() {
   assert_file_contains "$digest_file" "todo-cli — a fast task manager"
   assert_file_contains "$digest_file" "single JSON file"
   assert_file_contains "$digest_file" "no DB requested"
+  assert_file_contains "$digest_file" "6A\.1\.1"
+  assert_file_contains "$digest_file" "CLI"
+  assert_file_contains "$digest_file" "6B\.1\.1"
+  assert_file_contains "$digest_file" "API docs"
 }
 
 test_synthesis_digest_includes_answers_and_records
+
+test_phase_artifact_includes_answers_and_record() {
+  echo "test_phase_artifact_includes_answers_and_record:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_answer "5.1.1" "sqlite with FTS5"
+  local rec="$TMP_DIR/r5.json"
+  printf '{"decisions":"sqlite","critic_outcomes":["confirmed FTS5"]}' > "$rec"
+  sf_state_write_phase_record 5 "$rec"
+  local artifact="$TMP_DIR/phase-5.md"
+  sf_state_write_phase_artifact 5 "$artifact"
+  assert_file_contains "$artifact" "Phase 5 recap artifact"
+  assert_file_contains "$artifact" "5\.1\.1"
+  assert_file_contains "$artifact" "sqlite with FTS5"
+  assert_file_contains "$artifact" "confirmed FTS5"
+}
+
+test_phase_artifact_includes_answers_and_record
+
+test_phase_artifact_includes_phase6_gated_answers() {
+  echo "test_phase_artifact_includes_phase6_gated_answers:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_answer "6A.1.1" "CLI"
+  sf_state_write_answer "6B.1.2" "OpenAPI"
+  local artifact="$TMP_DIR/phase-6.md"
+  sf_state_write_phase_artifact 6 "$artifact"
+  assert_file_contains "$artifact" "6A\.1\.1"
+  assert_file_contains "$artifact" "CLI"
+  assert_file_contains "$artifact" "6B\.1\.2"
+  assert_file_contains "$artifact" "OpenAPI"
+}
+
+test_phase_artifact_includes_phase6_gated_answers
 
 test_synthesis_digest_errors_without_state() {
   echo "test_synthesis_digest_errors_without_state:"

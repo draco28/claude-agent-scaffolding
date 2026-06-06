@@ -10,6 +10,7 @@ source "$ROOT/lib/state.sh"
 source "$ROOT/lib/synthesis.sh"
 source "$ROOT/lib/routing.sh"
 BRIEF="$ROOT/templates/synthesis-briefs/MASTER-SPEC.brief.md"
+AGENT="$ROOT/agents/synthesis-agent.md"
 
 test_brief_exists_and_valid_frontmatter() {
   echo "test_brief_exists_and_valid_frontmatter:"
@@ -129,6 +130,20 @@ test_no_deterministic_master_spec_renderer() {
 
 test_no_deterministic_master_spec_renderer
 
+test_synthesis_agent_supports_master_spec_first_author() {
+  echo "test_synthesis_agent_supports_master_spec_first_author:"
+  assert_file_contains "$AGENT" 'MASTER-SPEC\.md` in first-author mode'
+  assert_file_contains "$AGENT" 'onboarding discussion digest'
+  assert_file_contains "$AGENT" 'MASTER-SPEC\.md` in reconcile mode'
+  if grep -qE '^- Read MASTER-SPEC\.md in full before writing' "$AGENT"; then
+    FAIL=$((FAIL+1)); echo "  ✗ synthesis-agent still unconditionally requires pre-existing MASTER-SPEC"
+  else
+    PASS=$((PASS+1)); echo "  ✓ synthesis-agent no longer requires MASTER-SPEC before first-author synthesis"
+  fi
+}
+
+test_synthesis_agent_supports_master_spec_first_author
+
 SKILL="$ROOT/skills/onboarding-project/SKILL.md"
 
 # Extract the first ```bash block that follows a heading/line containing <marker>.
@@ -178,6 +193,28 @@ test_close_block_reconcile_backs_up_existing() {
 
 test_close_master_spec_block_executes_clean
 test_close_block_reconcile_backs_up_existing
+
+test_skill_validates_synthesized_master_spec_before_critic() {
+  echo "test_skill_validates_synthesized_master_spec_before_critic:"
+  assert_file_contains "$SKILL" 'sf spec_validate "\$master"'
+  local validate_line critic_line
+  validate_line="$(awk '/sf spec_validate "\$master"/ { print NR; exit }' "$SKILL")"
+  critic_line="$(awk '/target=master-spec-full.*artifact_path="\$master"/ { print NR; exit }' "$SKILL")"
+  if [[ -n "$validate_line" && -n "$critic_line" && "$validate_line" -lt "$critic_line" ]]; then
+    PASS=$((PASS+1)); echo "  ✓ validation precedes close-depth critic"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ validation does not precede close-depth critic"
+  fi
+}
+
+test_skill_phase_critic_uses_artifact_path() {
+  echo "test_skill_phase_critic_uses_artifact_path:"
+  assert_file_contains "$SKILL" 'state_write_phase_artifact'
+  assert_file_contains "$SKILL" 'artifact_path="\$phase_artifact"'
+}
+
+test_skill_validates_synthesized_master_spec_before_critic
+test_skill_phase_critic_uses_artifact_path
 
 # Fake "synthesis": write a MASTER-SPEC that includes a marker per phase that has
 # either an answer or a record in the digest, plus the required Executive Summary

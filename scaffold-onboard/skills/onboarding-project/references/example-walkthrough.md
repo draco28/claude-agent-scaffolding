@@ -104,12 +104,17 @@ After the last 5.x answer is persisted, skill authors the Phase 5 record and tri
 2. Skill announces:
    > Phase 5 close — invoking `architect-critic:critiquing-spec` for `premise-audit` on the Phase 5 recap. Type `skip` if you want to bypass this fire.
 3. User responds: (anything other than `skip`).
-4. Skill invokes:
+4. Skill writes a concrete recap artifact and invokes the critic:
+   ```bash
+   phase_artifact="$(sf project_data_dir)/phase-5-critic-recap.md"
+   sf state_write_phase_artifact 5 "$phase_artifact"
+   ```
    ```text
    Skill(architect-critic:critiquing-spec,
          target=master-spec-phase,
          phase_id=5,
-         depth=premise-audit)
+         depth=premise-audit,
+         artifact_path="$phase_artifact")
    ```
 5. architect-critic runs its sequential-rebuttal loop internally (claude-only adversary at `premise-audit` depth per ac v0.2 settlement #6). Returns a structured summary block per ac SPEC §10:
    > Audit complete for master-spec-phase phase_id=5. 2 challenges stood:
@@ -192,7 +197,7 @@ Skill evaluates the `6A.*` subsections — gate is `project_class in {Web app, M
 
 7.1.1: decomposition → `core/` (domain types + invariants), `db/` (sqlite repository), `cli/` (clap-based parser), `bin/` (entry point). 7.1.2: statically typed (Rust). 7.2.x, 7.3.x, 7.4.x are gated on project classes we don't match; skipped.
 
-Phase 7 close → **second critic moment** (Phase 7 close, premise-audit). Same invocation pattern as Phase 5: filesystem probe → `Skill(architect-critic:critiquing-spec, target=master-spec-phase, phase_id=7, depth=premise-audit)` → present challenges → edit / accept → advance.
+Phase 7 close → **second critic moment** (Phase 7 close, premise-audit). Same invocation pattern as Phase 5: filesystem probe → `sf state_write_phase_artifact 7 "$phase_artifact"` → `Skill(architect-critic:critiquing-spec, target=master-spec-phase, phase_id=7, depth=premise-audit, artifact_path="$phase_artifact")` → present challenges → edit / accept → advance.
 
 ---
 
@@ -215,16 +220,18 @@ User: yes. `sf_state_write_answer phase_10.4.include_karpathy yes`.
 At Phase 10 close, the skill first synthesizes `MASTER-SPEC.md` from phase records + answers (see SKILL.md §8; there is no per-phase render step), then triggers the **MASTER-SPEC close critic** against that freshly authored artifact:
 
 1. Produce `MASTER-SPEC.md` through the MASTER-SPEC synthesis prompt (sub-agent when available, inline host synthesis otherwise).
-2. Filesystem probe → `v0.2`.
-3. Invocation:
+2. Validate the synthesized spec with `sf spec_validate "$master"`; if validation fails, stop and preserve state for `/onboard --resume`.
+3. Filesystem probe → `v0.2`.
+4. Invocation:
    ```text
    Skill(architect-critic:critiquing-spec,
          target=master-spec-full,
-         depth=close)
+         depth=close,
+         artifact_path="$master")
    ```
-4. At `depth=close`, ac v0.2 adversaries are `[claude, codex]` (per ac settlement #6). Codex spawn happens inside architect-critic; scaffold-onboard does not manage it.
-5. architect-critic returns the close-depth summary. Any standing challenges are surfaced as final edit candidates for the synthesized MASTER-SPEC.
-6. User accepts or applies edits to `MASTER-SPEC.md`.
+5. At `depth=close`, ac v0.2 adversaries are `[claude, codex]` (per ac settlement #6). Codex spawn happens inside architect-critic; scaffold-onboard does not manage it.
+6. architect-critic returns the close-depth summary. Any standing challenges are surfaced as final edit candidates for the synthesized MASTER-SPEC.
+7. User accepts or applies edits to `MASTER-SPEC.md`; if edits touch parser anchors or project class fields, the skill re-runs `sf spec_validate "$master"` before continuing.
 
 EXECUTIVE-SUMMARY.md is produced at onboarding close — synthesized from MASTER-SPEC by default (the `EXECUTIVE-SUMMARY.brief.md` synthesis-agent), or deterministically via `sf_render_executive_summary` under `--fast`. Paths are resolved through `sf_resolve_output_path`:
 

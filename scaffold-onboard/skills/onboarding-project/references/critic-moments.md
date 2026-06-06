@@ -67,16 +67,24 @@ At each critic moment, after the phase record is authored and the recap is surfa
    - `v0.2`: continue to step 5.
    - `absent`: warn-and-skip per §4 below. Continue to step 6 of the per-phase loop.
 
-5. **Invoke.** Emit a single `Skill(architect-critic:critiquing-spec, ...)` call with the arguments from the table in §1:
+5. **Write the phase artifact and invoke.** First create a concrete recap artifact so architect-critic has a local file to audit before MASTER-SPEC exists:
 
+   ```bash
+   phase_artifact="$(sf project_data_dir)/phase-${phase_id}-critic-recap.md"
+   sf state_write_phase_artifact "$phase_id" "$phase_artifact"
    ```
+
+   Then emit a single `Skill(architect-critic:critiquing-spec, ...)` call with the arguments from the table in §1 plus the artifact path:
+
+   ```text
    Skill(architect-critic:critiquing-spec,
          target=master-spec-phase,
          phase_id=5,
-         depth=premise-audit)
+         depth=premise-audit,
+         artifact_path="$phase_artifact")
    ```
 
-   For the MASTER-SPEC close (moment 3), omit `phase_id` and use `target=master-spec-full, depth=close`.
+   For the MASTER-SPEC close (moment 3), omit `phase_id` and use `target=master-spec-full, depth=close, artifact_path="$master"`.
 
 6. **Wait for control return.** architect-critic runs its own challenge-resolution loop internally: sequential rebuttal, scoring, auto-promotion checks. scaffold-onboard does **not** mediate this. Control returns via the structured summary block described in ac SPEC §10 — a single message that opens with *"Audit complete for &lt;target&gt; ..."* and lists challenges that stood.
 
@@ -127,23 +135,26 @@ scaffold-onboard parses the summary block for the list of standing challenges an
 
 ## 7. Quick reference: invocation cheat-sheet
 
-```
+```text
 Phase 5 close:
   Skill(architect-critic:critiquing-spec,
         target=master-spec-phase,
         phase_id=5,
-        depth=premise-audit)
+        depth=premise-audit,
+        artifact_path="$phase_artifact")
 
 Phase 7 close:
   Skill(architect-critic:critiquing-spec,
         target=master-spec-phase,
         phase_id=7,
-        depth=premise-audit)
+        depth=premise-audit,
+        artifact_path="$phase_artifact")
 
 MASTER-SPEC close (post-Phase-10, after EXECUTIVE-SUMMARY render):
   Skill(architect-critic:critiquing-spec,
         target=master-spec-full,
-        depth=close)
+        depth=close,
+        artifact_path="$master")
 ```
 
 Three calls, no more, no less. The `/plan-roadmap` critic moment (target=`roadmap`, depth=`close`) is owned by a different skill.

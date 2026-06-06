@@ -186,12 +186,18 @@ At Phase 5 and Phase 7 critic moments, after the phase record is authored and th
 
 1. Announce: *"Phase N close — invoking architect-critic for `premise-audit` on the Phase N recap. Type `skip` if you want to bypass this fire."*
 2. End the turn and wait for the user's next message. If they type exactly `skip` (case-insensitive), log it and proceed to step 6 of the per-phase loop without calling the critic.
-3. Otherwise, invoke `Skill(architect-critic:critiquing-spec)` with:
+3. Otherwise, write a concrete phase artifact before invoking the critic:
+   ```bash
+   phase_artifact="$(sf project_data_dir)/phase-${phase_id}-critic-recap.md"
+   sf state_write_phase_artifact "$phase_id" "$phase_artifact"
+   ```
+4. Invoke `Skill(architect-critic:critiquing-spec)` with:
    - `target=master-spec-phase`.
    - `depth=premise-audit`.
    - `phase_id=<N>` so the critic knows which section of MASTER-SPEC.md to focus on.
-4. architect-critic runs its own challenge-resolution loop internally (sequential rebuttal, scoring, auto-promotion checks). It returns control via the structured summary block described in architect-critic's SPEC §10 ("Audit complete for ...").
-5. When control returns, present any challenges that stood to the user as edit candidates for the recap. When a critic challenge stands or the user revises or appends to the recap, re-author the phase record: first read the current record with `sf state_read_phase_record <phase_id>` and fold its existing content forward (preserving rationale and prior critic-outcomes already captured), then merge the new challenge outcomes in, and re-call `sf state_write_phase_record` to persist it — so a later session inherits the full resolved picture, never leave it only in conversation.
+   - `artifact_path="$phase_artifact"` (or pass `$phase_artifact` as the first path argument if the host Skill bridge supports positional args). This is required because first-author runs do not have `MASTER-SPEC.md` until Phase 10; architect-critic must audit this phase recap file, not a heuristic `SPEC*`/`PLAN*` match.
+5. architect-critic runs its own challenge-resolution loop internally (sequential rebuttal, scoring, auto-promotion checks). It returns control via the structured summary block described in architect-critic's SPEC §10 ("Audit complete for ...").
+6. When control returns, present any challenges that stood to the user as edit candidates for the recap. When a critic challenge stands or the user revises or appends to the recap, re-author the phase record: first read the current record with `sf state_read_phase_record <phase_id>` and fold its existing content forward (preserving rationale and prior critic-outcomes already captured), then merge the new challenge outcomes in, and re-call `sf state_write_phase_record` to persist it — so a later session inherits the full resolved picture, never leave it only in conversation.
 
 The MASTER-SPEC close critic is different: run it after §8 synthesizes `MASTER-SPEC.md`, with `target=master-spec-full` and `depth=close`, so the critic reviews the artifact that will be kept. Apply accepted close-critic edits to `MASTER-SPEC.md`, then continue to EXEC-SUMMARY synthesis.
 
@@ -295,7 +301,15 @@ is a plugin asset. Only if the host runtime itself cannot write the file should
 you stop and tell the user to re-run `/onboard` close later — state is fully
 preserved, so nothing is lost.
 
-After `$master` exists (whether via sub-agent or inline), invoke `Skill(architect-critic:critiquing-spec)` with `target=master-spec-full`, `depth=close`, and adversaries `[claude, codex]` when architect-critic v0.2 is installed. Surface standing challenges as final edit candidates and apply accepted edits to `MASTER-SPEC.md`. If architect-critic is absent or skipped, proceed directly. Then continue to EXEC-SUMMARY.
+Before invoking the close-depth critic or producing EXECUTIVE-SUMMARY, validate the synthesized file:
+
+```bash
+sf spec_validate "$master"
+```
+
+If validation fails, surface the validator stderr verbatim, stop the close flow, and tell the user the onboarding state is preserved so `/onboard --resume` can retry synthesis. Do not run the close critic, EXEC-SUMMARY generation, `/plan-roadmap`, `/scaffold-project`, or `/scaffold-docs` from a malformed `MASTER-SPEC.md`.
+
+After validation passes, invoke `Skill(architect-critic:critiquing-spec)` with `target=master-spec-full`, `depth=close`, `artifact_path="$master"`, and adversaries `[claude, codex]` when architect-critic v0.2 is installed. Surface standing challenges as final edit candidates and apply accepted edits to `MASTER-SPEC.md`; if accepted edits change parser anchors or project class fields, re-run `sf spec_validate "$master"` before continuing. If architect-critic is absent or skipped, proceed directly. Then continue to EXEC-SUMMARY.
 
 **Produce EXECUTIVE-SUMMARY.md (single authoritative producer).** EXEC-SUMMARY is
 spec-derived from MASTER-SPEC and authored HERE — `/scaffold-project` and
@@ -396,7 +410,7 @@ Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly.
 
 This skill never bash-orchestrates the judgment work (which question to ask next, how to recap a phase, whether to escalate a challenge). It calls helpers for I/O and templating only. The named helpers:
 
-**State (lib/state.sh + lib/_helpers.sh):** `sf_project_identity_root`, `sf_project_data_dir`, `sf_state_init`, `sf_state_mode`, `sf_state_path`, `sf_state_read_field`, `sf_state_stored_project_root`, `sf_state_read_answer`, `sf_state_write_answer`, `sf_state_write_atomic`, `sf_state_advance_phase`, `sf_state_lock_acquire`, `sf_state_lock_release`, `sf_state_gate_passes`, `sf_state_write_phase_record`, `sf_state_read_phase_record`, `sf_state_run_reset`, `sf_state_phases_touched_this_run`, `sf_state_synthesis_digest`.
+**State (lib/state.sh + lib/_helpers.sh):** `sf_project_identity_root`, `sf_project_data_dir`, `sf_state_init`, `sf_state_mode`, `sf_state_path`, `sf_state_read_field`, `sf_state_stored_project_root`, `sf_state_read_answer`, `sf_state_write_answer`, `sf_state_write_atomic`, `sf_state_advance_phase`, `sf_state_lock_acquire`, `sf_state_lock_release`, `sf_state_gate_passes`, `sf_state_write_phase_record`, `sf_state_read_phase_record`, `sf_state_write_phase_artifact`, `sf_state_run_reset`, `sf_state_phases_touched_this_run`, `sf_state_synthesis_digest`.
 
 **Phases (lib/state.sh / parser.sh):** `sf_phases_questions_for`, `sf_phases_question_text`, `sf_phases_question_gate`.
 

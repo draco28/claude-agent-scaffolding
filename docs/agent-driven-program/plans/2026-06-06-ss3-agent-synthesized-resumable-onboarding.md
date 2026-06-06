@@ -366,11 +366,12 @@ sf_state_synthesis_digest() {
     echo "## Phase $phase"
     echo ""
     echo "### Answers (verbatim)"
-    # Answers whose qid starts with "<phase>." — numeric phase prefix match.
+    # Answers whose qid belongs to this phase. Phase 6 is split into gated
+    # subtracks (6A/6B) in phases.yaml, so include those prefixes as phase 6.
     jq -r --arg p "$phase" '
       .answers // {}
       | to_entries
-      | map(select(.key | startswith($p + ".")))
+      | map(select(.key | startswith($p + ".") or ($p == "6" and test("^6[AB]\\."))))
       | sort_by(.key)
       | .[] | "- \(.key): \(.value)"
     ' "$path"
@@ -719,6 +720,9 @@ In §3 "Per-phase loop", replace step 4 (currently: *"re-render the MASTER-SPEC 
 In §5.2 step 5 (critic returns) and §3 step 6 (`accept | edit | append a note`), add:
 
 ```markdown
+Before invoking the Phase 5/7 critic, write a concrete recap artifact:
+`sf state_write_phase_artifact <phase_id> <artifact-path>`, then pass
+`artifact_path=<artifact-path>` to `Skill(architect-critic:critiquing-spec)`.
 When a critic challenge stands or the user edits/appends to the recap, fold that
 into the phase record (re-author it and re-call `sf state_write_phase_record`),
 so a later session inherits the resolved decision — never leave it only in
@@ -737,7 +741,7 @@ In §4 "Resume protocol" / skill entry (after lock acquire, before the per-phase
 
 - [ ] **Step 4: Update §10 helper list + §12 anti-patterns**
 
-In §10 "State" helpers, add `sf_state_write_phase_record`, `sf_state_read_phase_record`, `sf_state_run_reset`, `sf_state_phases_touched_this_run`, `sf_state_synthesis_digest`. In §10 "Rendering", remove `sf_render_master_spec_init` and `sf_master_spec_update_phase`. In §12 anti-patterns, replace any "render the section per phase" guidance; add: *"Do NOT transcribe raw answers into a templated MASTER-SPEC — there is no deterministic MASTER-SPEC renderer. The spec is synthesized once at close from the phase records + answers."*
+In §10 "State" helpers, add `sf_state_write_phase_record`, `sf_state_read_phase_record`, `sf_state_write_phase_artifact`, `sf_state_run_reset`, `sf_state_phases_touched_this_run`, `sf_state_synthesis_digest`. In §10 "Rendering", remove `sf_render_master_spec_init` and `sf_master_spec_update_phase`. In §12 anti-patterns, replace any "render the section per phase" guidance; add: *"Do NOT transcribe raw answers into a templated MASTER-SPEC — there is no deterministic MASTER-SPEC renderer. The spec is synthesized once at close from the phase records + answers."*
 
 - [ ] **Step 5: Grep guard**
 
@@ -761,30 +765,28 @@ git commit -m "feat(scaffold-onboard): SS-3 per-phase reasoning capture (author 
 
 - [ ] **Step 1: Insert MASTER-SPEC synthesis BEFORE the EXEC-SUMMARY step**
 
-In §8, before the existing "Produce EXECUTIVE-SUMMARY.md" block, add a new MASTER-SPEC synthesis block. It must source every lib it calls (the SS-2 lesson — unsourced helpers abort under `set -u`):
+In §8, before the existing "Produce EXECUTIVE-SUMMARY.md" block, add a new MASTER-SPEC synthesis block. It must route every helper call through `sf` (the dispatcher-only runtime contract — no direct `source` from skill bodies):
 
 ````markdown
 **Produce MASTER-SPEC.md (agent synthesis — no deterministic renderer).**
 
 ```bash
-source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"
-source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
-source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
-brief="${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/MASTER-SPEC.brief.md"
-master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
-digest="$(sf_state_synthesis_digest)"
+root="$(sf plugin_root)"
+brief="${root}/templates/synthesis-briefs/MASTER-SPEC.brief.md"
+master="$(sf resolve_output_path master_spec MASTER-SPEC.md)"
+digest="$(sf state_synthesis_digest)"
 mode="first_author"; existing=""; touched=""
 if [[ -f "$master" ]]; then
   mode="reconcile"; existing="$master"
-  touched="$(sf_state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
+  touched="$(sf state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
   cp "$master" "${master}.bak-$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 fi
-prompt="$(sf_synth_master_spec_prompt "$brief" "$digest" "$master" "$mode" "$touched" "$existing")"
+prompt="$(sf synth_master_spec_prompt "$brief" "$digest" "$master" "$mode" "$touched" "$existing")"
 ```
 
 Then dispatch the synthesis agent with that prompt:
 
-```
+```text
 Task(subagent_type="scaffold-onboard:synthesis-agent",
      description="Synthesize MASTER-SPEC",
      model="claude-sonnet-4-5",
@@ -801,12 +803,20 @@ is a plugin asset. Only if the host runtime itself cannot write the file should
 you stop and tell the user to re-run `/onboard` close later — state is fully
 preserved, so nothing is lost.
 
-After `$master` exists (whether via sub-agent or inline), proceed to EXEC-SUMMARY.
+Before close-depth critic or EXEC-SUMMARY, validate the synthesized spec:
+
+```bash
+sf spec_validate "$master"
+```
+
+If validation fails, surface stderr verbatim and stop; state is preserved for `/onboard --resume`.
+
+After validation passes, run the close critic against `artifact_path="$master"`, then proceed to EXEC-SUMMARY.
 ````
 
 - [ ] **Step 2: Keep the SS-2 EXEC-SUMMARY block, drop its `--fast`-only framing dependency**
 
-Leave the existing EXEC-SUMMARY synthesis block (it reads from `$master`, which now exists). Confirm its `source` lines include `lib/state.sh`, `lib/synthesis.sh`, `lib/render.sh`, `lib/routing.sh` (they do per SS-2). No change needed beyond ordering (MASTER-SPEC first).
+Leave the existing EXEC-SUMMARY synthesis block (it reads from `$master`, which now exists). Confirm its helper calls also route through `sf` rather than direct `source` lines. No change needed beyond ordering (MASTER-SPEC first) and validation-before-consumption.
 
 - [ ] **Step 3: Update the close summary text**
 

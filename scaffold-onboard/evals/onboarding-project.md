@@ -140,13 +140,15 @@ Each scenario is executed inside a single Claude Code subscription session by an
 - Skill detects phase-5 close.
 - Skill runs `sf_compose_detect_architect_critic` (filesystem probe per §12.2) — NOT a composition.json lookup.
 - Probe returns `v0.2`.
-- Skill invokes `Skill(architect-critic:critiquing-spec)` with `target=master-spec-phase`, `depth=premise-audit` (per §12.1 row 1), adversaries `[claude]`.
+- Skill writes a concrete phase recap artifact via `sf state_write_phase_artifact 5 "$phase_artifact"`.
+- Skill invokes `Skill(architect-critic:critiquing-spec)` with `target=master-spec-phase`, `depth=premise-audit`, `phase_id=5`, and `artifact_path="$phase_artifact"` (per §12.1 row 1), adversaries `[claude]`.
 - Skill does NOT use the legacy file-IPC pattern (`sf_compose_build_critic_request` / `sf_compose_read_critic_response` — both dropped per §12.3).
 - After critic returns control, skill advances to Phase 6 and asks the first phase-6 question.
 
 **Assertion (judge subagent verifies):**
 - Target subagent's tool-call log contains exactly one `Skill(architect-critic:critiquing-spec)` invocation at this turn.
-- Invocation args carry `target=master-spec-phase` and `depth=premise-audit`.
+- Invocation args carry `target=master-spec-phase`, `phase_id=5`, `depth=premise-audit`, and an `artifact_path` pointing at the generated phase recap artifact.
+- The generated artifact exists and contains both the Phase 5 verbatim answers and the persisted Phase 5 record.
 - No file writes to any `inbox/` or `outbox/` paths in the transcript (legacy IPC must not be used).
 - Target made zero `composition.json` reads in this scenario (file is absent per setup); all critic detection went via filesystem probe per §12.2.
 - After the critic returns, the next assistant message is a Phase 6 question per phases.yaml.

@@ -220,11 +220,12 @@ sf_state_synthesis_digest() {
     echo "## Phase $phase"
     echo ""
     echo "### Answers (verbatim)"
-    # Answers whose qid starts with "<phase>." — numeric phase prefix match.
+    # Answers whose qid belongs to this phase. Phase 6 is split into gated
+    # subtracks (6A/6B) in phases.yaml, so include those prefixes as phase 6.
     jq -r --arg p "$phase" '
       .answers // {}
       | to_entries
-      | map(select(.key | startswith($p + ".")))
+      | map(select(.key | startswith($p + ".") or ($p == "6" and test("^6[AB]\\."))))
       | sort_by(.key)
       | .[] | "- \(.key): \(.value | tostring | gsub("\n"; " "))"
     ' "$path"
@@ -241,6 +242,42 @@ sf_state_synthesis_digest() {
       echo ""
     fi
   done
+}
+
+# Write a markdown artifact for a single phase recap so architect-critic has a
+# concrete file to audit before MASTER-SPEC.md exists at Phase 10 close.
+sf_state_write_phase_artifact() {
+  local phase_id="$1" out="$2"
+  local path; path="$(sf_state_path)"
+  [[ -f "$path" ]] || { sf_log_error "sf_state_write_phase_artifact: no state file"; return 1; }
+  mkdir -p "$(dirname "$out")"
+  {
+    echo "# Phase $phase_id recap artifact"
+    echo ""
+    echo "Generated for architect-critic premise audit before MASTER-SPEC.md exists."
+    echo ""
+    echo "## Answers (verbatim)"
+    jq -r --arg p "$phase_id" '
+      .answers // {}
+      | to_entries
+      | map(select(.key | startswith($p + ".") or ($p == "6" and test("^6[AB]\\."))))
+      | sort_by(.key)
+      | .[] | "- \(.key): \(.value | tostring | gsub("\n"; " "))"
+    ' "$path"
+    echo ""
+    echo "## Synthesized phase record"
+    local rec
+    rec="$(jq -c --arg p "$phase_id" '.phase_records[$p] // null' "$path")"
+    if [[ "$rec" == "null" ]]; then
+      echo "_No phase record persisted yet._"
+    else
+      printf '%s\n' "$rec" | jq -r '
+        to_entries
+        | map(select(.key != "authored_at"))
+        | .[] | "- **\(.key)**: \(.value | (if type == "string" then . else tojson end) | gsub("\n"; " "))"
+      '
+    fi
+  } > "$out"
 }
 
 # Resolve a clean project name for titles/paths. Prefers the explicit onboarding
