@@ -93,4 +93,27 @@ test_prompt_does_not_expand_user_content() {
 
 test_prompt_does_not_expand_user_content
 
+test_no_deterministic_master_spec_renderer() {
+  echo "test_no_deterministic_master_spec_renderer:"
+  source "$ROOT/lib/render.sh"
+  if declare -F sf_master_spec_update_phase >/dev/null 2>&1; then
+    FAIL=$((FAIL+1)); echo "  ✗ sf_master_spec_update_phase still defined"
+  else
+    PASS=$((PASS+1)); echo "  ✓ sf_master_spec_update_phase removed"
+  fi
+  if declare -F sf_master_spec_init >/dev/null 2>&1; then
+    FAIL=$((FAIL+1)); echo "  ✗ sf_master_spec_init still defined"
+  else
+    PASS=$((PASS+1)); echo "  ✓ sf_master_spec_init removed"
+  fi
+  assert_file_missing "$ROOT/templates/master-spec/MASTER-SPEC.md.tmpl"
+  if declare -F sf_render_executive_summary >/dev/null 2>&1; then
+    PASS=$((PASS+1)); echo "  ✓ SS-2 sf_render_executive_summary intact"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ SS-2 sf_render_executive_summary removed by mistake"
+  fi
+}
+
+test_no_deterministic_master_spec_renderer
+
 report_results
