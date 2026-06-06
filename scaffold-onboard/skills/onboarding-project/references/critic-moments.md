@@ -12,11 +12,11 @@ This skill (`onboarding-project`) is responsible for **three** critic moments. S
 |---|-----------------------------------------|----------------------|------------|-----------------|----------------------|
 | 1 | Phase 5 close (Architecture)            | `master-spec-phase`  | `5`        | `premise-audit` | `[claude]`           |
 | 2 | Phase 7 close (Implementation Approach) | `master-spec-phase`  | `7`        | `premise-audit` | `[claude]`           |
-| 3 | MASTER-SPEC close (post-Phase-10)       | `master-spec-full`   | (omitted)  | `close`         | `[claude, codex]`    |
+| 3 | MASTER-SPEC close (post-Phase-10 synthesis + validation, before EXECUTIVE-SUMMARY render) | `master-spec-full`   | (omitted)  | `close`         | `[claude, codex]`    |
 
 Adversaries are inferred by architect-critic from `depth` per ac v0.2 settlement #6 (premise-audit → claude-only; close → claude + codex when user opts in via `--close`). scaffold-onboard does **not** pass an explicit adversaries list; it passes `depth` and lets architect-critic decide.
 
-Phases 1-4, 6, 8, 9 have **no** critic moment. Phase 10's critic is the post-render close — it fires after the full MASTER-SPEC is assembled, not after the Phase 10 questions are answered.
+Phases 1-4, 6, 8, 9 have **no** critic moment. Phase 10's critic fires after MASTER-SPEC synthesis + `sf spec_validate` and **before** EXECUTIVE-SUMMARY render — not after the Phase 10 questions are answered.
 
 ---
 
@@ -150,7 +150,7 @@ Phase 7 close:
         depth=premise-audit,
         artifact_path="$phase_artifact")
 
-MASTER-SPEC close (post-Phase-10, after EXECUTIVE-SUMMARY render):
+MASTER-SPEC close (post-Phase-10 synthesis + validation, before EXECUTIVE-SUMMARY render):
   Skill(architect-critic:critiquing-spec,
         target=master-spec-full,
         depth=close,

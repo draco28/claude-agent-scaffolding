@@ -48,7 +48,7 @@ Skill announces:
 
 **User:** `todo add`, `todo ls`, `todo done <id>`, `todo search <query>` — all persisting to a single sqlite file under `~/.todo-cli/db.sqlite`.
 
-Skill authors the Phase 1 record (decisions, rationale, etc.) and persists it via `sf_state_write_phase_record 1 <temp-file>`, then surfaces the recap echoed from that record:
+Skill authors the Phase 1 record (decisions, rationale, etc.) and persists it via `sf state_write_phase_record 1 <temp-file>`, then surfaces the recap echoed from that record:
 
 > **Phase 1 recap (Foundation)**
 > - Vision: offline-first CLI for terminal-resident developers managing personal todos with tagging, due dates, search.
@@ -60,7 +60,7 @@ Skill authors the Phase 1 record (decisions, rationale, etc.) and persists it vi
 
 **User:** accept.
 
-`sf_state_advance_phase` → `current_phase` becomes 2.
+`sf state_advance_phase` → `current_phase` becomes 2.
 
 ---
 
@@ -123,8 +123,8 @@ After the last 5.x answer is persisted, skill authors the Phase 5 record and tri
 6. Skill presents both challenges as edit candidates:
    > Two architect-critic challenges stood. Want to edit the Phase 5 recap to address either?
 7. User: address C-5.1 — change data store note to "sqlite with FTS5 extension enabled at build time."
-8. Skill re-authors the Phase 5 record to capture the revision (updated `decisions` / `critic_outcomes`) and re-calls `sf_state_write_phase_record 5 <temp-file>`, then surfaces the updated recap, asks accept | edit | append.
-9. User: accept. `sf_state_advance_phase` → `current_phase` = 6.
+8. Skill re-authors the Phase 5 record to capture the revision (updated `decisions` / `critic_outcomes`) and re-calls `sf state_write_phase_record 5 <temp-file>`, then surfaces the updated recap, asks accept | edit | append.
+9. User: accept. `sf state_advance_phase` → `current_phase` = 6.
 
 ### Representative state.answers snapshot after Phase 5 close
 
@@ -236,8 +236,8 @@ At Phase 10 close, the skill first synthesizes `MASTER-SPEC.md` from phase recor
 EXECUTIVE-SUMMARY.md is produced at onboarding close — synthesized from MASTER-SPEC by default (the `EXECUTIVE-SUMMARY.brief.md` synthesis-agent), or deterministically via `sf_render_executive_summary` under `--fast`. Paths are resolved through `sf_resolve_output_path`:
 
 ```bash
-master_spec_path="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
-exec_summary_path="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
+master_spec_path="$(sf resolve_output_path master_spec MASTER-SPEC.md)"
+exec_summary_path="$(sf resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
 ```
 
 For a single-repo todo-cli with no workspace-init manifest: both resolve to `$(pwd)/MASTER-SPEC.md` and `$(pwd)/EXECUTIVE-SUMMARY.md`.
