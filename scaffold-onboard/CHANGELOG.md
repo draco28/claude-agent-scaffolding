@@ -2,6 +2,15 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.6.0] — 2026-06-06
+
+SS-3 — agent-synthesized, resumable onboarding (closes #51). MASTER-SPEC is now synthesized by a sub-agent (or inline in main context) at Phase-10 close, replacing mechanical `{{placeholder}}` transcription. Onboarding state schema v2 captures per-phase records (decisions/rationale/rejected-alternatives/critic-outcomes) alongside verbatim answers, making sessions resumable across interruptions. Enhancement re-runs reconcile — refreshing only touched phases while preserving untouched sections and human edits. **scaffold-onboard only**; scaffold-dev untouched.
+
+### Changed
+- **MASTER-SPEC is now agent-synthesized at onboarding close (no deterministic transcription).** The mechanical `sf_master_spec_init`/`sf_master_spec_update_phase` renderers and the `MASTER-SPEC.md.tmpl` template are removed. At Phase-10 close the conducting agent dispatches `scaffold-onboard:synthesis-agent` with a tool-agnostic synthesis brief (`MASTER-SPEC.brief.md`) carrying a phase-records digest; the fallback is main-context-inline (not a deterministic template). First-author and reconcile prompt paths are both guarded by `test-master-spec-synthesis.sh`. (SS-3, #51)
+- **Onboarding state captures per-phase reasoning (phase_records) beside verbatim answers.** State schema bumped to v2: `phase_records` map (phase → decisions/rationale/rejected-alternatives/critic-outcomes, agent-authored during each phase) + `touched_this_run` list. Legacy v1 state is migrated on first write. Guarded by `test-phase-records.sh`. (SS-3, #51)
+- **Enhancement re-runs reconcile, preserving untouched sections and human edits.** When `MASTER-SPEC.md` already exists, the close block detects reconcile mode, backs up the existing spec, and assembles a reconcile prompt listing only the touched phases — the synthesis agent refreshes those sections and preserves the rest. (SS-3, #51)
+
 ## [0.5.0] — 2026-06-04
 
 SS-2 — synthesis live & verified + EXECUTIVE-SUMMARY + advisory post-derivation review (closes #50, #49, #42). Makes the v0.3 LLM-synthesis dispatch actually execute end-to-end on `/scaffold-project` and `/scaffold-docs`, gives EXECUTIVE-SUMMARY a real spec-derived producer, and adds an advisory content-quality review — guarded by a behavioral dispatch harness so a broken dispatch can no longer merge green. **scaffold-onboard only**; scaffold-dev untouched (no output-contract change → no cross-plugin version skew).
