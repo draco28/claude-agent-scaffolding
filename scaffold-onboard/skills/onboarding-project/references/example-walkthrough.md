@@ -105,7 +105,7 @@ After the last 5.x answer is persisted, skill authors the Phase 5 record and tri
    > Phase 5 close — invoking `architect-critic:critiquing-spec` for `premise-audit` on the Phase 5 recap. Type `skip` if you want to bypass this fire.
 3. User responds: (anything other than `skip`).
 4. Skill invokes:
-   ```
+   ```text
    Skill(architect-critic:critiquing-spec,
          target=master-spec-phase,
          phase_id=5,
@@ -217,7 +217,7 @@ At Phase 10 close, the skill first synthesizes `MASTER-SPEC.md` from phase recor
 1. Produce `MASTER-SPEC.md` through the MASTER-SPEC synthesis prompt (sub-agent when available, inline host synthesis otherwise).
 2. Filesystem probe → `v0.2`.
 3. Invocation:
-   ```
+   ```text
    Skill(architect-critic:critiquing-spec,
          target=master-spec-full,
          depth=close)
