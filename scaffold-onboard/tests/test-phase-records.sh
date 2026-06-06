@@ -48,6 +48,7 @@ test_phase_record_rejects_invalid_json() {
   local bad="$TMP_DIR/bad.json"
   printf 'not json {{' > "$bad"
   assert_exit_code 1 sf_state_write_phase_record 3 "$bad"
+  assert_eq "invalid-json write leaves record absent" "null" "$(sf_state_read_phase_record 3)"
 }
 
 test_phase_record_rejects_invalid_json
@@ -66,9 +67,9 @@ test_touched_this_run_tracks_writes() {
   setup_tmp_repo
   sf_state_init
   local rec="$TMP_DIR/r.json"; printf '{"decisions":"x"}' > "$rec"
-  sf_state_write_phase_record 1 "$rec"
   sf_state_write_phase_record 3 "$rec"
-  sf_state_write_phase_record 1 "$rec"   # duplicate phase — must not double-list
+  sf_state_write_phase_record 1 "$rec"
+  sf_state_write_phase_record 3 "$rec"   # duplicate phase — must not double-list
   assert_eq "touched is unique+sorted" "1 3" "$(sf_state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
 }
 
@@ -85,5 +86,18 @@ test_run_reset_clears_touched() {
 }
 
 test_run_reset_clears_touched
+
+test_phase_record_rejects_non_object_json() {
+  echo "test_phase_record_rejects_non_object_json:"
+  setup_tmp_repo
+  sf_state_init
+  local arr="$TMP_DIR/arr.json"
+  printf '[1,2,3]' > "$arr"
+  assert_exit_code 1 sf_state_write_phase_record 3 "$arr"
+  # state file must be intact (valid JSON, still has answers key) after the rejected write
+  assert_eq "state still valid json after rejected array write" "object" "$(jq -r 'type' "$(sf_state_path)")"
+}
+
+test_phase_record_rejects_non_object_json
 
 report_results

@@ -136,6 +136,10 @@ sf_state_write_phase_record() {
     sf_log_error "sf_state_write_phase_record: record file is not valid JSON: $record_file"
     return 1
   fi
+  if ! jq -e 'type == "object"' "$record_file" >/dev/null 2>&1; then
+    sf_log_error "sf_state_write_phase_record: record file must be a JSON object: $record_file"
+    return 1
+  fi
   local tmp now
   tmp="$(mktemp "${path}.XXXXXX")"
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -163,8 +167,10 @@ sf_state_read_phase_record() {
 sf_state_run_reset() {
   local path; path="$(sf_state_path)"
   [[ -f "$path" ]] || return 0
-  local tmp; tmp="$(mktemp "${path}.XXXXXX")"
-  jq '.touched_this_run = []' "$path" > "$tmp"
+  local tmp now
+  tmp="$(mktemp "${path}.XXXXXX")"
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  jq --arg now "$now" '.touched_this_run = [] | .updated_at = $now' "$path" > "$tmp"
   mv "$tmp" "$path"
 }
 
@@ -173,7 +179,7 @@ sf_state_run_reset() {
 sf_state_phases_touched_this_run() {
   local path; path="$(sf_state_path)"
   [[ -f "$path" ]] || return 0
-  jq -r '(.touched_this_run // []) | sort_by(tonumber) | .[]' "$path"
+  jq -r '(.touched_this_run // []) | sort_by(. | tonumber? // .) | .[]' "$path"
 }
 
 # Resolve a clean project name for titles/paths. Prefers the explicit onboarding
