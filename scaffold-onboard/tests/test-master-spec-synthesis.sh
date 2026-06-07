@@ -335,4 +335,18 @@ test_prompt_rejects_bogus_mode() {
 
 test_prompt_rejects_bogus_mode
 
+test_prompt_rejects_missing_brief() {
+  echo "test_prompt_rejects_missing_brief:"
+  setup_tmp_repo
+  sf_state_init
+  local digest_file out
+  digest_file="$TMP_DIR/digest-brief-guard.txt"
+  printf 'some digest content\n' > "$digest_file"
+  out="$TMP_DIR/repo/MASTER-SPEC.md"
+  # A nonexistent brief must return rc=1 (before any prompt assembly).
+  assert_exit_code 1 sf_synth_master_spec_prompt "/nonexistent/brief" "$digest_file" "$out" first_author "" ""
+}
+
+test_prompt_rejects_missing_brief
+
 report_results

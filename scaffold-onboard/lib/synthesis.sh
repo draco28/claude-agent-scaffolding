@@ -214,6 +214,9 @@ EOF
 sf_synth_master_spec_prompt() {
   local brief="$1" digest_file="$2" out_path="$3" mode="$4" touched="$5" existing="$6"
 
+  # Guard: brief file must exist and be readable.
+  [[ -f "$brief" && -r "$brief" ]] || { sf_log_error "sf_synth_master_spec_prompt: brief not found/readable: $brief"; return 1; }
+
   # Guard: digest file must exist and be readable.
   if [[ ! -f "$digest_file" || ! -r "$digest_file" ]]; then
     sf_log_error "sf_synth_master_spec_prompt: digest file not found or not readable: $digest_file"

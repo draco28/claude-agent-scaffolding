@@ -231,11 +231,13 @@ sf_state_phases_touched_this_run() {
 # replaces template transcription. Tool-agnostic: any agent that can read text
 # can consume it.
 #
-# Gate filtering: for each phase, only answers whose qid is in the ACTIVE
-# question set (gate-aware, via sf_phases_questions_for) are emitted. Stale
-# answers from an inactive branch (e.g. old 6A.* answers after a re-onboard
-# that switched project_class to a 6B-only type) are excluded from the digest
-# so they do not pollute the synthesis agent's input.
+# Answers are grouped by phase prefix (1.*, 2.*, …, 6A.*/6B.* under phase 6).
+# No gate-filtering is applied here: on a fresh first-author onboarding the agent
+# only answered the active branch, so .answers is already branch-clean. Filtering
+# stale inactive-branch answers on a branch-changing re-onboard is part of the
+# deferred reconcile follow-up (#58); today re-onboard re-walks all phases and
+# re-synthesizes the whole spec with first_author mode, so stale-answer carryovers
+# are not a live concern.
 sf_state_synthesis_digest() {
   local path; path="$(sf_state_path)"
   [[ -f "$path" ]] || { sf_log_error "sf_state_synthesis_digest: no state file"; return 1; }

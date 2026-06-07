@@ -2,9 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **⚠️ SUPERSEDED (partial reconcile-on-re-onboard) — 2026-06-07.**
+> Partial reconcile-on-re-onboard, referenced in several tasks and steps below (Architecture paragraph, Task 6 reconcile assembler, Task 9 close ceremony reconcile branch, Task 10 reconcile backup test, Task 11 reconcile integration test, Task 12 changelog), was **DESCOPED to follow-up issue #58** during PR #57 review. **SS-3 ships: full re-walk + first-author re-synthesis** — re-onboard re-walks all phases (existing answers used as defaults) and the whole spec is re-synthesized in first-author mode; the prior spec is backed up. Reconcile tasks/steps below are **SUPERSEDED** and retained for historical context only. `sf_synth_master_spec_prompt` reconcile mode and `sf_state_mark_touched`/`touched_this_run` are retained dormant for #58.
+
 **Goal:** Replace mechanical MASTER-SPEC transcription with agent synthesis at Phase-10 close, driven by an enriched, resumable `onboarding-state.json` that stores agent-authored per-phase reasoning beside verbatim answers — with no deterministic MASTER-SPEC renderer anywhere.
 
-**Architecture:** The conducting (main) agent authors a rich `phase_record` (decisions/rationale/alternatives/constraints/critic-outcomes) into state at each phase close, alongside the verbatim `answers` already captured. At Phase-10 close, a synthesis sub-agent (or, if dispatch is unavailable, the main orchestration context) reads a digest of that state through a **tool-agnostic** brief and authors the whole MASTER-SPEC — *first-author* mode on a fresh project, *reconcile* mode (refresh only phases touched this run, preserve untouched sections + human edits) on a re-run. The existing SS-2 EXEC-SUMMARY synthesis then runs unchanged from the new MASTER-SPEC. The deterministic transcription path (`sf_master_spec_init` / `sf_master_spec_update_phase` + the `{{phase_*}}` template) is deleted.
+**Architecture:** The conducting (main) agent authors a rich `phase_record` (decisions/rationale/alternatives/constraints/critic-outcomes) into state at each phase close, alongside the verbatim `answers` already captured. At Phase-10 close, a synthesis sub-agent (or, if dispatch is unavailable, the main orchestration context) reads a digest of that state through a **tool-agnostic** brief and authors the whole MASTER-SPEC — *first-author* mode on both a fresh project and a re-run (SS-3 ships); *reconcile* mode (refresh only phases touched this run, preserve untouched sections + human edits) is **superseded → #58**. The existing SS-2 EXEC-SUMMARY synthesis then runs unchanged from the new MASTER-SPEC. The deterministic transcription path (`sf_master_spec_init` / `sf_master_spec_update_phase` + the `{{phase_*}}` template) is deleted.
 
 **Tech Stack:** Bash 3.2 (macOS-portable, BSD awk), `jq` for JSON state, the `sf` dispatcher, plugin synthesis briefs (markdown w/ YAML frontmatter), `Task()` sub-agent dispatch (`scaffold-onboard:synthesis-agent`), bash test suites under `tests/test-*.sh` sourced via `_helpers.sh`.
 
@@ -784,8 +787,9 @@ digest_file="$(mktemp "${TMPDIR:-/tmp}/sf-digest.XXXXXX")"
 sf state_synthesis_digest > "$digest_file"
 mode="first_author"; existing=""; touched=""; master_bak=""
 if [[ -f "$master" ]]; then
-  mode="reconcile"; existing="$master"
-  touched="$(sf state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
+  # NOTE (SS-3 shipped): re-onboard always uses first_author re-synthesis.
+  # The reconcile branch below (mode="reconcile") is SUPERSEDED → #58.
+  # Backup is still created so the prior spec is preserved.
   master_bak="${master}.bak-$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   cp "$master" "$master_bak"
 fi
@@ -894,12 +898,14 @@ test_close_block_reconcile_backs_up_existing() {
   printf '# todo-cli\n\n## Phase 1\nold\n' > "$TMP_DIR/repo/MASTER-SPEC.md"
   local block; block="$(_extract_bash_after "$SKILL" "Produce MASTER-SPEC.md")"
   bash -c "set -euo pipefail; $block; echo \"\$mode\" > $TMP_DIR/mode.out"
-  assert_eq "reconcile mode detected" "reconcile" "$(cat "$TMP_DIR/mode.out")"
+  # SUPERSEDED → #58: SS-3 ships first_author always; reconcile mode detection removed.
+  # assert_eq "reconcile mode detected" "reconcile" "$(cat "$TMP_DIR/mode.out")"
+  assert_eq "first_author mode always (even when prior spec exists)" "first_author" "$(cat "$TMP_DIR/mode.out")"
   # A .bak-* copy must now exist next to MASTER-SPEC.md.
   if ls "$TMP_DIR/repo/MASTER-SPEC.md.bak-"* >/dev/null 2>&1; then
-    PASS=$((PASS+1)); echo "  ✓ existing spec backed up before reconcile"
+    PASS=$((PASS+1)); echo "  ✓ existing spec backed up (prior to first-author re-synthesis)"
   else
-    FAIL=$((FAIL+1)); echo "  ✗ no backup created"
+    FAIL=$((FAIL+1)); echo "  ✗ no backup created — prior spec would be lost on re-synthesis"
   fi
 }
 ```
@@ -980,9 +986,12 @@ test_reconcile_preserves_untouched_human_edit() {
   printf '{"decisions":"v2"}' > "$r"; sf_state_write_phase_record 1 "$r"
   local touched; touched="$(sf_state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
   assert_eq "only phase 1 touched" "1" "$touched"
-  # The reconcile prompt must carry the touched list AND point the agent at the
-  # existing spec (which still holds the human edit). Assert the contract inputs.
-  local prompt; prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$(sf_state_synthesis_digest)" "$master" reconcile "$touched" "$master")"
+  # Assert the contract inputs to reconcile (prompt assembler check; reconcile
+  # execution is SUPERSEDED → #58, but the mechanical contract is tested dormantly).
+  local digest_file prompt
+  digest_file="$TMP_DIR/digest-reconcile.txt"
+  sf_state_synthesis_digest > "$digest_file"
+  prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$master" reconcile "$touched" "$master")"
   printf '%s' "$prompt" | grep -q "touched this run: 1" || { FAIL=$((FAIL+1)); echo "  ✗ touched list not in prompt"; return; }
   grep -q "HAND-EDITED OPS NOTES" "$master" || { FAIL=$((FAIL+1)); echo "  ✗ human edit already lost before synthesis"; return; }
   PASS=$((PASS+1)); echo "  ✓ reconcile feeds touched=1 + existing spec (human edit intact pre-synthesis)"
@@ -1030,7 +1039,7 @@ Expected: PASS.
 
 - [ ] **Step 4: Changelog + SPEC ledger**
 
-Add a CHANGELOG `## [Unreleased]` entry under **Changed**: *"scaffold-onboard: MASTER-SPEC is now agent-synthesized at onboarding close (no deterministic transcription); onboarding state captures per-phase reasoning; enhancement re-runs reconcile (SS-3, #51)."* In the program SPEC §6 ledger, move N3/#51 to in-progress (or CLOSED once merged).
+Add a CHANGELOG `## [Unreleased]` entry under **Changed**: *"scaffold-onboard: MASTER-SPEC is now agent-synthesized at onboarding close (no deterministic transcription); onboarding state captures per-phase reasoning; re-onboard does full re-walk + first-author re-synthesis (SS-3, #51); partial reconcile deferred to #58."* In the program SPEC §6 ledger, move N3/#51 to in-progress (or CLOSED once merged).
 
 - [ ] **Step 5: Commit**
 
