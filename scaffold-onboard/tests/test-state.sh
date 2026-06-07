@@ -387,4 +387,34 @@ test_project_scoped_lock_paths_differ
 test_legacy_onboarding_state_migrates_when_project_matches
 test_legacy_onboarding_state_ignored_when_project_mismatches
 
+# Fix 3 — normalize LLM opt-in yes/no → true/false for the gate.
+# answer 9.3.1="yes" must pass uses_llm == true; "no" must fail it.
+test_uses_llm_gate_yes_passes() {
+  echo "test_uses_llm_gate_yes_passes:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_answer "9.3.1" "yes"
+  assert_exit_code 0 sf_state_gate_passes "uses_llm == true"
+}
+
+test_uses_llm_gate_no_fails() {
+  echo "test_uses_llm_gate_no_fails:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_answer "9.3.1" "no"
+  assert_exit_code 1 sf_state_gate_passes "uses_llm == true"
+}
+
+test_uses_llm_gate_true_literal_passes() {
+  echo "test_uses_llm_gate_true_literal_passes:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_answer "9.3.1" "true"
+  assert_exit_code 0 sf_state_gate_passes "uses_llm == true"
+}
+
+test_uses_llm_gate_yes_passes
+test_uses_llm_gate_no_fails
+test_uses_llm_gate_true_literal_passes
+
 report_results

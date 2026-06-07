@@ -399,8 +399,17 @@ sf_state_gate_passes() {
   fi
 
   # Form: uses_llm == true
+  # Normalize the stored value: yes/y/true (case-insensitive) → true; no/n/false → false.
+  # Use tr for lowercase — bash 3.2 (macOS) does not support ${var,,}.
   if [[ "$expr" =~ ^uses_llm[[:space:]]+==[[:space:]]+(true|false)$ ]]; then
-    [[ "$uses_llm" == "${BASH_REMATCH[1]}" ]] && return 0 || return 1
+    local uses_llm_lc uses_llm_norm
+    uses_llm_lc="$(printf '%s' "$uses_llm" | tr 'A-Z' 'a-z')"
+    case "$uses_llm_lc" in
+      yes|y|true)  uses_llm_norm="true"  ;;
+      no|n|false)  uses_llm_norm="false" ;;
+      *)           uses_llm_norm="$uses_llm" ;;
+    esac
+    [[ "$uses_llm_norm" == "${BASH_REMATCH[1]}" ]] && return 0 || return 1
   fi
 
   sf_log_warn "Unknown gate expression: $expr (defaulting to passes)"

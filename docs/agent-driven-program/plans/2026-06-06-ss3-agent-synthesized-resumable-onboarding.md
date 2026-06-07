@@ -1074,6 +1074,6 @@ git commit -m "release(scaffold-onboard): SS-3 v0.6.0 — agent-synthesized resu
 
 **Placeholder scan:** No `TBD`/`TODO`/"add error handling" — every code/test step shows real content. The `(none）` glyph in the assembler is intentional fallback text.
 
-**Type consistency:** helper names consistent across tasks (`sf_state_write_phase_record`, `sf_state_read_phase_record`, `sf_state_run_reset`, `sf_state_phases_touched_this_run`, `sf_state_synthesis_digest`, `sf_synth_master_spec_prompt`); the assembler arg order (`brief, digest, out, mode, touched, existing`) is identical in Tasks 6, 9, 11.
+**Type consistency:** helper names consistent across tasks (`sf_state_write_phase_record`, `sf_state_read_phase_record`, `sf_state_run_reset`, `sf_state_phases_touched_this_run`, `sf_state_synthesis_digest`, `sf_synth_master_spec_prompt`); the assembler arg order (`brief, digest_file, out, mode, touched, existing`) is identical in Tasks 6, 9, 11.
 
 **Gap noted & accepted:** the *quality* of a real LLM merge in reconcile mode is not unit-asserted (irreducibly agentic) — covered by the W6 in-session smoke, explicitly flagged in Task 11.
