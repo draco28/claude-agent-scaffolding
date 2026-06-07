@@ -138,7 +138,7 @@ test_synthesis_agent_supports_master_spec_first_author() {
   assert_file_contains "$AGENT" 'MASTER-SPEC\.md` in first-author mode'
   assert_file_contains "$AGENT" 'onboarding discussion digest'
   assert_file_contains "$AGENT" 'MASTER-SPEC\.md` in reconcile mode'
-  if grep -qE '^- Read MASTER-SPEC\.md in full before writing' "$AGENT"; then
+  if grep -iqE '^- [Rr]ead MASTER-SPEC\.md in full before writing' "$AGENT"; then
     FAIL=$((FAIL+1)); echo "  ✗ synthesis-agent still unconditionally requires pre-existing MASTER-SPEC"
   else
     PASS=$((PASS+1)); echo "  ✓ synthesis-agent no longer requires MASTER-SPEC before first-author synthesis"

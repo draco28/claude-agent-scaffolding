@@ -1,7 +1,7 @@
 # SS-3 Agent-Synthesized, Resumable Onboarding — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
-
+>
 > **⚠️ SUPERSEDED (partial reconcile-on-re-onboard) — 2026-06-07.**
 > Partial reconcile-on-re-onboard, referenced in several tasks and steps below (Architecture paragraph, Task 6 reconcile assembler, Task 9 close ceremony reconcile branch, Task 10 reconcile backup test, Task 11 reconcile integration test, Task 12 changelog), was **DESCOPED to follow-up issue #58** during PR #57 review. **SS-3 ships: full re-walk + first-author re-synthesis** — re-onboard re-walks all phases (existing answers used as defaults) and the whole spec is re-synthesized in first-author mode; the prior spec is backed up. Reconcile tasks/steps below are **SUPERSEDED** and retained for historical context only. `sf_synth_master_spec_prompt` reconcile mode and `sf_state_mark_touched`/`touched_this_run` are retained dormant for #58.
 

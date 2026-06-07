@@ -7,7 +7,7 @@
 **Enables:** SS-5 (Codex synthesis backend — inherits a tool-agnostic MASTER-SPEC brief). **Pioneers:** OQ-5's agent-unavailable answer (SS-7 adopts it program-wide).
 
 > **Design settled with user 2026-06-06** (SS-3 brainstorm). Scope chosen: the broadest live path — full MASTER-SPEC synthesis + main-agent per-phase enrichment + reconciliation on re-run, with **no deterministic MASTER-SPEC renderer at all**. Design-locked.
-
+>
 > **⚠️ DESCOPE 2026-06-07 (during PR #57 review).** Decision #4 below — **partial reconcile-on-re-onboard** — was **descoped to follow-up issue #58** after it generated a long tail of edge-case defects across review rounds, including a regression where helper-level subsection-gate filtering gated out Phase 9's LLM opt-in question (`9.3` gate `uses_llm == true` reads `9.3.1`, which lives inside `9.3`). **What ships in SS-3:** the first-author core (decisions 1/2/3/5/6/7) — agent-synthesized MASTER-SPEC at close, schema-v2 `phase_records`, `close_pending` resumability, tool-agnostic brief, no deterministic renderer. **Re-onboard does a clean full re-walk + first-author re-synthesis** (all phases re-walked with existing answers as defaults; whole spec re-synthesized; prior spec backed up) — NOT the partial touched-phase reconcile described in decision #4. Lib foundations (`sf_synth_master_spec_prompt` reconcile mode, `sf_state_mark_touched`, `touched_this_run`) are retained dormant for #58. Sections below describing reconcile mode reflect the *original* design; see #58 for the deferred work.
 
 ---
