@@ -462,9 +462,31 @@ test_subsection_gates_phase1_empty() {
   assert_eq "phase 1 has no gated subsections" "" "$out"
 }
 
+# Issue #59.4 (Codex P2 follow-up) — the 7.4 gate in phases.yaml is stored with
+# YAML-escaped inner quotes (`project_class == \"Library or SDK\"`). The helper
+# must emit the UNESCAPED logical expression so sf_state_gate_passes recognizes
+# it (otherwise it warns "unknown expression" and defaults to pass, wrongly
+# treating the Library/SDK subsection as active for every project class).
+test_subsection_gate_74_is_unescaped_and_evaluable() {
+  echo "test_subsection_gate_74_is_unescaped_and_evaluable:"
+  setup_tmp_repo
+  local pyaml="$HERE/../templates/onboarding-questions/phases.yaml"
+  local out gate74
+  out="$(sf_phases_subsection_gates "$pyaml" 7)"
+  gate74="$(printf '%s\n' "$out" | awk -F'\t' '$1=="7.4"{print $2}')"
+  assert_eq "7.4 gate is unescaped" 'project_class == "Library or SDK"' "$gate74"
+  # And the emitted gate must round-trip through sf_state_gate_passes.
+  sf_state_init
+  sf_state_write_answer "1.3.1" "Library or SDK"
+  assert_exit_code 0 sf_state_gate_passes "$gate74"
+  sf_state_write_answer "1.3.1" "Web app"
+  assert_exit_code 1 sf_state_gate_passes "$gate74"
+}
+
 test_subsection_gates_phase9
 test_subsection_gates_phase7
 test_subsection_gates_phase1_empty
+test_subsection_gate_74_is_unescaped_and_evaluable
 
 # Issue #59.7 — sf_state_synthesis_digest must fail fast on an unreadable/corrupt
 # state file rather than silently emitting a thin (answer-less) digest.

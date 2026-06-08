@@ -539,6 +539,11 @@ sf_phases_subsection_gates() {
         sub(/^        gate:[[:space:]]*/, "", g)
         sub(/^"/, "", g)
         sub(/"$/, "", g)
+        # Unescape YAML-escaped inner quotes (e.g. 7.4 gate
+        # `project_class == \"Library or SDK\"`) so the emitted expression is
+        # the logical gate `sf_state_gate_passes` actually recognizes, not the
+        # raw escaped form (which it would warn-unknown and default-to-pass on).
+        gsub(/\\"/, "\"", g)
         print sub_id "\t" g
       }
     }

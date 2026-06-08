@@ -284,6 +284,7 @@ brief="${root}/templates/synthesis-briefs/MASTER-SPEC.brief.md"
 master="$(sf resolve_output_path master_spec MASTER-SPEC.md)"
 digest_file="$(mktemp "${TMPDIR:-/tmp}/sf-digest.XXXXXX")"
 sf state_synthesis_digest > "$digest_file"
+digest_rc=$?
 master_bak=""
 if [[ -f "$master" ]]; then
   master_bak="${master}.bak-$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -295,7 +296,9 @@ asm_rc=$?
 rm -f "$digest_file"
 ```
 
-**If prompt assembly fails** (`asm_rc` is non-zero — `sf synth_master_spec_prompt` exits non-zero on a missing/unreadable brief, a missing/unreadable digest file, or an invalid mode):
+**If digest generation fails** (`digest_rc` is non-zero — `sf state_synthesis_digest` exits non-zero on a corrupt/unreadable `onboarding-state.json`): the `> "$digest_file"` redirection still leaves an empty readable file, so this exit-code check is what stops the flow before it synthesizes from nothing. Surface the digest error verbatim, `rm -f "$digest_file"`, and do NOT back up the spec, assemble the prompt, or dispatch. Surface *"State preserved (`status=close_pending`). Run `/onboard` or `/onboard --resume` to retry the close synthesis."* and stop. (Defense-in-depth: even if a caller skips this check, `sf synth_master_spec_prompt` itself now rejects an empty digest, so the `asm_rc` guard below also catches it.)
+
+**If prompt assembly fails** (`asm_rc` is non-zero — `sf synth_master_spec_prompt` exits non-zero on a missing/unreadable brief, a missing/unreadable/**empty** digest file, or an invalid mode):
 - Surface the assembler's stderr verbatim.
 - Do NOT dispatch the synthesis agent and do NOT enter the inline fallback below — `$prompt` is empty/partial, so both paths would synthesize from nothing.
 - Surface: *"State preserved (`status=close_pending`). Run `/onboard` or `/onboard --resume` to retry the close synthesis."*

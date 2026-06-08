@@ -347,6 +347,25 @@ test_prompt_rejects_missing_brief() {
   assert_exit_code 1 sf_synth_master_spec_prompt "/nonexistent/brief" "$digest_file" "$out" first_author "" ""
 }
 
+# Codex P2 follow-up — an EMPTY digest file (the residue of a failed
+# `sf state_synthesis_digest > file` on corrupt state) must be rejected, so the
+# close ceremony's asm_rc guard stops the flow instead of synthesizing from
+# nothing. A non-empty digest of the same name still assembles fine.
+test_prompt_rejects_empty_digest() {
+  echo "test_prompt_rejects_empty_digest:"
+  setup_tmp_repo
+  sf_state_init
+  local digest_file out
+  digest_file="$TMP_DIR/digest-empty.txt"
+  : > "$digest_file"   # exists + readable but 0 bytes
+  out="$TMP_DIR/repo/MASTER-SPEC.md"
+  assert_exit_code 1 sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" first_author "" ""
+  # Sanity: same path, now non-empty, assembles cleanly (rc=0).
+  printf '# Onboarding discussion digest\n\nProject: demo\n' > "$digest_file"
+  assert_exit_code 0 sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" first_author "" ""
+}
+
 test_prompt_rejects_missing_brief
+test_prompt_rejects_empty_digest
 
 report_results
