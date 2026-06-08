@@ -423,7 +423,7 @@ sf state_write_atomic status complete
 This is the ONLY place `status` transitions to `complete`. Prior to this call the status is `close_pending`; if the skill body is interrupted before reaching here, the next `/onboard` re-enters as `resume` and retries the close ceremony from §8.
 
 If a prior MASTER-SPEC was present (i.e. `master_bak` is set), append a second line after the MASTER-SPEC path line:
-`Re-synthesized (full first-author); prior spec backed up to <master_bak>.`
+`Re-synthesized (full first-author); prior spec — including any manual edits — backed up to <master_bak>. Copy anything you want to keep before continuing.`
 Omit this line when no prior spec existed.
 
 The R1 hierarchy doc emitted by `/plan-roadmap` is named `ROADMAP.md` (not `PROJECT_PLAN.md` — `/scaffold-docs`'s separate Phase-2-derived `PROJECT_PLAN.md` is unchanged from v0.1.0 to avoid filename collision; see SPEC §13.5).
