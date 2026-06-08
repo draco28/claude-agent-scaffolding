@@ -210,10 +210,14 @@ test_close_block_aborts_on_corrupt_digest() {
   printf '{ this is not valid json' > "$(sf_state_path)"
   local block ec
   block="$(_extract_bash_after "$SKILL" "Produce MASTER-SPEC.md")"
-  set +e
-  bash -c "set -uo pipefail; $block" >/dev/null 2>&1
-  ec=$?
-  set -e 2>/dev/null || true
+  # Capture the child exit code WITHOUT toggling the parent's shell options —
+  # this file runs under `set -u` only, so a bare `set -e` here would leak
+  # errexit into every test that follows.
+  if bash -c "set -uo pipefail; $block" >/dev/null 2>&1; then
+    ec=0
+  else
+    ec=$?
+  fi
   if [[ "$ec" -ne 0 ]]; then
     PASS=$((PASS+1)); echo "  ✓ block exits non-zero on corrupt digest (got $ec)"
   else
