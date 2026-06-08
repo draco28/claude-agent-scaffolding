@@ -13,7 +13,6 @@ test_init_has_schema_v2_and_phase_records() {
   sf_state_init
   assert_file_contains "$(sf_state_path)" '"schema_version": 2'
   assert_file_contains "$(sf_state_path)" '"phase_records": \{\}'
-  assert_file_contains "$(sf_state_path)" '"touched_this_run": \[\]'
 }
 
 test_init_has_schema_v2_and_phase_records
@@ -62,80 +61,6 @@ test_read_missing_phase_record_is_null() {
 
 test_read_missing_phase_record_is_null
 
-test_touched_this_run_tracks_writes() {
-  echo "test_touched_this_run_tracks_writes:"
-  setup_tmp_repo
-  sf_state_init
-  local rec="$TMP_DIR/r.json"; printf '{"decisions":"x"}' > "$rec"
-  sf_state_write_phase_record 3 "$rec"
-  sf_state_write_phase_record 1 "$rec"
-  sf_state_write_phase_record 3 "$rec"   # duplicate phase — must not double-list
-  assert_eq "touched is unique+sorted" "1 3" "$(sf_state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
-}
-
-test_touched_this_run_tracks_writes
-
-test_run_reset_clears_touched() {
-  echo "test_run_reset_clears_touched:"
-  setup_tmp_repo
-  sf_state_init
-  local rec="$TMP_DIR/r.json"; printf '{"decisions":"x"}' > "$rec"
-  sf_state_write_phase_record 4 "$rec"
-  sf_state_run_reset
-  assert_eq "touched empty after reset" "" "$(sf_state_phases_touched_this_run | tr -d '\n')"
-}
-
-test_run_reset_clears_touched
-
-# Fix 2: sf_state_mark_touched — pre-write crash-safety marker
-test_mark_touched_adds_phase_to_tracker() {
-  echo "test_mark_touched_adds_phase_to_tracker:"
-  setup_tmp_repo
-  sf_state_init
-  # Mark phase 4 touched WITHOUT writing a phase record (simulates start of revision
-  # before any answer overwrites — the crash-safety pre-write required by Fix 2).
-  sf_state_mark_touched 4
-  local touched
-  touched="$(sf_state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
-  assert_eq "mark_touched 4 appears in tracker" "4" "$touched"
-  # No phase record should exist yet (we only marked touched, didn't write a record).
-  assert_eq "no phase record yet after mark_touched" "null" "$(sf_state_read_phase_record 4)"
-}
-
-test_mark_touched_adds_phase_to_tracker
-
-test_mark_touched_is_idempotent() {
-  echo "test_mark_touched_is_idempotent:"
-  setup_tmp_repo
-  sf_state_init
-  # Calling mark_touched twice for the same phase must not double-list it.
-  sf_state_mark_touched 4
-  sf_state_mark_touched 4
-  local touched
-  touched="$(sf_state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
-  assert_eq "mark_touched twice does not double-list phase 4" "4" "$touched"
-}
-
-test_mark_touched_is_idempotent
-
-test_mark_touched_coexists_with_write_phase_record() {
-  echo "test_mark_touched_coexists_with_write_phase_record:"
-  setup_tmp_repo
-  sf_state_init
-  # mark_touched first (pre-write marker), then write the record — both use unique-append
-  # so the phase should appear exactly once in touched_this_run.
-  sf_state_mark_touched 3
-  local rec="$TMP_DIR/r.json"; printf '{"decisions":"folded forward"}' > "$rec"
-  sf_state_write_phase_record 3 "$rec"
-  local touched
-  touched="$(sf_state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
-  assert_eq "mark_touched + write_phase_record gives exactly one entry" "3" "$touched"
-  # Record must be persisted correctly.
-  assert_eq "record present after mark+write" "folded forward" "$(sf_state_read_phase_record 3 | jq -r '.decisions')"
-}
-
-test_mark_touched_coexists_with_write_phase_record
-
 test_phase_record_rejects_non_object_json() {
   echo "test_phase_record_rejects_non_object_json:"
   setup_tmp_repo
@@ -171,8 +96,8 @@ test_state_write_failure_does_not_replace_state
 test_legacy_state_migrates_on_write() {
   echo "test_legacy_state_migrates_on_write:"
   setup_tmp_repo
-  # A pre-SS-3 (v0.2.x) state file: no schema_version, no phase_records,
-  # no touched_this_run — only flat answers. This is the upgrade input class.
+  # A pre-SS-3 (v0.2.x) state file: no schema_version, no phase_records —
+  # only flat answers. This is the upgrade input class.
   local path; path="$(sf_state_path)"
   mkdir -p "$(dirname "$path")"
   cat > "$path" <<JSON
@@ -187,7 +112,6 @@ test_legacy_state_migrates_on_write() {
 JSON
   # Reads must not crash on the missing keys.
   assert_eq "legacy read_phase_record null" "null" "$(sf_state_read_phase_record 1)"
-  assert_eq "legacy touched empty" "" "$(sf_state_phases_touched_this_run | tr -d '\n')"
   # First write upgrades the file without dropping the legacy answers.
   local rec="$TMP_DIR/r.json"; printf '{"decisions":"keep going"}' > "$rec"
   sf_state_write_phase_record 4 "$rec"
