@@ -2,6 +2,17 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.7.0] — 2026-06-08
+
+Decommission partial reconcile-on-re-onboard (#58, wontfix). The full re-walk + first-author re-synthesis shipped in SS-3 is the permanent re-onboard model; the dormant reconcile machinery SS-3 retained "for #58" is removed. **No user-facing behavior changes** — the reconcile path was never wired into the live `/onboard` flow. scaffold-onboard only.
+
+### Removed
+- **Dormant partial-reconcile machinery.** `sf_state_mark_touched`, `sf_state_run_reset`, `sf_state_phases_touched_this_run`, and the `touched_this_run` state field (`lib/state.sh`); the `reconcile` mode of `sf_synth_master_spec_prompt` (`lib/synthesis.sh`); the reconcile binding rule in `agents/synthesis-agent.md` and the reconcile-mode instructions in `templates/synthesis-briefs/MASTER-SPEC.brief.md`; and the associated dormant tests. None of this was reachable from the live skill flow. (#58)
+
+### Changed
+- **`sf_synth_master_spec_prompt` simplified to a 3-arg first-author-only signature** (`<brief> <digest_file> <out_path>`); the dead `mode`/`touched`/`existing` parameters and the mode-validation guard are gone. The §8 close caller and tests updated to match. (#58)
+- **Close-summary backup message** now states the `.bak-<ts>` includes any manual edits ("Copy anything you want to keep before continuing"), so hand-edits are clearly recoverable after a re-onboard re-synthesis. (#58)
+
 ## [0.6.1] — 2026-06-08
 
 SS-3 residual review polish (closes #59). Non-product-bug edge-case/prose/robustness items deferred at the PR #57 merge so the first-author SS-3 core could ship; this is the focused follow-up pass. No output-contract change. **scaffold-onboard only.** (The broader *true reconcile* follow-up remains #58.)
