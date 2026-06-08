@@ -211,6 +211,13 @@ EOF
 # Always first-author: MASTER-SPEC is authored whole from the digest. (Partial
 # reconcile was decommissioned in v0.7.0 — #58 wontfix.)
 sf_synth_master_spec_prompt() {
+  # Guard: arg count. The signature dropped from 6 args to 3 in v0.7.0 (partial
+  # reconcile decommissioned, #58). Reject a stale caller still passing the old
+  # `… <mode> <touched> <existing>` form rather than silently ignoring args 4-6.
+  if [[ $# -ne 3 ]]; then
+    sf_log_error "sf_synth_master_spec_prompt: expects 3 args <brief> <digest_file> <out_path> (got $#) — the 6-arg reconcile form was removed in v0.7.0 (#58)"
+    return 1
+  fi
   local brief="$1" digest_file="$2" out_path="$3"
 
   # Guard: brief file must exist and be readable.

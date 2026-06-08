@@ -184,10 +184,14 @@ sf_state_read_phase_record() {
 #
 # Answers are grouped by phase prefix (1.*, 2.*, …, 6A.*/6B.* under phase 6).
 # No gate-filtering is applied here: on a fresh first-author onboarding the agent
-# only answered the active branch, so .answers is already branch-clean. Re-onboard
-# re-walks all phases and re-synthesizes the whole spec in first-author mode (the
-# only mode — partial reconcile was decommissioned, #58 wontfix), so stale
-# inactive-branch carryovers are not a live concern.
+# only answered the active branch, so .answers is already branch-clean. KNOWN
+# LIMITATION (accepted, #58 wontfix): a `--regenerate` re-onboard that switches a
+# gating answer (e.g. project_class Web app → Library or SDK) leaves the prior
+# branch's answers (e.g. 6A.* web-UX) in .answers — the re-walk skips the now-gated-
+# out subsection but does not delete its old answers — so this digest can carry
+# stale inactive-branch answers into synthesis. The close-depth critic + accept/edit
+# review catch contradictions; gate-aware digest filtering to prune them was the
+# deferred #58.3 work, decided wontfix with the rest of partial reconcile.
 sf_state_synthesis_digest() {
   local path; path="$(sf_state_path)"
   [[ -f "$path" ]] || { sf_log_error "sf_state_synthesis_digest: no state file"; return 1; }
@@ -211,9 +215,9 @@ sf_state_synthesis_digest() {
     # Answers whose qid belongs to this phase. Phase 6 is split into gated
     # subtracks (6A/6B) in phases.yaml, so include those prefixes under phase 6.
     # No gate-filtering here: on a fresh first-author onboarding the agent only
-    # answered the active branch, so .answers is already branch-clean. Re-onboard
-    # re-walks all phases and re-synthesizes the whole spec, so there are no
-    # stale-answer carryovers (partial reconcile decommissioned, #58 wontfix).
+    # answered the active branch, so .answers is already branch-clean. (Known
+    # limitation: a project_class-switching --regenerate can leave stale
+    # inactive-branch answers — see the function header; #58.3 wontfix.)
     jq -r --arg p "$phase" '
       .answers // {}
       | to_entries

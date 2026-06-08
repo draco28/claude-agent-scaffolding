@@ -338,7 +338,22 @@ test_prompt_rejects_empty_digest() {
   assert_exit_code 0 sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out"
 }
 
+# Codex P2 (PR #61) — reject a stale 6-arg reconcile-form caller (`… <mode>
+# <touched> <existing>`) rather than silently dropping args 4-6 and running
+# first-author. The signature is 3-arg only since v0.7.0 (#58).
+test_prompt_rejects_stale_six_arg_caller() {
+  echo "test_prompt_rejects_stale_six_arg_caller:"
+  setup_tmp_repo
+  sf_state_init
+  local digest_file out
+  digest_file="$TMP_DIR/digest-arity.txt"
+  printf 'some digest content\n' > "$digest_file"
+  out="$TMP_DIR/repo/MASTER-SPEC.md"
+  assert_exit_code 1 sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" reconcile "1 5" "$out"
+}
+
 test_prompt_rejects_missing_brief
 test_prompt_rejects_empty_digest
+test_prompt_rejects_stale_six_arg_caller
 
 report_results
