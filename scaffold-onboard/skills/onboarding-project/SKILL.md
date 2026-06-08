@@ -283,8 +283,16 @@ root="$(sf plugin_root)"
 brief="${root}/templates/synthesis-briefs/MASTER-SPEC.brief.md"
 master="$(sf resolve_output_path master_spec MASTER-SPEC.md)"
 digest_file="$(mktemp "${TMPDIR:-/tmp}/sf-digest.XXXXXX")"
-sf state_synthesis_digest > "$digest_file"
-digest_rc=$?
+# Generate the digest and STOP immediately on failure — before any backup,
+# assembly, or dispatch. The `> "$digest_file"` redirection leaves an empty
+# readable file when `sf state_synthesis_digest` fails (corrupt/unreadable
+# onboarding-state.json), so checking its exit code here is what prevents the
+# close ceremony from synthesizing a hollow MASTER-SPEC. (See prose below.)
+if ! sf state_synthesis_digest > "$digest_file"; then
+  rm -f "$digest_file"
+  echo "scaffold-onboard: MASTER-SPEC close aborted — onboarding state is unreadable/corrupt. State preserved (status=close_pending). Re-run /onboard --resume to retry the close synthesis." >&2
+  exit 1
+fi
 master_bak=""
 if [[ -f "$master" ]]; then
   master_bak="${master}.bak-$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -296,7 +304,7 @@ asm_rc=$?
 rm -f "$digest_file"
 ```
 
-**If digest generation fails** (`digest_rc` is non-zero — `sf state_synthesis_digest` exits non-zero on a corrupt/unreadable `onboarding-state.json`): the `> "$digest_file"` redirection still leaves an empty readable file, so this exit-code check is what stops the flow before it synthesizes from nothing. Surface the digest error verbatim, `rm -f "$digest_file"`, and do NOT back up the spec, assemble the prompt, or dispatch. Surface *"State preserved (`status=close_pending`). Run `/onboard` or `/onboard --resume` to retry the close synthesis."* and stop. (Defense-in-depth: even if a caller skips this check, `sf synth_master_spec_prompt` itself now rejects an empty digest, so the `asm_rc` guard below also catches it.)
+**Digest-failure guard.** The `if ! sf state_synthesis_digest …; then … exit 1; fi` above is the hard stop: a corrupt/unreadable `onboarding-state.json` aborts the close *before* the spec is backed up, the prompt is assembled, or the synthesis agent is dispatched — leaving `status=close_pending` so the next `/onboard --resume` re-enters at §8. Never proceed past it on a non-zero digest. (Defense-in-depth: even a caller that ignored this and assembled anyway would be caught — `sf synth_master_spec_prompt` now rejects an empty digest, tripping the `asm_rc` guard below.)
 
 **If prompt assembly fails** (`asm_rc` is non-zero — `sf synth_master_spec_prompt` exits non-zero on a missing/unreadable brief, a missing/unreadable/**empty** digest file, or an invalid mode):
 - Surface the assembler's stderr verbatim.

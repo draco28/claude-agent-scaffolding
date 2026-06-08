@@ -195,8 +195,40 @@ test_close_block_reconcile_backs_up_existing() {
   fi
 }
 
+# Codex P2 round-2 — the §8 block must STOP (non-zero, no backup, no assembly)
+# when digest generation fails on a corrupt state file, not merely record the
+# exit code and continue.
+test_close_block_aborts_on_corrupt_digest() {
+  echo "test_close_block_aborts_on_corrupt_digest:"
+  setup_tmp_repo
+  _seed_min_state
+  export CLAUDE_PLUGIN_ROOT="$ROOT"
+  # A pre-existing spec at the resolved (single-repo → cwd) path; the abort must
+  # NOT create a .bak-* copy of it (backup happens only after the digest guard).
+  printf '# todo-cli\n\n## Phase 1\nold\n' > "$TMP_DIR/repo/MASTER-SPEC.md"
+  # Corrupt the onboarding state so sf_state_synthesis_digest fails.
+  printf '{ this is not valid json' > "$(sf_state_path)"
+  local block ec
+  block="$(_extract_bash_after "$SKILL" "Produce MASTER-SPEC.md")"
+  set +e
+  bash -c "set -uo pipefail; $block" >/dev/null 2>&1
+  ec=$?
+  set -e 2>/dev/null || true
+  if [[ "$ec" -ne 0 ]]; then
+    PASS=$((PASS+1)); echo "  ✓ block exits non-zero on corrupt digest (got $ec)"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ block did not abort on corrupt digest (exit 0)"
+  fi
+  if ls "$TMP_DIR/repo/MASTER-SPEC.md.bak-"* >/dev/null 2>&1; then
+    FAIL=$((FAIL+1)); echo "  ✗ spec was backed up despite digest failure (should stop before backup)"
+  else
+    PASS=$((PASS+1)); echo "  ✓ no backup created — aborted before the backup step"
+  fi
+}
+
 test_close_master_spec_block_executes_clean
 test_close_block_reconcile_backs_up_existing
+test_close_block_aborts_on_corrupt_digest
 
 test_skill_validates_synthesized_master_spec_before_critic() {
   echo "test_skill_validates_synthesized_master_spec_before_critic:"
