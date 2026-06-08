@@ -8,7 +8,7 @@ This walkthrough uses `project_class = "CLI tool"` (one of the nine v0.1.0 enum 
 
 ## Setup
 
-```
+```bash
 $ cd ~/work/todo-cli
 $ git init
 $ /onboard
@@ -48,7 +48,7 @@ Skill announces:
 
 **User:** `todo add`, `todo ls`, `todo done <id>`, `todo search <query>` — all persisting to a single sqlite file under `~/.todo-cli/db.sqlite`.
 
-Skill renders Phase 1 MASTER-SPEC section via `sf_master_spec_update_phase <tmpl> 1`, surfaces recap:
+Skill authors the Phase 1 record (decisions, rationale, etc.) and persists it via `sf state_write_phase_record 1 <temp-file>`, then surfaces the recap echoed from that record:
 
 > **Phase 1 recap (Foundation)**
 > - Vision: offline-first CLI for terminal-resident developers managing personal todos with tagging, due dates, search.
@@ -60,7 +60,7 @@ Skill renders Phase 1 MASTER-SPEC section via `sf_master_spec_update_phase <tmpl
 
 **User:** accept.
 
-`sf_state_advance_phase` → `current_phase` becomes 2.
+`sf state_advance_phase` → `current_phase` becomes 2.
 
 ---
 
@@ -96,7 +96,7 @@ Entities: `Todo`, `Tag`, `TodoTag` (join). Relationships: many-to-many Todo↔Ta
 
 **5.3.1, 5.3.2 (optional):** scale = ~10k todos per user, latency = sub-100ms for `ls` and `search`.
 
-After the last 5.x answer is persisted, skill renders the Phase 5 section and triggers the **Phase 5 critic moment** (per SPEC §12.1 row 1).
+After the last 5.x answer is persisted, skill authors the Phase 5 record and triggers the **Phase 5 critic moment** (per SPEC §12.1 row 1).
 
 ### Phase 5 critic invocation
 
@@ -104,12 +104,17 @@ After the last 5.x answer is persisted, skill renders the Phase 5 section and tr
 2. Skill announces:
    > Phase 5 close — invoking `architect-critic:critiquing-spec` for `premise-audit` on the Phase 5 recap. Type `skip` if you want to bypass this fire.
 3. User responds: (anything other than `skip`).
-4. Skill invokes:
+4. Skill writes a concrete recap artifact and invokes the critic:
+   ```bash
+   phase_artifact="$(sf project_data_dir)/phase-5-critic-recap.md"
+   sf state_write_phase_artifact 5 "$phase_artifact"
    ```
+   ```text
    Skill(architect-critic:critiquing-spec,
          target=master-spec-phase,
          phase_id=5,
-         depth=premise-audit)
+         depth=premise-audit,
+         artifact_path="$phase_artifact")
    ```
 5. architect-critic runs its sequential-rebuttal loop internally (claude-only adversary at `premise-audit` depth per ac v0.2 settlement #6). Returns a structured summary block per ac SPEC §10:
    > Audit complete for master-spec-phase phase_id=5. 2 challenges stood:
@@ -118,17 +123,21 @@ After the last 5.x answer is persisted, skill renders the Phase 5 section and tr
 6. Skill presents both challenges as edit candidates:
    > Two architect-critic challenges stood. Want to edit the Phase 5 recap to address either?
 7. User: address C-5.1 — change data store note to "sqlite with FTS5 extension enabled at build time."
-8. Skill re-renders Phase 5 section via `sf_master_spec_update_phase`, surfaces the updated recap, asks accept | edit | append.
-9. User: accept. `sf_state_advance_phase` → `current_phase` = 6.
+8. Skill re-authors the Phase 5 record to capture the revision (updated `decisions` / `critic_outcomes`) and re-calls `sf state_write_phase_record 5 <temp-file>`, then surfaces the updated recap, asks accept | edit | append.
+9. User: accept. `sf state_advance_phase` → `current_phase` = 6.
 
 ### Representative state.answers snapshot after Phase 5 close
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": 2,
   "status": "in_progress",
   "current_phase": 6,
-  "started_at": "2026-05-24T14:02:11Z",
+  "current_question": null,
+  "project_class": "CLI tool",
+  "project_root": "/Users/me/projects/todocli",
+  "created_at": "2026-05-24T13:40:00Z",
+  "updated_at": "2026-05-24T14:02:11Z",
   "answers": {
     "1.1.1": "A fast offline-first CLI for managing personal todos with tagging, due dates, and full-text search.",
     "1.1.2": "Developers who live in the terminal and want todo capture without leaving the shell.",
@@ -159,7 +168,18 @@ After the last 5.x answer is persisted, skill renders the Phase 5 section and tr
     "5.2.3": "none",
     "5.3.1": "~10k todos/user",
     "5.3.2": "sub-100ms for ls and search"
-  }
+  },
+  "phase_records": {
+    "5": {
+      "decisions": "Rust + sqlite with FTS5; CLI surface; synchronous I/O.",
+      "rationale": "Rust provides the sub-100ms performance budget; FTS5 gives ranked full-text search without a separate process.",
+      "alternatives_rejected": "Go considered; rejected — sqlite FTS5 binding less mature. TypeScript/Node rejected — startup latency.",
+      "constraints": "Must ship as a single static binary; no daemon.",
+      "critic_outcomes": "C-5.1 (data store ambiguity) stood — changed answer to 'sqlite with FTS5 extension enabled at build time'.",
+      "authored_at": "2026-05-24T14:02:11Z"
+    }
+  },
+  "touched_this_run": ["5"]
 }
 ```
 
@@ -177,7 +197,7 @@ Skill evaluates the `6A.*` subsections — gate is `project_class in {Web app, M
 
 7.1.1: decomposition → `core/` (domain types + invariants), `db/` (sqlite repository), `cli/` (clap-based parser), `bin/` (entry point). 7.1.2: statically typed (Rust). 7.2.x, 7.3.x, 7.4.x are gated on project classes we don't match; skipped.
 
-Phase 7 close → **second critic moment** (Phase 7 close, premise-audit). Same invocation pattern as Phase 5: filesystem probe → `Skill(architect-critic:critiquing-spec, target=master-spec-phase, phase_id=7, depth=premise-audit)` → present challenges → edit / accept → advance.
+Phase 7 close → **second critic moment** (Phase 7 close, premise-audit). Same invocation pattern as Phase 5: filesystem probe → `sf state_write_phase_artifact 7 "$phase_artifact"` → `Skill(architect-critic:critiquing-spec, target=master-spec-phase, phase_id=7, depth=premise-audit, artifact_path="$phase_artifact")` → present challenges → edit / accept → advance.
 
 ---
 
@@ -197,24 +217,27 @@ User: yes. `sf_state_write_answer phase_10.4.include_karpathy yes`.
 
 ## MASTER-SPEC close (critic moment 3)
 
-Skill renders the full MASTER-SPEC via `sf_render_master_spec_init` + final phase updates, then triggers the **MASTER-SPEC close critic**:
+At Phase 10 close, the skill first synthesizes `MASTER-SPEC.md` from phase records + answers (see SKILL.md §8; there is no per-phase render step), then triggers the **MASTER-SPEC close critic** against that freshly authored artifact:
 
-1. Filesystem probe → `v0.2`.
-2. Invocation:
-   ```
+1. Produce `MASTER-SPEC.md` through the MASTER-SPEC synthesis prompt (sub-agent when available, inline host synthesis otherwise).
+2. Validate the synthesized spec with `sf spec_validate "$master"`; if validation fails, stop and preserve state for `/onboard --resume`.
+3. Filesystem probe → `v0.2`.
+4. Invocation:
+   ```text
    Skill(architect-critic:critiquing-spec,
          target=master-spec-full,
-         depth=close)
+         depth=close,
+         artifact_path="$master")
    ```
-3. At `depth=close`, ac v0.2 adversaries are `[claude, codex]` (per ac settlement #6). Codex spawn happens inside architect-critic; scaffold-onboard does not manage it.
-4. architect-critic returns the close-depth summary. Any standing challenges are surfaced as final edit candidates for the MASTER-SPEC.
-5. User accepts (or applies edits and re-renders).
+5. At `depth=close`, ac v0.2 adversaries are `[claude, codex]` (per ac settlement #6). Codex spawn happens inside architect-critic; scaffold-onboard does not manage it.
+6. architect-critic returns the close-depth summary. Any standing challenges are surfaced as final edit candidates for the synthesized MASTER-SPEC.
+7. User accepts or applies edits to `MASTER-SPEC.md`; if edits touch parser anchors or project class fields, the skill re-runs `sf spec_validate "$master"` before continuing.
 
 EXECUTIVE-SUMMARY.md is produced at onboarding close — synthesized from MASTER-SPEC by default (the `EXECUTIVE-SUMMARY.brief.md` synthesis-agent), or deterministically via `sf_render_executive_summary` under `--fast`. Paths are resolved through `sf_resolve_output_path`:
 
 ```bash
-master_spec_path="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
-exec_summary_path="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
+master_spec_path="$(sf resolve_output_path master_spec MASTER-SPEC.md)"
+exec_summary_path="$(sf resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
 ```
 
 For a single-repo todo-cli with no workspace-init manifest: both resolve to `$(pwd)/MASTER-SPEC.md` and `$(pwd)/EXECUTIVE-SUMMARY.md`.
@@ -225,7 +248,7 @@ For a single-repo todo-cli with no workspace-init manifest: both resolve to `$(p
 
 Skill emits:
 
-```
+```text
 MASTER-SPEC.md authored at /Users/<you>/work/todo-cli/MASTER-SPEC.md.
 EXECUTIVE-SUMMARY.md authored at /Users/<you>/work/todo-cli/EXECUTIVE-SUMMARY.md.
 

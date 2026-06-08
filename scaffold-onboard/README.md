@@ -49,7 +49,7 @@ Linux and macOS. Windows is deferred (matches sibling plugins).
 
 ## Status
 
-v0.1.0 — design spec at `docs/SPEC-scaffold-onboard.md`; implementation plan at `docs/PLAN-scaffold-onboard.md`.
+v0.6.0 — design spec at `docs/agent-driven-program/specs/SS-3-agent-synthesized-resumable-onboarding.md`; implementation plan at `docs/agent-driven-program/plans/2026-06-06-ss3-agent-synthesized-resumable-onboarding.md`.
 
 ## License
 

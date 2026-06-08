@@ -46,6 +46,7 @@ sf_state_init() {
     --arg now "$now" \
     --arg root "$project_root" \
     '{
+      schema_version: 2,
       status: "in_progress",
       current_phase: 1,
       current_question: null,
@@ -53,7 +54,9 @@ sf_state_init() {
       project_root: $root,
       created_at: $now,
       updated_at: $now,
-      answers: {}
+      answers: {},
+      phase_records: {},
+      touched_this_run: []
     }' > "$path"
 }
 
@@ -81,13 +84,22 @@ sf_state_write_atomic() {
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   # Detect numeric value (integer only)
   if [[ "$value" =~ ^-?[0-9]+$ ]]; then
-    jq --arg k "$key" --argjson v "$value" --arg now "$now" \
-      '.[$k] = $v | .updated_at = $now' "$path" > "$tmp"
+    if jq --arg k "$key" --argjson v "$value" --arg now "$now" \
+      '.[$k] = $v | .updated_at = $now' "$path" > "$tmp"; then
+      mv "$tmp" "$path"
+    else
+      rm -f "$tmp"
+      return 1
+    fi
   else
-    jq --arg k "$key" --arg v "$value" --arg now "$now" \
-      '.[$k] = $v | .updated_at = $now' "$path" > "$tmp"
+    if jq --arg k "$key" --arg v "$value" --arg now "$now" \
+      '.[$k] = $v | .updated_at = $now' "$path" > "$tmp"; then
+      mv "$tmp" "$path"
+    else
+      rm -f "$tmp"
+      return 1
+    fi
   fi
-  mv "$tmp" "$path"
 }
 
 # Write an answer to state.answers["<question_id>"]. value is treated as a
@@ -100,9 +112,13 @@ sf_state_write_answer() {
   tmp="$(mktemp "${path}.XXXXXX")"
   local now
   now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  jq --arg q "$qid" --arg v "$value" --arg now "$now" \
-    '.answers[$q] = $v | .updated_at = $now' "$path" > "$tmp"
-  mv "$tmp" "$path"
+  if jq --arg q "$qid" --arg v "$value" --arg now "$now" \
+    '.answers[$q] = $v | .updated_at = $now' "$path" > "$tmp"; then
+    mv "$tmp" "$path"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
 }
 
 # Read state.answers["<question_id>"]. Returns "null" if absent.
@@ -115,6 +131,188 @@ sf_state_read_answer() {
     return 0
   fi
   jq -r --arg q "$qid" '.answers[$q] // "null"' "$path"
+}
+
+# Write a per-phase reasoning record. <record_file> must be a file containing a
+# JSON object (the conducting agent authors it via its Write tool — keeps prose
+# escaping out of bash). Merges into .phase_records["<phase_id>"] atomically and
+# appends <phase_id> to .touched_this_run (unique). Bumps schema_version to 2 so
+# a legacy file becomes conformant on first write.
+sf_state_write_phase_record() {
+  local phase_id="$1" record_file="$2"
+  local path; path="$(sf_state_path)"
+  if [[ ! -f "$record_file" ]]; then
+    sf_log_error "sf_state_write_phase_record: record file not found: $record_file"
+    return 1
+  fi
+  if ! jq -e . "$record_file" >/dev/null 2>&1; then
+    sf_log_error "sf_state_write_phase_record: record file is not valid JSON: $record_file"
+    return 1
+  fi
+  if ! jq -e 'type == "object"' "$record_file" >/dev/null 2>&1; then
+    sf_log_error "sf_state_write_phase_record: record file must be a JSON object: $record_file"
+    return 1
+  fi
+  local tmp now
+  tmp="$(mktemp "${path}.XXXXXX")"
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  if jq --arg p "$phase_id" --arg now "$now" --slurpfile rec "$record_file" \
+    '
+    .schema_version = 2
+    | .phase_records = (.phase_records // {})
+    | .phase_records[$p] = ($rec[0] + {authored_at: $now})
+    | .touched_this_run = (((.touched_this_run // []) + [$p]) | unique)
+    | .updated_at = $now
+    ' "$path" > "$tmp"; then
+    mv "$tmp" "$path"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
+# Read .phase_records["<phase_id>"] as a JSON object. Prints "null" if absent.
+sf_state_read_phase_record() {
+  local phase_id="$1"
+  local path; path="$(sf_state_path)"
+  if [[ ! -f "$path" ]]; then echo "null"; return 0; fi
+  jq -c --arg p "$phase_id" '.phase_records[$p] // null' "$path"
+}
+
+# Mark a single phase as touched in the current run without writing a full phase
+# record. Appends <phase_id> to .touched_this_run (unique), bumps updated_at.
+# Call at the START of revising a phase during re-onboard so that an interruption
+# after answers are overwritten but before sf_state_write_phase_record completes
+# cannot exclude the edited phase from the reconcile hint.
+sf_state_mark_touched() {
+  local phase_id="$1"
+  local path; path="$(sf_state_path)"
+  [[ -f "$path" ]] || { sf_log_error "sf_state_mark_touched: no state file"; return 1; }
+  local tmp now
+  tmp="$(mktemp "${path}.XXXXXX")"
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  if jq --arg p "$phase_id" --arg now "$now" \
+    '.touched_this_run = (((.touched_this_run // []) + [$p]) | unique) | .updated_at = $now' \
+    "$path" > "$tmp"; then
+    mv "$tmp" "$path"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
+# Reset the per-run touched-phases tracker. Call once at skill entry / resume so
+# the reconcile hint reflects only phases (re)authored in the current run.
+sf_state_run_reset() {
+  local path; path="$(sf_state_path)"
+  [[ -f "$path" ]] || return 0
+  local tmp now
+  tmp="$(mktemp "${path}.XXXXXX")"
+  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  if jq --arg now "$now" '.touched_this_run = [] | .updated_at = $now' "$path" > "$tmp"; then
+    mv "$tmp" "$path"
+  else
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
+# Print phase IDs (re)authored in the current run, one per line, sorted.
+# Mechanical reconcile hint handed to the synthesis agent.
+sf_state_phases_touched_this_run() {
+  local path; path="$(sf_state_path)"
+  [[ -f "$path" ]] || return 0
+  jq -r '(.touched_this_run // []) | sort_by(. | tonumber? // .) | .[]' "$path"
+}
+
+# Emit a human-readable markdown digest of the enriched state for the MASTER-SPEC
+# synthesis agent: per phase, the verbatim answers (qid: value) followed by the
+# agent-authored phase record fields (if any). This is the synthesis SOURCE — it
+# replaces template transcription. Tool-agnostic: any agent that can read text
+# can consume it.
+#
+# Answers are grouped by phase prefix (1.*, 2.*, …, 6A.*/6B.* under phase 6).
+# No gate-filtering is applied here: on a fresh first-author onboarding the agent
+# only answered the active branch, so .answers is already branch-clean. Filtering
+# stale inactive-branch answers on a branch-changing re-onboard is part of the
+# deferred reconcile follow-up (#58); today re-onboard re-walks all phases and
+# re-synthesizes the whole spec with first_author mode, so stale-answer carryovers
+# are not a live concern.
+sf_state_synthesis_digest() {
+  local path; path="$(sf_state_path)"
+  [[ -f "$path" ]] || { sf_log_error "sf_state_synthesis_digest: no state file"; return 1; }
+  echo "# Onboarding discussion digest"
+  echo ""
+  echo "Project: $(sf_project_name)"
+  echo ""
+  local phase
+  for phase in 1 2 3 4 5 6 7 8 9 10; do
+    echo "## Phase $phase"
+    echo ""
+    echo "### Answers (verbatim)"
+    # Answers whose qid belongs to this phase. Phase 6 is split into gated
+    # subtracks (6A/6B) in phases.yaml, so include those prefixes under phase 6.
+    # No gate-filtering here: on a fresh first-author onboarding the agent only
+    # answered the active branch, so .answers is already branch-clean. (Filtering
+    # stale inactive-branch answers on a branch-changing re-onboard is part of the
+    # deferred reconcile follow-up; today re-onboard re-walks all phases and
+    # re-synthesizes the whole spec, so there are no stale-answer carryovers.)
+    jq -r --arg p "$phase" '
+      .answers // {}
+      | to_entries
+      | map(select(.key | startswith($p + ".") or ($p == "6" and test("^6[AB]\\."))))
+      | sort_by(.key)
+      | .[] | "- \(.key): \(.value | tostring | gsub("\n"; " "))"
+    ' "$path"
+    echo ""
+    local rec
+    rec="$(jq -c --arg p "$phase" '.phase_records[$p] // null' "$path")"
+    if [[ "$rec" != "null" ]]; then
+      echo "### Synthesized phase record"
+      printf '%s\n' "$rec" | jq -r '
+        to_entries
+        | map(select(.key != "authored_at"))
+        | .[] | "- **\(.key)**: \(.value | (if type == "string" then . else tojson end) | gsub("\n"; " "))"
+      '
+      echo ""
+    fi
+  done
+}
+
+# Write a markdown artifact for a single phase recap so architect-critic has a
+# concrete file to audit before MASTER-SPEC.md exists at Phase 10 close.
+sf_state_write_phase_artifact() {
+  local phase_id="$1" out="$2"
+  local path; path="$(sf_state_path)"
+  [[ -f "$path" ]] || { sf_log_error "sf_state_write_phase_artifact: no state file"; return 1; }
+  mkdir -p "$(dirname "$out")"
+  {
+    echo "# Phase $phase_id recap artifact"
+    echo ""
+    echo "Generated for architect-critic premise audit before MASTER-SPEC.md exists."
+    echo ""
+    echo "## Answers (verbatim)"
+    jq -r --arg p "$phase_id" '
+      .answers // {}
+      | to_entries
+      | map(select(.key | startswith($p + ".") or ($p == "6" and test("^6[AB]\\."))))
+      | sort_by(.key)
+      | .[] | "- \(.key): \(.value | tostring | gsub("\n"; " "))"
+    ' "$path"
+    echo ""
+    echo "## Synthesized phase record"
+    local rec
+    rec="$(jq -c --arg p "$phase_id" '.phase_records[$p] // null' "$path")"
+    if [[ "$rec" == "null" ]]; then
+      echo "_No phase record persisted yet._"
+    else
+      printf '%s\n' "$rec" | jq -r '
+        to_entries
+        | map(select(.key != "authored_at"))
+        | .[] | "- **\(.key)**: \(.value | (if type == "string" then . else tojson end) | gsub("\n"; " "))"
+      '
+    fi
+  } > "$out"
 }
 
 # Resolve a clean project name for titles/paths. Prefers the explicit onboarding
@@ -153,12 +351,14 @@ sf_state_lock_release() {
   rm -f "$(sf_state_lock_path)"
 }
 
-# Advance current_phase by 1. If already at 10, set status=complete instead.
+# Advance current_phase by 1. If already at 10, set status=close_pending instead
+# of complete. The transition close_pending→complete is performed by the §8 close
+# ceremony on success (sf state_write_atomic status complete), NOT here.
 sf_state_advance_phase() {
   local cur
   cur="$(sf_state_read_field current_phase)"
   if [[ "$cur" == "10" ]]; then
-    sf_state_write_atomic status complete
+    sf_state_write_atomic status close_pending
   else
     sf_state_write_atomic current_phase "$((cur+1))"
   fi
@@ -199,8 +399,17 @@ sf_state_gate_passes() {
   fi
 
   # Form: uses_llm == true
+  # Normalize the stored value: yes/y/true (case-insensitive) → true; no/n/false → false.
+  # Use tr for lowercase — bash 3.2 (macOS) does not support ${var,,}.
   if [[ "$expr" =~ ^uses_llm[[:space:]]+==[[:space:]]+(true|false)$ ]]; then
-    [[ "$uses_llm" == "${BASH_REMATCH[1]}" ]] && return 0 || return 1
+    local uses_llm_lc uses_llm_norm
+    uses_llm_lc="$(printf '%s' "$uses_llm" | tr 'A-Z' 'a-z')"
+    case "$uses_llm_lc" in
+      yes|y|true)  uses_llm_norm="true"  ;;
+      no|n|false)  uses_llm_norm="false" ;;
+      *)           uses_llm_norm="$uses_llm" ;;
+    esac
+    [[ "$uses_llm_norm" == "${BASH_REMATCH[1]}" ]] && return 0 || return 1
   fi
 
   sf_log_warn "Unknown gate expression: $expr (defaulting to passes)"
@@ -211,7 +420,15 @@ sf_state_gate_passes() {
 # phases.yaml reader helpers (BSD awk — no gawk 3-arg match)
 # ---------------------------------------------------------------------------
 
-# Return all question IDs for phase N from phases.yaml, one per line.
+# Return all question IDs for phase N from phases.yaml, one per line (ungated).
+# Gate-skipping of subsections is handled by the conducting agent in the
+# per-phase loop (SKILL §3 step 2), NOT by this helper. A prior attempt to
+# gate-filter here was reverted: gates are self-referential — Phase 9's `9.3`
+# subsection gate is `uses_llm == true`, but `uses_llm` derives from answer
+# `9.3.1` which lives inside `9.3` — so a helper-level gate would skip the very
+# question that sets the gate (and never ask LLM projects the LLM questions).
+# Gate-aware question/digest resolution is deferred to the SS-3 reconcile
+# follow-up (see SPEC).
 # Usage: sf_phases_questions_for <yaml> <target_phase>
 sf_phases_questions_for() {
   local yaml="$1" target="$2"
@@ -317,9 +534,10 @@ sf_state_mode() {
   fi
 
   case "$status" in
-    "in_progress") echo "resume" ;;
-    "complete")    echo "reonboard" ;;
-    *)             echo "new" ;;  # malformed or unrecognized
+    "in_progress")   echo "resume" ;;
+    "close_pending") echo "resume" ;;  # all phases answered; close not yet done
+    "complete")      echo "reonboard" ;;
+    *)               echo "new" ;;  # malformed or unrecognized
   esac
 }
 

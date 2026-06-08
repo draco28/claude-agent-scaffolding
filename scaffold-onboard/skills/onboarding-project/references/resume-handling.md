@@ -13,8 +13,8 @@ On every `/onboard` invocation the skill calls `sf state_mode` (the `sf` dispatc
 | Mode value         | Meaning                                                                   | Skill behavior                                                                                                              |
 |--------------------|---------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
 | `new`              | No state file present                                                     | `sf state_init` → Phase 1                                                                                                    |
-| `resume`           | Project-scoped state file present, `status=in_progress`, `project_root` matches current project identity | Re-enter at first unanswered question                                                                                        |
-| `reonboard`        | Project-scoped state file present, `status=complete`, `project_root` matches current project identity    | Confirm prompt → `--regenerate` path                                                                                         |
+| `resume`           | Project-scoped state file present, `status=in_progress` **OR** `status=close_pending`, `project_root` matches current project identity | `in_progress`: re-enter at first unanswered question. `close_pending`: all phases answered, close not yet finished — announce and proceed directly to §7 (Karpathy opt-in) + §8 (MASTER-SPEC close ceremony). |
+| `reonboard`        | Project-scoped state file present, `status=complete`, `project_root` matches current project identity    | Full re-walk re-synthesis: acquire lock → set `current_phase=1` + `status=in_progress` → announce → re-walk all 10 phases (existing answers as defaults) → close in first-author mode (backs up prior MASTER-SPEC.md). Use `--fresh` for a full wipe-and-restart (requires double confirmation). Partial-reconcile (choosing only some phases) is deferred to a follow-up. |
 | `project_mismatch` | Project-scoped state file present, `project_root` ≠ current project identity (or stored `project_root` empty) | Prompt user to return to the original path / set `SF_PROJECT_ROOT`, or start fresh for the current project-scoped state.      |
 
 `project_mismatch` (v0.2.1+) originally prevented stale singleton state from another project from being resumed. In v0.2.3+, state is already project-scoped under `sf project_data_dir`, so this mode is now a same-project safety net for moved workspaces, changed `SF_PROJECT_ROOT`, or malformed legacy state. Stored `project_root` is captured by `sf state_init` from `sf project_identity_root`.
@@ -36,7 +36,7 @@ The mode is computed once at skill entry. Explicit flags override:
 
 Every entry into the skill body acquires the advisory lock via `sf_state_lock_acquire`. The lock file lives next to the project-scoped `onboarding-state.json` as `onboarding.lock`. It records:
 
-```
+```json
 {
   "pid":         <int>,
   "acquired_at": "<ISO8601>",
@@ -52,7 +52,7 @@ If acquisition fails (lock present and the recorded process is not the current s
 
 Release happens at:
 
-- Phase 10 close, after `sf_state_write_atomic status complete`.
+- Phase 10 close, after `sf state_write_atomic status complete`.
 - Any clean exit (user cancels at a confirm prompt; lock released before the skill returns).
 
 Crash-released locks are detected on next entry by stat'ing the recorded `pid`. If it's no longer alive (e.g., the Claude Code process was killed mid-Phase-4), `sf_state_mode` treats the lock as stale and offers `--force-unlock` in the warning text.
@@ -63,8 +63,8 @@ Crash-released locks are detected on next entry by stat'ing the recorded `pid`. 
 
 There's no separate `checkpoint` field in the state schema. Resume position is derived from two reads:
 
-1. `sf_state_read_field current_phase` → integer 1..10.
-2. For each question id in that phase (via `sf_phases_questions_for <yaml> <current_phase>`), call `sf_state_read_answer <qid>` and find the **first** that returns `null` *and* is either required or has not been explicitly marked `skip`.
+1. `sf state_read_field current_phase` → integer 1..10.
+2. For each question id in that phase (via `sf phases_questions_for <yaml> <current_phase>`), call `sf state_read_answer <qid>` and find the **first** that returns `null` *and* is either required or has not been explicitly marked `skip`.
 
 This is the resume point. If every question in `current_phase` is already answered, the resume point is the *first* question of `current_phase + 1` (the user crashed between question-answer-write and `sf_state_advance_phase`).
 
@@ -74,14 +74,29 @@ State file:
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": 2,
   "status": "in_progress",
   "current_phase": 4,
-  "started_at": "2026-05-24T13:40:00Z",
+  "current_question": null,
+  "project_class": "Web app",
+  "project_root": "/Users/me/projects/myapp",
+  "created_at": "2026-05-24T13:40:00Z",
+  "updated_at": "2026-05-24T14:02:00Z",
   "answers": {
-    "1.1.1": "...", "1.1.2": "...", ..., "3.3.1": "...",
+    "1.1.1": "...", "1.1.2": "...", "3.3.1": "...",
     "4.1.1": "none", "4.1.2": "none"
-  }
+  },
+  "phase_records": {
+    "1": {
+      "decisions": "Core product is a real-time analytics dashboard for SMB e-commerce.",
+      "rationale": "User validated that Shopify-tier complexity is the right scope.",
+      "alternatives_rejected": "Enterprise multi-tenant deferred to v2.",
+      "constraints": "MVP in 8 weeks; two-person team.",
+      "open_questions": "Pricing model TBD.",
+      "authored_at": "2026-05-24T13:55:00Z"
+    }
+  },
+  "touched_this_run": ["1"]
 }
 ```
 
@@ -89,11 +104,12 @@ User runs `/onboard --resume`. Skill:
 
 1. Acquires lock.
 2. Reads `current_phase=4`.
-3. Iterates `sf_phases_questions_for phases.yaml 4` → `[4.1.1, 4.1.2, 4.2.1, 4.2.2, 4.3.1]`.
-4. Finds first unanswered → `4.2.1` ("Auth model: none / API keys / OAuth / SSO / custom?").
-5. Announces:
+3. Repairs any earlier phase whose `phase_records[N]` is missing but has stored answers, by re-authoring the record in conversation.
+4. Iterates `sf phases_questions_for phases.yaml 4` → `[4.1.1, 4.1.2, 4.2.1, 4.2.2, 4.3.1]`.
+5. Finds first unanswered → `4.2.1` ("Auth model: none / API keys / OAuth / SSO / custom?").
+6. Announces:
    > Resuming at Phase 4 (Security & Compliance), question 3 of 5. *3 of 5 questions remaining.* Last answered: 4.1.2 (regulated domain → none).
-6. Asks `4.2.1`.
+7. Asks `4.2.1`.
 
 Phases 1-3 + the first 2 questions of Phase 4 are **never re-asked**. Existing answers are read-only during resume.
 
@@ -101,37 +117,33 @@ Phases 1-3 + the first 2 questions of Phase 4 are **never re-asked**. Existing a
 
 ## 4. Flag matrix: --resume vs --regenerate vs no-flag default
 
-| Invocation              | State file: absent       | State file: `in_progress`   | State file: `complete`       |
-|-------------------------|--------------------------|------------------------------|------------------------------|
-| `/onboard` (no flag)    | Fresh: Phase 1           | Implicit resume               | Confirm → reonboard          |
-| `/onboard --resume`     | Error: "no state file"   | Explicit resume               | Error: "use --regenerate"    |
-| `/onboard --regenerate` | (treated as fresh)       | Confirm → backup + reset      | Confirm → backup + reset     |
-| `/onboard --force-unlock` | Error: "no lock to release" | Confirm → release lock; user re-runs with intended flag | Same as in_progress |
+| Invocation              | State file: absent       | State file: `in_progress`      | State file: `close_pending`                     | State file: `complete`                          |
+|-------------------------|--------------------------|--------------------------------|-------------------------------------------------|-------------------------------------------------|
+| `/onboard` (no flag)    | Fresh: Phase 1           | Implicit resume                | Implicit resume → §8 close ceremony             | Full re-walk re-synthesis (all phases; prior spec backed up) |
+| `/onboard --resume`     | Error: "no state file"   | Explicit resume                | Explicit resume → §8 close ceremony             | Error: "use --regenerate"                       |
+| `/onboard --regenerate` | (treated as fresh)       | Full re-walk re-synthesis      | Full re-walk re-synthesis                       | Full re-walk re-synthesis: backup + re-walk all phases (existing answers as defaults) |
+| `/onboard --fresh`      | (treated as fresh)       | Confirm → full wipe + Phase 1  | Confirm → full wipe + Phase 1                   | Double-confirm → full wipe + Phase 1            |
+| `/onboard --force-unlock` | Error: "no lock to release" | Confirm → release lock; user re-runs with intended flag | Same as in_progress | Same as in_progress |
 
 The no-flag default is *forgiving*: it does the most likely-intended thing based on state. The explicit flags are *strict*: they refuse to do anything other than what the flag names. This makes `/onboard --resume` safe to wire into hooks or scripts without worrying about it accidentally starting a fresh onboarding when state is missing.
 
 ---
 
-## 5. Edge case: MASTER-SPEC hand-edited externally
+## 5. Edge case: phase record missing (crash between answer-write and record-write)
 
-State file is `in_progress` at Phase 7, but the user has manually edited `MASTER-SPEC.md` in their editor between sessions — added a new line under Phase 3, rephrased a Phase 1 bullet. On `/onboard --resume`, the skill detects drift:
+State file is `in_progress` at Phase 7, but a prior session crashed after persisting the answers for Phase 3 without writing the Phase 3 record. On `/onboard --resume`, the skill detects the gap:
 
-1. After lock acquisition, skill reads the on-disk MASTER-SPEC.md mtime + a content hash (lib/render.sh helper `sf_render_master_spec_hash`).
-2. Compares against the hash recorded at the last `sf_master_spec_update_phase` call (stored in the project-scoped `onboarding-state.json` under `answers["__internal.master_spec_hash"]` or a sibling field — implementation detail of T2.3 render helpers).
-3. If the hash differs, skill emits:
+1. After lock acquisition, skill does not call `sf state_run_reset` in ordinary resume mode. It iterates phases 1 through `current_phase - 1` calling `sf state_read_phase_record <phase_id>` on each.
+2. Since MASTER-SPEC is synthesized at close from phase records + answers (not rendered per phase), a missing record for a fully-answered phase is a recoverable gap: the answers are intact, the reasoning was never captured.
+3. If any phase records are missing for already-answered phases, skill emits:
 
-   > MASTER-SPEC.md has been edited outside the onboarding flow since the last persisted phase recap. Your manual edits may conflict with the auto-rendered sections.
-   >
-   > Choose one:
-   >   `revalidate` — re-render MASTER-SPEC from state.answers (your manual edits are backed up to `MASTER-SPEC.md.handedit-<ISO8601>` and replaced).
-   >   `merge`      — keep your manual edits; resume from Phase 7 question N. Future `sf_master_spec_update_phase` calls will only touch the Phase 7+ sections; earlier phases are left as-edited.
-   >   `cancel`     — stop. Inspect the file and re-run when ready.
+   > Phase N answers are all present but the reasoning record is missing (the prior session likely crashed before authoring it). I'll re-author the Phase N record now from the existing answers.
 
-This is a **warn-and-offer** flow, not a hard error. The user is authoritative; we never silently overwrite a hand-edit.
+   The skill re-authors the missing record in conversation (not by re-asking the user) and persists it via `sf state_write_phase_record <phase_id> <temp-file>`. This is a silent repair — the user is only notified, not re-prompted.
 
-The `merge` path requires the skill to skip `sf_master_spec_update_phase` for phases earlier than `current_phase`. Phase 1-6 sections become user-owned; Phase 7+ remain skill-owned. This is honestly best-effort — if the user hand-edits the Phase 5 section *and* the Phase 5 critic later wants to revise it, the user has to redo the merge by hand. We document the limitation rather than pretend to solve it.
+This is a **warn-and-repair** flow, not a hard error. The user's answers are authoritative and are never re-asked; only the reasoning record is reconstructed.
 
-The `revalidate` path is the clean restart: full re-render from `state.answers`, hand-edits archived in the `.handedit-<ISO8601>` backup. Equivalent to "trust the state file, distrust the file on disk."
+**Note:** MASTER-SPEC.md does not exist mid-onboarding (it is synthesized at close). If a user has manually created or edited a MASTER-SPEC.md in the project directory before close, that is an external artifact; the skill ignores it during the in-progress flow and overwrites it (with confirmation) at close.
 
 ---
 
@@ -146,6 +158,6 @@ The state file lives at `$(sf project_data_dir)/onboarding-state.json`, where `s
 - One state file and one lock per project identity under the install-level plugin data namespace.
 - Two sessions trying to onboard the same project at the same time: second one gets refused at lock acquisition.
 - Two sessions onboarding *different* projects with the same `CLAUDE_PLUGIN_DATA` value: independent, no contention.
-- Crash mid-write: atomic-mv via `sf_state_write_atomic` means the state file is never half-written. Worst case: the last unflushed answer is lost; resume picks up at that question.
+- Crash mid-write: state helpers write to a temp file and only `mv` it over the state path after `jq` exits successfully, so the state file is never replaced with a partial/empty transform. Worst case: the last unflushed answer is lost; resume picks up at that question.
 
 This is deliberately conservative. We don't try to merge concurrent onboarding sessions; that way lies madness. Lock-then-refuse is the contract.

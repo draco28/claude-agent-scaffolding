@@ -12,11 +12,11 @@ This skill (`onboarding-project`) is responsible for **three** critic moments. S
 |---|-----------------------------------------|----------------------|------------|-----------------|----------------------|
 | 1 | Phase 5 close (Architecture)            | `master-spec-phase`  | `5`        | `premise-audit` | `[claude]`           |
 | 2 | Phase 7 close (Implementation Approach) | `master-spec-phase`  | `7`        | `premise-audit` | `[claude]`           |
-| 3 | MASTER-SPEC close (post-Phase-10)       | `master-spec-full`   | (omitted)  | `close`         | `[claude, codex]`    |
+| 3 | MASTER-SPEC close (post-Phase-10 synthesis + validation, before EXECUTIVE-SUMMARY render) | `master-spec-full`   | (omitted)  | `close`         | `[claude, codex]`    |
 
 Adversaries are inferred by architect-critic from `depth` per ac v0.2 settlement #6 (premise-audit → claude-only; close → claude + codex when user opts in via `--close`). scaffold-onboard does **not** pass an explicit adversaries list; it passes `depth` and lets architect-critic decide.
 
-Phases 1-4, 6, 8, 9 have **no** critic moment. Phase 10's critic is the post-render close — it fires after the full MASTER-SPEC is assembled, not after the Phase 10 questions are answered.
+Phases 1-4, 6, 8, 9 have **no** critic moment. Phase 10's critic fires after MASTER-SPEC synthesis + `sf spec_validate` and **before** EXECUTIVE-SUMMARY render — not after the Phase 10 questions are answered.
 
 ---
 
@@ -51,7 +51,7 @@ architect-critic v0.2 dropped its entry from the shared composition.json registr
 
 ## 3. Invocation pattern
 
-At each critic moment, after the phase recap is rendered but **before** asking the user `accept | edit | append`:
+At each critic moment, after the phase record is authored and the recap is surfaced but **before** asking the user `accept | edit | append`:
 
 1. **Announce.** Surface a one-line announcement:
 
@@ -67,16 +67,24 @@ At each critic moment, after the phase recap is rendered but **before** asking t
    - `v0.2`: continue to step 5.
    - `absent`: warn-and-skip per §4 below. Continue to step 6 of the per-phase loop.
 
-5. **Invoke.** Emit a single `Skill(architect-critic:critiquing-spec, ...)` call with the arguments from the table in §1:
+5. **Write the phase artifact and invoke.** First create a concrete recap artifact so architect-critic has a local file to audit before MASTER-SPEC exists:
 
+   ```bash
+   phase_artifact="$(sf project_data_dir)/phase-${phase_id}-critic-recap.md"
+   sf state_write_phase_artifact "$phase_id" "$phase_artifact"
    ```
+
+   Then emit a single `Skill(architect-critic:critiquing-spec, ...)` call with the arguments from the table in §1 plus the artifact path:
+
+   ```text
    Skill(architect-critic:critiquing-spec,
          target=master-spec-phase,
          phase_id=5,
-         depth=premise-audit)
+         depth=premise-audit,
+         artifact_path="$phase_artifact")
    ```
 
-   For the MASTER-SPEC close (moment 3), omit `phase_id` and use `target=master-spec-full, depth=close`.
+   For the MASTER-SPEC close (moment 3), omit `phase_id` and use `target=master-spec-full, depth=close, artifact_path="$master"`.
 
 6. **Wait for control return.** architect-critic runs its own challenge-resolution loop internally: sequential rebuttal, scoring, auto-promotion checks. scaffold-onboard does **not** mediate this. Control returns via the structured summary block described in ac SPEC §10 — a single message that opens with *"Audit complete for &lt;target&gt; ..."* and lists challenges that stood.
 
@@ -86,7 +94,7 @@ At each critic moment, after the phase recap is rendered but **before** asking t
    > - C-5.1: &lt;challenge text&gt;
    > - C-5.2: &lt;challenge text&gt;
 
-8. **Apply edits.** If the user accepts any, re-render the affected MASTER-SPEC section via `sf_master_spec_update_phase` to capture the revision. If the user declines all, leave the recap as-is.
+8. **Apply edits.** If the user accepts any, re-author the phase record to capture the revision and re-call `sf state_write_phase_record <phase_id> <temp-file>` to persist it. If the user declines all, leave the recap as-is. (No MASTER-SPEC section is re-rendered per phase — MASTER-SPEC is synthesized once at close from the accumulated phase records + answers.)
 
 9. **Resume the per-phase loop at step 6** (the `accept | edit | append` prompt).
 
@@ -127,23 +135,26 @@ scaffold-onboard parses the summary block for the list of standing challenges an
 
 ## 7. Quick reference: invocation cheat-sheet
 
-```
+```text
 Phase 5 close:
   Skill(architect-critic:critiquing-spec,
         target=master-spec-phase,
         phase_id=5,
-        depth=premise-audit)
+        depth=premise-audit,
+        artifact_path="$phase_artifact")
 
 Phase 7 close:
   Skill(architect-critic:critiquing-spec,
         target=master-spec-phase,
         phase_id=7,
-        depth=premise-audit)
+        depth=premise-audit,
+        artifact_path="$phase_artifact")
 
-MASTER-SPEC close (post-Phase-10, after EXECUTIVE-SUMMARY render):
+MASTER-SPEC close (post-Phase-10 synthesis + validation, before EXECUTIVE-SUMMARY render):
   Skill(architect-critic:critiquing-spec,
         target=master-spec-full,
-        depth=close)
+        depth=close,
+        artifact_path="$master")
 ```
 
 Three calls, no more, no less. The `/plan-roadmap` critic moment (target=`roadmap`, depth=`close`) is owned by a different skill.

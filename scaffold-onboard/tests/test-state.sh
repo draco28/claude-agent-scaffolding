@@ -96,7 +96,9 @@ test_phase_complete_marks_status() {
   sf_state_advance_phase
   local status
   status="$(sf_state_read_field status)"
-  assert_eq "status after phase 10 advance" "complete" "$status"
+  # Phase-10 advance now sets close_pending (not complete); complete is set only
+  # by the §8 close ceremony on success (sf state_write_atomic status complete).
+  assert_eq "status after phase 10 advance" "close_pending" "$status"
 }
 
 test_branching_gate_ui() {
@@ -153,11 +155,50 @@ test_mode_reonboard() {
   assert_eq "complete -> reonboard" "reonboard" "$mode"
 }
 
+test_mode_close_pending_is_resume() {
+  echo "test_mode_close_pending_is_resume:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_atomic status close_pending
+  local mode
+  mode="$(sf_state_mode)"
+  assert_eq "close_pending -> resume" "resume" "$mode"
+}
+
+# Guard against regression: complete still routes to reonboard (unchanged).
+test_mode_complete_still_reonboard() {
+  echo "test_mode_complete_still_reonboard:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_atomic status complete
+  local mode
+  mode="$(sf_state_mode)"
+  assert_eq "complete -> reonboard (regression guard)" "reonboard" "$mode"
+}
+
+# After sf_state_init then advancing through phase 10, status=close_pending AND
+# sf_state_mode returns resume (not reonboard).
+test_advance_through_phase10_gives_close_pending_resume() {
+  echo "test_advance_through_phase10_gives_close_pending_resume:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_atomic current_phase 10
+  sf_state_advance_phase
+  local status mode
+  status="$(sf_state_read_field status)"
+  mode="$(sf_state_mode)"
+  assert_eq "status after phase-10 advance" "close_pending" "$status"
+  assert_eq "mode after phase-10 advance" "resume" "$mode"
+}
+
 test_branching_gate_ui
 test_branching_gate_dx
 test_mode_new
 test_mode_resume
 test_mode_reonboard
+test_mode_close_pending_is_resume
+test_mode_complete_still_reonboard
+test_advance_through_phase10_gives_close_pending_resume
 
 test_phases_yaml_question_ids_for_phase() {
   echo "test_phases_yaml_question_ids_for_phase:"
@@ -177,14 +218,9 @@ test_phases_yaml_question_ids_for_phase
 test_scripted_full_onboarding() {
   echo "test_scripted_full_onboarding:"
   setup_tmp_repo
-  local pyaml="$HERE/../templates/onboarding-questions/phases.yaml"
-  local tmpl="$HERE/../templates/master-spec/MASTER-SPEC.md.tmpl"
-  source "$HERE/../lib/render.sh"
   sf_state_init
   # Project class first (gates everything else)
   sf_state_write_answer "1.3.1" "CLI tool"
-  # Init MASTER-SPEC with project_name + project_class
-  sf_master_spec_init "$tmpl" "todo-cli" "CLI tool"
   # Fill a few representative answers across phases
   sf_state_write_answer "1.1.1" "todo-cli — fast local-first task manager"
   sf_state_write_answer "1.1.2" "Existing managers are heavy and cloud-coupled."
@@ -195,11 +231,11 @@ test_scripted_full_onboarding() {
   sf_state_write_answer "7.1.2" "statically typed Rust"
   sf_state_write_answer "9.3.1" "no"
 
-  # Update each phase to reflect state
-  local i
-  for i in 1 2 3 4 5 6 7 8 9 10; do
-    sf_master_spec_update_phase "$tmpl" "$i"
-  done
+  # Write a valid MASTER-SPEC.md fixture directly (sf_master_spec_init and
+  # sf_master_spec_update_phase were removed in SS-3; tests seed fixtures instead).
+  # The pitch arg ensures the exact phrase from state answer 1.1.1 is present in
+  # the fixture's Executive Summary without a post-write printf patch.
+  seed_master_spec_fixture "./MASTER-SPEC.md" "todo-cli" "CLI tool" "todo-cli — fast local-first task manager"
 
   assert_file_exists "./MASTER-SPEC.md"
   assert_file_contains "./MASTER-SPEC.md" "todo-cli — fast local-first task manager"
@@ -350,5 +386,35 @@ test_project_scoped_state_writes_are_isolated
 test_project_scoped_lock_paths_differ
 test_legacy_onboarding_state_migrates_when_project_matches
 test_legacy_onboarding_state_ignored_when_project_mismatches
+
+# Fix 3 — normalize LLM opt-in yes/no → true/false for the gate.
+# answer 9.3.1="yes" must pass uses_llm == true; "no" must fail it.
+test_uses_llm_gate_yes_passes() {
+  echo "test_uses_llm_gate_yes_passes:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_answer "9.3.1" "yes"
+  assert_exit_code 0 sf_state_gate_passes "uses_llm == true"
+}
+
+test_uses_llm_gate_no_fails() {
+  echo "test_uses_llm_gate_no_fails:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_answer "9.3.1" "no"
+  assert_exit_code 1 sf_state_gate_passes "uses_llm == true"
+}
+
+test_uses_llm_gate_true_literal_passes() {
+  echo "test_uses_llm_gate_true_literal_passes:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_answer "9.3.1" "true"
+  assert_exit_code 0 sf_state_gate_passes "uses_llm == true"
+}
+
+test_uses_llm_gate_yes_passes
+test_uses_llm_gate_no_fails
+test_uses_llm_gate_true_literal_passes
 
 report_results

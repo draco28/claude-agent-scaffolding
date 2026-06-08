@@ -66,12 +66,15 @@ script_answers_cli() {
 run_full_pipeline_cli() {
   sf_state_init
   script_answers_cli
-  local tmpl="$PLUGIN_ROOT/templates/master-spec/MASTER-SPEC.md.tmpl"
-  sf_master_spec_init "$tmpl" "todo-cli" "CLI tool"
-  local i
-  for i in 1 2 3 4 5 6 7 8 9 10; do
-    sf_master_spec_update_phase "$tmpl" "$i"
-  done
+  # Write a valid MASTER-SPEC.md fixture directly.
+  # (sf_master_spec_init and sf_master_spec_update_phase were removed in SS-3;
+  # tests write fixtures instead. sf_memory_bank_derive and sf_docs_derive read
+  # from state, not MASTER-SPEC.md, so the fixture only needs to satisfy
+  # sf_spec_validate's structural checks: heading, Executive Summary, phase
+  # markers 1-10, and **Project class:** kv.)
+  local ms_out
+  ms_out="$(sf_resolve_output_path "master_spec" "MASTER-SPEC.md")"
+  seed_master_spec_fixture "$ms_out" "todo-cli" "CLI tool"
   sf_state_write_atomic status complete
   sf_memory_bank_derive
   sf_claude_md_generate
@@ -190,11 +193,18 @@ test_e2e_resume_mid_onboarding() {
   sf_state_write_answer "5.2.1" "Rust"
   sf_state_write_answer "9.3.1" "no"
   sf_state_write_atomic current_phase 10
-  sf_state_advance_phase  # → status=complete
+  sf_state_advance_phase  # → status=close_pending (§8 close not yet done)
 
   local status
   status="$(sf_state_read_field status)"
-  assert_eq "completed after resume" "complete" "$status"
+  # Phase-10 advance produces close_pending; sf_state_mode returns "resume" so
+  # the failed-close-retry path is reachable (SS-3 correctness fix).
+  assert_eq "close_pending after phase-10 advance" "close_pending" "$status"
+
+  # Simulate §8 close ceremony success: only here does status become "complete".
+  sf_state_write_atomic status complete
+  status="$(sf_state_read_field status)"
+  assert_eq "complete after §8 close ceremony" "complete" "$status"
 }
 
 test_e2e_with_composition_mocked() {

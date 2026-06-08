@@ -72,34 +72,9 @@ test_if_false() {
   fi
 }
 
-test_master_spec_init() {
-  echo "test_master_spec_init:"
-  setup_tmp_repo
-  local tmpl="$HERE/../templates/master-spec/MASTER-SPEC.md.tmpl"
-  sf_master_spec_init "$tmpl" "todo-cli" "CLI tool"
-  assert_file_exists "./MASTER-SPEC.md"
-  assert_file_contains "./MASTER-SPEC.md" "# todo-cli — Master Specification"
-  assert_file_contains "./MASTER-SPEC.md" '\*\*Project class:\*\* CLI tool'
-}
-
-test_master_spec_update_phase() {
-  echo "test_master_spec_update_phase:"
-  setup_tmp_repo
-  local tmpl="$HERE/../templates/master-spec/MASTER-SPEC.md.tmpl"
-  sf_master_spec_init "$tmpl" "todo-cli" "CLI tool"
-  sf_state_init
-  sf_state_write_answer "1.1.1" "todo-cli — fast local-first task manager"
-  sf_state_write_answer "1.1.2" "Existing managers are heavy and cloud-coupled."
-  sf_master_spec_update_phase "$tmpl" 1
-  assert_file_contains "./MASTER-SPEC.md" "todo-cli — fast local-first task manager"
-  assert_file_contains "./MASTER-SPEC.md" "heavy and cloud-coupled"
-}
-
 test_simple_substitution
 test_missing_var_becomes_todo
 test_value_with_spaces
 test_if_true
 test_if_false
-test_master_spec_init
-test_master_spec_update_phase
 report_results

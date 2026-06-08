@@ -11,7 +11,8 @@ PLUGIN_ROOT="$HERE/.."
 export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
 
 seed_master_spec_for_docs() {
-  local tmpl="$PLUGIN_ROOT/templates/master-spec/MASTER-SPEC.md.tmpl"
+  # Seed onboarding state — sf_docs_derive reads these answers directly from state.
+  # (sf_master_spec_init and sf_master_spec_update_phase were removed in SS-3.)
   sf_state_init
   sf_state_write_answer "1.1.1" "test-proj — fast widget"
   sf_state_write_answer "1.1.4" "test-proj"
@@ -24,11 +25,9 @@ seed_master_spec_for_docs() {
   sf_state_write_answer "2.2.2" "tech: dependency drift; market: niche; resource: solo"
   sf_state_write_answer "5.2.1" "Rust"
   sf_state_write_answer "9.3.1" "no"
-  sf_master_spec_init "$tmpl" "test-proj" "CLI tool"
-  local i
-  for i in 1 2 3 4 5 6 7 8 9 10; do
-    sf_master_spec_update_phase "$tmpl" "$i"
-  done
+  # Write a structurally valid MASTER-SPEC.md fixture (required by sf_spec_validate
+  # and sf_docs_derive project_name resolution, not for template slot expansion).
+  seed_master_spec_fixture "./MASTER-SPEC.md" "test-proj" "CLI tool"
 }
 
 test_default_docs_generated() {
@@ -101,14 +100,10 @@ test_full_mode_llm_project() {
   echo "test_full_mode_llm_project:"
   setup_tmp_repo
   seed_master_spec_for_docs
-  # Flip the LLM gate
+  # Flip the LLM gate — sf_docs_derive reads 9.3.1 from state directly.
+  # (sf_master_spec_update_phase removed in SS-3; state write is sufficient.)
   sf_state_write_answer "9.3.1" "yes"
   sf_state_write_answer "9.3.2" "groundedness, factuality, latency, cost"
-  local tmpl="$PLUGIN_ROOT/templates/master-spec/MASTER-SPEC.md.tmpl"
-  local i
-  for i in 1 2 3 4 5 6 7 8 9 10; do
-    sf_master_spec_update_phase "$tmpl" "$i"
-  done
   sf_docs_derive --full
   assert_file_exists "./docs/EVALS_PLAN.md"
   assert_file_exists "./docs/MODEL_CARD.md"

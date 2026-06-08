@@ -181,6 +181,141 @@ EOF
   fi
 }
 
+# seed_master_spec_fixture <out_path> [project_name] [project_class] [pitch]
+# Writes a structurally valid MASTER-SPEC.md fixture to <out_path>.
+# The file satisfies sf_spec_validate: top-level heading, ## Executive Summary,
+# **Project class:** kv, and phase markers for phases 1–10.
+# project_name defaults to "test-proj"; project_class defaults to "CLI tool".
+# When pitch is non-empty it is included verbatim in the Executive Summary body,
+# so an assert_file_contains check for that exact phrase is satisfied by the
+# fixture itself (no post-write printf patch needed).
+seed_master_spec_fixture() {
+  local out_path="$1"
+  local project_name="${2:-test-proj}"
+  local project_class="${3:-CLI tool}"
+  local pitch="${4:-}"
+  mkdir -p "$(dirname "$out_path")"
+  # Build the optional pitch line (empty string when pitch is omitted).
+  local pitch_line=""
+  if [[ -n "$pitch" ]]; then
+    pitch_line="${pitch}"$'\n'
+  fi
+  cat > "$out_path" <<FIXTURE
+# ${project_name} — Master Specification
+
+**Project class:** ${project_class}
+**Spec version:** 1.0
+
+## Executive Summary
+
+${pitch_line}${project_name} is a fast, local-first tool for ${project_class} workflows.
+It solves the problem of slow, cloud-coupled alternatives by delivering
+a single-binary solution that works offline. Primary users are solo devs
+and ops engineers who need sub-200ms response times for everyday tasks.
+The MVP scope centers on add/list/complete tasks persisted to a local file.
+
+<!-- master-spec:phase id=1 name=Foundation -->
+
+### 1.1 Elevator pitch & problem statement
+
+**Pitch:** ${project_name} — a fast, local-first task manager
+**Problem:** Existing managers are heavy and cloud-coupled.
+**Success criteria:** Solo devs adopt as their default task tool.
+
+### 1.2 Target users & outcomes
+
+**Primary users:** Solo devs and ops engineers.
+**Core use case:** Add a task, see what's pending, mark done — all under 200ms.
+
+### 1.3 Project classification & MVP
+
+**Project class:** ${project_class}
+**MVP scope:** add/list/complete tasks; persist to ~/.todo.json; tab-complete.
+
+<!-- master-spec:phase id=2 name=Constraints -->
+
+### 2.1 Timeline & team
+
+**Timeline:** 4 weeks
+**Team:** Solo
+
+### 2.2 Risk summary
+
+**Risks:** tech: dep drift; market: niche; resource: solo bandwidth
+
+<!-- master-spec:phase id=3 name=Domain model -->
+
+### 3.1 Core domain entities
+
+**Entities:** Task, Project (optional)
+**Identity & description:** Task(id, title, status, due); Project(id, name)
+
+### 3.2 Relationships
+
+**Key relationships:** Project has many Tasks
+
+<!-- master-spec:phase id=4 name=Integrations -->
+
+### 4.1 External services
+
+**APIs consumed:** none
+**APIs produced:** none
+
+<!-- master-spec:phase id=5 name=Tech stack -->
+
+### 5.1 Platform
+
+**Platform:** CLI
+
+### 5.2 Language & storage
+
+**Language / runtime:** Rust
+**Storage:** file (~/.todo.json)
+
+<!-- master-spec:phase id=6 name=UX -->
+
+### 6.1 UX
+
+**Interface type:** CLI
+**Primary user journey:** todo add 'feed cat' → todo list → todo done 1
+
+<!-- master-spec:phase id=7 name=Architecture -->
+
+### 7.1 Code structure
+
+**Top-level directories:** src/{cli,store,model}
+**Key coding conventions:** statically typed Rust
+
+<!-- master-spec:phase id=8 name=Toolchain -->
+
+### 8.1 Build
+
+**Package manager / build:** cargo
+
+### 8.2 CI/CD
+
+**CI:** GitHub Actions
+**Environments:** dev only
+
+<!-- master-spec:phase id=9 name=Quality -->
+
+### 9.1 Testing
+
+**Coverage target:** 80%
+**Test types:** unit, integration
+
+### 9.3 LLM evaluation
+
+**Uses LLM:** no
+
+<!-- master-spec:phase id=10 name=Operations -->
+
+### 10.1 Support model
+
+**Support model:** direct
+FIXTURE
+}
+
 cleanup() {
   if [[ -n "$TMP_DIR" && -d "$TMP_DIR" ]]; then
     rm -rf "$TMP_DIR"
