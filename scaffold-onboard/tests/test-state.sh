@@ -417,4 +417,97 @@ test_uses_llm_gate_yes_passes
 test_uses_llm_gate_no_fails
 test_uses_llm_gate_true_literal_passes
 
+# Issue #59.4 — expose subsection-level gates to the conductor.
+# sf_phases_question_gate returns empty for subsection-level gates (the gate
+# lives on the subsection, not the question), so the conductor needs a helper
+# that lists each gated subsection in a phase with its gate expression.
+test_subsection_gates_phase9() {
+  echo "test_subsection_gates_phase9:"
+  setup_tmp_repo
+  local pyaml="$HERE/../templates/onboarding-questions/phases.yaml"
+  local out tab
+  tab="$(printf '\t')"
+  out="$(sf_phases_subsection_gates "$pyaml" 9)"
+  # Phase 9 has exactly one gated subsection: 9.3 gated on uses_llm == true.
+  if printf '%s\n' "$out" | grep -q "^9.3${tab}uses_llm == true$"; then
+    PASS=$((PASS+1)); echo "  ✓ phase 9 exposes gated subsection 9.3 with its gate"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ phase 9 subsection gate not exposed: [$out]"
+  fi
+}
+
+test_subsection_gates_phase7() {
+  echo "test_subsection_gates_phase7:"
+  setup_tmp_repo
+  local pyaml="$HERE/../templates/onboarding-questions/phases.yaml"
+  local out
+  out="$(sf_phases_subsection_gates "$pyaml" 7)"
+  # 7.2/7.3/7.4 are gated; 7.1 (Decomposition) is ungated and must NOT appear.
+  if printf '%s\n' "$out" | grep -q '^7.2' \
+     && printf '%s\n' "$out" | grep -q '^7.3' \
+     && printf '%s\n' "$out" | grep -q '^7.4' \
+     && ! printf '%s\n' "$out" | grep -q '^7.1'; then
+    PASS=$((PASS+1)); echo "  ✓ phase 7 lists only gated subsections (7.2/7.3/7.4, not 7.1)"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ phase 7 gated-subsection listing wrong: [$out]"
+  fi
+}
+
+test_subsection_gates_phase1_empty() {
+  echo "test_subsection_gates_phase1_empty:"
+  setup_tmp_repo
+  local pyaml="$HERE/../templates/onboarding-questions/phases.yaml"
+  local out
+  out="$(sf_phases_subsection_gates "$pyaml" 1)"
+  assert_eq "phase 1 has no gated subsections" "" "$out"
+}
+
+# Issue #59.4 (Codex P2 follow-up) — the 7.4 gate in phases.yaml is stored with
+# YAML-escaped inner quotes (`project_class == \"Library or SDK\"`). The helper
+# must emit the UNESCAPED logical expression so sf_state_gate_passes recognizes
+# it (otherwise it warns "unknown expression" and defaults to pass, wrongly
+# treating the Library/SDK subsection as active for every project class).
+test_subsection_gate_74_is_unescaped_and_evaluable() {
+  echo "test_subsection_gate_74_is_unescaped_and_evaluable:"
+  setup_tmp_repo
+  local pyaml="$HERE/../templates/onboarding-questions/phases.yaml"
+  local out gate74
+  out="$(sf_phases_subsection_gates "$pyaml" 7)"
+  gate74="$(printf '%s\n' "$out" | awk -F'\t' '$1=="7.4"{print $2}')"
+  assert_eq "7.4 gate is unescaped" 'project_class == "Library or SDK"' "$gate74"
+  # And the emitted gate must round-trip through sf_state_gate_passes.
+  sf_state_init
+  sf_state_write_answer "1.3.1" "Library or SDK"
+  assert_exit_code 0 sf_state_gate_passes "$gate74"
+  sf_state_write_answer "1.3.1" "Web app"
+  assert_exit_code 1 sf_state_gate_passes "$gate74"
+}
+
+test_subsection_gates_phase9
+test_subsection_gates_phase7
+test_subsection_gates_phase1_empty
+test_subsection_gate_74_is_unescaped_and_evaluable
+
+# Issue #59.7 — sf_state_synthesis_digest must fail fast on an unreadable/corrupt
+# state file rather than silently emitting a thin (answer-less) digest.
+test_synthesis_digest_valid_state_ok() {
+  echo "test_synthesis_digest_valid_state_ok:"
+  setup_tmp_repo
+  sf_state_init
+  sf_state_write_answer "1.1.1" "demo project"
+  assert_exit_code 0 sf_state_synthesis_digest
+}
+
+test_synthesis_digest_corrupt_state_fails() {
+  echo "test_synthesis_digest_corrupt_state_fails:"
+  setup_tmp_repo
+  sf_state_init
+  # Corrupt the state file so jq can no longer parse it.
+  printf '{ this is not valid json' > "$(sf_state_path)"
+  assert_exit_code 1 sf_state_synthesis_digest
+}
+
+test_synthesis_digest_valid_state_ok
+test_synthesis_digest_corrupt_state_fails
+
 report_results

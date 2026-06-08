@@ -223,6 +223,17 @@ sf_synth_master_spec_prompt() {
     return 1
   fi
 
+  # Guard: digest file must be non-empty. `sf_state_synthesis_digest` always
+  # emits at least a header on success; an empty file means digest generation
+  # failed (e.g. corrupt onboarding-state.json) and the caller's `> "$file"`
+  # redirection still left a readable 0-byte file. Refuse to assemble a prompt
+  # from nothing — otherwise the close ceremony would synthesize a hollow
+  # MASTER-SPEC instead of preserving status=close_pending.
+  if [[ ! -s "$digest_file" ]]; then
+    sf_log_error "sf_synth_master_spec_prompt: digest file is empty (state synthesis likely failed): $digest_file"
+    return 1
+  fi
+
   # Guard: mode must be one of the two defined values.
   if [[ "$mode" != "first_author" && "$mode" != "reconcile" ]]; then
     sf_log_error "sf_synth_master_spec_prompt: invalid mode '$mode' (expected first_author|reconcile)"

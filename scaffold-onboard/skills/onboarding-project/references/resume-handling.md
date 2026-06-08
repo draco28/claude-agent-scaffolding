@@ -104,7 +104,7 @@ User runs `/onboard --resume`. Skill:
 
 1. Acquires lock.
 2. Reads `current_phase=4`.
-3. Repairs any earlier phase whose `phase_records[N]` is missing but has stored answers, by re-authoring the record in conversation.
+3. Repairs any phase **up to and including** `current_phase` whose `phase_records[N]` is missing but whose active required questions are all answered, by re-authoring the record in conversation. (Eligibility excludes required questions in gated-out subsections and never blocks on optional questions — see SKILL §4 for the exact rule.)
 4. Iterates `sf phases_questions_for phases.yaml 4` → `[4.1.1, 4.1.2, 4.2.1, 4.2.2, 4.3.1]`.
 5. Finds first unanswered → `4.2.1` ("Auth model: none / API keys / OAuth / SSO / custom?").
 6. Announces:
@@ -133,7 +133,7 @@ The no-flag default is *forgiving*: it does the most likely-intended thing based
 
 State file is `in_progress` at Phase 7, but a prior session crashed after persisting the answers for Phase 3 without writing the Phase 3 record. On `/onboard --resume`, the skill detects the gap:
 
-1. After lock acquisition, skill does not call `sf state_run_reset` in ordinary resume mode. It iterates phases 1 through `current_phase - 1` calling `sf state_read_phase_record <phase_id>` on each.
+1. After lock acquisition, skill does not call `sf state_run_reset` in ordinary resume mode. It iterates phases 1 through `current_phase` (inclusive — a crash after the current phase's last required answer was persisted but before its record was written leaves the record missing at `current_phase` itself, so the scan must cover it; on a `close_pending` resume it covers all 10 phases) calling `sf state_read_phase_record <phase_id>` on each.
 2. Since MASTER-SPEC is synthesized at close from phase records + answers (not rendered per phase), a missing record for a fully-answered phase is a recoverable gap: the answers are intact, the reasoning was never captured.
 3. If any phase records are missing for already-answered phases, skill emits:
 

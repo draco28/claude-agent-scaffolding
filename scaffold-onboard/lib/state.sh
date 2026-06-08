@@ -241,6 +241,14 @@ sf_state_phases_touched_this_run() {
 sf_state_synthesis_digest() {
   local path; path="$(sf_state_path)"
   [[ -f "$path" ]] || { sf_log_error "sf_state_synthesis_digest: no state file"; return 1; }
+  # Fail fast on an unreadable/corrupt state file. Without this guard a genuine
+  # parse failure would let the per-phase jq reads below silently emit empty
+  # sections, producing a thin (answer-less) digest that the synthesis agent
+  # would dutifully turn into a hollow MASTER-SPEC. Surface the error instead.
+  if ! jq -e . "$path" >/dev/null 2>&1; then
+    sf_log_error "sf_state_synthesis_digest: state file is not valid JSON: $path"
+    return 1
+  fi
   echo "# Onboarding discussion digest"
   echo ""
   echo "Project: $(sf_project_name)"
@@ -495,6 +503,49 @@ sf_phases_question_gate() {
       sub(/"$/, "", line)
       print line
       exit
+    }
+  ' "$yaml"
+}
+
+# List the gated SUBSECTIONS for a phase, one per line as "<subsection_id>\t<gate>".
+# Subsection gates live on the subsection node (8-space `gate:`), not on any
+# question, so sf_phases_question_gate returns empty for them. The conducting
+# agent calls this once per phase to discover which subsections are gated and on
+# what — so its per-phase gate-skipping (SKILL §3 step 2, incl. the self-gating
+# exception) is driven by data, not guesswork. Ungated subsections are omitted.
+# This is a READ helper only: it does NOT evaluate gates or filter questions
+# (gate-aware question/digest resolution remains deferred to #58).
+# Usage: sf_phases_subsection_gates <yaml> <target_phase>
+sf_phases_subsection_gates() {
+  local yaml="$1" target="$2"
+  awk -v target="$target" '
+    /^  - id: [0-9]+$/ {
+      line = $0
+      sub(/^  - id: /, "", line)
+      cur_phase = line
+      sub_id = ""
+      next
+    }
+    /^      - id: "/ {
+      line = $0
+      sub(/^      - id: "/, "", line)
+      sub(/".*$/, "", line)
+      sub_id = line
+      next
+    }
+    /^        gate:/ {
+      if (cur_phase == target && sub_id != "") {
+        g = $0
+        sub(/^        gate:[[:space:]]*/, "", g)
+        sub(/^"/, "", g)
+        sub(/"$/, "", g)
+        # Unescape YAML-escaped inner quotes (e.g. 7.4 gate
+        # `project_class == \"Library or SDK\"`) so the emitted expression is
+        # the logical gate `sf_state_gate_passes` actually recognizes, not the
+        # raw escaped form (which it would warn-unknown and default-to-pass on).
+        gsub(/\\"/, "\"", g)
+        print sub_id "\t" g
+      }
     }
   ' "$yaml"
 }

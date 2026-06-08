@@ -195,8 +195,44 @@ test_close_block_reconcile_backs_up_existing() {
   fi
 }
 
+# Codex P2 round-2 — the §8 block must STOP (non-zero, no backup, no assembly)
+# when digest generation fails on a corrupt state file, not merely record the
+# exit code and continue.
+test_close_block_aborts_on_corrupt_digest() {
+  echo "test_close_block_aborts_on_corrupt_digest:"
+  setup_tmp_repo
+  _seed_min_state
+  export CLAUDE_PLUGIN_ROOT="$ROOT"
+  # A pre-existing spec at the resolved (single-repo → cwd) path; the abort must
+  # NOT create a .bak-* copy of it (backup happens only after the digest guard).
+  printf '# todo-cli\n\n## Phase 1\nold\n' > "$TMP_DIR/repo/MASTER-SPEC.md"
+  # Corrupt the onboarding state so sf_state_synthesis_digest fails.
+  printf '{ this is not valid json' > "$(sf_state_path)"
+  local block ec
+  block="$(_extract_bash_after "$SKILL" "Produce MASTER-SPEC.md")"
+  # Capture the child exit code WITHOUT toggling the parent's shell options —
+  # this file runs under `set -u` only, so a bare `set -e` here would leak
+  # errexit into every test that follows.
+  if bash -c "set -uo pipefail; $block" >/dev/null 2>&1; then
+    ec=0
+  else
+    ec=$?
+  fi
+  if [[ "$ec" -ne 0 ]]; then
+    PASS=$((PASS+1)); echo "  ✓ block exits non-zero on corrupt digest (got $ec)"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ block did not abort on corrupt digest (exit 0)"
+  fi
+  if ls "$TMP_DIR/repo/MASTER-SPEC.md.bak-"* >/dev/null 2>&1; then
+    FAIL=$((FAIL+1)); echo "  ✗ spec was backed up despite digest failure (should stop before backup)"
+  else
+    PASS=$((PASS+1)); echo "  ✓ no backup created — aborted before the backup step"
+  fi
+}
+
 test_close_master_spec_block_executes_clean
 test_close_block_reconcile_backs_up_existing
+test_close_block_aborts_on_corrupt_digest
 
 test_skill_validates_synthesized_master_spec_before_critic() {
   echo "test_skill_validates_synthesized_master_spec_before_critic:"
@@ -347,6 +383,25 @@ test_prompt_rejects_missing_brief() {
   assert_exit_code 1 sf_synth_master_spec_prompt "/nonexistent/brief" "$digest_file" "$out" first_author "" ""
 }
 
+# Codex P2 follow-up — an EMPTY digest file (the residue of a failed
+# `sf state_synthesis_digest > file` on corrupt state) must be rejected, so the
+# close ceremony's asm_rc guard stops the flow instead of synthesizing from
+# nothing. A non-empty digest of the same name still assembles fine.
+test_prompt_rejects_empty_digest() {
+  echo "test_prompt_rejects_empty_digest:"
+  setup_tmp_repo
+  sf_state_init
+  local digest_file out
+  digest_file="$TMP_DIR/digest-empty.txt"
+  : > "$digest_file"   # exists + readable but 0 bytes
+  out="$TMP_DIR/repo/MASTER-SPEC.md"
+  assert_exit_code 1 sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" first_author "" ""
+  # Sanity: same path, now non-empty, assembles cleanly (rc=0).
+  printf '# Onboarding discussion digest\n\nProject: demo\n' > "$digest_file"
+  assert_exit_code 0 sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" first_author "" ""
+}
+
 test_prompt_rejects_missing_brief
+test_prompt_rejects_empty_digest
 
 report_results
