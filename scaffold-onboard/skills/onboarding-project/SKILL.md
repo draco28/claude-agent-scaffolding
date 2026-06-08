@@ -298,8 +298,7 @@ if [[ -f "$master" ]]; then
   master_bak="${master}.bak-$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   cp "$master" "$master_bak"
 fi
-mode="first_author"; existing=""; touched=""
-prompt="$(sf synth_master_spec_prompt "$brief" "$digest_file" "$master" "$mode" "$touched" "$existing")"
+prompt="$(sf synth_master_spec_prompt "$brief" "$digest_file" "$master")"
 asm_rc=$?
 rm -f "$digest_file"
 ```
