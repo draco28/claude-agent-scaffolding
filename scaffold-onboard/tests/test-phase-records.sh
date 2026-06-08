@@ -131,7 +131,7 @@ test_synthesis_digest_includes_answers_and_records() {
   sf_state_write_answer "1.3.1" "CLI tool"
   sf_state_write_answer "6A.1.1" "CLI"
   # Phase 6 digest uses phase-prefix selection (both 6A and 6B included regardless
-  # of gate — gate-filtering is deferred to the reconcile follow-up).
+  # of gate — the digest never gate-filters; partial reconcile was decommissioned, #58).
   sf_state_write_answer "6B.1.1" "API docs"
   local rec="$TMP_DIR/r1.json"
   printf '{"decisions":"single JSON file","rationale":"no DB requested"}' > "$rec"
@@ -197,10 +197,10 @@ test_synthesis_digest_errors_without_state
 
 # NOTE: test_synthesis_digest_filters_inactive_branch_answers was removed.
 # That test asserted gate-filtered digest (6B excluded for CLI tool project_class).
-# The sf_state_synthesis_digest helper was reverted to phase-prefix selection
-# (no gate-filtering) to fix the chicken-and-egg that gated out Phase 9's LLM
-# opt-in question. Gate-aware digest filtering is deferred to the reconcile
-# follow-up. The active-branch inclusion is still tested via
+# The sf_state_synthesis_digest helper uses phase-prefix selection (no
+# gate-filtering) to avoid the chicken-and-egg that gated out Phase 9's LLM
+# opt-in question. The digest never gate-filters (partial reconcile was
+# decommissioned, #58). The active-branch inclusion is still tested via
 # test_synthesis_digest_includes_answers_and_records above.
 
 test_synthesis_digest_collapses_multiline_answer() {

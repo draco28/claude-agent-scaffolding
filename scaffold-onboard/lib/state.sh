@@ -184,11 +184,10 @@ sf_state_read_phase_record() {
 #
 # Answers are grouped by phase prefix (1.*, 2.*, …, 6A.*/6B.* under phase 6).
 # No gate-filtering is applied here: on a fresh first-author onboarding the agent
-# only answered the active branch, so .answers is already branch-clean. Filtering
-# stale inactive-branch answers on a branch-changing re-onboard is part of the
-# deferred reconcile follow-up (#58); today re-onboard re-walks all phases and
-# re-synthesizes the whole spec with first_author mode, so stale-answer carryovers
-# are not a live concern.
+# only answered the active branch, so .answers is already branch-clean. Re-onboard
+# re-walks all phases and re-synthesizes the whole spec in first-author mode (the
+# only mode — partial reconcile was decommissioned, #58 wontfix), so stale
+# inactive-branch carryovers are not a live concern.
 sf_state_synthesis_digest() {
   local path; path="$(sf_state_path)"
   [[ -f "$path" ]] || { sf_log_error "sf_state_synthesis_digest: no state file"; return 1; }
@@ -212,10 +211,9 @@ sf_state_synthesis_digest() {
     # Answers whose qid belongs to this phase. Phase 6 is split into gated
     # subtracks (6A/6B) in phases.yaml, so include those prefixes under phase 6.
     # No gate-filtering here: on a fresh first-author onboarding the agent only
-    # answered the active branch, so .answers is already branch-clean. (Filtering
-    # stale inactive-branch answers on a branch-changing re-onboard is part of the
-    # deferred reconcile follow-up; today re-onboard re-walks all phases and
-    # re-synthesizes the whole spec, so there are no stale-answer carryovers.)
+    # answered the active branch, so .answers is already branch-clean. Re-onboard
+    # re-walks all phases and re-synthesizes the whole spec, so there are no
+    # stale-answer carryovers (partial reconcile decommissioned, #58 wontfix).
     jq -r --arg p "$phase" '
       .answers // {}
       | to_entries
@@ -386,8 +384,8 @@ sf_state_gate_passes() {
 # subsection gate is `uses_llm == true`, but `uses_llm` derives from answer
 # `9.3.1` which lives inside `9.3` — so a helper-level gate would skip the very
 # question that sets the gate (and never ask LLM projects the LLM questions).
-# Gate-aware question/digest resolution is deferred to the SS-3 reconcile
-# follow-up (see SPEC).
+# The conductor instead discovers subsection gates via sf_phases_subsection_gates
+# and applies them per SKILL §3 step 2.
 # Usage: sf_phases_questions_for <yaml> <target_phase>
 sf_phases_questions_for() {
   local yaml="$1" target="$2"

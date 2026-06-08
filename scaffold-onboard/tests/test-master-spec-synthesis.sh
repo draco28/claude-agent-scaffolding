@@ -272,7 +272,6 @@ test_resumability_uses_persisted_records_across_sessions() {
   echo "test_resumability_uses_persisted_records_across_sessions:"
   setup_tmp_repo
   sf_state_init
-  sf_state_run_reset
   # "Session A": phases 1-3 answered + records authored.
   sf_state_write_answer "1.1.1" "todo-cli — fast tasks"
   local r="$TMP_DIR/r.json"
