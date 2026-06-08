@@ -22,7 +22,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 **Multi-turn dialogs:** when a scenario requires the target subagent to pause for user input, the orchestrator pre-loads the user's follow-up responses in the dispatch prompt (as a "transcript injection") rather than waiting for interactive input. The judge subagent verifies the target's behavior matches the expected flow given the pre-injected responses.
 
-**Reproducibility note:** the orchestrator MUST clear the project-scoped `${CLAUDE_PLUGIN_DATA}/<project-id>/onboarding-state.json` and any `.claude/marker-*` files between scenarios. Scenarios are independent; ordering does not matter.
+**Reproducibility note:** the orchestrator MUST clear the project-scoped `${CLAUDE_PLUGIN_DATA}/<project-id>/onboarding-state.json`, the sibling `${CLAUDE_PLUGIN_DATA}/<project-id>/onboarding.lock`, and any `.claude/marker-*` files between scenarios. Leaving a stale `onboarding.lock` behind makes the next scenario fail at lock acquisition with a false lock-contention error. Scenarios are independent; ordering does not matter.
 
 ## Scenarios
 

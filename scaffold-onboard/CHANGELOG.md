@@ -2,6 +2,23 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.6.1] — 2026-06-08
+
+SS-3 residual review polish (closes #59). Non-product-bug edge-case/prose/robustness items deferred at the PR #57 merge so the first-author SS-3 core could ship; this is the focused follow-up pass. No output-contract change. **scaffold-onboard only.** (The broader *true reconcile* follow-up remains #58.)
+
+### Added
+- **`sf_phases_subsection_gates <yaml> <phase>` helper** (`lib/state.sh`) lists each gated subsection in a phase as `<subsection_id>\t<gate_expr>`. Subsection-level gates do not surface via `sf_phases_question_gate` (which reads question-level gates only), so the conducting agent had no clean, data-driven way to see which subsections are gated. The helper is read-only — it does not evaluate gates or filter questions (gate-aware digest resolution remains deferred to #58). Wired into `onboarding-project` SKILL §3 per-phase loop. Guarded by `test-state.sh`. (#59.4)
+
+### Fixed
+- **`sf_state_synthesis_digest` now fails fast on a corrupt/unreadable state file** instead of silently emitting a thin (answer-less) digest that the synthesis agent would turn into a hollow MASTER-SPEC. A `jq -e .` validity gate surfaces a parse failure with a clear error and non-zero exit. Guarded by `test-state.sh`. (#59.7)
+- **Record-repair eligibility is now explicitly gate-aware** (`onboarding-project` SKILL §4): a required question inside a *gated-out* subsection no longer blocks missing-record repair (e.g. a Library/SDK project never answers the web-UX `6A.*` questions), and unanswered *optional* questions never block repair nor get re-asked by the pass. The conductor judges active subsections via `sf phases_subsection_gates` + `sf state_gate_passes` — no helper-level gate-filtering (that caused the reverted Phase-9 LLM-opt-in regression). (#59.1, #59.2)
+- **Fresh `/onboard --regenerate` (no prior state) now inits state first** before its atomic writes, so a `--regenerate` with no existing onboarding no longer fails on `sf state_write_atomic` reading a non-existent state file. (#59.5)
+- **MASTER-SPEC prompt-assembly failures are surfaced before dispatch** (`onboarding-project` SKILL §8): if `sf synth_master_spec_prompt` exits non-zero, the skill surfaces the error and stops (state preserved, `status=close_pending`) rather than dispatching the synthesis agent / entering the inline fallback with an empty prompt. (#59.3)
+
+### Changed
+- **Eval reproducibility note** (`evals/onboarding-project.md`) now requires clearing `onboarding.lock` between scenarios — a stale lock made the next scenario fail at lock acquisition with a false contention error. (#59.6)
+- **`references/resume-handling.md` synced** so the missing-record repair scan documents covering phases 1 *through and including* `current_phase` (and all 10 on a `close_pending` resume), matching SKILL §4 — plus the gated-out/optional eligibility rule. (#59.8)
+
 ## [0.6.0] — 2026-06-06
 
 SS-3 — agent-synthesized, resumable onboarding (closes #51). MASTER-SPEC is now synthesized by a sub-agent (or inline in main context) at Phase-10 close, replacing mechanical `{{placeholder}}` transcription. Onboarding state schema v2 captures per-phase records (decisions/rationale/rejected-alternatives/critic-outcomes) alongside verbatim answers, making sessions resumable across interruptions. Enhancement re-runs (`--regenerate`) do a full re-walk + first-author re-synthesis (all phases re-walked with existing answers as defaults; whole spec re-synthesized; prior spec backed up). **scaffold-onboard only**; scaffold-dev untouched. (True *partial* reconcile — touched-phase-only refresh preserving human edits + gate-aware digest — was descoped to follow-up #58 during review.)
