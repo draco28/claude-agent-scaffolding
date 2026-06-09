@@ -39,14 +39,14 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 **Expected behavior:**
 - Skill triggers on `/onboard` (slash command resolves through the wrapper to `scaffold-onboard:onboarding-project`).
-- Skill creates project-scoped `onboarding-state.json` with `schema_version=2`, `current_phase=1`, valid `created_at` / `updated_at` timestamps, `answers={}`, `phase_records={}`, and `touched_this_run=[]`.
+- Skill creates project-scoped `onboarding-state.json` with `schema_version=2`, `current_phase=1`, valid `created_at` / `updated_at` timestamps, `answers={}`, and `phase_records={}`.
 - Skill begins Phase 1 by asking the first question from `phases.yaml`.
 - Skill does NOT attempt to invoke architect-critic at this turn (Phase 5 close not yet reached).
 - Skill does NOT render `MASTER-SPEC.md` yet (Phase 10 close not yet reached).
 - Skill's first assistant turn is a phase-1 question, not a generic greeting.
 
 **Assertion (judge subagent verifies):**
-- `onboarding-state.json` is present after the turn and parses as valid JSON with the expected schema keys (`schema_version`, `current_phase`, `answers`, `phase_records`, `touched_this_run`, `created_at`, `updated_at`).
+- `onboarding-state.json` is present after the turn and parses as valid JSON with the expected schema keys (`schema_version`, `current_phase`, `answers`, `phase_records`, `created_at`, `updated_at`).
 - Target subagent's final assistant message is a phase-1 question matching the v0.1.0 phases.yaml prompt vocabulary (not improvised wording).
 - No `Skill(architect-critic:*)` invocations appear in the target subagent's tool-call log.
 - No `MASTER-SPEC.md` or `EXECUTIVE-SUMMARY.md` was written.
@@ -66,7 +66,6 @@ Each scenario is executed inside a single Claude Code subscription session by an
 **Expected behavior:**
 - Skill detects existing state file.
 - Skill does NOT re-ask Phase 1-3 questions or overwrite existing answers.
-- Skill does NOT call `sf state_run_reset`; any existing `touched_this_run` values from an interrupted session are preserved (the tracker is retained dormant for the deferred #58 reconcile work).
 - Skill restates current position (states current phase and approximate progress).
 - Skill asks the next unanswered question (phase 4, question 3).
 - State file is not reset; `current_phase` value remains 4.
@@ -89,13 +88,13 @@ Each scenario is executed inside a single Claude Code subscription session by an
 **Trigger:** target subagent user message: `/onboard --regenerate`
 
 **Expected behavior:**
-- Skill treats `--regenerate` as a **full re-walk + first-author re-synthesis**, not a destructive wipe (true partial reconcile is deferred to #58).
+- Skill treats `--regenerate` as a **full re-walk + first-author re-synthesis**, not a destructive wipe (true partial reconcile was decided wontfix, #58).
 - Skill acquires the lock, then sets `current_phase=1` and `status=in_progress` — it does NOT call `sf state_init`, so prior `answers` and `phase_records` are kept as editable defaults (a wipe requires `--fresh` + `confirm discard`).
 - Skill announces it will re-walk all phases with existing answers shown as defaults, then re-enters at Phase 1 and proceeds through the normal per-phase loop.
 - At close, skill backs up existing `MASTER-SPEC.md` to `MASTER-SPEC.md.bak-*` and runs §8 in **first_author** mode (re-synthesizes the whole spec from the re-walked state).
 
 **Assertion (judge subagent verifies):**
-- Target subagent's first assistant message announces a full re-walk re-synthesis (existing answers shown as defaults) and does NOT ask "which phases to revisit" (partial reconcile is deferred) nor demand a destructive-reset confirmation (that is `--fresh`).
+- Target subagent's first assistant message announces a full re-walk re-synthesis (existing answers shown as defaults) and does NOT ask "which phases to revisit" (partial reconcile was decided wontfix, #58) nor demand a destructive-reset confirmation (that is `--fresh`).
 - A backup file matching `MASTER-SPEC.md.bak-*` exists before the re-synthesized `MASTER-SPEC.md` is written.
 - `onboarding-state.json` retains prior `answers` and `phase_records` as the starting point (NOT wiped — wiping is the `--fresh` path).
 - `current_phase` is reset to 1 and `status` is `in_progress` (re-walk in flight); the skill re-enters at Phase 1.

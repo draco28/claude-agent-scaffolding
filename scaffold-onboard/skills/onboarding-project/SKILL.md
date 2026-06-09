@@ -128,8 +128,7 @@ State lives at `$(sf project_data_dir)/onboarding-state.json`. `sf project_data_
       "critic_outcomes": "...",
       "authored_at": "<ISO8601>"
     }
-  },
-  "touched_this_run": ["3"]
+  }
 }
 ```
 
@@ -158,7 +157,6 @@ State lives at `$(sf project_data_dir)/onboarding-state.json`. `sf project_data_
 - **Acquire the lock at skill entry.** If `sf_state_lock_acquire` fails, surface *"Onboarding already in progress in another session. Either close that session or re-run with `/onboard --force-unlock` after confirming no other session is active."* and stop.
 - **`--regenerate` override (BEFORE mode routing).** If the parsed `--regenerate` flag is set, handle it FIRST — before calling `sf state_mode` and before any resume/reonboard routing — regardless of whether `sf state_mode` would return `resume`, `reonboard`, or `close_pending`. Route directly to the re-onboard full re-walk protocol: **if no state file exists yet** (a fresh `--regenerate` with no prior onboarding — `sf state_mode` would return `new`), call `sf state_init` FIRST so the subsequent atomic writes have a file to operate on (without this, `sf state_write_atomic` has no state file to read and fails). Then back up the existing MASTER-SPEC.md (if present), set `sf state_write_atomic current_phase 1` + `sf state_write_atomic status in_progress`, then re-walk all 10 phases (existing answers as defaults) and re-synthesize the whole spec (first-author). This is distinct from `--fresh`: `--regenerate` preserves existing answers and phase records (shown as defaults during the re-walk) — it never wipes them. `--regenerate --fresh` is equivalent to `--fresh` alone. No-flag default still follows `sf state_mode`.
 - **`--fresh` override (BEFORE mode routing).** If the parsed `--fresh` flag is set, handle it FIRST — before calling `sf state_mode` and before any resume/reonboard routing — regardless of whether existing state is `in_progress`, `close_pending`, or `complete`. Confirm with the double-confirmation: *"This will discard ALL prior answers and phase reasoning records for this project and re-author the spec from Phase 1. Any existing MASTER-SPEC.md is left untouched on disk (back it up yourself if you want it). Type 'confirm discard' to proceed, or anything else to cancel."* Only on an exact `confirm discard`: call `sf state_init` (fresh state, no records) and proceed from Phase 1. On anything else, cancel and stop (do NOT fall through to resume). This guarantees `/onboard --fresh` on an *interrupted* onboarding wipes-and-restarts rather than silently resuming the old state. (The §4 re-onboard escape-hatch `fresh` keyword at the phase-selection prompt is the equivalent path when already inside a `reonboard` revision; this top-level branch covers the `--fresh` flag for every entry mode.)
-- **Reset the per-run tracker only when starting a new revision session.** Do NOT call `sf state_run_reset` on ordinary `resume`: `touched_this_run` carries no synthesis role in the descoped re-onboard flow, but is preserved for future use. Fresh `new` mode gets an empty tracker from `sf state_init`.
 - **Resume protocol.** On entry, call `sf state_mode`. If `resume`:
   - **If `status` is `close_pending`** (all phases answered; close not yet finished): announce *"All phases complete — resuming the MASTER-SPEC close ceremony."* Do NOT re-walk the phase loop. Proceed directly to §7 (Karpathy opt-in, if not yet answered) and then §8 (MASTER-SPEC close ceremony). Do still run the missing-record repair pass (below) before §8 — a crashed first-author run may have left some phase records unwritten.
   - **Otherwise** (`status` is `in_progress`, normal mid-phase resume): read `current_phase`, announce position (*"Resuming at Phase N (Architecture). 3 of 5 questions remaining."*), then re-enter at the first unanswered question of that phase (detected via `sf state_read_answer <qid>` returning `null`).
@@ -169,7 +167,6 @@ State lives at `$(sf project_data_dir)/onboarding-state.json`. `sf project_data_
   3. Proceed through the NORMAL per-phase loop (§3): each phase re-asks its questions (existing answers shown as defaults; gate-skipping handled by the agent per §3 step 2 as usual), re-authors the phase record (fold-forward per §3 step 4). At Phase 10 → `sf state_advance_phase` → `status=close_pending` → §7 Karpathy opt-in → §8 first-author full re-synthesis (prior MASTER-SPEC.md backed up automatically by §8's backup logic — see below).
   4. **Escape hatch — start completely fresh:** if the user explicitly types `fresh` or `yes, discard everything` during the re-onboard walk, confirm once more: *"This will discard all prior answers and phase reasoning records for this project and re-author the spec from Phase 1. Prior MASTER-SPEC.md is still backed up. Type 'confirm discard' to proceed or anything else to cancel."* Only on `confirm discard`: call `sf state_init` (fresh state, no records) and proceed from Phase 1. This wipe path MUST NOT be the default and MUST require this explicit double-confirmation distinct from the normal revise flow.
 
-> **Note (deferred):** Partial-reconcile mode — revisiting only chosen phases and preserving untouched sections — is reserved for a follow-up. The `sf state_mark_touched` helper and the `reconcile` mode in `sf_synth_master_spec_prompt` are kept in the lib for that follow-up but are NOT driven from the current re-onboard flow.
 - **Project-mismatch protocol.** If `sf state_mode` returns `project_mismatch`: fetch the stored path via `sf state_stored_project_root`, fetch the current identity via `sf project_identity_root`, and surface this prompt (substitute `<stored>` and `<current>`): *"Project-scoped onboarding state says it belongs to `<stored>`, but this session resolves the project as `<current>`. Options: (1) return to the original path / set `SF_PROJECT_ROOT=<stored>` and re-run /onboard, (2) start fresh for `<current>` — this overwrites only this project-scoped onboarding state, not other projects. Which? (1/2)"*. Wait for the user's pick. On `1`, exit non-zero with the path instruction; on `2`, call `sf state_init` and proceed at Phase 1.
 
 ---
@@ -298,8 +295,7 @@ if [[ -f "$master" ]]; then
   master_bak="${master}.bak-$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   cp "$master" "$master_bak"
 fi
-mode="first_author"; existing=""; touched=""
-prompt="$(sf synth_master_spec_prompt "$brief" "$digest_file" "$master" "$mode" "$touched" "$existing")"
+prompt="$(sf synth_master_spec_prompt "$brief" "$digest_file" "$master")"
 asm_rc=$?
 rm -f "$digest_file"
 ```
@@ -427,7 +423,7 @@ sf state_write_atomic status complete
 This is the ONLY place `status` transitions to `complete`. Prior to this call the status is `close_pending`; if the skill body is interrupted before reaching here, the next `/onboard` re-enters as `resume` and retries the close ceremony from §8.
 
 If a prior MASTER-SPEC was present (i.e. `master_bak` is set), append a second line after the MASTER-SPEC path line:
-`Re-synthesized (full first-author); prior spec backed up to <master_bak>.`
+`Re-synthesized (full first-author); prior spec — including any manual edits — backed up to <master_bak>. Copy anything you want to keep before continuing.`
 Omit this line when no prior spec existed.
 
 The R1 hierarchy doc emitted by `/plan-roadmap` is named `ROADMAP.md` (not `PROJECT_PLAN.md` — `/scaffold-docs`'s separate Phase-2-derived `PROJECT_PLAN.md` is unchanged from v0.1.0 to avoid filename collision; see SPEC §13.5).
@@ -442,7 +438,7 @@ Supported flags:
 
 - *(no flag)* — default: `new` mode if no state file exists; `resume` mode if state is `in_progress` or `close_pending`; **full re-walk re-synthesis** (the §4 re-onboard protocol) if `status=complete`.
 - `--resume` — explicit resume; errors if no state file is present. Accepts `status=close_pending` (re-enters §8 close ceremony) as well as `status=in_progress` (re-enters the phase loop). Does NOT block on `status=close_pending`.
-- `--regenerate` — full re-walk re-synthesis: backs up existing MASTER-SPEC.md to `MASTER-SPEC.md.bak-<ISO8601>`, re-walks all 10 phases (existing answers shown as defaults), re-synthesizes the whole spec (first-author). Does NOT reset/wipe answers or phase records (use `--fresh` for that). Partial-reconcile (choose only some phases) is deferred to a follow-up.
+- `--regenerate` — full re-walk re-synthesis: backs up existing MASTER-SPEC.md to `MASTER-SPEC.md.bak-<ISO8601>`, re-walks all 10 phases (existing answers shown as defaults), re-synthesizes the whole spec (first-author). Does NOT reset/wipe answers or phase records (use `--fresh` for that). Partial-reconcile (choose only some phases) was evaluated and decided wontfix (#58); full re-walk is the model.
 - `--fresh` — full wipe-and-restart: discard all prior answers and phase reasoning records and re-author from Phase 1. Requires explicit double confirmation (see §4 re-onboard escape hatch). Use this only when you want to start the spec conversation from scratch. `--regenerate --fresh` is equivalent to `--fresh` alone.
 - `--force-unlock` — release a stale lock acquired by a crashed prior session. Requires user confirmation that no other session is active.
 
@@ -454,7 +450,7 @@ Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly.
 
 This skill never bash-orchestrates the judgment work (which question to ask next, how to recap a phase, whether to escalate a challenge). It calls helpers for I/O and templating only. The named helpers:
 
-**State (lib/state.sh + lib/_helpers.sh):** `sf_project_identity_root`, `sf_project_data_dir`, `sf_state_init`, `sf_state_mode`, `sf_state_path`, `sf_state_read_field`, `sf_state_stored_project_root`, `sf_state_read_answer`, `sf_state_write_answer`, `sf_state_write_atomic`, `sf_state_advance_phase`, `sf_state_lock_acquire`, `sf_state_lock_release`, `sf_state_gate_passes`, `sf_state_write_phase_record`, `sf_state_read_phase_record`, `sf_state_write_phase_artifact`, `sf_state_run_reset`, `sf_state_mark_touched`, `sf_state_phases_touched_this_run`, `sf_state_synthesis_digest`.
+**State (lib/state.sh + lib/_helpers.sh):** `sf_project_identity_root`, `sf_project_data_dir`, `sf_state_init`, `sf_state_mode`, `sf_state_path`, `sf_state_read_field`, `sf_state_stored_project_root`, `sf_state_read_answer`, `sf_state_write_answer`, `sf_state_write_atomic`, `sf_state_advance_phase`, `sf_state_lock_acquire`, `sf_state_lock_release`, `sf_state_gate_passes`, `sf_state_write_phase_record`, `sf_state_read_phase_record`, `sf_state_write_phase_artifact`, `sf_state_synthesis_digest`.
 
 **Phases (lib/state.sh / parser.sh):** `sf_phases_questions_for`, `sf_phases_question_text`, `sf_phases_question_gate`.
 

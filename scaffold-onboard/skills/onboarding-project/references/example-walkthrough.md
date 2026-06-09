@@ -178,8 +178,7 @@ After the last 5.x answer is persisted, skill authors the Phase 5 record and tri
       "critic_outcomes": "C-5.1 (data store ambiguity) stood — changed answer to 'sqlite with FTS5 extension enabled at build time'.",
       "authored_at": "2026-05-24T14:02:11Z"
     }
-  },
-  "touched_this_run": ["5"]
+  }
 }
 ```
 

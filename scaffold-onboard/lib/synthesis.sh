@@ -203,16 +203,22 @@ EOF
 # Assemble the MASTER-SPEC synthesis prompt. Unlike sf_synth_brief_assemble
 # (which synthesizes a downstream artifact FROM MASTER-SPEC), this synthesizes
 # MASTER-SPEC itself FROM the onboarding discussion digest.
-# Args: <brief> <digest_file> <out_path> <mode> <touched> <existing_spec_path>
+# Args: <brief> <digest_file> <out_path>
 #   digest_file — path to a FILE containing the digest text. Passed as a file
 #                 (not a string) to avoid ARG_MAX failures when the digest is
 #                 large (verbose answers + many phase records can exceed the OS
 #                 per-argument / ARG_MAX limit on the sf dispatcher exec call).
-#   mode        = first_author | reconcile
-#   touched     = space-separated list of phase IDs touched this run (reconcile mode only)
-#   existing_spec_path — used only in reconcile mode.
+# Always first-author: MASTER-SPEC is authored whole from the digest. (Partial
+# reconcile was decommissioned in v0.7.0 — #58 wontfix.)
 sf_synth_master_spec_prompt() {
-  local brief="$1" digest_file="$2" out_path="$3" mode="$4" touched="$5" existing="$6"
+  # Guard: arg count. The signature dropped from 6 args to 3 in v0.7.0 (partial
+  # reconcile decommissioned, #58). Reject a stale caller still passing the old
+  # `… <mode> <touched> <existing>` form rather than silently ignoring args 4-6.
+  if [[ $# -ne 3 ]]; then
+    sf_log_error "sf_synth_master_spec_prompt: expects 3 args <brief> <digest_file> <out_path> (got $#) — the 6-arg reconcile form was removed in v0.7.0 (#58)"
+    return 1
+  fi
+  local brief="$1" digest_file="$2" out_path="$3"
 
   # Guard: brief file must exist and be readable.
   [[ -f "$brief" && -r "$brief" ]] || { sf_log_error "sf_synth_master_spec_prompt: brief not found/readable: $brief"; return 1; }
@@ -234,26 +240,12 @@ sf_synth_master_spec_prompt() {
     return 1
   fi
 
-  # Guard: mode must be one of the two defined values.
-  if [[ "$mode" != "first_author" && "$mode" != "reconcile" ]]; then
-    sf_log_error "sf_synth_master_spec_prompt: invalid mode '$mode' (expected first_author|reconcile)"
-    return 1
-  fi
-
   local digest body
   digest="$(cat "$digest_file")"
   body="$(awk 'NR==1 && $0=="---"{f=1;next} f && $0=="---"{f=0;skip=1;next} skip{print}' "$brief")"
 
-  local mode_block
-  if [[ "$mode" == "reconcile" ]]; then
-    mode_block="MODE: reconcile
-An existing MASTER-SPEC is at: $existing — read it in full.
-Refresh ONLY these phases, touched this run: ${touched:-(none)}
-Reproduce every other section verbatim, preserving human edits."
-  else
-    mode_block="MODE: first-author
+  local mode_block="MODE: first-author
 No existing MASTER-SPEC. Author the whole document fresh."
-  fi
 
   # IMPORTANT: emit via printf with every dynamic value as a DATA argument.
   # Do NOT use an unquoted heredoc here — $digest carries verbatim user-authored

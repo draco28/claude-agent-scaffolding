@@ -55,8 +55,7 @@ sf_state_init() {
       created_at: $now,
       updated_at: $now,
       answers: {},
-      phase_records: {},
-      touched_this_run: []
+      phase_records: {}
     }' > "$path"
 }
 
@@ -135,9 +134,8 @@ sf_state_read_answer() {
 
 # Write a per-phase reasoning record. <record_file> must be a file containing a
 # JSON object (the conducting agent authors it via its Write tool — keeps prose
-# escaping out of bash). Merges into .phase_records["<phase_id>"] atomically and
-# appends <phase_id> to .touched_this_run (unique). Bumps schema_version to 2 so
-# a legacy file becomes conformant on first write.
+# escaping out of bash). Merges into .phase_records["<phase_id>"] atomically.
+# Bumps schema_version to 2 so a legacy file becomes conformant on first write.
 sf_state_write_phase_record() {
   local phase_id="$1" record_file="$2"
   local path; path="$(sf_state_path)"
@@ -161,7 +159,6 @@ sf_state_write_phase_record() {
     .schema_version = 2
     | .phase_records = (.phase_records // {})
     | .phase_records[$p] = ($rec[0] + {authored_at: $now})
-    | .touched_this_run = (((.touched_this_run // []) + [$p]) | unique)
     | .updated_at = $now
     ' "$path" > "$tmp"; then
     mv "$tmp" "$path"
@@ -179,52 +176,6 @@ sf_state_read_phase_record() {
   jq -c --arg p "$phase_id" '.phase_records[$p] // null' "$path"
 }
 
-# Mark a single phase as touched in the current run without writing a full phase
-# record. Appends <phase_id> to .touched_this_run (unique), bumps updated_at.
-# Call at the START of revising a phase during re-onboard so that an interruption
-# after answers are overwritten but before sf_state_write_phase_record completes
-# cannot exclude the edited phase from the reconcile hint.
-sf_state_mark_touched() {
-  local phase_id="$1"
-  local path; path="$(sf_state_path)"
-  [[ -f "$path" ]] || { sf_log_error "sf_state_mark_touched: no state file"; return 1; }
-  local tmp now
-  tmp="$(mktemp "${path}.XXXXXX")"
-  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  if jq --arg p "$phase_id" --arg now "$now" \
-    '.touched_this_run = (((.touched_this_run // []) + [$p]) | unique) | .updated_at = $now' \
-    "$path" > "$tmp"; then
-    mv "$tmp" "$path"
-  else
-    rm -f "$tmp"
-    return 1
-  fi
-}
-
-# Reset the per-run touched-phases tracker. Call once at skill entry / resume so
-# the reconcile hint reflects only phases (re)authored in the current run.
-sf_state_run_reset() {
-  local path; path="$(sf_state_path)"
-  [[ -f "$path" ]] || return 0
-  local tmp now
-  tmp="$(mktemp "${path}.XXXXXX")"
-  now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  if jq --arg now "$now" '.touched_this_run = [] | .updated_at = $now' "$path" > "$tmp"; then
-    mv "$tmp" "$path"
-  else
-    rm -f "$tmp"
-    return 1
-  fi
-}
-
-# Print phase IDs (re)authored in the current run, one per line, sorted.
-# Mechanical reconcile hint handed to the synthesis agent.
-sf_state_phases_touched_this_run() {
-  local path; path="$(sf_state_path)"
-  [[ -f "$path" ]] || return 0
-  jq -r '(.touched_this_run // []) | sort_by(. | tonumber? // .) | .[]' "$path"
-}
-
 # Emit a human-readable markdown digest of the enriched state for the MASTER-SPEC
 # synthesis agent: per phase, the verbatim answers (qid: value) followed by the
 # agent-authored phase record fields (if any). This is the synthesis SOURCE — it
@@ -233,11 +184,14 @@ sf_state_phases_touched_this_run() {
 #
 # Answers are grouped by phase prefix (1.*, 2.*, …, 6A.*/6B.* under phase 6).
 # No gate-filtering is applied here: on a fresh first-author onboarding the agent
-# only answered the active branch, so .answers is already branch-clean. Filtering
-# stale inactive-branch answers on a branch-changing re-onboard is part of the
-# deferred reconcile follow-up (#58); today re-onboard re-walks all phases and
-# re-synthesizes the whole spec with first_author mode, so stale-answer carryovers
-# are not a live concern.
+# only answered the active branch, so .answers is already branch-clean. KNOWN
+# LIMITATION (accepted, #58 wontfix): a `--regenerate` re-onboard that switches a
+# gating answer (e.g. project_class Web app → Library or SDK) leaves the prior
+# branch's answers (e.g. 6A.* web-UX) in .answers — the re-walk skips the now-gated-
+# out subsection but does not delete its old answers — so this digest can carry
+# stale inactive-branch answers into synthesis. The close-depth critic + accept/edit
+# review catch contradictions; gate-aware digest filtering to prune them was the
+# deferred #58.3 work, decided wontfix with the rest of partial reconcile.
 sf_state_synthesis_digest() {
   local path; path="$(sf_state_path)"
   [[ -f "$path" ]] || { sf_log_error "sf_state_synthesis_digest: no state file"; return 1; }
@@ -261,10 +215,9 @@ sf_state_synthesis_digest() {
     # Answers whose qid belongs to this phase. Phase 6 is split into gated
     # subtracks (6A/6B) in phases.yaml, so include those prefixes under phase 6.
     # No gate-filtering here: on a fresh first-author onboarding the agent only
-    # answered the active branch, so .answers is already branch-clean. (Filtering
-    # stale inactive-branch answers on a branch-changing re-onboard is part of the
-    # deferred reconcile follow-up; today re-onboard re-walks all phases and
-    # re-synthesizes the whole spec, so there are no stale-answer carryovers.)
+    # answered the active branch, so .answers is already branch-clean. (Known
+    # limitation: a project_class-switching --regenerate can leave stale
+    # inactive-branch answers — see the function header; #58.3 wontfix.)
     jq -r --arg p "$phase" '
       .answers // {}
       | to_entries
@@ -435,8 +388,8 @@ sf_state_gate_passes() {
 # subsection gate is `uses_llm == true`, but `uses_llm` derives from answer
 # `9.3.1` which lives inside `9.3` — so a helper-level gate would skip the very
 # question that sets the gate (and never ask LLM projects the LLM questions).
-# Gate-aware question/digest resolution is deferred to the SS-3 reconcile
-# follow-up (see SPEC).
+# The conductor instead discovers subsection gates via sf_phases_subsection_gates
+# and applies them per SKILL §3 step 2.
 # Usage: sf_phases_questions_for <yaml> <target_phase>
 sf_phases_questions_for() {
   local yaml="$1" target="$2"

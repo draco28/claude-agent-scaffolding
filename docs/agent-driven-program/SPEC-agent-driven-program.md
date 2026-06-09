@@ -136,7 +136,7 @@ Every open issue + every new audit finding, mapped to a sub-spec. **Target: 0 op
 | **N1** | ~~**#49**~~ | scaffold-onboard: EXECUTIVE-SUMMARY placeholder has no source question / render fn (hole) | bug | ✅ CLOSED 2026-06-05 (SS-2, PR #55) |
 | **N2** | ~~**#50**~~ | scaffold-onboard: verify synthesis path actually dispatches by default (possibly "dark" / never exercised end-to-end) | bug · critical | ✅ CLOSED 2026-06-05 (SS-2, PR #55) |
 | **N3** | ~~**#51**~~ | scaffold-onboard: MASTER-SPEC is mechanical transcription — move to agent synthesis from phased-discussion | enhancement | ✅ CLOSED 2026-06-08 (SS-3, PR #57, squash `3193308`, tag `scaffold-onboard-v0.6.0`; reconcile→**#58**, polish→**#59**) |
-| **N7** | **#58** | scaffold-onboard: true reconcile-on-re-onboard (gate-aware digest, partial/touched refresh, preserve human edits) — deferred from SS-3 | enhancement | future (lib foundations retained dormant in SS-3) |
+| **N7** | ~~**#58**~~ | scaffold-onboard: true reconcile-on-re-onboard (gate-aware digest, partial/touched refresh, preserve human edits) — deferred from SS-3 | enhancement | ✅ CLOSED (wontfix) 2026-06-08 — partial reconcile evaluated as not worth the complexity; full re-walk + first-author re-synthesis is the permanent model; dormant foundations removed in scaffold-onboard v0.7.0 |
 | **N8** | **#59** | scaffold-onboard: SS-3 residual review polish (re-walk/gate/repair prose + robustness + doc-sync) — from PR #57 | chore | future (non-product-bug; Codex-clean at merge) |
 | **N4** | **#52** | scaffold-dev: harvest grammar-collision — AWK parser silently drops free-form Suggestions prose; single-authority agent read | bug | SS-4 |
 | **N5** | **#53** | repo: no `.github/workflows` CI for shell test suites | ops | SS-6 |

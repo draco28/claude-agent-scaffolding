@@ -61,8 +61,5 @@ subheadings, NO `---`/`***`/`___` horizontal rules, NO HTML comments inside it.
 The prompt states the mode:
 
 - **first-author** — no existing MASTER-SPEC. Author the whole document fresh.
-- **reconcile** — an existing MASTER-SPEC is provided (read it in full). Refresh
-  ONLY the phases listed as "touched this run"; reproduce every other section
-  verbatim, preserving any human edits. Do not reorder or restyle untouched
-  sections. The Executive Summary section is owned by the separate summary step —
-  carry it through unchanged in reconcile mode.
+  The Executive Summary section is owned by the separate summary step — emit the
+  fillable section as instructed above.

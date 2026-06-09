@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # test-master-spec-synthesis.sh — SS-3: MASTER-SPEC synthesis brief, prompt
-# assembler (first-author/reconcile), behavioral close harness, no-determinism guard.
+# assembler (first-author), behavioral close harness, no-determinism guard.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/_helpers.sh"
@@ -57,31 +57,14 @@ test_prompt_first_author_contains_digest_and_mode() {
   digest_file="$TMP_DIR/digest.txt"
   sf_state_synthesis_digest > "$digest_file"
   out="$TMP_DIR/repo/MASTER-SPEC.md"
-  prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" first_author "" "")"
+  prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out")"
   printf '%s' "$prompt" | grep -q "todo-cli — a fast task manager" || { FAIL=$((FAIL+1)); echo "  ✗ digest not embedded"; return 1; }
   printf '%s' "$prompt" | grep -qi "MODE: first-author" || { FAIL=$((FAIL+1)); echo "  ✗ mode missing"; return 1; }
   printf '%s' "$prompt" | grep -q "$out" || { FAIL=$((FAIL+1)); echo "  ✗ out path missing"; return 1; }
   PASS=$((PASS+1)); echo "  ✓ first-author prompt assembled"
 }
 
-test_prompt_reconcile_lists_touched_and_existing() {
-  echo "test_prompt_reconcile_lists_touched_and_existing:"
-  setup_tmp_repo
-  _seed_min_state
-  local existing="$TMP_DIR/repo/MASTER-SPEC.md"
-  printf '# todo-cli\n\n## Phase 1\nold content\n' > "$existing"
-  local digest_file prompt
-  digest_file="$TMP_DIR/digest.txt"
-  sf_state_synthesis_digest > "$digest_file"
-  prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$existing" reconcile "1 5" "$existing")"
-  printf '%s' "$prompt" | grep -qi "MODE: reconcile" || { FAIL=$((FAIL+1)); echo "  ✗ reconcile mode missing"; return 1; }
-  printf '%s' "$prompt" | grep -q "touched this run: 1 5" || { FAIL=$((FAIL+1)); echo "  ✗ touched list missing"; return 1; }
-  printf '%s' "$prompt" | grep -q "$existing" || { FAIL=$((FAIL+1)); echo "  ✗ existing spec path missing"; return 1; }
-  PASS=$((PASS+1)); echo "  ✓ reconcile prompt assembled"
-}
-
 test_prompt_first_author_contains_digest_and_mode
-test_prompt_reconcile_lists_touched_and_existing
 
 test_prompt_does_not_expand_user_content() {
   echo "test_prompt_does_not_expand_user_content:"
@@ -93,7 +76,7 @@ test_prompt_does_not_expand_user_content() {
   digest_file="$TMP_DIR/digest.txt"
   sf_state_synthesis_digest > "$digest_file"
   out="$TMP_DIR/repo/MASTER-SPEC.md"
-  prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" first_author "" "")"
+  prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out")"
   # The literal text must survive verbatim (NOT executed/expanded).
   if printf '%s' "$prompt" | grep -qF 'danger $(echo PWNED) and `echo ALSO`'; then
     PASS=$((PASS+1)); echo "  ✓ user content passed through literally (no expansion)"
@@ -137,7 +120,6 @@ test_synthesis_agent_supports_master_spec_first_author() {
   echo "test_synthesis_agent_supports_master_spec_first_author:"
   assert_file_contains "$AGENT" 'MASTER-SPEC\.md` in first-author mode'
   assert_file_contains "$AGENT" 'onboarding discussion digest'
-  assert_file_contains "$AGENT" 'MASTER-SPEC\.md` in reconcile mode'
   if grep -iqE '^- [Rr]ead MASTER-SPEC\.md in full before writing' "$AGENT"; then
     FAIL=$((FAIL+1)); echo "  ✗ synthesis-agent still unconditionally requires pre-existing MASTER-SPEC"
   else
@@ -176,17 +158,21 @@ test_close_master_spec_block_executes_clean() {
   fi
 }
 
-test_close_block_reconcile_backs_up_existing() {
-  echo "test_close_block_reconcile_backs_up_existing:"
+test_close_block_backs_up_existing_spec() {
+  echo "test_close_block_backs_up_existing_spec:"
   setup_tmp_repo
   _seed_min_state
   export CLAUDE_PLUGIN_ROOT="$ROOT"
   # Pre-existing MASTER-SPEC at the resolved (single-repo → cwd) path.
   printf '# todo-cli\n\n## Phase 1\nold\n' > "$TMP_DIR/repo/MASTER-SPEC.md"
   local block; block="$(_extract_bash_after "$SKILL" "Produce MASTER-SPEC.md")"
-  bash -c "set -euo pipefail; $block; echo \"\$mode\" > $TMP_DIR/mode.out"
-  # §8 now ALWAYS uses first_author mode (re-onboard does full re-synthesis).
-  assert_eq "first_author mode always (even when prior spec exists)" "first_author" "$(cat "$TMP_DIR/mode.out")"
+  bash -c "set -euo pipefail; $block; printf '%s' \"\$prompt\" > $TMP_DIR/prompt.out"
+  # The close is always first-author now (partial reconcile decommissioned, #58).
+  if grep -qi "MODE: first-author" "$TMP_DIR/prompt.out"; then
+    PASS=$((PASS+1)); echo "  ✓ close prompt is first-author (reconcile decommissioned)"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ close prompt not first-author"
+  fi
   # A .bak-* backup must still be created to preserve the prior spec.
   if ls "$TMP_DIR/repo/MASTER-SPEC.md.bak-"* >/dev/null 2>&1; then
     PASS=$((PASS+1)); echo "  ✓ existing spec backed up (prior to first-author re-synthesis)"
@@ -231,7 +217,7 @@ test_close_block_aborts_on_corrupt_digest() {
 }
 
 test_close_master_spec_block_executes_clean
-test_close_block_reconcile_backs_up_existing
+test_close_block_backs_up_existing_spec
 test_close_block_aborts_on_corrupt_digest
 
 test_skill_validates_synthesized_master_spec_before_critic() {
@@ -286,7 +272,6 @@ test_resumability_uses_persisted_records_across_sessions() {
   echo "test_resumability_uses_persisted_records_across_sessions:"
   setup_tmp_repo
   sf_state_init
-  sf_state_run_reset
   # "Session A": phases 1-3 answered + records authored.
   sf_state_write_answer "1.1.1" "todo-cli — fast tasks"
   local r="$TMP_DIR/r.json"
@@ -299,39 +284,7 @@ test_resumability_uses_persisted_records_across_sessions() {
   PASS=$((PASS+1)); echo "  ✓ persisted phase records survive a session boundary"
 }
 
-test_reconcile_preserves_untouched_human_edit() {
-  echo "test_reconcile_preserves_untouched_human_edit:"
-  setup_tmp_repo
-  sf_state_init
-  # First author at close: touches phases 1 AND 8.
-  sf_state_run_reset
-  sf_state_write_answer "1.1.1" "todo-cli"
-  local r="$TMP_DIR/r.json"; printf '{"decisions":"v1"}' > "$r"; sf_state_write_phase_record 1 "$r"
-  printf '{"decisions":"ops v1"}' > "$r"; sf_state_write_phase_record 8 "$r"
-  local master="$TMP_DIR/repo/MASTER-SPEC.md"
-  _fake_synthesize_master_spec "$master" "$(sf_state_synthesis_digest)"
-  # Human edits the phase-8 section directly in the file (not re-touched in re-run).
-  printf '\n## Phase 8\nHAND-EDITED OPS NOTES — do not lose me.\n' >> "$master"
-  # Enhancement re-run: ONLY phase 1 re-authored this run (phase 8 untouched).
-  # Without sf_state_run_reset here, touched would be "1 8" and the assertion below
-  # would fail — enforcing that run_reset correctly scopes the tracker.
-  sf_state_run_reset
-  printf '{"decisions":"v2"}' > "$r"; sf_state_write_phase_record 1 "$r"
-  local touched; touched="$(sf_state_phases_touched_this_run | tr '\n' ' ' | sed 's/ $//')"
-  assert_eq "only phase 1 touched" "1" "$touched"
-  # The reconcile prompt must carry the touched list AND point the agent at the
-  # existing spec (which still holds the human edit). Assert the contract inputs.
-  local digest_file prompt
-  digest_file="$TMP_DIR/digest-reconcile.txt"
-  sf_state_synthesis_digest > "$digest_file"
-  prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$master" reconcile "$touched" "$master")"
-  printf '%s' "$prompt" | grep -q "touched this run: 1" || { FAIL=$((FAIL+1)); echo "  ✗ touched list not in prompt"; return; }
-  grep -q "HAND-EDITED OPS NOTES" "$master" || { FAIL=$((FAIL+1)); echo "  ✗ human edit already lost before synthesis"; return; }
-  PASS=$((PASS+1)); echo "  ✓ reconcile feeds touched=1 + existing spec (human edit intact pre-synthesis)"
-}
-
 test_resumability_uses_persisted_records_across_sessions
-test_reconcile_preserves_untouched_human_edit
 
 test_prompt_reads_digest_from_file() {
   echo "test_prompt_reads_digest_from_file:"
@@ -342,7 +295,7 @@ test_prompt_reads_digest_from_file() {
   digest_file="$TMP_DIR/digest-marker.txt"
   printf 'UNIQUE_MARKER_XYZ_12345\nsome other digest content\n' > "$digest_file"
   out="$TMP_DIR/repo/MASTER-SPEC.md"
-  prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" first_author "" "")"
+  prompt="$(sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out")"
   # The marker written to the file must appear verbatim in the assembled prompt.
   if printf '%s' "$prompt" | grep -qF 'UNIQUE_MARKER_XYZ_12345'; then
     PASS=$((PASS+1)); echo "  ✓ digest content read from file and embedded in prompt"
@@ -350,26 +303,10 @@ test_prompt_reads_digest_from_file() {
     FAIL=$((FAIL+1)); echo "  ✗ digest file content not found in assembled prompt"
   fi
   # Missing digest file must return exit code 1 (exact rc, not just non-zero).
-  assert_exit_code 1 sf_synth_master_spec_prompt "$BRIEF" "/nonexistent/digest" "$out" first_author "" ""
+  assert_exit_code 1 sf_synth_master_spec_prompt "$BRIEF" "/nonexistent/digest" "$out"
 }
 
 test_prompt_reads_digest_from_file
-
-test_prompt_rejects_bogus_mode() {
-  echo "test_prompt_rejects_bogus_mode:"
-  setup_tmp_repo
-  sf_state_init
-  local digest_file out
-  digest_file="$TMP_DIR/digest-bogus.txt"
-  printf 'some digest content\n' > "$digest_file"
-  out="$TMP_DIR/repo/MASTER-SPEC.md"
-  # Any mode value other than first_author|reconcile must return rc=1.
-  assert_exit_code 1 sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" bogus_mode "" ""
-  assert_exit_code 1 sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" first-author "" ""
-  assert_exit_code 1 sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" "" "" ""
-}
-
-test_prompt_rejects_bogus_mode
 
 test_prompt_rejects_missing_brief() {
   echo "test_prompt_rejects_missing_brief:"
@@ -380,7 +317,7 @@ test_prompt_rejects_missing_brief() {
   printf 'some digest content\n' > "$digest_file"
   out="$TMP_DIR/repo/MASTER-SPEC.md"
   # A nonexistent brief must return rc=1 (before any prompt assembly).
-  assert_exit_code 1 sf_synth_master_spec_prompt "/nonexistent/brief" "$digest_file" "$out" first_author "" ""
+  assert_exit_code 1 sf_synth_master_spec_prompt "/nonexistent/brief" "$digest_file" "$out"
 }
 
 # Codex P2 follow-up — an EMPTY digest file (the residue of a failed
@@ -395,13 +332,28 @@ test_prompt_rejects_empty_digest() {
   digest_file="$TMP_DIR/digest-empty.txt"
   : > "$digest_file"   # exists + readable but 0 bytes
   out="$TMP_DIR/repo/MASTER-SPEC.md"
-  assert_exit_code 1 sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" first_author "" ""
+  assert_exit_code 1 sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out"
   # Sanity: same path, now non-empty, assembles cleanly (rc=0).
   printf '# Onboarding discussion digest\n\nProject: demo\n' > "$digest_file"
-  assert_exit_code 0 sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" first_author "" ""
+  assert_exit_code 0 sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out"
+}
+
+# Codex P2 (PR #61) — reject a stale 6-arg reconcile-form caller (`… <mode>
+# <touched> <existing>`) rather than silently dropping args 4-6 and running
+# first-author. The signature is 3-arg only since v0.7.0 (#58).
+test_prompt_rejects_stale_six_arg_caller() {
+  echo "test_prompt_rejects_stale_six_arg_caller:"
+  setup_tmp_repo
+  sf_state_init
+  local digest_file out
+  digest_file="$TMP_DIR/digest-arity.txt"
+  printf 'some digest content\n' > "$digest_file"
+  out="$TMP_DIR/repo/MASTER-SPEC.md"
+  assert_exit_code 1 sf_synth_master_spec_prompt "$BRIEF" "$digest_file" "$out" reconcile "1 5" "$out"
 }
 
 test_prompt_rejects_missing_brief
 test_prompt_rejects_empty_digest
+test_prompt_rejects_stale_six_arg_caller
 
 report_results

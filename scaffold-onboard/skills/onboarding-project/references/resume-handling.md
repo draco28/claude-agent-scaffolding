@@ -14,7 +14,7 @@ On every `/onboard` invocation the skill calls `sf state_mode` (the `sf` dispatc
 |--------------------|---------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------|
 | `new`              | No state file present                                                     | `sf state_init` → Phase 1                                                                                                    |
 | `resume`           | Project-scoped state file present, `status=in_progress` **OR** `status=close_pending`, `project_root` matches current project identity | `in_progress`: re-enter at first unanswered question. `close_pending`: all phases answered, close not yet finished — announce and proceed directly to §7 (Karpathy opt-in) + §8 (MASTER-SPEC close ceremony). |
-| `reonboard`        | Project-scoped state file present, `status=complete`, `project_root` matches current project identity    | Full re-walk re-synthesis: acquire lock → set `current_phase=1` + `status=in_progress` → announce → re-walk all 10 phases (existing answers as defaults) → close in first-author mode (backs up prior MASTER-SPEC.md). Use `--fresh` for a full wipe-and-restart (requires double confirmation). Partial-reconcile (choosing only some phases) is deferred to a follow-up. |
+| `reonboard`        | Project-scoped state file present, `status=complete`, `project_root` matches current project identity    | Full re-walk re-synthesis: acquire lock → set `current_phase=1` + `status=in_progress` → announce → re-walk all 10 phases (existing answers as defaults) → close in first-author mode (backs up prior MASTER-SPEC.md). Use `--fresh` for a full wipe-and-restart (requires double confirmation). Partial-reconcile (choosing only some phases) was decided wontfix (#58). |
 | `project_mismatch` | Project-scoped state file present, `project_root` ≠ current project identity (or stored `project_root` empty) | Prompt user to return to the original path / set `SF_PROJECT_ROOT`, or start fresh for the current project-scoped state.      |
 
 `project_mismatch` (v0.2.1+) originally prevented stale singleton state from another project from being resumed. In v0.2.3+, state is already project-scoped under `sf project_data_dir`, so this mode is now a same-project safety net for moved workspaces, changed `SF_PROJECT_ROOT`, or malformed legacy state. Stored `project_root` is captured by `sf state_init` from `sf project_identity_root`.
@@ -95,8 +95,7 @@ State file:
       "open_questions": "Pricing model TBD.",
       "authored_at": "2026-05-24T13:55:00Z"
     }
-  },
-  "touched_this_run": ["1"]
+  }
 }
 ```
 
@@ -133,7 +132,7 @@ The no-flag default is *forgiving*: it does the most likely-intended thing based
 
 State file is `in_progress` at Phase 7, but a prior session crashed after persisting the answers for Phase 3 without writing the Phase 3 record. On `/onboard --resume`, the skill detects the gap:
 
-1. After lock acquisition, skill does not call `sf state_run_reset` in ordinary resume mode. It iterates phases 1 through `current_phase` (inclusive — a crash after the current phase's last required answer was persisted but before its record was written leaves the record missing at `current_phase` itself, so the scan must cover it; on a `close_pending` resume it covers all 10 phases) calling `sf state_read_phase_record <phase_id>` on each.
+1. After lock acquisition, the skill iterates phases 1 through `current_phase` (inclusive — a crash after the current phase's last required answer was persisted but before its record was written leaves the record missing at `current_phase` itself, so the scan must cover it; on a `close_pending` resume it covers all 10 phases) calling `sf state_read_phase_record <phase_id>` on each.
 2. Since MASTER-SPEC is synthesized at close from phase records + answers (not rendered per phase), a missing record for a fully-answered phase is a recoverable gap: the answers are intact, the reasoning was never captured.
 3. If any phase records are missing for already-answered phases, skill emits:
 
