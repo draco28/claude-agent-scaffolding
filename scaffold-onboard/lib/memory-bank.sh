@@ -215,62 +215,6 @@ _sf_mb_migrate_harvested() {
   return 0
 }
 
-# Derive memory-bank: regenerate derived files, seed live files only if missing,
-# copy static file only if missing.
-# Args: --force  (optional) to overwrite live files too.
-#       --fast   (optional) sets SF_SYNTH_FAST=1 to skip synthesis dispatch;
-#                used by the /scaffold-project --fast flag and as the synthesis
-#                fallback path when sub-agent dispatch fails.
-sf_memory_bank_derive() {
-  local force=0
-  local arg
-  for arg in "$@"; do
-    case "$arg" in
-      --force) force=1 ;;
-      --fast)  export SF_SYNTH_FAST=1 ;;
-    esac
-  done
-
-  local root tmpl_dir ts
-  root="$(sf_plugin_root)"
-  tmpl_dir="$root/templates/memory-bank"
-  ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
-  mkdir -p .claude/memory-bank
-
-  # SS-1 W7: one-time relocate of provenance-trailed harvest content out of derived
-  # files before they are regenerated. No-op on fresh projects.
-  _SF_MB_MIGRATED_TO_KNOWN_ISSUES=0
-  _sf_mb_migrate_harvested
-
-  # Collect args once
-  local args=()
-  while IFS= read -r line; do args+=("$line"); done < <(_memory_bank_args "$ts")
-
-  # 8 derived files. 03-code-patterns keeps a preserved rules zone (SS-1 W2):
-  # capture the existing zone, re-render, re-inject.
-  local f
-  for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 07-constraints 08-governance index; do
-    local out=".claude/memory-bank/${f}.md"
-    if [[ "$f" == "03-code-patterns" ]]; then
-      local saved_zone
-      saved_zone="$(_sf_mb_extract_preserve_zone "$out")"
-      sf_render "$tmpl_dir/${f}.md.tmpl" "${args[@]}" > "$out"
-      if [[ -n "$saved_zone" ]]; then
-        _sf_mb_reinject_preserve_zone "$out" "$saved_zone" \
-          || sf_log_warn "03-code-patterns: could not re-inject preserved rules zone"
-      fi
-    else
-      sf_render "$tmpl_dir/${f}.md.tmpl" "${args[@]}" > "$out"
-    fi
-  done
-
-  if [[ "$force" -eq 1 ]]; then
-    sf_memory_bank_seed_live_static --force
-  else
-    sf_memory_bank_seed_live_static
-  fi
-}
 
 # Seed only the live/static memory-bank files. Used after synthesis waves so the
 # agent-authored derived files are not overwritten by the deterministic renderer.
@@ -281,7 +225,6 @@ sf_memory_bank_seed_live_static() {
   for arg in "$@"; do
     case "$arg" in
       --force) force=1 ;;
-      --fast)  export SF_SYNTH_FAST=1 ;;
     esac
   done
 
