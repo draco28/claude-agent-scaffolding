@@ -59,6 +59,13 @@ call the mechanical helper directly (decide per-function at plan time).
 - **Rejection path becomes:** on `_from_synthesized` rejection, re-dispatch the EXEC-SUMMARY agent
   once with a corrective instruction ("prose/bullets only — no `##`, `---`, or phase markers"); if it
   still fails → hard-fail with remediation. No deterministic substitute.
+- **Consumer produce-once-if-missing** (settled during execution 2026-06-09): `/scaffold-project`
+  (memory-bank §13) and `/scaffold-docs` (governance §11) currently call the now-removed
+  `sf_render_executive_summary` to extract MASTER-SPEC's pinned section into `EXECUTIVE-SUMMARY.md`
+  for legacy projects. SS-7 replaces that with an **agent dispatch**: when `EXECUTIVE-SUMMARY.md` is
+  missing, dispatch the `EXECUTIVE-SUMMARY.brief.md` synthesis agent from MASTER-SPEC →
+  `_from_synthesized` write-back (same as the onboarding-close producer, minus inline fallback if
+  headless). The staleness path (`sf_exec_summary_staleness`, mechanical cksum) is unchanged.
 
 ## 5. Test strategy (the bulk of the work)
 

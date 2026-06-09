@@ -75,8 +75,9 @@
 - [ ] **Step 1:** §13.2 — delete the `case " $ARGUMENTS " in *" --fast "*) export SF_SYNTH_FAST=1 ;; esac` line, the `if [[ "$(sf_synth_mode)" == "fast" ]]; then … sf_memory_bank_derive … return 0; fi` block, and the explanatory paragraphs about fast-mode/`return 0`/`${var:+}`.
 - [ ] **Step 2:** §9 — remove the `--fast` flag bullet ("use the deterministic derivation path"). Keep `--regenerate`/no-flag.
 - [ ] **Step 3:** §1/§3/§4/§10 — scrub references to `sf_memory_bank_derive` as the derivation helper and "deterministic `--fast` fallback" in the description frontmatter + prose; reframe derivation as synthesis-only (the synthesize waves are the path; `seed_live_static` does mechanical seeding). Update §10's helper list to drop `sf_memory_bank_derive`.
-- [ ] **Step 4:** Add (or confirm) a sentence documenting the agent-unavailable model: dispatch → main-context-inline → re-dispatch-once → hard-fail (spec §2). This is the R3 doc-grep target.
-- [ ] **Step 5:** `grep -nE 'SF_SYNTH_FAST|sf_synth_mode|--fast|sf_memory_bank_derive' skills/scaffolding-memory-bank/SKILL.md` → no matches.
+- [ ] **Step 4:** **EXEC-SUMMARY produce-once (decided 2026-06-09):** replace the `sf_render_executive_summary` produce-once-if-missing call (≈§13:271) with an **agent dispatch** — when `EXECUTIVE-SUMMARY.md` is missing, dispatch the `EXECUTIVE-SUMMARY.brief.md` synthesis agent from MASTER-SPEC → `sf_render_executive_summary_from_synthesized` write-back (inline fallback if headless). Keep the `sf_exec_summary_staleness` warn path unchanged.
+- [ ] **Step 5:** Add (or confirm) a sentence documenting the agent-unavailable model: dispatch → main-context-inline → re-dispatch-once → hard-fail (spec §2). This is the R3 doc-grep target.
+- [ ] **Step 6:** `grep -nE 'SF_SYNTH_FAST|sf_synth_mode|--fast|sf_memory_bank_derive|sf_render_executive_summary\b' skills/scaffolding-memory-bank/SKILL.md` → no matches (only `_from_synthesized` may remain).
 - [ ] **Step 6:** Commit: `docs(scaffold-onboard): scaffolding-memory-bank synthesis-only, drop --fast (#56)`
 
 ### Task 6: `scaffolding-governance-docs` SKILL — remove fast path
@@ -85,6 +86,7 @@
 
 - [ ] **Step 1:** §11 — delete the `case … --fast … export SF_SYNTH_FAST=1` line, the `if sf_synth_mode == fast` block (the `sf_docs_derive [--full] [--regenerate]` ladder + `return 0`), and the explanatory paragraphs.
 - [ ] **Step 2:** Ensure the synthesize branch independently encodes the doc-set (5 default / +6 full / +3 LLM-gated on 9.3.1). If it currently relied on `sf_docs_derive` for the doc list, inline the doc-set + LLM-gate logic into the synthesize dispatch prose. (Read §11 fully; the dispatch must name each doc artifact + the gate.)
+- [ ] **Step 2b:** **EXEC-SUMMARY produce-once (decided 2026-06-09):** replace the `sf_render_executive_summary` produce-once-if-missing call (≈§11:234-238) with an agent dispatch (EXECUTIVE-SUMMARY brief from MASTER-SPEC → `_from_synthesized`), inline fallback if headless; keep the `sf_exec_summary_staleness` warn branch.
 - [ ] **Step 3:** Scrub frontmatter/§ prose "deterministic `--fast` fallback"; drop `--fast` from the flag docs.
 - [ ] **Step 4:** Add/confirm the agent-unavailable model sentence (R3).
 - [ ] **Step 5:** `grep -nE 'SF_SYNTH_FAST|sf_synth_mode|--fast|sf_docs_derive' skills/scaffolding-governance-docs/SKILL.md` → no matches.
@@ -168,6 +170,7 @@
 **Files:** Modify `scaffold-onboard/tests/test-synthesis-dispatch.sh`, `tests/test-synthesis.sh`, `tests/test-master-spec-synthesis.sh`
 
 - [ ] **Step 1:** `test-synthesis-dispatch.sh` (~30 `SF_SYNTH_FAST` refs): delete the tests asserting "skill exports `SF_SYNTH_FAST` for `--fast`" / "fast-path returns 0 before waves". Replace the key one with an **inverse** guard test: each dispatch skill (`scaffolding-memory-bank` §13, `scaffolding-governance-docs` §11) contains **no** `SF_SYNTH_FAST` / `sf_synth_mode` / `--fast`, and documents the inline fallback (R3 doc-grep). Keep the dispatch/finalize/seed-preservation behavioral tests (those are the agent-driven core).
+- [ ] **Step 1b:** The ~14 `sf_render_executive_summary` calls (EXEC produce-once + staleness) + `_from_state` test (≈251-254) + the "phantom"/"intact" guards (`test-master-spec-synthesis.sh:110`, `test-synthesis-dispatch.sh:507`) reference removed fns → rework: invert the "intact"/"phantom" guards to assert **removal**; convert the produce-once tests to assert the skill **dispatches a synthesis agent when EXEC-SUMMARY is missing** (doc-grep on §11/§13) + keep the `sf_exec_summary_staleness` mechanical cksum tests; replace `_from_state` coverage by asserting it is gone.
 - [ ] **Step 2:** `test-synthesis.sh` (3 refs) + `test-master-spec-synthesis.sh` (the `MODE: first-author` etc. — already first-author-only post-#58; just remove any lingering `--fast`/`sf_synth_mode` ref): clean.
 - [ ] **Step 3:** `cd scaffold-onboard && bash tests/test-synthesis-dispatch.sh && bash tests/test-synthesis.sh && bash tests/test-master-spec-synthesis.sh` → green.
 - [ ] **Step 4:** Commit: `test(scaffold-onboard): invert SF_SYNTH_FAST guards → assert no --fast path + inline fallback (#56)`
