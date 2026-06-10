@@ -316,6 +316,67 @@ The MVP scope centers on add/list/complete tasks persisted to a local file.
 FIXTURE
 }
 
+# ---------------------------------------------------------------------------
+# Canned-synthesis fixtures (SS-7). The deterministic memory-bank/governance
+# renderers were removed in v0.8.0 — content is now agent-synthesized, which a
+# bash test cannot run. These helpers reproduce the MECHANICAL orchestration
+# (§13 / §11) with canned "synthesized" output substituted for the agent: the
+# harvest migration, the mcrules-zone extract/reinject, and live/static seeding
+# all still run, so the mechanical assertions (preserve, force, routing, zone,
+# migration) hold. Content-correctness moves to the evals/ LLM-judge.
+# Requires lib/memory-bank.sh sourced (for _sf_mb_* + sf_memory_bank_seed_live_static).
+
+# Write canned "synthesized" derived files into ./.claude/memory-bank.
+# 03-code-patterns carries the empty mcrules preserve zone + a recognizable
+# "User-global defaults" line so the zone-preserve tests have prose to assert.
+_seed_canned_derived_files() {
+  local mb=".claude/memory-bank"
+  mkdir -p "$mb"
+  local f
+  for f in 00-project-brief 01-product-context 02-system-patterns 04-tech-context 07-constraints 08-governance index; do
+    printf '# %s\n\nSynthesized content for %s.\nLast derived from MASTER-SPEC.md\n' "$f" "$f" > "$mb/${f}.md"
+  done
+  cat > "$mb/03-code-patterns.md" <<'EOF'
+# Code Patterns
+
+## Module / package boundaries
+Synthesized content. User-global defaults apply.
+
+<!-- mcrules:preserve:start -->
+<!-- This zone is PRESERVED across /scaffold-project re-derive. -->
+## Machine-checkable rules
+
+<!-- Project rules live below in the HTML-sentinel mcrule DSL. -->
+<!-- mcrules:preserve:end -->
+
+## User-global defaults
+- synthesized defaults
+EOF
+}
+
+# Mimic the §13 synthesize orchestration mechanically: harvest-migrate → preserve
+# the 03 mcrules zone → write canned derived files → reinject the zone → seed
+# live/static. Honors --force (passed through to seed_live_static). Use this in
+# place of the removed sf_memory_bank_derive in mechanical tests.
+seed_memory_bank_synth_fixture() {
+  local force=""
+  [[ "${1:-}" == "--force" ]] && force="--force"
+  local mb=".claude/memory-bank"
+  mkdir -p "$mb"
+  # 1. Harvest migration runs BEFORE derived files are overwritten (as in §13.3).
+  _sf_mb_migrate_harvested
+  # 2. Capture any authored mcrules zone, write canned derived files, re-attach it.
+  local out_03="$mb/03-code-patterns.md" saved_zone=""
+  [[ -f "$out_03" ]] && saved_zone="$(_sf_mb_extract_preserve_zone "$out_03")"
+  _seed_canned_derived_files
+  if [[ -n "$saved_zone" ]]; then
+    _sf_mb_reinject_preserve_zone "$out_03" "$saved_zone" \
+      || printf '\n%s\n' "$saved_zone" >> "$out_03"
+  fi
+  # 3. Mechanical live/static seeding (surviving helper).
+  sf_memory_bank_seed_live_static $force
+}
+
 cleanup() {
   if [[ -n "$TMP_DIR" && -d "$TMP_DIR" ]]; then
     rm -rf "$TMP_DIR"

@@ -11,10 +11,11 @@ PLUGIN_ROOT="$HERE/.."
 export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
 
 # Build a minimal valid MASTER-SPEC.md in $PWD using a fixture + state.
-# sf_memory_bank_derive reads answers from state directly; MASTER-SPEC.md
-# is only needed for 00-project-brief (which checks for the pitch text) and
-# any sf_spec_validate calls. (sf_master_spec_init and sf_master_spec_update_phase
-# were removed in SS-3.)
+# The deterministic sf_memory_bank_derive was removed in v0.8.0 (SS-7); these
+# tests drive the MECHANICAL orchestration via seed_memory_bank_synth_fixture
+# (_helpers.sh) — harvest migration, mcrules-zone preserve, live/static seeding —
+# with canned "synthesized" derived files substituted for the agent. Derived
+# content-correctness moves to the evals/ LLM-judge.
 seed_master_spec() {
   sf_state_init
   sf_state_write_answer "1.1.1" "test-proj — a fast widget"
@@ -29,7 +30,7 @@ seed_master_spec() {
   sf_state_write_answer "7.1.2" "statically typed Rust"
   sf_state_write_answer "9.3.1" "no"
   # Write a structurally valid MASTER-SPEC.md fixture.
-  # sf_memory_bank_derive reads all template vars from state (not MASTER-SPEC.md),
+  # seed_memory_bank_synth_fixture reads all template vars from state (not MASTER-SPEC.md),
   # so the fixture is just a valid placeholder on disk.
   seed_master_spec_fixture "./MASTER-SPEC.md" "test-proj" "CLI tool"
 }
@@ -38,20 +39,21 @@ test_derive_00_project_brief() {
   echo "test_derive_00_project_brief:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
+  # Mechanical: the derived file lands at the routed path. Content-correctness
+  # (pitch flows from MASTER-SPEC into 00) is agent-synthesized → asserted by the
+  # evals/ LLM-judge, not here (SS-7).
   assert_file_exists "./.claude/memory-bank/00-project-brief.md"
-  assert_file_contains "./.claude/memory-bank/00-project-brief.md" "test-proj — a fast widget"
-  assert_file_contains "./.claude/memory-bank/00-project-brief.md" "Last derived from MASTER-SPEC.md"
 }
 
 test_live_files_preserved() {
   echo "test_live_files_preserved:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   # Hand-edit the live file
   echo "## My custom note" >> ".claude/memory-bank/05-active-context.md"
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   assert_file_contains "./.claude/memory-bank/05-active-context.md" "My custom note"
 }
 
@@ -59,9 +61,9 @@ test_live_files_force_overwritten() {
   echo "test_live_files_force_overwritten:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   echo "## My custom note" >> ".claude/memory-bank/05-active-context.md"
-  sf_memory_bank_derive --force
+  seed_memory_bank_synth_fixture --force
   if grep -q "My custom note" "./.claude/memory-bank/05-active-context.md"; then
     FAIL=$((FAIL+1)); echo "  ✗ --force should have overwritten"
   else
@@ -73,9 +75,9 @@ test_workflow_static_unchanged() {
   echo "test_workflow_static_unchanged:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   echo "## My workflow note" >> ".claude/memory-bank/WORKFLOW.md"
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   assert_file_contains "./.claude/memory-bank/WORKFLOW.md" "My workflow note"
 }
 
@@ -85,9 +87,9 @@ test_workflow_refreshed_on_force() {
   echo "test_workflow_refreshed_on_force:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   echo "## STALE-SENTINEL" >> ".claude/memory-bank/WORKFLOW.md"
-  sf_memory_bank_derive --force
+  seed_memory_bank_synth_fixture --force
   assert_file_not_contains "./.claude/memory-bank/WORKFLOW.md" "STALE-SENTINEL"
   assert_file_contains "./.claude/memory-bank/WORKFLOW.md" "Per-slice loop"
 }
@@ -118,7 +120,7 @@ test_all_derived_files_present() {
   echo "test_all_derived_files_present:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   local f
   for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 05-active-context 06-progress 07-constraints 08-governance 09-known-issues 10-decisions-log index WORKFLOW tech-debt; do
     assert_file_exists "./.claude/memory-bank/${f}.md"
@@ -184,7 +186,7 @@ test_derive_seeds_machine_checkable_rules_section() {
   echo "test_derive_seeds_machine_checkable_rules_section:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "^## Machine-checkable rules"
 }
 
@@ -193,7 +195,7 @@ test_new_dev_files_seeded() {
   echo "test_new_dev_files_seeded:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   assert_file_exists "./.claude/memory-bank/09-known-issues.md"
   assert_file_exists "./.claude/memory-bank/10-decisions-log.md"
   assert_file_contains "./.claude/memory-bank/09-known-issues.md" "# Known Issues"
@@ -204,10 +206,10 @@ test_new_dev_files_preserved_on_rederive() {
   echo "test_new_dev_files_preserved_on_rederive:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   echo "- gotcha: widgets race on startup" >> ".claude/memory-bank/09-known-issues.md"
   echo "- decided: use file-lock for the registry" >> ".claude/memory-bank/10-decisions-log.md"
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   assert_file_contains "./.claude/memory-bank/09-known-issues.md" "widgets race on startup"
   assert_file_contains "./.claude/memory-bank/10-decisions-log.md" "use file-lock for the registry"
 }
@@ -218,7 +220,7 @@ test_03_rules_zone_preserved_on_rederive() {
   echo "test_03_rules_zone_preserved_on_rederive:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   # Simulate authoring-machine-checkable-rules inserting a rule inside the zone:
   # insert a rule block immediately before the preserve:end marker.
   awk '
@@ -231,7 +233,7 @@ test_03_rules_zone_preserved_on_rederive() {
     { print }
   ' ".claude/memory-bank/03-code-patterns.md" > ".claude/memory-bank/03-code-patterns.md.tmp"
   mv ".claude/memory-bank/03-code-patterns.md.tmp" ".claude/memory-bank/03-code-patterns.md"
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "mcrule:start type=banned-imports"
   assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "banned: requests"
   # derived prose still present (the zone is not the whole file)
@@ -244,9 +246,9 @@ test_03_empty_zone_idempotent() {
   echo "test_03_empty_zone_idempotent:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
-  sf_memory_bank_derive
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
+  seed_memory_bank_synth_fixture
+  seed_memory_bank_synth_fixture
   # Sentinels present exactly once each; heading intact; no duplication.
   local starts ends headings
   starts="$(grep -c 'mcrules:preserve:start' ".claude/memory-bank/03-code-patterns.md")"
@@ -266,7 +268,7 @@ test_legacy_rules_without_preserve_markers_survive_upgrade() {
   echo "test_legacy_rules_without_preserve_markers_survive_upgrade:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   cat > ".claude/memory-bank/03-code-patterns.md" <<'EOF'
 # Code Patterns
 
@@ -282,7 +284,7 @@ forbid: [requests]
 ## User-global defaults
 - legacy defaults
 EOF
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "mcrules:preserve:start"
   assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "mcrule:start type=banned_imports"
   assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "forbid: \\[requests\\]"
@@ -295,7 +297,7 @@ test_cadence_policy_canonical() {
   echo "test_cadence_policy_canonical:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   assert_file_contains "./.claude/memory-bank/WORKFLOW.md" "cadence-policy:canonical"
   assert_file_contains "./.claude/memory-bank/WORKFLOW.md" "Memory-bank update cadence"
   assert_file_contains "./.claude/memory-bank/WORKFLOW.md" "Spec-derived"
@@ -308,7 +310,7 @@ test_migration_relocates_harvested_content() {
   echo "test_migration_relocates_harvested_content:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   # Simulate an old project: harvest content was appended into derived 04.
   {
     echo ""
@@ -316,7 +318,7 @@ test_migration_relocates_harvested_content() {
     echo "<!-- Added from VS-1.1.1 retrospective, 2026-05-01; source: report -->"
   } >> ".claude/memory-bank/04-tech-context.md"
   # Re-derive: migration must move it to 09 before 04 is regenerated.
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   assert_file_contains "./.claude/memory-bank/09-known-issues.md" "prefer atomic writes for the registry"
   assert_file_not_contains "./.claude/memory-bank/04-tech-context.md" "prefer atomic writes for the registry"
 }
@@ -328,7 +330,7 @@ test_migration_relocates_harvested_content_from_all_derived_files() {
   echo "test_migration_relocates_harvested_content_from_all_derived_files:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   local f note path
   for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 07-constraints 08-governance index; do
     path=".claude/memory-bank/${f}.md"
@@ -339,7 +341,7 @@ test_migration_relocates_harvested_content_from_all_derived_files() {
       echo "<!-- Added from VS-9.9.9 retrospective, 2026-05-03; source: report -->"
     } >> "$path"
   done
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   for f in 00-project-brief 01-product-context 02-system-patterns 03-code-patterns 04-tech-context 07-constraints 08-governance index; do
     note="legacy harvested note from ${f}"
     assert_file_contains "./.claude/memory-bank/09-known-issues.md" "$note"
@@ -354,13 +356,13 @@ test_migration_preserves_09_on_force_after_relocation() {
   echo "test_migration_preserves_09_on_force_after_relocation:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   {
     echo ""
     echo "- legacy force note: preserve after migration"
     echo "<!-- Added from VS-4.4.4 retrospective, 2026-05-04; source: report -->"
   } >> ".claude/memory-bank/04-tech-context.md"
-  sf_memory_bank_derive --force
+  seed_memory_bank_synth_fixture --force
   assert_file_contains "./.claude/memory-bank/09-known-issues.md" "legacy force note: preserve after migration"
   assert_file_contains "./.claude/memory-bank/09-known-issues.md" "Memory-bank update cadence"
 }
@@ -370,14 +372,14 @@ test_migration_idempotent() {
   echo "test_migration_idempotent:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   {
     echo ""
     echo "- legacy note: one-shot relocate me"
     echo "<!-- Added from VS-2.1.1 retrospective, 2026-05-02; source: handoff -->"
   } >> ".claude/memory-bank/03-code-patterns.md"
-  sf_memory_bank_derive
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
+  seed_memory_bank_synth_fixture
   local count
   count="$(grep -c "one-shot relocate me" "./.claude/memory-bank/09-known-issues.md")"
   if [[ "$count" == "1" ]]; then PASS=$((PASS+1)); echo "  ✓ relocated exactly once";
@@ -389,7 +391,7 @@ test_migration_leaves_preserve_zone() {
   echo "test_migration_leaves_preserve_zone:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   # Put a rule block inside the preserve zone (no provenance trailer).
   awk '
     /<!-- mcrules:preserve:end -->/ && !done {
@@ -401,7 +403,7 @@ test_migration_leaves_preserve_zone() {
     { print }
   ' ".claude/memory-bank/03-code-patterns.md" > ".claude/memory-bank/03-code-patterns.md.tmp"
   mv ".claude/memory-bank/03-code-patterns.md.tmp" ".claude/memory-bank/03-code-patterns.md"
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "banned: requests"
 }
 
@@ -412,7 +414,7 @@ test_migration_creates_09_with_full_template() {
   echo "test_migration_creates_09_with_full_template:"
   setup_tmp_repo
   seed_master_spec
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   # Simulate a legacy 12-file bank: remove 09, inject harvested content into 04.
   rm -f ".claude/memory-bank/09-known-issues.md"
   {
@@ -420,7 +422,7 @@ test_migration_creates_09_with_full_template() {
     echo "- legacy note: prefer atomic writes for the registry"
     echo "<!-- Added from VS-1.1.1 retrospective, 2026-05-01; source: report -->"
   } >> ".claude/memory-bank/04-tech-context.md"
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   # 09 has the migrated content AND the full template (cadence pointer + a section heading).
   assert_file_contains "./.claude/memory-bank/09-known-issues.md" "prefer atomic writes for the registry"
   assert_file_contains "./.claude/memory-bank/09-known-issues.md" "Memory-bank update cadence"
