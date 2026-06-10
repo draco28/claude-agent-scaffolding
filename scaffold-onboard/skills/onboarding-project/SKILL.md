@@ -357,7 +357,10 @@ master="$(sf resolve_output_path master_spec MASTER-SPEC.md)"
 prompt="$(sf synth_brief_assemble "$brief" "$(sf synth_ledger_empty)" "$out" "$master" "")"
 ```
 Then dispatch the synthesis agent (if no Task tool, author EXECUTIVE-SUMMARY.md inline
-from MASTER-SPEC's pinned `## Executive Summary` section):
+in the main context from the **full MASTER-SPEC**, following the EXECUTIVE-SUMMARY brief —
+synthesize from the broad spec fields (vision, target users, MVP scope, success criteria),
+NOT from MASTER-SPEC's pinned `## Executive Summary` section, which at close is still the
+thin one-sentence placeholder the MASTER-SPEC step seeded):
 ```text
 Task(subagent_type="scaffold-onboard:synthesis-agent",
      description="Synthesize EXECUTIVE-SUMMARY",
@@ -368,19 +371,22 @@ After `mode:complete`, copy the synthesized body back into MASTER-SPEC's pinned
 `## Executive Summary` section and render the canonical EXECUTIVE-SUMMARY with
 a checksum from the updated source:
 ```bash
+writeback_rejected=0
 if ! sf render_executive_summary_from_synthesized "$master" "$out" "$(sf project_name)" "$(sf state_read_answer 1.3.1)"; then
-  echo "warn: synthesized Executive Summary contained disallowed structure (## heading / --- rule / phase marker) or was empty." >&2
+  writeback_rejected=1   # synthesized body had disallowed structure (## / --- / phase marker) or was empty
 fi
 ```
 The write-back (`sf_render_executive_summary_from_synthesized`) refuses a synthesized
 body that contains a section delimiter (`## ` / `---` rule / phase marker) — it would
-corrupt MASTER-SPEC's pinned section. **On that rejection, re-dispatch the EXEC-SUMMARY
-synthesis agent once** with a corrective instruction (*"emit a prose/bullets-only
-Executive Summary — no `##` headings, no `---` rules, no phase markers"*), then retry the
-write-back. If it still fails, **hard-fail with remediation**: *"EXECUTIVE-SUMMARY
-synthesis failed — state preserved (`status=close_pending`); re-run `/onboard --resume`
-to retry the close."* Do NOT fall back to a deterministic renderer — there is none as of
-v0.8.0.
+corrupt MASTER-SPEC's pinned section. **On that rejection (`writeback_rejected=1`) do NOT
+continue the close** (do not set `status=complete`, do not emit the close summary). Instead
+**re-dispatch the EXEC-SUMMARY synthesis agent once** with a corrective instruction (*"emit
+a prose/bullets-only Executive Summary — no `##` headings, no `---` rules, no phase
+markers"*), then retry the write-back. If it still fails, **hard-fail with remediation**:
+*"EXECUTIVE-SUMMARY synthesis failed — state preserved (`status=close_pending`); re-run
+`/onboard --resume` to retry the close."* and stop. Do NOT fall back to a deterministic
+renderer — there is none as of v0.8.0. A bare warning that falls through to a "complete"
+close would checksum-pin an unrefreshed EXECUTIVE-SUMMARY.md.
 
 EXEC-SUMMARY is produced/refreshed ONLY here; hand-edits are overwritten on the next
 authoritative refresh (spec §2.3). To change it, edit MASTER-SPEC's `## Executive Summary`

@@ -381,30 +381,41 @@ seed_memory_bank_synth_fixture() {
 # --regenerate / LLM-gate contract (scaffolding-governance-docs §4/§11) with canned
 # "synthesized" content, since sf_docs_derive was removed in v0.8.0. Used by e2e to
 # assert the bundle SHAPE; content + ID-minting correctness move to evals/.
-# Requires lib/state.sh sourced (for sf_state_read_answer).
+# Requires lib/state.sh sourced (for sf_state_read_answer) and lib/routing.sh sourced
+# (for sf_resolve_output_path — used to mirror the real §11 manifest routing).
 seed_governance_docs_fixture() {
   local full=0 regen=0 a
   for a in "$@"; do case "$a" in --full) full=1 ;; --regenerate) regen=1 ;; esac; done
-  mkdir -p docs/adr
+  # Resolve each doc through sf_resolve_output_path with the SAME logical route the
+  # real scaffolding-governance-docs §11 catalog uses (prd/srs/backlog/project_plan
+  # → canonical; product_adrs → canonical; process_adrs → ai_workspace). Seeding bare
+  # `docs/...` against pwd would bypass manifest routing and, in dual-repo mode, hide
+  # the routing regressions this fixture exists to protect. Single-repo mode returns
+  # `$(pwd)/<rel>`, so existing same-cwd assertions are unchanged.
   _seed_one_doc() {
-    local path="$1"
+    local logical="$1" rel="$2" path
+    path="$(sf_resolve_output_path "$logical" "$rel")"
     [[ -f "$path" && "$regen" -ne 1 ]] && return 0   # skip-if-exists unless --regenerate
     mkdir -p "$(dirname "$path")"
     printf '# %s\n\nSynthesized governance doc.\nFR-1 NFR-1 BACKLOG-1 BACKLOG-2\n' "$(basename "$path")" > "$path"
   }
-  _seed_one_doc docs/PRD.md
-  _seed_one_doc docs/SRS.md
-  _seed_one_doc docs/BACKLOG.md
-  _seed_one_doc docs/PROJECT_PLAN.md
-  _seed_one_doc docs/adr/0001-record-architecture-decisions.md
+  _seed_one_doc prd docs/PRD.md
+  _seed_one_doc srs docs/SRS.md
+  _seed_one_doc backlog docs/BACKLOG.md
+  _seed_one_doc project_plan docs/PROJECT_PLAN.md
+  _seed_one_doc product_adrs docs/adr/0001-record-architecture-decisions.md
   if [[ "$full" -eq 1 ]]; then
-    local d
-    for d in RISK_REGISTER THREAT_MODEL TEST_STRATEGY DEFINITION_OF_DONE CUTOVER_PLAN DEMO_RUNBOOK; do
-      _seed_one_doc "docs/${d}.md"
-    done
+    _seed_one_doc product_adrs docs/RISK_REGISTER.md
+    _seed_one_doc product_adrs docs/THREAT_MODEL.md
+    _seed_one_doc product_adrs docs/TEST_STRATEGY.md
+    _seed_one_doc process_adrs docs/DEFINITION_OF_DONE.md
+    _seed_one_doc product_adrs docs/CUTOVER_PLAN.md
+    _seed_one_doc process_adrs docs/DEMO_RUNBOOK.md
     local uses_llm; uses_llm="$(sf_state_read_answer 9.3.1)"
     if [[ "$uses_llm" == "yes" || "$uses_llm" == "true" ]]; then
-      for d in EVALS_PLAN MODEL_CARD PROMPT_GOVERNANCE; do _seed_one_doc "docs/${d}.md"; done
+      _seed_one_doc product_adrs docs/EVALS_PLAN.md
+      _seed_one_doc product_adrs docs/MODEL_CARD.md
+      _seed_one_doc process_adrs docs/PROMPT_GOVERNANCE.md
     fi
   fi
 }
