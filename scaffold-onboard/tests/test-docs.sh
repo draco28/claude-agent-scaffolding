@@ -1,147 +1,76 @@
 #!/usr/bin/env bash
+# test-docs.sh — governance doc-set CONTRACT (SS-7).
+# The deterministic sf_docs_derive renderer was removed in v0.8.0; governance
+# docs are agent-synthesized (scaffolding-governance-docs §11). Bash can no longer
+# render + assert doc content, so this suite verifies the SKILL body still owns the
+# authoritative doc catalog: the default-5 / --full / LLM-gate split + per-doc
+# routing. Content + ID-minting (FR/NFR/BACKLOG) correctness moves to evals/.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/_helpers.sh"
-source "$HERE/../lib/state.sh"
-source "$HERE/../lib/parser.sh"
-source "$HERE/../lib/render.sh"
-source "$HERE/../lib/docs.sh"
 
-PLUGIN_ROOT="$HERE/.."
-export CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
+SKILL="$HERE/../skills/scaffolding-governance-docs/SKILL.md"
+DOCS_LIB="$HERE/../lib/docs.sh"
 
-seed_master_spec_for_docs() {
-  # Seed onboarding state — sf_docs_derive reads these answers directly from state.
-  # (sf_master_spec_init and sf_master_spec_update_phase were removed in SS-3.)
-  sf_state_init
-  sf_state_write_answer "1.1.1" "test-proj — fast widget"
-  sf_state_write_answer "1.1.4" "test-proj"
-  sf_state_write_answer "1.1.2" "Widgets slow."
-  sf_state_write_answer "1.2.1" "Solo devs"
-  sf_state_write_answer "1.2.2" "Build in one command"
-  sf_state_write_answer "1.3.1" "CLI tool"
-  sf_state_write_answer "1.3.2" "core flows"
-  sf_state_write_answer "2.1.1" "4 weeks"
-  sf_state_write_answer "2.2.2" "tech: dependency drift; market: niche; resource: solo"
-  sf_state_write_answer "5.2.1" "Rust"
-  sf_state_write_answer "9.3.1" "no"
-  # Write a structurally valid MASTER-SPEC.md fixture (required by sf_spec_validate
-  # and sf_docs_derive project_name resolution, not for template slot expansion).
-  seed_master_spec_fixture "./MASTER-SPEC.md" "test-proj" "CLI tool"
+test_skill_lists_default_5() {
+  echo "test_skill_lists_default_5:"
+  local d
+  for d in PRD SRS BACKLOG PROJECT_PLAN 'ADR-0001'; do
+    assert_file_contains "$SKILL" "$d"
+  done
 }
 
-test_default_docs_generated() {
-  echo "test_default_docs_generated:"
-  setup_tmp_repo
-  seed_master_spec_for_docs
-  sf_docs_derive
-  assert_file_exists "./docs/PRD.md"
-  assert_file_exists "./docs/SRS.md"
-  assert_file_exists "./docs/BACKLOG.md"
-  assert_file_exists "./docs/PROJECT_PLAN.md"
-  assert_file_exists "./docs/adr/0001-record-architecture-decisions.md"
+test_skill_lists_full_docs() {
+  echo "test_skill_lists_full_docs:"
+  local d
+  for d in RISK_REGISTER THREAT_MODEL TEST_STRATEGY DEFINITION_OF_DONE CUTOVER_PLAN DEMO_RUNBOOK; do
+    assert_file_contains "$SKILL" "$d"
+  done
 }
 
-test_prd_content() {
-  echo "test_prd_content:"
-  setup_tmp_repo
-  seed_master_spec_for_docs
-  sf_docs_derive
-  assert_file_contains "./docs/PRD.md" "test-proj — fast widget"
-  assert_file_contains "./docs/PRD.md" "CLI tool"
+test_skill_names_three_llm_gated() {
+  echo "test_skill_names_three_llm_gated:"
+  local d
+  for d in EVALS_PLAN MODEL_CARD PROMPT_GOVERNANCE; do
+    assert_file_contains "$SKILL" "$d"
+  done
+  # The gate is Phase 9.3.1 (uses_llm) and is documented in the skill body.
+  assert_file_contains "$SKILL" "9.3.1"
 }
 
-test_srs_mints_requirement_ids() {
-  echo "test_srs_mints_requirement_ids:"
-  setup_tmp_repo
-  seed_master_spec_for_docs
-  sf_docs_derive
-  assert_file_contains "./docs/SRS.md" "FR-1"
-  assert_file_contains "./docs/SRS.md" "NFR-1"
+test_skill_documents_process_vs_product_routing() {
+  echo "test_skill_documents_process_vs_product_routing:"
+  # DEFINITION_OF_DONE / DEMO_RUNBOOK / PROMPT_GOVERNANCE route to process_adrs;
+  # the rest of the ADR-family route to product_adrs. The §11.1 catalog table owns this.
+  assert_file_contains "$SKILL" "process_adrs"
+  assert_file_contains "$SKILL" "product_adrs"
 }
 
-test_backlog_mints_backlog_ids() {
-  echo "test_backlog_mints_backlog_ids:"
-  setup_tmp_repo
-  seed_master_spec_for_docs
-  sf_docs_derive
-  assert_file_contains "./docs/BACKLOG.md" "BACKLOG-1"
-  assert_file_contains "./docs/BACKLOG.md" "BACKLOG-2"
+test_skill_documents_default_vs_full_split() {
+  echo "test_skill_documents_default_vs_full_split:"
+  # §4 names the 5-default vs 14-full contract.
+  assert_file_contains "$SKILL" "Default \\(5 docs\\) vs"
+  assert_file_contains "$SKILL" "\\(14 docs\\)"
 }
 
-test_default_does_not_create_full_docs() {
-  echo "test_default_does_not_create_full_docs:"
-  setup_tmp_repo
-  seed_master_spec_for_docs
-  sf_docs_derive
-  assert_file_missing "./docs/RISK_REGISTER.md"
-  assert_file_missing "./docs/EVALS_PLAN.md"
+# SS-7 — no deterministic renderer / fast-mode toggle survives anywhere.
+# (The skill body intentionally MENTIONS "--fast flag was removed" in a removal
+# note, so we don't assert the bare string's absence — we assert the toggle
+# mechanism + the renderer function are gone.)
+test_no_deterministic_doc_renderer() {
+  echo "test_no_deterministic_doc_renderer:"
+  # The deterministic renderer function is gone from the lib.
+  assert_file_not_contains "$DOCS_LIB" "^sf_docs_derive\\(\\)"
+  assert_file_not_contains "$DOCS_LIB" "^_write_or_skip\\(\\)"
+  # The fast-mode toggle is gone from the skill (these have no intentional mentions).
+  assert_file_not_contains "$SKILL" "SF_SYNTH_FAST"
+  assert_file_not_contains "$SKILL" "sf_synth_mode"
 }
 
-test_full_mode_non_llm() {
-  echo "test_full_mode_non_llm:"
-  setup_tmp_repo
-  seed_master_spec_for_docs  # 9.3.1 = "no"
-  sf_docs_derive --full
-  # 5 default + 6 non-LLM --full = 11 docs total under docs/
-  assert_file_exists "./docs/RISK_REGISTER.md"
-  assert_file_exists "./docs/THREAT_MODEL.md"
-  assert_file_exists "./docs/TEST_STRATEGY.md"
-  assert_file_exists "./docs/DEFINITION_OF_DONE.md"
-  assert_file_exists "./docs/CUTOVER_PLAN.md"
-  assert_file_exists "./docs/DEMO_RUNBOOK.md"
-  # LLM-gated should NOT be generated
-  assert_file_missing "./docs/EVALS_PLAN.md"
-  assert_file_missing "./docs/MODEL_CARD.md"
-  assert_file_missing "./docs/PROMPT_GOVERNANCE.md"
-}
-
-test_full_mode_llm_project() {
-  echo "test_full_mode_llm_project:"
-  setup_tmp_repo
-  seed_master_spec_for_docs
-  # Flip the LLM gate — sf_docs_derive reads 9.3.1 from state directly.
-  # (sf_master_spec_update_phase removed in SS-3; state write is sufficient.)
-  sf_state_write_answer "9.3.1" "yes"
-  sf_state_write_answer "9.3.2" "groundedness, factuality, latency, cost"
-  sf_docs_derive --full
-  assert_file_exists "./docs/EVALS_PLAN.md"
-  assert_file_exists "./docs/MODEL_CARD.md"
-  assert_file_exists "./docs/PROMPT_GOVERNANCE.md"
-}
-
-test_existing_files_preserved() {
-  echo "test_existing_files_preserved:"
-  setup_tmp_repo
-  seed_master_spec_for_docs
-  sf_docs_derive
-  # Hand-edit
-  echo "## My addition" >> "./docs/PRD.md"
-  sf_docs_derive  # should NOT overwrite
-  assert_file_contains "./docs/PRD.md" "My addition"
-}
-
-test_regenerate_overwrites() {
-  echo "test_regenerate_overwrites:"
-  setup_tmp_repo
-  seed_master_spec_for_docs
-  sf_docs_derive
-  echo "## My addition" >> "./docs/PRD.md"
-  sf_docs_derive --regenerate
-  if grep -q "My addition" "./docs/PRD.md"; then
-    FAIL=$((FAIL+1)); echo "  ✗ --regenerate did not overwrite"
-  else
-    PASS=$((PASS+1)); echo "  ✓ --regenerate overwrote existing file"
-  fi
-}
-
-test_default_docs_generated
-test_prd_content
-test_srs_mints_requirement_ids
-test_backlog_mints_backlog_ids
-test_default_does_not_create_full_docs
-test_full_mode_non_llm
-test_full_mode_llm_project
-test_existing_files_preserved
-test_regenerate_overwrites
+test_skill_lists_default_5
+test_skill_lists_full_docs
+test_skill_names_three_llm_gated
+test_skill_documents_process_vs_product_routing
+test_skill_documents_default_vs_full_split
+test_no_deterministic_doc_renderer
 report_results
