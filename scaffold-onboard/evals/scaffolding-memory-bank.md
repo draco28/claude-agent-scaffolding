@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Verify that the `scaffold-onboard:scaffolding-memory-bank` skill (per SPEC §5.2 + §10 routing + §14 Karpathy section) deterministically derives the 14-file memory bank from MASTER-SPEC.md, seeds the R2 `## Machine-checkable rules` section in `03-code-patterns.md` as empty (heading + invitation comment, zero rule blocks), routes outputs per manifest, and conditionally emits the Karpathy "Behavioral Discipline" section in CLAUDE.md based on the Phase 10.4 opt-in state answer.
+Verify that the `scaffold-onboard:scaffolding-memory-bank` skill (per SPEC §5.2 + §10 routing + §14 Karpathy section) derives the 14-file memory bank from MASTER-SPEC.md **via agent synthesis** (the only path as of v0.8.0 — no deterministic `--fast` fallback), seeds the R2 `## Machine-checkable rules` section in `03-code-patterns.md` as empty (heading + invitation comment, zero rule blocks), routes outputs per manifest, and conditionally emits the Karpathy "Behavioral Discipline" section in CLAUDE.md based on the Phase 10.4 opt-in state answer.
 
 ## Harness
 
@@ -42,7 +42,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 - Skill triggers on `/scaffold-project` (resolves to `scaffold-onboard:scaffolding-memory-bank`).
 - Skill validates MASTER-SPEC.md via `sf_spec_validate` (no errors raised on the fixture).
 - Skill derives and emits all 14 memory-bank files under `$(pwd)/.claude/memory-bank/`:
-  - **8 derived from MASTER-SPEC** — `00-project-brief.md`, `01-product-context.md`, `02-system-patterns.md`, `03-code-patterns.md`, `04-tech-context.md`, `07-constraints.md`, `08-governance.md`, `index.md`. Content is materialized from the corresponding `.tmpl` files with MASTER-SPEC-derived substitutions.
+  - **8 derived from MASTER-SPEC** — `00-project-brief.md`, `01-product-context.md`, `02-system-patterns.md`, `03-code-patterns.md`, `04-tech-context.md`, `07-constraints.md`, `08-governance.md`, `index.md`. Content is **authored by synthesis sub-agents** from MASTER-SPEC (no deterministic template render as of v0.8.0).
   - **4 live-seed (preserve on re-derive)** — `05-active-context.md`, `06-progress.md`, `09-known-issues.md`, `10-decisions-log.md`. On fresh derivation these are emitted with their initial seeded content (effectively starter scaffolding the user will fill in).
   - **1 static (copy-once)** — `WORKFLOW.md`. Copied verbatim from the template.
   - **1 seeded index** — `tech-debt.md`. Rendered header-only from template; scaffold-dev appends entries over time.
