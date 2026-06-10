@@ -255,6 +255,7 @@ Source both synthesis and routing helpers:
 source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
 source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
 source "${CLAUDE_PLUGIN_ROOT}/lib/memory-bank.sh"   # sf_memory_bank_seed_live_static, sf_claude_*, _memory_bank_args, _sf_mb_*
+source "${CLAUDE_PLUGIN_ROOT}/lib/compose.sh"       # sf_compose_detect_architect_critic — _composition_args (inside sf_claude_md_generate) needs it; without it the probe is undefined and has_architect_critic renders false, dropping the /critique block from CLAUDE.md
 source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"        # sf_render_executive_summary_from_synthesized, sf_exec_summary_staleness
 source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"         # sf_project_name, sf_state_read_answer, sf_state_gate_passes
 ```
@@ -264,22 +265,28 @@ Resolve source documents:
 ```bash
 master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
 exec_summary="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
-# EXEC-SUMMARY is produced by onboarding (single authoritative producer). Here we
-# only CONSUME it: produce-once via SYNTHESIS if a legacy project lacks it (SS-7:
-# no deterministic extract), and warn (never silently refresh) if it is stale.
+# EXEC-SUMMARY is produced by onboarding (single authoritative producer, §8). Here we
+# only CONSUME it: best-effort produce-once via SYNTHESIS if a legacy project lacks it
+# (SS-7: no deterministic extract), and warn (never silently refresh) if it is stale.
+#
+# CONSUMER ≠ PRODUCER (SS-7 spec §4): unlike the onboarding-close producer, this
+# consumer path has NO inline fallback when headless and does NOT hard-fail. Here
+# EXEC-SUMMARY is OPTIONAL enriching context — MASTER-SPEC is the SSoT and the 8
+# derived files synthesize fine from it alone. So if it cannot be produced (no Task
+# tool, or synthesis + the one corrective retry both fail), warn and proceed deriving
+# from MASTER-SPEC only. Its authoritative producer is /onboard.
 if [[ ! -f "$exec_summary" ]]; then
   exec_brief="${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/EXECUTIVE-SUMMARY.brief.md"
   prompt="$(sf_synth_brief_assemble "$exec_brief" "$(sf_synth_ledger_empty)" "$exec_summary" "$master" "")"
-  # Dispatch scaffold-onboard:synthesis-agent with "$prompt" (if no Task tool,
-  # author EXECUTIVE-SUMMARY.md inline in the main context from the FULL MASTER-SPEC
-  # following the EXECUTIVE-SUMMARY brief — vision/users/MVP/success criteria — NOT
-  # from MASTER-SPEC's pinned "## Executive Summary" section, which may be absent or
-  # a thin placeholder on a legacy bank), then write it back with the guarded helper:
+  # If a Task tool is available, dispatch scaffold-onboard:synthesis-agent with
+  # "$prompt" (the brief synthesizes from the FULL MASTER-SPEC — vision/users/MVP/
+  # success criteria), then write it back with the guarded helper:
   #   sf_render_executive_summary_from_synthesized "$master" "$exec_summary" \
   #     "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"
-  # On structural rejection, re-dispatch once with a corrective instruction.
+  # On structural rejection, re-dispatch once with a corrective instruction. Headless
+  # (no Task tool): skip — do NOT inline-author here (that is the producer's job, §8).
   if [[ ! -f "$exec_summary" ]]; then
-    sf_log_warn "could not produce EXECUTIVE-SUMMARY.md — synthesis prompts will use MASTER-SPEC only; run /onboard to author it"
+    sf_log_warn "could not produce EXECUTIVE-SUMMARY.md — proceeding with MASTER-SPEC only (it is the SSoT); run /onboard to author the standalone summary"
     exec_summary=""
   fi
 elif ! sf_exec_summary_staleness "$master" "$exec_summary"; then
