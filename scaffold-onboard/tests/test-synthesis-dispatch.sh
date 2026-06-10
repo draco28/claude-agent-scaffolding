@@ -510,6 +510,27 @@ test_synthesize_finalize_routes_to_memory_bank() {
   fi
 }
 
+# SS-7 R3 — the inline (no-Task-tool) fallback can't be exercised in bash; assert
+# each content-authoring skill DOCUMENTS the agent-unavailable model: dispatch →
+# inline → re-dispatch-once → hard-fail, with no deterministic content fallback.
+test_inline_fallback_model_documented() {
+  echo "test_inline_fallback_model_documented:"
+  local ok=1 s
+  for s in "$MB_SKILL" "$GOV_SKILL" \
+           "$ROOT/skills/planning-project-roadmap/SKILL.md" \
+           "$ROOT/skills/onboarding-project/SKILL.md"; do
+    # an inline-authoring fallback phrase
+    if ! grep -qiE 'inline (in the main context|from MASTER-SPEC)|main-context-inline|author .*inline' "$s"; then
+      echo "  ✗ $(basename "$(dirname "$s")") does not document the inline (headless) fallback"; ok=0
+    fi
+    # and an explicit "no deterministic" statement
+    if ! grep -qiE 'no deterministic' "$s"; then
+      echo "  ✗ $(basename "$(dirname "$s")") does not state there is no deterministic fallback"; ok=0
+    fi
+  done
+  if [[ "$ok" == "1" ]]; then PASS=$((PASS+1)); echo "  ✓ all 4 content skills document dispatch→inline→re-dispatch→hard-fail (no deterministic fallback)"; else FAIL=$((FAIL+1)); fi
+}
+
 test_memory_bank_dispatch_sources_its_helpers
 test_synthesize_finalize_routes_to_memory_bank
 test_governance_dispatch_sources_its_helpers
@@ -533,4 +554,5 @@ test_missing_exec_summary_render_failure_clears_dispatch_source
 test_exec_summary_staleness_detects_master_change
 test_deterministic_exec_summary_renderers_removed
 test_exec_summary_brief_validates
+test_inline_fallback_model_documented
 report_results
