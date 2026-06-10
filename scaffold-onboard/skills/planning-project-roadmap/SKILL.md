@@ -534,7 +534,7 @@ If `/scaffold-docs` ran first (ledger non-empty), validate citations:
 sf_synth_validate_cited "$ledger" "<ids cited by this slice>"
 ```
 
-**On sub-agent failure or validation failure:** `sf_log_warn "Synthesis failed for <slice_id> — falling back to interactive authoring"` then proceed with the standard R1.C interactive prompts (§4.3) for this slice. Continue with the next slice regardless.
+**On sub-agent failure or validation failure: re-dispatch once first** (the corrective retry the §16 contract promises) — re-run the per-slice synthesis with a corrective instruction citing the failed assertion (missing Scope/Demo-criteria heading, stray fill-in marker, uncited ID). **Only if that retry also fails** do you fall back: `sf_log_warn "Synthesis failed for <slice_id> after one retry — falling back to interactive authoring"` then proceed with the standard R1.C interactive prompts (§4.3) for this slice. Continue with the next slice regardless. (Interactive authoring is human-driven, so it is a legitimate SS-7 fallback here — there is no deterministic slice renderer; see §16 intro.)
 
 **Lightweight mode (empty ledger):** dispatch the sub-agent normally using the empty ledger; `sf_synth_validate_cited` is skipped (no IDs to validate against). The brief's lightweight-mode note instructs the sub-agent to omit citation lines and append the coverage-limited notice — do not suppress that notice; surface it so the user can decide whether to run `/scaffold-docs` first.
 

@@ -233,8 +233,10 @@ if [[ ! -f "$exec_summary" ]]; then
   exec_brief="${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/EXECUTIVE-SUMMARY.brief.md"
   prompt="$(sf_synth_brief_assemble "$exec_brief" "$(sf_synth_ledger_empty)" "$exec_summary" "$master" "")"
   # Dispatch scaffold-onboard:synthesis-agent with "$prompt" (if no Task tool,
-  # author EXECUTIVE-SUMMARY.md inline from MASTER-SPEC's pinned "## Executive
-  # Summary" section), then write it back with the guarded helper:
+  # author EXECUTIVE-SUMMARY.md inline in the main context from the FULL MASTER-SPEC
+  # following the EXECUTIVE-SUMMARY brief — vision/users/MVP/success criteria — NOT
+  # from MASTER-SPEC's pinned "## Executive Summary" section, which may be absent or
+  # a thin placeholder on a legacy bank), then write it back with the guarded helper:
   #   sf_render_executive_summary_from_synthesized "$master" "$exec_summary" \
   #     "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"
   # On structural rejection, re-dispatch once with a corrective instruction.

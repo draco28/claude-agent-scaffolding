@@ -510,7 +510,12 @@ test_claude_md_mechanically_generated_not_synthesized() {
   if printf '%s\n' "$body" | grep -qE '\| *`?CLAUDE`? *\| *`?claude_md`?'; then
     echo "  ✗ CLAUDE is still listed as a synthesized wave artifact"; ok=0
   fi
-  if [[ "$ok" == "1" ]]; then PASS=$((PASS+1)); echo "  ✓ CLAUDE.md is mechanically generated (sf_claude_md_generate), not synthesized"; else FAIL=$((FAIL+1)); fi
+  # The mechanical write must be ROUTED via the claude_md root (it renders to a
+  # relative CLAUDE.md), else a dual-repo run lands CLAUDE.md in pwd.
+  if ! printf '%s\n' "$body" | grep -qE 'cd .*sf_resolve_output_path claude_md.*&&.*sf_claude_md_generate'; then
+    echo "  ✗ sf_claude_md_generate is not routed via the claude_md root (CLAUDE.md would land in pwd)"; ok=0
+  fi
+  if [[ "$ok" == "1" ]]; then PASS=$((PASS+1)); echo "  ✓ CLAUDE.md is mechanically generated (sf_claude_md_generate) and routed via claude_md"; else FAIL=$((FAIL+1)); fi
 }
 
 # SS-2 PR#55 Codex P2 #3/#6 — the two NON-synthesis finalize steps on the
