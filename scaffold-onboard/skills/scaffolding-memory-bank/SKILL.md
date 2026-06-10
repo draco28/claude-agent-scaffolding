@@ -1,6 +1,6 @@
 ---
 name: scaffolding-memory-bank
-description: Derive the 14-file memory bank + CLAUDE.md + AGENTS.md Codex section + .claude/settings.json from MASTER-SPEC.md — LLM sub-agent synthesis by default, deterministic `--fast` fallback. Use this when the user wants to scaffold the memory bank, derive memory-bank artifacts, set up project memory, run /scaffold-project, or regenerate the tiered-context router after MASTER-SPEC changes. Seeds an empty Machine-checkable rules section, preserves user-authored AGENTS.md content, and conditionally emits the Karpathy Behavioral Discipline section per the Phase-10 opt-in.
+description: Derive the 14-file memory bank + CLAUDE.md + AGENTS.md Codex section + .claude/settings.json from MASTER-SPEC.md via LLM sub-agent synthesis (the only derivation path — no deterministic fallback as of v0.8.0). Use this when the user wants to scaffold the memory bank, derive memory-bank artifacts, set up project memory, run /scaffold-project, or regenerate the tiered-context router after MASTER-SPEC changes. Seeds an empty Machine-checkable rules section, preserves user-authored AGENTS.md content, and conditionally emits the Karpathy Behavioral Discipline section per the Phase-10 opt-in.
 ---
 
 # scaffolding-memory-bank
@@ -60,7 +60,7 @@ The core 11-file memory bank from v0.1.0 is preserved; three further files bring
 
 > The bucket table above describes derive *behavior*. For when each file is updated across the whole lifecycle (and by whom), the single source is `memory-bank/WORKFLOW.md` → **Memory-bank update cadence** — do not restate it here.
 
-**Helper:** `sf_memory_bank_derive` (lib/memory-bank.sh) implements all four behaviors. It accepts an optional `--force` flag (which `--regenerate` passes) that overrides the live-seed preservation **and** refreshes static `WORKFLOW.md` from `templates/memory-bank/WORKFLOW.md`. A *normal* re-derive (no `--force`/`--regenerate`) preserves an existing `WORKFLOW.md` (copy-only-if-missing); `--force`/`--regenerate` overwrites it — so `WORKFLOW.md` must be named in the `--force` confirmation alongside the live-seed files.
+**Helpers:** the 8 derived files are **agent-synthesized** (§13 — the only path). The live/static behaviors are mechanical: `sf_memory_bank_seed_live_static` (lib/memory-bank.sh) seeds the 4 live files + `WORKFLOW.md` + `tech-debt.md`. It accepts an optional `--force` flag (which `--regenerate` passes) that overrides live-seed preservation **and** refreshes static `WORKFLOW.md` from `templates/memory-bank/WORKFLOW.md`. A *normal* run (no `--force`/`--regenerate`) preserves an existing `WORKFLOW.md` (copy-only-if-missing); `--force`/`--regenerate` overwrites it — so `WORKFLOW.md` must be named in the `--force` confirmation alongside the live-seed files.
 
 **Discipline:**
 
@@ -157,7 +157,7 @@ Behavior:
 - **Manifest absent** (single-repo mode): returns `$(pwd)/<relative_path>` — exactly v0.1.0 behavior. v0.1.0 byte-identical regression tests pass through this fallback.
 - **Manifest present but logical name missing** from `routing.*`: helper warns once and falls back to `$(pwd)/<relative_path>`. Forward-compatible with workspace-init manifests that pre-date a logical-name addition.
 
-Always route through `sf_resolve_output_path` — never hardcode `.claude/memory-bank/` or `CLAUDE.md` against the cwd. The v0.1.0 derivation helpers (`sf_memory_bank_derive`, `sf_claude_md_generate`, `sf_claude_settings_generate`) currently write relative to `$(pwd)`; in v0.2, prefer wrapping their calls inside a directory that is the resolved destination (e.g., `pushd "$(sf_resolve_output_path memory_bank .)" && sf_memory_bank_derive && popd`) — or pass the resolved path through if the helper signature accepts it. Treat the helper as the single point of truth.
+Always route through `sf_resolve_output_path` — never hardcode `.claude/memory-bank/` or `CLAUDE.md` against the cwd. The mechanical helpers (`sf_memory_bank_seed_live_static`, `sf_claude_md_generate`, `sf_claude_settings_generate`) write relative to `$(pwd)`; wrap their calls inside the resolved destination (e.g., `pushd "$(sf_resolve_output_path memory_bank .)" && sf_memory_bank_seed_live_static && popd`). The synthesis dispatch (§13) resolves each artifact's path explicitly. Treat `sf_resolve_output_path` as the single point of truth.
 
 ---
 
@@ -188,9 +188,7 @@ The `/scaffold-project` slash command wrapper (`commands/scaffold-project.md`) e
 Supported flags:
 
 - *(no flag)* — derive memory bank; preserve live-seed files (`05-active-context.md`, `06-progress.md`, `09-known-issues.md`, `10-decisions-log.md`); skip WORKFLOW.md if present; route via manifest if present, else `$(pwd)`.
-- `--fast` — use the deterministic derivation path instead of LLM synthesis; preserve live-seed files and skip `WORKFLOW.md` if present.
-- `--regenerate` — pass `--force` to `sf_memory_bank_derive`. Overwrites live-seed files **and** refreshes `WORKFLOW.md` (with explicit user confirmation). Always asks confirmation before clobbering `05-active-context.md` / `06-progress.md` / `09-known-issues.md` / `10-decisions-log.md` / `WORKFLOW.md` — surface every path that will be overwritten and require an explicit `yes`. **Exception (data-safety):** if the one-time SS-1 migration relocated legacy harvested content into `09-known-issues.md` during this same run, `sf_memory_bank_derive` **automatically preserves** `09` rather than force-overwriting it (it tracks the in-run migration internally via `_SF_MB_MIGRATED_TO_KNOWN_ISSUES` — the orchestrator does not special-case it) — otherwise the just-migrated notes would be lost in the same call. The other live files still follow the confirmed-overwrite path.
-- `--fast --regenerate` — combine both: deterministic derivation plus the confirmed live/static overwrite path.
+- `--regenerate` — re-synthesize the derived files unconditionally and pass `--force` to `sf_memory_bank_seed_live_static`. Overwrites live-seed files **and** refreshes `WORKFLOW.md` (with explicit user confirmation). Always asks confirmation before clobbering `05-active-context.md` / `06-progress.md` / `09-known-issues.md` / `10-decisions-log.md` / `WORKFLOW.md` — surface every path that will be overwritten and require an explicit `yes`. **Exception (data-safety):** if the one-time SS-1 migration relocated legacy harvested content into `09-known-issues.md` during this same run, `sf_memory_bank_seed_live_static` **automatically preserves** `09` rather than force-overwriting it (it tracks the in-run migration internally via `_SF_MB_MIGRATED_TO_KNOWN_ISSUES` — the orchestrator does not special-case it) — otherwise the just-migrated notes would be lost in the same call. The other live files still follow the confirmed-overwrite path.
 
 Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly. If `$ARGUMENTS` contains a flag this skill doesn't recognize, surface a one-line error listing the supported flags and stop — do not silently ignore.
 
@@ -200,7 +198,7 @@ Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly. If `$ARGUMENTS
 
 This skill never bash-orchestrates the judgment work (whether to overwrite live-seed, whether to suggest a composition companion, how to phrase the destination prompt). It calls helpers for I/O and templating only.
 
-**Memory-bank derivation (lib/memory-bank.sh):** `sf_memory_bank_derive` (with optional `--force`), `sf_claude_md_generate`, `sf_agents_md_generate`, `sf_claude_settings_generate`, `_memory_bank_args` (internal), `_composition_args` (internal), `_sf_mb_extract_preserve_zone` / `_sf_mb_reinject_preserve_zone` (internal — the `03` rules-zone preserve helpers §13 uses), `_sf_mb_migrate_harvested` (internal — the SS-1 one-time harvest migration).
+**Memory-bank mechanical helpers (lib/memory-bank.sh):** `sf_memory_bank_seed_live_static` (with optional `--force` — seeds the 4 live files + `WORKFLOW.md` + `tech-debt.md`), `sf_claude_md_generate`, `sf_agents_md_generate`, `sf_claude_settings_generate`, `_memory_bank_args` (internal), `_composition_args` (internal), `_sf_mb_extract_preserve_zone` / `_sf_mb_reinject_preserve_zone` (internal — the `03` rules-zone preserve helpers §13 uses), `_sf_mb_migrate_harvested` (internal — the SS-1 one-time harvest migration). The 8 derived files are agent-synthesized (§13), not rendered by a lib helper.
 
 **Rendering (lib/render.sh):** `sf_render` (generic template substitution — used by the derivation helpers; rarely called directly from this skill).
 
@@ -245,7 +243,9 @@ When in doubt, prefer doing the work in conversation over delegating to bash. v0
 
 ## 13. Synthesis dispatch (v0.3)
 
-v0.3 introduces an LLM-synthesis path that replaces template rendering with sub-agent authoring for the 8 derived memory-bank files + CLAUDE.md. The deterministic `sf_memory_bank_derive` + `sf_claude_md_generate` path is preserved as the `--fast` path and as the per-artifact fallback. This section describes the orchestration logic you (the orchestrator session reading this skill) must execute. Bash cannot dispatch sub-agents; this logic lives here as prose instructions.
+The **8 derived memory-bank files** are authored by **sub-agent synthesis — the only derivation path** for derived content (the deterministic `--fast` renderer was removed in v0.8.0, SS-7). **`CLAUDE.md` is NOT synthesized** — it is mechanically generated by `sf_claude_md_generate` in the §13.2 finalize (it is a structured/conditional router file whose composition gates + verbatim-attribution Karpathy opt-in a synthesis agent cannot reliably reproduce; see §13.2). This section describes the orchestration logic you (the orchestrator session reading this skill) must execute. Bash cannot dispatch sub-agents; this logic lives here as prose instructions.
+
+**Agent-unavailable model (uniform across all synthesis here):** dispatch the sub-agent → if no Task tool (headless), perform the synthesis **inline in the main context** from the same brief → if a synthesized artifact is structurally invalid, **re-dispatch once** with a corrective instruction → if it still fails, **hard-fail with actionable remediation** (state preserved; re-run `/scaffold-project`). There is **no deterministic content fallback**.
 
 ### 13.1 Setup
 
@@ -254,8 +254,9 @@ Source both synthesis and routing helpers:
 ```bash
 source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
 source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
-source "${CLAUDE_PLUGIN_ROOT}/lib/memory-bank.sh"   # sf_memory_bank_derive, sf_claude_*, _memory_bank_args, _sf_mb_*
-source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"        # sf_render (per-artifact fallback)
+source "${CLAUDE_PLUGIN_ROOT}/lib/memory-bank.sh"   # sf_memory_bank_seed_live_static, sf_claude_*, _memory_bank_args, _sf_mb_*
+source "${CLAUDE_PLUGIN_ROOT}/lib/compose.sh"       # sf_compose_detect_architect_critic — _composition_args (inside sf_claude_md_generate) needs it; without it the probe is undefined and has_architect_critic renders false, dropping the /critique block from CLAUDE.md
+source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"        # sf_render_executive_summary_from_synthesized, sf_exec_summary_staleness
 source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"         # sf_project_name, sf_state_read_answer, sf_state_gate_passes
 ```
 
@@ -264,12 +265,28 @@ Resolve source documents:
 ```bash
 master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
 exec_summary="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
-# EXEC-SUMMARY is produced by onboarding (single authoritative producer). Here we
-# only CONSUME it: produce-once if a legacy project lacks it, and warn (never
-# silently refresh) if it is stale vs MASTER-SPEC.
+# EXEC-SUMMARY is produced by onboarding (single authoritative producer, §8). Here we
+# only CONSUME it: best-effort produce-once via SYNTHESIS if a legacy project lacks it
+# (SS-7: no deterministic extract), and warn (never silently refresh) if it is stale.
+#
+# CONSUMER ≠ PRODUCER (SS-7 spec §4): unlike the onboarding-close producer, this
+# consumer path has NO inline fallback when headless and does NOT hard-fail. Here
+# EXEC-SUMMARY is OPTIONAL enriching context — MASTER-SPEC is the SSoT and the 8
+# derived files synthesize fine from it alone. So if it cannot be produced (no Task
+# tool, or synthesis + the one corrective retry both fail), warn and proceed deriving
+# from MASTER-SPEC only. Its authoritative producer is /onboard.
 if [[ ! -f "$exec_summary" ]]; then
-  if ! sf_render_executive_summary "$master" "$exec_summary" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"; then
-    sf_log_warn "could not produce EXECUTIVE-SUMMARY.md — synthesis prompts will use MASTER-SPEC only; run /onboard to author it"
+  exec_brief="${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/EXECUTIVE-SUMMARY.brief.md"
+  prompt="$(sf_synth_brief_assemble "$exec_brief" "$(sf_synth_ledger_empty)" "$exec_summary" "$master" "")"
+  # If a Task tool is available, dispatch scaffold-onboard:synthesis-agent with
+  # "$prompt" (the brief synthesizes from the FULL MASTER-SPEC — vision/users/MVP/
+  # success criteria), then write it back with the guarded helper:
+  #   sf_render_executive_summary_from_synthesized "$master" "$exec_summary" \
+  #     "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"
+  # On structural rejection, re-dispatch once with a corrective instruction. Headless
+  # (no Task tool): skip — do NOT inline-author here (that is the producer's job, §8).
+  if [[ ! -f "$exec_summary" ]]; then
+    sf_log_warn "could not produce EXECUTIVE-SUMMARY.md — proceeding with MASTER-SPEC only (it is the SSoT); run /onboard to author the standalone summary"
     exec_summary=""
   fi
 elif ! sf_exec_summary_staleness "$master" "$exec_summary"; then
@@ -277,35 +294,11 @@ elif ! sf_exec_summary_staleness "$master" "$exec_summary"; then
 fi
 ```
 
-### 13.2 Fast-path short-circuit
+### 13.2 Synthesis wave dispatch
 
-Check the synthesis mode immediately after setup. First engage deterministic mode when the user passed `--fast` — this **must** run BEFORE the `sf_synth_mode` check, since `sf_synth_mode` keys off `SF_SYNTH_FAST` (nothing else exports it for the `--fast` arg; the wrapper only parses it into a local var). Without this, `/scaffold-project --fast` would fall through into synthesis instead of fast mode:
+Dispatch the 8 artifacts in Wave 4. All artifacts are independent of each other (no sequential ID-dependency within this skill), so they can be dispatched in parallel. Maintain a running ledger from the start:
 
-```bash
-# Engage deterministic mode when the user passed --fast. Parse it from $ARGUMENTS in
-# the same flag loop as --regenerate (§9); set BEFORE the sf_synth_mode check below.
-case " $ARGUMENTS " in *" --fast "*) export SF_SYNTH_FAST=1 ;; esac
-
-if [[ "$(sf_synth_mode)" == "fast" ]]; then
-  if [[ "${regenerate:-0}" == "1" ]]; then
-    sf_memory_bank_derive --force   # --regenerate: confirmed live/static overwrite path (§4/§9)
-  else
-    sf_memory_bank_derive           # preserve live-seed files (no silent clobber)
-  fi
-  sf_claude_md_generate
-  return 0   # STOP: do NOT fall through into the synthesis waves below
-fi
-```
-
-The `return 0` is load-bearing — a bare `# STOP` comment does not stop execution; the fast-path must exit the dispatch routine before the waves.
-
-Do not collapse this to `sf_memory_bank_derive ${regenerate:+--force}` — `${var:+}` triggers on the string `0` (non-empty), so it would pass `--force` on a normal `--fast` run and silently clobber live-seed files.
-
-`sf_synth_mode` echoes `fast` only when `SF_SYNTH_FAST=1` is exported. The `case` line above exports it the moment `--fast` appears in `$ARGUMENTS`, so the `sf_synth_mode` gate engages on the very next line. (`sf_memory_bank_derive --fast` also exports `SF_SYNTH_FAST=1` per the v0.3 lib change, but that runs INSIDE the fast branch — after the check — so it cannot be what flips the mode; the explicit export above is what engages fast mode.) Parse `--fast` from `$ARGUMENTS` in the same flag loop as `--regenerate` (§9).
-
-### 13.3 Synthesis wave dispatch
-
-When `sf_synth_mode` echoes `synthesize`, dispatch the 9 artifacts in Wave 4. All artifacts are independent of each other (no sequential ID-dependency within this skill), so they can be dispatched in parallel. Maintain a running ledger from the start:
+> **CLAUDE.md is NOT synthesized** — it is mechanically generated by `sf_claude_md_generate` in the §13.2 finalize (see below), alongside `.claude/settings.json` and the AGENTS.md managed section. CLAUDE.md is a structured/conditional router file (plugin-awareness composition gates + the verbatim-attribution Karpathy opt-in §6), not prose: it belongs with the other mechanical router files, exactly like settings.json/AGENTS.md, and is the only path that honors `phase_10.4.include_karpathy` (a synthesis agent has no access to the gate values and cannot reproduce the verbatim attribution reliably).
 
 ```bash
 ledger="$(sf_synth_ledger_empty)"
@@ -322,15 +315,30 @@ if [[ "${regenerate:-0}" == "1" ]]; then
   # Run the migration AT the routed memory-bank root, not pwd. In a manifest-routed
   # (dual-repo) workspace the memory_bank destination resolves OUTSIDE pwd, and
   # _sf_mb_migrate_harvested scans/writes `.claude/memory-bank` relative to its cwd;
-  # a bare call would scan the wrong directory. The subshell keeps the orchestrator's
-  # cwd unchanged even on failure. (_sf_mb_migrate_harvested is sourced from
-  # memory-bank.sh in §13.1; a subshell inherits sourced functions.)
-  ( cd "$(sf_resolve_output_path memory_bank .)" && _sf_mb_migrate_harvested )
+  # a bare call would scan the wrong directory. Use pushd/popd (NOT a forking
+  # `( cd … )` subshell): when _sf_mb_migrate_harvested relocates harvested notes
+  # into 09-known-issues.md it sets the GLOBAL flag _SF_MB_MIGRATED_TO_KNOWN_ISSUES,
+  # and the live/static seed below (run with --force under --regenerate) reads that
+  # flag to AVOID force-overwriting the just-migrated 09. A forking subshell would
+  # discard the flag, so --force would clobber the migrated notes (data loss). Running
+  # the migration in THIS shell via pushd/popd lets the flag persist into the parent
+  # shell — the seed subshell below then inherits it — while still restoring cwd even
+  # on failure. (_sf_mb_migrate_harvested is sourced from memory-bank.sh in §13.1.)
+  # sf_log_error only LOGS (it does not exit), so guard the pushd explicitly: if the
+  # routed memory_bank root is missing/inaccessible, STOP — never run the migration in
+  # the caller's cwd (it would relocate notes from the wrong .claude/memory-bank and
+  # set the preserve flag against the wrong 09).
+  if ! pushd "$(sf_resolve_output_path memory_bank .)" >/dev/null; then
+    sf_log_error "could not enter the memory_bank root for harvest migration — aborting /scaffold-project --regenerate (state preserved); fix the routed memory_bank destination and re-run"
+    return 1
+  fi
+  _sf_mb_migrate_harvested || sf_log_warn "harvest migration reported an error — continuing to synthesis"
+  popd >/dev/null
 fi
-# Wave 4 — all 9 artifacts may overwrite derived files after this point.
+# Wave 4 — all 8 artifacts may overwrite derived files after this point.
 ```
 
-**Wave 4 — all 9 artifacts in parallel** (all model `sonnet`; `routes_to` per brief):
+**Wave 4 — all 8 artifacts in parallel** (all model `sonnet`; `routes_to` per brief):
 
 Dispatch each of the following using the standard pattern:
 
@@ -344,7 +352,7 @@ Task(subagent_type="scaffold-onboard:synthesis-agent",
      prompt="$prompt")
 ```
 
-The 9 artifacts and their output paths:
+The 8 artifacts and their output paths:
 
 | Artifact | `routes_to` | Output path |
 |---|---|---|
@@ -356,11 +364,10 @@ The 9 artifacts and their output paths:
 | `07-constraints` | `memory_bank` | `.claude/memory-bank/07-constraints.md` |
 | `08-governance` | `memory_bank` | `.claude/memory-bank/08-governance.md` |
 | `index` | `memory_bank` | `.claude/memory-bank/index.md` |
-| `CLAUDE` | `claude_md` | `CLAUDE.md` |
 
 **Live files and WORKFLOW.md are NOT synthesized:**
 
-- `05-active-context.md`, `06-progress.md`, `09-known-issues.md`, and `10-decisions-log.md` keep today's seed-once behavior — `sf_memory_bank_derive` handles them (preserve if present, seed only if missing). Do not dispatch sub-agents for them.
+- `05-active-context.md`, `06-progress.md`, `09-known-issues.md`, and `10-decisions-log.md` keep today's seed-once behavior — `sf_memory_bank_seed_live_static` handles them (preserve if present, seed only if missing). Do not dispatch sub-agents for them.
 - `WORKFLOW.md` remains a static copy. Do not dispatch a sub-agent for it.
 
 **03-code-patterns special note (preserved rules zone — SS-1 W2):** `03` carries a
@@ -376,20 +383,18 @@ file is written, re-inject the captured zone:
 
     if [[ -n "$saved_zone" ]]; then
       _sf_mb_reinject_preserve_zone "$out_03" "$saved_zone" \
-        || { sf_log_warn "03 synthesis omitted preserve markers — falling back to deterministic render"; \
-             mb_args=(); while IFS= read -r _ln; do mb_args+=("$_ln"); done < <(_memory_bank_args "$(date -u +%Y-%m-%dT%H:%M:%SZ)"); \
-             sf_render "${CLAUDE_PLUGIN_ROOT}/templates/memory-bank/03-code-patterns.md.tmpl" "${mb_args[@]}" > "$out_03"; \
-             _sf_mb_reinject_preserve_zone "$out_03" "$saved_zone"; }
+        || { sf_log_warn "03 synthesis omitted the mcrules:preserve sentinels — re-attaching the saved rules zone mechanically (rules are never re-rendered or lost)"; \
+             printf '\n%s\n' "$saved_zone" >> "$out_03"; }
     fi
 
-The render args (`mb_args`) must be built before this `sf_render` — `_memory_bank_args`
-is the same helper `sf_memory_bank_derive` uses. Don't reference an `${args[@]}` that
-§13 never defines (it would abort under the slash command's `set -u`).
-
-If the sub-agent fails to emit the sentinels, `_sf_mb_reinject_preserve_zone` returns
-non-zero → fall back to the deterministic `03` render (which always has the sentinels),
-then re-inject. The deterministic template is the labeled fallback, never a silent
-default (program north star: one source of truth per job).
+`_sf_mb_extract_preserve_zone` returns the zone **including** its
+`<!-- mcrules:preserve:start/end -->` sentinels, so if the synthesized `03` lacks them,
+`_sf_mb_reinject_preserve_zone` returns non-zero and the orchestrator simply **appends
+the saved zone** back to the file. This is mechanical preservation of the user's
+already-authored rules — never a deterministic re-render of `03` content (there is no
+deterministic renderer as of v0.8.0). Optionally re-dispatch `03` once with a corrective
+instruction ("wrap the section in the exact `mcrules:preserve` sentinels") before
+falling back to the mechanical re-attach.
 
 On `mode:complete` for each artifact: merge returned IDs and validate:
 
@@ -400,9 +405,9 @@ sf_synth_assert_no_markers "$out"
 sf_synth_validate_cited "$ledger" "<ids_cited from return JSON>"
 ```
 
-On `mode:failed` or any validation failure: `sf_log_warn "<artifact> synthesis failed — falling back to deterministic render"` then call `sf_memory_bank_derive` filtered to that file (or `sf_render` directly against the relevant template). Continue with the remaining artifacts regardless.
+On `mode:failed` or any validation failure: **re-dispatch that artifact once** with a corrective instruction (cite the failed assertion — missing section, stray fill-in marker, uncited ID). If it fails again: `sf_log_error "<artifact> synthesis failed after retry — re-run /scaffold-project to retry; partial bundle left in place"` and **stop** (do not silently substitute a deterministic render — there is none as of v0.8.0). Artifacts that already succeeded remain; the re-run skips them via the skip-if-exists semantics (§13.3) unless `--regenerate`.
 
-After all 9 artifacts complete, seed the live files and copy the static file:
+After all 8 artifacts complete, seed the live files and copy the static file:
 
 ```bash
 # Seed AT the routed memory-bank root, not pwd. sf_memory_bank_seed_live_static
@@ -421,9 +426,10 @@ After all 9 artifacts complete, seed the live files and copy the static file:
   fi )
 ```
 
-This seed-only helper is load-bearing in synthesize mode: do not call
-`sf_memory_bank_derive` here, because that helper re-renders the 8 derived files
-and would overwrite the artifacts the synthesis agents just authored.
+This seed-only helper is load-bearing: it seeds the live/static files **without
+touching the 8 derived files** the synthesis agents just authored. (It is the only
+memory-bank file helper that runs here — there is no deterministic derived-file
+renderer as of v0.8.0.)
 
 Only the seed + harvest migration go inside the memory_bank `cd` — they touch
 memory-bank files exclusively, all under one `memory_bank` root. `.claude/settings.json`,
@@ -432,20 +438,38 @@ memory-bank files exclusively, all under one `memory_bank` root. `.claude/settin
 route via their OWN logical names (`scaffold_project_outputs`, `claude_md`); do NOT move
 those inside the memory_bank `cd` (they would land in the wrong root).
 
-Then emit `.claude/settings.json` and the AGENTS.md managed section via their helpers (unchanged from v0.2):
+Then emit `CLAUDE.md`, `.claude/settings.json`, and the AGENTS.md managed section via
+their helpers (all mechanical — these three structured/conditional router files are not
+synthesized):
 
 ```bash
+# sf_claude_md_generate renders CLAUDE.md.tmpl (composition gates + the conditional
+# Karpathy section per phase_10.4.include_karpathy, §6) but writes to a RELATIVE
+# CLAUDE.md, so route it: run it from the resolved claude_md root. claude_md routes
+# to ai_workspace (the same root as memory_bank, where .workspace/pairing.json lives),
+# so this cd does NOT break the helper's manifest/composition discovery — it matches
+# the documented routing pattern (§ "Routing"). A bare call would land CLAUDE.md in
+# pwd and leave the intended ai_workspace CLAUDE.md missing/stale in a dual-repo run.
+# This is the ONLY path that honors the Karpathy opt-in — it must run on every
+# /scaffold-project.
+( cd "$(sf_resolve_output_path claude_md .)" && sf_claude_md_generate )
 sf_claude_settings_generate
 sf_agents_md_generate
 ```
 
-### 13.4 Skip / regenerate semantics
+`sf_claude_md_generate` reads the opt-in (`sf_state_read_answer phase_10.4.include_karpathy`)
+and the composition gates itself, then writes `CLAUDE.md` to its `claude_md` root — there is
+no deterministic *content* renderer left (the 8 memory-bank derived files are agent-synthesized,
+above), but CLAUDE.md, settings.json, and AGENTS.md remain mechanically generated because they
+are structured router/config files, not prose.
 
-Synthesis honors the same skip-if-exists / `--regenerate` semantics as the deterministic path. Before assembling a prompt for any derived artifact, check whether its resolved output path already exists; if it does and `--regenerate` was not passed, skip it (emit `sf_log_info "preserved: <path>"`) and do not dispatch a sub-agent for it. With `--regenerate`, dispatch unconditionally (same as the deterministic path's `force=1` behavior).
+### 13.3 Skip / regenerate semantics
+
+Before assembling a prompt for any derived artifact, check whether its resolved output path already exists; if it does and `--regenerate` was not passed, skip it (emit `sf_log_info "preserved: <path>"`) and do not dispatch a sub-agent for it. With `--regenerate`, dispatch unconditionally (and pass `--force` to `sf_memory_bank_seed_live_static` for the live/static files, per §9).
 
 For the 4 live files (`05-active-context.md`, `06-progress.md`, `09-known-issues.md`, `10-decisions-log.md`), always apply the preserve-unless-`--regenerate` + explicit-confirmation discipline from §4 — even in synthesis mode. Sub-agents never touch live files.
 
-### 13.5 Coverage report
+### 13.4 Coverage report
 
 After all waves complete (regardless of per-artifact fallbacks), collect every ID cited across all synthesized docs into a single newline-separated list and print:
 
@@ -457,12 +481,11 @@ This surfaces any FR/NFR that no artifact cited so the user can identify gaps be
 
 ## 14. Post-derivation review (#42 — advisory, SS-2)
 
-After the synthesis waves complete (synthesize mode only — skip under `--fast`),
-dispatch ONE read-only review over the bundle. Non-blocking: surface the report,
+After the synthesis waves complete, dispatch ONE read-only review over the bundle. Non-blocking: surface the report,
 do not gate. The `derivation-reviewer` agent is structurally read-only (no Write,
 no Task) — it returns its full report **in its final message**, and **you (the
 orchestrator) persist it**, mirroring how `synthesis-agent`'s `mode:complete`
-returns are consumed in §13.3.
+returns are consumed in §13.2.
 
 ```bash
 master_hash="$(cksum < "$master" | awk '{print $1"-"$2}')"
@@ -489,11 +512,11 @@ On `review-complete`: write the returned report body (the markdown table the age
 emitted — NOT the trailing sentinel JSON) to `${bundle}/derivation-review.md`,
 print the report path + a one-line summary, and for each `regenerate <file>` finding
 surface `/scaffold-project --regenerate` plus the single artifact name to
-re-dispatch internally through the §13.3 per-artifact loop. The user decides;
+re-dispatch internally through the §13.2 per-artifact loop. The user decides;
 nothing is auto-applied and no public per-file flag is introduced in SS-2.
 
 **Targeted regenerate (apply path):** keep the user-facing CLI aligned with §9's
 documented boolean `--regenerate`. Per-file targeting is an orchestration action:
-re-dispatch just that artifact's synthesis brief through the §13.3 loop, then run
+re-dispatch just that artifact's synthesis brief through the §13.2 loop, then run
 the normal validators/fallback for that one file. No new lib or slash-command flag
 is required for SS-2.

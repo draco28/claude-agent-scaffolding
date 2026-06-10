@@ -1,13 +1,13 @@
 ---
 name: scaffolding-governance-docs
-description: Derive governance docs (PRD, SRS, BACKLOG, PROJECT_PLAN, ADR-0001, +9 `--full`) from MASTER-SPEC.md — LLM sub-agent synthesis by default, deterministic `--fast` fallback. Use this when the user wants to scaffold governance docs, generate PRD/SRS, run /scaffold-docs, derive BACKLOG/ADRs, or regenerate the bundle after MASTER-SPEC changes. Manifest-routed (canonical product docs vs ai_workspace process ADRs). NOT the Phase→Sprint→Vertical-Slice ROADMAP.md — that's the planning-project-roadmap skill.
+description: Derive governance docs (PRD, SRS, BACKLOG, PROJECT_PLAN, ADR-0001, +9 `--full`) from MASTER-SPEC.md via LLM sub-agent synthesis (the only derivation path — no deterministic fallback as of v0.8.0). Use this when the user wants to scaffold governance docs, generate PRD/SRS, run /scaffold-docs, derive BACKLOG/ADRs, or regenerate the bundle after MASTER-SPEC changes. Manifest-routed (canonical product docs vs ai_workspace process ADRs). NOT the Phase→Sprint→Vertical-Slice ROADMAP.md — that's the planning-project-roadmap skill.
 ---
 
 # scaffolding-governance-docs
 
 You wrap scaffold-onboard's v0.1.0 governance-doc derivation pipeline (`/scaffold-docs` → 5 default + up to 9 `--full` artifacts) and add two v0.2-specific responsibilities: **manifest-aware per-doc routing** (different logical names route to canonical vs ai_workspace per SPEC §10.1) and **lane discipline against the new R1 roadmap doc** (`ROADMAP.md` is a separate file authored by a different skill — this skill must not touch it, and its own `PROJECT_PLAN.md` output must remain the v0.1.0 timeline doc unchanged).
 
-Bash helpers in `lib/docs.sh`, `lib/render.sh`, `lib/routing.sh`, and `lib/parser.sh` do the I/O: template rendering, atomic writes, manifest resolution, MASTER-SPEC validation, LLM-gate evaluation. The judgment work — refusing to derive from an invalid spec, surfacing the per-doc destinations to the user, deciding when `--regenerate` is too destructive — happens here, in conversation.
+Governance docs are authored by sub-agent **synthesis** (§11 — the only path as of v0.8.0); bash helpers in `lib/routing.sh`, `lib/parser.sh`, and `lib/render.sh` do the mechanical I/O: manifest resolution, MASTER-SPEC validation, EXEC-SUMMARY write-back/staleness. The judgment work — refusing to derive from an invalid spec, surfacing per-doc destinations, deciding when `--regenerate` is too destructive — happens here, in conversation.
 
 ---
 
@@ -50,7 +50,7 @@ Before any derivation step:
 
 ## 4. Default (5 docs) vs `--full` (14 docs)
 
-The v0.1.0 derivation logic is preserved verbatim — your job is to call `sf_docs_derive` (lib/docs.sh) with the right flags. The doc catalog:
+Your job is to dispatch synthesis sub-agents for the right doc set (§11). The doc catalog:
 
 ### 4.1 Default set (always emitted) — 5 docs
 
@@ -83,9 +83,9 @@ Three are **LLM-gated** by the Phase 9.3.1 answer (`uses_llm = "yes"` or `"true"
 | `MODEL_CARD.md` | `templates/docs-full/MODEL_CARD.md.tmpl` | `product_adrs` → canonical | Phase 9.3.1 == yes |
 | `PROMPT_GOVERNANCE.md` | `templates/docs-full/PROMPT_GOVERNANCE.md.tmpl` | `process_adrs` → ai_workspace | Phase 9.3.1 == yes |
 
-When the LLM gate fails (Phase 9.3.1 != yes), `sf_docs_derive` logs `LLM-gated --full docs skipped (phase 9.3.1 != yes)` and emits nothing for those three. Surface this skip-with-reason to the user so silent omission is visible — silent omission of LLM-gated docs is the failure mode the v0.2 eval scenario S2 explicitly checks for.
+When the LLM gate fails (Phase 9.3.1 != yes), do NOT dispatch the three LLM-gated `--full` docs; surface a skip-with-reason to the user so silent omission is visible — silent omission of LLM-gated docs is the failure mode the v0.2 eval scenario S2 explicitly checks for.
 
-The exact `--full` doc-set classification (which 3 are LLM-gated) is owned by `sf_docs_derive` in `lib/docs.sh` — keep this body and that helper aligned. If `lib/docs.sh` adds a new always-on doc in a point release, update §4.2 in the same patch.
+The exact `--full` doc-set classification (which 3 are LLM-gated) is owned by **the §11.2 wave-dispatch doc-set** (this skill body is the single source of truth now that `sf_docs_derive` is removed). Keep §4.2 and §11.2 aligned.
 
 ---
 
@@ -140,7 +140,7 @@ Resolution behavior (identical across all six logical names):
 - **Manifest absent** (single-repo mode): returns `$(pwd)/<relative_path>` — exactly v0.1.0 behavior. v0.1.0 byte-identical regression tests pass through this fallback.
 - **Manifest present but logical name missing** from `routing.*`: helper warns once and falls back to `$(pwd)/<relative_path>`. Forward-compatible with workspace-init manifests that pre-date a logical-name addition.
 
-Always route through `sf_resolve_output_path` — never hardcode `docs/PRD.md` or `docs/adr/...` against `$(pwd)` directly. The v0.1.0 `sf_docs_derive` helper writes relative to `$(pwd)`; in v0.2, prefer wrapping each per-doc write at the resolved destination (or `pushd "$(sf_resolve_output_path <ln> .)" && sf_docs_derive_one ... && popd` if the helper grows a per-doc surface). Treat the helper as the single point of truth.
+Always route through `sf_resolve_output_path` — never hardcode `docs/PRD.md` or `docs/adr/...` against `$(pwd)` directly. The §11 synthesis dispatch resolves each artifact's output path explicitly via `sf_resolve_output_path <routes_to> <relpath>` (see the §11.1 catalog table). Treat `sf_resolve_output_path` as the single point of truth.
 
 **Lane discipline:** every doc this skill emits must resolve through one of the 6 logical names listed above. The skill must NOT use the `roadmap` logical name — that belongs to `planning-project-roadmap` (per §5).
 
@@ -148,11 +148,11 @@ Always route through `sf_resolve_output_path` — never hardcode `docs/PRD.md` o
 
 ## 7. Composition awareness
 
-This skill is downstream of `/onboard`'s MASTER-SPEC close, where the close-depth architect-critic already ran. **This skill does not invoke architect-critic itself.** That's a deliberate choice in SPEC §12.1: only 4 critic moments exist (Phase 5, Phase 7, MASTER-SPEC close, `/plan-roadmap` close); governance-doc derivation is a deterministic transformation after the spec is locked.
+This skill is downstream of `/onboard`'s MASTER-SPEC close, where the close-depth architect-critic already ran. **This skill does not invoke architect-critic itself.** That's a deliberate choice in SPEC §12.1: only 4 critic moments exist (Phase 5, Phase 7, MASTER-SPEC close, `/plan-roadmap` close); governance-doc derivation is a downstream transformation after the spec is locked.
 
 If during derivation the user surfaces an architectural concern (e.g., "I think the PRD's `Out of scope` section needs another pass"), suggest: *"Want adversarial review on this section? Re-run `/onboard --resume` to revisit Phase 5/7 with the critic, or run `Skill(architect-critic:critiquing-spec)` directly with `target=master-spec-phase` against the relevant MASTER-SPEC phase."* — but do not invoke the critic from inside this skill body. Use `Skill(architect-critic:critiquing-spec)` if invoked, not the legacy `Skill(architect-critic:critique)` slash-command-shaped name (removed in architect-critic v0.2 per its SPEC §3 NG1).
 
-ai-mentor + superpowers composition is similarly out of scope for this skill — they're upstream context, not consumed during deterministic derivation.
+ai-mentor + superpowers composition is similarly out of scope for this skill — they're upstream context, not consumed during governance derivation.
 
 ---
 
@@ -162,13 +162,10 @@ The `/scaffold-docs` slash command wrapper (`commands/scaffold-docs.md`) exports
 
 Supported flags:
 
-- *(no flag)* — derive the 5 default docs; skip the 9 `--full` docs; preserve any existing files in the routing destinations (existing files are never overwritten without `--regenerate`); route via manifest if present, else `$(pwd)`.
-- `--fast` — use the deterministic derivation path instead of LLM synthesis for the 5 default docs; preserve existing files unless combined with `--regenerate`.
-- `--full` — derive the 5 default docs PLUS the 9 `--full` docs (6 always-on + 3 LLM-gated by Phase 9.3.1).
-- `--regenerate` — overwrite existing docs at their resolved destinations. Always asks confirmation first, listing the absolute paths that will be clobbered. Preserves user customization is the v0.1.0 default; `--regenerate` is the explicit opt-in.
+- *(no flag)* — synthesize the 5 default docs; skip the 9 `--full` docs; preserve any existing files in the routing destinations (existing files are never overwritten without `--regenerate`); route via manifest if present, else `$(pwd)`.
+- `--full` — synthesize the 5 default docs PLUS the 9 `--full` docs (6 always-on + 3 LLM-gated by Phase 9.3.1).
+- `--regenerate` — overwrite existing docs at their resolved destinations. Always asks confirmation first, listing the absolute paths that will be clobbered. Preserving user customization is the default; `--regenerate` is the explicit opt-in.
 - `--full --regenerate` — combine both.
-- `--fast --regenerate` — deterministic derivation for the 5 default docs, overwriting existing docs after confirmation.
-- `--fast --full --regenerate` — deterministic derivation for the full docs set, overwriting existing docs after confirmation.
 
 Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly. If `$ARGUMENTS` contains a flag this skill doesn't recognize, surface a one-line error listing the supported flags and stop — do not silently ignore.
 
@@ -178,15 +175,15 @@ Parse `$ARGUMENTS` in bash; never reference `$1` / `$2` directly. If `$ARGUMENTS
 
 This skill never bash-orchestrates the judgment work (whether to refuse derivation on a thin spec, how to phrase the routing destination prompt, whether to surface the LLM-gate skip). It calls helpers for I/O and templating only.
 
-**Doc derivation (lib/docs.sh):** `sf_docs_derive` (with optional `--full` and `--regenerate`), `_docs_args` (internal — builds the substitution arg list from state).
+**Doc synthesis (§11):** governance docs are authored by `scaffold-onboard:synthesis-agent` dispatch — there is no deterministic doc renderer (the `lib/docs.sh` `sf_docs_derive` path was removed in v0.8.0).
 
-**Rendering (lib/render.sh):** `sf_render` (generic template substitution — used by `sf_docs_derive`; rarely called directly from this skill).
+**EXEC-SUMMARY write-back (lib/render.sh):** `sf_render_executive_summary_from_synthesized` (mechanical guarded write-back of an agent-authored summary), `sf_exec_summary_staleness` (cksum staleness check).
 
 **Routing (lib/routing.sh):** `sf_resolve_output_path`, `sf_discover_manifest`.
 
 **Validation (lib/parser.sh):** `sf_spec_validate`.
 
-**State (lib/state.sh):** `sf_state_read_answer` (read Phase 9.3.1 for the LLM gate), `sf_state_gate_passes` (re-used inside `_docs_args` to set the branching gate flags — you don't call it directly here).
+**State (lib/state.sh):** `sf_state_read_answer` (read Phase 9.3.1 for the LLM gate), `sf_state_gate_passes` (evaluate branching gates).
 
 These are pseudocode references — the implementations live in their respective lib files. macOS-portable patterns (BSD awk, bash 3.2) are required for any inline snippets; prefer calling the helpers over re-inlining shell.
 
@@ -202,14 +199,16 @@ These are pseudocode references — the implementations live in their respective
 - **Hardcoding `docs/PRD.md` against `$(pwd)`** (or any other doc filename). Always route via `sf_resolve_output_path <logical_name> <relative_path>`. v0.1.0 byte-identical behavior in single-repo mode falls out of the helper's fallback; cross-repo routing in workspace-init mode requires the helper.
 - **Silently emitting the 3 LLM-gated docs when Phase 9.3.1 != yes** — or, conversely, silently skipping them without a visible reason. The skip-with-reason is the contract (eval S2): if the gate fails, surface the gate name and the answer that didn't satisfy it.
 - **Overwriting existing docs without `--regenerate`.** Even on a fresh run, if the user pre-authored their own `PRD.md`, the v0.1.0 helper preserves it. Don't undo that. `--regenerate` is the explicit opt-in for clobber.
-- **Invoking architect-critic from this skill.** Governance-doc derivation is a downstream, deterministic transformation. The critic moments are upstream (in `onboarding-project`) and in `planning-project-roadmap` — not here. If you find yourself reaching for `Skill(architect-critic:...)`, you're outside this skill's lane.
+- **Invoking architect-critic from this skill.** Governance-doc derivation is a downstream transformation. The critic moments are upstream (in `onboarding-project`) and in `planning-project-roadmap` — not here. If you find yourself reaching for `Skill(architect-critic:...)`, you're outside this skill's lane.
 - **Calling `Skill(architect-critic:critique)`** (the legacy v0.1.x slash-command-shaped name). If a future iteration of this skill grows a critic moment, use `Skill(architect-critic:critiquing-spec)` — the v0.2 skill.
 
 ---
 
 ## 11. Synthesis dispatch (v0.3)
 
-v0.3 introduces an LLM-synthesis path that replaces template rendering with sub-agent authoring for richer artifacts. The deterministic `sf_docs_derive` path is preserved as the `--fast` path and as the per-artifact fallback. This section describes the orchestration logic you (the orchestrator session reading this skill) must execute. Bash cannot dispatch sub-agents; this logic lives here as prose instructions.
+Governance docs are authored by **sub-agent synthesis — the only derivation path** (the deterministic `sf_docs_derive` renderer + `--fast` flag were removed in v0.8.0, SS-7). This section describes the orchestration logic you (the orchestrator session reading this skill) must execute. Bash cannot dispatch sub-agents; this logic lives here as prose instructions.
+
+**Agent-unavailable model (uniform across all synthesis here):** dispatch the sub-agent → if no Task tool (headless), perform the synthesis **inline in the main context** from the same brief → if a synthesized artifact is structurally invalid, **re-dispatch once** with a corrective instruction → if it still fails, **hard-fail with actionable remediation** (re-run `/scaffold-docs`). There is **no deterministic content fallback**.
 
 ### 11.1 Setup
 
@@ -218,7 +217,6 @@ Source both synthesis and routing helpers:
 ```bash
 source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
 source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
-source "${CLAUDE_PLUGIN_ROOT}/lib/docs.sh"   # sf_docs_derive + _write_or_skip (fast-path + per-artifact fallback)
 source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"  # sf_project_name, sf_state_read_answer, sf_state_gate_passes
 ```
 
@@ -227,13 +225,29 @@ Resolve the source documents:
 ```bash
 master="$(sf_resolve_output_path master_spec MASTER-SPEC.md)"
 exec_summary="$(sf_resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"
-# EXEC-SUMMARY is produced by onboarding (single authoritative producer). Here we
-# only CONSUME it: produce-once if a legacy project lacks it, and warn (never
-# silently refresh) if it is stale vs MASTER-SPEC.
-source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"   # sf_render_executive_summary, sf_exec_summary_staleness
+# EXEC-SUMMARY is produced by onboarding (single authoritative producer, §8). Here we
+# only CONSUME it: best-effort produce-once via SYNTHESIS if a legacy project lacks it
+# (SS-7: no deterministic extract), and warn (never silently refresh) if it is stale.
+#
+# CONSUMER ≠ PRODUCER (SS-7 spec §4): unlike the onboarding-close producer, this
+# consumer path has NO inline fallback when headless and does NOT hard-fail. Here
+# EXEC-SUMMARY is OPTIONAL enriching context — MASTER-SPEC is the SSoT and the docs
+# synthesize fine from it alone. So if it cannot be produced (no Task tool, or
+# synthesis + the one corrective retry both fail), warn and proceed deriving from
+# MASTER-SPEC only. Its authoritative producer is /onboard.
+source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"   # sf_render_executive_summary_from_synthesized, sf_exec_summary_staleness
 if [[ ! -f "$exec_summary" ]]; then
-  if ! sf_render_executive_summary "$master" "$exec_summary" "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"; then
-    sf_log_warn "could not produce EXECUTIVE-SUMMARY.md — synthesis prompts will use MASTER-SPEC only; run /onboard to author it"
+  exec_brief="${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/EXECUTIVE-SUMMARY.brief.md"
+  prompt="$(sf_synth_brief_assemble "$exec_brief" "$(sf_synth_ledger_empty)" "$exec_summary" "$master" "")"
+  # If a Task tool is available, dispatch scaffold-onboard:synthesis-agent with
+  # "$prompt" (the brief synthesizes from the FULL MASTER-SPEC — vision/users/MVP/
+  # success criteria), then write it back with the guarded helper:
+  #   sf_render_executive_summary_from_synthesized "$master" "$exec_summary" \
+  #     "$(sf_project_name)" "$(sf_state_read_answer 1.3.1)"
+  # On structural rejection, re-dispatch once with a corrective instruction. Headless
+  # (no Task tool): skip — do NOT inline-author here (that is the producer's job, §8).
+  if [[ ! -f "$exec_summary" ]]; then
+    sf_log_warn "could not produce EXECUTIVE-SUMMARY.md — proceeding with MASTER-SPEC only (it is the SSoT); run /onboard to author the standalone summary"
     exec_summary=""
   fi
 elif ! sf_exec_summary_staleness "$master" "$exec_summary"; then
@@ -241,7 +255,7 @@ elif ! sf_exec_summary_staleness "$master" "$exec_summary"; then
 fi
 ```
 
-Resolve each artifact's output path via `sf_resolve_output_path <routes_to> <relpath>` using the brief's `routes_to` field. The relpath matches today's `sf_docs_derive` output paths:
+Resolve each artifact's output path via `sf_resolve_output_path <routes_to> <relpath>` using the brief's `routes_to` field. This table is the authoritative doc catalog + routing (it replaces the removed `sf_docs_derive`):
 
 | Doc | `routes_to` | relpath |
 |---|---|---|
@@ -260,38 +274,9 @@ Resolve each artifact's output path via `sf_resolve_output_path <routes_to> <rel
 | MODEL_CARD | `product_adrs` | `docs/MODEL_CARD.md` |
 | PROMPT_GOVERNANCE | `process_adrs` | `docs/PROMPT_GOVERNANCE.md` |
 
-### 11.2 Fast-path short-circuit
+### 11.2 Synthesis wave dispatch
 
-Check the synthesis mode immediately after setup. First engage deterministic mode when the user passed `--fast` — this **must** run BEFORE the `sf_synth_mode` check, since `sf_synth_mode` keys off `SF_SYNTH_FAST` (nothing else exports it for the `--fast` arg; the wrapper only parses it into a local var). Without this, `/scaffold-docs --fast` would fall through into synthesis instead of fast mode:
-
-```bash
-# Engage deterministic mode when the user passed --fast. Parse it from $ARGUMENTS in
-# the same flag loop as --regenerate/--full (§8); set BEFORE the sf_synth_mode check below.
-case " $ARGUMENTS " in *" --fast "*) export SF_SYNTH_FAST=1 ;; esac
-
-if [[ "$(sf_synth_mode)" == "fast" ]]; then
-  if [[ "${full:-0}" == "1" ]]; then
-    if [[ "${regenerate:-0}" == "1" ]]; then
-      sf_docs_derive --full --regenerate --fast   # --full + overwrite after confirmation
-    else
-      sf_docs_derive --full --fast                # --full: emit the 14-doc set
-    fi
-  elif [[ "${regenerate:-0}" == "1" ]]; then
-    sf_docs_derive --regenerate --fast            # default set + overwrite after confirmation
-  else
-    sf_docs_derive --fast                         # default 5-doc set
-  fi
-  return 0   # STOP: do NOT fall through into the synthesis waves below
-fi
-```
-
-`sf_synth_mode` echoes `fast` only when `SF_SYNTH_FAST=1` is exported. The `case` line above exports it the moment `--fast` appears in `$ARGUMENTS`, so the gate engages on the very next line. (`sf_docs_derive`'s own arg-parse loop also exports `SF_SYNTH_FAST=1` on `--fast`, but that runs INSIDE the fast branch — after the check — so it cannot be what flips the mode; the explicit export above is what engages fast mode.) In fast mode the full deterministic pipeline runs and you return.
-
-Do not collapse this to `sf_docs_derive ${full:+--full} ${regenerate:+--regenerate} --fast` — `${var:+}` triggers on the string `0` (non-empty), so it would always emit the 14-doc `--full` set and clobber existing docs on a normal `--fast` run even when the user never passed either flag.
-
-### 11.3 Synthesis wave dispatch
-
-When `sf_synth_mode` echoes `synthesize`, dispatch artifacts in dependency waves. Maintain a running ledger from the start:
+Dispatch artifacts in dependency waves. Maintain a running ledger from the start:
 
 ```bash
 ledger="$(sf_synth_ledger_empty)"
@@ -321,7 +306,7 @@ sf_synth_assert_no_markers "$out"
 sf_synth_validate_cited "$ledger" "<ids_cited from return JSON>"
 ```
 
-On `mode:failed` or any validation failure: `sf_log_warn "PRD synthesis failed — falling back to deterministic render"` then call `sf_docs_derive` filtered to PRD only (or note that `_write_or_skip` with `--regenerate` produces it). Continue to Wave 2 regardless — PRD UC IDs will be absent from the ledger but subsequent waves fall back individually.
+On `mode:failed` or any validation failure: **re-dispatch PRD once** with a corrective instruction (cite the failed assertion). If it fails again: `sf_log_error "PRD synthesis failed after retry — re-run /scaffold-docs to retry"` and **stop** (no deterministic fallback exists as of v0.8.0). Because Waves 2–3 depend on PRD's UC IDs, do not proceed past a failed PRD.
 
 **Wave 2 — SRS** (sequential; consumes UC IDs minted in Wave 1):
 
@@ -339,12 +324,12 @@ Dispatch in parallel:
 - **ADR-0001** — brief `ADR-0001.brief.md`, output `sf_resolve_output_path product_adrs docs/adr/0001-record-architecture-decisions.md`, model `sonnet`.
 - **`--full` docs** — only when `--full` was passed:
   - Always-on: RISK_REGISTER, THREAT_MODEL, TEST_STRATEGY, DEFINITION_OF_DONE, CUTOVER_PLAN, DEMO_RUNBOOK (all model `sonnet`).
-  - LLM-gated: EVALS_PLAN, MODEL_CARD, PROMPT_GOVERNANCE — only when Phase 9.3.1 ∈ {yes, true} (same gate as the deterministic path). If the gate fails, skip these three and surface the skip-with-reason to the user.
+  - LLM-gated: EVALS_PLAN, MODEL_CARD, PROMPT_GOVERNANCE — only when Phase 9.3.1 ∈ {yes, true}. If the gate fails, skip these three and surface the skip-with-reason to the user.
   - Without `--full`: Wave 4 is PROJECT_PLAN + ADR-0001 only.
 
-For each Wave 4 doc use the same dispatch pattern as Wave 1, substituting the appropriate brief, output path, and model. Wave 4 docs do not mint any new IDs that other Wave 4 docs consume, so they are safe to run concurrently. Merge each returned `ids_minted` into `$ledger` as results arrive; validate each artifact immediately on return; fall back to deterministic render on any failure.
+For each Wave 4 doc use the same dispatch pattern as Wave 1, substituting the appropriate brief, output path, and model. Wave 4 docs do not mint any new IDs that other Wave 4 docs consume, so they are safe to run concurrently. Merge each returned `ids_minted` into `$ledger` as results arrive; validate each artifact immediately on return; on failure, re-dispatch that artifact once, then hard-fail with remediation (no deterministic fallback).
 
-### 11.4 Coverage report
+### 11.3 Coverage report
 
 After all waves complete (regardless of any per-artifact fallbacks), collect every ID cited across all synthesized docs into a single newline-separated list and print the coverage report:
 
@@ -354,9 +339,9 @@ sf_synth_coverage_report "$ledger" "<all cited IDs, newline-separated>"
 
 This surfaces any FR/NFR that no artifact cited, so the user can identify gaps before committing the bundle.
 
-### 11.5 Skip / regenerate semantics
+### 11.4 Skip / regenerate semantics
 
-Synthesis honors the same skip-if-exists / `--regenerate` semantics as the deterministic path. Before assembling a prompt for any artifact, check whether its resolved output path already exists; if it does and `--regenerate` was not passed, skip it (emit `sf_log_info "preserved: <path>"`) and do not dispatch a sub-agent for it. With `--regenerate`, dispatch unconditionally (same as the deterministic path's `regen=1` behavior).
+Before assembling a prompt for any artifact, check whether its resolved output path already exists; if it does and `--regenerate` was not passed, skip it (emit `sf_log_info "preserved: <path>"`) and do not dispatch a sub-agent for it. With `--regenerate`, dispatch unconditionally (overwrite after the §8 confirmation).
 
 ---
 
@@ -377,12 +362,11 @@ When in doubt, prefer doing the work in conversation over delegating to bash. v0
 
 > Numbered §13 (not §12) because §12 "Notes on tool boundaries" already exists; this is the next free number per the SS-2 plan.
 
-After the synthesis waves complete (synthesize mode only — skip under `--fast`),
-dispatch ONE read-only review over the governance bundle. Non-blocking: surface
+After the synthesis waves complete, dispatch ONE read-only review over the governance bundle. Non-blocking: surface
 the report, do not gate. The `derivation-reviewer` agent is structurally read-only
 (no Write, no Task) — it returns its full report **in its final message**, and
 **you (the orchestrator) persist it**, mirroring how `synthesis-agent`'s
-`mode:complete` returns are consumed in §11.3.
+`mode:complete` returns are consumed in §11.2.
 
 ```bash
 master_hash="$(cksum < "$master" | awk '{print $1"-"$2}')"
@@ -411,11 +395,11 @@ On `review-complete`: write the returned report body (the markdown table the age
 emitted — NOT the trailing sentinel JSON) to `${bundle}/derivation-review.md`,
 print the report path + a one-line summary, and for each `regenerate <file>` finding
 surface `/scaffold-docs --regenerate` plus the single artifact name to
-re-dispatch internally through the §11.3 per-artifact loop. The user decides;
+re-dispatch internally through the §11.2 per-artifact loop. The user decides;
 nothing is auto-applied and no public per-file flag is introduced in SS-2.
 
 **Targeted regenerate (apply path):** keep the user-facing CLI aligned with §8's
 documented boolean `--regenerate`. Per-file targeting is an orchestration action:
-re-dispatch just that artifact's synthesis brief through the §11.3 loop, then run
+re-dispatch just that artifact's synthesis brief through the §11.2 loop, then run
 the normal validators/fallback for that one file. No new lib or slash-command flag
 is required for SS-2.

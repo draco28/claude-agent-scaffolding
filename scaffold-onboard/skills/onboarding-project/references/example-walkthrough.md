@@ -232,7 +232,7 @@ At Phase 10 close, the skill first synthesizes `MASTER-SPEC.md` from phase recor
 6. architect-critic returns the close-depth summary. Any standing challenges are surfaced as final edit candidates for the synthesized MASTER-SPEC.
 7. User accepts or applies edits to `MASTER-SPEC.md`; if edits touch parser anchors or project class fields, the skill re-runs `sf spec_validate "$master"` before continuing.
 
-EXECUTIVE-SUMMARY.md is produced at onboarding close — synthesized from MASTER-SPEC by default (the `EXECUTIVE-SUMMARY.brief.md` synthesis-agent), or deterministically via `sf_render_executive_summary` under `--fast`. Paths are resolved through `sf_resolve_output_path`:
+EXECUTIVE-SUMMARY.md is produced at onboarding close — synthesized from MASTER-SPEC by the `EXECUTIVE-SUMMARY.brief.md` synthesis-agent (the only path as of v0.8.0; no deterministic renderer). Paths are resolved through `sf_resolve_output_path`:
 
 ```bash
 master_spec_path="$(sf resolve_output_path master_spec MASTER-SPEC.md)"

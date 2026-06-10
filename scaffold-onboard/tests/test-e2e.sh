@@ -66,20 +66,21 @@ script_answers_cli() {
 run_full_pipeline_cli() {
   sf_state_init
   script_answers_cli
-  # Write a valid MASTER-SPEC.md fixture directly.
-  # (sf_master_spec_init and sf_master_spec_update_phase were removed in SS-3;
-  # tests write fixtures instead. sf_memory_bank_derive and sf_docs_derive read
-  # from state, not MASTER-SPEC.md, so the fixture only needs to satisfy
-  # sf_spec_validate's structural checks: heading, Executive Summary, phase
-  # markers 1-10, and **Project class:** kv.)
+  # Write a valid MASTER-SPEC.md fixture directly. The deterministic memory-bank
+  # and governance renderers were removed in v0.8.0 (SS-7); this pipeline uses the
+  # mechanical fixture helpers (seed_memory_bank_synth_fixture +
+  # seed_governance_docs_fixture) that reproduce the orchestration with canned
+  # "synthesized" output. The fixture only needs to satisfy sf_spec_validate's
+  # structural checks: heading, Executive Summary, phase markers 1-10, **Project
+  # class:** kv.
   local ms_out
   ms_out="$(sf_resolve_output_path "master_spec" "MASTER-SPEC.md")"
   seed_master_spec_fixture "$ms_out" "todo-cli" "CLI tool"
   sf_state_write_atomic status complete
-  sf_memory_bank_derive
+  seed_memory_bank_synth_fixture
   sf_claude_md_generate
   sf_claude_settings_generate
-  sf_docs_derive
+  seed_governance_docs_fixture
 }
 
 test_e2e_fresh_repo_cli() {
@@ -123,7 +124,7 @@ test_e2e_full_mode() {
   setup_tmp_repo
   export SF_COMPOSE_PROBE_PATHS="/nonexistent"
   run_full_pipeline_cli
-  sf_docs_derive --full
+  seed_governance_docs_fixture --full
   assert_file_exists "./docs/RISK_REGISTER.md"
   assert_file_exists "./docs/TEST_STRATEGY.md"
   assert_file_exists "./docs/CUTOVER_PLAN.md"
@@ -157,7 +158,7 @@ test_e2e_regenerate_overwrites_docs() {
   export SF_COMPOSE_PROBE_PATHS="/nonexistent"
   echo "# My existing PRD" > docs/PRD.md 2>/dev/null || { mkdir -p docs; echo "# My existing PRD" > docs/PRD.md; }
   run_full_pipeline_cli
-  sf_docs_derive --regenerate
+  seed_governance_docs_fixture --regenerate
   if grep -q "My existing PRD" docs/PRD.md; then
     FAIL=$((FAIL+1)); echo "  ✗ --regenerate did not overwrite"
   else

@@ -75,7 +75,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 - Skill triggers on `/scaffold-docs --full` (slash command resolves through the wrapper; `$ARGUMENTS` carries `--full`).
 - Skill validates MASTER-SPEC.md (via `sf_spec_validate`); validation succeeds.
 - Skill emits the 5 default docs (per S1) PLUS the 9 `--full`-gated docs per SPEC §5.3, for 14 total.
-- The 9 additional docs (per `lib/docs.sh` v0.1.0 — authoritative): 6 always-on (`RISK_REGISTER.md`, `THREAT_MODEL.md`, `TEST_STRATEGY.md`, `DEFINITION_OF_DONE.md`, `CUTOVER_PLAN.md`, `DEMO_RUNBOOK.md`) + 3 LLM-gated by Phase 9.3.1 answer (`EVALS_PLAN.md`, `MODEL_CARD.md`, `PROMPT_GOVERNANCE.md`).
+- The 9 additional docs (per the `scaffolding-governance-docs` §11 doc catalog — authoritative now that the `lib/docs.sh` renderer is removed, v0.8.0): 6 always-on (`RISK_REGISTER.md`, `THREAT_MODEL.md`, `TEST_STRATEGY.md`, `DEFINITION_OF_DONE.md`, `CUTOVER_PLAN.md`, `DEMO_RUNBOOK.md`) + 3 LLM-gated by Phase 9.3.1 answer (`EVALS_PLAN.md`, `MODEL_CARD.md`, `PROMPT_GOVERNANCE.md`).
 - Of the 9 `--full` docs, 3 are LLM-gated by Phase 9.3.1 answer: `EVALS_PLAN.md`, `MODEL_CARD.md`, `PROMPT_GOVERNANCE.md`. When Phase 9.3.1 = "yes" in the fixture state, all 3 SHOULD emit; when "no", the skill MUST emit a skip-with-reason marker for each rather than silently omit.
 - Skill does NOT emit `ROADMAP.md` even under `--full` (still §5.4's responsibility).
 - Skill writes outputs to cwd (single-repo fallback).

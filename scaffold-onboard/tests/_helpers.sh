@@ -316,6 +316,110 @@ The MVP scope centers on add/list/complete tasks persisted to a local file.
 FIXTURE
 }
 
+# ---------------------------------------------------------------------------
+# Canned-synthesis fixtures (SS-7). The deterministic memory-bank/governance
+# renderers were removed in v0.8.0 — content is now agent-synthesized, which a
+# bash test cannot run. These helpers reproduce the MECHANICAL orchestration
+# (§13 / §11) with canned "synthesized" output substituted for the agent: the
+# harvest migration, the mcrules-zone extract/reinject, and live/static seeding
+# all still run, so the mechanical assertions (preserve, force, routing, zone,
+# migration) hold. Content-correctness moves to the evals/ LLM-judge.
+# Requires lib/memory-bank.sh sourced (for _sf_mb_* + sf_memory_bank_seed_live_static).
+
+# Write canned "synthesized" derived files into ./.claude/memory-bank.
+# 03-code-patterns carries the empty mcrules preserve zone + a recognizable
+# "User-global defaults" line so the zone-preserve tests have prose to assert.
+_seed_canned_derived_files() {
+  local mb=".claude/memory-bank"
+  mkdir -p "$mb"
+  local f
+  for f in 00-project-brief 01-product-context 02-system-patterns 04-tech-context 07-constraints 08-governance index; do
+    printf '# %s\n\nSynthesized content for %s.\nLast derived from MASTER-SPEC.md\n' "$f" "$f" > "$mb/${f}.md"
+  done
+  cat > "$mb/03-code-patterns.md" <<'EOF'
+# Code Patterns
+
+## Module / package boundaries
+Synthesized content. User-global defaults apply.
+
+<!-- mcrules:preserve:start -->
+<!-- This zone is PRESERVED across /scaffold-project re-derive. -->
+## Machine-checkable rules
+
+<!-- Project rules live below in the HTML-sentinel mcrule DSL. -->
+<!-- mcrules:preserve:end -->
+
+## User-global defaults
+- synthesized defaults
+EOF
+}
+
+# Mimic the §13 synthesize orchestration mechanically: harvest-migrate → preserve
+# the 03 mcrules zone → write canned derived files → reinject the zone → seed
+# live/static. Honors --force (passed through to seed_live_static). Use this in
+# place of the removed sf_memory_bank_derive in mechanical tests.
+seed_memory_bank_synth_fixture() {
+  local force=""
+  [[ "${1:-}" == "--force" ]] && force="--force"
+  local mb=".claude/memory-bank"
+  mkdir -p "$mb"
+  # 1. Harvest migration runs BEFORE derived files are overwritten (as in §13.3).
+  _sf_mb_migrate_harvested
+  # 2. Capture any authored mcrules zone, write canned derived files, re-attach it.
+  local out_03="$mb/03-code-patterns.md" saved_zone=""
+  [[ -f "$out_03" ]] && saved_zone="$(_sf_mb_extract_preserve_zone "$out_03")"
+  _seed_canned_derived_files
+  if [[ -n "$saved_zone" ]]; then
+    _sf_mb_reinject_preserve_zone "$out_03" "$saved_zone" \
+      || printf '\n%s\n' "$saved_zone" >> "$out_03"
+  fi
+  # 3. Mechanical live/static seeding (surviving helper).
+  sf_memory_bank_seed_live_static $force
+}
+
+# Mechanically reproduce the governance doc-set selection + skip-if-exists /
+# --regenerate / LLM-gate contract (scaffolding-governance-docs §4/§11) with canned
+# "synthesized" content, since sf_docs_derive was removed in v0.8.0. Used by e2e to
+# assert the bundle SHAPE; content + ID-minting correctness move to evals/.
+# Requires lib/state.sh sourced (for sf_state_read_answer) and lib/routing.sh sourced
+# (for sf_resolve_output_path — used to mirror the real §11 manifest routing).
+seed_governance_docs_fixture() {
+  local full=0 regen=0 a
+  for a in "$@"; do case "$a" in --full) full=1 ;; --regenerate) regen=1 ;; esac; done
+  # Resolve each doc through sf_resolve_output_path with the SAME logical route the
+  # real scaffolding-governance-docs §11 catalog uses (prd/srs/backlog/project_plan
+  # → canonical; product_adrs → canonical; process_adrs → ai_workspace). Seeding bare
+  # `docs/...` against pwd would bypass manifest routing and, in dual-repo mode, hide
+  # the routing regressions this fixture exists to protect. Single-repo mode returns
+  # `$(pwd)/<rel>`, so existing same-cwd assertions are unchanged.
+  _seed_one_doc() {
+    local logical="$1" rel="$2" path
+    path="$(sf_resolve_output_path "$logical" "$rel")"
+    [[ -f "$path" && "$regen" -ne 1 ]] && return 0   # skip-if-exists unless --regenerate
+    mkdir -p "$(dirname "$path")"
+    printf '# %s\n\nSynthesized governance doc.\nFR-1 NFR-1 BACKLOG-1 BACKLOG-2\n' "$(basename "$path")" > "$path"
+  }
+  _seed_one_doc prd docs/PRD.md
+  _seed_one_doc srs docs/SRS.md
+  _seed_one_doc backlog docs/BACKLOG.md
+  _seed_one_doc project_plan docs/PROJECT_PLAN.md
+  _seed_one_doc product_adrs docs/adr/0001-record-architecture-decisions.md
+  if [[ "$full" -eq 1 ]]; then
+    _seed_one_doc product_adrs docs/RISK_REGISTER.md
+    _seed_one_doc product_adrs docs/THREAT_MODEL.md
+    _seed_one_doc product_adrs docs/TEST_STRATEGY.md
+    _seed_one_doc process_adrs docs/DEFINITION_OF_DONE.md
+    _seed_one_doc product_adrs docs/CUTOVER_PLAN.md
+    _seed_one_doc process_adrs docs/DEMO_RUNBOOK.md
+    local uses_llm; uses_llm="$(sf_state_read_answer 9.3.1)"
+    if [[ "$uses_llm" == "yes" || "$uses_llm" == "true" ]]; then
+      _seed_one_doc product_adrs docs/EVALS_PLAN.md
+      _seed_one_doc product_adrs docs/MODEL_CARD.md
+      _seed_one_doc process_adrs docs/PROMPT_GOVERNANCE.md
+    fi
+  fi
+}
+
 cleanup() {
   if [[ -n "$TMP_DIR" && -d "$TMP_DIR" ]]; then
     rm -rf "$TMP_DIR"

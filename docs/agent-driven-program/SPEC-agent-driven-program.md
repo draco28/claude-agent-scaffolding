@@ -99,7 +99,7 @@ Items unrelated to the derivation pivot — clear them to reach zero backlog:
 `#8` (ban `git stash`; stays deterministic — legit), `#9` (Scenario C pairing), `#6` (ADR Proposed→Accepted flip), `#10` (coordinating-parallel-slices, demand-gated), `#37`/`#38`/`#39` (external-benchmark trio; `#38` redaction has standalone safety value), `#48` remainder (`/defer` marketplace routing, label auto-create), **N5** (repo CI for shell suites).
 **Closes:** the 9 independent issues + N5.
 
-### SS-7 — Remove the deterministic `--fast` fallback (fully agent-driven derivation) · depends on SS-2 · scaffold-onboard-only
+### SS-7 — Remove the deterministic `--fast` fallback (fully agent-driven derivation) · depends on SS-2 · scaffold-onboard-only · ✅ SHIPPED 2026-06-10
 **Direction change, settled with user 2026-06-05** (memory `project_agent_driven_first_class_pivot`; observation 2215). SS-2 left `--fast` as the explicit deterministic fallback per §4 target-model item 1/2; the user has since decided to **remove it entirely** — agent synthesis is the *only* derivation path, no deterministic render fallback. **This supersedes the "`--fast` stays the explicit fallback" stance in §4 and SS-2.**
 
 Rationale: the `--fast` path was deferred-not-fixed in SS-2 precisely because it doesn't honor manifest routing (memory-bank §13.2; governance §11.2 split `product_adrs`→canonical / `process_adrs`→ai_workspace) — polishing a path slated for deletion was wasted work. Rather than make the deterministic fallback routing-correct, delete it.
@@ -140,7 +140,7 @@ Every open issue + every new audit finding, mapped to a sub-spec. **Target: 0 op
 | **N8** | **#59** | scaffold-onboard: SS-3 residual review polish (re-walk/gate/repair prose + robustness + doc-sync) — from PR #57 | chore | future (non-product-bug; Codex-clean at merge) |
 | **N4** | **#52** | scaffold-dev: harvest grammar-collision — AWK parser silently drops free-form Suggestions prose; single-authority agent read | bug | SS-4 |
 | **N5** | **#53** | repo: no `.github/workflows` CI for shell test suites | ops | SS-6 |
-| **N6** | **#56** | scaffold-onboard: remove deterministic `--fast` fallback (agent-driven only) — subsumes the deferred SS-2 `--fast`/governance split-routing findings | enhancement | **SS-7** |
+| **N6** | ~~**#56**~~ | scaffold-onboard: remove deterministic `--fast` fallback (agent-driven only) — subsumes the deferred SS-2 `--fast`/governance split-routing findings | enhancement | ✅ CLOSED 2026-06-10 (SS-7, scaffold-onboard v0.8.0) |
 
 ---
 

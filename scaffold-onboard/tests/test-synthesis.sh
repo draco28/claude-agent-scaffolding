@@ -25,14 +25,15 @@ test_project_name_no_emdash_truncation_fallback() {
   assert_eq "fallback is basename, not em-dash prefix" "$(basename "$PWD")" "$got"
 }
 
-test_synth_enabled_default_on() {
-  echo "test_synth_enabled_default_on:"
-  unset SF_SYNTH_FAST 2>/dev/null || true
-  assert_eq "default is synthesize" "synthesize" "$(sf_synth_mode)"
-}
-test_synth_enabled_fast_flag() {
-  echo "test_synth_enabled_fast_flag:"
-  assert_eq "--fast forces deterministic" "fast" "$(SF_SYNTH_FAST=1 sf_synth_mode)"
+# SS-7 (#56): sf_synth_mode + the SF_SYNTH_FAST toggle were removed — synthesis is
+# the only derivation path. Assert the resolver is gone (no fast-mode toggle).
+test_synth_mode_resolver_removed() {
+  echo "test_synth_mode_resolver_removed:"
+  if declare -F sf_synth_mode >/dev/null 2>&1; then
+    FAIL=$((FAIL+1)); echo "  ✗ sf_synth_mode still defined (the --fast toggle should be gone)"
+  else
+    PASS=$((PASS+1)); echo "  ✓ sf_synth_mode removed — synthesis is the only path"
+  fi
 }
 
 _write_sample_brief() {
@@ -240,8 +241,7 @@ test_all_shipped_briefs_validate() {
 
 test_project_name_prefers_explicit_answer
 test_project_name_no_emdash_truncation_fallback
-test_synth_enabled_default_on
-test_synth_enabled_fast_flag
+test_synth_mode_resolver_removed
 test_brief_field_scalar
 test_brief_required_sections_list
 test_brief_validate_ok

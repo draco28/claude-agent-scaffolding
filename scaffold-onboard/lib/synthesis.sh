@@ -7,16 +7,6 @@
 set -u
 source "$(dirname "${BASH_SOURCE[0]}")/_helpers.sh"
 
-# Resolve synthesize-vs-deterministic. Callers set SF_SYNTH_FAST=1 for --fast.
-# Echoes "fast" or "synthesize".
-sf_synth_mode() {
-  if [[ "${SF_SYNTH_FAST:-0}" == "1" ]]; then
-    echo "fast"
-  else
-    echo "synthesize"
-  fi
-}
-
 # Extract the YAML frontmatter block (between the first two '---' lines).
 _sf_synth_frontmatter() {
   awk 'NR==1 && $0=="---"{f=1; next} f && $0=="---"{exit} f{print}' "$1"

@@ -107,10 +107,18 @@ test_no_deterministic_master_spec_renderer() {
     PASS=$((PASS+1)); echo "  ✓ sf_master_spec_init removed"
   fi
   assert_file_missing "$ROOT/templates/master-spec/MASTER-SPEC.md.tmpl"
+  # SS-7 (#56): the deterministic EXEC-SUMMARY renderer sf_render_executive_summary
+  # was removed (EXEC-SUMMARY is synthesis-authored); the mechanical guarded
+  # write-back sf_render_executive_summary_from_synthesized remains.
   if declare -F sf_render_executive_summary >/dev/null 2>&1; then
-    PASS=$((PASS+1)); echo "  ✓ SS-2 sf_render_executive_summary intact"
+    FAIL=$((FAIL+1)); echo "  ✗ deterministic sf_render_executive_summary should be removed (SS-7)"
   else
-    FAIL=$((FAIL+1)); echo "  ✗ SS-2 sf_render_executive_summary removed by mistake"
+    PASS=$((PASS+1)); echo "  ✓ deterministic sf_render_executive_summary removed (SS-7)"
+  fi
+  if declare -F sf_render_executive_summary_from_synthesized >/dev/null 2>&1; then
+    PASS=$((PASS+1)); echo "  ✓ mechanical sf_render_executive_summary_from_synthesized retained"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ sf_render_executive_summary_from_synthesized removed by mistake"
   fi
 }
 
