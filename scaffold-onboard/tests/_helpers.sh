@@ -377,6 +377,38 @@ seed_memory_bank_synth_fixture() {
   sf_memory_bank_seed_live_static $force
 }
 
+# Mechanically reproduce the governance doc-set selection + skip-if-exists /
+# --regenerate / LLM-gate contract (scaffolding-governance-docs §4/§11) with canned
+# "synthesized" content, since sf_docs_derive was removed in v0.8.0. Used by e2e to
+# assert the bundle SHAPE; content + ID-minting correctness move to evals/.
+# Requires lib/state.sh sourced (for sf_state_read_answer).
+seed_governance_docs_fixture() {
+  local full=0 regen=0 a
+  for a in "$@"; do case "$a" in --full) full=1 ;; --regenerate) regen=1 ;; esac; done
+  mkdir -p docs/adr
+  _seed_one_doc() {
+    local path="$1"
+    [[ -f "$path" && "$regen" -ne 1 ]] && return 0   # skip-if-exists unless --regenerate
+    mkdir -p "$(dirname "$path")"
+    printf '# %s\n\nSynthesized governance doc.\nFR-1 NFR-1 BACKLOG-1 BACKLOG-2\n' "$(basename "$path")" > "$path"
+  }
+  _seed_one_doc docs/PRD.md
+  _seed_one_doc docs/SRS.md
+  _seed_one_doc docs/BACKLOG.md
+  _seed_one_doc docs/PROJECT_PLAN.md
+  _seed_one_doc docs/adr/0001-record-architecture-decisions.md
+  if [[ "$full" -eq 1 ]]; then
+    local d
+    for d in RISK_REGISTER THREAT_MODEL TEST_STRATEGY DEFINITION_OF_DONE CUTOVER_PLAN DEMO_RUNBOOK; do
+      _seed_one_doc "docs/${d}.md"
+    done
+    local uses_llm; uses_llm="$(sf_state_read_answer 9.3.1)"
+    if [[ "$uses_llm" == "yes" || "$uses_llm" == "true" ]]; then
+      for d in EVALS_PLAN MODEL_CARD PROMPT_GOVERNANCE; do _seed_one_doc "docs/${d}.md"; done
+    fi
+  fi
+}
+
 cleanup() {
   if [[ -n "$TMP_DIR" && -d "$TMP_DIR" ]]; then
     rm -rf "$TMP_DIR"
