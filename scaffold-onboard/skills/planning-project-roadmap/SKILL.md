@@ -48,7 +48,7 @@ If ROADMAP.md + project-roadmap.json both already exist with `checkpoint == "R1.
 - The user wants memory-bank / CLAUDE.md derivation — that's `scaffold-onboard:scaffolding-memory-bank` (SPEC §5.2).
 - The user wants to author or refine demo criteria for a slice that already exists in ROADMAP.md and they know the slice ID — they may directly invoke `Skill(scaffold-onboard:authoring-vertical-slice-demo)` without going through this skill.
 
-If the user types something ambiguous like "let's plan the project" and MASTER-SPEC exists, ask: *"Do you mean the Phase → Sprint → Vertical-Slice hierarchy (`ROADMAP.md`, authored interactively here via `/plan-roadmap`), or the v0.1.0 Phase-2-Strategy-derived timeline doc (`PROJECT_PLAN.md`, emitted deterministically by `/scaffold-docs`)?"* — they're two different files with two different owners.
+If the user types something ambiguous like "let's plan the project" and MASTER-SPEC exists, ask: *"Do you mean the Phase → Sprint → Vertical-Slice hierarchy (`ROADMAP.md`, authored interactively here via `/plan-roadmap`), or the v0.1.0 Phase-2-Strategy-derived timeline doc (`PROJECT_PLAN.md`, emitted by `/scaffold-docs`)?"* — they're two different files with two different owners.
 
 ---
 
@@ -452,7 +452,9 @@ When in doubt, prefer doing the work in conversation over delegating to bash. Th
 
 ## 16. Synthesis dispatch (v0.3)
 
-v0.3 introduces an LLM-synthesis path for slice authoring in R1.C. For each vertical slice, instead of the user dictating the raw Scope + demo criteria from scratch, a `scaffold-onboard:synthesis-agent` sub-agent drafts a Scope paragraph + `auto:`/`user:` demo criteria from MASTER-SPEC + the running ID ledger. The user then reviews and edits the draft before it is persisted. The deterministic interactive authoring path is preserved as the `--fast` path.
+Slice authoring in R1.C is done by **sub-agent synthesis — the only path** (the `--fast` dispatch-vs-inline toggle was removed in v0.8.0, SS-7). For each vertical slice, instead of the user dictating the raw Scope + demo criteria from scratch, a `scaffold-onboard:synthesis-agent` sub-agent drafts a Scope paragraph + `auto:`/`user:` demo criteria from MASTER-SPEC + the running ID ledger. The user then reviews and edits the draft before it is persisted.
+
+**Agent-unavailable model:** dispatch the per-slice sub-agent → if no Task tool (headless), the conducting agent drafts the slice **inline in the main context** from the same brief → on a structurally invalid draft, re-draft once → then hard-fail with remediation. There is no deterministic slice renderer (the roadmap JSON→markdown *formatter* in `lib/roadmap.sh` is mechanical and unaffected — it formats the agent-authored slice data).
 
 **This dispatch happens in R1.C only (slice Scope + demo criteria drafting). R1.A (phases) and R1.B (sprints) remain fully interactive — synthesis does not draft phase or sprint content.**
 
@@ -485,20 +487,7 @@ backlog_path="$(sf_resolve_output_path backlog docs/BACKLOG.md)"
 
 If neither governance doc exists (lightweight mode — `/plan-roadmap` run directly from MASTER-SPEC without `/scaffold-docs`): keep the ledger empty. Surface one warning at R1.C open: *"No SRS/BACKLOG IDs found — synthesizing slice drafts without requirement traceability. Requirement coverage is limited until `/scaffold-docs` is run and slices are refined."*
 
-### 16.2 Fast-path short-circuit
-
-Check synthesis mode before entering R1.C:
-
-```bash
-if [[ "$(sf_synth_mode)" == "fast" ]]; then
-  # Use today's deterministic interactive authoring for all slices.
-  # Do NOT dispatch sub-agents. Fall through to §4.3 normally.
-fi
-```
-
-`sf_synth_mode` echoes `fast` when `SF_SYNTH_FAST=1` (set when the user passed `--fast` in `$ARGUMENTS`). Because `/plan-roadmap` is interactive and has no single flag-taking derive entry, the `--fast` gate lives here in the skill prose (not in lib). Parse `--fast` from `$ARGUMENTS` in the same loop as the other flags (§12) and `export SF_SYNTH_FAST=1` when present.
-
-### 16.3 Per-slice synthesis dispatch (R1.C, sf_synth_mode == synthesize)
+### 16.2 Per-slice synthesis dispatch (R1.C)
 
 For each vertical slice during R1.C (after the user has named the slice and provided or accepted its sprint assignment):
 
@@ -549,7 +538,7 @@ sf_synth_validate_cited "$ledger" "<ids cited by this slice>"
 
 **Lightweight mode (empty ledger):** dispatch the sub-agent normally using the empty ledger; `sf_synth_validate_cited` is skipped (no IDs to validate against). The brief's lightweight-mode note instructs the sub-agent to omit citation lines and append the coverage-limited notice — do not suppress that notice; surface it so the user can decide whether to run `/scaffold-docs` first.
 
-### 16.4 Coverage report at R1.C close
+### 16.3 Coverage report at R1.C close
 
 After all slices are authored (whether synthesized or interactive), collect every FR/NFR ID cited across all slice `traces_fr`/`traces_nfr` arrays:
 
@@ -562,10 +551,10 @@ This surfaces any FR/NFR that no slice covers. Print the report before invoking 
 
 If the ledger is empty (lightweight mode), skip the coverage report and note: *"Coverage report unavailable in lightweight mode — run `/scaffold-docs` first for requirement-coverage tracking."*
 
-### 16.5 Anti-patterns specific to synthesis (do not do these)
+### 16.4 Anti-patterns specific to synthesis (do not do these)
 
 - **Dispatching a sub-agent for phase or sprint content.** Synthesis is R1.C-only (slice Scope + demo criteria). Phases and sprints remain fully user-authored and interactive.
 - **Auto-accepting the draft without presenting it to the user.** The user is always the final authority on slice content; synthesis provides a draft for review, not a committed output.
 - **Inventing FR/NFR/BACKLOG IDs not in the ledger.** The brief explicitly forbids this in both normal and lightweight modes. If citations appear in the draft that are absent from the ledger, reject the draft, `sf_log_warn`, and fall back to interactive for that slice.
 - **Running `sf_synth_validate_cited` against an empty ledger.** Skip citation validation when the ledger has no IDs (lightweight mode) — it will always fail on a non-empty citation list.
-- **Parsing `--fast` from positional `$1`.** Always read from `$ARGUMENTS` (env-var bridge per §12); bash positionals are corrupted at template-render time.
+- **Parsing a flag (e.g. `--add-slice`) from positional `$1`.** Always read from `$ARGUMENTS` (env-var bridge per §12); bash positionals are corrupted at template-render time.
