@@ -2,6 +2,21 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.8.0] — 2026-06-10
+
+Remove the deterministic `--fast` fallback — agent synthesis is the **only** derivation path (SS-7, closes #56). **Behavior change:** there is no deterministic content fallback anywhere — not on a missing Task tool, not on LLM/token-cost failure, not on structurally-bad output. The agent-unavailable model is uniform across every content surface: dispatch sub-agent → main-context-inline synthesis (headless) → re-dispatch once with a corrective instruction → hard-fail with actionable remediation. scaffold-onboard only.
+
+### Removed
+- **The `--fast` flag, `sf_synth_mode`, and `SF_SYNTH_FAST`** across all five surfaces (memory-bank, governance, onboarding, MASTER-SPEC, roadmap) — commands, skills, lib. (#56)
+- **Deterministic memory-bank renderer** `sf_memory_bank_derive` (`lib/memory-bank.sh`) — the 8 derived files are agent-synthesized; the mechanical helpers (`sf_memory_bank_seed_live_static`, harvest migration, mcrules-zone preserve) remain. (#56)
+- **Deterministic governance renderer** `sf_docs_derive` / `_docs_args` / `_write_or_skip` (`lib/docs.sh` reduced to a stub) — the doc-set catalog + LLM-gate now live in the `scaffolding-governance-docs` §11 skill body. (#56)
+- **Deterministic EXEC-SUMMARY renderers** `sf_render_executive_summary` (extract) + `sf_render_executive_summary_from_state` (bootstrap-author) (`lib/render.sh`) — EXEC-SUMMARY is synthesis-authored. The mechanical guarded write-back `sf_render_executive_summary_from_synthesized` is kept. (#56)
+
+### Changed
+- **EXEC-SUMMARY produce-once-if-missing** (`/scaffold-project`, `/scaffold-docs` for legacy projects) now **dispatches a synthesis agent** from MASTER-SPEC instead of deterministically extracting the pinned section. (#56)
+- **Per-artifact + EXEC-SUMMARY rejection paths** re-dispatch once with a corrective instruction, then hard-fail with remediation (no deterministic substitute). The `03` mcrules-zone is mechanically re-attached on a missing-sentinel synthesis, never re-rendered. (#56)
+- **Test strategy:** memory-bank/governance/e2e bash tests assert the **mechanical layer** (seed live/static, manifest routing, mcrules-zone, migration, doc-set selection) via canned-synthesis fixtures (`seed_memory_bank_synth_fixture`, `seed_governance_docs_fixture`); `test-docs` becomes a governance doc-set contract; derived-content correctness is owned by the `evals/` LLM-judge. Dispatch-test fast-flag guards inverted; an R3 guard asserts every content skill documents the inline-fallback model. (#56)
+
 ## [0.7.0] — 2026-06-08
 
 Decommission partial reconcile-on-re-onboard (#58, wontfix). The full re-walk + first-author re-synthesis shipped in SS-3 is the permanent re-onboard model; the dormant reconcile machinery SS-3 retained "for #58" is removed. **No user-facing behavior changes** — the reconcile path was never wired into the live `/onboard` flow. scaffold-onboard only.
