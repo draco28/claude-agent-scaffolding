@@ -80,7 +80,7 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
-# T7.1 — minimal sprint fixture (10 assertions)
+# T7.1 — minimal sprint fixture (13 assertions)
 # ---------------------------------------------------------------------------
 
 test_e2e_minimal_sprint() {
@@ -132,8 +132,11 @@ test_e2e_minimal_sprint() {
   :
   assert_eq "verify auto-step pass" "0" "$vrc"
 
-  # Drop a report.md under the slice dir for work-item 1.01 with a
-  # "Suggestions for memory bank" entry.
+  # Drop a report.md under the slice dir for work-item 1.01.
+  # "Suggestions for memory bank" section is free-form prose — no bullet
+  # grammar — documenting that the agent-read path no longer depends on a
+  # parser.  The harvest agent reads this and produces an items-JSON array;
+  # the mechanical write is performed by sd_harvest_apply.
   local wi_dir="$TMP_SLICE_DIR/work-1.01-init-models"
   mkdir -p "$wi_dir"
   cat > "$wi_dir/report.md" <<'EOF'
@@ -141,11 +144,19 @@ test_e2e_minimal_sprint() {
 
 ## Suggestions for memory bank
 
-- target_file: 03-code-patterns.md
-  suggestion: Prefer foo() over legacy_foo() — see issue #42.
+During this slice we noticed that legacy_foo() calls should be replaced with
+the newer foo() helper (see issue #42).  Worth capturing in known-issues so
+the next implementer doesn't rediscover this.
 EOF
 
-  # SS-4 Task 5: harvest e2e coverage re-pointed to the sd_harvest_apply contract — temporarily removed (deleted parsers sd_harvest_reports/sd_harvest_handoffs).
+  # Assertion 7a + 7b — sd_harvest_apply writes to target memory-bank file
+  # with provenance trailer (agent-read path: agent produces items JSON after
+  # reading the free-form prose above; mechanical writer is sd_harvest_apply).
+  local items='[{"source":"report","target_file":"09-known-issues.md","suggestion":"Prefer foo() over legacy_foo() — see issue #42."}]'
+  sd_harvest_apply "$items" "VS-1.1.1"
+  local mb_file="$TMP_AI_WORKSPACE/.claude/memory-bank/09-known-issues.md"
+  assert_file_contains "$mb_file" "Prefer foo\\(\\) over legacy_foo\\(\\)"
+  assert_file_contains "$mb_file" "source: report"
 
   # Assertion 7 — sd_merge_work_item merges branch into main
   local branch1="slice/sprint-1.1-work-1.01-init-models"
