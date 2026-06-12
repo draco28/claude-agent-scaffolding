@@ -232,23 +232,145 @@ test_verify_head_moved() {
   assert_contains "echoes commit-violation" "commit-violation" "$OUT"
 }
 
+# --- review-driven hardening (SS-5 holistic review) ----------------------
+
+# #1 fix: cache layout preferred over marketplace, version-aware.
+test_resolve_prefers_cache_over_marketplace() {
+  echo "test_resolve_prefers_cache_over_marketplace:"
+  setup_tmp_repo
+  local fc="$TMP_DIR/fc"
+  mkdir -p "$fc/openai-codex/codex/1.0.4/scripts" "$fc/openai-codex/plugins/codex/scripts"
+  touch "$fc/openai-codex/codex/1.0.4/scripts/codex-companion.mjs" \
+        "$fc/openai-codex/plugins/codex/scripts/codex-companion.mjs"
+  OUT="$(SCAFFOLD_CODEX_COMPANION= SCAFFOLD_CODEX_CACHE_DIRS="$fc" bash "$SD_BIN" codex_resolve_companion 2>&1)" && RC=0 || RC=$?
+  assert_eq "rc=0" "0" "$RC"
+  assert_contains "cache preferred over marketplace" "/codex/1.0.4/scripts/codex-companion.mjs" "$OUT"
+}
+
+test_resolve_marketplace_fallback() {
+  echo "test_resolve_marketplace_fallback:"
+  setup_tmp_repo
+  local fc="$TMP_DIR/fc"
+  mkdir -p "$fc/openai-codex/plugins/codex/scripts"
+  touch "$fc/openai-codex/plugins/codex/scripts/codex-companion.mjs"
+  OUT="$(SCAFFOLD_CODEX_COMPANION= SCAFFOLD_CODEX_CACHE_DIRS="$fc" bash "$SD_BIN" codex_resolve_companion 2>&1)" && RC=0 || RC=$?
+  assert_eq "rc=0" "0" "$RC"
+  assert_contains "marketplace used when no cache copy" "/plugins/codex/scripts/codex-companion.mjs" "$OUT"
+}
+
+# #6: preflight propagates a resolve failure as a STOP (not a setup-call crash).
+test_preflight_resolve_fails() {
+  echo "test_preflight_resolve_fails:"
+  setup_tmp_repo
+  mkdir -p "$TMP_DIR/empty"
+  OUT="$(SCAFFOLD_CODEX_COMPANION= SCAFFOLD_CODEX_CACHE_DIRS="$TMP_DIR/empty" CODEX_HOME="$TMP_DIR/nocodex" \
+        bash "$SD_BIN" codex_preflight "$TMP_DIR/repo" 2>&1)" && RC=0 || RC=$?
+  assert_eq "rc=1 when companion unresolvable" "1" "$RC"
+  assert_contains "preflight propagates resolve failure" "not found" "$OUT"
+}
+
+# #3: dispatch failure branches.
+test_dispatch_node_failure() {
+  echo "test_dispatch_node_failure:"
+  setup_tmp_repo
+  local pf="$TMP_DIR/prompt.md"; echo "x" > "$pf"
+  OUT="$(CODEX_SHIM_FAIL=task bash "$SD_BIN" codex_dispatch "$TMP_DIR/repo" "$pf" 2>&1)" && RC=0 || RC=$?
+  assert_eq "rc=1 on launch failure" "1" "$RC"
+  assert_contains "reports launch failed" "launch failed" "$OUT"
+}
+
+test_dispatch_missing_jobid() {
+  echo "test_dispatch_missing_jobid:"
+  setup_tmp_repo
+  local pf="$TMP_DIR/prompt.md"; echo "x" > "$pf"
+  OUT="$(CODEX_SHIM_NO_JOBID=1 bash "$SD_BIN" codex_dispatch "$TMP_DIR/repo" "$pf" 2>&1)" && RC=0 || RC=$?
+  assert_eq "rc=1 when launch output has no jobId" "1" "$RC"
+  assert_contains "reports no jobId" "no jobId" "$OUT"
+}
+
+# #4: wait error tokens (status-call failure, unparseable status) — non-throwing.
+test_wait_status_call_error() {
+  echo "test_wait_status_call_error:"
+  setup_tmp_repo
+  OUT="$(CODEX_SHIM_FAIL=status bash "$SD_BIN" codex_wait "$TMP_DIR/repo" j --poll 0 --cap 5)" && RC=0 || RC=$?
+  assert_eq "token error on status-call failure" "error" "$OUT"
+  assert_eq "rc=0 (non-throwing under set -e)" "0" "$RC"
+}
+
+test_wait_unparseable_status() {
+  echo "test_wait_unparseable_status:"
+  setup_tmp_repo
+  OUT="$(CODEX_SHIM_STATUS_RAW='not json at all' bash "$SD_BIN" codex_wait "$TMP_DIR/repo" j --poll 0 --cap 5)" && RC=0 || RC=$?
+  assert_eq "token error on unparseable status" "error" "$OUT"
+  assert_eq "rc=0 (non-throwing under set -e)" "0" "$RC"
+}
+
+# #5: a FRESH logfile must NOT be flagged stalled (stall window > cap → reaches cap).
+test_wait_fresh_logfile_not_stalled() {
+  echo "test_wait_fresh_logfile_not_stalled:"
+  setup_tmp_repo
+  local fresh="$TMP_DIR/fresh.log"; : > "$fresh"   # mtime = now
+  OUT="$(CODEX_SHIM_STATUS=running CODEX_SHIM_LOGFILE="$fresh" \
+        bash "$SD_BIN" codex_wait "$TMP_DIR/repo" j --poll 1 --stall 5 --cap 2)" && RC=0 || RC=$?
+  assert_eq "fresh logfile reaches cap, not stalled" "capped" "$OUT"
+}
+
+# #2: MULTIPLE fenced blocks → the LAST one wins.
+test_result_multi_fence_takes_last() {
+  echo "test_result_multi_fence_takes_last:"
+  setup_tmp_repo
+  local raw='Draft attempt:
+```json
+{"mode":"gaps-surfaced","gaps":[{"q":"early draft"}]}
+```
+Revised final:
+```json
+{"mode":"complete","report_path":"/tmp/r.md","summary":"final","stage_status":"all_staged","gaps":[]}
+```'
+  OUT="$(CODEX_SHIM_RESULT_RAWOUTPUT="$raw" bash "$SD_BIN" codex_result "$TMP_DIR/repo" j)" && RC=0 || RC=$?
+  assert_eq "rc=0" "0" "$RC"
+  assert_contains "last fence wins (complete)" '"mode":"complete"' "$OUT"
+  assert_eq "earlier gaps fence not returned" "0" "$(printf '%s' "$OUT" | grep -c 'gaps-surfaced' || true)"
+}
+
+# #8: a fenced object lacking .mode is rejected (not passed downstream).
+test_result_fence_without_mode() {
+  echo "test_result_fence_without_mode:"
+  setup_tmp_repo
+  local raw='```json
+{"summary":"no mode key here"}
+```'
+  OUT="$(CODEX_SHIM_RESULT_RAWOUTPUT="$raw" bash "$SD_BIN" codex_result "$TMP_DIR/repo" j 2>&1)" && RC=0 || RC=$?
+  assert_eq "rc=1 when fenced object lacks .mode" "1" "$RC"
+}
+
 test_resolve_override
 test_resolve_override_missing
 test_resolve_glob_newest
+test_resolve_prefers_cache_over_marketplace
+test_resolve_marketplace_fallback
 test_resolve_absent
 test_preflight_ready
 test_preflight_unauthed
 test_preflight_uninstalled
 test_preflight_untrusted_worktree
+test_preflight_resolve_fails
 test_dispatch_jobid_and_flags
 test_dispatch_model_effort
+test_dispatch_node_failure
+test_dispatch_missing_jobid
 test_wait_completed
 test_wait_failed_nonthrowing
 test_wait_stalled_cancels
 test_wait_capped_cancels
+test_wait_status_call_error
+test_wait_unparseable_status
+test_wait_fresh_logfile_not_stalled
 test_result_complete
 test_result_gaps_prose_before_fence
+test_result_multi_fence_takes_last
 test_result_no_fence
+test_result_fence_without_mode
 test_verify_unchanged_clean
 test_verify_unchanged_dirty
 test_verify_head_moved

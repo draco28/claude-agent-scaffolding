@@ -53,9 +53,22 @@ test_resolve_invalid_backend() {
   assert_contains "names the invalid value" "bogus" "$OUT"
 }
 
+# #7: override must beat a SET manifest field (a different value), not just an absent one.
+test_override_beats_set_manifest() {
+  echo "test_override_beats_set_manifest:"
+  setup_tmp_workspace
+  local tmp="$TMP_MANIFEST.new"
+  jq '.implementer_backend = "codex"' "$TMP_MANIFEST" > "$tmp" && mv "$tmp" "$TMP_MANIFEST"
+  # Manifest SET to codex; override to a DIFFERENT value must win.
+  OUT="$(cd "$TMP_AI_WORKSPACE" && bash "$SD_BIN" backend_resolve --backend claude_subagent)" && RC=0 || RC=$?
+  assert_eq "rc=0" "0" "$RC"
+  assert_eq "override beats a SET manifest field" "claude_subagent" "$OUT"
+}
+
 test_resolve_default_when_field_absent
 test_resolve_field_codex
 test_override_beats_manifest
+test_override_beats_set_manifest
 test_resolve_no_manifest_defaults
 test_resolve_invalid_backend
 

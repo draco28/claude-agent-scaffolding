@@ -10,14 +10,21 @@
 //   CODEX_SHIM_JOBID             job id echoed by `task` + reported by status/result
 //   CODEX_SHIM_SETUP             raw JSON string for `setup --json` (overrides default)
 //   CODEX_SHIM_STATUS            .job.status for `status --json` (default "completed")
+//   CODEX_SHIM_STATUS_RAW        emit this raw (possibly non-JSON) string for `status` verbatim
 //   CODEX_SHIM_LOGFILE           .job.logFile for `status --json` (stall heuristic target)
 //   CODEX_SHIM_RESULT_RAWOUTPUT  .storedJob.result.rawOutput for `result --json`
+//   CODEX_SHIM_FAIL              subcommand name that should exit non-zero (e.g. task / status)
+//   CODEX_SHIM_NO_JOBID          when set, `task` emits a launch payload with NO jobId
 import fs from "node:fs";
 
 const argv = process.argv.slice(2);
 const sub = argv[0] || "";
 if (process.env.CODEX_SHIM_LOG) {
   fs.appendFileSync(process.env.CODEX_SHIM_LOG, argv.join(" ") + "\n");
+}
+if (process.env.CODEX_SHIM_FAIL && process.env.CODEX_SHIM_FAIL === sub) {
+  process.stderr.write(`codex-shim: forced failure on ${sub}\n`);
+  process.exit(1);
 }
 const out = (obj) => process.stdout.write(JSON.stringify(obj, null, 2) + "\n");
 const jobId = process.env.CODEX_SHIM_JOBID || "task-shim001";
@@ -32,10 +39,18 @@ switch (sub) {
     break;
   }
   case "task": {
+    if (process.env.CODEX_SHIM_NO_JOBID) {
+      out({ title: "shim task" });
+      break;
+    }
     out({ jobId, title: "shim task" });
     break;
   }
   case "status": {
+    if (process.env.CODEX_SHIM_STATUS_RAW !== undefined) {
+      process.stdout.write(process.env.CODEX_SHIM_STATUS_RAW + "\n");
+      break;
+    }
     out({
       job: {
         id: jobId,

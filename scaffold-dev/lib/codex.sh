@@ -59,22 +59,38 @@ sd_codex_resolve_companion() {
     while IFS= read -r d; do roots+=("$d"); done < <(_sd_codex_default_cache_dirs)
   fi
 
-  local matches=() root m
+  local cache_matches=() mkt_matches=() root m
   for root in "${roots[@]+"${roots[@]}"}"; do
     [[ -z "$root" || ! -d "$root" ]] && continue
     # Cache layout: <root>/openai-codex/codex/<version>/scripts/codex-companion.mjs
     for m in "$root"/openai-codex/codex/*/scripts/codex-companion.mjs; do
-      [[ -f "$m" ]] && matches+=("$m")
+      [[ -f "$m" ]] && cache_matches+=("$m")
     done
     # Marketplace layout: <root>/openai-codex/plugins/codex/scripts/codex-companion.mjs
     for m in "$root"/openai-codex/plugins/codex/scripts/codex-companion.mjs; do
-      [[ -f "$m" ]] && matches+=("$m")
+      [[ -f "$m" ]] && mkt_matches+=("$m")
     done
   done
 
-  if [[ "${#matches[@]}" -gt 0 ]]; then
-    # Newest version wins (version segment embedded in the path).
-    printf '%s\n' "${matches[@]}" | sort -V | tail -n1
+  # Prefer the cache layout's NEWEST version. Sort by the <version> segment ALONE
+  # (extracted from the path) so the cache/marketplace path prefix can't defeat the
+  # version order — `sort -V` on full paths would pick "marketplaces" over "cache"
+  # lexically regardless of version.
+  if [[ "${#cache_matches[@]}" -gt 0 ]]; then
+    local best
+    best="$(for m in "${cache_matches[@]}"; do
+      v="$(printf '%s' "$m" | sed -nE 's#.*/openai-codex/codex/([^/]+)/scripts/codex-companion\.mjs$#\1#p')"
+      printf '%s\t%s\n' "$v" "$m"
+    done | sort -V | tail -n1 | cut -f2-)"
+    if [[ -n "$best" ]]; then
+      echo "$best"
+      return 0
+    fi
+  fi
+
+  # Fall back to the marketplace (unversioned) layout only when no cache copy exists.
+  if [[ "${#mkt_matches[@]}" -gt 0 ]]; then
+    echo "${mkt_matches[0]}"
     return 0
   fi
 
