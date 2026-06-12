@@ -394,11 +394,17 @@ The handoff works in BOTH contexts (per SPEC §6.4) — as a Task tool prompt AN
 
 ### 8.3 Dispatch implementer
 
-Detect the host before dispatch:
+**Resolve the backend first.** Each work item runs on either the Claude implementer subagent (default) or the optional Codex backend (SS-5), chosen by:
 
-- **Claude Code host** — use the registered custom subagent type.
-- **Codex host** — use a worker-style subagent when available, with the same handoff path and the `executing-work-item` contract embedded in the prompt.
-- **Fallback** — if Codex worker dispatch is unavailable or the user wants a fresh boundary, stop after writing the handoff and instruct the user to start a fresh Claude/Codex session with the absolute `handoff.md` path. This is a first-class path, not a degraded path; the handoff is self-contained by design.
+```
+backend="$(sd backend_resolve [--backend <override>])"
+```
+
+Precedence: a **per-invocation override** (the user asked to run this slice/round on Codex, e.g. `/orchestrate VS-N --backend codex`) > the manifest's optional `.implementer_backend` > the default `claude_subagent`. An invalid value fails loud. Projects without the field run on Claude, unchanged.
+
+The **manual fresh-session handoff** remains a first-class path for either backend whenever the user wants a fresh boundary: stop after writing the handoff and hand over the absolute `handoff.md` path — the handoff is self-contained by design.
+
+#### 8.3a — `claude_subagent` (default)
 
 For Claude Code, dispatch each work item in the round with:
 
@@ -421,28 +427,40 @@ Task(
 
 The `scaffold-dev:` prefix on `subagent_type` is load-bearing — that's the registered custom subagent type per SPEC §6.1. Do NOT use the bare `implementer-agent` or any other prefix.
 
-For Codex, dispatch a worker subagent with this prompt shape when the host exposes subagent dispatch:
+#### 8.3b — `codex` (optional backend, SS-5)
 
-```
-You are the scaffold-dev implementer for one work item.
+The Codex backend dispatches the **same** work item to the externally-installed `codex-plugin-cc` companion through `lib/codex.sh`, under the **same** `{mode,…}` contract, gaps-mode escalation, and no-commit boundary as the Claude path. The only new surface is async liveness — Codex is an external process, so the orchestrator polls for the surface. **Dispatch Codex work items sequentially within a round** (the companion's `--resume-last` resolves the latest session thread; concurrent same-session tasks race).
 
-Read the handoff at <abs path to work-${work_id}-${kebab}/handoff.md>.
-Then read scaffold-dev's executing-work-item contract if available at the installed plugin path, or treat the handoff's embedded constraints as binding.
+Per work item (let `WT` = the absolute worktree path):
 
-Your worktree: <abs path to ${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}>.
-Use this path for all git operations and file edits.
+1. **Pre-flight — hard gate, no silent fallback.**
+   ```
+   sd codex_preflight "$WT"
+   ```
+   rc≠0 → **STOP** and surface the remediation (§12.2). Do NOT fall back to Claude — the user explicitly chose Codex; quietly running Claude would violate intent.
 
-First action: PRE-FLIGHT CHECK.
-If the handoff/spec/worktree has blocking gaps, return:
-{"mode":"gaps-surfaced","gaps":[{"section":"...","question":"...","severity":"blocking|nice-to-have"}]}
+2. **Assemble the prompt-file.** Codex does not auto-load the skill, so the contract is prompt-carried. Write `$WT/.codex-prompt.md` containing, in order: the full `executing-work-item` contract (read it from the installed scaffold-dev skill as the single source of truth, else treat the handoff's embedded constraints as binding); `Read the handoff at <abs handoff.md> and execute the work item per its instructions.`; `Your worktree: $WT — use it for all git operations and file edits.`; the no-commit prohibition `NEVER run git commit / push / pull / fetch; never launch nested subagents.`; and the return-contract instruction: *end your turn with a single fenced ```json block holding `{mode, report_path, summary, stage_status, gaps}` exactly as the Claude implementer returns; if pre-flight surfaces blocking gaps, emit `{"mode":"gaps-surfaced","gaps":[…]}` and stop.*
 
-If pre-flight is clean, implement using TDD, run embedded verification, author report.md, stage changes, and return:
-{"mode":"complete","report_path":"<absolute path>","summary":"<one-line>","stage_status":"all_staged|partial|none"}
+3. **Record baseline + dispatch + watch:**
+   ```
+   baseline="$(git -C "$WT" rev-parse HEAD)"
+   job="$(sd codex_dispatch "$WT" "$WT/.codex-prompt.md" [--model M] [--effort E])"
+   term="$(sd codex_wait "$WT" "$job")"   # background+poll+stall+cap; one of: completed|failed|cancelled|stalled|capped|error
+   ```
+   Any `term` other than `completed` (`stalled`/`capped`/`failed`/`cancelled`/`error`) → surface the failure-response menu (§12.2 "Subagent crash/timeout" row); `sd codex_wait` already cancelled a stalled/capped job. A stall/cap is recoverable — re-dispatch (Codex `--resume-last`) or fall back to a manual session.
 
-Never run git commit, git push, git pull, or git fetch. Never launch nested subagents.
-```
+4. **Read the return** (only on `completed`):
+   ```
+   out="$(sd codex_result "$WT" "$job")"   # the {mode,…} JSON; rc≠0 → Codex emitted no parseable block → §8.4 malformed-return menu
+   ```
 
-Do not assume Codex plugin installation registers a named custom agent. Until Codex supports plugin-bundled custom agents as a first-class component, the portable contract is worker-subagent prompt plus manual handoff fallback.
+5. **No-commit verify** before trusting the result:
+   ```
+   verdict="$(sd codex_verify_nocommit "$WT" "$baseline")"
+   ```
+   rc≠0 / `commit-violation` → surface loudly; the orchestrator decides remediation. A `complete` return with `ok-clean` (no staged/working-tree changes) is suspect → treat as a malformed/empty return; a `gaps-surfaced` return with `ok-clean` is expected.
+
+6. **Join the Claude downstream unchanged.** The `{mode,…}` object feeds §8.4 exactly as a Claude subagent return would: `gaps-surfaced` → clarify + re-dispatch (Codex via `--resume-last`); `complete` → read `report.md`, proceed to §8.5 verification. Everything from here is backend-agnostic.
 
 ### 8.4 Process returns (§6.3 multi-call protocol)
 
