@@ -474,7 +474,7 @@ git commit -m "feat(scaffold-dev): add sd_redgate_assert_red pre-flight gate hel
 > 3. **Gate:** if any command-bearing AC is already GREEN (return 1), do NOT enter §4. Surface the offending AC(s) and stop for the user/orchestrator. RED (0) and errored/uninvocable (2) proceed, with errored cases recorded in the report.
 > 4. **Skip-escape:** for a slice that legitimately has no failing test (e.g. pure code-deletion), the first run returns gaps-mode naming the already-GREEN AC. The orchestrator/user may approve `--allow-skip-thrust-zero` by recording an explicit clarification in the handoff and re-dispatching. On re-dispatch, record the skip in `report.md` §6. Never auto-skip from the flag alone.
 
-- [ ] **Step 2:** Update the §4 lead-in sentence to reference the gate: "Per §3.6 every `auto:` AC has been verified RED (or an explicit thrust-0 skip recorded). Now flip each to GREEN…".
+- [ ] **Step 2:** Update the §4 lead-in sentence to reference the gate: "Per §3.6 every non-skipped `auto:` AC has been verified RED (or an explicit thrust-0 skip recorded and excluded). Now flip each remaining AC to GREEN…".
 
 - [ ] **Step 3:** Update §3.5's "proceed to §4" branch to say "proceed to **§3.6 RED-gate**, then §4".
 

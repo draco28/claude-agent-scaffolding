@@ -145,7 +145,7 @@ This step runs only on the success path out of §3.5 — a clean pre-flight with
 
 ## 4. TDD loop per AC
 
-Per SPEC §13 + the `superpowers:test-driven-development` discipline. **Per §3.6, no `auto:` AC was already GREEN at the start of this work item (errored/absent-test ACs were noted and proceed). Now author and flip each AC RED→GREEN, in declared order. §3.6 is an upfront whole-set 'not-already-GREEN' gate; the per-AC RED step below (step 1) is the per-AC authoring discipline — complementary, not redundant.** Iterate the `(ac_label, command, expectation)` tuples extracted in §3.2 **in declared order**.
+Per SPEC §13 + the `superpowers:test-driven-development` discipline. **Per §3.6, no non-skipped `auto:` AC was already GREEN at the start of this work item (errored/absent-test ACs were noted and proceed; orchestrator-approved skip-escape ACs were recorded and excluded). Now author and flip each remaining AC RED→GREEN, in declared order. §3.6 is an upfront whole-set 'not-already-GREEN' gate; the per-AC RED step below (step 1) is the per-AC authoring discipline — complementary, not redundant.** Iterate the `(ac_label, command, expectation)` tuples extracted in §3.2 **in declared order**, excluding any AC with an explicit §3.6 skip-escape override recorded in the handoff.
 
 For each AC:
 
