@@ -77,7 +77,7 @@ sd_verify_auto_step() {
 # the AC's expected predicate is already satisfied.
 #   predicate NOT met             -> RED (desired pre-flight state)   -> return 0
 #   predicate met                 -> already GREEN before any work    -> return 1
-#   exit 126/127 when unmet       -> ERROR (harness broken, not RED)  -> return 2
+#   exit 126/127                  -> ERROR (harness broken, not RED)  -> return 2
 # If [expected] is omitted, defaults to "exit 0" for backward compatibility.
 sd_redgate_assert_red() {
   local cmd="${1:-}" expected="${2:-exit 0}" output rc=0
@@ -87,6 +87,9 @@ sd_redgate_assert_red() {
   fi
 
   if output="$(bash -c "$cmd" 2>&1)"; then rc=0; else rc=$?; fi
+  case "$rc" in
+    126|127) return 2 ;;
+  esac
 
   case "$expected" in
     "exit "*)
@@ -107,10 +110,7 @@ sd_redgate_assert_red() {
       ;;
   esac
 
-  case "$rc" in
-    126|127)  return 2 ;;
-    *)        return 0 ;;
-  esac
+  return 0
 }
 
 # sd_verify_report_cross_check <report.md> <spec.md>

@@ -104,17 +104,29 @@ canonical="$(sd manifest_get '.canonical.root')"
 ai_workspace="$(sd manifest_get '.ai_workspace.root')"
 ```
 
-For each extracted **file path**, resolve it against the manifest: absolute paths are checked verbatim; paths that begin with `src/`, `lib/`, `tests/`, or `scripts/` typically live under the canonical root; paths that begin with `docs/` typically live under the ai_workspace root. When ambiguous, try both and use whichever resolves (first hit wins):
+For each extracted **file path**, resolve it against the manifest. Absolute paths are checked verbatim. Relative paths use deterministic prefix routing first: `docs/` routes to the ai_workspace root; `src/`, `lib/`, `tests/`, and `scripts/` route to the canonical root. If no prefix rule applies, probe both roots. When both roots contain a file at the same relative path, do not silently choose one: if the files differ, emit an ambiguity finding; if they are byte-identical, either path is acceptable but report the resolved path you checked.
 
 ```bash
 # Example: check a cited file path
 if [[ "$cited_path" = /* ]]; then
   sd citations_check_file "$cited_path"
+elif [[ "$cited_path" == docs/* ]]; then
+  sd citations_check_file "${ai_workspace}/${cited_path}"
+elif [[ "$cited_path" == src/* || "$cited_path" == lib/* || "$cited_path" == tests/* || "$cited_path" == scripts/* ]]; then
+  sd citations_check_file "${canonical}/${cited_path}"
 else
-  resolved_path="${canonical}/${cited_path}"
-  if ! sd citations_check_file "$resolved_path"; then
-    resolved_path="${ai_workspace}/${cited_path}"
-    sd citations_check_file "$resolved_path"
+  canonical_path="${canonical}/${cited_path}"
+  workspace_path="${ai_workspace}/${cited_path}"
+  if [[ -f "$canonical_path" && -f "$workspace_path" ]]; then
+    if cmp -s "$canonical_path" "$workspace_path"; then
+      sd citations_check_file "$canonical_path"
+    else
+      echo "[file-path ambiguity] ${cited_path} exists under both canonical and ai_workspace with different contents"
+    fi
+  elif [[ -f "$canonical_path" ]]; then
+    sd citations_check_file "$canonical_path"
+  else
+    sd citations_check_file "$workspace_path"
   fi
 fi
 ```

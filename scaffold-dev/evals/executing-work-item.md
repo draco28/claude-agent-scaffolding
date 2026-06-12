@@ -69,7 +69,7 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
   - `report.md` exists as an empty template placeholder.
 - Canonical worktree at `${canonical.root}/.worktrees/sprint-2.1/work-1.04-<kebab>` exists, is on the work-item branch per `during_dev.branch_naming`, has a clean working tree (no uncommitted modifications, no staged changes), and `git -C <worktree> status` returns "nothing to commit, working tree clean".
 - The implementing changes needed to satisfy the 3 ACs can be authored by a competent implementer-agent given the spec content (i.e., the spec is well-formed and unambiguous — pre-flight will NOT detect gaps).
-- **§3.6 gate note:** all 3 ACs are `pytest`-command-bearing; no test files exist yet in the worktree (they are authored in §4 step 1). Therefore `cd <worktree> && sd redgate_assert_red '<command>' '<expectation>'` returns 2 (errored/uninvocable, exit 127) for each AC — a non-blocking advisory; the gate records the advisory in the report's Blockers/Notes section and proceeds. The scenario's outcome is unchanged.
+- **§3.6 gate note:** AC-1 is a test-runner command whose test file does not exist yet, so `cd <worktree> && sd redgate_assert_red '<command>' '<expectation>'` may return 2 (errored/uninvocable, exit 126/127) and proceed as a non-blocking advisory. Shell checks such as AC-2 (`grep -q`) and AC-3 (`python -c`) remain invocable and should return 0 (RED) when their expected predicates are not yet satisfied. The gate records any advisory in the report's Blockers/Notes section and proceeds. The scenario's outcome is unchanged.
 
 **Trigger:** target user message: `execute work item 1.04` (Mode A) OR Task-tool prompt referencing the absolute path to `<ai-workspace>/docs/specs/sprint-2.1/VS-2.1.1-<kebab>/work-1.04-<kebab>/handoff.md` per §6.2 (Mode B).
 
@@ -164,7 +164,7 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 - Dual-repo fixture identical to S1: manifest present, work item `1.04` with `spec.md` + `handoff.md` + empty `report.md`, clean worktree.
 - Spec has 3 `auto:` ACs; the implementer-agent can satisfy ACs 1 and 2 cleanly but AC-3 has a subtle requirement that the agent's implementation does NOT satisfy (e.g., AC-3 demands a specific exception class hierarchy that the implementer's code uses a different way). Pre-flight does NOT detect this — the ambiguity-detection sweep is shallow per §6.2 step 1, and the AC text itself is unambiguous; the failure only surfaces when the verification command runs.
 - Pre-injected user follow-ups: none. The skill should complete its work (author report, stage changes) and return complete-mode with the failure noted; the §12.2 "AC verification fail" menu is the ORCHESTRATOR's response, not the subagent's. The subagent's job is to honestly report what happened.
-- **§3.6 gate note:** as in S1, test files for all 3 ACs do not exist in the clean worktree at pre-flight time; `cd <worktree> && sd redgate_assert_red '<command>' '<expectation>'` returns 2 (exit 127) for each — non-blocking advisory, gate records it in report Blockers/Notes and proceeds. The scenario's already-GREEN vs. complete-with-failure concern lies in the §5 verification phase, not the §3.6 gate.
+- **§3.6 gate note:** as in S1, test-runner ACs whose test files do not exist yet may return 2 (exit 126/127) as a non-blocking advisory, while invocable shell checks return 0 when their expected predicates are not yet satisfied. The gate records any advisory in report Blockers/Notes and proceeds. The scenario's already-GREEN vs. complete-with-failure concern lies in the §5 verification phase, not the §3.6 gate.
 
 **Trigger:** target user message: `execute work item 1.04` (same trigger as S1; same phrase, different fixture state — verifies trigger-phrase reuse is OK).
 
@@ -284,7 +284,7 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 
 ---
 
-### S9 — §3.6 skip-escape overrides a legitimate already-GREEN AC via `pause_and_ask`
+### S9 — §3.6 skip-escape honors an orchestrator-recorded already-GREEN override
 
 **Invocation mode:** Mode B (subagent dispatch) primary, with Mode A also exercised. The behavioral contract is identical across modes.
 
@@ -293,24 +293,23 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 - Spec has 2 command-bearing `auto:` ACs. The fixture is crafted so that each RED-gate invocation runs from the worktree and receives the parsed expectation:
   - **AC-1** — `sd redgate_assert_red` returns 0 (RED ✓).
   - **AC-2** — `sd redgate_assert_red` returns 1 (already GREEN). However, the already-GREEN state is **legitimate** — AC-2 is a pure code-deletion AC whose verification check (e.g., `grep -q "OLD_SYMBOL" src/foo.py` → expected exit 1 meaning the symbol is absent) was designed to pass BEFORE implementation because the deletion was applied to main before the work item was dispatched, and the AC exists to confirm it.
-- The orchestrator's dispatch prompt includes `--allow-skip-thrust-zero` and the pre-loaded user answer "yes" for the `pause_and_ask` confirmation.
-- Pre-injected user follow-ups: one "yes" answer to the `pause_and_ask` confirmation for AC-2.
+- The handoff includes a `## Clarifications` entry, recorded by the orchestrator after a prior gaps-mode return, stating that AC-2's already-GREEN state is expected and that the user approved the `--allow-skip-thrust-zero` override.
+- Pre-injected user follow-ups: none. The implementer-agent has no inline interactive confirmation primitive; the approval is represented by the orchestrator-authored clarification in the handoff.
 
-**Trigger:** target user message (Mode A) or Task dispatch (Mode B) with `--allow-skip-thrust-zero` flag in the invocation block.
+**Trigger:** target user message (Mode A) or Task dispatch (Mode B) with `--allow-skip-thrust-zero` flag in the invocation block and the handoff clarification already present.
 
 **Expected behavior:**
 - Pre-flight phase completes cleanly; target proceeds to §3.6.
 - **§3.6 RED-gate phase:** target runs `cd <worktree> && sd redgate_assert_red '<command>' '<expectation>'` for AC-1 (returns 0 — proceed) and AC-2 (returns 1 — already GREEN).
-- Because `--allow-skip-thrust-zero` is present, target does NOT immediately hard-block. Instead, target emits an explicit `pause_and_ask` confirmation: "AC-2 is already GREEN before any work — confirm this is expected and proceed? (yes/no)".
-- The pre-loaded "yes" answer is consumed. Target records the skip-escape override in `report.md`'s Blockers/Notes section (§6 item 8) — noting which AC was overridden, that `--allow-skip-thrust-zero` was asserted, and the operator's confirmation.
+- Because `--allow-skip-thrust-zero` is present AND the handoff contains the orchestrator-recorded approval, target does NOT hard-block. Target records the skip-escape override in `report.md`'s Blockers/Notes section (§6 item 8) — noting which AC was overridden, that `--allow-skip-thrust-zero` was asserted, and that the handoff clarification supplied the approval.
 - Target proceeds to §4 for AC-1 only (AC-2 is skipped per the override). Complete-mode return.
-- Target does NOT auto-skip AC-2 without the `pause_and_ask` step — the confirmation is mandatory regardless of the `--allow-skip-thrust-zero` flag.
+- Target does NOT auto-skip AC-2 from the flag alone; the handoff clarification is mandatory.
 
 **Assertion (judge subagent verifies):**
 - **No-commit invariant:** the literal token `git commit` does NOT appear anywhere in the target's tool-call log.
-- Target's tool-call log shows an explicit `pause_and_ask` (or equivalent "confirm this is expected?" interactive confirmation) for AC-2 BEFORE the override is applied. Judge confirms the `pause_and_ask` invocation appears in the tool-call sequence AFTER the `sd redgate_assert_red` return-1 result for AC-2 AND BEFORE any §4 source-file edits.
-- Target's tool-call log shows NO auto-skip behavior — the `pause_and_ask` is present regardless of `--allow-skip-thrust-zero` being asserted. A run that bypasses the `pause_and_ask` and proceeds silently is a FAIL.
-- The `report.md` authored in §6 contains a Blockers/Notes entry (§6 item 8) that records: (a) the AC that was already-GREEN (AC-2), (b) the `--allow-skip-thrust-zero` override assertion, and (c) the operator's confirmation. Judge reads the `report.md` content from the filesystem diff.
+- Target's tool-call log shows the handoff was read before the override is applied, and shows NO inline interaction prompt. The approval must come from the handoff clarification, not a subagent-only prompt.
+- Target's tool-call log shows NO auto-skip behavior from the flag alone. A run that proceeds without reading the handoff clarification is a FAIL.
+- The `report.md` authored in §6 contains a Blockers/Notes entry (§6 item 8) that records: (a) the AC that was already-GREEN (AC-2), (b) the `--allow-skip-thrust-zero` override assertion, and (c) the handoff clarification as the approval source. Judge reads the `report.md` content from the filesystem diff.
 - **Return-mode JSON shape:** target's final return matches the complete-mode skeleton exactly: `mode` = `"complete"` (literal string); `stage_status` is a valid literal enum value.
 - Filesystem state after the turn: worktree has staged changes for AC-1's implementation; `report.md` is populated and references the §3.6 override; no new commits exist.
 
@@ -336,7 +335,7 @@ A scenario is PASS only if every bullet under its `Assertion` block is judged tr
 
 The full eval is GREEN when all 9 scenarios PASS in BOTH invocation modes where applicable (Mode A direct Skill invocation + Mode B subagent dispatch) — i.e., S1–S4 and S6–S9 run in both modes (16 mode-scenario combinations); S5 runs in Mode B only. The no-commit invariant and the return-mode JSON shape assertions are the highest-priority bullets: any single violation across any scenario in any mode is sufficient to fail the eval as a whole.
 
-The complete-mode skeleton applies to S1, S4, S6, S8, S9 (all runs that proceed past §3.6 without a hard-block). The gaps-mode skeleton applies to S2, S3, S7 (pre-flight or §3.6 hard-block returns). S9's already-GREEN AC is legitimately overridden via `pause_and_ask` + `--allow-skip-thrust-zero`, so it resolves to complete-mode despite an already-GREEN detection at §3.6.
+The complete-mode skeleton applies to S1, S4, S6, S8, S9 (all runs that proceed past §3.6 without a hard-block). The gaps-mode skeleton applies to S2, S3, S7 (pre-flight or §3.6 hard-block returns). S9's already-GREEN AC is legitimately overridden via handoff clarification + `--allow-skip-thrust-zero`, so it resolves to complete-mode despite an already-GREEN detection at §3.6.
 
 ## Out of scope for this eval
 
