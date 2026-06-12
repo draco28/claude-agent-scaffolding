@@ -21,7 +21,7 @@ test_apply_writes_trailer() {
   assert_file_contains "$TMP_AI_WORKSPACE/.claude/memory-bank/04-architecture.md" "Added from VS-3.2.1 retrospective"
 }
 
-# 11. apply is idempotent — re-applying same item doesn't duplicate
+# 2. apply is idempotent — re-applying same item doesn't duplicate
 test_apply_idempotent() {
   echo "test_apply_idempotent:"
   setup_tmp_workspace
@@ -36,7 +36,7 @@ test_apply_idempotent() {
   assert_eq "no duplicate after re-apply" "1" "$count"
 }
 
-# 12. apply handles empty items array gracefully
+# 3. apply handles empty items array gracefully
 test_apply_empty() {
   echo "test_apply_empty:"
   setup_tmp_workspace

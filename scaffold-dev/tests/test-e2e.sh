@@ -80,7 +80,7 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
-# T7.1 — minimal sprint fixture (12 assertions)
+# T7.1 — minimal sprint fixture (10 assertions)
 # ---------------------------------------------------------------------------
 
 test_e2e_minimal_sprint() {
@@ -145,19 +145,9 @@ test_e2e_minimal_sprint() {
   suggestion: Prefer foo() over legacy_foo() — see issue #42.
 EOF
 
-  # Assertion 7 — sd_harvest_reports surfaces the seeded suggestion
-  local harvested
-  harvested="$(sd_harvest_reports "$TMP_SLICE_DIR")"
-  local h_count
-  h_count="$(echo "$harvested" | jq 'length')"
-  assert_eq "harvest_reports count == 1" "1" "$h_count"
+  # SS-4 Task 5: harvest e2e coverage re-pointed to the sd_harvest_apply contract — temporarily removed (deleted parsers sd_harvest_reports/sd_harvest_handoffs).
 
-  # Assertion 8 — sd_harvest_handoffs returns empty (no handoffs in fixture)
-  local h2
-  h2="$(sd_harvest_handoffs "VS-1.1.1")"
-  assert_eq "harvest_handoffs empty" "[]" "$h2"
-
-  # Assertion 9 — sd_merge_work_item merges branch into main
+  # Assertion 7 — sd_merge_work_item merges branch into main
   local branch1="slice/sprint-1.1-work-1.01-init-models"
   set +e
   sd_merge_work_item "$wt1" "$branch1" >/dev/null 2>&1
@@ -177,18 +167,18 @@ EOF
   sd_merge_work_item "$wt2" "$branch2" >/dev/null 2>&1
   sd_worktree_remove "$wt2" >/dev/null 2>&1
 
-  # Assertion 10 — canonical now has 5 commits on main:
+  # Assertion 8 — canonical now has 5 commits on main:
   #   initial + 2*(work-item commit + --no-ff merge commit)
   local commit_count
   commit_count="$(git -C "$TMP_CANONICAL" rev-list --count main)"
   assert_eq "main has 5 commits (initial + 2*(impl + merge))" "5" "$commit_count"
 
-  # Assertion 11 — both worktrees removed (only canonical's main checkout remains)
+  # Assertion 9 — both worktrees removed (only canonical's main checkout remains)
   local wt_list_count
   wt_list_count="$(git -C "$TMP_CANONICAL" worktree list | wc -l | tr -d ' ')"
   assert_eq "worktree list count == 1" "1" "$wt_list_count"
 
-  # Assertion 12 — manifest still readable after the full cycle
+  # Assertion 10 — manifest still readable after the full cycle
   local manifest2
   manifest2="$(sd_manifest_discover)"
   assert_eq "manifest still discoverable" "$TMP_MANIFEST" "$manifest2"
