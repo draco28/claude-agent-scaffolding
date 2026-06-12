@@ -35,7 +35,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 **Multi-turn clarification dialogs (S2 specifically).** When a scenario exercises the multi-call protocol (gaps-mode → orchestrator amends handoff → re-invocation), the orchestrator pre-loads the user's clarification responses in the dispatch prompt as a "transcript injection". The judge counts the number of distinct gap-question rounds the target executes before returning a terminal mode, asserting the §6.6 3-iteration cap.
 
-**No-commit invariant (cross-scenario, BINDING).** Across ALL five scenarios in ALL invocation modes, the literal token sequence `git commit` (with or without flags) MUST NOT appear in the target's tool-call log. The judge scans the full log per scenario; a single occurrence anywhere — including in a Bash invocation comment, a heredoc body, or a piped subcommand — is a FAIL. This is the §6.1 tool restriction and the green-light criterion "Subagent NEVER commits". `git add`, `git status`, `git -C <worktree> diff`, and other read or stage operations are permitted; `git push`, `git pull`, `git fetch` are also forbidden but tested less strictly here (subset of the §6.1 denylist; primary focus is commit).
+**No-commit invariant (cross-scenario, BINDING).** Across ALL nine scenarios in ALL invocation modes, the literal token sequence `git commit` (with or without flags) MUST NOT appear in the target's tool-call log. The judge scans the full log per scenario; a single occurrence anywhere — including in a Bash invocation comment, a heredoc body, or a piped subcommand — is a FAIL. This is the §6.1 tool restriction and the green-light criterion "Subagent NEVER commits". `git add`, `git status`, `git -C <worktree> diff`, and other read or stage operations are permitted; `git push`, `git pull`, `git fetch` are also forbidden but tested less strictly here (subset of the §6.1 denylist; primary focus is commit).
 
 **Return-mode JSON shape (cross-scenario, BINDING).** The target's final return MUST match one of exactly two JSON skeletons per §6.2 + §6.3:
 
@@ -228,7 +228,7 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 **Setup:**
 - Dual-repo fixture: manifest present, work item `1.04` exists with unambiguous `spec.md` + `handoff.md` + empty `report.md`, worktree clean on the expected branch.
 - Spec has 3 command-bearing `auto:` ACs. The fixture is crafted so that:
-  - **AC-1 and AC-2** — `sd redgate_assert_red` returns 0 (RED ✓); behavior not yet implemented.
+  - **AC-1 and AC-3** — `sd redgate_assert_red` returns 0 (RED ✓); behavior not yet implemented.
   - **AC-2** — `sd redgate_assert_red` returns 1 (already GREEN before any work); the feature described by AC-2 is already present in the worktree (e.g., the grepped constant `FEATURE_FLAG_X` already exists in `src/foo.py` from a prior incomplete session, or the AC is mis-specified and the behavior has always been there).
 - Pre-injected user follow-ups: none. The gate should hard-block and return gaps-mode naming the offending AC.
 
