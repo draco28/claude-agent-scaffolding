@@ -301,8 +301,8 @@ After all specs are written, surface gate-2 grill-me (per SPEC §16.4 offer 2 �
 
 > Specs authored (N work items). Want to grill-me on the specs before adversarial review? (yes/no, default no)
 
-- **yes** → `Skill(ai-mentor:grill-me)` with `target=specs, context=<spec-paths>`. Returns may produce edits; re-write affected spec.md files via `sd_render`.
-- **no / skip** → proceed to §7.
+- **yes** → `Skill(ai-mentor:grill-me)` with `target=specs, context=<spec-paths>`. Returns may produce edits; re-write affected spec.md files via `sd_render`, then proceed to §6.4.
+- **no / skip** → proceed to §6.4.
 
 Probe for ai-mentor presence first (silent skip if absent, per §4.1).
 
@@ -321,7 +321,7 @@ The check is enrichment, not a contract — never block slice planning on its ab
 
 ## 7. Architect-critic invocation (in-conversation, §16.3 moment 1)
 
-After specs are written (and gate-2 grill-me has settled), invoke architect-critic for adversarial review.
+After specs are written, gate-2 grill-me has settled, and the §6.4 citation-check offer has settled, invoke architect-critic for adversarial review.
 
 ### 7.1 Detection (filesystem probe; binary)
 

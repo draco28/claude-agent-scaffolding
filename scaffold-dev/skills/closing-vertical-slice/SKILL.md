@@ -324,7 +324,7 @@ such target to `09-known-issues.md` and warns. (There is no `06-product-context.
 file — `06` is `06-progress`; `01` is product-context.) Surface the proposed target
 alongside the candidate at step 5.
 
-**Lean-index check (#48-F, write-time prevention).** Before proposing a target, judge whether the candidate **restates content already tracked** in a doc/ADR/issue (MASTER-SPEC §-ref, an existing ADR id, an open issue). If it does, do NOT harvest the prose — surface a pointer instead (e.g. "see ADR-0007" / "tracked in #N") and route the deferral via `Skill(scaffold-dev:deferring-work-item)` if it is genuinely new debt. Also run the **mechanical length leg**: `sd_harvest_lint_length "<candidate text>"` — if it returns non-zero (exceeds ~12 lines), the entry is too long for a lean index; ask the user to tighten it to a pointer + one-line gist before accepting. These checks are advisory nudges surfaced at step 5, not hard blocks.
+**Lean-index check (#48-F, write-time prevention).** Before proposing a target, judge whether the candidate **restates content already tracked** in a doc/ADR/issue (MASTER-SPEC §-ref, an existing ADR id, an open issue). If it does, do NOT harvest the prose — surface a pointer instead (e.g. "see ADR-0007" / "tracked in #N") and route the deferral via `Skill(scaffold-dev:deferring-work-item)` if it is genuinely new debt. Also run the **mechanical length leg** through the dispatcher: `sd harvest_lint_length "<candidate text>"` — if it returns non-zero (exceeds ~12 lines), the entry is too long for a lean index; ask the user to tighten it to a pointer + one-line gist before accepting. These checks are advisory nudges surfaced at step 5, not hard blocks.
 
 ### 9.5 Step 5 — Surface candidates with source-tag prefix
 
