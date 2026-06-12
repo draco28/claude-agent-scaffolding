@@ -134,7 +134,7 @@ This step runs only on the success path out of §3.5 — a clean pre-flight with
 3. **Gate (hard-block):** if any command-bearing AC is **already GREEN** (return 1), do NOT enter §4. Surface the offending AC(s) with the observed outcome in a gaps-mode return (§8.2) and stop for the user/orchestrator to resolve. Already-GREEN is the only hard-block; RED and errored-command ACs proceed.
 4. **Skip-escape:** when an AC is flagged already-GREEN (return 1) but that is **legitimate** — e.g. a pure code-deletion AC whose verification is expected to pass, or a state the slice intentionally starts in — the run may override the block via `--allow-skip-thrust-zero`, gated on an explicit `pause_and_ask` confirmation ("AC-N is already GREEN before work — confirm this is expected and proceed? (yes/no)"). Record the override in `report.md`'s Blockers/Notes section (§6 item 8). Never auto-skip.
 
-(Bash execution of `sd redgate_assert_red` is permitted in all modes — the §9 denylist forbids `Task`, `git commit/push/pull/fetch`, and `handing-off-session`; it does not restrict Bash command execution.)
+(Bash execution of `sd redgate_assert_red` is permitted in all modes — the §6.1 denylist forbids `Task`, `git commit/push/pull/fetch`, and `handing-off-session`; it does not restrict Bash command execution.)
 
 ---
 

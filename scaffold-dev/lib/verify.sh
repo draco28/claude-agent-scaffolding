@@ -76,8 +76,8 @@ sd_verify_auto_step() {
 # The agent (executing-work-item §3.6) decides which ACs are command-bearing and
 # when the skip-escape applies; this helper only runs and classifies one command.
 sd_redgate_assert_red() {
-  local cmd="$1" rc
-  bash -c "$cmd" >/dev/null 2>&1; rc=$?
+  local cmd="$1" rc=0
+  if bash -c "$cmd" >/dev/null 2>&1; then rc=0; else rc=$?; fi
   case "$rc" in
     0)        return 1 ;;
     126|127)  return 2 ;;

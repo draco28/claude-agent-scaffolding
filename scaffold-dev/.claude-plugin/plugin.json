@@ -1,7 +1,7 @@
 {
   "name": "scaffold-dev",
   "version": "0.4.0",
-  "description": "Sprint-driven orchestrator-implementer workflow for dual-repo workspaces. 9 skills, 4 slash commands, custom implementer-agent subagent type via Task tool, handoff escape valve. Composes with workspace-init (manifest), scaffold-onboard (R1/R2/R3 contract), architect-critic (filesystem probe + critiquing-spec), ai-mentor (grill-me at 3 gates). Replaces scaffold v1.0.0.",
+  "description": "Sprint-driven orchestrator-implementer workflow for dual-repo workspaces. 11 skills, 4 slash commands, custom implementer-agent subagent type via Task tool, handoff escape valve. Composes with workspace-init (manifest), scaffold-onboard (R1/R2/R3 contract), architect-critic (filesystem probe + critiquing-spec), ai-mentor (grill-me at 3 gates). Replaces scaffold v1.0.0.",
   "author": {"name": "Pras"},
   "category": "workflow",
   "license": "MIT",

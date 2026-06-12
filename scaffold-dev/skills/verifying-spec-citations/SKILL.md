@@ -232,7 +232,7 @@ You surface; the user fixes. After fixing, the user re-runs this skill to confir
 
 **Invoke before:**
 
-- Locking a slice spec for implementer-agent dispatch (between `planning-vertical-slice` gate 2 and architect-critic in §8 of that skill).
+- Locking a slice spec for implementer-agent dispatch (between `planning-vertical-slice` gate 2 and architect-critic in §7 of that skill).
 - Re-checking a spec after a renumber or architecture rename has landed.
 - Reviewing any manually-edited spec where citations may have gone stale.
 

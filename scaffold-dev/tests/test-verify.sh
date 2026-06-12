@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# tests/test-verify.sh — 14 tests for lib/verify.sh
+# tests/test-verify.sh — 23 tests for lib/verify.sh
 
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
+SD_BIN="$(cd "$HERE/.." && pwd)/bin/sd"
 source "$HERE/_helpers.sh"
 source "$HERE/../lib/_helpers.sh"
 source "$HERE/../lib/verify.sh"
@@ -277,6 +278,29 @@ test_redgate_errored_command() {
   assert_eq "uninvocable command is an error, not RED" "2" "$rc"
 }
 
+# 21. redgate via dispatcher — failing command is RED -> return 0
+# Exercises sd_redgate_assert_red through bin/sd (which runs set -euo pipefail),
+# proving the set -e-safe if-branch captures the exit code correctly.
+test_redgate_dispatcher_red() {
+  echo "test_redgate_dispatcher_red:"
+  set +e; "$SD_BIN" redgate_assert_red 'false' >/dev/null 2>&1; local rc=$?; set -e
+  assert_eq "dispatcher: failing command is RED" "0" "$rc"
+}
+
+# 22. redgate via dispatcher — passing command is already-GREEN -> return 1
+test_redgate_dispatcher_green() {
+  echo "test_redgate_dispatcher_green:"
+  set +e; "$SD_BIN" redgate_assert_red 'true' >/dev/null 2>&1; local rc=$?; set -e
+  assert_eq "dispatcher: passing command is already-GREEN" "1" "$rc"
+}
+
+# 23. redgate via dispatcher — uninvocable command (127) -> ERROR, not RED -> return 2
+test_redgate_dispatcher_errored() {
+  echo "test_redgate_dispatcher_errored:"
+  set +e; "$SD_BIN" redgate_assert_red 'this_binary_does_not_exist_xyz' >/dev/null 2>&1; local rc=$?; set -e
+  assert_eq "dispatcher: uninvocable command is errored" "2" "$rc"
+}
+
 test_auto_exit0_pass
 test_auto_exit0_fail
 test_auto_exit_n_match
@@ -297,5 +321,8 @@ test_auto_unicode_arrow
 test_redgate_red_command
 test_redgate_green_command
 test_redgate_errored_command
+test_redgate_dispatcher_red
+test_redgate_dispatcher_green
+test_redgate_dispatcher_errored
 
 sd_test_summary
