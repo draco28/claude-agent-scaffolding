@@ -99,11 +99,47 @@ test_assert_file_not_contains_missing_file_fails() {
   assert_contains "missing-file failure message" "file missing for not-contains-check" "$out"
 }
 
+test_lint_length_under_threshold() {
+  echo "test_lint_length_under_threshold:"
+  # 3-line entry, default threshold 12 -> lean (return 0)
+  local text=$'line one\nline two\nline three'
+  set +e
+  sd_harvest_lint_length "$text" >/dev/null
+  local rc=$?
+  :
+  assert_eq "3-line entry is lean" "0" "$rc"
+}
+
+test_lint_length_over_threshold() {
+  echo "test_lint_length_over_threshold:"
+  # 15-line entry, default threshold 12 -> flagged (return 1), count echoed
+  local text; text="$(printf 'l%.0s\n' $(seq 1 15))"
+  local count rc
+  set +e
+  count="$(sd_harvest_lint_length "$text")"; rc="$?"
+  :
+  assert_eq "15-line entry is flagged" "1" "$rc"
+  assert_eq "echoes the line count" "15" "$count"
+}
+
+test_lint_length_custom_threshold() {
+  echo "test_lint_length_custom_threshold:"
+  local text=$'a\nb\nc\nd\ne'   # 5 lines, threshold 4 -> flagged
+  set +e
+  sd_harvest_lint_length "$text" 4 >/dev/null
+  local rc=$?
+  :
+  assert_eq "5-line entry flagged at threshold 4" "1" "$rc"
+}
+
 test_apply_writes_trailer
 test_apply_idempotent
 test_apply_empty
 test_apply_reroutes_derived_target
 test_apply_allows_dev_authored_target
 test_assert_file_not_contains_missing_file_fails
+test_lint_length_under_threshold
+test_lint_length_over_threshold
+test_lint_length_custom_threshold
 
 sd_test_summary

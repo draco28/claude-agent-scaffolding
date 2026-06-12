@@ -137,3 +137,15 @@ sd_harvest_apply() {
   done
   return 0
 }
+
+# sd_harvest_lint_length <text> [threshold]
+# Mechanical lean-index leg (#48-F): echo the entry's line count; return 1 if it
+# exceeds <threshold> (default 12), else 0. Pure count — the semantic "does this
+# restate tracked content" judgment is the agent's (closing-vertical-slice §9.4).
+sd_harvest_lint_length() {
+  local text="$1" threshold="${2:-12}" count
+  count="$(printf '%s\n' "$text" | grep -c '')"
+  echo "$count"
+  (( count > threshold )) && return 1
+  return 0
+}
