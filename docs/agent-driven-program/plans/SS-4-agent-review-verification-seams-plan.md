@@ -141,17 +141,17 @@ git commit -m "feat(scaffold-dev): add sd_harvest_lint_length lean-index helper 
 
 > **Lean-index check (#48-F, write-time prevention).** Before proposing a target, judge whether the candidate **restates content already tracked** in a doc/ADR/issue (MASTER-SPEC §-ref, an existing ADR id, an open issue). If it does, do NOT harvest the prose — surface a pointer instead (e.g. "see ADR-0007" / "tracked in #N") and route the deferral via `Skill(scaffold-dev:deferring-work-item)` if it is genuinely new debt. Also run the **mechanical length leg**: `sd_harvest_lint_length "<candidate text>"` — if it returns non-zero (exceeds ~12 lines), the entry is too long for a lean index; ask the user to tighten it to a pointer + one-line gist before accepting. These checks are advisory nudges surfaced at step 5, not hard blocks.
 
-- [ ] **Step 3: §9.7 (Apply with provenance trailer)** — replace the "agent appends directly" mechanics with a single `sd_harvest_apply` call so the trailer is mechanical:
+- [ ] **Step 3: §9.7 (Apply with provenance trailer)** — replace the "agent appends directly" mechanics with a single `sd harvest_apply` dispatcher call so the trailer is mechanical:
 
-> Build a JSON array of the accepted/edited candidates — each object `{source, target_file, suggestion}` (report-origin) or `{source, handoff_file, item}` (handoff-origin) — and apply them in one call:
+> Build a JSON array of the accepted/edited candidates — each object `{source, target_file, suggestion}` (report-origin) or `{source, target_file, handoff_file, item}` (handoff-origin) — and apply them in one call:
 > ```bash
-> sd_harvest_apply "$accepted_json" "VS-N.M.K"
+> sd harvest_apply "$accepted_json" "VS-N.M.K"
 > ```
-> `sd_harvest_apply` is the **single mechanical write authority**: it writes each item to its target memory-bank file with the exact provenance trailer, enforces idempotency (skips text already present), and reroutes any spec-derived target to `09-known-issues.md` with a warning. Do **not** hand-author the trailer or append directly — the trailer format is load-bearing (eval S4) and belongs to the helper. `reject` items are simply omitted from the array.
+> `sd harvest_apply` is the **single mechanical write authority**: it writes each item to its target memory-bank file with the exact provenance trailer, enforces idempotency (skips text already present), and reroutes any spec-derived target to `09-known-issues.md` with a warning. Do **not** hand-author the trailer or append directly — the trailer format is load-bearing (eval S4) and belongs to the helper. `reject` items are simply omitted from the array.
 
 - [ ] **Step 4:** Update the bottom "**You** / **Bash helpers**" responsibilities note so `lib/harvest.sh` is listed among the bash helpers (it was omitted), described as "harvest write + idempotency + derived-reroute (`sd_harvest_apply`) and the lean-index length leg (`sd_harvest_lint_length`)".
 
-- [ ] **Step 5:** Sanity-check the skill reads coherently end-to-end (§9.1→§9.8 still an 8-step flow; the agent reads → judges/categorizes/lean-checks → surfaces → consumes decisions → builds JSON → one `sd_harvest_apply` call → records outcomes).
+- [ ] **Step 5:** Sanity-check the skill reads coherently end-to-end (§9.1→§9.8 still an 8-step flow; the agent reads → judges/categorizes/lean-checks → surfaces → consumes decisions → builds JSON → one `sd harvest_apply` call → records outcomes).
 
 - [ ] **Step 6: Commit.**
 
@@ -190,14 +190,14 @@ git commit -m "docs(scaffold-dev): mark report Suggestions section agent-read no
 - Modify: `scaffold-dev/tests/test-e2e.sh`
 - Modify: `scaffold-dev/evals/closing-vertical-slice.md` (S1/S4 harvest scenarios — if present under that path)
 
-- [ ] **Step 1:** In `test-e2e.sh`, find any assertion that calls or depends on `sd_harvest_reports`/`sd_harvest_handoffs`. Re-point each to the kept contract: seed a `report.md` with a free-form Suggestions section + an accepted-items JSON, call `sd_harvest_apply`, and assert the target memory-bank file received the item + provenance trailer (the agent-reading step is exercised by evals, not the bash e2e).
+- [ ] **Step 1:** In `test-e2e.sh`, find any assertion that calls or depends on `sd_harvest_reports`/`sd_harvest_handoffs`. Re-point each to the kept contract: seed a `report.md` with a free-form Suggestions section + an accepted-items JSON, call the harvest writer, and assert the target memory-bank file received the item + provenance trailer (the agent-reading step is exercised by evals, not the bash e2e).
 
 - [ ] **Step 2: Run e2e to confirm green.**
 
 Run: `cd scaffold-dev && bash tests/test-e2e.sh`
 Expected: PASS.
 
-- [ ] **Step 3:** In the `closing-vertical-slice` eval scenarios (S1/S4), update the harvest expectations: the agent reads free-form prose (no grammar), the **write** is a `sd_harvest_apply` invocation (assert the call + resulting file content + trailer, not a hand-authored agent `Write` of the trailer). Add one assertion that a candidate exceeding the lean-index length is surfaced with a tighten-to-pointer nudge.
+- [ ] **Step 3:** In the `closing-vertical-slice` eval scenarios (S1/S4), update the harvest expectations: the agent reads free-form prose (no grammar), the **write** is a `sd harvest_apply` invocation (assert the call + resulting file content + trailer, not a hand-authored agent `Write` of the trailer). Add one assertion that a candidate exceeding the lean-index length is surfaced with a tighten-to-pointer nudge.
 
 - [ ] **Step 4: Commit.**
 
@@ -265,9 +265,8 @@ fi
 # sd_citations_check_file <path> — return 0 if the file exists, else 1 (logs).
 sd_citations_check_file() {
   local p="$1"
-  if [[ -f "$p" ]]; then echo "$p"; return 0; fi
+  if [[ -f "$p" ]]; then return 0; fi
   sd_log_warn "citation: file not found: $p"
-  echo "$p"
   return 1
 }
 
@@ -308,7 +307,7 @@ description: Verify that the citations in a draft vertical-slice spec resolve �
 ---
 ```
 
-- [ ] **Step 2: Write the body** covering: purpose; the mechanical/agent split (table); how to extract each citation class from the draft spec; how to run the mechanical legs (`source lib/citations.sh`; `sd_citations_check_file` for code-fence file paths resolved through `lib/manifest.sh`; `sd_citations_check_signature` for quoted signatures); how to judge the semantic classes (REQ-ID still denotes the same requirement after renumber; ARCH §-ref title still matches after rename — quote the cited section title and compare); the per-project configurable REQ-ID / ARCH regexes with graceful degradation (absent config → run mechanical legs + note that REQ/ARCH judgment was skipped for lack of a scheme); a `file:line` drift report so the user fixes without re-grepping; and the read-only guarantee. Include a worked example surface (a resolved-clean report and a 2-drift report). Mirror the structural conventions of `validating-master-spec` (single authoritative output, no auto-fix).
+- [ ] **Step 2: Write the body** covering: purpose; the mechanical/agent split (table); how to extract each citation class from the draft spec; how to run the mechanical legs (`sd citations_check_file` for file paths in Markdown prose/lists/code blocks resolved through the manifest; `sd citations_check_signature` for quoted signatures); how to judge the semantic classes (REQ-ID still denotes the same requirement after renumber; ARCH §-ref title still matches after rename — quote the cited section title and compare); the per-project configurable REQ-ID / ARCH regexes with graceful degradation (absent config → run mechanical legs + note that REQ/ARCH judgment was skipped for lack of a scheme); a `file:line` drift report so the user fixes without re-grepping; and the read-only guarantee. Include a worked example surface (a resolved-clean report and a 2-drift report). Mirror the structural conventions of `validating-master-spec` (single authoritative output, no auto-fix).
 
 - [ ] **Step 3: Lint the skill** — confirm frontmatter parses and the description triggers are concrete.
 
@@ -392,21 +391,22 @@ Expected: FAIL — `sd_redgate_assert_red` undefined.
 - [ ] **Step 3: Implement** in `lib/verify.sh`:
 
 ```bash
-# sd_redgate_assert_red <command>
-# Pre-flight RED-gate mechanical leg (#5): run <command> and classify its outcome.
-#   exit non-zero (1..126)        → RED (desired pre-flight state)   → return 0
-#   exit 0                        → already GREEN before any work    → return 1
-#   exit 127 / 126 (uninvocable)  → ERROR (harness broken, not RED)  → return 2
-# The agent (executing-work-item §3.6) decides which ACs are command-bearing and
-# when the skip-escape applies; this helper only runs and classifies one command.
+# sd_redgate_assert_red <command> [expected]
+# Pre-flight RED-gate mechanical leg (#5): run <command> and classify whether
+# the AC's expected predicate is already satisfied.
+#   predicate NOT met             → RED (desired pre-flight state)   → return 0
+#   predicate met                 → already GREEN before any work    → return 1
+#   exit 126/127 when unmet       → ERROR (harness broken, not RED)  → return 2
+# If [expected] is omitted, defaults to "exit 0" for backward compatibility.
 sd_redgate_assert_red() {
-  local cmd="$1" rc
-  bash -c "$cmd" >/dev/null 2>&1; rc=$?
-  case "$rc" in
-    0)        return 1 ;;
-    126|127)  return 2 ;;
-    *)        return 0 ;;
-  esac
+  local cmd="${1:-}" expected="${2:-exit 0}" output rc=0
+  if [[ -z "$cmd" ]]; then
+    sd_log_error "sd_redgate_assert_red: command cannot be empty"
+    return 2
+  fi
+  if output="$(bash -c "$cmd" 2>&1)"; then rc=0; else rc=$?; fi
+  # Then compare rc/output against expected; matched predicate returns 1,
+  # unmatched predicate returns 0 except 126/127, which returns 2.
 }
 ```
 
@@ -434,14 +434,14 @@ git commit -m "feat(scaffold-dev): add sd_redgate_assert_red pre-flight gate hel
 > Before writing **any** implementation, prove every `auto:` AC starts RED — so completing the work item is a RED→GREEN flip, not impl-first-tests-after.
 >
 > 1. From the `(ac_label, command, expectation)` tuples (§3.2), **classify** each AC (agent judgment): *test-command-bearing*, *grep-shaped*, or *no-runnable-command* (e.g. a pure code-deletion AC with no failing test).
-> 2. For each command-bearing AC, run its command through the mechanical leg:
+> 2. For each command-bearing AC, run its command through the mechanical leg from inside the worktree, passing the parsed expectation:
 >    ```bash
->    source "<lib>/verify.sh"; sd_redgate_assert_red '<command>'
+>    cd "<worktree-abs-path>" && sd redgate_assert_red '<command>' '<expectation>'
 >    ```
 >    - return 0 → RED ✓ (expected).
 >    - return 1 → **already GREEN before any work** → the AC is satisfied by current state (feature exists / AC mis-specified). Surface this; do NOT silently proceed.
->    - return 2 → **command errored / uninvocable** (broken harness) → surface as a blocker; this is NOT a RED pass.
-> 3. **Gate:** if any command-bearing AC is not RED (return 1 or 2), do NOT enter §4. Surface the offending AC(s) and stop for the user/orchestrator.
+>    - return 2 → **command errored / uninvocable** (broken harness or not-yet-authored test) → surface as a non-blocking advisory unless the spec says the harness must already exist; this is NOT a RED pass.
+> 3. **Gate:** if any command-bearing AC is already GREEN (return 1), do NOT enter §4. Surface the offending AC(s) and stop for the user/orchestrator. RED (0) and errored/uninvocable (2) proceed, with errored cases recorded in the report.
 > 4. **Skip-escape:** for a slice that legitimately has no failing test (e.g. pure code-deletion), the run may pass the gate via `--allow-skip-thrust-zero`, which is gated on an explicit `pause_and_ask` confirmation ("This slice declares no RED test — confirm thrust-0 skip? (yes/no)"). Record the skip in `report.md` §6. Never auto-skip.
 
 - [ ] **Step 2:** Update the §4 lead-in sentence to reference the gate: "Per §3.6 every `auto:` AC has been verified RED (or an explicit thrust-0 skip recorded). Now flip each to GREEN…".

@@ -40,7 +40,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 **Return-mode JSON shape (cross-scenario, BINDING).** The target's final return MUST match one of exactly two JSON skeletons per §6.2 + §6.3:
 
 - **Complete-mode skeleton (S1, S4, S6, S8, S9):**
-  ```
+  ```json
   {"mode": "complete", "report_path": "<abs path>", "summary": "<one-line>", "stage_status": "all_staged | partial | none"}
   ```
   All four keys MUST be present. `mode` MUST be the literal string `"complete"`. `report_path` MUST be an absolute path (starts with `/`). `stage_status` MUST be one of the three literal enum values.
@@ -69,7 +69,7 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
   - `report.md` exists as an empty template placeholder.
 - Canonical worktree at `${canonical.root}/.worktrees/sprint-2.1/work-1.04-<kebab>` exists, is on the work-item branch per `during_dev.branch_naming`, has a clean working tree (no uncommitted modifications, no staged changes), and `git -C <worktree> status` returns "nothing to commit, working tree clean".
 - The implementing changes needed to satisfy the 3 ACs can be authored by a competent implementer-agent given the spec content (i.e., the spec is well-formed and unambiguous — pre-flight will NOT detect gaps).
-- **§3.6 gate note:** all 3 ACs are `pytest`-command-bearing; no test files exist yet in the worktree (they are authored in §4 step 1). Therefore `sd redgate_assert_red` returns 2 (errored/uninvocable, exit 127) for each AC — a non-blocking advisory; the gate records the advisory in the report's Blockers/Notes section and proceeds. The scenario's outcome is unchanged.
+- **§3.6 gate note:** all 3 ACs are `pytest`-command-bearing; no test files exist yet in the worktree (they are authored in §4 step 1). Therefore `cd <worktree> && sd redgate_assert_red '<command>' '<expectation>'` returns 2 (errored/uninvocable, exit 127) for each AC — a non-blocking advisory; the gate records the advisory in the report's Blockers/Notes section and proceeds. The scenario's outcome is unchanged.
 
 **Trigger:** target user message: `execute work item 1.04` (Mode A) OR Task-tool prompt referencing the absolute path to `<ai-workspace>/docs/specs/sprint-2.1/VS-2.1.1-<kebab>/work-1.04-<kebab>/handoff.md` per §6.2 (Mode B).
 
@@ -164,7 +164,7 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 - Dual-repo fixture identical to S1: manifest present, work item `1.04` with `spec.md` + `handoff.md` + empty `report.md`, clean worktree.
 - Spec has 3 `auto:` ACs; the implementer-agent can satisfy ACs 1 and 2 cleanly but AC-3 has a subtle requirement that the agent's implementation does NOT satisfy (e.g., AC-3 demands a specific exception class hierarchy that the implementer's code uses a different way). Pre-flight does NOT detect this — the ambiguity-detection sweep is shallow per §6.2 step 1, and the AC text itself is unambiguous; the failure only surfaces when the verification command runs.
 - Pre-injected user follow-ups: none. The skill should complete its work (author report, stage changes) and return complete-mode with the failure noted; the §12.2 "AC verification fail" menu is the ORCHESTRATOR's response, not the subagent's. The subagent's job is to honestly report what happened.
-- **§3.6 gate note:** as in S1, test files for all 3 ACs do not exist in the clean worktree at pre-flight time; `sd redgate_assert_red` returns 2 (exit 127) for each — non-blocking advisory, gate records it in report Blockers/Notes and proceeds. The scenario's already-GREEN vs. complete-with-failure concern lies in the §5 verification phase, not the §3.6 gate.
+- **§3.6 gate note:** as in S1, test files for all 3 ACs do not exist in the clean worktree at pre-flight time; `cd <worktree> && sd redgate_assert_red '<command>' '<expectation>'` returns 2 (exit 127) for each — non-blocking advisory, gate records it in report Blockers/Notes and proceeds. The scenario's already-GREEN vs. complete-with-failure concern lies in the §5 verification phase, not the §3.6 gate.
 
 **Trigger:** target user message: `execute work item 1.04` (same trigger as S1; same phrase, different fixture state — verifies trigger-phrase reuse is OK).
 
@@ -196,8 +196,8 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 
 **Setup:**
 - Dual-repo fixture identical to S1: manifest present, work item `1.04` exists with unambiguous `spec.md` + `handoff.md` + empty `report.md`, worktree clean on the expected branch.
-- Spec has 3 command-bearing `auto:` ACs. The fixture is crafted so that:
-  - **AC-1 and AC-2** — test files exist in the worktree but all tests in them currently fail (return non-zero); `sd redgate_assert_red` returns 0 (RED ✓) for each.
+- Spec has 3 command-bearing `auto:` ACs. The fixture is crafted so that each RED-gate invocation runs as `cd <worktree> && sd redgate_assert_red '<command>' '<expectation>'`:
+  - **AC-1 and AC-2** — test files exist in the worktree but all tests in them currently fail their expected predicate; `sd redgate_assert_red` returns 0 (RED ✓) for each.
   - **AC-3** — the AC's test file does NOT yet exist in the worktree (it will be authored in §4 step 1); `sd redgate_assert_red` returns 2 (exit 127, errored/uninvocable) for AC-3.
 - Pre-injected user follow-ups: none. The gate runs after pre-flight and proceeds into §4.
 
@@ -205,14 +205,14 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 
 **Expected behavior:**
 - Pre-flight phase completes cleanly (no gaps, no dirty worktree); target proceeds to §3.6.
-- **§3.6 RED-gate phase:** target runs `sd redgate_assert_red '<command>'` (or equivalent `sd redgate_assert_red` dispatch) for each of the 3 command-bearing ACs. AC-1 and AC-2 return 0 (RED ✓ — proceed). AC-3 returns 2 (errored/uninvocable) — target records a non-blocking advisory for AC-3 in `report.md`'s Blockers/Notes section (§6 item 8) and PROCEEDS.
+- **§3.6 RED-gate phase:** target runs `cd <worktree> && sd redgate_assert_red '<command>' '<expectation>'` (or equivalent dispatcher invocation with worktree cwd and expectation argument) for each of the 3 command-bearing ACs. AC-1 and AC-2 return 0 (RED ✓ — proceed). AC-3 returns 2 (errored/uninvocable) — target records a non-blocking advisory for AC-3 in `report.md`'s Blockers/Notes section (§6 item 8) and PROCEEDS.
 - No already-GREEN AC is detected; the hard-block condition is NOT triggered.
 - Target enters §4 TDD loop and completes the execution path (TDD → verify → report → stage → complete-mode return) per S1's expected behavior.
 - The `report.md`'s Blockers/Notes section names AC-3's errored command as a non-blocking advisory (exit 127, test file not yet present at gate time).
 
 **Assertion (judge subagent verifies):**
 - **No-commit invariant:** the literal token `git commit` does NOT appear anywhere in the target's tool-call log.
-- Target's tool-call log shows at least 3 Bash invocations of `sd redgate_assert_red` (or equivalent `sd redgate_assert_red <command>`) — one per command-bearing AC — positioned AFTER the pre-flight Reads + `git -C <worktree> status` check AND BEFORE the first `Write`/`Edit` to any worktree source file. Judge verifies the ordering by inspecting tool-call sequence numbers (RED-gate invocations appear strictly between the last pre-flight Read/status call and the first §4 source edit).
+- Target's tool-call log shows at least 3 Bash invocations of `sd redgate_assert_red` — one per command-bearing AC — with the worktree as cwd (for example, `cd <worktree> && sd redgate_assert_red ...`) and with the AC expectation passed as an argument. They are positioned AFTER the pre-flight Reads + `git -C <worktree> status` check AND BEFORE the first `Write`/`Edit` to any worktree source file. Judge verifies the ordering by inspecting tool-call sequence numbers (RED-gate invocations appear strictly between the last pre-flight Read/status call and the first §4 source edit).
 - None of the `sd redgate_assert_red` calls trigger a gaps-mode return; target continues to §4.
 - Target's tool-call log shows the AC-3 errored command does NOT produce a gaps-mode return; instead the run proceeds to §4 source edits.
 - The `report.md` authored in §6 contains a Blockers/Notes entry (§6 item 8) acknowledging the errored AC-3 command (references "exit 127" or "test file not yet present" or equivalent advisory language).
@@ -227,7 +227,7 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 
 **Setup:**
 - Dual-repo fixture: manifest present, work item `1.04` exists with unambiguous `spec.md` + `handoff.md` + empty `report.md`, worktree clean on the expected branch.
-- Spec has 3 command-bearing `auto:` ACs. The fixture is crafted so that:
+- Spec has 3 command-bearing `auto:` ACs. The fixture is crafted so that each RED-gate invocation runs from the worktree and receives the parsed expectation:
   - **AC-1 and AC-3** — `sd redgate_assert_red` returns 0 (RED ✓); behavior not yet implemented.
   - **AC-2** — `sd redgate_assert_red` returns 1 (already GREEN before any work); the feature described by AC-2 is already present in the worktree (e.g., the grepped constant `FEATURE_FLAG_X` already exists in `src/foo.py` from a prior incomplete session, or the AC is mis-specified and the behavior has always been there).
 - Pre-injected user follow-ups: none. The gate should hard-block and return gaps-mode naming the offending AC.
@@ -236,13 +236,13 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 
 **Expected behavior:**
 - Pre-flight phase completes cleanly; target proceeds to §3.6.
-- **§3.6 RED-gate phase:** target runs `sd redgate_assert_red` for AC-1 (returns 0 — RED ✓, proceed), then AC-2 (returns 1 — already GREEN). Target detects the hard-block condition.
+- **§3.6 RED-gate phase:** target runs `cd <worktree> && sd redgate_assert_red '<command>' '<expectation>'` for AC-1 (returns 0 — RED ✓, proceed), then AC-2 (returns 1 — already GREEN). Target detects the hard-block condition.
 - Target does NOT enter §4. Target does NOT write or edit any worktree source file. Target does NOT run `git add`. Target does NOT author `report.md`.
 - Target returns **gaps-mode** with an entry naming the already-GREEN AC-2 and its observed outcome: e.g., `{"section": "§3.6 RED-gate — AC-2", "question": "AC-2's verification command already exits 0 in the clean worktree before any implementation — is the AC mis-specified, or is the feature already present? Resolve before re-dispatching.", "severity": "blocking"}`.
 
 **Assertion (judge subagent verifies):**
 - **No-commit invariant:** the literal token `git commit` does NOT appear anywhere in the target's tool-call log.
-- Target's tool-call log shows `sd redgate_assert_red` invocations positioned AFTER the pre-flight status check AND BEFORE any worktree source-file `Write`/`Edit`.
+- Target's tool-call log shows `sd redgate_assert_red` invocations positioned AFTER the pre-flight status check AND BEFORE any worktree source-file `Write`/`Edit`, and those invocations run with the worktree as cwd while passing each AC's expectation.
 - Target's tool-call log shows NO `Write`/`Edit` to any worktree source file after the RED-gate detects the already-GREEN AC-2 (hard-block precedes any §4 work).
 - Target's tool-call log shows NO `git add` invocation (staging does not occur on a gaps-mode return).
 - Target's tool-call log shows NO `Write`/`Edit` of `report.md` (report is not authored when the run hard-blocks at §3.6).
@@ -258,7 +258,7 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 
 **Setup:**
 - Dual-repo fixture: manifest present, work item `1.04` exists with unambiguous `spec.md` + `handoff.md` + empty `report.md`, worktree clean on the expected branch.
-- Spec has 2 command-bearing `auto:` ACs. The fixture is crafted so that:
+- Spec has 2 command-bearing `auto:` ACs. The fixture is crafted so that each RED-gate invocation runs from the worktree and receives the parsed expectation:
   - **AC-1** — `sd redgate_assert_red` returns 0 (RED ✓).
   - **AC-2** — `sd redgate_assert_red` returns 2 (exit 127, uninvocable). The test file referenced by AC-2's command does not exist yet in the worktree; the test runner cannot locate it. This is the expected state before §4 step 1 authors the test file.
 - Pre-injected user follow-ups: none. The errored command must produce an advisory, not a hard-block.
@@ -267,7 +267,7 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 
 **Expected behavior:**
 - Pre-flight phase completes cleanly; target proceeds to §3.6.
-- **§3.6 RED-gate phase:** target runs `sd redgate_assert_red` for AC-1 (returns 0 — RED ✓, proceed) and AC-2 (returns 2 — errored/uninvocable). Target classifies AC-2's result as a non-blocking advisory.
+- **§3.6 RED-gate phase:** target runs `cd <worktree> && sd redgate_assert_red '<command>' '<expectation>'` for AC-1 (returns 0 — RED ✓, proceed) and AC-2 (returns 2 — errored/uninvocable). Target classifies AC-2's result as a non-blocking advisory.
 - Target does NOT return gaps-mode for the errored AC-2. Target records the advisory in `report.md`'s Blockers/Notes section (§6 item 8) and PROCEEDS to §4.
 - Target enters §4, authors the AC-2 test file (§4 step 1), and completes the full TDD loop for both ACs.
 - Report's Blockers/Notes section explicitly notes the §3.6 advisory for AC-2 (errored command at gate time; test file authored in §4).
@@ -290,7 +290,7 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 
 **Setup:**
 - Dual-repo fixture: manifest present, work item `1.04` exists with unambiguous `spec.md` + `handoff.md` + empty `report.md`, worktree clean on the expected branch.
-- Spec has 2 command-bearing `auto:` ACs. The fixture is crafted so that:
+- Spec has 2 command-bearing `auto:` ACs. The fixture is crafted so that each RED-gate invocation runs from the worktree and receives the parsed expectation:
   - **AC-1** — `sd redgate_assert_red` returns 0 (RED ✓).
   - **AC-2** — `sd redgate_assert_red` returns 1 (already GREEN). However, the already-GREEN state is **legitimate** — AC-2 is a pure code-deletion AC whose verification check (e.g., `grep -q "OLD_SYMBOL" src/foo.py` → expected exit 1 meaning the symbol is absent) was designed to pass BEFORE implementation because the deletion was applied to main before the work item was dispatched, and the AC exists to confirm it.
 - The orchestrator's dispatch prompt includes `--allow-skip-thrust-zero` and the pre-loaded user answer "yes" for the `pause_and_ask` confirmation.
@@ -300,7 +300,7 @@ The judge verifies these as exact-string structural assertions, not paraphrase. 
 
 **Expected behavior:**
 - Pre-flight phase completes cleanly; target proceeds to §3.6.
-- **§3.6 RED-gate phase:** target runs `sd redgate_assert_red` for AC-1 (returns 0 — proceed) and AC-2 (returns 1 — already GREEN).
+- **§3.6 RED-gate phase:** target runs `cd <worktree> && sd redgate_assert_red '<command>' '<expectation>'` for AC-1 (returns 0 — proceed) and AC-2 (returns 1 — already GREEN).
 - Because `--allow-skip-thrust-zero` is present, target does NOT immediately hard-block. Instead, target emits an explicit `pause_and_ask` confirmation: "AC-2 is already GREEN before any work — confirm this is expected and proceed? (yes/no)".
 - The pre-loaded "yes" answer is consumed. Target records the skip-escape override in `report.md`'s Blockers/Notes section (§6 item 8) — noting which AC was overridden, that `--allow-skip-thrust-zero` was asserted, and the operator's confirmation.
 - Target proceeds to §4 for AC-1 only (AC-2 is skipped per the override). Complete-mode return.

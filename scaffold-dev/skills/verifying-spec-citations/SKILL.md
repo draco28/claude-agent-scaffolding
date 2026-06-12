@@ -15,7 +15,7 @@ Two legs power this skill: the mechanical leg (`lib/citations.sh` — determinis
 
 When invoked, you:
 
-1. **Locate** the draft spec path(s) — either the canonical `<ai-workspace>/docs/specs/sprint-N/VS-N.M-*/spec.md` location or any path the user names.
+1. **Locate** the draft spec path(s) — either the canonical `<ai-workspace>/docs/specs/sprint-N/VS-N.M.K-*/work-N.NN-*/spec.md` location or any path the user names.
 2. **Read** the spec with the Read tool; extract the four citation classes (§4).
 3. **Run mechanical checks** for file paths and quoted signatures via `lib/citations.sh` (§5).
 4. **Apply agent judgment** for REQ-IDs and ARCH §-refs (§6).
@@ -30,7 +30,7 @@ Validation is read-only. No writes, no auto-fixes, no spec edits — ever.
 
 | Citation class | How verified | Authority |
 |---|---|---|
-| File paths (in code-fence blocks) | `sd_citations_check_file` — manifest-routed `test -f` | mechanical |
+| File paths (Markdown prose, lists, and code blocks) | `sd_citations_check_file` — manifest-routed `test -f` | mechanical |
 | Quoted function signatures | `sd_citations_check_signature` — `grep -F` exact match | mechanical |
 | REQ-IDs (e.g. `REQ-OTP-7`) | Agent judges whether the ID still denotes the SAME requirement after renumber | agent |
 | ARCH §-refs (e.g. `ARCHITECTURE.md §3`) | Agent judges whether the cited section title/content still matches after rename | agent |
@@ -46,7 +46,7 @@ The spec path(s) to check. Two resolution patterns:
 **Pattern A — canonical location** (after `planning-vertical-slice` has scaffolded the slice):
 
 ```
-<ai-workspace>/docs/specs/sprint-<sprint_id>/VS-N.M-<kebab>/work-N.NN-<kebab>/spec.md
+<ai-workspace>/docs/specs/sprint-<sprint_id>/VS-N.M.K-<kebab>/work-N.NN-<kebab>/spec.md
 ```
 
 Resolve `<ai-workspace>` from the manifest via `sd manifest_get '.ai_workspace.root'`. Use glob to locate the VS directory when the exact kebab is unknown (same glob pattern as `implementation-checking` §3.4).
@@ -67,10 +67,10 @@ Read the resolved spec with the Read tool before any extraction step.
 
 After reading the spec text, extract citations as follows:
 
-**File paths** — any path token appearing inside a fenced code block (` ``` ` or indented block). Patterns to match:
+**File paths** — any path token appearing in Markdown prose, list items, inline code, fenced code blocks (` ``` `), or indented blocks. Most work-item specs cite files in sections like `Files to modify`, `Reference index`, or AC prose; do not restrict extraction to code blocks. Patterns to match:
 
 - Absolute paths: `/` prefix
-- Relative paths from canonical root: paths containing `/` that do not start with `http`
+- Relative paths from canonical or ai-workspace root: paths containing `/` that do not start with `http`
 - Commonly cited: `src/`, `lib/`, `tests/`, `docs/`, `scripts/` subtrees
 
 Collect each distinct path token and the line number where it appears.
@@ -104,14 +104,19 @@ canonical="$(sd manifest_get '.canonical.root')"
 ai_workspace="$(sd manifest_get '.ai_workspace.root')"
 ```
 
-For each extracted **file path**, resolve it against the manifest: paths that begin with `src/`, `lib/`, `tests/` typically live under the canonical root; paths that begin with `docs/` typically live under the ai_workspace root. When ambiguous, try both and use whichever resolves (first hit wins):
+For each extracted **file path**, resolve it against the manifest: absolute paths are checked verbatim; paths that begin with `src/`, `lib/`, `tests/`, or `scripts/` typically live under the canonical root; paths that begin with `docs/` typically live under the ai_workspace root. When ambiguous, try both and use whichever resolves (first hit wins):
 
 ```bash
 # Example: check a cited file path
-resolved_path="${canonical}/${cited_path}"
-sd citations_check_file "$resolved_path"
-# If exit 1, try ai_workspace root:
-# sd citations_check_file "${ai_workspace}/${cited_path}"
+if [[ "$cited_path" = /* ]]; then
+  sd citations_check_file "$cited_path"
+else
+  resolved_path="${canonical}/${cited_path}"
+  if ! sd citations_check_file "$resolved_path"; then
+    resolved_path="${ai_workspace}/${cited_path}"
+    sd citations_check_file "$resolved_path"
+  fi
+fi
 ```
 
 `sd_citations_check_file` returns 0 if the file exists, 1 and logs a warning if not.

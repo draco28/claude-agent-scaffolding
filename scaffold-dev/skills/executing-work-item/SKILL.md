@@ -127,7 +127,12 @@ If all three sub-checks in §3.3 pass AND §3.4 finds no blocking ambiguities: p
 This step runs only on the success path out of §3.5 — a clean pre-flight with no blocking gaps. Before writing **any** implementation, prove no `auto:` AC is **already GREEN** — so the work item is genuinely unstarted and completing it is a RED→GREEN flip, not a no-op or impl-first-tests-after.
 
 1. From the `(ac_label, command, expectation)` tuples (§3.2), **classify** each AC (agent judgment): *test-command-bearing*, *grep-shaped*, or *no-runnable-command* (e.g. a pure code-deletion AC).
-2. For each command-bearing AC, run its command through the mechanical leg (`sd_redgate_assert_red` in `lib/verify.sh`, dispatchable as `sd redgate_assert_red '<command>'`):
+2. For each command-bearing AC, run its command through the mechanical leg (`sd_redgate_assert_red` in `lib/verify.sh`, dispatchable as `sd redgate_assert_red '<command>' '<expectation>'`). Run the dispatcher from inside the worktree so relative AC commands inspect the target tree, not the inherited AI-workspace cwd:
+
+   ```bash
+   cd "<worktree-abs-path>" && sd redgate_assert_red '<command>' '<expectation>'
+   ```
+
    - **return 0 → RED ✓** — the behavior isn't implemented yet. Proceed.
    - **return 1 → already GREEN before any work** — the AC is satisfied by current state (the feature already exists, or the AC is mis-specified). This is the gate's **hard-block** condition (step 3).
    - **return 2 → command errored / uninvocable** (exit 126/127) — most often the test file simply isn't authored yet (expected: §4 step 1 authors it), or a runner is missing. Treat as a **non-blocking advisory**: note it in `report.md`'s Blockers/Notes section (§6 item 8) and proceed to §4. Do **not** hard-block on this. (If you classified the test as one that *should* already exist, call the broken harness out prominently in the report — but still proceed; §4's per-AC run will resurface a genuinely broken runner immediately.)

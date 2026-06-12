@@ -51,6 +51,10 @@ sd_verify_auto_step() {
       ;;
     "exit "*)
       local code="${expected#exit }"
+      if [[ ! "$code" =~ ^[0-9]+$ ]]; then
+        sd_log_error "sd_verify_auto_step: invalid exit code in expected form: $expected"
+        return 2
+      fi
       [[ "$ec" -eq "$code" ]] && return 0 || return 1
       ;;
     "output contains "*)
@@ -68,18 +72,42 @@ sd_verify_auto_step() {
   esac
 }
 
-# sd_redgate_assert_red <command>
-# Pre-flight RED-gate mechanical leg (#5): run <command> and classify its outcome.
-#   exit non-zero (1..125)        -> RED (desired pre-flight state)   -> return 0
-#   exit 0                        -> already GREEN before any work    -> return 1
-#   exit 126/127 (uninvocable)    -> ERROR (harness broken, not RED)  -> return 2
-# The agent (executing-work-item §3.6) decides which ACs are command-bearing and
-# when the skip-escape applies; this helper only runs and classifies one command.
+# sd_redgate_assert_red <command> [expected]
+# Pre-flight RED-gate mechanical leg (#5): run <command> and classify whether
+# the AC's expected predicate is already satisfied.
+#   predicate NOT met             -> RED (desired pre-flight state)   -> return 0
+#   predicate met                 -> already GREEN before any work    -> return 1
+#   exit 126/127 when unmet       -> ERROR (harness broken, not RED)  -> return 2
+# If [expected] is omitted, defaults to "exit 0" for backward compatibility.
 sd_redgate_assert_red() {
-  local cmd="$1" rc=0
-  if bash -c "$cmd" >/dev/null 2>&1; then rc=0; else rc=$?; fi
+  local cmd="${1:-}" expected="${2:-exit 0}" output rc=0
+  if [[ -z "$cmd" ]]; then
+    sd_log_error "sd_redgate_assert_red: command cannot be empty"
+    return 2
+  fi
+
+  if output="$(bash -c "$cmd" 2>&1)"; then rc=0; else rc=$?; fi
+
+  case "$expected" in
+    "exit "*)
+      local code="${expected#exit }"
+      if [[ ! "$code" =~ ^[0-9]+$ ]]; then
+        sd_log_error "sd_redgate_assert_red: invalid exit code in expected form: $expected"
+        return 2
+      fi
+      if [[ "$rc" -eq "$code" ]]; then return 1; fi
+      ;;
+    "output contains "*)
+      local needle="${expected#output contains }"
+      if echo "$output" | grep -qF -- "$needle"; then return 1; fi
+      ;;
+    *)
+      sd_log_error "sd_redgate_assert_red: unknown expected form: $expected"
+      return 2
+      ;;
+  esac
+
   case "$rc" in
-    0)        return 1 ;;
     126|127)  return 2 ;;
     *)        return 0 ;;
   esac

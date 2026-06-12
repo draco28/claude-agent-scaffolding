@@ -319,7 +319,7 @@ routing): caveats / gotchas / stack notes → `09-known-issues.md`; decisions / 
 patterns → `10-decisions-log.md`; an enforceable pattern → NOT a raw harvest append —
 route the user to `Skill(scaffold-onboard:authoring-machine-checkable-rules)` so it
 lands in `03`'s preserved rules zone. Spec-derived files (`00,01,02,04,07,08,index`)
-and `03`'s derived prose are **never** harvest targets; `sd_harvest_apply` reroutes any
+and `03`'s derived prose are **never** harvest targets; `sd harvest_apply` reroutes any
 such target to `09-known-issues.md` and warns. (There is no `06-product-context.md`
 file — `06` is `06-progress`; `01` is product-context.) Surface the proposed target
 alongside the candidate at step 5.
@@ -352,7 +352,7 @@ Per item: accept (apply as-is) / edit (give me the revised text) / reject (drop)
 > Targets are dev-authored files only (`09`/`10`). A candidate that is a strictly
 > **enforceable** rule (not advisory prose) is NOT harvested into `03` as raw text —
 > route it to `Skill(scaffold-onboard:authoring-machine-checkable-rules)` so it lands
-> in `03`'s preserved rules zone as a machine-checkable rule. `sd_harvest_apply`
+> in `03`'s preserved rules zone as a machine-checkable rule. `sd harvest_apply`
 > reroutes any spec-derived target to `09-known-issues.md` and warns.
 ```
 
@@ -365,17 +365,17 @@ For each candidate, accept the user's decision: `accept`, `edit: <new text>`, or
 Build a JSON array of all accepted / edited candidates — one object per item:
 
 - Report-origin item: `{"source": "report", "target_file": "<filename>.md", "suggestion": "<text>"}`
-- Handoff-origin item: `{"source": "handoff", "handoff_file": "<vs-N.M.K-*.md basename>", "item": "<text>"}`
+- Handoff-origin item: `{"source": "handoff", "target_file": "<filename>.md", "handoff_file": "<vs-N.M.K-*.md basename>", "item": "<text>"}`
 
 Then apply in one call:
 
 ```bash
-sd_harvest_apply "$accepted_json" "VS-N.M.K"
+sd harvest_apply "$accepted_json" "VS-N.M.K"
 ```
 
-`sd_harvest_apply` is the **single mechanical write authority**: it writes each item to its target memory-bank file at `${ai_workspace}/.claude/memory-bank/<file>.md` with the exact provenance trailer, enforces idempotency (skips text already present), and reroutes any spec-derived target to `09-known-issues.md` with a warning. Do **not** hand-author the trailer or append directly — the trailer format is load-bearing (eval S4) and belongs to the helper.
+The dispatcher call `sd harvest_apply` is the **single mechanical write authority**: it writes each item to its target memory-bank file at `${ai_workspace}/.claude/memory-bank/<file>.md` with the exact provenance trailer, enforces idempotency (skips text already present), and reroutes any spec-derived target to `09-known-issues.md` with a warning. Do **not** hand-author the trailer or append directly — the trailer format is load-bearing (eval S4) and belongs to the helper.
 
-The provenance trailer format `sd_harvest_apply` produces (documented here for eval reference):
+The provenance trailer format `sd harvest_apply` produces (documented here for eval reference):
 
 ```
 <!-- Added from VS-N.M.K retrospective, YYYY-MM-DD; source: report -->
@@ -387,7 +387,7 @@ or
 <!-- Added from VS-N.M.K retrospective, YYYY-MM-DD; source: handoff -->
 ```
 
-The `source:` field MUST exactly match the candidate's origin (`report` for report-sourced, `handoff` for handoff-sourced) — this is enforced by the helper based on the object shape passed. Eval S4 explicitly rejects: missing trailer, missing `source:` field, mis-labeled source (e.g., `source: report` on a handoff-origin item). Eval S1 accepts minor date-format variation but rejects missing `VS-N.M.K` reference.
+Every accepted item MUST include `target_file`. The `source:` field MUST be set by the agent to exactly match the candidate's origin (`report` for report-sourced, `handoff` for handoff-sourced); `sd harvest_apply` writes the provided source verbatim. Eval S4 explicitly rejects: missing trailer, missing `source:` field, mis-labeled source (e.g., `source: report` on a handoff-origin item). Eval S1 accepts minor date-format variation but rejects missing `VS-N.M.K` reference.
 
 For `reject` decisions: omit those items from the `$accepted_json` array — do NOT write to any memory-bank file. The candidate is dropped. Eval S4 asserts filesystem diff confirms only the count of accepted items appears as memory-bank file modifications.
 

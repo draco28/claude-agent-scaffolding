@@ -13,12 +13,11 @@ if ! declare -F sd_log_info >/dev/null 2>&1; then
 fi
 
 # sd_citations_check_file <path>
-# Return 0 if the file exists, else 1 (logs a warning). Echoes the path either way.
+# Return 0 if the file exists, else 1 (logs a warning). Callers use exit status.
 sd_citations_check_file() {
   local p="$1"
-  if [[ -f "$p" ]]; then echo "$p"; return 0; fi
+  if [[ -f "$p" ]]; then return 0; fi
   sd_log_warn "citation: file not found: $p"
-  echo "$p"
   return 1
 }
 

@@ -16,7 +16,6 @@ test_check_file_exists() {
   set +e
   sd_citations_check_file "$f" >/dev/null 2>&1
   local rc=$?
-  :
   assert_eq "existing file returns 0" "0" "$rc"
   rm -rf "$TMP_DIR"
 }
@@ -29,7 +28,6 @@ test_check_file_missing() {
   set +e
   sd_citations_check_file "$f" >/dev/null 2>&1
   local rc=$?
-  :
   assert_eq "missing file returns 1" "1" "$rc"
   rm -rf "$TMP_DIR"
 }
@@ -43,7 +41,6 @@ test_check_signature_exact_match() {
   set +e
   sd_citations_check_signature "$f" "def foo(a, b):" >/dev/null 2>&1
   local rc=$?
-  :
   assert_eq "exact signature found returns 0" "0" "$rc"
   rm -rf "$TMP_DIR"
 }
@@ -58,8 +55,22 @@ test_check_signature_drifted() {
   set +e
   sd_citations_check_signature "$f" "def foo(a, b):" >/dev/null 2>&1
   local rc=$?
-  :
   assert_eq "drifted signature returns 1" "1" "$rc"
+  rm -rf "$TMP_DIR"
+}
+
+# 5. sd_citations_check_file returns status only; stdout is not a signal.
+test_check_file_no_stdout() {
+  echo "test_check_file_no_stdout:"
+  TMP_DIR="$(mktemp -d -t sd-cit-test.XXXXXX)"
+  local f="$TMP_DIR/real.py"
+  echo "# content" > "$f"
+  local out
+  set +e
+  out="$(sd_citations_check_file "$f" 2>/dev/null)"
+  local rc=$?
+  assert_eq "existing file returns 0" "0" "$rc"
+  assert_eq "existing file stdout is empty" "" "$out"
   rm -rf "$TMP_DIR"
 }
 
@@ -67,5 +78,6 @@ test_check_file_exists
 test_check_file_missing
 test_check_signature_exact_match
 test_check_signature_drifted
+test_check_file_no_stdout
 
 sd_test_summary
