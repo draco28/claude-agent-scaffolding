@@ -247,6 +247,36 @@ EOF
   assert_eq "inline AC-99 in command/predicate ignored; only AC-1 required → rc=0" "0" "$rc"
 }
 
+# 18. redgate — failing command is RED (gate-pass) -> return 0
+test_redgate_red_command() {
+  echo "test_redgate_red_command:"
+  set +e
+  sd_redgate_assert_red 'false'
+  local rc=$?
+  :
+  assert_eq "failing command is RED" "0" "$rc"
+}
+
+# 19. redgate — passing command is already GREEN (gate-fail) -> return 1
+test_redgate_green_command() {
+  echo "test_redgate_green_command:"
+  set +e
+  sd_redgate_assert_red 'true'
+  local rc=$?
+  :
+  assert_eq "passing command is not RED" "1" "$rc"
+}
+
+# 20. redgate — uninvocable command (127) -> ERROR, not RED -> return 2
+test_redgate_errored_command() {
+  echo "test_redgate_errored_command:"
+  set +e
+  sd_redgate_assert_red 'this_binary_does_not_exist_xyz'
+  local rc=$?
+  :
+  assert_eq "uninvocable command is an error, not RED" "2" "$rc"
+}
+
 test_auto_exit0_pass
 test_auto_exit0_fail
 test_auto_exit_n_match
@@ -264,5 +294,8 @@ test_report_cross_check_excludes_user_rows
 test_report_cross_check_ignores_inline_ac_token
 test_auto_output_includes_stderr
 test_auto_unicode_arrow
+test_redgate_red_command
+test_redgate_green_command
+test_redgate_errored_command
 
 sd_test_summary

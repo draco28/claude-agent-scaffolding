@@ -68,6 +68,23 @@ sd_verify_auto_step() {
   esac
 }
 
+# sd_redgate_assert_red <command>
+# Pre-flight RED-gate mechanical leg (#5): run <command> and classify its outcome.
+#   exit non-zero (1..125)        -> RED (desired pre-flight state)   -> return 0
+#   exit 0                        -> already GREEN before any work    -> return 1
+#   exit 126/127 (uninvocable)    -> ERROR (harness broken, not RED)  -> return 2
+# The agent (executing-work-item §3.6) decides which ACs are command-bearing and
+# when the skip-escape applies; this helper only runs and classifies one command.
+sd_redgate_assert_red() {
+  local cmd="$1" rc
+  bash -c "$cmd" >/dev/null 2>&1; rc=$?
+  case "$rc" in
+    0)        return 1 ;;
+    126|127)  return 2 ;;
+    *)        return 0 ;;
+  esac
+}
+
 # sd_verify_report_cross_check <report.md> <spec.md>
 # Confirms each AC-N: ... line in spec.md is referenced (by ID) in report.md.
 # Returns 0 when every AC ID is covered; 1 when one or more are missing OR
