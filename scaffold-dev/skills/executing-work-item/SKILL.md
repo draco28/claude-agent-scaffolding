@@ -124,27 +124,23 @@ If all three sub-checks in §3.3 pass AND §3.4 finds no blocking ambiguities: p
 
 ### 3.6 Pre-flight RED-gate (mandatory before §4 GREEN work)
 
-This step runs only on the success path out of §3.5 — a clean pre-flight with no blocking gaps. Before writing **any** implementation, prove every `auto:` AC starts RED — so completing the work item is a RED→GREEN flip, not impl-first-tests-after.
+This step runs only on the success path out of §3.5 — a clean pre-flight with no blocking gaps. Before writing **any** implementation, prove no `auto:` AC is **already GREEN** — so the work item is genuinely unstarted and completing it is a RED→GREEN flip, not a no-op or impl-first-tests-after.
 
-1. **Classify** each `(ac_label, command, expectation)` tuple from §3.2 (agent judgment): *test-command-bearing* (a pytest / npm test / similar invocation), *grep-shaped* (a `grep`/`output contains` probe against existing output), or *no-runnable-command* (e.g. a pure code-deletion AC with no associated failing test).
-2. **For each command-bearing AC**, run its command through the mechanical leg via Bash:
-   ```bash
-   sd redgate_assert_red '<command>'
-   ```
-   (`sd_redgate_assert_red` in `lib/verify.sh`, dispatchable as `sd redgate_assert_red '<command>'` via the `bin/sd` dispatcher.) Interpret the return code:
-   - **0 → RED ✓** — expected; the AC's behavior is not yet implemented. Continue to the next AC.
-   - **1 → already GREEN** — the AC is satisfied by current state (feature already exists, or the AC is mis-specified). Do NOT silently proceed; surface this AC with observed outcome and stop.
-   - **2 → command errored / uninvocable** — broken harness, missing test runner, or unparseable command. This is NOT a RED pass; surface as a blocker and stop.
-3. **Gate:** if any command-bearing AC returns 1 or 2, do NOT enter §4. Surface the offending AC(s) with their return code and observed output in a gaps-mode return (§8.2), treating each as a blocking gap (section: `"RED-gate AC-N"`, question: a concrete description of the already-GREEN or errored state).
-4. **Skip-escape (thrust-0):** for a slice that legitimately has no command-bearing ACs at all (e.g. pure code-deletion with no failing test), the gate passes automatically. Before proceeding, issue a `pause_and_ask` confirmation: *"This slice declares no RED test — confirm thrust-0 skip? (yes/no)"*. On `yes`, record `RED-gate: thrust-0 skip confirmed` in `report.md`'s "Blockers / Notes" section (§6.8) and continue to §4. On `no` or no response, stop and await direction. **Never auto-skip without explicit confirmation.**
+1. From the `(ac_label, command, expectation)` tuples (§3.2), **classify** each AC (agent judgment): *test-command-bearing*, *grep-shaped*, or *no-runnable-command* (e.g. a pure code-deletion AC).
+2. For each command-bearing AC, run its command through the mechanical leg (`sd_redgate_assert_red` in `lib/verify.sh`, dispatchable as `sd redgate_assert_red '<command>'`):
+   - **return 0 → RED ✓** — the behavior isn't implemented yet. Proceed.
+   - **return 1 → already GREEN before any work** — the AC is satisfied by current state (the feature already exists, or the AC is mis-specified). This is the gate's **hard-block** condition (step 3).
+   - **return 2 → command errored / uninvocable** (exit 126/127) — most often the test file simply isn't authored yet (expected: §4 step 1 authors it), or a runner is missing. Treat as a **non-blocking advisory**: note it in `report.md`'s Blockers/Notes section (§6 item 8) and proceed to §4. Do **not** hard-block on this. (If you classified the test as one that *should* already exist, call the broken harness out prominently in the report — but still proceed; §4's per-AC run will resurface a genuinely broken runner immediately.)
+3. **Gate (hard-block):** if any command-bearing AC is **already GREEN** (return 1), do NOT enter §4. Surface the offending AC(s) with the observed outcome in a gaps-mode return (§8.2) and stop for the user/orchestrator to resolve. Already-GREEN is the only hard-block; RED and errored-command ACs proceed.
+4. **Skip-escape:** when an AC is flagged already-GREEN (return 1) but that is **legitimate** — e.g. a pure code-deletion AC whose verification is expected to pass, or a state the slice intentionally starts in — the run may override the block via `--allow-skip-thrust-zero`, gated on an explicit `pause_and_ask` confirmation ("AC-N is already GREEN before work — confirm this is expected and proceed? (yes/no)"). Record the override in `report.md`'s Blockers/Notes section (§6 item 8). Never auto-skip.
 
-Bash execution of `sd redgate_assert_red` is permitted in all modes — the §9 denylist forbids `Task`, `git commit/push/pull/fetch`, and `handing-off-session`; it does not restrict Bash command execution.
+(Bash execution of `sd redgate_assert_red` is permitted in all modes — the §9 denylist forbids `Task`, `git commit/push/pull/fetch`, and `handing-off-session`; it does not restrict Bash command execution.)
 
 ---
 
 ## 4. TDD loop per AC
 
-Per SPEC §13 + the `superpowers:test-driven-development` discipline. **Per §3.6, every `auto:` AC has been verified RED at the start of this work item (or an explicit thrust-0 skip has been recorded). Now flip each AC from RED to GREEN, in declared order.** §3.6 is an upfront whole-set gate; the per-AC RED step below (step 1) is the per-AC authoring discipline — they are complementary, not redundant. Iterate the `(ac_label, command, expectation)` tuples extracted in §3.2 **in declared order**.
+Per SPEC §13 + the `superpowers:test-driven-development` discipline. **Per §3.6, no `auto:` AC was already GREEN at the start of this work item (errored/absent-test ACs were noted and proceed). Now author and flip each AC RED→GREEN, in declared order. §3.6 is an upfront whole-set 'not-already-GREEN' gate; the per-AC RED step below (step 1) is the per-AC authoring discipline — complementary, not redundant.** Iterate the `(ac_label, command, expectation)` tuples extracted in §3.2 **in declared order**.
 
 For each AC:
 
