@@ -127,10 +127,10 @@ If all three sub-checks in §3.3 pass AND §3.4 finds no blocking ambiguities: p
 This step runs only on the success path out of §3.5 — a clean pre-flight with no blocking gaps. Before writing **any** implementation, prove no `auto:` AC is **already GREEN** — so the work item is genuinely unstarted and completing it is a RED→GREEN flip, not a no-op or impl-first-tests-after.
 
 1. From the `(ac_label, command, expectation)` tuples (§3.2), **classify** each AC (agent judgment): *test-command-bearing*, *grep-shaped*, or *no-runnable-command* (e.g. a pure code-deletion AC).
-2. For each command-bearing AC, run its command through the mechanical leg (`sd_redgate_assert_red` in `lib/verify.sh`, dispatchable as `sd redgate_assert_red '<command>' '<expectation>'`). Run the dispatcher from inside the worktree so relative AC commands inspect the target tree, not the inherited AI-workspace cwd:
+2. For each command-bearing AC, run its command through the mechanical leg (`sd_redgate_assert_red` in `lib/verify.sh`, dispatchable as `sd redgate_assert_red "$command" "$expectation"`). Run the dispatcher from inside the worktree so relative AC commands inspect the target tree, not the inherited AI-workspace cwd:
 
    ```bash
-   cd "<worktree-abs-path>" && sd redgate_assert_red '<command>' '<expectation>'
+   cd "<worktree-abs-path>" && sd redgate_assert_red "$command" "$expectation"
    ```
 
    - **return 0 → RED ✓** — the behavior isn't implemented yet. Proceed.

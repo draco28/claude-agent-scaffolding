@@ -466,7 +466,7 @@ git commit -m "feat(scaffold-dev): add sd_redgate_assert_red pre-flight gate hel
 > 1. From the `(ac_label, command, expectation)` tuples (§3.2), **classify** each AC (agent judgment): *test-command-bearing*, *grep-shaped*, or *no-runnable-command* (e.g. a pure code-deletion AC with no failing test).
 > 2. For each command-bearing AC, run its command through `sd_redgate_assert_red` from inside the worktree, passing the parsed expectation:
 >    ```bash
->    cd "<worktree-abs-path>" && sd_redgate_assert_red '<command>' '<expectation>'
+>    cd "<worktree-abs-path>" && sd_redgate_assert_red "$command" "$expectation"
 >    ```
 >    - return 0 → RED ✓ (expected).
 >    - return 1 → **already GREEN before any work** → the AC is satisfied by current state (feature exists / AC mis-specified). Surface this; do NOT silently proceed.
