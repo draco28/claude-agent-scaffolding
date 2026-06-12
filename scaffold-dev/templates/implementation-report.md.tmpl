@@ -11,7 +11,7 @@
   verification_run      fenced block showing exact commands + per-command result
   decisions_during_exec bulleted in-band judgement calls made during execution
   deviations_from_spec  bulleted spec divergences (or "None.")
-  memory_bank_sugs      bulleted suggestions for memory-bank promotion at slice-close harvest
+  memory_bank_sugs      free-form prose suggestions for memory-bank promotion at slice-close harvest
   orchestrator_notes    bulleted notes for the orchestrator's verification + commit step
 -->
 # Implementation report — {{work_item_id}}
@@ -49,6 +49,7 @@
 {{deviations_from_spec}}
 
 ## 8. Suggestions for memory bank
+<!-- Free-form prose. Agent-read at slice-close harvest (closing-vertical-slice §9), NOT machine-parsed — no bullet grammar required. Note caveats/patterns worth promoting; the harvest agent categorizes and applies. -->
 
 {{memory_bank_sugs}}
 

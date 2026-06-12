@@ -2,6 +2,21 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.4.0] — 2026-06-12
+
+SS-4 — agent-review of verification seams; single-authority harvest; spec-citations gate; RED-tests pre-flight; lean-index length leg (#52, #7, #5, #48 Part F).
+
+### Removed
+- **#52 — orphaned semantic harvest parsers `sd_harvest_reports`, `sd_harvest_handoffs`, and `_sd_harvest_extract_section` deleted from `lib/harvest.sh`.** These AWK/grep-based extractors attempted to machine-parse free-form report/handoff prose and silently dropped content that didn't match their patterns — a grammar-collision with the agent's own reading of the same prose. The agent is now the sole reader of free-form `report.md` / handoff "Suggestions for memory bank" prose; `sd_harvest_apply` remains the single mechanical write authority (provenance trailer, idempotency, derived-reroute). The `report.md` "Suggestions for memory bank" section is documented as agent-read, not machine-parsed.
+
+### Changed
+- **#52 — `closing-vertical-slice` §9 harvest is now agent-sole-reader of free-form report/handoff prose.** `sd_harvest_apply` is the single mechanical write authority: it enforces the provenance trailer, idempotency guard, and derived-file reroute. The "Suggestions for memory bank" section in `report.md` is documented as agent-read input, not a machine-parseable structured field.
+
+### Added
+- **#48 Part F — `sd_harvest_lint_length` lean-index length leg + harvest §9.4 restate-prevention check.** The linter now flags memory-bank entries that exceed the length ceiling. The §9.4 check prevents re-stating content already present in the target file (anti-bloat gate).
+- **#7 — `verifying-spec-citations` skill + `lib/citations.sh` (`sd_citations_check_file`, `sd_citations_check_signature`).** Opt-in spec-citations gate added to `planning-vertical-slice` §6.4: the agent verifies that spec section references cite real, reachable anchors in the target spec file before the slice plan is finalised. Dissolved the original "agent-assisted" framing — the agent drives the check end-to-end.
+- **#5 — `executing-work-item` §3.6 pre-flight RED-tests gate ("not-already-GREEN" semantics) + `sd_redgate_assert_red` helper + `--allow-skip-thrust-zero` skip-escape.** Tests that are meant to turn green during implementation must be confirmed RED (or missing) before work begins; the gate hard-fails if a target test is already green, preventing phantom "passes". The `--allow-skip-thrust-zero` flag only proceeds after an orchestrator-recorded clarification confirms the already-GREEN AC is legitimate (e.g. a pure code-deletion AC).
+
 ## [0.3.0] — 2026-06-02
 
 SS-1 — slice-close harvest aligns with memory-bank ownership (part of #45; cross-plugin with scaffold-onboard 0.4.0).

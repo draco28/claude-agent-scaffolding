@@ -120,13 +120,32 @@ For each ambiguity found, build a gap entry with three fields:
 
 If §3.3 found the worktree dirty OR missing OR on the wrong branch, OR §3.4 found at least one blocking ambiguity: return gaps-mode (§6) immediately. Do NOT proceed to §4 TDD, §5 verification, §6 report, or §7 stage. Do NOT touch any worktree source file. Do NOT run `git add`.
 
-If all three sub-checks in §3.3 pass AND §3.4 finds no blocking ambiguities: proceed to §4. Nice-to-have gaps from §3.4 MAY still be surfaced in the `report.md`'s "Suggestions for memory bank" or "Deferrals" sections per §6, but do not block execution.
+If all three sub-checks in §3.3 pass AND §3.4 finds no blocking ambiguities: proceed to **§3.6 RED-gate**, then §4. Nice-to-have gaps from §3.4 MAY still be surfaced in the `report.md`'s "Suggestions for memory bank" or "Deferrals" sections per §6, but do not block execution.
+
+### 3.6 Pre-flight RED-gate (mandatory before §4 GREEN work)
+
+This step runs only on the success path out of §3.5 — a clean pre-flight with no blocking gaps. Before writing **any** implementation, prove no `auto:` AC is **already GREEN** — so the work item is genuinely unstarted and completing it is a RED→GREEN flip, not a no-op or impl-first-tests-after.
+
+1. From the `(ac_label, command, expectation)` tuples (§3.2), **classify** each AC (agent judgment): *test-command-bearing*, *grep-shaped*, or *no-runnable-command* (e.g. a pure code-deletion AC).
+2. For each command-bearing AC, run its command through the mechanical leg (`sd_redgate_assert_red` in `lib/verify.sh`, dispatchable as `sd redgate_assert_red "$command" "$expectation"`). Run the dispatcher from inside the worktree so relative AC commands inspect the target tree, not the inherited AI-workspace cwd:
+
+   ```bash
+   cd "<worktree-abs-path>" && sd redgate_assert_red "$command" "$expectation"
+   ```
+
+   - **return 0 → RED ✓** — the behavior isn't implemented yet. Proceed.
+   - **return 1 → already GREEN before any work** — the AC is satisfied by current state (the feature already exists, or the AC is mis-specified). This is the gate's **hard-block** condition (step 3).
+   - **return 2 → command errored / uninvocable** (exit 126/127) — most often the test file simply isn't authored yet (expected: §4 step 1 authors it), or a runner is missing. Treat as a **non-blocking advisory**: note it in `report.md`'s Blockers/Notes section (§6 item 8) and proceed to §4. Do **not** hard-block on this. (If you classified the test as one that *should* already exist, call the broken harness out prominently in the report — but still proceed; §4's per-AC run will resurface a genuinely broken runner immediately.)
+3. **Gate (hard-block):** if any command-bearing AC is **already GREEN** (return 1), do NOT enter §4. Surface the offending AC(s) with the observed outcome in a gaps-mode return (§8.2) and stop for the user/orchestrator to resolve. Already-GREEN is the only hard-block; RED and errored-command ACs proceed.
+4. **Skip-escape:** when an AC is flagged already-GREEN (return 1) but that may be **legitimate** — e.g. a pure code-deletion AC whose verification is expected to pass, or a state the slice intentionally starts in — do not decide inline. Return gaps-mode with the offending AC(s) and a concrete question asking whether the orchestrator/user wants to allow the thrust-0 skip. The orchestrator may re-dispatch after recording an explicit clarification/override in the handoff. On that re-dispatch, honor the documented override, proceed, and record it in `report.md`'s Blockers/Notes section (§6 item 8). Never auto-skip.
+
+(Bash execution of `sd redgate_assert_red` is permitted in all modes — the §6.1 denylist forbids `Task`, `git commit/push/pull/fetch`, and `handing-off-session`; it does not restrict Bash command execution.)
 
 ---
 
 ## 4. TDD loop per AC
 
-Per SPEC §13 + the `superpowers:test-driven-development` discipline. Iterate the `(ac_label, command, expectation)` tuples extracted in §3.2 **in declared order**.
+Per SPEC §13 + the `superpowers:test-driven-development` discipline. **Per §3.6, no non-skipped `auto:` AC was already GREEN at the start of this work item (errored/absent-test ACs were noted and proceed; orchestrator-approved skip-escape ACs were recorded and excluded). Now author and flip each remaining AC RED→GREEN, in declared order. §3.6 is an upfront whole-set 'not-already-GREEN' gate; the per-AC RED step below (step 1) is the per-AC authoring discipline — complementary, not redundant.** Iterate the `(ac_label, command, expectation)` tuples extracted in §3.2 **in declared order**, excluding any AC with an explicit §3.6 skip-escape override recorded in the handoff.
 
 For each AC:
 

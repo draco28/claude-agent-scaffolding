@@ -9,7 +9,7 @@ You are the slice-close ceremony for scaffold-dev v0.1's vertical-slice lifecycl
 
 The ceremony order is binding. The §11 M2 marker — worktrees + branches removed ONLY after harvest completes — is the load-bearing discipline this body enforces. Halt-on-first-auto-demo-failure preserves worktrees for inspection (eval S2). Warn-and-proceed on architect-critic absence keeps the ceremony moving without blocking (eval S3). Source-tagged harvest with literal `[report]` / `[handoff]` brackets and the provenance trailer carries SPEC §15.2's 8-step contract through eval S4.
 
-Bash helpers in `lib/manifest.sh`, `lib/render.sh`, `lib/worktree.sh`, and `lib/compose.sh` do the bookkeeping (manifest resolution, template substitution, filesystem probes, worktree teardown). Demo-line parsing happens directly in the orchestrator (trivial two-field split on ` → expected: `); demo-criterion evaluation is agent-judged for content expectations. The judgment work — which §12.2 menu row matches the failing auto-demo, whether captured output satisfies a content expectation (with a recorded reason), how to phrase the source-tagged harvest candidates, when to count the rejected handoff item as "left in handoff" — happens here, in conversation.
+Bash helpers in `lib/manifest.sh`, `lib/render.sh`, `lib/worktree.sh`, `lib/compose.sh`, and `lib/harvest.sh` do the bookkeeping (manifest resolution, template substitution, filesystem probes, worktree teardown, harvest write/idempotency/reroute + lean-index length leg). Demo-line parsing happens directly in the orchestrator (trivial two-field split on ` → expected: `); demo-criterion evaluation is agent-judged for content expectations. The judgment work — which §12.2 menu row matches the failing auto-demo, whether captured output satisfies a content expectation (with a recorded reason), how to phrase the source-tagged harvest candidates, when to count the rejected handoff item as "left in handoff" — happens here, in conversation.
 
 This skill is the slice-close terminal step. It does NOT plan slices (that's `planning-vertical-slice` per §5), does NOT verify per-work-item ACs (that's `implementation-checking` per §12.1), and does NOT author the work-item bodies (that's the `scaffold-dev:implementer-agent` subagent body via `executing-work-item` per §6). It is invoked at the end of the slice when all rounds complete, either by trigger phrase or by the `/close-slice VS-N.M.K` slash command.
 
@@ -307,7 +307,7 @@ done
 
 ### 9.3 Step 3 — Extract promote candidates
 
-From each `report.md`: extract the **"Suggestions for memory bank"** section (per SPEC §10 report template). May be empty for some reports — that's fine.
+From each `report.md`: extract the **"Suggestions for memory bank"** section (per SPEC §10 report template). May be empty for some reports — that's fine. The implementer's `report.md` "Suggestions for memory bank" section is **free-form prose**, **agent-read, not machine-parsed** — read it with judgment; there is no bullet grammar to satisfy. (Per SS-4 / #52: the former `sd_harvest_reports`/`sd_harvest_handoffs` AWK parsers are deleted; you are the single authority over extraction.)
 
 From each `vs-N.M.K-*.md` handoff: extract **section 4 — "What's NOT in memory bank yet"** (per SPEC §6b.5 handoff doc structure). May be empty for some handoffs — that's fine.
 
@@ -319,10 +319,12 @@ routing): caveats / gotchas / stack notes → `09-known-issues.md`; decisions / 
 patterns → `10-decisions-log.md`; an enforceable pattern → NOT a raw harvest append —
 route the user to `Skill(scaffold-onboard:authoring-machine-checkable-rules)` so it
 lands in `03`'s preserved rules zone. Spec-derived files (`00,01,02,04,07,08,index`)
-and `03`'s derived prose are **never** harvest targets; `sd_harvest_apply` reroutes any
+and `03`'s derived prose are **never** harvest targets; `sd harvest_apply` reroutes any
 such target to `09-known-issues.md` and warns. (There is no `06-product-context.md`
 file — `06` is `06-progress`; `01` is product-context.) Surface the proposed target
 alongside the candidate at step 5.
+
+**Lean-index check (#48-F, write-time prevention).** Before proposing a target, judge whether the candidate **restates content already tracked** in a doc/ADR/issue (MASTER-SPEC §-ref, an existing ADR id, an open issue). If it does, do NOT harvest the prose — surface a pointer instead (e.g. "see ADR-0007" / "tracked in #N") and route the deferral via `Skill(scaffold-dev:deferring-work-item)` if it is genuinely new debt. Also run the **mechanical length leg** through the dispatcher: `sd harvest_lint_length "<candidate text>"` — if it returns non-zero (exceeds ~12 lines), the entry is too long for a lean index; ask the user to tighten it to a pointer + one-line gist before accepting. These checks are advisory nudges surfaced at step 5, not hard blocks.
 
 ### 9.5 Step 5 — Surface candidates with source-tag prefix
 
@@ -350,7 +352,7 @@ Per item: accept (apply as-is) / edit (give me the revised text) / reject (drop)
 > Targets are dev-authored files only (`09`/`10`). A candidate that is a strictly
 > **enforceable** rule (not advisory prose) is NOT harvested into `03` as raw text —
 > route it to `Skill(scaffold-onboard:authoring-machine-checkable-rules)` so it lands
-> in `03`'s preserved rules zone as a machine-checkable rule. `sd_harvest_apply`
+> in `03`'s preserved rules zone as a machine-checkable rule. `sd harvest_apply`
 > reroutes any spec-derived target to `09-known-issues.md` and warns.
 ```
 
@@ -360,7 +362,20 @@ For each candidate, accept the user's decision: `accept`, `edit: <new text>`, or
 
 ### 9.7 Step 7 — Apply with provenance trailer
 
-For each `accept` or `edit` decision, append the item to its target memory-bank file at `${ai_workspace}/.claude/memory-bank/<file>.md`. Each applied item carries the literal provenance trailer:
+Build a JSON array of all accepted / edited candidates — one object per item:
+
+- Report-origin item: `{"source": "report", "target_file": "<filename>.md", "suggestion": "<text>"}`
+- Handoff-origin item: `{"source": "handoff", "target_file": "<filename>.md", "handoff_file": "<vs-N.M.K-*.md basename>", "item": "<text>"}`
+
+Then apply in one call:
+
+```bash
+sd harvest_apply "$accepted_json" "VS-N.M.K"
+```
+
+The dispatcher call `sd harvest_apply` is the **single mechanical write authority**: it writes each item to its target memory-bank file at `${ai_workspace}/.claude/memory-bank/<file>.md` with the exact provenance trailer, enforces idempotency (skips text already present), and reroutes any spec-derived target to `09-known-issues.md` with a warning. Do **not** hand-author the trailer or append directly — the trailer format is load-bearing (eval S4) and belongs to the helper.
+
+The provenance trailer format `sd harvest_apply` produces (documented here for eval reference):
 
 ```
 <!-- Added from VS-N.M.K retrospective, YYYY-MM-DD; source: report -->
@@ -372,9 +387,9 @@ or
 <!-- Added from VS-N.M.K retrospective, YYYY-MM-DD; source: handoff -->
 ```
 
-The `source:` field MUST exactly match the candidate's origin (`report` for report-sourced, `handoff` for handoff-sourced). Eval S4 explicitly rejects: missing trailer, missing `source:` field, mis-labeled source (e.g., `source: report` on a handoff-origin item). Eval S1 accepts minor date-format variation but rejects missing `VS-N.M.K` reference.
+Every accepted item MUST include `target_file`. The `source:` field MUST be set by the agent to exactly match the candidate's origin (`report` for report-sourced, `handoff` for handoff-sourced); `sd harvest_apply` writes the provided source verbatim. Eval S4 explicitly rejects: missing trailer, missing `source:` field, mis-labeled source (e.g., `source: report` on a handoff-origin item). Eval S1 accepts minor date-format variation but rejects missing `VS-N.M.K` reference.
 
-For `reject` decisions: do NOT write to any memory-bank file. The candidate is dropped. Eval S4 asserts filesystem diff confirms only the count of accepted items appears as memory-bank file modifications.
+For `reject` decisions: omit those items from the `$accepted_json` array — do NOT write to any memory-bank file. The candidate is dropped. Eval S4 asserts filesystem diff confirms only the count of accepted items appears as memory-bank file modifications.
 
 ### 9.8 Step 8 — Record harvest outcomes in retrospective.md
 
@@ -548,7 +563,7 @@ Eval S1 / S3 / S4 assert the target subagent's final assistant message indicates
 ## 15. Notes on tool boundaries
 
 - **You** (Claude reading this skill body) make every judgment call: how to phrase the failing-step recovery menu, how to categorize each harvest candidate by target memory-bank file, how to surface the source-tagged candidates with enough context for the user's per-item decision, how to phrase the closing handoff message.
-- **Bash helpers** (`lib/manifest.sh`, `lib/render.sh`, `lib/compose.sh`, `lib/worktree.sh`) handle pure I/O: manifest reads, template substitution, filesystem probes, worktree teardown. Demo-line parsing is done inline in the orchestrator (split on ` → expected: `); demo-criterion evaluation for content expectations is agent-judged.
+- **Bash helpers** (`lib/manifest.sh`, `lib/render.sh`, `lib/compose.sh`, `lib/worktree.sh`, `lib/harvest.sh`) handle pure I/O: manifest reads, template substitution, filesystem probes, worktree teardown, harvest write + idempotency + derived-reroute (`sd_harvest_apply`) and the lean-index length leg (`sd_harvest_lint_length`). Demo-line parsing is done inline in the orchestrator (split on ` → expected: `); demo-criterion evaluation for content expectations is agent-judged.
 - **`architect-critic:critiquing-spec`** owns the adversarial review at close depth; you invoke it once between Layer 2 and §8 retrospective authoring, and it runs its own sequential rebuttal cycle before returning control. This skill never enters that cycle; the user does, in conversation.
 - **`writing-sprint-retrospective`** (separate skill, T1.7) owns the sprint-level retrospective. This skill does NOT author it — only the slice retrospective + the conditional handoff sweep at §11.
 - **`scaffold-onboard:authoring-vertical-slice-demo`** owns demo-criteria authoring. When the user picks recovery option 1 ("re-author the demo step"), this skill hands off to that flow; it does NOT edit the VS README's demo criteria itself.

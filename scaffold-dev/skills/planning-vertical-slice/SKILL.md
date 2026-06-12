@@ -24,10 +24,11 @@ When invoked, you:
 5. Identify rounds via strict-layer DAG topological sort over declared dependencies; user may loosen or tighten.
 6. Author the full slice scaffold upfront: `README.md`, all `work-N.NN-<kebab>/spec.md` files, empty `handoff.md` + `report.md` placeholders alongside each spec.
 7. Offer grill-me on specs (gate 2).
-8. Invoke `Skill(architect-critic:critiquing-spec)` in-conversation (per SPEC §16.3 moment 1) — challenges/concessions cycle.
-9. **Per round (sequential):** create worktrees via `sd_worktree_add`, author handoff via `templates/implementation-handoff.md.tmpl`, dispatch `Task(subagent_type="scaffold-dev:implementer-agent", ...)`, process gaps-mode or complete-mode returns (§6.3), run `implementation-checking` (§12.1), commit + merge per `git_policy` (HALT on conflict per §11), offer grill-me at fix-up replan (gate 3).
-10. After all items in a round: surface "Round K complete; ready for K+1 or close slice?"
-11. At slice-close intent: suggest invoking `closing-vertical-slice`.
+8. Offer spec-citations check (opt-in gate, §6.4).
+9. Invoke `Skill(architect-critic:critiquing-spec)` in-conversation (per SPEC §16.3 moment 1) — challenges/concessions cycle.
+10. **Per round (sequential):** create worktrees via `sd_worktree_add`, author handoff via `templates/implementation-handoff.md.tmpl`, dispatch `Task(subagent_type="scaffold-dev:implementer-agent", ...)`, process gaps-mode or complete-mode returns (§6.3), run `implementation-checking` (§12.1), commit + merge per `git_policy` (HALT on conflict per §11), offer grill-me at fix-up replan (gate 3).
+11. After all items in a round: surface "Round K complete; ready for K+1 or close slice?"
+12. At slice-close intent: suggest invoking `closing-vertical-slice`.
 
 Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/planning-vertical-slice.md` — the four scenarios there are the binding spec.
 
@@ -300,16 +301,27 @@ After all specs are written, surface gate-2 grill-me (per SPEC §16.4 offer 2 �
 
 > Specs authored (N work items). Want to grill-me on the specs before adversarial review? (yes/no, default no)
 
-- **yes** → `Skill(ai-mentor:grill-me)` with `target=specs, context=<spec-paths>`. Returns may produce edits; re-write affected spec.md files via `sd_render`.
-- **no / skip** → proceed to §7.
+- **yes** → `Skill(ai-mentor:grill-me)` with `target=specs, context=<spec-paths>`. Returns may produce edits; re-write affected spec.md files via `sd_render`, then proceed to §6.4.
+- **no / skip** → proceed to §6.4.
 
 Probe for ai-mentor presence first (silent skip if absent, per §4.1).
+
+### 6.4 Spec-citations check (opt-in gate)
+
+After specs are written and gate-2 grill-me has settled, offer the citation check **before** architect-critic so drift surfaces first:
+
+> Specs authored (N work items). Want to verify spec citations (file paths, function signatures, REQ-IDs, ARCH §-refs) before adversarial review? (yes/no, default no)
+
+- **yes** → invoke `Skill(scaffold-dev:verifying-spec-citations)` over each `work-N.NN-*/spec.md`. Drift reports may produce edits; re-write affected `spec.md` files via `sd_render` (or `sd render`), then continue to §7.
+- **no / absent** → skip silently and continue to §7.
+
+The check is enrichment, not a contract — never block slice planning on its absence or on a project without a REQ-ID scheme.
 
 ---
 
 ## 7. Architect-critic invocation (in-conversation, §16.3 moment 1)
 
-After specs are written (and gate-2 grill-me has settled), invoke architect-critic for adversarial review.
+After specs are written, gate-2 grill-me has settled, and the §6.4 citation-check offer has settled, invoke architect-critic for adversarial review.
 
 ### 7.1 Detection (filesystem probe; binary)
 

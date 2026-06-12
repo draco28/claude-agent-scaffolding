@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# tests/test-verify.sh — 14 tests for lib/verify.sh
+# tests/test-verify.sh — tests for lib/verify.sh
 
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
+SD_BIN="$(cd "$HERE/.." && pwd)/bin/sd"
 source "$HERE/_helpers.sh"
 source "$HERE/../lib/_helpers.sh"
 source "$HERE/../lib/verify.sh"
@@ -47,7 +48,17 @@ test_auto_exit_n_mismatch() {
   assert_eq "mismatch → rc=1" "1" "$rc"
 }
 
-# 5. auto step — output contains pattern matches
+# 5. auto step — invalid exit code expectation
+test_auto_exit_n_invalid() {
+  echo "test_auto_exit_n_invalid:"
+  set +e
+  sd_verify_auto_step '- [ ] auto: `true` -> expected: exit nope' >/dev/null 2>&1
+  local rc=$?
+  :
+  assert_eq "invalid exit code → rc=2" "2" "$rc"
+}
+
+# 6. auto step — output contains pattern matches
 test_auto_output_contains_pass() {
   echo "test_auto_output_contains_pass:"
   set +e
@@ -57,7 +68,7 @@ test_auto_output_contains_pass() {
   assert_eq "output contains match → rc=0" "0" "$rc"
 }
 
-# 6. auto step — output contains pattern miss
+# 7. auto step — output contains pattern miss
 test_auto_output_contains_miss() {
   echo "test_auto_output_contains_miss:"
   set +e
@@ -67,7 +78,7 @@ test_auto_output_contains_miss() {
   assert_eq "output miss → rc=1" "1" "$rc"
 }
 
-# 7. auto step — unknown expected form returns rc=2
+# 8. auto step — unknown expected form returns rc=2
 test_auto_unknown_form() {
   echo "test_auto_unknown_form:"
   set +e
@@ -77,7 +88,7 @@ test_auto_unknown_form() {
   assert_eq "unknown form → rc=2" "2" "$rc"
 }
 
-# 8. auto step — missing command parse → rc=2
+# 9. auto step — missing command parse → rc=2
 test_auto_missing_cmd() {
   echo "test_auto_missing_cmd:"
   set +e
@@ -247,10 +258,145 @@ EOF
   assert_eq "inline AC-99 in command/predicate ignored; only AC-1 required → rc=0" "0" "$rc"
 }
 
+# 18. redgate — failing command is RED (gate-pass) -> return 0
+test_redgate_red_command() {
+  echo "test_redgate_red_command:"
+  set +e
+  sd_redgate_assert_red 'false'
+  local rc=$?
+  :
+  assert_eq "failing command is RED" "0" "$rc"
+}
+
+# 19. redgate — passing command is already GREEN (gate-fail) -> return 1
+test_redgate_green_command() {
+  echo "test_redgate_green_command:"
+  set +e
+  sd_redgate_assert_red 'true'
+  local rc=$?
+  :
+  assert_eq "passing command is not RED" "1" "$rc"
+}
+
+# 20. redgate — uninvocable command (127) -> ERROR, not RED -> return 2
+test_redgate_errored_command() {
+  echo "test_redgate_errored_command:"
+  set +e
+  sd_redgate_assert_red 'this_binary_does_not_exist_xyz'
+  local rc=$?
+  :
+  assert_eq "uninvocable command is an error, not RED" "2" "$rc"
+}
+
+# 21. redgate — expected exit N is already GREEN when exit matches -> return 1
+test_redgate_expected_exit_n_green() {
+  echo "test_redgate_expected_exit_n_green:"
+  set +e
+  sd_redgate_assert_red 'exit 3' 'exit 3'
+  local rc=$?
+  :
+  assert_eq "matching expected exit N is already GREEN" "1" "$rc"
+}
+
+# 22. redgate — uninvocable command is ERROR even if expected says exit 127 -> return 2
+test_redgate_expected_exit_127_is_error() {
+  echo "test_redgate_expected_exit_127_is_error:"
+  set +e
+  sd_redgate_assert_red 'this_binary_does_not_exist_xyz' 'exit 127'
+  local rc=$?
+  :
+  assert_eq "exit 127 remains harness ERROR, not GREEN" "2" "$rc"
+}
+
+# 23. redgate — invalid expected exit code is ERROR -> return 2
+test_redgate_expected_exit_n_invalid() {
+  echo "test_redgate_expected_exit_n_invalid:"
+  set +e
+  sd_redgate_assert_red 'true' 'exit nope'
+  local rc=$?
+  :
+  assert_eq "invalid expected exit code is an error" "2" "$rc"
+}
+
+# 24. redgate — expected output missing is RED even when command exits 0 -> return 0
+test_redgate_output_contains_missing_is_red() {
+  echo "test_redgate_output_contains_missing_is_red:"
+  set +e
+  sd_redgate_assert_red 'printf goodbye' 'output contains hello'
+  local rc=$?
+  :
+  assert_eq "missing expected output is RED" "0" "$rc"
+}
+
+# 25. redgate — expected output present is already GREEN -> return 1
+test_redgate_output_contains_present_is_green() {
+  echo "test_redgate_output_contains_present_is_green:"
+  set +e
+  sd_redgate_assert_red 'printf hello' 'output contains hello'
+  local rc=$?
+  :
+  assert_eq "present expected output is already GREEN" "1" "$rc"
+}
+
+# 26. redgate — empty command is ERROR, not already GREEN -> return 2
+test_redgate_empty_command() {
+  echo "test_redgate_empty_command:"
+  set +e
+  sd_redgate_assert_red ''
+  local rc=$?
+  :
+  assert_eq "empty command is an error" "2" "$rc"
+}
+
+# 27. redgate via dispatcher — failing command is RED -> return 0
+# Exercises sd_redgate_assert_red through bin/sd (which runs set -euo pipefail),
+# proving the set -e-safe if-branch captures the exit code correctly.
+test_redgate_dispatcher_red() {
+  echo "test_redgate_dispatcher_red:"
+  set +e; "$SD_BIN" redgate_assert_red 'false' >/dev/null 2>&1; local rc=$?; set -e
+  assert_eq "dispatcher: failing command is RED" "0" "$rc"
+}
+
+# 28. redgate via dispatcher — passing command is already-GREEN -> return 1
+test_redgate_dispatcher_green() {
+  echo "test_redgate_dispatcher_green:"
+  set +e; "$SD_BIN" redgate_assert_red 'true' >/dev/null 2>&1; local rc=$?; set -e
+  assert_eq "dispatcher: passing command is already-GREEN" "1" "$rc"
+}
+
+# 29. redgate via dispatcher — uninvocable command (127) -> ERROR, not RED -> return 2
+test_redgate_dispatcher_errored() {
+  echo "test_redgate_dispatcher_errored:"
+  set +e; "$SD_BIN" redgate_assert_red 'this_binary_does_not_exist_xyz' >/dev/null 2>&1; local rc=$?; set -e
+  assert_eq "dispatcher: uninvocable command is errored" "2" "$rc"
+}
+
+# 30. redgate via dispatcher — expected predicate is honored under set -e
+test_redgate_dispatcher_expected_exit_n_green() {
+  echo "test_redgate_dispatcher_expected_exit_n_green:"
+  set +e; "$SD_BIN" redgate_assert_red 'exit 3' 'exit 3' >/dev/null 2>&1; local rc=$?; set -e
+  assert_eq "dispatcher: matching expected exit N is already-GREEN" "1" "$rc"
+}
+
+# 31. redgate via dispatcher — uninvocable command is ERROR even if expected says exit 127
+test_redgate_dispatcher_expected_exit_127_is_error() {
+  echo "test_redgate_dispatcher_expected_exit_127_is_error:"
+  set +e; "$SD_BIN" redgate_assert_red 'this_binary_does_not_exist_xyz' 'exit 127' >/dev/null 2>&1; local rc=$?; set -e
+  assert_eq "dispatcher exit 127 remains harness ERROR" "2" "$rc"
+}
+
+# 32. redgate via dispatcher — invalid expected exit code is ERROR under set -u
+test_redgate_dispatcher_expected_exit_n_invalid() {
+  echo "test_redgate_dispatcher_expected_exit_n_invalid:"
+  set +e; "$SD_BIN" redgate_assert_red 'true' 'exit nope' >/dev/null 2>&1; local rc=$?; set -e
+  assert_eq "dispatcher: invalid expected exit code is errored" "2" "$rc"
+}
+
 test_auto_exit0_pass
 test_auto_exit0_fail
 test_auto_exit_n_match
 test_auto_exit_n_mismatch
+test_auto_exit_n_invalid
 test_auto_output_contains_pass
 test_auto_output_contains_miss
 test_auto_unknown_form
@@ -264,5 +410,20 @@ test_report_cross_check_excludes_user_rows
 test_report_cross_check_ignores_inline_ac_token
 test_auto_output_includes_stderr
 test_auto_unicode_arrow
+test_redgate_red_command
+test_redgate_green_command
+test_redgate_errored_command
+test_redgate_expected_exit_n_green
+test_redgate_expected_exit_127_is_error
+test_redgate_expected_exit_n_invalid
+test_redgate_output_contains_missing_is_red
+test_redgate_output_contains_present_is_green
+test_redgate_empty_command
+test_redgate_dispatcher_red
+test_redgate_dispatcher_green
+test_redgate_dispatcher_errored
+test_redgate_dispatcher_expected_exit_n_green
+test_redgate_dispatcher_expected_exit_127_is_error
+test_redgate_dispatcher_expected_exit_n_invalid
 
 sd_test_summary
