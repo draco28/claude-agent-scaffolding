@@ -86,9 +86,10 @@ Each sub-spec gets its own `brainstorm → writing-plans → build → bot-revie
 Design-locked in `docs/agent-driven-program/specs/SS-3-agent-synthesized-resumable-onboarding.md` (2026-06-06). Scope refined post-SS-2: EXEC-SUMMARY synthesis + resumable state already shipped in SS-2, so SS-3's live core is **MASTER-SPEC transcription → agent synthesis**. Settlements: the "phased-discussion file" **is** the enriched `onboarding-state.json` (no separate scratch file → **OQ-3 dissolved**); per-phase records are authored by the **main conducting agent** (decisions/rationale/rejected-alternatives/critic-outcomes) alongside verbatim raw answers; MASTER-SPEC is synthesized **once at Phase-10 close** (no on-disk spec until close; recaps become echoes); **no deterministic MASTER-SPEC renderer** — sub-agent dispatch → main-context-inline fallback → retry-later only if host broken (**pioneers OQ-5**, SS-7 adopts it); enhancement re-runs **reconcile** (refresh touched phases, preserve untouched sections + human edits); the synthesis brief is **tool-agnostic** (Codex-ready) but only Claude dispatch is wired (SS-5 wires Codex).
 **Closes:** **N3**/`#51` (MASTER-SPEC transcription→synthesis). **Enables:** Codex-run synthesis (SS-5). **Pioneers:** OQ-5 (adopted by SS-7). (N1/EXEC-SUMMARY hole already closed by SS-2.)
 
-### SS-4 — Agent-review of the verification seams (anti-pattern C) · independent
+### SS-4 — Agent-review of the verification seams (anti-pattern C) · independent · ✅ SHIPPED 2026-06-12
 Resolve dual-path/grammar-collisions by making the **agent the single authority** (per the promoted principle); bash becomes labeled fallback. Covers harvest suggestions/deferrals extraction, spec-citations (`#7`), RED-tests-gate framing (`#5`), lean-index linter (`#48` Part F).
 **Closes / dissolves:** `#7`, `#5` (reframed agent-driven), `#48` Part F, **N4** (harvest grammar-collision).
+**Shipped:** scaffold-dev v0.4.0 (2026-06-12). The "bash becomes labeled fallback" framing was superseded by the delete-semantic-bash disposition (dead-code AWK parsers removed entirely; see §4 agent-driven-first-class pivot).
 
 ### SS-5 — Codex implementer/synthesizer backend (`#47`) · independent
 Manifest-configurable `implementer_backend ∈ {claude_subagent, codex}` via `codex-companion.mjs task`; the no-commit/stage-only contract is prompt-carried + orchestrator-verified (no hard block under `workspace-write`). SS-3's tool-agnostic synthesis prompts mean Codex can also run derivation.
@@ -117,9 +118,9 @@ Every open issue + every new audit finding, mapped to a sub-spec. **Target: 0 op
 |---|---|---|---|---|
 | ~~**#45**~~ | harvest ↔ derived-file SSoT contradiction | wedge / partial | **SS-1** | ✅ CLOSED 2026-06-04 (PR #54) |
 | ~~**#42**~~ | agent-driven post-derivation doc review | **dissolved** (is the refactor) | **SS-2** | ✅ CLOSED 2026-06-05 (PR #55) |
-| **#7** | verifying-spec-citations (agent-assisted) | **dissolved** | **SS-4** | v0.2 |
-| **#5** | pre-flight RED-tests gate | partial (reframe) | **SS-4** | v0.2 |
-| **#48** | #33 C–F + /defer routing + label auto-create | partial | **SS-1** (C/D/E) + **SS-4** (F) + **SS-6** (routing/label) | v0.3 |
+| ~~**#7**~~ | verifying-spec-citations (agent-assisted) | **dissolved** | **SS-4** | ✅ CLOSED 2026-06-12 (SS-4, scaffold-dev v0.4.0) |
+| ~~**#5**~~ | pre-flight RED-tests gate | partial (reframe) | **SS-4** | ✅ CLOSED 2026-06-12 (SS-4, scaffold-dev v0.4.0) |
+| **#48** | #33 C–F + /defer routing + label auto-create | partial | **SS-1** (C/D/E) + **SS-4** (F) + **SS-6** (routing/label) | Part F ✅ SHIPPED 2026-06-12 (SS-4, scaffold-dev v0.4.0); C/D/E + routing/label remainder open |
 | **#47** | Codex implementer backend | independent | **SS-5** | v0.3 |
 | **#8** | ban `git stash` in templates | independent (keep-mech) | **SS-6** | v0.2 |
 | **#9** | pairing-existing-dual (Scenario C) | independent | **SS-6** | v0.2 |
@@ -138,7 +139,7 @@ Every open issue + every new audit finding, mapped to a sub-spec. **Target: 0 op
 | **N3** | ~~**#51**~~ | scaffold-onboard: MASTER-SPEC is mechanical transcription — move to agent synthesis from phased-discussion | enhancement | ✅ CLOSED 2026-06-08 (SS-3, PR #57, squash `3193308`, tag `scaffold-onboard-v0.6.0`; reconcile→**#58**, polish→**#59**) |
 | **N7** | ~~**#58**~~ | scaffold-onboard: true reconcile-on-re-onboard (gate-aware digest, partial/touched refresh, preserve human edits) — deferred from SS-3 | enhancement | ✅ CLOSED (wontfix) 2026-06-08 — partial reconcile evaluated as not worth the complexity; full re-walk + first-author re-synthesis is the permanent model; dormant foundations removed in scaffold-onboard v0.7.0 |
 | **N8** | **#59** | scaffold-onboard: SS-3 residual review polish (re-walk/gate/repair prose + robustness + doc-sync) — from PR #57 | chore | future (non-product-bug; Codex-clean at merge) |
-| **N4** | **#52** | scaffold-dev: harvest grammar-collision — AWK parser silently drops free-form Suggestions prose; single-authority agent read | bug | SS-4 |
+| **N4** | ~~**#52**~~ | scaffold-dev: harvest grammar-collision — AWK parser silently drops free-form Suggestions prose; single-authority agent read | bug | ✅ CLOSED 2026-06-12 (SS-4, scaffold-dev v0.4.0) |
 | **N5** | **#53** | repo: no `.github/workflows` CI for shell test suites | ops | SS-6 |
 | **N6** | ~~**#56**~~ | scaffold-onboard: remove deterministic `--fast` fallback (agent-driven only) — subsumes the deferred SS-2 `--fast`/governance split-routing findings | enhancement | ✅ CLOSED 2026-06-10 (SS-7, scaffold-onboard v0.8.0) |
 
