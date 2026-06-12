@@ -106,17 +106,24 @@ Purely additive (no contract change to existing flows).
 **Today** `executing-work-item` §4 runs per-AC TDD but RED-verification is *per-iteration*, not an
 upfront gate over the whole AC list — an implementer can drift into impl-first per-AC.
 
-**Design — a pre-flight gate in `executing-work-item`**, after §3.2 (read spec) / before §4 (TDD
-GREEN work):
-- **Mechanical leg:** for each `auto:` AC carrying a runnable command, execute it now and assert it
-  is currently **RED** (test exists and fails, or grep-shaped AC currently fails against codebase
-  state). Real-command execution + exit-code check.
+**Design — a pre-flight gate in `executing-work-item` (§3.6)**, after §3.2 (read spec) / before §4
+(TDD GREEN work):
+- **Mechanical leg:** for each `auto:` AC carrying a runnable command, execute it now via
+  `sd_redgate_assert_red` and read its classification. Real-command execution + exit-code check.
 - **Agent authority:** classify each AC — test-command-shaped vs grep-shaped vs genuinely-no-failing-
   test (pure code-deletion slice) — and decide when the skip-escape applies.
-- **Hardness:** **hard block** on entering §4 GREEN work until every AC is verified-RED, **plus** an
-  `--allow-skip-thrust-zero` escape gated on `pause_and_ask` for legitimately test-less slices.
-- **Error vs fail:** distinguish a *test fail* (RED — the desired pre-flight state) from a *test
-  error* (harness broken — surface, do **not** treat as RED).
+- **Hardness — "not-already-GREEN" (refined during build, settled with user 2026-06-12).** Because
+  `executing-work-item` **authors** the failing test *during* §4 (per-AC TDD step 1), a fresh AC's
+  test file does not exist at pre-flight — its command exits 126/127. So the gate cannot require
+  "every AC is RED". Instead the gate **hard-blocks only the already-GREEN case** (a command-bearing
+  AC that exits 0 before any work — feature already exists / AC mis-specified), which is the real
+  anti-drift value. A **RED** command proceeds; an **errored/uninvocable** command (126/127, usually
+  the not-yet-authored test) is a **non-blocking advisory** recorded in `report.md` and proceeds to
+  §4 (where §4's per-AC TDD authors the test and resurfaces a genuinely broken runner). The
+  `--allow-skip-thrust-zero` escape (gated on `pause_and_ask`) now **overrides the already-GREEN
+  block** for legitimate cases (e.g. a pure code-deletion AC whose verification is expected to pass).
+  This refines — does not contradict — the brainstorm's "hard block + skip-escape" settlement: the
+  hard block is scoped to already-GREEN, the only pre-flight state that signals real drift.
 
 **Blast radius.** This changes the contract that `scaffold-dev:implementer-agent` subagents run
 under → sequenced last; eval scenarios get a new RED-gate case in **both** standalone and subagent
