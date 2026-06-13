@@ -276,7 +276,9 @@ git commit -m "feat(scaffold-onboard): add sf_backend_resolve synthesizer select
 ### Task W3: Port the mock companion shim (synthesis-shaped result)
 
 **Files:**
-- Create: `scaffold-onboard/tests/fixtures/codex-shim/codex-companion.mjs`
+- Create: `scaffold-onboard/tests/codex-shim/codex-companion.mjs`
+
+> **Path note (planning refinement):** scaffold-onboard's `tests/fixtures/` is **gitignored** ("generated at test-run time" — see `test-rules.sh write_all_fixtures`), so a *committed* test double cannot live there. The shim goes one level up at the non-ignored `tests/codex-shim/` (mirrors scaffold-dev's committed shim; respects scaffold-onboard's "fixtures = generated" convention).
 
 - [ ] **Step 1:** Copy `scaffold-dev/tests/fixtures/codex-shim/codex-companion.mjs` verbatim, with **one change** — the default `result` rawOutput must be **synthesis-shaped**:
 
@@ -355,7 +357,7 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 source "$HERE/_helpers.sh"
 SF_BIN="$HERE/../bin/sf"
-SHIM="$HERE/fixtures/codex-shim/codex-companion.mjs"
+SHIM="$HERE/codex-shim/codex-companion.mjs"
 export SCAFFOLD_CODEX_COMPANION="$SHIM"
 
 if ! command -v node >/dev/null 2>&1; then
