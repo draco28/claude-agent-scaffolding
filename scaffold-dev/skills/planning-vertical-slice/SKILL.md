@@ -397,7 +397,11 @@ The handoff works in BOTH contexts (per SPEC §6.4) — as a Task tool prompt AN
 **Resolve the backend first.** Each work item runs on either the Claude implementer subagent (default) or the optional Codex backend (SS-5), chosen by:
 
 ```bash
-backend="$(sd backend_resolve [--backend <override>])"
+backend_override_args=()
+if [[ -n "${backend_override:-}" ]]; then
+  backend_override_args=(--backend "$backend_override")
+fi
+backend="$(sd backend_resolve "${backend_override_args[@]}")"
 ```
 
 Precedence: a **per-invocation override** (the user asked to run this slice/round on Codex, e.g. `/orchestrate VS-N --backend codex`) > the manifest's optional `.implementer_backend` > the default `claude_subagent`. An invalid value fails loud. Projects without the field run on Claude, unchanged.
@@ -445,25 +449,34 @@ Per work item (let `WT` = the absolute worktree path):
    ```bash
    baseline="$(git -C "$WT" rev-parse HEAD)"
    prompt_file="$(mktemp "${TMPDIR:-/tmp}/sd-codex-prompt.XXXXXX.md")"
+   trap 'rm -f "$prompt_file"' EXIT INT TERM
    # write the Codex prompt contract to "$prompt_file"
    job="$(sd codex_dispatch "$WT" "$prompt_file" [--model M] [--effort E])"
    rm -f "$prompt_file"
+   trap - EXIT INT TERM
    term="$(sd codex_wait "$WT" "$job")"   # background+poll+stall+cap; one of: completed|failed|cancelled|stalled|capped|error
    ```
-   Any `term` other than `completed` (`stalled`/`capped`/`failed`/`cancelled`/`error`) → surface the failure-response menu (§12.2 "Subagent crash/timeout" row); `sd codex_wait` already cancelled a stalled/capped job. A stall/cap is recoverable — re-dispatch (Codex `--resume-last`) or fall back to a manual session.
 
-4. **Read the return** (only on `completed`):
+4. **No-commit verify immediately after wait** — before any failure/malformed exit path:
    ```bash
-   out="$(sd codex_result "$WT" "$job")"   # the {mode,…} JSON; rc≠0 → Codex emitted no parseable block → §8.4 malformed-return menu
+   if ! verdict="$(sd codex_verify_nocommit "$WT" "$baseline")"; then
+     # commit-violation or helper usage failure: surface loudly before any retry/menu
+   fi
+   ```
+   rc≠0 / `commit-violation` → surface loudly; the orchestrator decides remediation. This check runs even when `term` is `failed`/`cancelled`/`stalled`/`capped`/`error`, because an aborted or malformed Codex run may still have moved `HEAD`.
+
+   Any `term` other than `completed` (`stalled`/`capped`/`failed`/`cancelled`/`error`) → surface the failure-response menu (§12.2 "Subagent crash/timeout" row) only after the no-commit verdict is clean. `sd codex_wait` already cancelled a stalled/capped job. A stall/cap is recoverable — re-dispatch (Codex `--resume-last`) or fall back to a manual session.
+
+5. **Read the return** (only on `completed`):
+   ```bash
+   if ! out="$(sd codex_result "$WT" "$job")"; then
+     # no-commit already verified above; route to §8.4 malformed-return menu
+   fi
    ```
 
-5. **No-commit verify** before trusting the result:
-   ```bash
-   verdict="$(sd codex_verify_nocommit "$WT" "$baseline")"
-   ```
-   rc≠0 / `commit-violation` → surface loudly; the orchestrator decides remediation. A `complete` return with `ok-clean` (no staged/working-tree changes) is suspect → treat as a malformed/empty return; a `gaps-surfaced` return with `ok-clean` is expected.
+6. **Judge dirtiness before trusting a complete result.** A `complete` return with `ok-clean` (no staged/working-tree changes) is suspect → treat as a malformed/empty return; a `gaps-surfaced` return with `ok-clean` is expected.
 
-6. **Join the Claude downstream unchanged.** The `{mode,…}` object feeds §8.4 exactly as a Claude subagent return would: `gaps-surfaced` → clarify + re-dispatch (Codex via `--resume-last`); `complete` → read `report.md`, proceed to §8.5 verification. Everything from here is backend-agnostic.
+7. **Join the Claude downstream unchanged.** The `{mode,…}` object feeds §8.4 exactly as a Claude subagent return would: `gaps-surfaced` → clarify + re-dispatch (Codex via `--resume-last`); `complete` → read `report.md`, proceed to §8.5 verification. Everything from here is backend-agnostic.
 
 ### 8.4 Process returns (§6.3 multi-call protocol)
 
@@ -593,7 +606,38 @@ Implementations live in their respective lib files (Phase 3 tasks). macOS-portab
 
 The `/orchestrate VS-N.M.K` slash command (`commands/orchestrate.md`) exports the raw arg string as `$ARGUMENTS` (env-var bridge per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
 
-Parse `$ARGUMENTS` in bash; never reference `$1` / `$2`. Extract the VS-id (e.g., `VS-1.1.1` — the full 3-part id `VS-<phase>.<sprint>.<slice>`) and proceed to §3 pre-flight.
+Parse `$SCAFFOLD_DEV_ARGS` in bash; never reference `$1` / `$2`. Extract the VS-id (e.g., `VS-1.1.1` — the full 3-part id `VS-<phase>.<sprint>.<slice>`) and the optional per-invocation backend override:
+
+```bash
+vs_id=""
+backend_override=""
+read -r -a scaffold_dev_argv <<<"${SCAFFOLD_DEV_ARGS:-}"
+i=0
+while [[ "$i" -lt "${#scaffold_dev_argv[@]}" ]]; do
+  arg="${scaffold_dev_argv[$i]}"
+  case "$arg" in
+    --backend)
+      next_i=$((i + 1))
+      if [[ "$next_i" -ge "${#scaffold_dev_argv[@]}" || "${scaffold_dev_argv[$next_i]}" == --* ]]; then
+        echo "orchestrate: missing value for --backend" >&2
+        exit 2
+      fi
+      backend_override="${scaffold_dev_argv[$next_i]}"
+      i=$((i + 2))
+      ;;
+    VS-*)
+      vs_id="$arg"
+      i=$((i + 1))
+      ;;
+    *)
+      echo "orchestrate: unknown argument: $arg" >&2
+      exit 2
+      ;;
+  esac
+done
+```
+
+Carry `backend_override` through §8.3 as `sd backend_resolve --backend "$backend_override"` when set. Then proceed to §3 pre-flight.
 
 Unknown or missing VS-id → one-line error + stop:
 

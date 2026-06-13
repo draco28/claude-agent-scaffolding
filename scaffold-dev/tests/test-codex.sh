@@ -53,6 +53,29 @@ test_resolve_glob_newest() {
   assert_contains "newest version chosen" "1.0.5/scripts/codex-companion.mjs" "$OUT"
 }
 
+test_resolve_version_compare_without_gnu_sort() {
+  echo "test_resolve_version_compare_without_gnu_sort:"
+  setup_tmp_repo
+  local fc="$TMP_DIR/fc" fakebin="$TMP_DIR/fakebin"
+  mkdir -p "$fc/openai-codex/codex/1.0.3/scripts" \
+           "$fc/openai-codex/codex/1.0.10/scripts" \
+           "$fakebin"
+  touch "$fc/openai-codex/codex/1.0.3/scripts/codex-companion.mjs" \
+        "$fc/openai-codex/codex/1.0.10/scripts/codex-companion.mjs"
+  cat > "$fakebin/sort" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "-V" ]]; then
+  echo "sort: illegal option -- V" >&2
+  exit 2
+fi
+exec /usr/bin/sort "$@"
+EOF
+  chmod +x "$fakebin/sort"
+  OUT="$(PATH="$fakebin:$PATH" SCAFFOLD_CODEX_COMPANION= SCAFFOLD_CODEX_CACHE_DIRS="$fc" bash "$SD_BIN" codex_resolve_companion 2>&1)" && RC=0 || RC=$?
+  assert_eq "rc=0 without GNU sort -V" "0" "$RC"
+  assert_contains "numeric newest version chosen" "1.0.10/scripts/codex-companion.mjs" "$OUT"
+}
+
 test_resolve_absent() {
   echo "test_resolve_absent:"
   setup_tmp_repo
@@ -189,7 +212,7 @@ test_wait_completed() {
 test_wait_done_normalizes_completed() {
   echo "test_wait_done_normalizes_completed:"
   setup_tmp_repo
-  OUT="$(CODEX_SHIM_STATUS=done bash "$SD_BIN" codex_wait "$TMP_DIR/repo" j --poll 0 --cap 5)" && RC=0 || RC=$?
+  OUT="$(CODEX_SHIM_STATUS="done" bash "$SD_BIN" codex_wait "$TMP_DIR/repo" j --poll 0 --cap 5)" && RC=0 || RC=$?
   assert_eq "token completed for companion done" "completed" "$OUT"
   assert_eq "rc=0" "0" "$RC"
 }
@@ -475,6 +498,7 @@ test_result_fence_without_mode() {
 test_resolve_override
 test_resolve_override_missing
 test_resolve_glob_newest
+test_resolve_version_compare_without_gnu_sort
 test_resolve_prefers_cache_over_marketplace
 test_resolve_marketplace_fallback
 test_resolve_absent

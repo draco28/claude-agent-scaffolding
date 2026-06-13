@@ -40,7 +40,32 @@ _sd_codex_default_cache_dirs() {
 # Echoes the absolute path to codex-companion.mjs + rc=0, or fails loud (rc=1)
 # with remediation. SCAFFOLD_CODEX_COMPANION (if set) wins; else glob the newest
 # version across the cache roots (cache layout codex/<version>/scripts + the
-# marketplace layout plugins/codex/scripts), newest by `sort -V`.
+# marketplace layout plugins/codex/scripts).
+_sd_codex_version_gt() {
+  local a="$1" b="$2"
+  [[ -z "$b" ]] && return 0
+
+  local IFS=.
+  local -a av=() bv=()
+  read -ra av <<<"$a"
+  read -ra bv <<<"$b"
+
+  local max="${#av[@]}"
+  [[ "${#bv[@]}" -gt "$max" ]] && max="${#bv[@]}"
+
+  local i ai bi
+  for ((i = 0; i < max; i++)); do
+    ai="${av[$i]:-0}"
+    bi="${bv[$i]:-0}"
+    [[ "$ai" =~ ^([0-9]+) ]] && ai="${BASH_REMATCH[1]}" || ai=0
+    [[ "$bi" =~ ^([0-9]+) ]] && bi="${BASH_REMATCH[1]}" || bi=0
+    if (( 10#$ai > 10#$bi )); then return 0; fi
+    if (( 10#$ai < 10#$bi )); then return 1; fi
+  done
+
+  [[ "$a" > "$b" ]]
+}
+
 sd_codex_resolve_companion() {
   if [[ -n "${SCAFFOLD_CODEX_COMPANION:-}" ]]; then
     if [[ -f "$SCAFFOLD_CODEX_COMPANION" ]]; then
@@ -72,16 +97,18 @@ sd_codex_resolve_companion() {
     done
   done
 
-  # Prefer the cache layout's NEWEST version. Sort by the <version> segment ALONE
-  # (extracted from the path) so the cache/marketplace path prefix can't defeat the
-  # version order — `sort -V` on full paths would pick "marketplaces" over "cache"
-  # lexically regardless of version.
+  # Prefer the cache layout's NEWEST version. Compare the <version> segment alone
+  # so the cache/marketplace path prefix can't defeat the version order. Keep the
+  # comparison in bash; macOS/BSD sort does not support GNU `sort -V`.
   if [[ "${#cache_matches[@]}" -gt 0 ]]; then
-    local best
-    best="$(for m in "${cache_matches[@]}"; do
+    local best="" best_v="" v
+    for m in "${cache_matches[@]}"; do
       v="$(printf '%s' "$m" | sed -nE 's#.*/openai-codex/codex/([^/]+)/scripts/codex-companion\.mjs$#\1#p')"
-      printf '%s\t%s\n' "$v" "$m"
-    done | sort -V | tail -n1 | cut -f2-)"
+      if _sd_codex_version_gt "$v" "$best_v"; then
+        best="$m"
+        best_v="$v"
+      fi
+    done
     if [[ -n "$best" ]]; then
       echo "$best"
       return 0
