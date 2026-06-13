@@ -2,6 +2,20 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.9.0] — 2026-06-14
+
+Add an **optional Codex synthesizer backend** (SS-5.1) — the fast-follow to scaffold-dev's SS-5 implementer backend. When the resolved `synthesizer_backend` is `codex`, the three synthesis-dispatch skills route each artifact to the externally-installed `codex-plugin-cc` companion instead of the Claude `synthesis-agent` subagent, under the **same** assembled prompt and the **same** post-validation. **Default stays `claude_subagent` — existing projects are byte-identical.** scaffold-onboard only.
+
+### Added
+- **`lib/codex.sh`** — mechanical adapter around the codex companion (`sf_codex_resolve_companion` / `target_root` / `preflight` / `dispatch` / `wait` / `result`), ported from `scaffold-dev/lib/codex.sh` **minus** the implementer-only legs (no worktree, no no-commit verify — synthesis writes its artifact directly to the manifest-routed output path, which *is* the deliverable). `set -e`-safe and exercised through `bin/sf` (`tests/test-codex.sh`, 39 cases incl. the non-throwing `wait` surface). The dispatch target is each artifact's **repo root** (`sf_codex_target_root`) so `sandbox=workspace-write` covers the write — handling the canonical/ai_workspace dual-repo split per-artifact.
+- **`lib/backend.sh`** — `sf_backend_resolve` (override > manifest `.synthesizer_backend` > `claude_subagent`; invalid → fail loud; `set -e`-safe absent-field read). Read-with-default — **no workspace-init schema change** (`tests/test-backend.sh`).
+- **`sf_manifest_get`** (`lib/routing.sh`) — scalar manifest field reader reusing `sf_discover_manifest` (`tests/test-manifest.sh`).
+- **Codex synthesizer wiring** in all three synthesis-dispatch skills: `scaffolding-memory-bank §13` (8 derived files), `scaffolding-governance-docs §11` (per-wave, ID-ledger threaded), and `onboarding-project §8` (MASTER-SPEC via `synth_master_spec_prompt` + EXECUTIVE-SUMMARY). The backend branch wraps **only the dispatch**; prompt assembly and post-validation (memory-bank/governance `sf_synth_assert_*`; MASTER-SPEC `sf spec_validate` + backup/restore + architect-critic close gate; EXEC-SUMMARY write-back guard) stay shared and backend-agnostic.
+
+### Unchanged (boundary preserved)
+- **Router files stay mechanical** — `CLAUDE.md` (`sf_claude_md_generate`), `.claude/settings.json` (`sf_claude_settings_generate`), and the `AGENTS.md` managed section (`sf_agents_md_generate`) are **never** synthesized on the Codex path (SS-7 §2/§4 boundary), guarded by `test_router_files_not_codex_dispatched`.
+- No silent fallback to Claude: a `codex` selection whose pre-flight fails hard-fails with remediation. There is no gaps-mode (synthesis is `complete | failed`) and no deterministic content fallback (SS-7).
+
 ## [0.8.0] — 2026-06-10
 
 Remove the deterministic `--fast` fallback — agent synthesis is the **only** derivation path (SS-7, closes #56). **Behavior change:** there is no deterministic content fallback anywhere — not on a missing Task tool, not on LLM/token-cost failure, not on structurally-bad output. The agent-unavailable model is uniform across every content surface: dispatch sub-agent → main-context-inline synthesis (headless) → re-dispatch once with a corrective instruction → hard-fail with actionable remediation. scaffold-onboard only.
