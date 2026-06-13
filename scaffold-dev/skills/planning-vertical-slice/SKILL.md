@@ -40,7 +40,7 @@ Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/p
 
 - `plan VS-N.M.K`, `orchestrate VS-N.M.K`, `start vertical slice N.M`
 - `start a new vertical slice`, `let's plan the next slice`
-- `/orchestrate VS-N.M.K` (slash command — see §13 for the `$ARGUMENTS` env-var bridge)
+- `/orchestrate VS-N.M.K` (slash command — see §13 for the `$SCAFFOLD_DEV_ARGS` env-var bridge)
 
 **Do NOT auto-invoke when:**
 
@@ -266,7 +266,7 @@ mkdir -p "$slice_root"
 
 For each work item, create (work id is the compact `<slice-index>.<nn>` from §4 — e.g. `1.01` for the first slice's work items — never the full 3-part slice id re-embedded):
 
-```
+```text
 ${slice_root}/
 ├── README.md
 └── work-${work_id}-${work_kebab}/
@@ -394,15 +394,25 @@ The handoff works in BOTH contexts (per SPEC §6.4) — as a Task tool prompt AN
 
 ### 8.3 Dispatch implementer
 
-Detect the host before dispatch:
+**Resolve the backend first.** Each work item runs on either the Claude implementer subagent (default) or the optional Codex backend (SS-5), chosen by:
 
-- **Claude Code host** — use the registered custom subagent type.
-- **Codex host** — use a worker-style subagent when available, with the same handoff path and the `executing-work-item` contract embedded in the prompt.
-- **Fallback** — if Codex worker dispatch is unavailable or the user wants a fresh boundary, stop after writing the handoff and instruct the user to start a fresh Claude/Codex session with the absolute `handoff.md` path. This is a first-class path, not a degraded path; the handoff is self-contained by design.
+```bash
+backend_override_args=()
+if [[ -n "${backend_override:-}" ]]; then
+  backend_override_args=(--backend "$backend_override")
+fi
+backend="$(sd backend_resolve "${backend_override_args[@]}")"
+```
+
+Precedence: a **per-invocation override** (the user asked to run this slice/round on Codex, e.g. `/orchestrate VS-N --backend codex`) > the manifest's optional `.implementer_backend` > the default `claude_subagent`. An invalid value fails loud. Projects without the field run on Claude, unchanged.
+
+The **manual fresh-session handoff** remains a first-class path for either backend whenever the user wants a fresh boundary: stop after writing the handoff and hand over the absolute `handoff.md` path — the handoff is self-contained by design.
+
+#### 8.3a — `claude_subagent` (default)
 
 For Claude Code, dispatch each work item in the round with:
 
-```
+```text
 Task(
   subagent_type="scaffold-dev:implementer-agent",
   description="Execute work item ${work_id}",
@@ -421,28 +431,52 @@ Task(
 
 The `scaffold-dev:` prefix on `subagent_type` is load-bearing — that's the registered custom subagent type per SPEC §6.1. Do NOT use the bare `implementer-agent` or any other prefix.
 
-For Codex, dispatch a worker subagent with this prompt shape when the host exposes subagent dispatch:
+#### 8.3b — `codex` (optional backend, SS-5)
 
-```
-You are the scaffold-dev implementer for one work item.
+The Codex backend dispatches the **same** work item to the externally-installed `codex-plugin-cc` companion through `lib/codex.sh`, under the **same** `{mode,…}` contract, gaps-mode escalation, and no-commit boundary as the Claude path. The only new surface is async liveness — Codex is an external process, so the orchestrator polls for the surface. **Dispatch Codex work items sequentially within a round** (the companion's `--resume-last` resolves the latest session thread; concurrent same-session tasks race).
 
-Read the handoff at <abs path to work-${work_id}-${kebab}/handoff.md>.
-Then read scaffold-dev's executing-work-item contract if available at the installed plugin path, or treat the handoff's embedded constraints as binding.
+Per work item (let `WT` = the absolute worktree path):
 
-Your worktree: <abs path to ${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}>.
-Use this path for all git operations and file edits.
+1. **Pre-flight — hard gate, no silent fallback.**
+   ```bash
+   sd codex_preflight "$WT"
+   ```
+   rc≠0 → **STOP** and surface the remediation (§12.2). Do NOT fall back to Claude — the user explicitly chose Codex; quietly running Claude would violate intent.
 
-First action: PRE-FLIGHT CHECK.
-If the handoff/spec/worktree has blocking gaps, return:
-{"mode":"gaps-surfaced","gaps":[{"section":"...","question":"...","severity":"blocking|nice-to-have"}]}
+2. **Assemble the prompt-file.** Codex does not auto-load the skill, so the contract is prompt-carried. Write a temp prompt file outside the worktree (for example under `${TMPDIR:-/tmp}`), not `$WT/.codex-prompt.md`, containing, in order: the full `executing-work-item` contract (read it from the installed scaffold-dev skill as the single source of truth, else treat the handoff's embedded constraints as binding); `Read the handoff at <abs handoff.md> and execute the work item per its instructions.`; `Your worktree: $WT — use it for all git operations and file edits.`; the no-commit prohibition `NEVER run git commit / push / pull / fetch; never launch nested subagents.`; and the return-contract instruction: *end your turn with a single fenced ```json block holding `{mode, report_path, summary, stage_status, gaps}` exactly as the Claude implementer returns; if pre-flight surfaces blocking gaps, emit `{"mode":"gaps-surfaced","gaps":[…]}` and stop.* Remove the temp prompt file after `sd codex_dispatch` returns a job id.
 
-If pre-flight is clean, implement using TDD, run embedded verification, author report.md, stage changes, and return:
-{"mode":"complete","report_path":"<absolute path>","summary":"<one-line>","stage_status":"all_staged|partial|none"}
+3. **Record baseline + dispatch + watch:**
+   ```bash
+   baseline="$(git -C "$WT" rev-parse HEAD)"
+   prompt_file="$(mktemp "${TMPDIR:-/tmp}/sd-codex-prompt.XXXXXX.md")"
+   trap 'rm -f "$prompt_file"' EXIT INT TERM
+   # write the Codex prompt contract to "$prompt_file"
+   job="$(sd codex_dispatch "$WT" "$prompt_file" [--model M] [--effort E])"
+   rm -f "$prompt_file"
+   trap - EXIT INT TERM
+   term="$(sd codex_wait "$WT" "$job")"   # background+poll+stall+cap; one of: completed|failed|cancelled|stalled|capped|error
+   ```
 
-Never run git commit, git push, git pull, or git fetch. Never launch nested subagents.
-```
+4. **No-commit verify immediately after wait** — before any failure/malformed exit path:
+   ```bash
+   if ! verdict="$(sd codex_verify_nocommit "$WT" "$baseline")"; then
+     # commit-violation or helper usage failure: surface loudly before any retry/menu
+   fi
+   ```
+   rc≠0 / `commit-violation` → surface loudly; the orchestrator decides remediation. This check runs even when `term` is `failed`/`cancelled`/`stalled`/`capped`/`error`, because an aborted or malformed Codex run may still have moved `HEAD`.
 
-Do not assume Codex plugin installation registers a named custom agent. Until Codex supports plugin-bundled custom agents as a first-class component, the portable contract is worker-subagent prompt plus manual handoff fallback.
+   Any `term` other than `completed` (`stalled`/`capped`/`failed`/`cancelled`/`error`) → surface the failure-response menu (§12.2 "Subagent crash/timeout" row) only after the no-commit verdict is clean. `sd codex_wait` already cancelled a stalled/capped job. A stall/cap is recoverable — re-dispatch (Codex `--resume-last`) or fall back to a manual session.
+
+5. **Read the return** (only on `completed`):
+   ```bash
+   if ! out="$(sd codex_result "$WT" "$job")"; then
+     # no-commit already verified above; route to §8.4 malformed-return menu
+   fi
+   ```
+
+6. **Judge dirtiness before trusting a complete result.** A `complete` return with `ok-clean` (no staged/working-tree changes) is suspect → treat as a malformed/empty return; a `gaps-surfaced` return with `ok-clean` is expected.
+
+7. **Join the Claude downstream unchanged.** The `{mode,…}` object feeds §8.4 exactly as a Claude subagent return would: `gaps-surfaced` → clarify + re-dispatch (Codex via `--resume-last`); `complete` → read `report.md`, proceed to §8.5 verification. Everything from here is backend-agnostic.
 
 ### 8.4 Process returns (§6.3 multi-call protocol)
 
@@ -450,7 +484,7 @@ Per SPEC §13, returns are processed **strictly in decomposition order** — wor
 
 For each work item in decomposition order:
 
-**`mode: gaps-surfaced`** — surface the gaps to the user in conversation, gather clarifications, append a `## Clarifications` section to the work item's `handoff.md`, then re-invoke the same Task dispatch with the same handoff path. Loop until pre-flight passes. If gaps loop 3+ iterations: halt and surface the failure-response menu (§12.2 "Subagent loops in gaps-mode" row) — suggest replan or manual implementer session.
+**`mode: gaps-surfaced`** — surface the gaps to the user in conversation, gather clarifications, append a `## Clarifications` section to the work item's `handoff.md`, then re-dispatch using the same backend that produced the gaps. For `claude_subagent`, re-invoke the same `Task(...)` dispatch with the same handoff path. For `codex`, re-run §8.3b with `sd codex_dispatch ... --resume-last` so the companion continues the prior Codex thread/session. Loop until pre-flight passes. If gaps loop 3+ iterations: halt and surface the failure-response menu (§12.2 "Subagent loops in gaps-mode" row) — suggest replan or manual implementer session.
 
 **Blocker-recall (issues, #33).** On a `gaps-surfaced` return, before re-dispatching or escalating to the §12.2 menu, run `sd issue_list` and JUDGE whether an open issue already covers the surfaced gap. If one does, surface "known — see #N" and fold that into the clarification appended to the handoff (so the re-dispatched implementer proceeds informed) rather than treating the gap as novel. Judgment, not string-matching; skip silently if `sd remote_check` fails.
 
@@ -462,7 +496,7 @@ For each work item in decomposition order:
 
 After complete-mode return, invoke `implementation-checking` on the work item:
 
-```
+```text
 Skill(scaffold-dev:implementation-checking) with: work_item_id=<N.NN>
 ```
 
@@ -570,9 +604,40 @@ Implementations live in their respective lib files (Phase 3 tasks). macOS-portab
 
 ## 13. Slash-command interaction (`/orchestrate VS-N.M.K`)
 
-The `/orchestrate VS-N.M.K` slash command (`commands/orchestrate.md`) exports the raw arg string as `$ARGUMENTS` (env-var bridge per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
+The `/orchestrate VS-N.M.K` slash command (`commands/orchestrate.md`) exports the raw slash-argument string as `$SCAFFOLD_DEV_ARGS` for this skill body (per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
 
-Parse `$ARGUMENTS` in bash; never reference `$1` / `$2`. Extract the VS-id (e.g., `VS-1.1.1` — the full 3-part id `VS-<phase>.<sprint>.<slice>`) and proceed to §3 pre-flight.
+Parse `$SCAFFOLD_DEV_ARGS` in bash; never reference `$1` / `$2`. Extract the VS-id (e.g., `VS-1.1.1` — the full 3-part id `VS-<phase>.<sprint>.<slice>`) and the optional per-invocation backend override:
+
+```bash
+vs_id=""
+backend_override=""
+read -r -a scaffold_dev_argv <<<"${SCAFFOLD_DEV_ARGS:-}"
+i=0
+while [[ "$i" -lt "${#scaffold_dev_argv[@]}" ]]; do
+  arg="${scaffold_dev_argv[$i]}"
+  case "$arg" in
+    --backend)
+      next_i=$((i + 1))
+      if [[ "$next_i" -ge "${#scaffold_dev_argv[@]}" || "${scaffold_dev_argv[$next_i]}" == --* ]]; then
+        echo "orchestrate: missing value for --backend" >&2
+        exit 2
+      fi
+      backend_override="${scaffold_dev_argv[$next_i]}"
+      i=$((i + 2))
+      ;;
+    VS-*)
+      vs_id="$arg"
+      i=$((i + 1))
+      ;;
+    *)
+      echo "orchestrate: unknown argument: $arg" >&2
+      exit 2
+      ;;
+  esac
+done
+```
+
+Carry `backend_override` through §8.3 as `sd backend_resolve --backend "$backend_override"` when set. Then proceed to §3 pre-flight.
 
 Unknown or missing VS-id → one-line error + stop:
 
@@ -592,7 +657,7 @@ Unknown or missing VS-id → one-line error + stop:
 - **Auto-invoking grill-me.** All three grill-me gates (§4.1 decomposition / §6.3 spec / §8.5 fix-up replan) are explicit offers. Eval S1 asserts the offer surfaces as a user-decidable question; auto-invoke fails the assertion.
 - **Skipping verification before commit + merge.** SPEC §13 requires `implementation-checking` between subagent return and commit. Never commit unverified work item output.
 - **Removing worktrees at round close.** SPEC §11 defers worktree removal to slice close. The branches + worktrees need to survive for slice-close demo verification.
-- **Letting this body exceed 500 lines.** Hard cap per superpowers:writing-skills Pass D guidance.
+- **Letting backend-specific dispatch contracts drift from their helper behavior.** Keep prose snippets aligned with `lib/*.sh` helpers and extract stable reference material when a subsection becomes too large to audit locally.
 - **Calling `Skill(architect-critic:critique)`** (the legacy v0.1.x slash-command-shaped name). The v0.2 skill is `critiquing-spec` per SPEC §16.3 last paragraph.
 
 ---

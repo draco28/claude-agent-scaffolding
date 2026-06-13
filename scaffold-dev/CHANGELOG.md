@@ -2,6 +2,18 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.5.0] — 2026-06-12
+
+SS-5 — optional Codex implementer backend (#47). A work item can now be dispatched to OpenAI's externally-installed `codex-plugin-cc` companion instead of the Claude `implementer-agent` subagent, under the same `{mode,…}` contract, gaps-mode escalation, and no-commit boundary. Default stays `claude_subagent` — existing projects are unchanged.
+
+### Added
+- **`lib/codex.sh` — mechanical adapter for the Codex backend.** `sd_codex_resolve_companion` (locate the installed `codex-companion.mjs`, newest version, with `SCAFFOLD_CODEX_COMPANION` override; fail-loud + remediation), `sd_codex_preflight` (hard gate: `setup --json` availability/auth + worktree-trust path-prefix check; no silent fallback), `sd_codex_dispatch` (`task --background --write --prompt-file`, optional `--resume-last`/`--resume`/`--fresh`, guarded `--model`/`--effort` values), `sd_codex_wait` (background poll + stall heuristic + wall-cap → `completed|failed|cancelled|stalled|capped|error`; normalizes legacy `done` to `completed`; cancels a stalled/capped job; validates wait options), `sd_codex_result` (extract the fenced `{mode,…}` JSON Codex emits), `sd_codex_verify_nocommit` (assert Codex did not commit; ignore only the legacy root `.codex-prompt.md` artifact when judging dirty state). All helpers are `set -e`-safe and tested through `bin/sd`.
+- **`lib/backend.sh` — `sd_backend_resolve`.** Resolves the backend with precedence per-invocation override > manifest `.implementer_backend` > `claude_subagent`. Read-with-default (no workspace-init schema change); invalid values and missing `--backend` values fail loud.
+- **`tests/test-codex.sh` + `tests/test-backend.sh` + `tests/fixtures/codex-shim/`.** Dispatcher-path coverage of every helper against an env-driven mock companion (no real Codex / no network), including the `set -e` regression guard on the `wait` poll loop.
+
+### Changed
+- **`planning-vertical-slice` §8.3 — backend-selector dispatch.** Resolves the backend first; `claude_subagent` (§8.3a) keeps the existing `Task(subagent_type="scaffold-dev:implementer-agent")` path; `codex` (§8.3b) runs preflight → external temp prompt-file assembly (contract prompt-carried, removed after dispatch) → dispatch → background wait → result → no-commit verify, then joins the existing downstream unchanged. Replaces the prior proto-typed "Codex worker subagent" prose. Codex work items dispatch sequentially within a round, and gaps-mode re-dispatches with `--resume-last`.
+
 ## [0.4.0] — 2026-06-12
 
 SS-4 — agent-review of verification seams; single-authority harvest; spec-citations gate; RED-tests pre-flight; lean-index length leg (#52, #7, #5, #48 Part F).

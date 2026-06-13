@@ -91,9 +91,10 @@ Resolve dual-path/grammar-collisions by making the **agent the single authority*
 **Closes / dissolves:** `#7`, `#5` (reframed agent-driven), `#48` Part F, **N4** (harvest grammar-collision).
 **Shipped:** scaffold-dev v0.4.0 (2026-06-12). The "bash becomes labeled fallback" framing was superseded by the delete-semantic-bash disposition (dead-code AWK parsers removed entirely; see §4 agent-driven-first-class pivot).
 
-### SS-5 — Codex implementer/synthesizer backend (`#47`) · independent
+### SS-5 — Codex implementer backend (`#47`) · independent · ✅ SHIPPED 2026-06-12
 Manifest-configurable `implementer_backend ∈ {claude_subagent, codex}` via `codex-companion.mjs task`; the no-commit/stage-only contract is prompt-carried + orchestrator-verified (no hard block under `workspace-write`). SS-3's tool-agnostic synthesis prompts mean Codex can also run derivation.
-**Closes:** `#47`.
+**Scope narrowed to implementer-only** (settled in the SS-5 brainstorm 2026-06-12; see `specs/SS-5-codex-implementer-backend.md`): wires the Codex backend into scaffold-dev's `planning-vertical-slice §8.3` work-item dispatch via `lib/codex.sh` (resolve/preflight/dispatch/wait/result/verify_nocommit) + `lib/backend.sh` selector. The **synthesizer** backend (scaffold-onboard derivation) is a future fast-follow (SS-5.1), out of SS-5 scope. Liveness: background job + poll + stall/cap, with a clarification-stop surfacing as **gaps-mode** (the Mode-B implementer contract reused for an external async process); unavailable → hard-fail + remediation (no silent fallback).
+**Closes:** `#47`. **Shipped:** scaffold-dev v0.5.0 (2026-06-12).
 
 ### SS-6 — Standalone cleanup to zero (independent items) · interleave
 Items unrelated to the derivation pivot — clear them to reach zero backlog:
@@ -121,7 +122,7 @@ Every open issue + every new audit finding, mapped to a sub-spec. **Target: 0 op
 | ~~**#7**~~ | verifying-spec-citations (agent-assisted) | **dissolved** | **SS-4** | ✅ CLOSED 2026-06-12 (SS-4, scaffold-dev v0.4.0) |
 | ~~**#5**~~ | pre-flight RED-tests gate | partial (reframe) | **SS-4** | ✅ CLOSED 2026-06-12 (SS-4, scaffold-dev v0.4.0) |
 | **#48** | #33 C–F + /defer routing + label auto-create | partial | **SS-1** (C/D/E) + **SS-4** (F) + **SS-6** (routing/label) | Part F ✅ SHIPPED 2026-06-12 (SS-4, scaffold-dev v0.4.0); C/D/E + routing/label remainder open |
-| **#47** | Codex implementer backend | independent | **SS-5** | v0.3 |
+| ~~**#47**~~ | Codex implementer backend | independent | **SS-5** | ✅ CLOSED 2026-06-12 (SS-5, scaffold-dev v0.5.0) |
 | **#8** | ban `git stash` in templates | independent (keep-mech) | **SS-6** | v0.2 |
 | **#9** | pairing-existing-dual (Scenario C) | independent | **SS-6** | v0.2 |
 | **#6** | ADR Proposed→Accepted flip | independent | **SS-6** | v0.3 |
