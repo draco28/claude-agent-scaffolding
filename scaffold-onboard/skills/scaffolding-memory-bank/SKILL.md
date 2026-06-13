@@ -258,7 +258,17 @@ source "${CLAUDE_PLUGIN_ROOT}/lib/memory-bank.sh"   # sf_memory_bank_seed_live_s
 source "${CLAUDE_PLUGIN_ROOT}/lib/compose.sh"       # sf_compose_detect_architect_critic — _composition_args (inside sf_claude_md_generate) needs it; without it the probe is undefined and has_architect_critic renders false, dropping the /critique block from CLAUDE.md
 source "${CLAUDE_PLUGIN_ROOT}/lib/render.sh"        # sf_render_executive_summary_from_synthesized, sf_exec_summary_staleness
 source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"         # sf_project_name, sf_state_read_answer, sf_state_gate_passes
+source "${CLAUDE_PLUGIN_ROOT}/lib/backend.sh"       # sf_backend_resolve — synthesizer backend selector (SS-5.1)
+source "${CLAUDE_PLUGIN_ROOT}/lib/codex.sh"         # sf_codex_* — Codex synthesis adapter (SS-5.1; call as `sf codex_<verb>`)
 ```
+
+Resolve the synthesizer backend **once** (SS-5.1):
+
+```bash
+backend="$(sf_backend_resolve)"   # claude_subagent (default) | codex
+```
+
+When `backend == codex`, every derived artifact below is synthesized by the Codex companion instead of the Claude `synthesis-agent`, under the **same** assembled prompt and the **same** post-validation (§13.2). The **router files** (`CLAUDE.md`, `.claude/settings.json`, `AGENTS.md`) are NEVER synthesized on either path — they stay mechanical in the §13.2 finalize. There is no silent fallback to Claude: if `codex` is selected and pre-flight fails, the skill hard-fails with remediation.
 
 Resolve source documents:
 
@@ -345,12 +355,28 @@ Dispatch each of the following using the standard pattern:
 ```bash
 brief="${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/<NAME>.brief.md"
 out="$(sf_resolve_output_path <routes_to> .claude/memory-bank/<name>.md)"
-prompt="$(sf_synth_brief_assemble "$brief" "$ledger" "$out" "$master" "$exec_summary")"
-Task(subagent_type="scaffold-onboard:synthesis-agent",
-     description="Synthesize <name>",
-     model="claude-sonnet-4-5",
-     prompt="$prompt")
+prompt="$(sf_synth_brief_assemble "$brief" "$ledger" "$out" "$master" "$exec_summary")"   # UNCHANGED — same prompt to both backends
+if [[ "$backend" == "codex" ]]; then
+  # SS-5.1 Codex synthesizer backend — dispatch the SAME prompt to the codex
+  # companion. NO Claude fallback on pre-flight failure (the user chose Codex).
+  target_root="$(sf codex_target_root "$out")"     # output artifact's repo root → sandbox=workspace-write covers the write
+  sf codex_preflight "$target_root"                # hard-fail with remediation if Codex unavailable/untrusted
+  pf="$(mktemp "${TMPDIR:-/tmp}/sf-codex-prompt.XXXXXX.md")"; printf '%s' "$prompt" > "$pf"   # temp OUTSIDE any output tree
+  trap 'rm -f "$pf"' EXIT INT TERM
+  job="$(sf codex_dispatch "$target_root" "$pf")"
+  rm -f "$pf"; trap - EXIT INT TERM
+  term="$(sf codex_wait "$target_root" "$job")"    # completed|failed|cancelled|stalled|capped|error
+  result="$(sf codex_result "$target_root" "$job")"  # {mode, output_path, ids_minted, ids_cited, summary}
+else
+  Task(subagent_type="scaffold-onboard:synthesis-agent",
+       description="Synthesize <name>",
+       model="claude-sonnet-4-5",
+       prompt="$prompt")
+  # result = the agent's returned {mode, output_path, ids_minted, ids_cited, summary} JSON
+fi
 ```
+
+The dispatch is the **only** branch: the prompt above and the `mode:complete` validation below (`sf_synth_ledger_merge` + the three `sf_synth_assert_*`) are identical for both backends. On `mode:failed` or any validation failure, re-dispatch that artifact **once** via the **same** backend (`codex` → `sf codex_dispatch … --resume-last`).
 
 The 8 artifacts and their output paths:
 

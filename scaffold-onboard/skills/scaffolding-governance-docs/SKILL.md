@@ -218,7 +218,17 @@ Source both synthesis and routing helpers:
 source "${CLAUDE_PLUGIN_ROOT}/lib/synthesis.sh"
 source "${CLAUDE_PLUGIN_ROOT}/lib/routing.sh"
 source "${CLAUDE_PLUGIN_ROOT}/lib/state.sh"  # sf_project_name, sf_state_read_answer, sf_state_gate_passes
+source "${CLAUDE_PLUGIN_ROOT}/lib/backend.sh"   # sf_backend_resolve — synthesizer backend selector (SS-5.1)
+source "${CLAUDE_PLUGIN_ROOT}/lib/codex.sh"     # sf_codex_* — Codex synthesis adapter (SS-5.1; call as `sf codex_<verb>`)
 ```
+
+Resolve the synthesizer backend **once** (SS-5.1):
+
+```bash
+backend="$(sf_backend_resolve)"   # claude_subagent (default) | codex
+```
+
+When `backend == codex`, every governance doc below is synthesized by the Codex companion instead of the Claude `synthesis-agent`, under the **same** prompt and the **same** post-validation + ID-ledger threading. `sf codex_target_root "$out"` resolves each artifact's own repo root, so docs routed to `canonical` (PRD/SRS/BACKLOG) and to `ai_workspace` (process ADRs) each dispatch into the correct trusted repo. No silent fallback to Claude — pre-flight failure hard-fails with remediation.
 
 Resolve the source documents:
 
@@ -289,13 +299,26 @@ Briefs live at `${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/<DOC>.brief.md`
 ```bash
 brief="${CLAUDE_PLUGIN_ROOT}/templates/synthesis-briefs/PRD.brief.md"
 out="$(sf_resolve_output_path prd docs/PRD.md)"
-prompt="$(sf_synth_brief_assemble "$brief" "$ledger" "$out" "$master" "$exec_summary")"
-# Dispatch: model = opus (from brief's model: field)
-Task(subagent_type="scaffold-onboard:synthesis-agent",
-     description="Synthesize PRD",
-     model="claude-opus-4-5",
-     prompt="$prompt")
+prompt="$(sf_synth_brief_assemble "$brief" "$ledger" "$out" "$master" "$exec_summary")"   # UNCHANGED — same prompt to both backends
+# Dispatch: model = opus (from brief's model: field). SS-5.1: branch ONLY the dispatch.
+if [[ "$backend" == "codex" ]]; then
+  target_root="$(sf codex_target_root "$out")"     # this doc's repo root (canonical for PRD)
+  sf codex_preflight "$target_root"                # hard-fail; no Claude fallback
+  pf="$(mktemp "${TMPDIR:-/tmp}/sf-codex-prompt.XXXXXX.md")"; printf '%s' "$prompt" > "$pf"
+  trap 'rm -f "$pf"' EXIT INT TERM
+  job="$(sf codex_dispatch "$target_root" "$pf")"
+  rm -f "$pf"; trap - EXIT INT TERM
+  term="$(sf codex_wait "$target_root" "$job")"
+  result="$(sf codex_result "$target_root" "$job")"  # {mode, output_path, ids_minted, ids_cited, summary}
+else
+  Task(subagent_type="scaffold-onboard:synthesis-agent",
+       description="Synthesize PRD",
+       model="claude-opus-4-5",
+       prompt="$prompt")
+fi
 ```
+
+This `if [[ "$backend" == "codex" ]]` branch is the **canonical dispatch pattern** referenced by "Same pattern as Wave 1" below — every wave wraps only its dispatch this way; the `sf_synth_brief_assemble` prompt and the `mode:complete` validation (ledger-merge + the three `sf_synth_assert_*`) stay shared and backend-agnostic. On `mode:failed`/validation-fail, re-dispatch that doc **once** via the same backend.
 
 On `mode:complete`: merge returned IDs and validate:
 

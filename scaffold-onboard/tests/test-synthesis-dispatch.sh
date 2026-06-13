@@ -587,6 +587,46 @@ test_inline_fallback_model_documented() {
   if [[ "$ok" == "1" ]]; then PASS=$((PASS+1)); echo "  ✓ all 4 content skills document dispatch→inline→re-dispatch→hard-fail (no deterministic fallback)"; else FAIL=$((FAIL+1)); fi
 }
 
+# ── SS-5.1 — Codex synthesizer backend wiring (derivation seams §13 / §11) ──
+test_memory_bank_dispatch_has_codex_branch() {
+  echo "test_memory_bank_dispatch_has_codex_branch:"
+  local body; body="$(_extract_section_bash "$MB_SKILL" "## 13")"
+  local ok=1
+  printf '%s' "$body" | grep -q 'backend_resolve' || { echo "  ✗ §13 has no backend_resolve branch"; ok=0; }
+  printf '%s' "$body" | grep -q 'codex_dispatch'  || { echo "  ✗ §13 never dispatches via codex"; ok=0; }
+  printf '%s' "$body" | grep -Eq 'source .*/lib/(backend|codex)\.sh' || { echo "  ✗ §13 does not source backend/codex libs"; ok=0; }
+  if [[ "$ok" == 1 ]]; then PASS=$((PASS+1)); echo "  ✓ §13 has the codex backend branch + sources its libs"; else FAIL=$((FAIL+1)); fi
+}
+
+test_memory_bank_codex_branch_hard_fails() {
+  echo "test_memory_bank_codex_branch_hard_fails:"
+  local body; body="$(_extract_section_bash "$MB_SKILL" "## 13")"
+  if printf '%s' "$body" | grep -q 'codex_preflight'; then
+    PASS=$((PASS+1)); echo "  ✓ §13 codex path runs preflight (hard-fail, no Claude fallback)"
+  else FAIL=$((FAIL+1)); echo "  ✗ §13 codex path missing preflight hard-gate"; fi
+}
+
+# Router files (CLAUDE.md / settings.json / AGENTS.md) must NEVER ride the codex
+# dispatch — they stay mechanical (parallel to test_claude_md_mechanically_generated_not_synthesized).
+test_router_files_not_codex_dispatched() {
+  echo "test_router_files_not_codex_dispatched:"
+  local ok=1
+  if grep -nE 'codex_dispatch' "$MB_SKILL" | grep -Eq 'CLAUDE\.md|settings\.json|AGENTS\.md'; then
+    echo "  ✗ a router file is on a codex_dispatch line in memory-bank §13"; ok=0
+  fi
+  grep -q 'sf_claude_settings_generate' "$MB_SKILL" && grep -q 'sf_agents_md_generate' "$MB_SKILL" \
+    || { echo "  ✗ mechanical router generators missing from finalize"; ok=0; }
+  if [[ "$ok" == 1 ]]; then PASS=$((PASS+1)); echo "  ✓ router files stay mechanical on the codex path"; else FAIL=$((FAIL+1)); fi
+}
+
+test_governance_dispatch_has_codex_branch() {
+  echo "test_governance_dispatch_has_codex_branch:"
+  local body; body="$(_extract_section_bash "$GOV_SKILL" "## 11")"
+  if printf '%s' "$body" | grep -q 'backend_resolve' && printf '%s' "$body" | grep -q 'codex_dispatch'; then
+    PASS=$((PASS+1)); echo "  ✓ §11 has the codex backend branch"
+  else FAIL=$((FAIL+1)); echo "  ✗ §11 missing codex backend branch"; fi
+}
+
 test_memory_bank_dispatch_sources_its_helpers
 test_synthesize_finalize_routes_to_memory_bank
 test_governance_dispatch_sources_its_helpers
@@ -613,4 +653,8 @@ test_exec_summary_staleness_detects_master_change
 test_deterministic_exec_summary_renderers_removed
 test_exec_summary_brief_validates
 test_inline_fallback_model_documented
+test_memory_bank_dispatch_has_codex_branch
+test_memory_bank_codex_branch_hard_fails
+test_router_files_not_codex_dispatched
+test_governance_dispatch_has_codex_branch
 report_results
