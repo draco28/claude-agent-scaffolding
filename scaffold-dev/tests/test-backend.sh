@@ -35,6 +35,14 @@ test_override_beats_manifest() {
   assert_eq "override wins" "codex" "$OUT"
 }
 
+test_override_missing_value() {
+  echo "test_override_missing_value:"
+  setup_tmp_workspace
+  OUT="$(cd "$TMP_AI_WORKSPACE" && bash "$SD_BIN" backend_resolve --backend 2>&1)" && RC=0 || RC=$?
+  assert_eq "rc=2 when --backend lacks a value" "2" "$RC"
+  assert_contains "reports missing --backend value" "missing value for --backend" "$OUT"
+}
+
 test_resolve_no_manifest_defaults() {
   echo "test_resolve_no_manifest_defaults:"
   setup_tmp_repo
@@ -68,6 +76,7 @@ test_override_beats_set_manifest() {
 test_resolve_default_when_field_absent
 test_resolve_field_codex
 test_override_beats_manifest
+test_override_missing_value
 test_override_beats_set_manifest
 test_resolve_no_manifest_defaults
 test_resolve_invalid_backend

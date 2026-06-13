@@ -30,7 +30,12 @@ sd_backend_resolve() {
   local override=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --backend) override="${2:-}"; shift 2 ;;
+      --backend)
+        if [[ -z "${2:-}" || "${2:-}" == --* ]]; then
+          sd_log_error "sd_backend_resolve: missing value for --backend"
+          return 2
+        fi
+        override="$2"; shift 2 ;;
       *) sd_log_error "sd_backend_resolve: unknown arg: $1"; return 2 ;;
     esac
   done

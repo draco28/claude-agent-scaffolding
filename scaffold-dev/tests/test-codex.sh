@@ -129,6 +129,53 @@ test_dispatch_model_effort() {
   assert_contains "forwards --effort" "--effort high" "$argv"
 }
 
+test_dispatch_missing_model_value() {
+  echo "test_dispatch_missing_model_value:"
+  setup_tmp_repo
+  local pf="$TMP_DIR/prompt.md"; echo "x" > "$pf"
+  OUT="$(bash "$SD_BIN" codex_dispatch "$TMP_DIR/repo" "$pf" --model 2>&1)" && RC=0 || RC=$?
+  assert_eq "rc=1 on missing --model value" "1" "$RC"
+  assert_contains "reports missing --model value" "missing value for --model" "$OUT"
+}
+
+test_dispatch_missing_effort_value() {
+  echo "test_dispatch_missing_effort_value:"
+  setup_tmp_repo
+  local pf="$TMP_DIR/prompt.md"; echo "x" > "$pf"
+  OUT="$(bash "$SD_BIN" codex_dispatch "$TMP_DIR/repo" "$pf" --effort --model gpt-5.5 2>&1)" && RC=0 || RC=$?
+  assert_eq "rc=1 on missing --effort value" "1" "$RC"
+  assert_contains "reports missing --effort value" "missing value for --effort" "$OUT"
+}
+
+test_dispatch_resume_and_fresh_flags() {
+  echo "test_dispatch_resume_and_fresh_flags:"
+  setup_tmp_repo
+  local pf="$TMP_DIR/prompt.md"; echo "x" > "$pf"
+  local log="$TMP_DIR/argv.log"
+  OUT="$(CODEX_SHIM_LOG="$log" bash "$SD_BIN" codex_dispatch "$TMP_DIR/repo" "$pf" --resume-last 2>&1)" && RC=0 || RC=$?
+  assert_eq "rc=0 for --resume-last" "0" "$RC"
+  assert_file_contains "$log" "--resume-last"
+
+  : > "$log"
+  OUT="$(CODEX_SHIM_LOG="$log" bash "$SD_BIN" codex_dispatch "$TMP_DIR/repo" "$pf" --resume 2>&1)" && RC=0 || RC=$?
+  assert_eq "rc=0 for --resume alias" "0" "$RC"
+  assert_file_contains "$log" "--resume-last"
+
+  : > "$log"
+  OUT="$(CODEX_SHIM_LOG="$log" bash "$SD_BIN" codex_dispatch "$TMP_DIR/repo" "$pf" --fresh 2>&1)" && RC=0 || RC=$?
+  assert_eq "rc=0 for --fresh" "0" "$RC"
+  assert_file_contains "$log" "--fresh"
+}
+
+test_dispatch_rejects_resume_and_fresh() {
+  echo "test_dispatch_rejects_resume_and_fresh:"
+  setup_tmp_repo
+  local pf="$TMP_DIR/prompt.md"; echo "x" > "$pf"
+  OUT="$(bash "$SD_BIN" codex_dispatch "$TMP_DIR/repo" "$pf" --resume-last --fresh 2>&1)" && RC=0 || RC=$?
+  assert_eq "rc=1 for conflicting resume/fresh" "1" "$RC"
+  assert_contains "reports resume/fresh conflict" "Choose either --resume-last/--resume or --fresh" "$OUT"
+}
+
 # --- wait (highest-risk set -e surface; all dispatcher-path) --------------
 
 test_wait_completed() {
@@ -136,6 +183,14 @@ test_wait_completed() {
   setup_tmp_repo
   OUT="$(CODEX_SHIM_STATUS=completed bash "$SD_BIN" codex_wait "$TMP_DIR/repo" j --poll 0 --cap 5)" && RC=0 || RC=$?
   assert_eq "token completed" "completed" "$OUT"
+  assert_eq "rc=0" "0" "$RC"
+}
+
+test_wait_done_normalizes_completed() {
+  echo "test_wait_done_normalizes_completed:"
+  setup_tmp_repo
+  OUT="$(CODEX_SHIM_STATUS=done bash "$SD_BIN" codex_wait "$TMP_DIR/repo" j --poll 0 --cap 5)" && RC=0 || RC=$?
+  assert_eq "token completed for companion done" "completed" "$OUT"
   assert_eq "rc=0" "0" "$RC"
 }
 
@@ -168,6 +223,34 @@ test_wait_capped_cancels() {
         bash "$SD_BIN" codex_wait "$TMP_DIR/repo" j --poll 0 --stall 300 --cap 0)" && RC=0 || RC=$?
   assert_eq "token capped" "capped" "$OUT"
   assert_file_contains "$log" "^cancel "
+}
+
+test_wait_missing_option_values() {
+  echo "test_wait_missing_option_values:"
+  setup_tmp_repo
+  OUT="$(bash "$SD_BIN" codex_wait "$TMP_DIR/repo" j --poll)" && RC=0 || RC=$?
+  assert_eq "missing --poll returns token error" "error" "$OUT"
+  assert_eq "missing --poll remains non-throwing" "0" "$RC"
+
+  OUT="$(bash "$SD_BIN" codex_wait "$TMP_DIR/repo" j --stall --cap 5)" && RC=0 || RC=$?
+  assert_eq "missing --stall returns token error" "error" "$OUT"
+  assert_eq "missing --stall remains non-throwing" "0" "$RC"
+
+  OUT="$(bash "$SD_BIN" codex_wait "$TMP_DIR/repo" j --cap)" && RC=0 || RC=$?
+  assert_eq "missing --cap returns token error" "error" "$OUT"
+  assert_eq "missing --cap remains non-throwing" "0" "$RC"
+}
+
+test_wait_rejects_non_numeric_options() {
+  echo "test_wait_rejects_non_numeric_options:"
+  setup_tmp_repo
+  OUT="$(bash "$SD_BIN" codex_wait "$TMP_DIR/repo" j --poll nope --cap 5)" && RC=0 || RC=$?
+  assert_eq "non-numeric --poll returns token error" "error" "$OUT"
+  assert_eq "non-numeric --poll remains non-throwing" "0" "$RC"
+
+  OUT="$(bash "$SD_BIN" codex_wait "$TMP_DIR/repo" j --poll 0 --stall -1 --cap 5)" && RC=0 || RC=$?
+  assert_eq "negative --stall returns token error" "error" "$OUT"
+  assert_eq "negative --stall remains non-throwing" "0" "$RC"
 }
 
 # --- result --------------------------------------------------------------
@@ -220,6 +303,27 @@ test_verify_unchanged_dirty() {
   OUT="$(bash "$SD_BIN" codex_verify_nocommit "$TMP_DIR/repo" "$base")" && RC=0 || RC=$?
   assert_eq "rc=0 unchanged" "0" "$RC"
   assert_eq "ok-dirty when staged/untracked present" "ok-dirty" "$OUT"
+}
+
+test_verify_ignores_root_codex_prompt_artifact() {
+  echo "test_verify_ignores_root_codex_prompt_artifact:"
+  setup_tmp_repo; _commit_initial
+  local base; base="$(git -C "$TMP_DIR/repo" rev-parse HEAD)"
+  echo prompt > "$TMP_DIR/repo/.codex-prompt.md"
+  OUT="$(bash "$SD_BIN" codex_verify_nocommit "$TMP_DIR/repo" "$base")" && RC=0 || RC=$?
+  assert_eq "rc=0 unchanged" "0" "$RC"
+  assert_eq "legacy prompt artifact ignored" "ok-clean" "$OUT"
+}
+
+test_verify_other_untracked_still_dirty_with_prompt_artifact() {
+  echo "test_verify_other_untracked_still_dirty_with_prompt_artifact:"
+  setup_tmp_repo; _commit_initial
+  local base; base="$(git -C "$TMP_DIR/repo" rev-parse HEAD)"
+  echo prompt > "$TMP_DIR/repo/.codex-prompt.md"
+  echo real > "$TMP_DIR/repo/real-change.txt"
+  OUT="$(bash "$SD_BIN" codex_verify_nocommit "$TMP_DIR/repo" "$base")" && RC=0 || RC=$?
+  assert_eq "rc=0 unchanged" "0" "$RC"
+  assert_eq "real untracked file still dirty" "ok-dirty" "$OUT"
 }
 
 test_verify_head_moved() {
@@ -315,6 +419,30 @@ test_wait_fresh_logfile_not_stalled() {
   assert_eq "fresh logfile reaches cap, not stalled" "capped" "$OUT"
 }
 
+test_wait_gnu_stat_used_before_bsd_fallback() {
+  echo "test_wait_gnu_stat_used_before_bsd_fallback:"
+  setup_tmp_repo
+  local fakebin="$TMP_DIR/fakebin"; mkdir -p "$fakebin"
+  cat > "$fakebin/stat" <<'EOF'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "-c" ]]; then
+  echo "$(date +%s)"
+  exit 0
+fi
+if [[ "${1:-}" == "-f" ]]; then
+  printf '  File: "%s"\nBlocks: 8\n' "${3:-}"
+  exit 0
+fi
+exit 1
+EOF
+  chmod +x "$fakebin/stat"
+  local log="$TMP_DIR/fresh.log"; : > "$log"
+  OUT="$(PATH="$fakebin:$PATH" CODEX_SHIM_STATUS=running CODEX_SHIM_LOGFILE="$log" \
+        bash "$SD_BIN" codex_wait "$TMP_DIR/repo" j --poll 0 --stall 300 --cap 0)" && RC=0 || RC=$?
+  assert_eq "gnu stat numeric mtime reaches cap" "capped" "$OUT"
+  assert_eq "rc=0 despite BSD stat text succeeding" "0" "$RC"
+}
+
 # #2: MULTIPLE fenced blocks → the LAST one wins.
 test_result_multi_fence_takes_last() {
   echo "test_result_multi_fence_takes_last:"
@@ -357,15 +485,23 @@ test_preflight_untrusted_worktree
 test_preflight_resolve_fails
 test_dispatch_jobid_and_flags
 test_dispatch_model_effort
+test_dispatch_missing_model_value
+test_dispatch_missing_effort_value
+test_dispatch_resume_and_fresh_flags
+test_dispatch_rejects_resume_and_fresh
 test_dispatch_node_failure
 test_dispatch_missing_jobid
 test_wait_completed
+test_wait_done_normalizes_completed
 test_wait_failed_nonthrowing
 test_wait_stalled_cancels
 test_wait_capped_cancels
+test_wait_missing_option_values
+test_wait_rejects_non_numeric_options
 test_wait_status_call_error
 test_wait_unparseable_status
 test_wait_fresh_logfile_not_stalled
+test_wait_gnu_stat_used_before_bsd_fallback
 test_result_complete
 test_result_gaps_prose_before_fence
 test_result_multi_fence_takes_last
@@ -373,6 +509,8 @@ test_result_no_fence
 test_result_fence_without_mode
 test_verify_unchanged_clean
 test_verify_unchanged_dirty
+test_verify_ignores_root_codex_prompt_artifact
+test_verify_other_untracked_still_dirty_with_prompt_artifact
 test_verify_head_moved
 
 sd_test_summary

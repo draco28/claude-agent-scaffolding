@@ -266,7 +266,7 @@ mkdir -p "$slice_root"
 
 For each work item, create (work id is the compact `<slice-index>.<nn>` from §4 — e.g. `1.01` for the first slice's work items — never the full 3-part slice id re-embedded):
 
-```
+```text
 ${slice_root}/
 ├── README.md
 └── work-${work_id}-${work_kebab}/
@@ -396,7 +396,7 @@ The handoff works in BOTH contexts (per SPEC §6.4) — as a Task tool prompt AN
 
 **Resolve the backend first.** Each work item runs on either the Claude implementer subagent (default) or the optional Codex backend (SS-5), chosen by:
 
-```
+```bash
 backend="$(sd backend_resolve [--backend <override>])"
 ```
 
@@ -408,7 +408,7 @@ The **manual fresh-session handoff** remains a first-class path for either backe
 
 For Claude Code, dispatch each work item in the round with:
 
-```
+```text
 Task(
   subagent_type="scaffold-dev:implementer-agent",
   description="Execute work item ${work_id}",
@@ -434,28 +434,31 @@ The Codex backend dispatches the **same** work item to the externally-installed 
 Per work item (let `WT` = the absolute worktree path):
 
 1. **Pre-flight — hard gate, no silent fallback.**
-   ```
+   ```bash
    sd codex_preflight "$WT"
    ```
    rc≠0 → **STOP** and surface the remediation (§12.2). Do NOT fall back to Claude — the user explicitly chose Codex; quietly running Claude would violate intent.
 
-2. **Assemble the prompt-file.** Codex does not auto-load the skill, so the contract is prompt-carried. Write `$WT/.codex-prompt.md` containing, in order: the full `executing-work-item` contract (read it from the installed scaffold-dev skill as the single source of truth, else treat the handoff's embedded constraints as binding); `Read the handoff at <abs handoff.md> and execute the work item per its instructions.`; `Your worktree: $WT — use it for all git operations and file edits.`; the no-commit prohibition `NEVER run git commit / push / pull / fetch; never launch nested subagents.`; and the return-contract instruction: *end your turn with a single fenced ```json block holding `{mode, report_path, summary, stage_status, gaps}` exactly as the Claude implementer returns; if pre-flight surfaces blocking gaps, emit `{"mode":"gaps-surfaced","gaps":[…]}` and stop.*
+2. **Assemble the prompt-file.** Codex does not auto-load the skill, so the contract is prompt-carried. Write a temp prompt file outside the worktree (for example under `${TMPDIR:-/tmp}`), not `$WT/.codex-prompt.md`, containing, in order: the full `executing-work-item` contract (read it from the installed scaffold-dev skill as the single source of truth, else treat the handoff's embedded constraints as binding); `Read the handoff at <abs handoff.md> and execute the work item per its instructions.`; `Your worktree: $WT — use it for all git operations and file edits.`; the no-commit prohibition `NEVER run git commit / push / pull / fetch; never launch nested subagents.`; and the return-contract instruction: *end your turn with a single fenced ```json block holding `{mode, report_path, summary, stage_status, gaps}` exactly as the Claude implementer returns; if pre-flight surfaces blocking gaps, emit `{"mode":"gaps-surfaced","gaps":[…]}` and stop.* Remove the temp prompt file after `sd codex_dispatch` returns a job id.
 
 3. **Record baseline + dispatch + watch:**
-   ```
+   ```bash
    baseline="$(git -C "$WT" rev-parse HEAD)"
-   job="$(sd codex_dispatch "$WT" "$WT/.codex-prompt.md" [--model M] [--effort E])"
+   prompt_file="$(mktemp "${TMPDIR:-/tmp}/sd-codex-prompt.XXXXXX.md")"
+   # write the Codex prompt contract to "$prompt_file"
+   job="$(sd codex_dispatch "$WT" "$prompt_file" [--model M] [--effort E])"
+   rm -f "$prompt_file"
    term="$(sd codex_wait "$WT" "$job")"   # background+poll+stall+cap; one of: completed|failed|cancelled|stalled|capped|error
    ```
    Any `term` other than `completed` (`stalled`/`capped`/`failed`/`cancelled`/`error`) → surface the failure-response menu (§12.2 "Subagent crash/timeout" row); `sd codex_wait` already cancelled a stalled/capped job. A stall/cap is recoverable — re-dispatch (Codex `--resume-last`) or fall back to a manual session.
 
 4. **Read the return** (only on `completed`):
-   ```
+   ```bash
    out="$(sd codex_result "$WT" "$job")"   # the {mode,…} JSON; rc≠0 → Codex emitted no parseable block → §8.4 malformed-return menu
    ```
 
 5. **No-commit verify** before trusting the result:
-   ```
+   ```bash
    verdict="$(sd codex_verify_nocommit "$WT" "$baseline")"
    ```
    rc≠0 / `commit-violation` → surface loudly; the orchestrator decides remediation. A `complete` return with `ok-clean` (no staged/working-tree changes) is suspect → treat as a malformed/empty return; a `gaps-surfaced` return with `ok-clean` is expected.
@@ -468,7 +471,7 @@ Per SPEC §13, returns are processed **strictly in decomposition order** — wor
 
 For each work item in decomposition order:
 
-**`mode: gaps-surfaced`** — surface the gaps to the user in conversation, gather clarifications, append a `## Clarifications` section to the work item's `handoff.md`, then re-invoke the same Task dispatch with the same handoff path. Loop until pre-flight passes. If gaps loop 3+ iterations: halt and surface the failure-response menu (§12.2 "Subagent loops in gaps-mode" row) — suggest replan or manual implementer session.
+**`mode: gaps-surfaced`** — surface the gaps to the user in conversation, gather clarifications, append a `## Clarifications` section to the work item's `handoff.md`, then re-dispatch using the same backend that produced the gaps. For `claude_subagent`, re-invoke the same `Task(...)` dispatch with the same handoff path. For `codex`, re-run §8.3b with `sd codex_dispatch ... --resume-last` so the companion continues the prior Codex thread/session. Loop until pre-flight passes. If gaps loop 3+ iterations: halt and surface the failure-response menu (§12.2 "Subagent loops in gaps-mode" row) — suggest replan or manual implementer session.
 
 **Blocker-recall (issues, #33).** On a `gaps-surfaced` return, before re-dispatching or escalating to the §12.2 menu, run `sd issue_list` and JUDGE whether an open issue already covers the surfaced gap. If one does, surface "known — see #N" and fold that into the clarification appended to the handoff (so the re-dispatched implementer proceeds informed) rather than treating the gap as novel. Judgment, not string-matching; skip silently if `sd remote_check` fails.
 
@@ -480,7 +483,7 @@ For each work item in decomposition order:
 
 After complete-mode return, invoke `implementation-checking` on the work item:
 
-```
+```text
 Skill(scaffold-dev:implementation-checking) with: work_item_id=<N.NN>
 ```
 

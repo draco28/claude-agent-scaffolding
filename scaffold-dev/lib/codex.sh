@@ -181,14 +181,35 @@ sd_codex_preflight() {
   return 0
 }
 
-# sd_codex_dispatch <worktree> <prompt-file> [--model M] [--effort E]
+_sd_codex_require_value() {
+  local fn="$1" flag="$2" value="${3:-}"
+  if [[ -z "$value" || "$value" == --* ]]; then
+    sd_log_error "$fn: missing value for $flag"
+    return 1
+  fi
+  return 0
+}
+
+_sd_codex_require_nonnegative_int() {
+  local fn="$1" flag="$2" value="${3:-}"
+  if ! _sd_codex_require_value "$fn" "$flag" "$value"; then
+    return 1
+  fi
+  if [[ ! "$value" =~ ^[0-9]+$ ]]; then
+    sd_log_error "$fn: $flag must be a non-negative integer: $value"
+    return 1
+  fi
+  return 0
+}
+
+# sd_codex_dispatch <worktree> <prompt-file> [--model M] [--effort E] [--resume-last|--resume|--fresh]
 # Launches a background, write-capable Codex task carrying the prompt-file.
 # Echoes the job-id + rc=0, or rc=1 on failure.
 sd_codex_dispatch() {
   local wt="${1:-}" pf="${2:-}"
   shift 2 2>/dev/null || true
   if [[ -z "$wt" || -z "$pf" ]]; then
-    sd_log_error "sd_codex_dispatch: usage: sd codex_dispatch <worktree> <prompt-file> [--model M] [--effort E]"
+    sd_log_error "sd_codex_dispatch: usage: sd codex_dispatch <worktree> <prompt-file> [--model M] [--effort E] [--resume-last|--resume|--fresh]"
     return 1
   fi
   if [[ ! -f "$pf" ]]; then
@@ -199,14 +220,24 @@ sd_codex_dispatch() {
   local pf_abs
   pf_abs="$(cd "$(dirname "$pf")" && pwd)/$(basename "$pf")"
 
-  local model="" effort=""
+  local model="" effort="" resume_last=0 fresh=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --model)  model="${2:-}"; shift 2 ;;
-      --effort) effort="${2:-}"; shift 2 ;;
+      --model)
+        if ! _sd_codex_require_value "sd_codex_dispatch" "$1" "${2:-}"; then return 1; fi
+        model="$2"; shift 2 ;;
+      --effort)
+        if ! _sd_codex_require_value "sd_codex_dispatch" "$1" "${2:-}"; then return 1; fi
+        effort="$2"; shift 2 ;;
+      --resume-last|--resume) resume_last=1; shift ;;
+      --fresh) fresh=1; shift ;;
       *) sd_log_error "sd_codex_dispatch: unknown arg: $1"; return 1 ;;
     esac
   done
+  if [[ "$resume_last" -eq 1 && "$fresh" -eq 1 ]]; then
+    sd_log_error "sd_codex_dispatch: Choose either --resume-last/--resume or --fresh."
+    return 1
+  fi
 
   local companion
   if ! companion="$(sd_codex_resolve_companion)"; then
@@ -214,6 +245,8 @@ sd_codex_dispatch() {
   fi
 
   local args=(task --background --write --prompt-file "$pf_abs" --json)
+  [[ "$resume_last" -eq 1 ]] && args+=(--resume-last)
+  [[ "$fresh" -eq 1 ]] && args+=(--fresh)
   [[ -n "$model" ]]  && args+=(--model "$model")
   [[ -n "$effort" ]] && args+=(--effort "$effort")
 
@@ -235,7 +268,16 @@ sd_codex_dispatch() {
 
 # _sd_codex_mtime <file> — epoch mtime (macOS + GNU), or empty.
 _sd_codex_mtime() {
-  stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null || echo ""
+  local v=""
+  if v="$(stat -c %Y "$1" 2>/dev/null)" && [[ "$v" =~ ^[0-9]+$ ]]; then
+    echo "$v"
+    return 0
+  fi
+  if v="$(stat -f %m "$1" 2>/dev/null)" && [[ "$v" =~ ^[0-9]+$ ]]; then
+    echo "$v"
+    return 0
+  fi
+  echo ""
 }
 
 # sd_codex_wait <worktree> <job-id> [--poll N] [--stall N] [--cap N]
@@ -253,9 +295,15 @@ sd_codex_wait() {
   local poll=45 stall=300 cap=1200
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --poll)  poll="${2:-45}";   shift 2 ;;
-      --stall) stall="${2:-300}"; shift 2 ;;
-      --cap)   cap="${2:-1200}";  shift 2 ;;
+      --poll)
+        if ! _sd_codex_require_nonnegative_int "sd_codex_wait" "$1" "${2:-}"; then echo "error"; return 0; fi
+        poll="$2"; shift 2 ;;
+      --stall)
+        if ! _sd_codex_require_nonnegative_int "sd_codex_wait" "$1" "${2:-}"; then echo "error"; return 0; fi
+        stall="$2"; shift 2 ;;
+      --cap)
+        if ! _sd_codex_require_nonnegative_int "sd_codex_wait" "$1" "${2:-}"; then echo "error"; return 0; fi
+        cap="$2"; shift 2 ;;
       *) sd_log_error "sd_codex_wait: unknown arg: $1"; echo "error"; return 0 ;;
     esac
   done
@@ -272,7 +320,8 @@ sd_codex_wait() {
     fi
     status="$(printf '%s' "$out" | jq -r '.job.status // empty' 2>/dev/null || echo "")"
     case "$status" in
-      completed|failed|cancelled) echo "$status"; return 0 ;;
+      completed|done) echo "completed"; return 0 ;;
+      failed|cancelled) echo "$status"; return 0 ;;
       ""|null) sd_log_error "sd_codex_wait: unparseable status: $out"; echo "error"; return 0 ;;
     esac
 
@@ -383,7 +432,7 @@ sd_codex_verify_nocommit() {
   fi
 
   local porcelain
-  porcelain="$(git -C "$wt" status --porcelain 2>/dev/null || echo "")"
+  porcelain="$(git -C "$wt" status --porcelain --untracked-files=all 2>/dev/null | sed '/^?? \.codex-prompt\.md$/d' || echo "")"
   if [[ -n "$porcelain" ]]; then
     echo "ok-dirty"
   else

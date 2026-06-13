@@ -32,8 +32,8 @@ agent-owned; deterministic bash survives only as real-command-execution legs.
 |---|---|---|
 | **Locate Codex** | `sd_codex_resolve_companion` — glob newest companion / override env / fail-loud | — |
 | **Availability** | `sd_codex_preflight` — `setup --json` parse + worktree-trust path-prefix check | decide remediation vs abort on hard-fail |
-| **Dispatch** | `sd_codex_dispatch` — `task --background --write --prompt-file` → echo job-id | author the work-item prompt (contract + handoff + return-shape) |
-| **Liveness** | `sd_codex_wait` — bounded poll on `status`; stall heuristic; `cancel` on stall/cap | what to tell Codex on a clarification-stop; resume vs fresh |
+| **Dispatch** | `sd_codex_dispatch` — `task --background --write --prompt-file` plus optional `--resume-last`/`--resume`/`--fresh` → echo job-id | author the work-item prompt (contract + handoff + return-shape) |
+| **Liveness** | `sd_codex_wait` — bounded poll on `status`; stall heuristic; `cancel` on stall/cap; normalize companion `done` to terminal `completed` | what to tell Codex on a clarification-stop; resume vs fresh |
 | **Read return** | `sd_codex_result` — extract the fenced `{mode,…}` JSON tail | judge a `gaps-surfaced` return; judge a `complete` report |
 | **No-commit** | `sd_codex_verify_nocommit` — HEAD==baseline; tree-non-empty (complete only) | decide remediation on a commit-violation |
 | **Config** | `sd_backend_resolve` — override > manifest field > `claude_subagent` default | — |
@@ -66,14 +66,15 @@ The user's real pain: a foreground Codex run blocks the orchestrator 20–30 min
 never got past thrust 0/1. Cure: `task --background` → job-id immediately; `sd_codex_wait` polls
 `status --json` (default `--poll 45`s) with a **stall heuristic** (job-log mtime unchanged for
 `--stall 300`s → hung) and a **wall-cap** (`--cap 1200`s); on stall/cap → `cancel` + one confirming
-`status` read. Job states: `queued`/`running`/`done`/`failed`/`cancelled`.
+`status` read. Emitted terminal tokens: `completed`/`failed`/`cancelled`/`stalled`/`capped`/`error`
+(`done` from older companion status payloads is accepted and normalized to `completed`).
 
 **Gaps-mode unification (the key reuse).** SS-4 settled: *a Mode-B implementer has no inline
 user-interaction channel; its only escalation is the gaps-mode return; the orchestrator decides +
 re-dispatches.* Codex run with `approval=never` **is** a Mode-B implementer with no interactive
 channel. So "Codex can't proceed / needs clarification" → it ends its turn with
 `{mode:"gaps-surfaced",gaps:[…]}` → caught on the next poll → the orchestrator decides → re-dispatches
-via `task --resume-last` (continue) or fresh. The poll/stall/cap legs are mechanical (`sd_codex_wait`);
+through `sd_codex_dispatch --resume-last` (continue) or `--fresh`. The poll/stall/cap legs are mechanical (`sd_codex_wait`);
 the clarification *decision* is agent-owned prose.
 
 ### 3.4 Return contract — reuse the Claude shape (settled)
@@ -86,11 +87,14 @@ no parseable block → routed to the existing §8.4 "malformed return" menu, not
 
 ### 3.5 No-commit — prompt-carried + orchestrator-verified (settled)
 The `executing-work-item` contract already forbids `git commit/push/pull/fetch`; for Codex it is
-**prompt-carried** (embedded in the dispatch prompt) **plus orchestrator post-verify**:
+**prompt-carried** (embedded in the dispatch prompt, written to a temp prompt file outside the worktree and
+removed after dispatch) **plus orchestrator post-verify**:
 `sd_codex_verify_nocommit` asserts `HEAD == baseline` **always** (the real no-commit invariant). The
 "working-tree/stage non-empty" assertion is evaluated at the **call site** only for `mode:complete` — a
-legitimate zero-change `gaps-surfaced` return (`stage_status:none`) must **not** be flagged. On a
-commit-violation, surface loudly; the orchestrator decides remediation.
+legitimate zero-change `gaps-surfaced` return (`stage_status:none`) must **not** be flagged. The legacy
+root prompt artifact `.codex-prompt.md` is ignored if present from older runs; every other modified,
+staged, or untracked file still counts as dirty. On a commit-violation, surface loudly; the orchestrator
+decides remediation.
 
 ### 3.6 Config — manifest default + per-invocation override (settled: Option 1)
 `sd_backend_resolve [--backend <override>]` resolves precedence **override > `.workspace/pairing.json`
@@ -110,10 +114,11 @@ intent. This matches the program's fail-loud / no-silent-skip discipline.
 ### 3.8 The §8.3 seam rewrite
 Replace the proto-typed Codex branch with: `sd backend_resolve` → if `codex`: `sd codex_preflight`
 (hard-fail) → **assemble the dispatch prompt-file** = the full `executing-work-item` contract (read from
-the installed SKILL.md — single source of truth; Codex does not auto-load the skill) + the handoff path
+the installed SKILL.md — single source of truth; Codex does not auto-load the skill) in a temp file outside
+the worktree + the handoff path
 + the worktree path + the no-commit prohibition + the fenced-`{mode,…}` return instruction → record
-`baseline = git -C <worktree> rev-parse HEAD` → `sd codex_dispatch` → `sd codex_wait` → on done
-`sd codex_result` → `sd codex_verify_nocommit` → **join the existing Claude downstream unchanged**.
+`baseline = git -C <worktree> rev-parse HEAD` → `sd codex_dispatch` → remove the temp prompt file →
+`sd codex_wait` → on `completed` `sd codex_result` → `sd codex_verify_nocommit` → **join the existing Claude downstream unchanged**.
 Within a round, Codex work items dispatch **sequentially** (the companion's `--resume-last` resolves the
 latest thread for the session; concurrent same-session tasks would race). All snippets use the
 `sd codex_*` dispatcher form.
@@ -127,7 +132,7 @@ mid-sequence). Tests pin it (the `_helpers.sh` `setup_tmp_*` already export a st
 
 ## 4. Build sequence (5 work items, 3 rounds)
 
-```
+```text
 Round 1 (∥, disjoint files):  W1 lib/codex.sh (resolve+preflight)     W2 codex-shim fixture + test skeleton
 Round 2 (∥, disjoint files):  W3 lib/codex.sh (dispatch/wait/result/verify)   W4 lib/backend.sh (resolve)
 Round 3:                       W5 wire §8.3 + prompt assembly + v0.5.0 bump + dual-publish parity
@@ -136,7 +141,7 @@ Hard serial edges: W1→W3 (same file), W1→W4 (lib conventions), W3→W5, W4�
 W4 lives in its own `lib/backend.sh` with its own tests in a separate file.
 
 - **W1** — `sd_codex_resolve_companion`, `sd_codex_preflight`. *(R1)*
-- **W2** — `tests/fixtures/codex-shim/codex-companion.mjs` (env-driven fake, modeled on `gh-shim/gh`) + canned JSON fixtures (setup-ready/unauthed, status-running/done/failed, result-complete/gaps) + `tests/test-codex.sh` skeleton (auto-discovered). *(R1)*
+- **W2** — `tests/fixtures/codex-shim/codex-companion.mjs` (env-driven fake, modeled on `gh-shim/gh`) + canned JSON fixtures (setup-ready/unauthed, status-running/completed/done/failed, result-complete/gaps) + `tests/test-codex.sh` skeleton (auto-discovered). *(R1)*
 - **W3** — `sd_codex_dispatch`, `sd_codex_wait`, `sd_codex_result`, `sd_codex_verify_nocommit`. **All tested through `bin/sd`.** *(R2)*
 - **W4** — `sd_backend_resolve` + `tests/test-backend.sh`. *(R2)*
 - **W5** — §8.3 rewrite + prompt assembly + bump both `plugin.json` 0.4.0→0.5.0 + CHANGELOG. *(R3)*
@@ -151,11 +156,14 @@ W4 lives in its own `lib/backend.sh` with its own tests in a separate file.
   `sd_redgate_assert_red` class of bug: correct in-process, broken under the dispatcher's `set -e`); it
   gets an explicit dispatcher-path regression test for status=failed (non-throwing) + stuck→cancel.
 - **Per-helper cases:** resolve (override / glob-newest / absent-fail+remediation); preflight
-  (ready→0, unauthed→1+`codex login`, untrusted-worktree→1); dispatch (job-id echoed, flags logged);
-  wait (done→0, failed→0 non-throwing, stuck+tiny-stall/cap→cancel-invoked); result (complete + gaps +
+  (ready→0, unauthed→1+`codex login`, untrusted-worktree→1); dispatch (job-id echoed, flags logged,
+  `--model`/`--effort` values guarded, `--resume-last`/`--resume`/`--fresh` forwarded with resume+fresh
+  rejected); wait (`completed`→0, legacy `done`→`completed`, failed→0 non-throwing, bad wait options→`error`+rc0,
+  stuck+tiny-stall/cap→cancel-invoked, GNU `stat -c %Y` preferred before BSD `stat -f %m`); result (complete + gaps +
   prose-before-fence + no-fence→malformed); verify_nocommit (HEAD-moved→1, HEAD-unchanged+staged→0,
+  legacy root `.codex-prompt.md` ignored but other untracked files still dirty,
   HEAD-unchanged+clean handled per call-site); backend_resolve (absent→default, field→codex, override
-  beats manifest, no-manifest→default+rc0).
+  beats manifest, missing `--backend` value→rc2, no-manifest→default+rc0).
 - **§8.3 skill-prose lints:** references `sd codex_*` dispatcher forms; **no bare `sd_codex_*`** calls
   in snippets (SS-4 skill-shell lesson); unavailable/hard-fail path documented.
 - **Full scaffold-dev suite green** (`cd scaffold-dev && bash run-tests.sh`) after each round (run the
@@ -175,7 +183,7 @@ Unlike the SS-4 inline seams, the Codex backend dispatches an **external async p
 can be absent or hang. Behaviors: **unavailable** → pre-flight hard-fail + remediation (§3.7); **stall**
 (no log progress for `--stall`) → cancel + surface as gaps-mode (recoverable via re-dispatch);
 **wall-cap** exceeded → cancel + surface; **commit-violation** → surface loudly, orchestrator decides;
-**clarification-stop** → gaps-mode → decide + re-dispatch; **malformed/no-JSON return** → existing §8.4
+**clarification-stop** → gaps-mode → decide + re-dispatch (`--resume-last` or fresh); **malformed/no-JSON return** → existing §8.4
 malformed menu. Every mechanical leg **fails loud with actionable remediation**, never silently skips.
 
 ## 7. Out of scope (explicit non-goals)
