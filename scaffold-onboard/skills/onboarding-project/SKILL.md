@@ -308,13 +308,26 @@ rm -f "$digest_file"
 - Surface: *"State preserved (`status=close_pending`). Run `/onboard` or `/onboard --resume` to retry the close synthesis."*
 - Stop. Do NOT set `status=complete`, run the close critic, or produce EXEC-SUMMARY. The next `/onboard` (or `/onboard --resume`) re-enters directly at §8.
 
-Then dispatch the synthesis agent with that prompt:
+Then dispatch the synthesis with that prompt. **SS-5.1: branch ONLY the dispatch** — the `sf spec_validate` + backup/restore + architect-critic close gate below stay **outside** the branch, identical for both backends:
 
-```text
-Task(subagent_type="scaffold-onboard:synthesis-agent",
-     description="Synthesize MASTER-SPEC",
-     model="claude-sonnet-4-5",
-     prompt="$prompt")
+```bash
+backend="$(sf backend_resolve)"   # claude_subagent (default) | codex
+if [[ "$backend" == "codex" ]]; then
+  # Codex synthesizer backend. NO Claude fallback on pre-flight failure (the user chose Codex).
+  target_root="$(sf codex_target_root "$master")"
+  sf codex_preflight "$target_root"               # hard-fail with remediation if Codex unavailable/untrusted
+  pf="$(mktemp "${TMPDIR:-/tmp}/sf-codex-mspec.XXXXXX.md")"; printf '%s' "$prompt" > "$pf"
+  trap 'rm -f "$pf"' EXIT INT TERM
+  job="$(sf codex_dispatch "$target_root" "$pf")"
+  rm -f "$pf"; trap - EXIT INT TERM
+  term="$(sf codex_wait "$target_root" "$job")"
+  result="$(sf codex_result "$target_root" "$job")"   # {mode, output_path, ids_minted, ids_cited, summary}
+else
+  Task(subagent_type="scaffold-onboard:synthesis-agent",
+       description="Synthesize MASTER-SPEC",
+       model="claude-sonnet-4-5",
+       prompt="$prompt")
+fi
 ```
 
 **Fallback (no dispatch available):** if you cannot dispatch a sub-agent (headless
@@ -361,11 +374,24 @@ in the main context from the **full MASTER-SPEC**, following the EXECUTIVE-SUMMA
 synthesize from the broad spec fields (vision, target users, MVP scope, success criteria),
 NOT from MASTER-SPEC's pinned `## Executive Summary` section, which at close is still the
 thin one-sentence placeholder the MASTER-SPEC step seeded):
-```text
-Task(subagent_type="scaffold-onboard:synthesis-agent",
-     description="Synthesize EXECUTIVE-SUMMARY",
-     model="claude-sonnet-4-5",
-     prompt="$prompt")
+```bash
+# SS-5.1: reuse the $backend resolved above; branch only the dispatch. The
+# write-back guard below stays outside the branch (both backends).
+if [[ "$backend" == "codex" ]]; then
+  target_root="$(sf codex_target_root "$out")"
+  sf codex_preflight "$target_root"               # hard-fail; no Claude fallback
+  pf="$(mktemp "${TMPDIR:-/tmp}/sf-codex-execsum.XXXXXX.md")"; printf '%s' "$prompt" > "$pf"
+  trap 'rm -f "$pf"' EXIT INT TERM
+  job="$(sf codex_dispatch "$target_root" "$pf")"
+  rm -f "$pf"; trap - EXIT INT TERM
+  term="$(sf codex_wait "$target_root" "$job")"
+  result="$(sf codex_result "$target_root" "$job")"
+else
+  Task(subagent_type="scaffold-onboard:synthesis-agent",
+       description="Synthesize EXECUTIVE-SUMMARY",
+       model="claude-sonnet-4-5",
+       prompt="$prompt")
+fi
 ```
 After `mode:complete`, copy the synthesized body back into MASTER-SPEC's pinned
 `## Executive Summary` section and render the canonical EXECUTIVE-SUMMARY with

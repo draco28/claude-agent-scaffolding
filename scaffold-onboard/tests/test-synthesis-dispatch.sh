@@ -7,6 +7,7 @@ source "$HERE/_helpers.sh"
 ROOT="$HERE/.."
 MB_SKILL="$ROOT/skills/scaffolding-memory-bank/SKILL.md"
 GOV_SKILL="$ROOT/skills/scaffolding-governance-docs/SKILL.md"
+ONB_SKILL="$ROOT/skills/onboarding-project/SKILL.md"
 source "$ROOT/lib/render.sh"
 source "$ROOT/lib/synthesis.sh"
 source "$ROOT/lib/state.sh"        # SS-2 W4: inline seed + fallback test
@@ -627,6 +628,27 @@ test_governance_dispatch_has_codex_branch() {
   else FAIL=$((FAIL+1)); echo "  ✗ §11 missing codex backend branch"; fi
 }
 
+# ── SS-5.1 — onboarding §8 (MASTER-SPEC + EXEC-SUMMARY) backend wiring ──
+test_onboarding_master_spec_has_codex_branch() {
+  echo "test_onboarding_master_spec_has_codex_branch:"
+  local body; body="$(_extract_section_bash "$ONB_SKILL" "## 8")"
+  local ok=1
+  printf '%s' "$body" | grep -q 'backend_resolve' || { echo "  ✗ §8 has no backend_resolve branch"; ok=0; }
+  printf '%s' "$body" | grep -q 'codex_dispatch'  || { echo "  ✗ §8 never dispatches via codex"; ok=0; }
+  printf '%s' "$body" | grep -q 'spec_validate'   || { echo "  ✗ §8 dropped sf spec_validate (post-validation must stay outside the branch)"; ok=0; }
+  if [[ "$ok" == 1 ]]; then PASS=$((PASS+1)); echo "  ✓ §8 codex branch + spec_validate preserved"; else FAIL=$((FAIL+1)); fi
+}
+
+# The MASTER-SPEC close gate (architect-critic master-spec-full) and the EXEC-SUMMARY
+# write-back guard must stay — neither moves inside the backend branch.
+test_onboarding_close_gate_and_writeback_preserved() {
+  echo "test_onboarding_close_gate_and_writeback_preserved:"
+  local ok=1
+  grep -q 'target=master-spec-full' "$ONB_SKILL" || { echo "  ✗ architect-critic close gate (master-spec-full) missing"; ok=0; }
+  grep -q 'render_executive_summary_from_synthesized' "$ONB_SKILL" || { echo "  ✗ EXEC-SUMMARY write-back guard missing"; ok=0; }
+  if [[ "$ok" == 1 ]]; then PASS=$((PASS+1)); echo "  ✓ close gate + EXEC-SUMMARY write-back preserved"; else FAIL=$((FAIL+1)); fi
+}
+
 test_memory_bank_dispatch_sources_its_helpers
 test_synthesize_finalize_routes_to_memory_bank
 test_governance_dispatch_sources_its_helpers
@@ -657,4 +679,6 @@ test_memory_bank_dispatch_has_codex_branch
 test_memory_bank_codex_branch_hard_fails
 test_router_files_not_codex_dispatched
 test_governance_dispatch_has_codex_branch
+test_onboarding_master_spec_has_codex_branch
+test_onboarding_close_gate_and_writeback_preserved
 report_results
