@@ -40,7 +40,7 @@ Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/p
 
 - `plan VS-N.M.K`, `orchestrate VS-N.M.K`, `start vertical slice N.M`
 - `start a new vertical slice`, `let's plan the next slice`
-- `/orchestrate VS-N.M.K` (slash command — see §13 for the `$ARGUMENTS` env-var bridge)
+- `/orchestrate VS-N.M.K` (slash command — see §13 for the `$SCAFFOLD_DEV_ARGS` env-var bridge)
 
 **Do NOT auto-invoke when:**
 
@@ -604,7 +604,7 @@ Implementations live in their respective lib files (Phase 3 tasks). macOS-portab
 
 ## 13. Slash-command interaction (`/orchestrate VS-N.M.K`)
 
-The `/orchestrate VS-N.M.K` slash command (`commands/orchestrate.md`) exports the raw arg string as `$ARGUMENTS` (env-var bridge per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
+The `/orchestrate VS-N.M.K` slash command (`commands/orchestrate.md`) exports the raw slash-argument string as `$SCAFFOLD_DEV_ARGS` for this skill body (per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
 
 Parse `$SCAFFOLD_DEV_ARGS` in bash; never reference `$1` / `$2`. Extract the VS-id (e.g., `VS-1.1.1` — the full 3-part id `VS-<phase>.<sprint>.<slice>`) and the optional per-invocation backend override:
 
@@ -657,7 +657,7 @@ Unknown or missing VS-id → one-line error + stop:
 - **Auto-invoking grill-me.** All three grill-me gates (§4.1 decomposition / §6.3 spec / §8.5 fix-up replan) are explicit offers. Eval S1 asserts the offer surfaces as a user-decidable question; auto-invoke fails the assertion.
 - **Skipping verification before commit + merge.** SPEC §13 requires `implementation-checking` between subagent return and commit. Never commit unverified work item output.
 - **Removing worktrees at round close.** SPEC §11 defers worktree removal to slice close. The branches + worktrees need to survive for slice-close demo verification.
-- **Letting this body exceed 500 lines.** Hard cap per superpowers:writing-skills Pass D guidance.
+- **Letting backend-specific dispatch contracts drift from their helper behavior.** Keep prose snippets aligned with `lib/*.sh` helpers and extract stable reference material when a subsection becomes too large to audit locally.
 - **Calling `Skill(architect-critic:critique)`** (the legacy v0.1.x slash-command-shaped name). The v0.2 skill is `critiquing-spec` per SPEC §16.3 last paragraph.
 
 ---
