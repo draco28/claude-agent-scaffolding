@@ -27,13 +27,21 @@ EOF
 }
 
 # Publish a structured roadmap with 3-part slice ids + explicit sprint_id.
+# Sprint 1.1's slices are stored OUT OF ORDER (1, 3, 2) on purpose: the next-slice
+# lookup must sort by index and return the smallest index > current, never the
+# array-first entry. `sprints[]` carries roadmap order for the next-sprint lookup.
 _write_roadmap_json() {
   local path="$1"; mkdir -p "$(dirname "$path")"
   cat > "$path" <<'JSON'
-{"vertical_slices":[
-  {"id":"VS-1.1.1","sprint_id":"1.1","slice_name":"auth-flow"},
-  {"id":"VS-1.1.2","sprint_id":"1.1","slice_name":"logout-flow"},
-  {"id":"VS-2.3.1","sprint_id":"2.3","slice_name":"reporting"}
+{"sprints":[
+  {"id":"1.1"},
+  {"id":"2.3"}
+],
+"vertical_slices":[
+  {"id":"VS-1.1.1","sprint_id":"1.1","name":"auth-flow"},
+  {"id":"VS-1.1.3","sprint_id":"1.1","name":"reset-flow"},
+  {"id":"VS-1.1.2","sprint_id":"1.1","name":"logout-flow"},
+  {"id":"VS-2.3.1","sprint_id":"2.3","name":"reporting"}
 ]}
 JSON
 }
@@ -81,7 +89,7 @@ test_slice_field_generic() {
   echo "test_slice_field_generic:"
   _mk_roadmap_workspace '${ai_workspace.root}/.workspace/project-roadmap.json'
   _write_roadmap_json "$AW/.workspace/project-roadmap.json"
-  assert_eq "VS-1.1.2 slice_name" "logout-flow" "$(sd_roadmap_slice_field VS-1.1.2 slice_name)"
+  assert_eq "VS-1.1.2 name (production schema key)" "logout-flow" "$(sd_roadmap_slice_field VS-1.1.2 name)"
   cleanup
 }
 
@@ -106,6 +114,54 @@ test_slice_missing_state_file_fails() {
   cleanup
 }
 
+# 8. next-slice returns the smallest-index later slice in the SAME sprint, even
+#    when the roadmap array stores the slices out of order (1, 3, 2 → next(1)=2).
+test_next_slice_same_sprint() {
+  echo "test_next_slice_same_sprint:"
+  _mk_roadmap_workspace '${ai_workspace.root}/.workspace/project-roadmap.json'
+  _write_roadmap_json "$AW/.workspace/project-roadmap.json"
+  assert_eq "next after VS-1.1.1 is VS-1.1.2 (sorted, not array-first VS-1.1.3)" \
+    "VS-1.1.2" "$(sd_roadmap_next_slice VS-1.1.1)"
+  assert_eq "next after VS-1.1.2 is VS-1.1.3" \
+    "VS-1.1.3" "$(sd_roadmap_next_slice VS-1.1.2)"
+  # End-to-end §12.1 reconcile chain: next-slice id → its `name` display label.
+  # Guards the runtime read closing-vertical-slice §12 depends on.
+  next="$(sd_roadmap_next_slice VS-1.1.1)"
+  assert_eq "next slice's name field-read (the §12 reconcile chain)" \
+    "logout-flow" "$(sd_roadmap_slice_field "$next" name)"
+  cleanup
+}
+
+# 9. the final slice of a sprint has no next slice (a later sprint does NOT count)
+test_next_slice_final_is_empty() {
+  echo "test_next_slice_final_is_empty:"
+  _mk_roadmap_workspace '${ai_workspace.root}/.workspace/project-roadmap.json'
+  _write_roadmap_json "$AW/.workspace/project-roadmap.json"
+  assert_eq "VS-1.1.3 is final in sprint 1.1 — empty (VS-2.3.1 is a different sprint)" \
+    "" "$(sd_roadmap_next_slice VS-1.1.3)"
+  cleanup
+}
+
+# 10. next-sprint is an array-order lookup over sprints[] (dotted ids, no +1)
+test_next_sprint_field_read() {
+  echo "test_next_sprint_field_read:"
+  _mk_roadmap_workspace '${ai_workspace.root}/.workspace/project-roadmap.json'
+  _write_roadmap_json "$AW/.workspace/project-roadmap.json"
+  assert_eq "sprint after 1.1 is 2.3" "2.3" "$(sd_roadmap_next_sprint 1.1)"
+  assert_eq "sprint 2.3 is final — empty" "" "$(sd_roadmap_next_sprint 2.3)"
+  cleanup
+}
+
+# 11. both lookups fail (rc 1) when the structured roadmap is unpublished
+test_next_lookups_missing_state_fail() {
+  echo "test_next_lookups_missing_state_fail:"
+  _mk_roadmap_workspace '${ai_workspace.root}/.workspace/project-roadmap.json'
+  # no _write_roadmap_json — file absent
+  assert_exit_code 1 sd_roadmap_next_slice VS-1.1.1
+  assert_exit_code 1 sd_roadmap_next_sprint 1.1
+  cleanup
+}
+
 test_state_path_resolves_routed_key
 test_state_path_fallback_without_key
 test_state_path_rejects_unresolved_placeholder
@@ -113,5 +169,9 @@ test_slice_sprint_id_field_read
 test_slice_field_generic
 test_slice_not_found_fails
 test_slice_missing_state_file_fails
+test_next_slice_same_sprint
+test_next_slice_final_is_empty
+test_next_sprint_field_read
+test_next_lookups_missing_state_fail
 
 sd_test_summary

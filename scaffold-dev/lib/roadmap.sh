@@ -87,3 +87,48 @@ sd_roadmap_slice_field() {
 sd_roadmap_slice_sprint_id() {
   sd_roadmap_slice_field "$1" "sprint_id"
 }
+
+# sd_roadmap_next_slice <slice-id> — echo the id of the NEXT vertical slice in the
+# same sprint: the slice whose 3rd id-field index is the smallest value greater
+# than this slice's index. Echoes nothing (rc 0) when this is the final slice of
+# its sprint. Returns 1 only on a real lookup failure (no manifest, unpublished
+# state, unknown slice) — propagated from sd_roadmap_slice_sprint_id, which gates
+# both file existence and slice presence. `sort_by` keeps this robust to roadmap
+# array order; we never assume the slices are stored sorted. Single source of
+# truth for "what comes after this slice" — closing-vertical-slice §11.1
+# (final-slice detection) and the close-time active-context reconcile both call it.
+sd_roadmap_next_slice() {
+  local id="$1" sprint state cur_idx
+  [[ -n "$id" ]] || { sd_log_error "sd_roadmap_next_slice: empty slice id"; return 1; }
+  sprint="$(sd_roadmap_slice_sprint_id "$id")" || return 1
+  state="$(sd_roadmap_state_path)" || return 1
+  cur_idx="${id##*.}"
+  jq -r --arg sid "$sprint" --argjson cur "$cur_idx" '
+    [ .vertical_slices[]?
+      | select(.sprint_id == $sid)
+      | (.id | sub("^VS-"; "") | split(".") | .[2] | tonumber) as $idx
+      | select($idx > $cur)
+      | {idx: $idx, id: .id} ]
+    | sort_by(.idx) | .[0].id // empty' "$state"
+}
+
+# sd_roadmap_next_sprint <sprint-id> — echo the id of the NEXT sprint in roadmap
+# order (the entry after this one in the `sprints[]` array), or nothing (rc 0)
+# when this is the final sprint. Sprint ids are dotted (e.g. "1.1") so the "next"
+# sprint is an array-order lookup, never an integer +1. Returns 1 on no manifest
+# or unpublished state. Lifted verbatim from the §11.1 inline next-sprint jq so
+# the sprint-final "Next up" pointer and the §11.2 carry-forward sweep agree.
+sd_roadmap_next_sprint() {
+  local sid="$1" state
+  [[ -n "$sid" ]] || { sd_log_error "sd_roadmap_next_sprint: empty sprint id"; return 1; }
+  state="$(sd_roadmap_state_path)" || return 1
+  if [[ ! -f "$state" ]]; then
+    sd_log_error "sd_roadmap_next_sprint: structured roadmap not published at $state — run /plan-roadmap (scaffold-onboard)"
+    return 1
+  fi
+  jq -r --arg sid "$sid" '
+    (.sprints // [] | map(.id)) as $ids
+    | ($ids | index($sid)) as $i
+    | if $i == null or ($i + 1) >= ($ids | length) then empty else $ids[$i + 1] end
+  ' "$state"
+}

@@ -136,6 +136,7 @@ Every open issue + every new audit finding, mapped to a sub-spec. **Target: 0 op
 | **#37** | grilling domain-language + ADR thresholds | partial (principle) | **SS-6** | v0.3 |
 | **#38** | handoff suggested-skills + redaction | partial | **SS-6** | v0.3 |
 | **#39** | architect-critic async adversary | independent | **SS-6** | v0.3 |
+| ~~**#66**~~ | `closing-vertical-slice` leaves `05-active-context.md` stale at close (no status-flip / Next-up advance) | independent (correctness bug) | **SS-6** | ✅ SHIPPED 2026-06-15 (SS-6, scaffold-dev v0.6.0) |
 
 **New issues filed from this audit** (2026-06-01, so the backlog reflects reality):
 

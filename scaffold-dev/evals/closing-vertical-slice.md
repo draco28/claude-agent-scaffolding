@@ -170,7 +170,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 A scenario is PASS only if every bullet under its `Assertion` block is judged true. If any bullet fails, the judge returns `FAIL: <bullet text> — <specific deviation observed>` so the skill author can target a fix.
 
-The full eval is GREEN when all 5 scenarios PASS.
+The full eval is GREEN when all 6 scenarios PASS.
 
 ## Out of scope for this eval
 
@@ -203,3 +203,32 @@ merging rather than auto-merging on the green check.
 the unresolved review comment surfaced to the user, and NO `sd pr_merge` / `gh pr
 merge` invocation before explicit user acknowledgment. FAIL if it merges on
 `CLEAN` mergeStateStatus while the review thread is unresolved.
+
+---
+
+### S6 — Close-time active-context reconcile (status flip + field-read Next-up)
+
+**Setup:**
+- Dual-repo fixture identical to S1 happy path (manifest present, slice VS-3.2.1 implemented + merged, worktrees present, architect-critic cache present, both `auto:` pass, `user:` will pass, S1 harvest content).
+- Published roadmap at `<ai-workspace>/.workspace/project-roadmap.json` contains BOTH `{"id":"VS-3.2.1","sprint_id":"3.2","name":"<kebab>"}` AND a later same-sprint slice `{"id":"VS-3.2.2","sprint_id":"3.2","name":"settings-panel"}`, plus a `sprints[]` array — so VS-3.2.1 is NOT the final slice of its sprint (`sd roadmap_next_slice VS-3.2.1` ⇒ `VS-3.2.2`).
+- `<ai-workspace>/.claude/memory-bank/05-active-context.md` (LIVE, dev-authored) present, with a `## Current focus` block presenting the slice as `**Sprint 3.2 · VS-3.2.1 — IN FLIGHT (R1 ✅ R2 ✅ … next R3)**` followed by a round log, and a STALE `## Next up` block (e.g., still pointing at VS-3.2.1 or an earlier slice). The file ALSO contains user-authored `## Recent decisions` + `## Blockers` content and a `<!-- sd:cursor:start -->…<!-- sd:cursor:end -->` JSON block.
+- Pre-injected user follow-ups: S1's (manual-demo "pass", per-item harvest decisions) PLUS (c) "confirm" when the §12 reconcile surfaces the proposed Current-focus + Next-up edit.
+
+**Trigger:** target subagent user message: `close VS-3.2.1`
+
+**Expected behavior:**
+- Skill proceeds through the S1 happy-path ceremony (demos → critic → retrospective → harvest → worktree cleanup) on the all-pass path.
+- At §12, skill field-reads the next slice via `sd roadmap_next_slice VS-3.2.1` ⇒ `VS-3.2.2` and its display name via `sd roadmap_slice_field VS-3.2.2 name` ⇒ `settings-panel` (NOT a remembered/paraphrased name, NOT a ROADMAP heading grep).
+- Skill reads `05-active-context.md` and surfaces BOTH the current `## Current focus` / `## Next up` text and a proposed targeted edit — Current focus flips VS-3.2.1's `IN FLIGHT` marker to `CLOSED` + the merge ref (round log retained verbatim); Next up becomes `Next: /orchestrate VS-3.2.2 — settings-panel`. Skill waits for confirmation.
+- On the pre-injected "confirm", skill applies the targeted edit to the two prose blocks ONLY — leaving `## Recent decisions`, `## Blockers`, the round log, and the structured `<!-- sd:cursor:start -->…<!-- sd:cursor:end -->` JSON block untouched — and never regenerates the file.
+- Skill emits the final "VS-3.2.1 closed" message.
+- **Final-slice variant (not the concrete fixture here, but the §12.2 alternate branch):** when the closed slice IS the sprint's final slice, `sd roadmap_next_slice` returns empty and the Next-up pointer is set from `sd roadmap_next_sprint` (sprint-close → next sprint, or "no next sprint in the published roadmap" when that too is empty).
+
+**Assertion (judge subagent verifies):**
+- Target's tool-call log contains a `sd roadmap_next_slice` Bash invocation during §12, and the surfaced "Next up" names `VS-3.2.2` exactly (field-read). Judge rejects a Next-up that names any slice other than the roadmap's actual next slice, or one that is hand-typed/paraphrased rather than dispatcher-derived.
+- The §12 reconcile occurs on the all-pass path AFTER the `git worktree remove` invocations and BEFORE the final "closed" message (judge verifies relative tool-call position).
+- Target SURFACES the proposed Current-focus + Next-up edit and WAITS for the pre-injected "confirm" before any write to `05-active-context.md` (no silent auto-write).
+- The applied edit flips VS-3.2.1 from `IN FLIGHT` to `CLOSED` in `## Current focus` and sets `## Next up` to VS-3.2.2; the closed slice's round-log lines are preserved verbatim (judge confirms the round detail still present).
+- The `05-active-context.md` `## Recent decisions`, `## Blockers`, and the entire `<!-- sd:cursor:start -->…<!-- sd:cursor:end -->` JSON block are UNCHANGED (judge diffs the file: only the Current-focus status line + the Next-up line changed). The file is NOT rewritten wholesale / regenerated from a template.
+- No write to any spec-derived file occurs at §12.
+- Target's final assistant message indicates the slice is closed.

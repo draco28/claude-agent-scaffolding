@@ -2,6 +2,20 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.6.0] — 2026-06-15
+
+SS-6 — `closing-vertical-slice` now reconciles `05-active-context.md` at slice close (#66). The close ceremony previously had zero writes to the live active-context file, so after a correct slice close "Current focus" still presented the just-closed slice as in-flight and "Next up" lagged (observed two slices stale in a real project) — a fresh `/orchestrate` or `/handoff` session read wrong state. The new §12 reconcile flips the closed slice's status and advances the cursor as a surfaced, user-confirmed targeted edit.
+
+### Fixed
+- **#66 — `closing-vertical-slice` leaves `05-active-context.md` stale at close.** Added a §12 close-time reconcile step (all-pass path, after harvest + cleanup, before the final handoff): it surfaces a *targeted* edit flipping the closed slice's `## Current focus` status from IN FLIGHT to CLOSED + merge ref (round log retained verbatim) and advancing `## Next up` to the **field-read** next roadmap slice — or, on the sprint-final slice, to the sprint-close → next-sprint pointer. Prose-only and user-confirmed: never regenerates the file, never touches the structured cursor block (`<!-- sd:cursor:start -->…<!-- sd:cursor:end -->`, still owned by `planning-vertical-slice`), and never writes a spec-derived file.
+
+### Added
+- **`lib/roadmap.sh` — `sd_roadmap_next_slice` + `sd_roadmap_next_sprint`.** `sd_roadmap_next_slice <id>` field-reads the next vertical slice in the same sprint (smallest 3rd-id-index greater than the current slice; `sort_by` keeps it robust to roadmap array order), echoing empty when the slice is the sprint's final one. `sd_roadmap_next_sprint <sprint-id>` is an array-order lookup over `sprints[]` (dotted ids, no integer `+1`). Both fail loud (rc 1) on no manifest / unpublished state. Unit-tested in `tests/test-roadmap.sh`.
+
+### Changed
+- **`closing-vertical-slice` §11.1 final-slice detection now reuses `sd roadmap_next_slice` / `sd roadmap_next_sprint`** instead of an inline jq count — single source of truth shared with the new §12 reconcile (the issue's "reuse the same query §11.1 uses" is now literal, not copy-pasted). Behavior of the §11.2 carry-forward sweep is unchanged.
+- **`evals/closing-vertical-slice.md`** gains S6 (close-time active-context reconcile: field-read Next-up, prose-only status flip, round-log + cursor-block preservation); the full eval is now GREEN at 6 scenarios.
+
 ## [0.5.0] — 2026-06-12
 
 SS-5 — optional Codex implementer backend (#47). A work item can now be dispatched to OpenAI's externally-installed `codex-plugin-cc` companion instead of the Claude `implementer-agent` subagent, under the same `{mode,…}` contract, gaps-mode escalation, and no-commit boundary. Default stays `claude_subagent` — existing projects are unchanged.

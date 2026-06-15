@@ -29,9 +29,10 @@ When invoked, you:
 8. **Memory-bank harvest (§15.2 8-step flow):** read all work-item `report.md` files + all slice-scoped handoffs at `<ai-workspace>/.workspace/handoffs/vs-N.M.K-*.md`; extract "Suggestions for memory bank" + handoff section-4 promote candidates; categorize by target memory-bank file; surface each candidate prefixed `[report]` or `[handoff]`; consume per-item accept/edit/reject decisions; apply approved items with the provenance trailer `<!-- Added from VS-N.M.K retrospective, YYYY-MM-DD; source: report | handoff -->`; record harvest outcomes in `retrospective.md`.
 9. **Cleanup (M2):** remove each work-item worktree via `sd_worktree_remove` + delete each work-item branch — ONLY after harvest completes successfully.
 10. **Sprint-close cleanup:** if this is the FINAL slice of the sprint, sweep non-carry-forward handoffs from `<ai-workspace>/.workspace/handoffs/` per §6b.6.
-11. Emit final `VS-N.M.K closed` handoff message.
+11. **Reconcile active-context (§12):** surface a targeted edit to `05-active-context.md` — flip the closed slice's "Current focus" status to CLOSED + merge ref, and advance "Next up" to the field-read next roadmap slice (or sprint-close → next sprint on the final slice). Prose only; the closed slice's round log is preserved verbatim; the structured cursor block and spec-derived files are never touched.
+12. Emit final `VS-N.M.K closed` handoff message.
 
-Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/closing-vertical-slice.md` — the four scenarios there are the binding spec.
+Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/closing-vertical-slice.md` — the six scenarios there are the binding spec.
 
 ---
 
@@ -477,24 +478,16 @@ If this slice is the FINAL slice of its sprint (resolved by field-reading the st
 ### 11.1 Detect final-slice condition
 
 ```bash
-roadmap_state="$(sd roadmap_state_path)"
-# Field-read: is there a LATER slice in this same sprint? Compare the slice index
-# (3rd id field) numerically — never grep ROADMAP headings or split on the wrong
-# field (the #28 bug). cur_idx is this slice's index, e.g. "1" from VS-1.1.1.
-cur_idx="${vs_id##*.}"
-next_vs_in_sprint="$(jq -r --arg sid "$sprint_id" --argjson cur "$cur_idx" '
-  [ .vertical_slices[]
-    | select(.sprint_id == $sid)
-    | (.id | sub("^VS-"; "") | split(".") | .[2] | tonumber) as $idx
-    | select($idx > $cur) ] | length' "$roadmap_state")"
-# next_vs_in_sprint == "0" ⇒ this is the final slice of the sprint.
-if [[ -z "$next_vs_in_sprint" || "$next_vs_in_sprint" == "0" ]]; then
+# Field-read the next slice in THIS sprint via the shared lookup (single source of
+# truth — the close-time §12 reconcile calls the same helper). Empty ⇒ this is the
+# final slice of the sprint. Never grep ROADMAP headings or split on the wrong id
+# field (the #28 bug); sd_roadmap_next_slice sorts same-sprint slices by the 3rd
+# id index and returns the smallest one greater than this slice's.
+next_vs_id="$(sd roadmap_next_slice "$vs_id")"
+if [[ -z "$next_vs_id" ]]; then
   is_final_slice_of_sprint=1
-  next_sprint_id="$(jq -r --arg sid "$sprint_id" '
-    (.sprints // [] | map(.id)) as $ids
-    | ($ids | index($sid)) as $i
-    | if $i == null or ($i + 1) >= ($ids | length) then empty else $ids[$i + 1] end
-  ' "$roadmap_state")"
+  # Next sprint is an array-order lookup over sprints[] (dotted ids, no integer +1).
+  next_sprint_id="$(sd roadmap_next_sprint "$sprint_id")"
 else
   is_final_slice_of_sprint=0
   next_sprint_id=""
@@ -518,7 +511,53 @@ Sprint-level retrospective authoring (`sprint-${sprint_id}/sprint-retrospective.
 
 ---
 
-## 12. Slash-command interaction (`/close-slice VS-N.M.K`)
+## 12. Reconcile active-context cursor
+
+On the all-pass path — after harvest (§9) and cleanup (§10), after the §11 sprint-close branch, and BEFORE the §14 final handoff — reconcile the live `05-active-context.md` so a fresh session (or a `/handoff` consumer) reading it top-down sees the just-closed slice as closed and the correct next cursor. `05` is a LIVE, dev-authored file (never auto-regenerated): this is a *targeted, surfaced* edit, never a templated regen.
+
+### 12.1 Compute the cursor target (field-read, mechanical)
+
+Reuse the same shared lookup §11.1 uses — never paraphrase a slice name or grep ROADMAP headings:
+
+```bash
+next_vs_id="$(sd roadmap_next_slice "$vs_id")"   # empty ⇒ final slice of the sprint
+if [[ -z "$next_vs_id" ]]; then
+  next_sprint_id="$(sd roadmap_next_sprint "$sprint_id")"  # empty ⇒ final sprint in roadmap
+else
+  next_name="$(sd roadmap_slice_field "$next_vs_id" name)" # human label, field-read (schema key is `name`)
+fi
+active_context="$(sd state_active_context_path)"
+```
+
+### 12.2 Surface the proposed edit and wait
+
+Read the `## Current focus` and `## Next up` blocks of `$active_context`. Surface BOTH the current text and the proposed replacement, then wait for the user to confirm / edit / skip (per §16 surface-and-wait discipline — never auto-apply):
+
+- **Current focus** — flip the closed slice's in-flight marker to closed. Show the change, e.g.:
+
+  > **Current focus** (proposed):
+  > - was: `**Sprint <sprint_id> · <vs_id> — IN FLIGHT (…)**`
+  > - now: `**<vs_id> — CLOSED (<merge-ref>)**` · round log below retained
+
+  (`<merge-ref>` = the slice→sprint, or slice→main, merge reference — a merge-commit SHA or PR number, e.g. `a1b2c3d` or `PR #142`.) Preserve the slice's round detail verbatim as historical record — flip only the status header.
+
+- **Next up** — set it from the field-read target:
+  - Non-final slice: `Next: /orchestrate <next_vs_id> — <next_name>`.
+  - Final slice of the sprint: point at sprint-close → next sprint, e.g. `Sprint <sprint_id> complete — next: sprint <next_sprint_id>` (or, when `next_sprint_id` is empty, `Sprint <sprint_id> complete — no next sprint in the published roadmap`).
+
+### 12.3 Apply (prose only)
+
+On the user's confirmation (with any edits folded in), apply the targeted edit to the two prose blocks only. Do NOT:
+- regenerate `05-active-context.md` from any template;
+- touch the structured `<!-- sd:cursor:start -->…<!-- sd:cursor:end -->` JSON block (that belongs to `planning-vertical-slice`, which sets the cursor when the next slice is actually planned);
+- delete or rewrite the closed slice's round log;
+- write any spec-derived file.
+
+If the user skips, leave `05` untouched and say so; the ceremony still proceeds to the final handoff.
+
+---
+
+## 13. Slash-command interaction (`/close-slice VS-N.M.K`)
 
 The `/close-slice VS-N.M.K` slash command (`commands/close-slice.md`) exports the raw arg string as `$ARGUMENTS` (env-var bridge per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
 
@@ -530,9 +569,9 @@ Unknown or missing VS-id → one-line error + stop:
 
 ---
 
-## 13. Final handoff
+## 14. Final handoff
 
-After §10 cleanup (and §11 sprint-close if applicable), emit the closing message:
+After §10 cleanup, the §11 sprint-close branch (if applicable), and the §12 active-context reconcile, emit the closing message:
 
 > **VS-`<vs_id>` closed.** Demo verification: `<N>` `auto:` + `<M>` `user:` steps all passing. Architect-critic: `<finding-count or "skipped">`. Memory bank harvest: `<X>` items promoted (`<R>` from `[report]`, `<H>` from `[handoff]`), `<L>` left in handoff. Worktrees + branches removed. Retrospective at `${slice_root}/retrospective.md`.
 
@@ -540,7 +579,7 @@ Eval S1 / S3 / S4 assert the target subagent's final assistant message indicates
 
 ---
 
-## 14. Anti-patterns (do not do these)
+## 15. Anti-patterns (do not do these)
 
 - **Running auto-demo commands inside a worktree.** `cd "$canonical"` is binding — auto-demo runs in canonical (post-merge state). Eval S1's judge rejects any `cd <worktree>` prefix on the auto-demo Bash invocations. The work-item worktree's branch may be at a pre-merge HEAD; running there produces false-greens.
 - **Continuing past the first auto-demo failure.** Eval S2's assertion is binding — exactly one Bash invocation in the tool-call log when the first `auto:` line fails. Halt immediately; preserve worktrees; surface the 3-option recovery menu.
@@ -556,11 +595,16 @@ Eval S1 / S3 / S4 assert the target subagent's final assistant message indicates
 - **Auto-selecting a recovery menu option.** The menu is a user decision boundary; surfacing-and-waiting is the entire contract. Eval S2 asserts no `Task` tool invocation on the halt turn — option 3 (re-spawn implementer) is user-selected, not ceremony-driven.
 - **Reading manifest fields via raw `jq`.** All manifest reads route through `sd_manifest_get` / `sd_manifest_resolve` — mirrors `planning-vertical-slice` §3.1 + `implementation-checking` §3.1 discipline.
 - **Calling `Skill(architect-critic:critique)`** (the legacy v0.1.x slash-command-shaped name). The v0.2 skill is `critiquing-spec` per SPEC §16.3 last paragraph.
+- **Regenerating `05-active-context.md` from a template at §12.** It is a LIVE, dev-authored file — the reconcile is a *targeted* edit to the `## Current focus` / `## Next up` blocks only. A templated regen wipes the user's narrative, recent decisions, and blockers.
+- **Deleting the closed slice's round log during the §12 reconcile.** Flip only the status header; the round detail is historical record (issue #66 AC).
+- **Paraphrasing the next slice in "Next up" instead of field-reading it.** The §12 Next-up pointer MUST come from `sd roadmap_next_slice` / `sd roadmap_slice_field … name` (issue #66 AC: "field-read, not paraphrased"). Never hand-type a remembered slice name or grep ROADMAP headings.
+- **Writing the structured cursor block (the `<!-- sd:cursor:start -->` / `<!-- sd:cursor:end -->` sentinels) or any spec-derived file at §12.** The reconcile is prose-only; the JSON cursor belongs to `planning-vertical-slice` and advances when the next slice is actually planned.
+- **Auto-applying the §12 reconcile without surfacing.** Like every other ceremony decision boundary, surface the proposed edit and wait for confirm / edit / skip — never write `05` silently.
 - **Letting this body exceed 500 lines.** Hard cap per superpowers:writing-skills Pass D guidance.
 
 ---
 
-## 15. Notes on tool boundaries
+## 16. Notes on tool boundaries
 
 - **You** (Claude reading this skill body) make every judgment call: how to phrase the failing-step recovery menu, how to categorize each harvest candidate by target memory-bank file, how to surface the source-tagged candidates with enough context for the user's per-item decision, how to phrase the closing handoff message.
 - **Bash helpers** (`lib/manifest.sh`, `lib/render.sh`, `lib/compose.sh`, `lib/worktree.sh`, `lib/harvest.sh`) handle pure I/O: manifest reads, template substitution, filesystem probes, worktree teardown, harvest write + idempotency + derived-reroute (`sd_harvest_apply`) and the lean-index length leg (`sd_harvest_lint_length`). Demo-line parsing is done inline in the orchestrator (split on ` → expected: `); demo-criterion evaluation for content expectations is agent-judged.
@@ -569,4 +613,4 @@ Eval S1 / S3 / S4 assert the target subagent's final assistant message indicates
 - **`scaffold-onboard:authoring-vertical-slice-demo`** owns demo-criteria authoring. When the user picks recovery option 1 ("re-author the demo step"), this skill hands off to that flow; it does NOT edit the VS README's demo criteria itself.
 - **The user** is the final authority. They pass/fail each manual-demo step, resolve architect-critic challenges, accept/edit/reject each harvest candidate, pick the recovery menu option on any halt. You never auto-advance past a decision boundary; you never auto-cleanup; you never auto-select a menu option.
 
-When in doubt, prefer surfacing-and-waiting over acting. The ceremony's value is the deterministic ordering: demos before critic, critic before retrospective, retrospective before harvest, harvest before cleanup. Every step is a user-observable artifact; every halt preserves the workspace for inspection. The §11 M2 marker — worktrees + branches survive until harvest completes — is the load-bearing discipline that makes the retrospective harvest meaningful.
+When in doubt, prefer surfacing-and-waiting over acting. The ceremony's value is the deterministic ordering: demos before critic, critic before retrospective, retrospective before harvest, harvest before cleanup, cleanup before the §12 active-context reconcile. Every step is a user-observable artifact; every halt preserves the workspace for inspection. The §11 M2 marker — worktrees + branches survive until harvest completes — is the load-bearing discipline that makes the retrospective harvest meaningful.
