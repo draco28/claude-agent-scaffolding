@@ -122,7 +122,7 @@ test_detect_ac_multi_dir() {
 test_default_cache_dirs_include_codex() {
   echo "test_default_cache_dirs_include_codex:"
   local out
-  out="$(CODEX_HOME="$TMPDIR/codex-home-test" _sd_compose_default_cache_dirs)"
+  out="$(CODEX_HOME="${TMPDIR:-/tmp}/codex-home-test" _sd_compose_default_cache_dirs)"
   assert_contains "default dirs include codex cache" "/codex-home-test/plugins/cache" "$out"
 }
 
