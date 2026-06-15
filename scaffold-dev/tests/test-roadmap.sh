@@ -38,10 +38,10 @@ _write_roadmap_json() {
   {"id":"2.3"}
 ],
 "vertical_slices":[
-  {"id":"VS-1.1.1","sprint_id":"1.1","slice_name":"auth-flow"},
-  {"id":"VS-1.1.3","sprint_id":"1.1","slice_name":"reset-flow"},
-  {"id":"VS-1.1.2","sprint_id":"1.1","slice_name":"logout-flow"},
-  {"id":"VS-2.3.1","sprint_id":"2.3","slice_name":"reporting"}
+  {"id":"VS-1.1.1","sprint_id":"1.1","name":"auth-flow"},
+  {"id":"VS-1.1.3","sprint_id":"1.1","name":"reset-flow"},
+  {"id":"VS-1.1.2","sprint_id":"1.1","name":"logout-flow"},
+  {"id":"VS-2.3.1","sprint_id":"2.3","name":"reporting"}
 ]}
 JSON
 }
@@ -89,7 +89,7 @@ test_slice_field_generic() {
   echo "test_slice_field_generic:"
   _mk_roadmap_workspace '${ai_workspace.root}/.workspace/project-roadmap.json'
   _write_roadmap_json "$AW/.workspace/project-roadmap.json"
-  assert_eq "VS-1.1.2 slice_name" "logout-flow" "$(sd_roadmap_slice_field VS-1.1.2 slice_name)"
+  assert_eq "VS-1.1.2 name (production schema key)" "logout-flow" "$(sd_roadmap_slice_field VS-1.1.2 name)"
   cleanup
 }
 
@@ -124,6 +124,11 @@ test_next_slice_same_sprint() {
     "VS-1.1.2" "$(sd_roadmap_next_slice VS-1.1.1)"
   assert_eq "next after VS-1.1.2 is VS-1.1.3" \
     "VS-1.1.3" "$(sd_roadmap_next_slice VS-1.1.2)"
+  # End-to-end §12.1 reconcile chain: next-slice id → its `name` display label.
+  # Guards the runtime read closing-vertical-slice §12 depends on.
+  next="$(sd_roadmap_next_slice VS-1.1.1)"
+  assert_eq "next slice's name field-read (the §12 reconcile chain)" \
+    "logout-flow" "$(sd_roadmap_slice_field "$next" name)"
   cleanup
 }
 
