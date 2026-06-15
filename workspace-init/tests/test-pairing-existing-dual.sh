@@ -9,13 +9,13 @@
 #
 # Drives the pipeline directly by calling the wi_* lib functions in order.
 #
-# Covered (~13 tests):
+# Covered (~14 tests):
 #   Preflight      (5) : happy, empty-AI fail, missing-AI fail, canonical-not-git
 #                        fail, self-pairing fail
 #   Happy path     (2) : pairing succeeds, AI content preserved (no stub clobber)
 #   Manifest body  (3) : ai_workspace.name (basename, NOT name-ai), canonical.root,
 #                        default_branch
-#   Hooks          (1) : both repos have the baked-path hook
+#   Hooks          (2) : both repos have the baked-path hook; non-git AI skips AI hook
 #   Canonical safe (2) : canonical working tree unchanged, git_remote null+url
 
 source "$(dirname "$0")/_helpers.sh"
@@ -216,6 +216,22 @@ test_C_both_repos_have_hook() {
   [[ -x "$canonical/.git/hooks/commit-msg" ]] || { echo "    canonical hook not +x"; return 1; }
 }
 
+# Scenario C explicitly allows a NON-git AI workspace: the canonical hook still
+# installs, but the AI hook is skipped (no .git/hooks to install into) — and that
+# is NOT an error.
+test_C_non_git_ai_workspace_skips_ai_hook() {
+  local d="$_WI_TMP/k1"; mkdir -p "$d"
+  local canonical; canonical="$(_make_existing_canonical "$d" "proj")"
+  local ai;        ai="$(_make_existing_ai_workspace "$d" "proj-ws" nogit)"   # NOT a git repo
+  _run_existing_dual_pairing "$ai" "$canonical" personal >/dev/null 2>&1 \
+    || { echo "    pairing failed for a non-git AI workspace"; return 1; }
+  assert_file_exists "$ai/.workspace/pairing.json" || return 1
+  assert_file_exists "$canonical/.git/hooks/commit-msg" || return 1     # canonical hook: installed
+  if [[ -e "$ai/.git/hooks/commit-msg" ]]; then                         # AI hook: correctly skipped
+    echo "    AI hook installed despite a non-git AI workspace"; return 1
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # Canonical safety — 2 tests
 # ---------------------------------------------------------------------------
@@ -267,6 +283,7 @@ wi_test_run test_C_manifest_canonical_root_points_at_existing
 wi_test_run test_C_manifest_default_branch_detected
 
 wi_test_run test_C_both_repos_have_hook
+wi_test_run test_C_non_git_ai_workspace_skips_ai_hook
 
 wi_test_run test_C_canonical_working_tree_unchanged
 wi_test_run test_C_git_remote_null_then_url

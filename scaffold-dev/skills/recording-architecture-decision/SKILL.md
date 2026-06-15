@@ -202,10 +202,10 @@ For the body content, prompt the user (or use the user's already-provided draft 
 - **Decision** — what was decided? (1 paragraph, clearly stated as a decision)
 - **Consequences** — what follows from this decision? (bullet list — positives, negatives, follow-up actions)
 
-**Status protocol (`status_protocol`).** Ask which lifecycle this ADR follows — default to `accepted-on-author` when the user has no preference:
+**Status protocol (`status_protocol`).** Default **silently** to `accepted-on-author` — do NOT add a mandatory prompt turn here (a blocking question would shift the dialog order of retrospective-ADR flows). Only switch to `proposed-then-flip` when the user has **explicitly opted in** (e.g., they say "proposed-then-flip", "this ADR companions a build slice", or "mark it Proposed until validated"):
 
 - `accepted-on-author` (default) — retrospective ADRs documenting a decision already made or shipped. Write `{{status}}` as `Accepted`.
-- `proposed-then-flip` — for an ADR that **companions a slice which builds the architecture**, where empirical validation should gate Acceptance. Write `{{status}}` as `Proposed`; after the build merges and the operator reports an empirical signal, `flipping-adr-status` (`/flip-adr`) flips it to `Accepted` and appends an `## Empirical validation` section.
+- `proposed-then-flip` (opt-in) — for an ADR that **companions a slice which builds the architecture**, where empirical validation should gate Acceptance. Write `{{status}}` as `Proposed`; after the build merges and the operator reports an empirical signal, `flipping-adr-status` (`/flip-adr`) flips it to `Accepted` and appends an `## Empirical validation` section.
 
 (`Superseded` / `Deprecated` remain deferred — those are amendment lifecycles, not a creation-time choice.)
 

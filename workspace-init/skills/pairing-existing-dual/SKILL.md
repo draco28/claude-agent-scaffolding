@@ -103,6 +103,8 @@ fi
 
 If the AI workspace is **not** a git repo, skip its hook and say so — do NOT `git init` the user's existing workspace (that's their call). Note in the summary that the AI-workspace trace filter can be added later by `git init`-ing it and re-running this skill.
 
+> Known v0.2 limitation: `wi_manifest_write` hardcodes `ai_workspace.git_tracked: true` (it does not yet take a git-tracked flag), so the written manifest records `true` even when the AI workspace is not a git repo. This is cosmetic — it does not affect routing or the hook decision above — and is tracked for a future manifest-writer enhancement.
+
 ## 7. What this skill does NOT do (the Scenario-C contract)
 
 - **No `mkdir` of the AI workspace or canonical** — both already exist.
@@ -126,7 +128,7 @@ Because the AI workspace is already populated with the user's content, this skil
 
 After the writes succeed, print a summary substituting resolved values:
 
-```
+```text
 Existing dual-repo paired.
 
   AI workspace (existing):  /abs/path/<ai-workspace>   (content preserved — nothing seeded or overwritten)

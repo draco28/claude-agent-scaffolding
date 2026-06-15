@@ -142,8 +142,9 @@ description: Pair a new AI workspace with an existing canonical repository (Scen
 |---|---|---|
 | `/init-workspace [name]` | `initializing-dual-repo-workspace` | `/init-workspace foo` |
 | `/pair-workspace <existing-canonical>` | `pairing-canonical-repo` | `/pair-workspace /abs/path/foo` |
+| `/pair-existing-dual <ai-ws> <canonical>` | `pairing-existing-dual` (Scenario C, §9.5) | `/pair-existing-dual /abs/path/ws /abs/path/canon` |
 
-Both use `$ARGUMENTS` env-var bridge (per `feedback_slash_command_dollar_n_bug` memory).
+All use the `$ARGUMENTS` env-var bridge (per `feedback_slash_command_dollar_n_bug` memory).
 
 ---
 
@@ -511,12 +512,15 @@ workspace-init/
 │   ├── initializing-dual-repo-workspace/
 │   │   ├── SKILL.md
 │   │   └── examples/
-│   └── pairing-canonical-repo/
-│       ├── SKILL.md
-│       └── examples/
+│   ├── pairing-canonical-repo/
+│   │   ├── SKILL.md
+│   │   └── examples/
+│   └── pairing-existing-dual/      # Scenario C (§9.5)
+│       └── SKILL.md
 ├── commands/
 │   ├── init-workspace.md
-│   └── pair-workspace.md
+│   ├── pair-workspace.md
+│   └── pair-existing-dual.md
 ├── lib/
 │   ├── manifest.sh             # write/read/validate; mi_manifest_resolve (${var} + ${PLUGIN_DATA:<name>})
 │   ├── trace-filter.sh         # render + install commit-msg hook with baked path
@@ -543,6 +547,7 @@ workspace-init/
 │   ├── test-default-branch-fallback.sh # git symbolic-ref fallback chain
 │   ├── test-init-fresh.sh              # end-to-end fresh bootstrap
 │   ├── test-pair-with-existing.sh      # end-to-end pair-with + abort conditions
+│   ├── test-pairing-existing-dual.sh   # Scenario C end-to-end (existing populated dual)
 │   └── test-skills-pressure.sh         # subagent RED-GREEN scenarios
 ├── CHANGELOG.md
 ├── LICENSE
@@ -627,6 +632,7 @@ Bump to v0.1.0. Add to `marketplace.json` at top of chain. Update root README pl
 | `test-stubs.sh` | ~10 | template rendering, var substitution |
 | `test-init-fresh.sh` | ~15 | full fresh-bootstrap end-to-end |
 | `test-pair-with-existing.sh` | ~15 | Scenario A end-to-end + abort conditions |
+| `test-pairing-existing-dual.sh` | ~14 | Scenario C (existing populated dual) — preflight, manifest, hooks, content-preservation, non-git AI |
 | `test-skills-pressure.sh` | ~10 | subagent RED-GREEN scenarios |
 | **Total** | **~123** | |
 
