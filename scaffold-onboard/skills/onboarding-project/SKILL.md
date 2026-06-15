@@ -311,22 +311,46 @@ rm -f "$digest_file"
 Then dispatch the synthesis with that prompt. **SS-5.1: branch ONLY the dispatch** — the `sf spec_validate` + backup/restore + architect-critic close gate below stay **outside** the branch, identical for both backends:
 
 ```bash
-backend="$(sf backend_resolve)"   # claude_subagent (default) | codex
+if ! backend="$(sf backend_resolve)"; then
+  return 1  # invalid configured backend; do not silently fall back to Claude
+fi
 if [[ "$backend" == "codex" ]]; then
   # Codex synthesizer backend. NO Claude fallback on pre-flight failure (the user chose Codex).
   target_root="$(sf codex_target_root "$master")"
   sf codex_preflight "$target_root"               # hard-fail with remediation if Codex unavailable/untrusted
-  pf="$(mktemp "${TMPDIR:-/tmp}/sf-codex-mspec.XXXXXX.md")"; printf '%s' "$prompt" > "$pf"
+  pf="$(mktemp "${TMPDIR:-/tmp}/sf-codex-mspec.XXXXXX.md")"
+  {
+    printf '%s\n\n' "$prompt"
+    printf '%s\n' '## Return contract'
+    printf '%s\n' 'Your final message MUST end with exactly one fenced JSON block matching one of these shapes:'
+    printf '%s\n' '```json'
+    printf '%s\n' '{"mode":"complete","output_path":"<abs>","ids_minted":{"use_cases":[],"frs":[],"nfrs":[],"backlog":[]},"ids_cited":[],"summary":"<one line>"}'
+    printf '%s\n' '```'
+    printf '%s\n' 'or:'
+    printf '%s\n' '```json'
+    printf '%s\n' '{"mode":"failed","reason":"<why>","partial_output_path":null}'
+    printf '%s\n' '```'
+  } > "$pf"
   trap 'rm -f "$pf"' EXIT INT TERM
   job="$(sf codex_dispatch "$target_root" "$pf")"
   rm -f "$pf"; trap - EXIT INT TERM
   term="$(sf codex_wait "$target_root" "$job")"
-  result="$(sf codex_result "$target_root" "$job")"   # {mode, output_path, ids_minted, ids_cited, summary}
+  if [[ "$term" == "completed" ]]; then
+    result="$(sf codex_result "$target_root" "$job")"   # {mode, output_path, ids_minted, ids_cited, summary}
+  else
+    result="$(jq -nc --arg term "$term" '{mode:"failed",reason:"Codex job ended with terminal status: \($term)",partial_output_path:null}')"
+  fi
 else
   Task(subagent_type="scaffold-onboard:synthesis-agent",
        description="Synthesize MASTER-SPEC",
        model="claude-sonnet-4-5",
        prompt="$prompt")
+fi
+mode="$(printf '%s' "$result" | jq -r '.mode // empty')"
+if [[ "$mode" == "complete" ]]; then
+  :  # continue to sf spec_validate below
+else
+  :  # route to the same-backend retry/fail path; do not validate a stale or failed MASTER-SPEC
 fi
 ```
 
@@ -380,17 +404,39 @@ thin one-sentence placeholder the MASTER-SPEC step seeded):
 if [[ "$backend" == "codex" ]]; then
   target_root="$(sf codex_target_root "$out")"
   sf codex_preflight "$target_root"               # hard-fail; no Claude fallback
-  pf="$(mktemp "${TMPDIR:-/tmp}/sf-codex-execsum.XXXXXX.md")"; printf '%s' "$prompt" > "$pf"
+  pf="$(mktemp "${TMPDIR:-/tmp}/sf-codex-execsum.XXXXXX.md")"
+  {
+    printf '%s\n\n' "$prompt"
+    printf '%s\n' '## Return contract'
+    printf '%s\n' 'Your final message MUST end with exactly one fenced JSON block matching one of these shapes:'
+    printf '%s\n' '```json'
+    printf '%s\n' '{"mode":"complete","output_path":"<abs>","ids_minted":{"use_cases":[],"frs":[],"nfrs":[],"backlog":[]},"ids_cited":[],"summary":"<one line>"}'
+    printf '%s\n' '```'
+    printf '%s\n' 'or:'
+    printf '%s\n' '```json'
+    printf '%s\n' '{"mode":"failed","reason":"<why>","partial_output_path":null}'
+    printf '%s\n' '```'
+  } > "$pf"
   trap 'rm -f "$pf"' EXIT INT TERM
   job="$(sf codex_dispatch "$target_root" "$pf")"
   rm -f "$pf"; trap - EXIT INT TERM
   term="$(sf codex_wait "$target_root" "$job")"
-  result="$(sf codex_result "$target_root" "$job")"
+  if [[ "$term" == "completed" ]]; then
+    result="$(sf codex_result "$target_root" "$job")"
+  else
+    result="$(jq -nc --arg term "$term" '{mode:"failed",reason:"Codex job ended with terminal status: \($term)",partial_output_path:null}')"
+  fi
 else
   Task(subagent_type="scaffold-onboard:synthesis-agent",
        description="Synthesize EXECUTIVE-SUMMARY",
        model="claude-sonnet-4-5",
        prompt="$prompt")
+fi
+mode="$(printf '%s' "$result" | jq -r '.mode // empty')"
+if [[ "$mode" == "complete" ]]; then
+  :  # continue to the write-back guard below
+else
+  :  # route to the same-backend retry/fail path; do not write back a failed summary
 fi
 ```
 After `mode:complete`, copy the synthesized body back into MASTER-SPEC's pinned

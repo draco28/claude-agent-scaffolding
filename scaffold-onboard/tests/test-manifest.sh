@@ -34,7 +34,17 @@ test_get_no_manifest_rc1_no_abort() {
   assert_eq "rc=1 when no manifest (must not abort under set -e)" "1" "$rc"
 }
 
+test_get_invalid_jq_filter_returns_rc1() {
+  echo "test_get_invalid_jq_filter_returns_rc1:"
+  setup_tmp_workspace_init
+  local out rc
+  out="$(cd "$TMP_AI_WORKSPACE" && bash "$SF_BIN" manifest_get '[' 2>/dev/null)" && rc=0 || rc=$?
+  assert_eq "rc=1 when jq rejects the filter (set -e safe)" "1" "$rc"
+  assert_eq "no output on jq failure" "" "$out"
+}
+
 test_get_present_field
 test_get_absent_field_rc1
 test_get_no_manifest_rc1_no_abort
+test_get_invalid_jq_filter_returns_rc1
 report_results

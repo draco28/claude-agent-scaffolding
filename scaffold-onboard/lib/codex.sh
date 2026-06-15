@@ -444,10 +444,29 @@ sf_codex_result() {
   fi
 
   # Extract the LAST fenced ```json … ``` (or bare ```) block from the prose.
+  # Ignore non-JSON fences so transcripts/examples before the final return do
+  # not desynchronize the fence state.
   local block
   block="$(printf '%s\n' "$raw" | awk '
-    /^```([jJ][sS][oO][nN])?[[:space:]]*$/ { if (infence) { infence=0 } else { infence=1; buf="" }; next }
-    infence { buf = buf $0 "\n"; last = buf }
+    function fence_tag(line, t) {
+      t=line
+      sub(/^```[[:space:]]*/, "", t)
+      sub(/[[:space:]]*$/, "", t)
+      return tolower(t)
+    }
+    /^```[[:space:]]*([[:alnum:]_-]+)?[[:space:]]*$/ {
+      if (infence) {
+        if (keep) last=buf
+        infence=0; keep=0; buf=""
+      } else {
+        infence=1
+        tag=fence_tag($0)
+        keep=(tag=="" || tag=="json")
+        buf=""
+      }
+      next
+    }
+    infence && keep { buf = buf $0 "\n" }
     END { printf "%s", last }
   ')"
   if [[ -z "$block" ]]; then

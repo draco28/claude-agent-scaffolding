@@ -124,11 +124,11 @@ green and adds a **parallel guard** asserting the Codex branch routes none of th
 
 ### 3.7 Config — manifest default + per-invocation override
 `sf_backend_resolve [--backend <override>]` resolves precedence **override > `.workspace/pairing.json`
-`.synthesizer_backend` > `claude_subagent`**. scaffold-onboard has `sf_discover_manifest` (finds the manifest)
-but **no field reader** — SS-5.1 adds `sf_manifest_get <jq-filter>` (new `lib/manifest.sh`, mirroring
-`scaffold-dev/lib/manifest.sh`): read-with-default, rc=1 on absent field/manifest, **set-e-safe** (the absent
-read must not abort under `bin/sf`'s `set -euo pipefail`). **Read-with-default only — zero workspace-init
-touch** (the field is optional; seeding it into the manifest schema is a separate change, out of scope).
+`.synthesizer_backend` > `claude_subagent`**. scaffold-onboard already owns `sf_discover_manifest` in
+`lib/routing.sh`, so SS-5.1 adds `sf_manifest_get <jq-filter>` there as the non-aborting scalar field reader:
+read-with-default, rc=1 on absent field/manifest or jq failure, **set-e-safe** (the absent read must not abort
+under `bin/sf`'s `set -euo pipefail`). **Read-with-default only — zero workspace-init touch** (the field is
+optional; seeding it into the manifest schema is a separate change, out of scope).
 Backward-compatible: manifests lacking the field resolve to `claude_subagent`. A workspace may set
 `.synthesizer_backend` and `.implementer_backend` independently.
 
@@ -145,17 +145,27 @@ The prompt assembly and the post-validation (§3.5) stay shared and backend-agno
 wrapped:
 
 ```bash
-backend="$(sf backend_resolve)"
+if ! backend="$(sf backend_resolve)"; then
+  return 1  # invalid configured backend; do not silently fall back to Claude
+fi
 prompt="$(sf synth_brief_assemble …)"   # or sf synth_master_spec_prompt … (MASTER-SPEC) — UNCHANGED
 if [[ "$backend" == "codex" ]]; then
   target_root="$(sf codex_target_root "$out")"
   sf codex_preflight "$target_root"                 # hard-fail; NO Claude fallback
-  pf="$(mktemp …)"; printf '%s' "$prompt" > "$pf"   # temp OUTSIDE any output tree
+  pf="$(mktemp …)"; { printf '%s\n\n' "$prompt"; printf '%s\n' '## Return contract' 'Your final message MUST end with a fenced JSON block:' '```json' '{"mode":"complete","output_path":"<abs>","ids_minted":{"use_cases":[],"frs":[],"nfrs":[],"backlog":[]},"ids_cited":[],"summary":"<one line>"}' '```' 'or:' '```json' '{"mode":"failed","reason":"<why>","partial_output_path":null}' '```'; } > "$pf"
   job="$(sf codex_dispatch "$target_root" "$pf")"; rm -f "$pf"
   term="$(sf codex_wait "$target_root" "$job")"
-  result="$(sf codex_result "$job")"                # {mode, output_path, ids_minted, ids_cited, summary}
+  if [[ "$term" == "completed" ]]; then
+    result="$(sf codex_result "$target_root" "$job")"  # {mode, output_path, ids_minted, ids_cited, summary}
+  else
+    result="$(jq -nc --arg term "$term" '{mode:"failed",reason:"Codex job ended with terminal status: \($term)",partial_output_path:null}')"
+  fi
 else
   Task(subagent_type="scaffold-onboard:synthesis-agent", model="claude-sonnet-4-5", prompt="$prompt")
+fi
+mode="$(printf '%s' "$result" | jq -r '.mode // empty')"
+if [[ "$mode" == "complete" ]]; then :; else
+  # route to the same-backend re-dispatch-once / hard-fail path
 fi
 # SHARED post-processing (§3.5) — IDENTICAL for both backends; stays OUTSIDE the branch.
 ```
@@ -185,10 +195,10 @@ must not pollute the authored output).
 Inline TDD (single coherent authorship — the work centres on one ported `lib/codex.sh` with the known
 `set -e` sharp edge), per `feedback_subagent_vs_inline_threshold` and the SS-5 precedent.
 
-- **W1** — `lib/manifest.sh` `sf_manifest_get` + tests (smallest; unblocks backend).
+- **W1** — `lib/routing.sh` `sf_manifest_get` + tests (smallest; unblocks backend).
 - **W2** — `lib/backend.sh` `sf_backend_resolve` + `tests/test-backend.sh` (incl. the `set -e` regression
   guard through `bin/sf`).
-- **W3** — `tests/fixtures/codex-shim/codex-companion.mjs` (port scaffold-dev's env-driven fake; canned
+- **W3** — `tests/codex-shim/codex-companion.mjs` (port scaffold-dev's env-driven fake; canned
   synthesis-shaped `result.rawOutput` = `{mode:complete, output_path, ids_minted, ids_cited, summary}`;
   knobs `SCAFFOLD_CODEX_COMPANION`/`CODEX_SHIM_FAIL`/`_NO_JOBID`/`_STATUS[_RAW]`/`_RESULT_RAWOUTPUT`) +
   `tests/test-codex.sh` skeleton (auto-discovered).

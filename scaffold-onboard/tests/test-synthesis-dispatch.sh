@@ -628,6 +628,63 @@ test_governance_dispatch_has_codex_branch() {
   else FAIL=$((FAIL+1)); echo "  ✗ §11 missing codex backend branch"; fi
 }
 
+test_codex_backend_resolution_is_fail_loud() {
+  echo "test_codex_backend_resolution_is_fail_loud:"
+  local ok=1 body
+  body="$(_extract_section_bash "$MB_SKILL" "## 13")"
+  printf '%s' "$body" | grep -q 'if ! backend="$(sf_backend_resolve)"' \
+    || { echo "  ✗ memory-bank §13 does not check backend resolution rc"; ok=0; }
+  body="$(_extract_section_bash "$GOV_SKILL" "## 11")"
+  printf '%s' "$body" | grep -q 'if ! backend="$(sf_backend_resolve)"' \
+    || { echo "  ✗ governance §11 does not check backend resolution rc"; ok=0; }
+  body="$(_extract_section_bash "$ONB_SKILL" "## 8")"
+  printf '%s' "$body" | grep -q 'if ! backend="$(sf backend_resolve)"' \
+    || { echo "  ✗ onboarding §8 does not check backend resolution rc"; ok=0; }
+  if [[ "$ok" == 1 ]]; then PASS=$((PASS+1)); echo "  ✓ backend resolution is checked before dispatch"; else FAIL=$((FAIL+1)); fi
+}
+
+test_codex_prompts_embed_synthesis_return_contract() {
+  echo "test_codex_prompts_embed_synthesis_return_contract:"
+  local ok=1 body
+  for body in "$(_extract_section_bash "$MB_SKILL" "## 13")" \
+              "$(_extract_section_bash "$GOV_SKILL" "## 11")" \
+              "$(_extract_section_bash "$ONB_SKILL" "## 8")"; do
+    printf '%s' "$body" | grep -q 'Return contract' \
+      || { echo "  ✗ Codex prompt snippets omit the synthesis return contract"; ok=0; break; }
+    printf '%s' "$body" | grep -q '"mode":"complete"' \
+      || { echo "  ✗ Codex prompt snippets omit mode=complete example"; ok=0; break; }
+    printf '%s' "$body" | grep -q '"mode":"failed"' \
+      || { echo "  ✗ Codex prompt snippets omit mode=failed example"; ok=0; break; }
+  done
+  if [[ "$ok" == 1 ]]; then PASS=$((PASS+1)); echo "  ✓ Codex prompt files carry the synthesis return contract"; else FAIL=$((FAIL+1)); fi
+}
+
+test_codex_results_require_completed_and_complete() {
+  echo "test_codex_results_require_completed_and_complete:"
+  local ok=1 body
+  for body in "$(_extract_section_bash "$MB_SKILL" "## 13")" \
+              "$(_extract_section_bash "$GOV_SKILL" "## 11")" \
+              "$(_extract_section_bash "$ONB_SKILL" "## 8")"; do
+    printf '%s' "$body" | grep -q '\[\[ "$term" == "completed" \]\]' \
+      || { echo "  ✗ Codex result path is not gated on term=completed"; ok=0; break; }
+    printf '%s' "$body" | grep -q '\.mode' \
+      || { echo "  ✗ Codex result path does not inspect result.mode"; ok=0; break; }
+    printf '%s' "$body" | grep -q '\[\[ "$mode" == "complete" \]\]' \
+      || { echo "  ✗ Codex result path is not gated on mode=complete"; ok=0; break; }
+  done
+  if [[ "$ok" == 1 ]]; then PASS=$((PASS+1)); echo "  ✓ Codex post-validation only runs after completed + mode=complete"; else FAIL=$((FAIL+1)); fi
+}
+
+test_codex_waves_are_serialized() {
+  echo "test_codex_waves_are_serialized:"
+  local ok=1
+  grep -q 'Codex backend runs Wave 4 sequentially' "$MB_SKILL" \
+    || { echo "  ✗ memory-bank §13 does not serialize Codex Wave 4"; ok=0; }
+  grep -q 'Codex backend runs each wave sequentially' "$GOV_SKILL" \
+    || { echo "  ✗ governance §11 does not serialize Codex waves"; ok=0; }
+  if [[ "$ok" == 1 ]]; then PASS=$((PASS+1)); echo "  ✓ Codex synthesis waves are serialized"; else FAIL=$((FAIL+1)); fi
+}
+
 # ── SS-5.1 — onboarding §8 (MASTER-SPEC + EXEC-SUMMARY) backend wiring ──
 test_onboarding_master_spec_has_codex_branch() {
   echo "test_onboarding_master_spec_has_codex_branch:"
@@ -679,6 +736,10 @@ test_memory_bank_dispatch_has_codex_branch
 test_memory_bank_codex_branch_hard_fails
 test_router_files_not_codex_dispatched
 test_governance_dispatch_has_codex_branch
+test_codex_backend_resolution_is_fail_loud
+test_codex_prompts_embed_synthesis_return_contract
+test_codex_results_require_completed_and_complete
+test_codex_waves_are_serialized
 test_onboarding_master_spec_has_codex_branch
 test_onboarding_close_gate_and_writeback_preserved
 report_results

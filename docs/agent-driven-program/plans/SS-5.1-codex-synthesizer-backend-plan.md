@@ -12,7 +12,7 @@
 **Branch:** `feat/ss5.1-codex-synthesizer-backend` (create at execution start off `main`).
 
 **Key facts confirmed during planning:**
-- **`sf_manifest_get` goes in `lib/routing.sh`** (refines spec §3.7's "new `lib/manifest.sh`"): scaffold-onboard already owns `sf_discover_manifest` there — reuse it, don't duplicate discovery. scaffold-onboard has **no** `sf_jq_get`; read fields with `jq -r "<expr> // empty"` directly (the routing.sh idiom).
+- **`sf_manifest_get` goes in `lib/routing.sh`** (not a new manifest library): scaffold-onboard already owns `sf_discover_manifest` there — reuse it, don't duplicate discovery. scaffold-onboard has **no** `sf_jq_get`; read fields with `jq -r "<expr> // empty"` directly (the routing.sh idiom).
 - **Harness conventions (scaffold-onboard `tests/_helpers.sh`):** `assert_eq "<label>" "<expected>" "<actual>"` (**label first** — opposite of a bare value); `setup_tmp_workspace_init [proj] [type] [roadmap]` builds `<tmp>/<proj>-ai/.workspace/pairing.json` + `<tmp>/<proj>/` and exports `TMP_AI_WORKSPACE`/`TMP_CANONICAL`/`TMP_MANIFEST` (does **not** cd); `setup_tmp_repo` cds into a plain git repo with **no** manifest; suites end with `report_results` (not `sd_test_summary`); there is **no** `assert_contains` — grep manually + `assert_eq`. The dispatcher is `bin/sf` (`SF_BIN="$HERE/../bin/sf"`).
 - **`sf_log_error` only logs** — it does not exit or return non-zero (obs 3174). The ported helpers keep their explicit `return 1` after each `sf_log_error` (matching scaffold-dev's `sd_log_error` discipline).
 - **Drop entirely from the port:** `sd_codex_verify_nocommit` (no no-commit boundary) and all worktree handling. **Rename:** `_sd_codex_worktree_trusted` → `_sf_codex_dir_trusted` (it checks any dir, now an output repo root, not a worktree). **Add:** `sf_codex_target_root <out-path>` (git toplevel containing the artifact, robust to a not-yet-created output dir).
@@ -294,11 +294,11 @@ git commit -m "feat(scaffold-onboard): add sf_backend_resolve synthesizer select
 
 All other cases (`setup`/`task`/`status`/`cancel`) and the env contract (`CODEX_SHIM_LOG`/`_JOBID`/`_SETUP`/`_STATUS`/`_STATUS_RAW`/`_LOGFILE`/`_RESULT_RAWOUTPUT`/`_FAIL`/`_NO_JOBID`) are unchanged. Update the header comment to say "scaffold-onboard tests (SS-5.1)".
 
-- [ ] **Step 2:** No standalone test — W4 exercises it. Sanity: `node scaffold-onboard/tests/fixtures/codex-shim/codex-companion.mjs setup --json | jq -e '.ready'` → `true`.
+- [ ] **Step 2:** No standalone test — W4 exercises it. Sanity: `node scaffold-onboard/tests/codex-shim/codex-companion.mjs setup --json | jq -e '.ready'` → `true`.
 
 - [ ] **Step 3: Commit.**
 ```bash
-git add scaffold-onboard/tests/fixtures/codex-shim/codex-companion.mjs
+git add scaffold-onboard/tests/codex-shim/codex-companion.mjs
 git commit -m "test(scaffold-onboard): port codex-companion mock shim, synthesis-shaped result (SS-5.1)"
 ```
 
@@ -541,7 +541,9 @@ Register all four in the runner block. Run → FAIL (no branch yet).
 # Resolve once at §13 setup (alongside the existing state.sh source):
 source "${CLAUDE_PLUGIN_ROOT}/lib/backend.sh"   # → sf_backend_resolve (sources routing.sh + codex.sh deps)
 source "${CLAUDE_PLUGIN_ROOT}/lib/codex.sh"
-backend="$(sf backend_resolve)"
+if ! backend="$(sf backend_resolve)"; then
+  return 1   # invalid configured backend; never silently fall back to Claude
+fi
 ```
 and per artifact:
 ```bash
@@ -551,16 +553,26 @@ prompt="$(sf_synth_brief_assemble "$brief" "$ledger" "$out" "$master" "$exec_sum
 if [[ "$backend" == "codex" ]]; then
   target_root="$(sf codex_target_root "$out")"
   sf codex_preflight "$target_root"            # hard-fail; NO Claude fallback
-  pf="$(mktemp "${TMPDIR:-/tmp}/sf-codex-prompt.XXXXXX.md")"; printf '%s' "$prompt" > "$pf"
+  pf="$(mktemp "${TMPDIR:-/tmp}/sf-codex-prompt.XXXXXX.md")"
+  { printf '%s\n\n' "$prompt"; printf '%s\n' '## Return contract' 'Your final message MUST end with a fenced JSON block:' '```json' '{"mode":"complete","output_path":"<abs>","ids_minted":{"use_cases":[],"frs":[],"nfrs":[],"backlog":[]},"ids_cited":[],"summary":"<one line>"}' '```' 'or:' '```json' '{"mode":"failed","reason":"<why>","partial_output_path":null}' '```'; } > "$pf"
   trap 'rm -f "$pf"' EXIT INT TERM
   job="$(sf codex_dispatch "$target_root" "$pf")"; rm -f "$pf"; trap - EXIT INT TERM
   term="$(sf codex_wait "$target_root" "$job")"
-  result="$(sf codex_result "$target_root" "$job")"   # {mode, output_path, ids_minted, ids_cited, summary}
+  if [[ "$term" == "completed" ]]; then
+    result="$(sf codex_result "$target_root" "$job")"   # {mode, output_path, ids_minted, ids_cited, summary}
+  else
+    result="$(jq -nc --arg term "$term" '{mode:"failed",reason:"Codex job ended with terminal status: \($term)",partial_output_path:null}')"
+  fi
 else
   # existing Claude path:
   # Task(subagent_type="scaffold-onboard:synthesis-agent", model="claude-sonnet-4-5", prompt="$prompt")
   result="<the agent's returned JSON>"
 fi
+mode="$(printf '%s' "$result" | jq -r '.mode // empty')"
+[[ "$mode" == "complete" ]] || { # re-dispatch once via same backend, then hard-fail
+  sf_log_error "synthesis dispatch failed: $result"
+  return 1
+}
 # SHARED post-processing (UNCHANGED, runs for both backends):
 ledger="$(sf_synth_ledger_merge "$ledger" "<ids_minted from result>")"
 sf_synth_assert_sections "$brief" "$out"
@@ -621,19 +633,31 @@ Run → FAIL.
 ```bash
 # … existing: prompt="$(sf synth_master_spec_prompt "$brief" "$digest_file" "$master")"; asm_rc=$? ; rm -f "$digest_file"
 source "${CLAUDE_PLUGIN_ROOT}/lib/backend.sh"; source "${CLAUDE_PLUGIN_ROOT}/lib/codex.sh"
-backend="$(sf backend_resolve)"
+if ! backend="$(sf backend_resolve)"; then
+  return 1   # invalid configured backend; never silently fall back to Claude
+fi
 if [[ "$backend" == "codex" ]]; then
   target_root="$(sf codex_target_root "$master")"
   sf codex_preflight "$target_root"
-  pf="$(mktemp "${TMPDIR:-/tmp}/sf-codex-mspec.XXXXXX.md")"; printf '%s' "$prompt" > "$pf"
+  pf="$(mktemp "${TMPDIR:-/tmp}/sf-codex-mspec.XXXXXX.md")"
+  { printf '%s\n\n' "$prompt"; printf '%s\n' '## Return contract' 'Your final message MUST end with a fenced JSON block:' '```json' '{"mode":"complete","output_path":"<abs>","ids_minted":{"use_cases":[],"frs":[],"nfrs":[],"backlog":[]},"ids_cited":[],"summary":"<one line>"}' '```' 'or:' '```json' '{"mode":"failed","reason":"<why>","partial_output_path":null}' '```'; } > "$pf"
   trap 'rm -f "$pf"' EXIT INT TERM
   job="$(sf codex_dispatch "$target_root" "$pf")"; rm -f "$pf"; trap - EXIT INT TERM
   term="$(sf codex_wait "$target_root" "$job")"
-  result="$(sf codex_result "$target_root" "$job")"
+  if [[ "$term" == "completed" ]]; then
+    result="$(sf codex_result "$target_root" "$job")"
+  else
+    result="$(jq -nc --arg term "$term" '{mode:"failed",reason:"Codex job ended with terminal status: \($term)",partial_output_path:null}')"
+  fi
 else
   # Task(subagent_type="scaffold-onboard:synthesis-agent", model="claude-sonnet-4-5", prompt="$prompt")
   result="<agent return>"
 fi
+mode="$(printf '%s' "$result" | jq -r '.mode // empty')"
+[[ "$mode" == "complete" ]] || { # re-dispatch once via same backend, then hard-fail
+  sf_log_error "synthesis dispatch failed: $result"
+  return 1
+}
 ```
 Everything AFTER the dispatch stays exactly as today and **outside** the branch: `sf spec_validate "$master"` → on fail restore `$master_bak` (or `rm` for first-author) + `status=close_pending` → on pass `Skill(architect-critic:critiquing-spec) target=master-spec-full depth=close artifact_path="$master"`. The existing **inline/headless fallback** prose (which already names Codex as a host) is left intact — it is the orthogonal no-dispatch path.
 

@@ -62,7 +62,9 @@ sf_manifest_get() {
   if ! manifest="$(sf_discover_manifest)"; then
     return 1
   fi
-  out="$(jq -r "${expr} // empty" "$manifest" 2>/dev/null)"
+  if ! out="$(jq -r "${expr} // empty" "$manifest" 2>/dev/null)"; then
+    return 1
+  fi
   if [[ -z "$out" || "$out" == "null" ]]; then
     return 1
   fi

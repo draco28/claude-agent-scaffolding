@@ -225,7 +225,9 @@ source "${CLAUDE_PLUGIN_ROOT}/lib/codex.sh"     # sf_codex_* — Codex synthesis
 Resolve the synthesizer backend **once** (SS-5.1):
 
 ```bash
-backend="$(sf_backend_resolve)"   # claude_subagent (default) | codex
+if ! backend="$(sf_backend_resolve)"; then
+  return 1  # invalid configured backend; do not silently fall back to Claude
+fi
 ```
 
 When `backend == codex`, every governance doc below is synthesized by the Codex companion instead of the Claude `synthesis-agent`, under the **same** prompt and the **same** post-validation + ID-ledger threading. `sf codex_target_root "$out"` resolves each artifact's own repo root, so docs routed to `canonical` (PRD/SRS/BACKLOG) and to `ai_workspace` (process ADRs) each dispatch into the correct trusted repo. No silent fallback to Claude — pre-flight failure hard-fails with remediation.
@@ -304,21 +306,43 @@ prompt="$(sf_synth_brief_assemble "$brief" "$ledger" "$out" "$master" "$exec_sum
 if [[ "$backend" == "codex" ]]; then
   target_root="$(sf codex_target_root "$out")"     # this doc's repo root (canonical for PRD)
   sf codex_preflight "$target_root"                # hard-fail; no Claude fallback
-  pf="$(mktemp "${TMPDIR:-/tmp}/sf-codex-prompt.XXXXXX.md")"; printf '%s' "$prompt" > "$pf"
+  pf="$(mktemp "${TMPDIR:-/tmp}/sf-codex-prompt.XXXXXX.md")"
+  {
+    printf '%s\n\n' "$prompt"
+    printf '%s\n' '## Return contract'
+    printf '%s\n' 'Your final message MUST end with exactly one fenced JSON block matching one of these shapes:'
+    printf '%s\n' '```json'
+    printf '%s\n' '{"mode":"complete","output_path":"<abs>","ids_minted":{"use_cases":[],"frs":[],"nfrs":[],"backlog":[]},"ids_cited":[],"summary":"<one line>"}'
+    printf '%s\n' '```'
+    printf '%s\n' 'or:'
+    printf '%s\n' '```json'
+    printf '%s\n' '{"mode":"failed","reason":"<why>","partial_output_path":null}'
+    printf '%s\n' '```'
+  } > "$pf"
   trap 'rm -f "$pf"' EXIT INT TERM
   job="$(sf codex_dispatch "$target_root" "$pf")"
   rm -f "$pf"; trap - EXIT INT TERM
   term="$(sf codex_wait "$target_root" "$job")"
-  result="$(sf codex_result "$target_root" "$job")"  # {mode, output_path, ids_minted, ids_cited, summary}
+  if [[ "$term" == "completed" ]]; then
+    result="$(sf codex_result "$target_root" "$job")"  # {mode, output_path, ids_minted, ids_cited, summary}
+  else
+    result="$(jq -nc --arg term "$term" '{mode:"failed",reason:"Codex job ended with terminal status: \($term)",partial_output_path:null}')"
+  fi
 else
   Task(subagent_type="scaffold-onboard:synthesis-agent",
        description="Synthesize PRD",
        model="claude-opus-4-5",
        prompt="$prompt")
 fi
+mode="$(printf '%s' "$result" | jq -r '.mode // empty')"
+if [[ "$mode" == "complete" ]]; then
+  :  # continue to the shared validation block below
+else
+  :  # route to the same-backend retry/fail path below; do not validate a failed/stale artifact
+fi
 ```
 
-This `if [[ "$backend" == "codex" ]]` branch is the **canonical dispatch pattern** referenced by "Same pattern as Wave 1" below — every wave wraps only its dispatch this way; the `sf_synth_brief_assemble` prompt and the `mode:complete` validation (ledger-merge + the three `sf_synth_assert_*`) stay shared and backend-agnostic. On `mode:failed`/validation-fail, re-dispatch that doc **once** via the same backend.
+This `if [[ "$backend" == "codex" ]]` branch is the **canonical dispatch pattern** referenced by "Same pattern as Wave 1" below — every wave wraps only its dispatch this way; the `sf_synth_brief_assemble` prompt and the `mode:complete` validation (ledger-merge + the three `sf_synth_assert_*`) stay shared and backend-agnostic. For Codex, run validation only after `term == completed` and `mode == complete`; any other terminal status or `mode:failed` routes to the same-backend retry path. On `mode:failed`/validation-fail, re-dispatch that doc **once** via the same backend.
 
 On `mode:complete`: merge returned IDs and validate:
 
@@ -339,9 +363,9 @@ Same pattern as Wave 1. Brief: `SRS.brief.md`. Output: `sf_resolve_output_path s
 
 Brief: `BACKLOG.brief.md`. Output: `sf_resolve_output_path backlog docs/BACKLOG.md`. Model: `sonnet`. Merge returned `BACKLOG` IDs into `$ledger`.
 
-**Wave 4 — parallel block** (independent of each other; all consume from the ledger assembled through Wave 3):
+**Wave 4 — independent block** (all consume from the ledger assembled through Wave 3):
 
-Dispatch in parallel:
+Claude subagents may dispatch Wave 4 in parallel. Codex backend runs each wave sequentially to avoid companion same-session races for docs sharing a target root:
 
 - **PROJECT_PLAN** — brief `PROJECT_PLAN.brief.md`, output `sf_resolve_output_path project_plan docs/PROJECT_PLAN.md`, model `sonnet`.
 - **ADR-0001** — brief `ADR-0001.brief.md`, output `sf_resolve_output_path product_adrs docs/adr/0001-record-architecture-decisions.md`, model `sonnet`.
@@ -350,7 +374,7 @@ Dispatch in parallel:
   - LLM-gated: EVALS_PLAN, MODEL_CARD, PROMPT_GOVERNANCE — only when Phase 9.3.1 ∈ {yes, true}. If the gate fails, skip these three and surface the skip-with-reason to the user.
   - Without `--full`: Wave 4 is PROJECT_PLAN + ADR-0001 only.
 
-For each Wave 4 doc use the same dispatch pattern as Wave 1, substituting the appropriate brief, output path, and model. Wave 4 docs do not mint any new IDs that other Wave 4 docs consume, so they are safe to run concurrently. Merge each returned `ids_minted` into `$ledger` as results arrive; validate each artifact immediately on return; on failure, re-dispatch that artifact once, then hard-fail with remediation (no deterministic fallback).
+For each Wave 4 doc use the same dispatch pattern as Wave 1, substituting the appropriate brief, output path, and model. Wave 4 docs do not mint any new IDs that other Wave 4 docs consume, so the Claude path is safe to run concurrently; the Codex path still runs them one at a time per SS-5.1's companion state-coupling invariant. Merge each returned `ids_minted` into `$ledger` as results arrive; validate each artifact immediately on return; on failure, re-dispatch that artifact once, then hard-fail with remediation (no deterministic fallback).
 
 ### 11.3 Coverage report
 

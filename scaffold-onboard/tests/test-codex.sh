@@ -259,6 +259,25 @@ then more
   assert_eq "takes the LAST fenced block" "LAST" "$(printf '%s' "$out" | jq -r '.summary')"
 }
 
+test_result_ignores_non_json_fence_before_json() {
+  echo "test_result_ignores_non_json_fence_before_json:"
+  setup_tmp_repo
+  local raw='Codex may include a shell transcript before its final return.
+
+```bash
+printf "%s\n" "$artifact"
+```
+
+Final return:
+
+```json
+{"mode":"complete","summary":"AFTER_BASH"}
+```'
+  local out
+  out="$(cd "$TMP_DIR/repo" && CODEX_SHIM_RESULT_RAWOUTPUT="$raw" bash "$SF_BIN" codex_result "$TMP_DIR/repo" task-shim001)"
+  assert_eq "ignores non-json fences before final json" "AFTER_BASH" "$(printf '%s' "$out" | jq -r '.summary')"
+}
+
 test_result_no_fence_rc1() {
   echo "test_result_no_fence_rc1:"
   setup_tmp_repo
@@ -301,6 +320,7 @@ test_result_complete
 test_result_failed_mode
 test_result_prose_before_fence
 test_result_multi_fence_takes_last
+test_result_ignores_non_json_fence_before_json
 test_result_no_fence_rc1
 test_result_fence_without_mode_rc1
 report_results
