@@ -99,7 +99,7 @@ Manifest-configurable `implementer_backend ∈ {claude_subagent, codex}` via `co
 ### SS-5.1 — Codex synthesizer backend (scaffold-onboard derivation) · fast-follow to SS-5 · scaffold-onboard-only · ✅ scaffold-onboard v0.9.0
 The explicit fast-follow SS-5 deferred. Manifest-configurable `synthesizer_backend ∈ {claude_subagent, codex}`: when `codex`, the three synthesis-dispatch skills (`scaffolding-memory-bank §13`, `scaffolding-governance-docs §11`, `onboarding-project §8`) route each artifact to `codex-companion.mjs` instead of the Claude `synthesis-agent`, under the **same** assembled prompt + **same** post-validation. Reuses SS-5's `lib/codex.sh` async spine (resolve/preflight/dispatch/wait/result) **minus** worktree + no-commit verify (synthesis writes the artifact directly to the routed output path; `sf_codex_target_root` gives the per-artifact repo root for `sandbox=workspace-write`, handling the canonical/ai_workspace split) + `lib/backend.sh` selector + `sf_manifest_get`. No gaps-mode (synthesis is `complete|failed`). See `specs/SS-5.1-codex-synthesizer-backend.md`.
 **Router-file boundary (load-bearing):** `CLAUDE.md` / `.claude/settings.json` / `AGENTS.md` stay mechanical (`sf_claude_md_generate` etc.) — never synthesized on the Codex path (SS-7 §2/§4), test-guarded. Default stays `claude_subagent`; existing projects byte-identical.
-**Shipped:** scaffold-onboard v0.9.0 (design-of-record `specs/SS-5.1-codex-synthesizer-backend.md`; folded from SS-5's deferred synthesizer scope — no separate issue).
+**Closes:** `#67`. **Shipped:** scaffold-onboard v0.9.0 (design-of-record `specs/SS-5.1-codex-synthesizer-backend.md`; folded from SS-5's deferred synthesizer scope).
 
 ### SS-6 — Standalone cleanup to zero (independent items) · interleave
 Items unrelated to the derivation pivot — clear them to reach zero backlog:
@@ -128,7 +128,7 @@ Every open issue + every new audit finding, mapped to a sub-spec. **Target: 0 op
 | ~~**#5**~~ | pre-flight RED-tests gate | partial (reframe) | **SS-4** | ✅ CLOSED 2026-06-12 (SS-4, scaffold-dev v0.4.0) |
 | **#48** | #33 C–F + /defer routing + label auto-create | partial | **SS-1** (C/D/E) + **SS-4** (F) + **SS-6** (routing/label) | Part F ✅ SHIPPED 2026-06-12 (SS-4, scaffold-dev v0.4.0); C/D/E + routing/label remainder open |
 | ~~**#47**~~ | Codex implementer backend | independent | **SS-5** | ✅ CLOSED 2026-06-12 (SS-5, scaffold-dev v0.5.0) |
-| _(SS-5.1)_ | Codex **synthesizer** backend (scaffold-onboard derivation) | fast-follow to SS-5 | **SS-5.1** | ✅ scaffold-onboard v0.9.0 (no separate issue — folded from SS-5's deferred scope) |
+| ~~**#67**~~ | Codex **synthesizer** backend (scaffold-onboard derivation) | fast-follow to SS-5 | **SS-5.1** | ✅ scaffold-onboard v0.9.0 (folded from SS-5's deferred scope) |
 | **#8** | ban `git stash` in templates | independent (keep-mech) | **SS-6** | v0.2 |
 | **#9** | pairing-existing-dual (Scenario C) | independent | **SS-6** | v0.2 |
 | **#6** | ADR Proposed→Accepted flip | independent | **SS-6** | v0.3 |

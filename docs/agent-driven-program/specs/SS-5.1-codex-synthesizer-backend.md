@@ -1,7 +1,7 @@
 # SS-5.1 — Optional Codex synthesizer backend (scaffold-onboard)
 
 **Date:** 2026-06-13 · **Type:** additive (optional backend behind a manifest selector) · **Depends on:** SS-5 (reuses the `lib/codex.sh` async-dispatch spine); inherits SS-3/SS-7 tool-agnostic synthesis dispatch
-**Ledger:** SS-5.1 issue (file during build — none exists yet) · **Plugins touched:** `scaffold-onboard` only · **Release:** `scaffold-onboard` minor bump (v0.8.0 → v0.9.0)
+**Ledger:** `#67` · **Plugins touched:** `scaffold-onboard` only · **Release:** `scaffold-onboard` minor bump (v0.8.0 → v0.9.0)
 **Design settled with user 2026-06-13:** full scope (all **three** synthesis-dispatch skills — memory-bank, governance, onboarding — **no deferral**) · ports SS-5's `lib/codex.sh` spine **minus** worktree / no-commit / gaps-mode · the **router-file boundary** is the load-bearing constraint · manifest+override config · hard-fail-on-unavailable.
 
 ---
