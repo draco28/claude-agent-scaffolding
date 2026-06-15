@@ -94,6 +94,8 @@ Read the resolved ADR. Its Status line — the metadata form authored by `record
 - If `Status: Superseded` / `Deprecated` / anything else → refuse: *"ADR `<path>` has Status `<value>`, not `Proposed`; this skill only flips Proposed → Accepted."* No edit.
 - If no recognizable Status line → refuse and name the file so the user can inspect it.
 
+**Format contract.** `recording-architecture-decision`'s `templates/adr.md.tmpl` always emits the status as the `- Status: <value>` **metadata line** (`- Status: {{status}}`) — that is the only form this skill matches and flips. If an ADR carries its status some other way (e.g. a `## Status` heading in a hand-authored or non-template ADR), this skill does NOT guess or rewrite it: it refuses per the "no recognizable Status line" bullet above and asks the user to normalize the ADR first. Refusing-not-guessing keeps a wrong match from corrupting the decision record.
+
 The gate is binding: never flip an ADR that is not currently Proposed, and never edit on refusal.
 
 ---

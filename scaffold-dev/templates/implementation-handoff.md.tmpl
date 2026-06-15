@@ -116,7 +116,7 @@ Use these EXACT commands. Substituting near-equivalents (e.g., `pytest -x` inste
 - ALWAYS `git add` (stage) before returning. The orchestrator reads `git status --porcelain` to verify staging.
 - NEVER edit files outside `{{worktree_abs_path}}` (canonical) or `{{report_abs_path}}` (AI workspace report).
 - NEVER invoke the Task tool (subagents cannot nest in v0.1).
-- NEVER run `git stash` / `git stash pop` / `git stash apply` for baseline isolation — it collides with the operator's pre-existing stash stack and can be unrecoverable. For a reversible snapshot, move files to a temp dir instead (`mv <file> /tmp/<slice-id>-baseline/<file>`, reverse on rollback), visible in `ls /tmp/` and never touching the global stash.
+- NEVER run `git stash` / `git stash pop` / `git stash apply` for baseline isolation — it collides with the operator's pre-existing stash stack and can be unrecoverable. For a reversible snapshot, move files to a temp dir instead (`mkdir -p /tmp/<slice-id>-baseline/ && mv <file> /tmp/<slice-id>-baseline/<file>`, reverse on rollback; `<slice-id>` is a placeholder you fill in), visible in `ls /tmp/` and never touching the global stash.
 
 **Return format on completion:**
 

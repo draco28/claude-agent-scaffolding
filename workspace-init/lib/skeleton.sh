@@ -144,9 +144,14 @@ wi_skeleton_preflight_existing_dual() {
     return 1
   fi
 
-  # Guard against accidental self-pairing.
-  if [[ "$ai_root" == "$canonical_root" ]]; then
-    wi_log_error "wi_skeleton_preflight_existing_dual: ai_root and canonical must be different paths: $ai_root"
+  # Guard against accidental self-pairing. Canonicalize both paths first so
+  # trailing slashes, relative-vs-absolute, and symlink variations of the same
+  # directory are caught (both exist at this point, so wi_realpath resolves them).
+  local ai_canon canonical_canon
+  ai_canon="$(wi_realpath "$ai_root")"
+  canonical_canon="$(wi_realpath "$canonical_root")"
+  if [[ "$ai_canon" == "$canonical_canon" ]]; then
+    wi_log_error "wi_skeleton_preflight_existing_dual: ai_root and canonical must be different paths: $ai_canon"
     return 1
   fi
 
