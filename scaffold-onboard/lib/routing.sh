@@ -52,6 +52,26 @@ sf_discover_manifest() {
 }
 
 # ----------------------------------------------------------------------------
+# sf_manifest_get <jq-path>  (SS-5.1)
+# ----------------------------------------------------------------------------
+# Read a scalar field from the discovered manifest. Echoes the value + rc=0;
+# rc=1 (no output) when there is no manifest OR the field is absent/null.
+# set -e-safe: callers capture rc=1 with `if v="$(sf_manifest_get …)"; then …`.
+sf_manifest_get() {
+  local expr="$1" manifest out
+  if ! manifest="$(sf_discover_manifest)"; then
+    return 1
+  fi
+  if ! out="$(jq -r "${expr} // empty" "$manifest" 2>/dev/null)"; then
+    return 1
+  fi
+  if [[ -z "$out" || "$out" == "null" ]]; then
+    return 1
+  fi
+  echo "$out"
+}
+
+# ----------------------------------------------------------------------------
 # Cross-plugin mi_manifest_resolve sourcing
 # ----------------------------------------------------------------------------
 # Probe known locations for workspace-init's lib/manifest.sh. If found,

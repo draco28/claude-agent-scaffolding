@@ -7,6 +7,7 @@ source "$HERE/_helpers.sh"
 ROOT="$HERE/.."
 MB_SKILL="$ROOT/skills/scaffolding-memory-bank/SKILL.md"
 GOV_SKILL="$ROOT/skills/scaffolding-governance-docs/SKILL.md"
+ONB_SKILL="$ROOT/skills/onboarding-project/SKILL.md"
 source "$ROOT/lib/render.sh"
 source "$ROOT/lib/synthesis.sh"
 source "$ROOT/lib/state.sh"        # SS-2 W4: inline seed + fallback test
@@ -587,6 +588,124 @@ test_inline_fallback_model_documented() {
   if [[ "$ok" == "1" ]]; then PASS=$((PASS+1)); echo "  ✓ all 4 content skills document dispatch→inline→re-dispatch→hard-fail (no deterministic fallback)"; else FAIL=$((FAIL+1)); fi
 }
 
+# ── SS-5.1 — Codex synthesizer backend wiring (derivation seams §13 / §11) ──
+test_memory_bank_dispatch_has_codex_branch() {
+  echo "test_memory_bank_dispatch_has_codex_branch:"
+  local body; body="$(_extract_section_bash "$MB_SKILL" "## 13")"
+  local ok=1
+  printf '%s' "$body" | grep -q 'backend_resolve' || { echo "  ✗ §13 has no backend_resolve branch"; ok=0; }
+  printf '%s' "$body" | grep -q 'codex_dispatch'  || { echo "  ✗ §13 never dispatches via codex"; ok=0; }
+  printf '%s' "$body" | grep -Eq 'source .*/lib/(backend|codex)\.sh' || { echo "  ✗ §13 does not source backend/codex libs"; ok=0; }
+  if [[ "$ok" == 1 ]]; then PASS=$((PASS+1)); echo "  ✓ §13 has the codex backend branch + sources its libs"; else FAIL=$((FAIL+1)); fi
+}
+
+test_memory_bank_codex_branch_hard_fails() {
+  echo "test_memory_bank_codex_branch_hard_fails:"
+  local body; body="$(_extract_section_bash "$MB_SKILL" "## 13")"
+  if printf '%s' "$body" | grep -q 'codex_preflight'; then
+    PASS=$((PASS+1)); echo "  ✓ §13 codex path runs preflight (hard-fail, no Claude fallback)"
+  else FAIL=$((FAIL+1)); echo "  ✗ §13 codex path missing preflight hard-gate"; fi
+}
+
+# Router files (CLAUDE.md / settings.json / AGENTS.md) must NEVER ride the codex
+# dispatch — they stay mechanical (parallel to test_claude_md_mechanically_generated_not_synthesized).
+test_router_files_not_codex_dispatched() {
+  echo "test_router_files_not_codex_dispatched:"
+  local ok=1
+  if grep -nE 'codex_dispatch' "$MB_SKILL" | grep -Eq 'CLAUDE\.md|settings\.json|AGENTS\.md'; then
+    echo "  ✗ a router file is on a codex_dispatch line in memory-bank §13"; ok=0
+  fi
+  grep -q 'sf_claude_settings_generate' "$MB_SKILL" && grep -q 'sf_agents_md_generate' "$MB_SKILL" \
+    || { echo "  ✗ mechanical router generators missing from finalize"; ok=0; }
+  if [[ "$ok" == 1 ]]; then PASS=$((PASS+1)); echo "  ✓ router files stay mechanical on the codex path"; else FAIL=$((FAIL+1)); fi
+}
+
+test_governance_dispatch_has_codex_branch() {
+  echo "test_governance_dispatch_has_codex_branch:"
+  local body; body="$(_extract_section_bash "$GOV_SKILL" "## 11")"
+  if printf '%s' "$body" | grep -q 'backend_resolve' && printf '%s' "$body" | grep -q 'codex_dispatch'; then
+    PASS=$((PASS+1)); echo "  ✓ §11 has the codex backend branch"
+  else FAIL=$((FAIL+1)); echo "  ✗ §11 missing codex backend branch"; fi
+}
+
+test_codex_backend_resolution_is_fail_loud() {
+  echo "test_codex_backend_resolution_is_fail_loud:"
+  local ok=1 body
+  body="$(_extract_section_bash "$MB_SKILL" "## 13")"
+  printf '%s' "$body" | grep -q 'if ! backend="$(sf_backend_resolve)"' \
+    || { echo "  ✗ memory-bank §13 does not check backend resolution rc"; ok=0; }
+  body="$(_extract_section_bash "$GOV_SKILL" "## 11")"
+  printf '%s' "$body" | grep -q 'if ! backend="$(sf_backend_resolve)"' \
+    || { echo "  ✗ governance §11 does not check backend resolution rc"; ok=0; }
+  body="$(_extract_section_bash "$ONB_SKILL" "## 8")"
+  printf '%s' "$body" | grep -q 'if ! backend="$(sf backend_resolve)"' \
+    || { echo "  ✗ onboarding §8 does not check backend resolution rc"; ok=0; }
+  if [[ "$ok" == 1 ]]; then PASS=$((PASS+1)); echo "  ✓ backend resolution is checked before dispatch"; else FAIL=$((FAIL+1)); fi
+}
+
+test_codex_prompts_embed_synthesis_return_contract() {
+  echo "test_codex_prompts_embed_synthesis_return_contract:"
+  local ok=1 body
+  for body in "$(_extract_section_bash "$MB_SKILL" "## 13")" \
+              "$(_extract_section_bash "$GOV_SKILL" "## 11")" \
+              "$(_extract_section_bash "$ONB_SKILL" "## 8")"; do
+    printf '%s' "$body" | grep -q 'Return contract' \
+      || { echo "  ✗ Codex prompt snippets omit the synthesis return contract"; ok=0; break; }
+    printf '%s' "$body" | grep -q '"mode":"complete"' \
+      || { echo "  ✗ Codex prompt snippets omit mode=complete example"; ok=0; break; }
+    printf '%s' "$body" | grep -q '"mode":"failed"' \
+      || { echo "  ✗ Codex prompt snippets omit mode=failed example"; ok=0; break; }
+  done
+  if [[ "$ok" == 1 ]]; then PASS=$((PASS+1)); echo "  ✓ Codex prompt files carry the synthesis return contract"; else FAIL=$((FAIL+1)); fi
+}
+
+test_codex_results_require_completed_and_complete() {
+  echo "test_codex_results_require_completed_and_complete:"
+  local ok=1 body
+  for body in "$(_extract_section_bash "$MB_SKILL" "## 13")" \
+              "$(_extract_section_bash "$GOV_SKILL" "## 11")" \
+              "$(_extract_section_bash "$ONB_SKILL" "## 8")"; do
+    printf '%s' "$body" | grep -q '\[\[ "$term" == "completed" \]\]' \
+      || { echo "  ✗ Codex result path is not gated on term=completed"; ok=0; break; }
+    printf '%s' "$body" | grep -q '\.mode' \
+      || { echo "  ✗ Codex result path does not inspect result.mode"; ok=0; break; }
+    printf '%s' "$body" | grep -q '\[\[ "$mode" == "complete" \]\]' \
+      || { echo "  ✗ Codex result path is not gated on mode=complete"; ok=0; break; }
+  done
+  if [[ "$ok" == 1 ]]; then PASS=$((PASS+1)); echo "  ✓ Codex post-validation only runs after completed + mode=complete"; else FAIL=$((FAIL+1)); fi
+}
+
+test_codex_waves_are_serialized() {
+  echo "test_codex_waves_are_serialized:"
+  local ok=1
+  grep -q 'Codex backend runs Wave 4 sequentially' "$MB_SKILL" \
+    || { echo "  ✗ memory-bank §13 does not serialize Codex Wave 4"; ok=0; }
+  grep -q 'Codex backend runs each wave sequentially' "$GOV_SKILL" \
+    || { echo "  ✗ governance §11 does not serialize Codex waves"; ok=0; }
+  if [[ "$ok" == 1 ]]; then PASS=$((PASS+1)); echo "  ✓ Codex synthesis waves are serialized"; else FAIL=$((FAIL+1)); fi
+}
+
+# ── SS-5.1 — onboarding §8 (MASTER-SPEC + EXEC-SUMMARY) backend wiring ──
+test_onboarding_master_spec_has_codex_branch() {
+  echo "test_onboarding_master_spec_has_codex_branch:"
+  local body; body="$(_extract_section_bash "$ONB_SKILL" "## 8")"
+  local ok=1
+  printf '%s' "$body" | grep -q 'backend_resolve' || { echo "  ✗ §8 has no backend_resolve branch"; ok=0; }
+  printf '%s' "$body" | grep -q 'codex_dispatch'  || { echo "  ✗ §8 never dispatches via codex"; ok=0; }
+  printf '%s' "$body" | grep -q 'spec_validate'   || { echo "  ✗ §8 dropped sf spec_validate (post-validation must stay outside the branch)"; ok=0; }
+  if [[ "$ok" == 1 ]]; then PASS=$((PASS+1)); echo "  ✓ §8 codex branch + spec_validate preserved"; else FAIL=$((FAIL+1)); fi
+}
+
+# The MASTER-SPEC close gate (architect-critic master-spec-full) and the EXEC-SUMMARY
+# write-back guard must stay — neither moves inside the backend branch.
+test_onboarding_close_gate_and_writeback_preserved() {
+  echo "test_onboarding_close_gate_and_writeback_preserved:"
+  local ok=1
+  grep -q 'target=master-spec-full' "$ONB_SKILL" || { echo "  ✗ architect-critic close gate (master-spec-full) missing"; ok=0; }
+  grep -q 'render_executive_summary_from_synthesized' "$ONB_SKILL" || { echo "  ✗ EXEC-SUMMARY write-back guard missing"; ok=0; }
+  if [[ "$ok" == 1 ]]; then PASS=$((PASS+1)); echo "  ✓ close gate + EXEC-SUMMARY write-back preserved"; else FAIL=$((FAIL+1)); fi
+}
+
 test_memory_bank_dispatch_sources_its_helpers
 test_synthesize_finalize_routes_to_memory_bank
 test_governance_dispatch_sources_its_helpers
@@ -613,4 +732,14 @@ test_exec_summary_staleness_detects_master_change
 test_deterministic_exec_summary_renderers_removed
 test_exec_summary_brief_validates
 test_inline_fallback_model_documented
+test_memory_bank_dispatch_has_codex_branch
+test_memory_bank_codex_branch_hard_fails
+test_router_files_not_codex_dispatched
+test_governance_dispatch_has_codex_branch
+test_codex_backend_resolution_is_fail_loud
+test_codex_prompts_embed_synthesis_return_contract
+test_codex_results_require_completed_and_complete
+test_codex_waves_are_serialized
+test_onboarding_master_spec_has_codex_branch
+test_onboarding_close_gate_and_writeback_preserved
 report_results
