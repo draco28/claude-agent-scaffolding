@@ -21,6 +21,13 @@ branches, remotes, `.gitignore`, and existing hooks (other than the one
 "existing canonical needs scaffolding". It also runs via
 `/pair-workspace <abs-path-to-canonical>`.
 
+**Already have a populated AI workspace?** This skill creates a *fresh* AI
+workspace. If your AI workspace already exists as a separate populated sibling
+directory (memory-bank, specs, CLAUDE.md grown organically before you found the
+plugins) and you only need a manifest to wire it up, use `pairing-existing-dual`
+(`/pair-existing-dual <ai-workspace-abs> <canonical-abs>`, **Scenario C**)
+instead — it preserves your existing content and never seeds or stubs.
+
 ## 2. Preconditions
 
 Same as the fresh-init skill (`jq` on `$PATH`, `git` on `$PATH`, parent dir

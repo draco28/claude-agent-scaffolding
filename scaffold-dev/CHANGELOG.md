@@ -2,6 +2,17 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.7.0] — 2026-06-15
+
+SS-6 cleanup batch — ADR `proposed-then-flip` lifecycle (#6) + `git stash` ban in operator-facing templates (#8).
+
+### Added
+- **#6 — `flipping-adr-status` skill + `/flip-adr` command.** The second half of the ADR `proposed-then-flip` lifecycle: resolves an ADR by number (across the manifest-routed product/process dirs) or absolute path, gates on it currently being `Status: Proposed`, prompts for an empirical signal, then makes a *targeted* edit — flips `- Status: Proposed` → `- Status: Accepted` and appends an `## Empirical validation` section (operator signal + date). Refuses an already-`Accepted` ADR (one-way) and disambiguates a number that matches both series. Agent-driven (Edit tool), eval-tested (`evals/flipping-adr-status.md`, 3 scenarios).
+
+### Changed
+- **#6 — `recording-architecture-decision` offers a status protocol at authoring time (§9.1).** `accepted-on-author` (default, current behavior → `Status: Accepted`) or `proposed-then-flip` (→ `Status: Proposed`, for an ADR companioning a build slice that later flips via `/flip-adr` once an empirical signal lands). `evals/recording-architecture-decision.md` gains S4 covering the proposed-then-flip path (now 4 scenarios).
+- **#8 — operator-facing templates ban `git stash` for baseline isolation.** `templates/implementation-handoff.md.tmpl` (§10 hard constraints), `templates/handoff.md.tmpl` (§9 anti-actions), and `templates/work-item-spec.md.tmpl` (§9) now carry a banned-commands block: `git stash` / `git stash pop` / `git stash apply` collide with the operator's pre-existing stash stack and can be unrecoverable — use a reversible file move to a temp dir instead. (Cited incident: a slice-14 impl-handoff directed `git stash`, pushing an unrecoverable entry onto unrelated older stash entries.)
+
 ## [0.6.0] — 2026-06-15
 
 SS-6 — `closing-vertical-slice` now reconciles `05-active-context.md` at slice close (#66). The close ceremony previously had zero writes to the live active-context file, so after a correct slice close "Current focus" still presented the just-closed slice as in-flight and "Next up" lagged (observed two slices stale in a real project) — a fresh `/orchestrate` or `/handoff` session read wrong state. The new §12 reconcile flips the closed slice's status and advances the cursor as a surfaced, user-confirmed targeted edit.

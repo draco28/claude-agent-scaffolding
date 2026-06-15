@@ -1,5 +1,10 @@
 # workspace-init changelog
 
+## 0.2.0 (2026-06-15)
+
+### Added
+- **`pairing-existing-dual` skill + `/pair-existing-dual` command (Scenario C, #9).** Pairs an already-populated AI workspace with an already-populated canonical — the case where a project grew its memory-bank/specs organically (in a sibling AI-workspace directory) before the plugins were discovered, and just needs a manifest to wire it up. Writes ONLY `.workspace/pairing.json` into the existing AI workspace and installs the trace-filter `commit-msg` hook (always in canonical; also in the AI workspace when it is itself a git repo). **Never creates, seeds, stubs, or overwrites** existing AI-workspace content — distinct from Scenario A (`pairing-canonical-repo`), which creates a *fresh* AI workspace and aborts on canonical AI-scaffolding markers. New lib preflight `wi_skeleton_preflight_existing_dual` (AI exists + non-empty; canonical exists + is a git repo; paths differ); conservative failure handling (no destructive rollback against populated content). 13 integration tests (`tests/test-pairing-existing-dual.sh`). SPEC §9.5. `pairing-canonical-repo` now cross-references this skill for the already-populated case.
+
 ## 0.1.2 (2026-05-30)
 
 ### Added

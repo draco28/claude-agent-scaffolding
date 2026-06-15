@@ -469,7 +469,7 @@ This converts mid-init failures from "your dirs are now in a broken half-state" 
 
 ### 9.1 Scope
 
-v0.1 ships pair-with. Scenario B (split existing scaffold-onboard'd single-repo) deferred to v0.2.
+v0.1 ships pair-with (Scenario A). **Scenario C** (pair two already-populated repos — `pairing-existing-dual`) added in **v0.2.0** (§9.5, issue #9). Scenario B (split an existing scaffold-onboard'd single-repo into dual) remains deferred.
 
 ### 9.2 Invocation
 
@@ -487,6 +487,17 @@ v0.1 ships pair-with. Scenario B (split existing scaffold-onboard'd single-repo)
 ### 9.4 Abort conditions
 
 Refuses if existing canonical contains AI scaffolding (`.claude/memory-bank/`, `MASTER-SPEC.md`, `docs/MASTER-SPEC.md`, `.claude/.onboarding-state.json`). Surfaces Scenario B guidance with manual workaround.
+
+### 9.5 Scenario C (`pairing-existing-dual`, v0.2.0)
+
+Both repos already exist and are populated — an AI workspace that grew its memory-bank/specs organically before the plugins were discovered, alongside an existing canonical with production code, with no manifest tying them together yet (issue #9). The `pairing-existing-dual` skill (`/pair-existing-dual <ai-workspace-abs> <canonical-abs>`) writes ONLY the `.workspace/pairing.json` manifest into the existing AI workspace and installs the trace-filter `commit-msg` hook (always in canonical; also in the AI workspace when it is itself a git repo).
+
+- **No abort on AI-scaffolding markers** — unlike §9.4, Scenario C *expects* the AI workspace to contain memory-bank/specs/CLAUDE.md; it detects and surfaces them as "existing state to preserve" rather than aborting.
+- **No creation / seeding / stubbing / overwriting** of existing AI-workspace content — the only file authored inside it is `.workspace/pairing.json` (+ the init-log under `.workspace/`).
+- **Preflight** (`wi_skeleton_preflight_existing_dual <ai-root> <canonical-root>`): AI workspace exists + non-empty; canonical exists + is a git repo; paths differ. The AI workspace may or may not itself be a git repo (its hook is installed only if it is one).
+- **Conservative failure handling** — never a destructive rollback against the populated workspace (the manifest write is atomic; both operations are idempotent and re-runnable).
+
+This is distinct from §9.4's Scenario-B guidance (a single-repo with markers IN the canonical), which remains the deferred split-migration case.
 
 ---
 
