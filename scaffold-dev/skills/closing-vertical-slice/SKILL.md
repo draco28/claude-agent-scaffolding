@@ -29,7 +29,7 @@ When invoked, you:
 8. **Memory-bank harvest (§15.2 8-step flow):** read all work-item `report.md` files + all slice-scoped handoffs at `<ai-workspace>/.workspace/handoffs/vs-N.M.K-*.md`; extract "Suggestions for memory bank" + handoff section-4 promote candidates; categorize by target memory-bank file; surface each candidate prefixed `[report]` or `[handoff]`; consume per-item accept/edit/reject decisions; apply approved items with the provenance trailer `<!-- Added from VS-N.M.K retrospective, YYYY-MM-DD; source: report | handoff -->`; record harvest outcomes in `retrospective.md`.
 9. **Cleanup (M2):** remove each work-item worktree via `sd_worktree_remove` + delete each work-item branch — ONLY after harvest completes successfully.
 10. **Sprint-close cleanup:** if this is the FINAL slice of the sprint, sweep non-carry-forward handoffs from `<ai-workspace>/.workspace/handoffs/` per §6b.6.
-11. **Reconcile active-context (§12):** surface a targeted edit to `05-active-context.md` — flip the closed slice's "Current focus" status to CLOSED + merge ref, and advance "Next up" to the field-read next roadmap slice (or sprint-close → next sprint on the final slice). Prose only; the closed slice's round log is preserved verbatim; the structured `<!-- sd:cursor -->` block and spec-derived files are never touched.
+11. **Reconcile active-context (§12):** surface a targeted edit to `05-active-context.md` — flip the closed slice's "Current focus" status to CLOSED + merge ref, and advance "Next up" to the field-read next roadmap slice (or sprint-close → next sprint on the final slice). Prose only; the closed slice's round log is preserved verbatim; the structured cursor block and spec-derived files are never touched.
 12. Emit final `VS-N.M.K closed` handoff message.
 
 Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/closing-vertical-slice.md` — the six scenarios there are the binding spec.
@@ -539,7 +539,7 @@ Read the `## Current focus` and `## Next up` blocks of `$active_context`. Surfac
   > - was: `**Sprint <sprint_id> · <vs_id> — IN FLIGHT (…)**`
   > - now: `**<vs_id> — CLOSED (<merge-ref>)**` · round log below retained
 
-  Preserve the slice's round detail verbatim as historical record — flip only the status header.
+  (`<merge-ref>` = the slice→sprint, or slice→main, merge reference — a merge-commit SHA or PR number, e.g. `a1b2c3d` or `PR #142`.) Preserve the slice's round detail verbatim as historical record — flip only the status header.
 
 - **Next up** — set it from the field-read target:
   - Non-final slice: `Next: /orchestrate <next_vs_id> — <next_name>`.
@@ -598,7 +598,7 @@ Eval S1 / S3 / S4 assert the target subagent's final assistant message indicates
 - **Regenerating `05-active-context.md` from a template at §12.** It is a LIVE, dev-authored file — the reconcile is a *targeted* edit to the `## Current focus` / `## Next up` blocks only. A templated regen wipes the user's narrative, recent decisions, and blockers.
 - **Deleting the closed slice's round log during the §12 reconcile.** Flip only the status header; the round detail is historical record (issue #66 AC).
 - **Paraphrasing the next slice in "Next up" instead of field-reading it.** The §12 Next-up pointer MUST come from `sd roadmap_next_slice` / `sd roadmap_slice_field … name` (issue #66 AC: "field-read, not paraphrased"). Never hand-type a remembered slice name or grep ROADMAP headings.
-- **Writing the structured `<!-- sd:cursor -->` block (or any spec-derived file) at §12.** The reconcile is prose-only; the JSON cursor belongs to `planning-vertical-slice` and advances when the next slice is actually planned.
+- **Writing the structured cursor block (the `<!-- sd:cursor:start -->` / `<!-- sd:cursor:end -->` sentinels) or any spec-derived file at §12.** The reconcile is prose-only; the JSON cursor belongs to `planning-vertical-slice` and advances when the next slice is actually planned.
 - **Auto-applying the §12 reconcile without surfacing.** Like every other ceremony decision boundary, surface the proposed edit and wait for confirm / edit / skip — never write `05` silently.
 - **Letting this body exceed 500 lines.** Hard cap per superpowers:writing-skills Pass D guidance.
 

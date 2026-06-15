@@ -220,7 +220,7 @@ merge` invocation before explicit user acknowledgment. FAIL if it merges on
 - Skill proceeds through the S1 happy-path ceremony (demos → critic → retrospective → harvest → worktree cleanup) on the all-pass path.
 - At §12, skill field-reads the next slice via `sd roadmap_next_slice VS-3.2.1` ⇒ `VS-3.2.2` and its display name via `sd roadmap_slice_field VS-3.2.2 name` ⇒ `settings-panel` (NOT a remembered/paraphrased name, NOT a ROADMAP heading grep).
 - Skill reads `05-active-context.md` and surfaces BOTH the current `## Current focus` / `## Next up` text and a proposed targeted edit — Current focus flips VS-3.2.1's `IN FLIGHT` marker to `CLOSED` + the merge ref (round log retained verbatim); Next up becomes `Next: /orchestrate VS-3.2.2 — settings-panel`. Skill waits for confirmation.
-- On the pre-injected "confirm", skill applies the targeted edit to the two prose blocks ONLY — leaving `## Recent decisions`, `## Blockers`, the round log, and the `<!-- sd:cursor -->` JSON block untouched — and never regenerates the file.
+- On the pre-injected "confirm", skill applies the targeted edit to the two prose blocks ONLY — leaving `## Recent decisions`, `## Blockers`, the round log, and the structured `<!-- sd:cursor:start -->…<!-- sd:cursor:end -->` JSON block untouched — and never regenerates the file.
 - Skill emits the final "VS-3.2.1 closed" message.
 - **Final-slice variant (not the concrete fixture here, but the §12.2 alternate branch):** when the closed slice IS the sprint's final slice, `sd roadmap_next_slice` returns empty and the Next-up pointer is set from `sd roadmap_next_sprint` (sprint-close → next sprint, or "no next sprint in the published roadmap" when that too is empty).
 
