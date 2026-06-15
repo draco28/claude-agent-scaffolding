@@ -1,6 +1,6 @@
 {
   "name": "scaffold-dev",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Sprint-driven implementation workflow for shared Claude/Codex dual-repo workspaces.",
   "author": {
     "name": "Pras"
