@@ -2,6 +2,11 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.9.1] — 2026-06-16
+
+### Fixed
+- **`03` mcrules-zone re-attach no longer produces a duplicate `## Machine-checkable rules` section (#63).** When `03-code-patterns` synthesis dropped the `<!-- mcrules:preserve -->` sentinels but still emitted a bare `## Machine-checkable rules` heading, the mechanical fallback blind-appended the saved zone, leaving **two** headings — and the next `/scaffold-project` re-derive extracted the sentinelled zone while `authoring-machine-checkable-rules` inserted under the bare one, so rules authored there were **silently lost**. New `lib/memory-bank.sh` helper **`_sf_mb_restore_preserve_zone`** (with the zone-aware `_sf_mb_strip_bare_rules_section`) guarantees exactly one section. When the sentinels survive it replaces the zone in place **and** strips any *stray* `## Machine-checkable rules` heading synthesis may have emitted outside the zone (a sibling loss path: if the stray precedes the preserved zone, `authoring-machine-checkable-rules` targets it and rules land outside the sentinels). When the sentinels are dropped it strips any bare heading **before** re-appending the saved sentinel-wrapped zone. The `scaffolding-memory-bank §13` orchestration prose and the test fixture now both call this single helper (no duplicated fallback). New regression tests `test_03_reattach_no_duplicate_heading_when_sentinels_dropped` and `test_03_restore_strips_stray_bare_heading_on_sentinel_path`. The existing tested `_sf_mb_reinject_preserve_zone` is unchanged (the new helper delegates to it on the sentinels-present path).
+
 ## [0.9.0] — 2026-06-14
 
 Add an **optional Codex synthesizer backend** (SS-5.1) — the fast-follow to scaffold-dev's SS-5 implementer backend. When the resolved `synthesizer_backend` is `codex`, the three synthesis-dispatch skills route each artifact to the externally-installed `codex-plugin-cc` companion instead of the Claude `synthesis-agent` subagent, under the **same** assembled prompt and the **same** post-validation. **Default stays `claude_subagent` — existing projects are byte-identical.** scaffold-onboard only.
