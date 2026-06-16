@@ -425,15 +425,19 @@ The 8 artifacts and their output paths:
 survive re-derive. BEFORE dispatching the `03-code-patterns` sub-agent, capture the
 existing zone with the lib helper:
 
-    saved_zone="$(_sf_mb_extract_preserve_zone "$out_03")"   # $out_03 = resolved 03 path
+```bash
+saved_zone="$(_sf_mb_extract_preserve_zone "$out_03")"   # $out_03 = resolved 03 path
+```
 
 The brief instructs the agent to emit the section wrapped in those exact sentinels
 (empty: heading + invitation only). AFTER the agent returns `mode:complete` and the
 file is written, re-attach the captured zone with the single helper:
 
-    if [[ -n "$saved_zone" ]]; then
-      _sf_mb_restore_preserve_zone "$out_03" "$saved_zone"
-    fi
+```bash
+if [[ -n "$saved_zone" ]]; then
+  _sf_mb_restore_preserve_zone "$out_03" "$saved_zone"
+fi
+```
 
 `_sf_mb_restore_preserve_zone` **guarantees exactly one** `## Machine-checkable rules`
 section. When the synthesized `03` kept the sentinels it replaces the freshly-rendered
