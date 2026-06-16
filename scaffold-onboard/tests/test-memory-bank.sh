@@ -342,6 +342,67 @@ EOF
   fi
 }
 
+# #63 (Codex P2 sibling case) — when synthesis KEEPS the sentinels but ALSO emits
+# a STRAY bare "## Machine-checkable rules" heading outside the preserved zone, the
+# in-place reinject alone would leave that stray heading. If it precedes the zone,
+# authoring-machine-checkable-rules targets it (the first heading) and rules land
+# outside the sentinels → same loss mode. _sf_mb_restore_preserve_zone must strip
+# any out-of-zone bare heading even on the sentinels-present path: exactly the
+# sentinelled section survives.
+test_03_restore_strips_stray_bare_heading_on_sentinel_path() {
+  echo "test_03_restore_strips_stray_bare_heading_on_sentinel_path:"
+  setup_tmp_repo
+  local saved_zone
+  saved_zone="$(cat <<'EOF'
+<!-- mcrules:preserve:start -->
+<!-- This zone is PRESERVED across /scaffold-project re-derive. -->
+## Machine-checkable rules
+
+<!-- mcrule:start type=banned-imports -->
+banned: requests
+<!-- mcrule:end -->
+<!-- mcrules:preserve:end -->
+EOF
+)"
+  # Synthesized 03 that KEPT the sentinels (fresh empty zone) but ALSO emitted a
+  # stray bare heading BEFORE the zone — the Codex P2 loss path.
+  cat > "03-stray.md" <<'EOF'
+# Code Patterns
+
+## Module / package boundaries
+Synthesized content.
+
+## Machine-checkable rules
+
+## Notes
+
+<!-- mcrules:preserve:start -->
+<!-- This zone is PRESERVED across /scaffold-project re-derive. -->
+## Machine-checkable rules
+
+<!-- mcrules:preserve:end -->
+
+## User-global defaults
+- synthesized defaults
+EOF
+  _sf_mb_restore_preserve_zone "03-stray.md" "$saved_zone"
+  local headings starts ends extracted
+  headings="$(grep -c '^## Machine-checkable rules' 03-stray.md)"
+  starts="$(grep -c 'mcrules:preserve:start' 03-stray.md)"
+  ends="$(grep -c 'mcrules:preserve:end' 03-stray.md)"
+  # The sole remaining heading must be the one INSIDE the sentinels; the rule must
+  # round-trip through extract, and the unrelated "## Notes" prose must survive.
+  extracted="$(_sf_mb_extract_preserve_zone 03-stray.md)"
+  if [[ "$headings" == "1" && "$starts" == "1" && "$ends" == "1" ]] \
+     && printf '%s\n' "$extracted" | grep -q 'banned: requests' \
+     && grep -q '^## Notes' 03-stray.md \
+     && grep -q '^## User-global defaults' 03-stray.md; then
+    PASS=$((PASS+1)); echo "  ✓ stray out-of-zone heading removed; only sentinelled section + surrounding prose remain"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ headings=$headings starts=$starts ends=$ends (expected 1/1/1) or rule lost / prose clobbered"
+  fi
+}
+
 # SS-1 W3 — the canonical cadence policy lives in WORKFLOW.md and carries the
 # uniqueness marker; the three ownership classes are named.
 test_cadence_policy_canonical() {
@@ -499,6 +560,7 @@ test_03_rules_zone_preserved_on_rederive
 test_03_empty_zone_idempotent
 test_legacy_rules_without_preserve_markers_survive_upgrade
 test_03_reattach_no_duplicate_heading_when_sentinels_dropped
+test_03_restore_strips_stray_bare_heading_on_sentinel_path
 test_cadence_policy_canonical
 test_migration_relocates_harvested_content
 test_migration_relocates_harvested_content_from_all_derived_files

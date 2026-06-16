@@ -136,19 +136,36 @@ _sf_mb_reinject_preserve_zone() {
   return $rc
 }
 
-# Echo $1 with any BARE "## Machine-checkable rules" section removed — the heading
-# line through the next "^## " heading (exclusive), or EOF. A "bare" section is one
-# NOT wrapped in mcrules:preserve sentinels; this is only ever called on the fallback
-# path (sentinels absent), so every such heading is bare. Same heading→next-`##`
-# boundary used by _sf_mb_extract_legacy_rules_zone. Portable awk (no GNU-isms).
+# Echo $1 with every STRAY "## Machine-checkable rules" section removed — one that
+# sits OUTSIDE a mcrules:preserve:start..end zone (the heading line through the next
+# "^## " heading exclusive, or EOF). The sentinelled section (and everything inside
+# the zone) is preserved verbatim. Zone-aware so it is safe on BOTH restore paths:
+#   - sentinels absent → no zone, so every bare heading is stray and stripped;
+#   - sentinels present → only out-of-zone duplicate headings are stripped, leaving
+#     exactly the preserved section (otherwise authoring-machine-checkable-rules,
+#     which targets the FIRST heading, could write rules outside the zone → lost on
+#     the next re-derive). Same heading→next-`##` boundary as
+#     _sf_mb_extract_legacy_rules_zone. Portable awk (no GNU-isms).
 _sf_mb_strip_bare_rules_section() {
   local file="$1"
   awk '
-    /^## Machine-checkable rules[[:space:]]*$/ { skip=1; next }
-    skip && /^## / { skip=0 }   # next heading ends the bare section (and is printed)
-    skip { next }               # drop lines inside the bare section
+    /<!-- mcrules:preserve:start -->/ { inzone=1; skip=0; print; next }
+    /<!-- mcrules:preserve:end -->/   { inzone=0; print; next }
+    inzone { print; next }                                       # never touch in-zone lines
+    /^## Machine-checkable rules[[:space:]]*$/ { skip=1; next }   # stray heading → drop section
+    skip && /^## / { skip=0 }   # next heading ends the stray section (and is printed)
+    skip { next }               # drop lines inside the stray section
     { print }
   ' "$file"
+}
+
+# Strip stray out-of-zone rules sections from $1 in place. Portable (no sed -i).
+_sf_mb_strip_bare_rules_inplace() {
+  local file="$1" tmp; tmp="$(mktemp)"
+  if _sf_mb_strip_bare_rules_section "$file" > "$tmp"; then
+    mv "$tmp" "$file"; return 0
+  fi
+  rm -f "$tmp"; return 1
 }
 
 # Re-attach the saved preserve zone ($2) to $1 with a GUARANTEE of exactly one
@@ -158,7 +175,8 @@ _sf_mb_strip_bare_rules_section() {
 #
 #   1. If $1 still carries the sentinels, replace the freshly-rendered zone in
 #      place (existing, tested _sf_mb_reinject_preserve_zone — it leaves $1 alone
-#      and returns non-zero when the sentinels are absent, so this is a safe probe).
+#      and returns non-zero when the sentinels are absent, so this is a safe probe),
+#      then strip any STRAY bare heading synthesis may have added outside the zone.
 #   2. Otherwise the synthesized $1 dropped the sentinels. A blind append would
 #      duplicate the heading if synthesis still emitted a bare one — instead strip
 #      any bare "## Machine-checkable rules" section FIRST, then append the saved
@@ -166,16 +184,11 @@ _sf_mb_strip_bare_rules_section() {
 _sf_mb_restore_preserve_zone() {
   local file="$1" saved="$2"
   if _sf_mb_reinject_preserve_zone "$file" "$saved"; then
-    return 0
+    _sf_mb_strip_bare_rules_inplace "$file"   # drop any stray out-of-zone heading
+    return $?
   fi
   sf_log_warn "03 synthesis omitted the mcrules:preserve sentinels — re-attaching the saved rules zone mechanically (rules are never re-rendered or lost)"
-  local tmp; tmp="$(mktemp)"
-  if _sf_mb_strip_bare_rules_section "$file" > "$tmp"; then
-    mv "$tmp" "$file"
-  else
-    rm -f "$tmp"
-    return 1
-  fi
+  _sf_mb_strip_bare_rules_inplace "$file" || return 1
   printf '\n%s\n' "$saved" >> "$file"
 }
 
