@@ -370,8 +370,7 @@ seed_memory_bank_synth_fixture() {
   [[ -f "$out_03" ]] && saved_zone="$(_sf_mb_extract_preserve_zone "$out_03")"
   _seed_canned_derived_files
   if [[ -n "$saved_zone" ]]; then
-    _sf_mb_reinject_preserve_zone "$out_03" "$saved_zone" \
-      || printf '\n%s\n' "$saved_zone" >> "$out_03"
+    _sf_mb_restore_preserve_zone "$out_03" "$saved_zone"
   fi
   # 3. Mechanical live/static seeding (surviving helper).
   sf_memory_bank_seed_live_static $force

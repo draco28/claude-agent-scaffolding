@@ -429,22 +429,22 @@ existing zone with the lib helper:
 
 The brief instructs the agent to emit the section wrapped in those exact sentinels
 (empty: heading + invitation only). AFTER the agent returns `mode:complete` and the
-file is written, re-inject the captured zone:
+file is written, re-attach the captured zone with the single helper:
 
     if [[ -n "$saved_zone" ]]; then
-      _sf_mb_reinject_preserve_zone "$out_03" "$saved_zone" \
-        || { sf_log_warn "03 synthesis omitted the mcrules:preserve sentinels — re-attaching the saved rules zone mechanically (rules are never re-rendered or lost)"; \
-             printf '\n%s\n' "$saved_zone" >> "$out_03"; }
+      _sf_mb_restore_preserve_zone "$out_03" "$saved_zone"
     fi
 
-`_sf_mb_extract_preserve_zone` returns the zone **including** its
-`<!-- mcrules:preserve:start/end -->` sentinels, so if the synthesized `03` lacks them,
-`_sf_mb_reinject_preserve_zone` returns non-zero and the orchestrator simply **appends
-the saved zone** back to the file. This is mechanical preservation of the user's
-already-authored rules — never a deterministic re-render of `03` content (there is no
-deterministic renderer as of v0.8.0). Optionally re-dispatch `03` once with a corrective
-instruction ("wrap the section in the exact `mcrules:preserve` sentinels") before
-falling back to the mechanical re-attach.
+`_sf_mb_restore_preserve_zone` **guarantees exactly one** `## Machine-checkable rules`
+section. When the synthesized `03` kept the sentinels it replaces the freshly-rendered
+zone in place; when synthesis **dropped** the sentinels it strips any bare
+`## Machine-checkable rules` heading the agent may have emitted **before** re-appending
+the saved sentinel-wrapped zone — so the file never ends up with two headings (which
+would silently lose authored rules on the next re-derive, #63). This is mechanical
+preservation of the user's already-authored rules — never a deterministic re-render of
+`03` content (there is no deterministic renderer as of v0.8.0). Optionally re-dispatch
+`03` once with a corrective instruction ("wrap the section in the exact
+`mcrules:preserve` sentinels") before falling back to the mechanical re-attach.
 
 On `mode:complete` for each artifact: merge returned IDs and validate:
 

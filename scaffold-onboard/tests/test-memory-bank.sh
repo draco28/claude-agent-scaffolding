@@ -291,6 +291,57 @@ EOF
   assert_file_contains "./.claude/memory-bank/03-code-patterns.md" "mcrules:preserve:end"
 }
 
+# #63 — when 03 synthesis DROPS the mcrules:preserve sentinels but still emits a
+# bare "## Machine-checkable rules" heading, the mechanical re-attach must NOT
+# leave two headings. The old blind-append fallback did, and the next regenerate
+# extracted the sentinelled zone while rule-authoring wrote under the bare one →
+# silent rule loss. _sf_mb_restore_preserve_zone must guarantee exactly one
+# heading + one sentinel pair, with the saved rule intact and round-trippable.
+test_03_reattach_no_duplicate_heading_when_sentinels_dropped() {
+  echo "test_03_reattach_no_duplicate_heading_when_sentinels_dropped:"
+  setup_tmp_repo
+  # The captured zone the orchestrator is re-attaching: sentinel-wrapped, carrying
+  # a real user-authored rule.
+  local saved_zone
+  saved_zone="$(cat <<'EOF'
+<!-- mcrules:preserve:start -->
+<!-- This zone is PRESERVED across /scaffold-project re-derive. -->
+## Machine-checkable rules
+
+<!-- mcrule:start type=banned-imports -->
+banned: requests
+<!-- mcrule:end -->
+<!-- mcrules:preserve:end -->
+EOF
+)"
+  # A synthesized 03 that dropped the sentinels but kept a bare heading, with
+  # other ## sections on both sides (heading is NOT at EOF).
+  cat > "03-bad.md" <<'EOF'
+# Code Patterns
+
+## Module / package boundaries
+Synthesized content. User-global defaults apply.
+
+## Machine-checkable rules
+
+## User-global defaults
+- synthesized defaults
+EOF
+  _sf_mb_restore_preserve_zone "03-bad.md" "$saved_zone"
+  local starts ends headings extracted
+  starts="$(grep -c 'mcrules:preserve:start' 03-bad.md)"
+  ends="$(grep -c 'mcrules:preserve:end' 03-bad.md)"
+  headings="$(grep -c '^## Machine-checkable rules' 03-bad.md)"
+  # Round-trip: the extractor must recover the user's rule from the re-attached zone.
+  extracted="$(_sf_mb_extract_preserve_zone 03-bad.md)"
+  if [[ "$starts" == "1" && "$ends" == "1" && "$headings" == "1" ]] \
+     && printf '%s\n' "$extracted" | grep -q 'banned: requests'; then
+    PASS=$((PASS+1)); echo "  ✓ exactly one section; saved rule preserved + round-trips"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ starts=$starts ends=$ends headings=$headings (expected 1/1/1) or rule lost"
+  fi
+}
+
 # SS-1 W3 — the canonical cadence policy lives in WORKFLOW.md and carries the
 # uniqueness marker; the three ownership classes are named.
 test_cadence_policy_canonical() {
@@ -447,6 +498,7 @@ test_new_dev_files_preserved_on_rederive
 test_03_rules_zone_preserved_on_rederive
 test_03_empty_zone_idempotent
 test_legacy_rules_without_preserve_markers_survive_upgrade
+test_03_reattach_no_duplicate_heading_when_sentinels_dropped
 test_cadence_policy_canonical
 test_migration_relocates_harvested_content
 test_migration_relocates_harvested_content_from_all_derived_files
