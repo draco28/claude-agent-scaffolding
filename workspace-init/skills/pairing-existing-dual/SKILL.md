@@ -1,0 +1,157 @@
+---
+name: pairing-existing-dual
+description: Pair an already-populated AI workspace with an already-populated canonical repository (Scenario C). Both directories already exist — the AI workspace grew its memory-bank/specs organically before the plugins were discovered, and the canonical holds production code. Writes the pairing manifest and installs the trace-filter commit-msg hook; never creates, seeds, stubs, or overwrites the existing AI-workspace content. Use when the user says "pair my existing workspace", "wire up an existing AI workspace", "both repos already exist", or runs /pair-existing-dual.
+---
+
+# Skill — pairing-existing-dual
+
+## 1. Overview
+
+This skill handles **Scenario C** (per **SPEC §9** — the third pairing scenario, alongside Scenario A `pairing-canonical-repo` and the deferred Scenario B): **both repos already exist and are populated.** A project that pre-dates the plugins often grew a memory-bank, specs, and handoffs in a sibling AI-workspace directory before the user discovered scaffold-* / workspace-init. The canonical holds production code. Neither was created by workspace-init, and there is no pairing manifest tying them together yet.
+
+This skill does the minimum to wire them up: it **writes the `.workspace/pairing.json` manifest** into the existing AI workspace and **installs the trace-filter `commit-msg` hook** (always in canonical; also in the AI workspace when it is itself a git repo). It does NOT create the AI workspace, seed its subdirectories, write CLAUDE.md / AGENTS.md / README.md stubs, or seed a memory bank — that content already exists and is the user's. **Nothing under the existing AI workspace is overwritten.**
+
+Auto-invokes on phrases like "pair my existing AI workspace", "both repos already exist, wire them up", "add a manifest to my existing dual-repo setup". Also runs via `/pair-existing-dual <ai-workspace-abs-path> <canonical-abs-path>`.
+
+**Difference from Scenario A (`pairing-canonical-repo`):** Scenario A creates a *fresh* AI workspace and *aborts* if the canonical contains AI-scaffolding markers. Scenario C is the inverse — the AI workspace already exists and is *expected* to contain scaffolding markers; there is no abort, no creation, no seeding, no stubbing.
+
+## 2. Preconditions
+
+If any fail, exit non-zero with a clear error; do NOT write the manifest or install any hook.
+
+- `command -v jq` and `command -v git` on PATH.
+- **AI workspace path absolute + exists + non-empty.** It is already populated; an empty or missing directory is the wrong target (or means the user wants Scenario A fresh-pair instead).
+- **Canonical path absolute + exists + is a git repo.** `git -C "$canonical_root" rev-parse --git-dir`.
+- AI workspace and canonical must be different paths (no self-pairing).
+
+These are validated by `wi skeleton_preflight_existing_dual "$ai_root" "$canonical_root"` (lib/skeleton.sh) — call it through the `wi` dispatcher; never `source` lib files from the skill body (under zsh `${BASH_SOURCE[0]}` is unset and the libs crash).
+
+## 3. Input collection
+
+Inputs (prompt the user OR read from `$ARGUMENTS` for the slash command — never positional `$1`/`$2` per the slash-command `$N` substitution bug):
+
+- **existing AI workspace absolute path** (already populated; first `/pair-existing-dual` arg).
+- **existing canonical absolute path** (already a git repo; second `/pair-existing-dual` arg).
+- **project_type** — `personal` or `work` (per **SPEC §7.1**: *"Is this a personal project or a work/company project?"*). Both enforce the trace filter; the distinction is a forward hook for v0.2.
+
+Resolve to shell variables (canonicalize via `wi realpath` to avoid `/var` → `/private/var` surprises):
+
+- `ai_root="$resolved_ai_abs"`
+- `canonical_root="$resolved_canonical_abs"`
+- `project_type="$resolved_project_type"`
+
+There is **no `name` or `parent` input** — unlike Scenario A, both directories already exist, and the manifest derives `ai_workspace.name` / `canonical.name` from the existing directory basenames.
+
+## 4. Preflight + detect existing scaffolding state (no abort)
+
+```bash
+wi skeleton_preflight_existing_dual "$ai_root" "$canonical_root" || exit 1
+```
+
+Then **detect and surface** the existing AI-workspace scaffolding so the user can confirm this is the right directory before anything is written. Scan for (and report which are present):
+
+- `${ai_root}/.claude/memory-bank/` (and a count of files under it)
+- `${ai_root}/docs/MASTER-SPEC.md` or `${ai_root}/MASTER-SPEC.md`
+- `${ai_root}/CLAUDE.md`
+- `${ai_root}/docs/specs/` (and a count of spec files under it)
+
+Unlike Scenario A's §4 marker check, this is **NOT an abort** — finding these markers is exactly what Scenario C expects. Log them as *"existing state to preserve"* and proceed.
+
+If `${ai_root}/.workspace/pairing.json` already exists, the workspace is already paired — surface its current `canonical.root` and ask the user to confirm before overwriting (re-pairing is allowed, but never silently).
+
+**Optional caution (not an abort):** if the *canonical* contains AI-scaffolding markers (`.claude/memory-bank/`, `MASTER-SPEC.md`), note that this looks like a single-repo (Scenario B) rather than a true dual-repo — ask the user to confirm the canonical path is correct before proceeding.
+
+## 5. Detect canonical metadata
+
+Detect the default branch + remote from the existing canonical via the `wi` dispatcher (per **SPEC §8.4** the fallback chain is robust to oddly-configured repos):
+
+```bash
+detected_branch="$(wi git_detect_default_branch "$canonical_root")"
+detected_remote="$(wi git_detect_remote "$canonical_root")"
+```
+
+`wi_git_detect_default_branch` tries `git symbolic-ref refs/remotes/origin/HEAD` → `git symbolic-ref HEAD` → `git branch --show-current` → interactive prompt → ultimate fallback `"main"`. `wi_git_detect_remote` returns `origin`'s URL if set, else empty (manifest records `null`).
+
+## 6. Write the manifest + install the hook(s)
+
+Two operations only — both idempotent and non-destructive to existing AI-workspace content.
+
+### 6.1 Write the pairing manifest
+
+```bash
+if [[ -n "$detected_remote" ]]; then
+  wi manifest_write "$ai_root" "$canonical_root" "$project_type" \
+    --canonical-git-remote "$detected_remote" --default-branch "$detected_branch"
+else
+  wi manifest_write "$ai_root" "$canonical_root" "$project_type" \
+    --default-branch "$detected_branch"
+fi
+```
+
+`wi_manifest_write` creates `${ai_root}/.workspace/` if absent and writes `pairing.json` atomically (tmp-then-mv). It derives `ai_workspace.name` and `canonical.name` from the directory basenames, and writes the full routing / during_dev / well_known_paths / git_policy contract per the v1.0 schema (**SPEC §6.2**).
+
+### 6.2 Install the trace-filter commit-msg hook(s)
+
+The canonical hook is the load-bearing one (it guards the production repo's commits going forward). The AI-workspace hook is installed only when the AI workspace is itself a git repo:
+
+```bash
+wi trace_filter_install "$ai_root" "$canonical_root"          # canonical: always
+if git -C "$ai_root" rev-parse --git-dir >/dev/null 2>&1; then
+  wi trace_filter_install "$ai_root" "$ai_root"               # AI workspace: only if a git repo
+fi
+```
+
+If the AI workspace is **not** a git repo, skip its hook and say so — do NOT `git init` the user's existing workspace (that's their call). Note in the summary that the AI-workspace trace filter can be added later by `git init`-ing it and re-running this skill.
+
+> Known v0.2 limitation: `wi_manifest_write` hardcodes `ai_workspace.git_tracked: true` (it does not yet take a git-tracked flag), so the written manifest records `true` even when the AI workspace is not a git repo. This is cosmetic — it does not affect routing or the hook decision above — and is tracked for a future manifest-writer enhancement.
+
+## 7. What this skill does NOT do (the Scenario-C contract)
+
+- **No `mkdir` of the AI workspace or canonical** — both already exist.
+- **No `skeleton_seed_subdirs`** — the AI workspace already has its layout.
+- **No `stub_claude_md` / `stub_agents_md` / `stub_readme`** — those files already exist and are the user's; overwriting them is the cardinal Scenario-C sin.
+- **No memory-bank seed** — already populated.
+- **No `git init` of either repo, no staging, no commit.**
+
+The only filesystem writes are `${ai_root}/.workspace/pairing.json` (+ the `.workspace/` dir if absent), the init-log under `.workspace/`, and the `commit-msg` hook file(s).
+
+## 8. Failure handling (conservative — never destructive)
+
+Because the AI workspace is already populated with the user's content, this skill **never runs a destructive rollback** that could remove existing files. The footprint is tiny and both operations are idempotent:
+
+- **Preflight fails** → nothing written; surface the specific failure (missing/empty AI workspace, canonical not a git repo, self-pairing) and stop.
+- **Manifest write fails** → atomic write leaves no partial file; surface the error and stop. Re-running is safe.
+- **Hook install fails** (permissions, symlink loop, `chmod +x`) → the manifest is already valid and stays in place; surface which hook failed and the manual remediation (`wi trace_filter_install` can be re-run, or the user can inspect `.git/hooks/`). Do NOT delete the manifest or any AI-workspace content.
+- **`pairing.json` already present** → §4 surfaced it and got confirmation; the atomic write overwrites only that one file.
+
+## 9. Surface summary + next steps
+
+After the writes succeed, print a summary substituting resolved values:
+
+```text
+Existing dual-repo paired.
+
+  AI workspace (existing):  /abs/path/<ai-workspace>   (content preserved — nothing seeded or overwritten)
+  Canonical (existing):     /abs/path/<canonical>      (untouched except .git/hooks/commit-msg)
+
+Preserved AI-workspace state:
+  - memory-bank: <N> files
+  - MASTER-SPEC.md: <present | absent>
+  - specs: <M> files
+
+Manifest written at: /abs/path/<ai-workspace>/.workspace/pairing.json
+Trace filter active in: <canonical>  [AND <ai-workspace> if it is a git repo]
+
+Next steps:
+  1. cd /abs/path/<ai-workspace> && git status   (if it is a git repo)
+  2. Open the workspace in Claude/Codex; scaffold-* skills now resolve via the manifest.
+```
+
+## 10. Discipline rules
+
+- **NEVER overwrite existing AI-workspace files** (CLAUDE.md, AGENTS.md, README.md, memory-bank, specs). The only file this skill authors inside the AI workspace is `.workspace/pairing.json` (+ init-log).
+- **NEVER touch the canonical working tree.** The ONLY canonical-side change is `<canonical>/.git/hooks/commit-msg`.
+- **NEVER `git init` the user's existing AI workspace** — if it is not a git repo, skip its hook and note it; the user decides whether to make it one.
+- **NEVER auto-commit, push, pull, or fetch** in either repo.
+- **NEVER add a `Co-Authored-By:` trailer or AI marker** anywhere.
+- Cite **SPEC §7.4** and **SPEC §9.3** — pairing preserves both repos' existing state.

@@ -129,9 +129,9 @@ Every open issue + every new audit finding, mapped to a sub-spec. **Target: 0 op
 | **#48** | #33 C–F + /defer routing + label auto-create | partial | **SS-1** (C/D/E) + **SS-4** (F) + **SS-6** (routing/label) | Part F ✅ SHIPPED 2026-06-12 (SS-4, scaffold-dev v0.4.0); C/D/E + routing/label remainder open |
 | ~~**#47**~~ | Codex implementer backend | independent | **SS-5** | ✅ CLOSED 2026-06-12 (SS-5, scaffold-dev v0.5.0) |
 | ~~**#67**~~ | Codex **synthesizer** backend (scaffold-onboard derivation) | fast-follow to SS-5 | **SS-5.1** | ✅ scaffold-onboard v0.9.0 (folded from SS-5's deferred scope) |
-| **#8** | ban `git stash` in templates | independent (keep-mech) | **SS-6** | v0.2 |
-| **#9** | pairing-existing-dual (Scenario C) | independent | **SS-6** | v0.2 |
-| **#6** | ADR Proposed→Accepted flip | independent | **SS-6** | v0.3 |
+| ~~**#8**~~ | ban `git stash` in templates | independent (keep-mech) | **SS-6** | ✅ SHIPPED 2026-06-15 (SS-6, scaffold-dev v0.7.0) |
+| ~~**#9**~~ | pairing-existing-dual (Scenario C) | independent | **SS-6** | ✅ SHIPPED 2026-06-15 (SS-6, workspace-init v0.2.0) |
+| ~~**#6**~~ | ADR Proposed→Accepted flip | independent | **SS-6** | ✅ SHIPPED 2026-06-15 (SS-6, scaffold-dev v0.7.0) |
 | **#10** | coordinating-parallel-slices | independent (demand-gated) | **SS-6** | v0.3 |
 | **#37** | grilling domain-language + ADR thresholds | partial (principle) | **SS-6** | v0.3 |
 | **#38** | handoff suggested-skills + redaction | partial | **SS-6** | v0.3 |
@@ -148,7 +148,7 @@ Every open issue + every new audit finding, mapped to a sub-spec. **Target: 0 op
 | **N7** | ~~**#58**~~ | scaffold-onboard: true reconcile-on-re-onboard (gate-aware digest, partial/touched refresh, preserve human edits) — deferred from SS-3 | enhancement | ✅ CLOSED (wontfix) 2026-06-08 — partial reconcile evaluated as not worth the complexity; full re-walk + first-author re-synthesis is the permanent model; dormant foundations removed in scaffold-onboard v0.7.0 |
 | **N8** | **#59** | scaffold-onboard: SS-3 residual review polish (re-walk/gate/repair prose + robustness + doc-sync) — from PR #57 | chore | future (non-product-bug; Codex-clean at merge) |
 | **N4** | ~~**#52**~~ | scaffold-dev: harvest grammar-collision — AWK parser silently drops free-form Suggestions prose; single-authority agent read | bug | ✅ CLOSED 2026-06-12 (SS-4, scaffold-dev v0.4.0) |
-| **N5** | **#53** | repo: no `.github/workflows` CI for shell test suites | ops | SS-6 |
+| **N5** | ~~**#53**~~ | repo: no `.github/workflows` CI for shell test suites | ops | ✅ SHIPPED 2026-06-15 (SS-6, `.github/workflows/tests.yml`) |
 | **N6** | ~~**#56**~~ | scaffold-onboard: remove deterministic `--fast` fallback (agent-driven only) — subsumes the deferred SS-2 `--fast`/governance split-routing findings | enhancement | ✅ CLOSED 2026-06-10 (SS-7, scaffold-onboard v0.8.0) |
 
 ---

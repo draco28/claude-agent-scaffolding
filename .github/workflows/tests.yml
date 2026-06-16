@@ -1,0 +1,59 @@
+name: shell test suites
+
+# CI entry point for the repo's shell-based test suites (SS-6 / #53). Runs every
+# plugin's run-tests.sh plus the repo-root dual-publish parity gate on PRs and on
+# pushes to main. One step per suite so a failure pinpoints the offending plugin.
+#
+# Tooling: ubuntu-latest ships bash, jq, node, and ruby (with Psych) — the deps the
+# suites need. The codex adapter tests exec `node <mock-shim>` (no network); the
+# dual-publish test uses ruby+Psych to validate SKILL.md frontmatter.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shell-suites:
+    name: shell test suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Tool versions
+        run: |
+          bash --version | head -1
+          jq --version
+          node --version
+          ruby --version
+          ruby -e 'require "psych"; puts "psych ok"'
+
+      - name: Configure git (fixtures git-init + commit)
+        run: |
+          git config --global user.email "ci@scaffolding.local"
+          git config --global user.name "scaffolding CI"
+          git config --global init.defaultBranch main
+
+      - name: workspace-init suite
+        run: bash workspace-init/run-tests.sh
+
+      - name: scaffold-dev suite
+        run: bash scaffold-dev/run-tests.sh
+
+      - name: scaffold-onboard suite
+        run: bash scaffold-onboard/run-tests.sh
+
+      - name: claude-security-audit suite
+        run: bash claude-security-audit/run-tests.sh
+
+      - name: dual-publish parity (repo-root)
+        run: bash tests/test-codex-dual-publish.sh

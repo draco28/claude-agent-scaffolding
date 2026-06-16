@@ -57,6 +57,8 @@
 
 ## 9. Anti-actions
 
+> **Banned operator-facing commands.** Do NOT instruct the next session or operator to run `git stash` / `git stash pop` / `git stash apply` for baseline isolation — it collides with the operator's pre-existing stash stack and can be unrecoverable. Use a reversible file move instead (`mkdir -p /tmp/<slice-id>-baseline/ && mv <file> /tmp/<slice-id>-baseline/<file>`, reverse on rollback; `<slice-id>` is a placeholder you fill in), visible in `ls /tmp/`.
+
 {{anti_actions_block}}
 
 ## 10. Return-handoff template stub

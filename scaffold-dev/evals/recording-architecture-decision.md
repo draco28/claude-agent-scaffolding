@@ -115,17 +115,38 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 ---
 
+### S4 — `proposed-then-flip` status protocol authors `Status: Proposed` (#6)
+
+**Setup:**
+- Dual-repo fixture identical to S1: 2 existing product ADRs (`adr-0001-…`, `adr-0002-…`) under `<canonical>/docs/adr/`; `templates/adr.md.tmpl` present.
+- Pre-injected user follow-ups: (a) "product ADR"; (b) status protocol = `proposed-then-flip`; (c) title `use-event-sourcing-for-ledger`; (d) context / decision / consequences body content.
+
+**Trigger:** target subagent user message: `record ADR`
+
+**Expected behavior:**
+- Skill prompts product-vs-process; captures "product ADR".
+- Skill prompts the **status protocol** (per §9.1) naming both options — `accepted-on-author` (default) and `proposed-then-flip`; captures `proposed-then-flip`.
+- Skill scans the product dir → next number `0003`; authors `adr-0003-use-event-sourcing-for-ledger.md` with **`- Status: Proposed`** (NOT `Accepted`) and the four MADR-lite sections.
+
+**Assertion (judge):**
+- Target's transcript surfaces a status-protocol prompt naming both `accepted-on-author` and `proposed-then-flip` (or clear paraphrases) AND captures the pre-injected `proposed-then-flip` pick before writing.
+- The written ADR's Status metadata line is `- Status: Proposed` — the judge FAILs if it is `Accepted`.
+- Filename matches `^adr-0003-use-event-sourcing-for-ledger\.md$`; the four MADR-lite sections are present.
+- (Non-binding) the final message may note the ADR is Proposed pending `/flip-adr` empirical validation.
+
+---
+
 ## Pass / fail criteria
 
 A scenario is PASS only if every bullet under its `Assertion` block is judged true. If any bullet fails, the judge returns `FAIL: <bullet text> — <specific deviation observed>` so the skill author can target a fix.
 
-The full eval is GREEN when all 3 scenarios PASS.
+The full eval is GREEN when all 4 scenarios PASS.
 
 ## Out of scope for this eval
 
 - MADR-lite template fidelity (the exact placeholders in `templates/adr.md.tmpl`, the formatting of the Status/Context/Decision/Consequences blocks) — covered by `tests/test-render.sh` (template-rendering correctness). This eval asserts the four section headings appear in the written file; full template-conformance is downstream.
 - Duplicate-decision detection (warn if the user is authoring an ADR whose decision overlaps an existing entry) — deferred to v0.2; v0.1 trusts the user.
-- ADR amendment / supersedes-status updates (modifying an existing ADR to mark it superseded by a newer one) — deferred to v0.2; v0.1 authors new ADRs only.
+- ADR amendment / supersedes-status updates (modifying an existing ADR to mark it superseded by a newer one) — deferred; this skill authors new ADRs only. The Proposed → Accepted flip (for `proposed-then-flip` ADRs) is a *separate* skill, `flipping-adr-status`, covered by `evals/flipping-adr-status.md`.
 - Architect-critic principle promotion → ADR conversion (the architect-critic `promoting-principle` flow that surfaces a principle as a candidate ADR) — orthogonal; covered by architect-critic v0.2's own evals.
 - Manifest absence / corrupt-manifest behavior — `evals/planning-vertical-slice.md` S2 covers the absent-manifest refusal at the orchestrator entry point; if the user invokes this skill without a manifest, the same fail-fast applies (the skill body's first action would be a manifest probe) but is not re-tested here.
 - Auto-numbering edge cases beyond the simple +1 rule (gaps in the existing series, e.g., `0001`, `0003` but no `0002`) — v0.1 picks `max(existing) + 1`; gap-filling is not exercised.

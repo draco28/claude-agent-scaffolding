@@ -104,6 +104,60 @@ wi_skeleton_preflight() {
   return 0
 }
 
+# wi_skeleton_preflight_existing_dual <ai-root> <canonical-root>
+#
+# Scenario C preflight (issue #9): BOTH repos already exist and are populated —
+# an AI workspace that grew its memory-bank/specs organically before the user
+# discovered the plugins, alongside an existing canonical. Unlike
+# wi_skeleton_preflight --pair-with (which requires the AI workspace to NOT exist
+# yet and CREATES it), this validates that the AI workspace ALREADY exists and is
+# non-empty, and the canonical exists + is a git repo. The AI workspace may or may
+# not itself be a git repo (Scenario C only writes a manifest + installs hooks; it
+# never seeds or stubs). Returns 0 on success, non-zero (error to stderr) on any
+# failure. Performs NO mutation.
+wi_skeleton_preflight_existing_dual() {
+  local ai_root="${1:-}"
+  local canonical_root="${2:-}"
+
+  if [[ -z "$ai_root" || -z "$canonical_root" ]]; then
+    wi_log_error "wi_skeleton_preflight_existing_dual: usage: <ai-root> <canonical-root>"
+    return 1
+  fi
+
+  # AI workspace: exists, is a dir, and is non-empty (already populated).
+  if [[ ! -d "$ai_root" ]]; then
+    wi_log_error "wi_skeleton_preflight_existing_dual: AI workspace does not exist: $ai_root"
+    return 1
+  fi
+  if [[ -z "$(ls -A "$ai_root" 2>/dev/null)" ]]; then
+    wi_log_error "wi_skeleton_preflight_existing_dual: AI workspace is empty (Scenario C expects an already-populated workspace): $ai_root"
+    return 1
+  fi
+
+  # Canonical: exists, is a dir, is a git repo.
+  if [[ ! -d "$canonical_root" ]]; then
+    wi_log_error "wi_skeleton_preflight_existing_dual: canonical does not exist: $canonical_root"
+    return 1
+  fi
+  if [[ ! -d "$canonical_root/.git" ]] && ! git -C "$canonical_root" rev-parse --git-dir >/dev/null 2>&1; then
+    wi_log_error "wi_skeleton_preflight_existing_dual: canonical is not a git repo: $canonical_root"
+    return 1
+  fi
+
+  # Guard against accidental self-pairing. Canonicalize both paths first so
+  # trailing slashes, relative-vs-absolute, and symlink variations of the same
+  # directory are caught (both exist at this point, so wi_realpath resolves them).
+  local ai_canon canonical_canon
+  ai_canon="$(wi_realpath "$ai_root")"
+  canonical_canon="$(wi_realpath "$canonical_root")"
+  if [[ "$ai_canon" == "$canonical_canon" ]]; then
+    wi_log_error "wi_skeleton_preflight_existing_dual: ai_root and canonical must be different paths: $ai_canon"
+    return 1
+  fi
+
+  return 0
+}
+
 # wi_skeleton_create_root_pair <parent> <name>
 #
 # Fresh-mode root creation (SPEC §8.2): mkdir both AI workspace and canonical.

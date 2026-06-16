@@ -127,11 +127,11 @@ test_PH2_ai_created_canonical_working_tree_unchanged() {
   # Snapshot canonical working-tree state (everything except .git) before bootstrap.
   local before
   before="$(cd "$canonical" && find . -not -path './.git' -not -path './.git/*' \
-            | sort | xargs -I{} sh -c 'printf "%s\t" "{}"; stat -f "%m %z" "{}" 2>/dev/null || stat -c "%Y %s" "{}"')"
+            | sort | xargs -I{} sh -c 'printf "%s\t" "{}"; stat -c "%Y %s" "{}" 2>/dev/null || stat -f "%m %z" "{}"')"
   _run_pair_with_bootstrap "$parent" "proj1" "$canonical" work >/dev/null 2>&1
   local after
   after="$(cd "$canonical" && find . -not -path './.git' -not -path './.git/*' \
-           | sort | xargs -I{} sh -c 'printf "%s\t" "{}"; stat -f "%m %z" "{}" 2>/dev/null || stat -c "%Y %s" "{}"')"
+           | sort | xargs -I{} sh -c 'printf "%s\t" "{}"; stat -c "%Y %s" "{}" 2>/dev/null || stat -f "%m %z" "{}"')"
 
   assert_dir_exists "$parent/proj1-ai" || return 1
   if [[ "$before" != "$after" ]]; then
@@ -163,15 +163,15 @@ test_PH4_canonical_file_content_and_mtime_preserved() {
   # Capture content + mtimes of canonical's working-tree files.
   local before_content_main; before_content_main="$(cat "$canonical/src/main.txt")"
   local before_content_docs; before_content_docs="$(cat "$canonical/docs/README.md")"
-  local before_mtime_main; before_mtime_main="$(stat -f "%m" "$canonical/src/main.txt" 2>/dev/null || stat -c "%Y" "$canonical/src/main.txt")"
-  local before_mtime_docs; before_mtime_docs="$(stat -f "%m" "$canonical/docs/README.md" 2>/dev/null || stat -c "%Y" "$canonical/docs/README.md")"
+  local before_mtime_main; before_mtime_main="$(stat -c "%Y" "$canonical/src/main.txt" 2>/dev/null || stat -f "%m" "$canonical/src/main.txt")"
+  local before_mtime_docs; before_mtime_docs="$(stat -c "%Y" "$canonical/docs/README.md" 2>/dev/null || stat -f "%m" "$canonical/docs/README.md")"
 
   _run_pair_with_bootstrap "$parent" "proj1" "$canonical" work >/dev/null 2>&1
 
   local after_content_main; after_content_main="$(cat "$canonical/src/main.txt")"
   local after_content_docs; after_content_docs="$(cat "$canonical/docs/README.md")"
-  local after_mtime_main;   after_mtime_main="$(stat -f "%m" "$canonical/src/main.txt" 2>/dev/null || stat -c "%Y" "$canonical/src/main.txt")"
-  local after_mtime_docs;   after_mtime_docs="$(stat -f "%m" "$canonical/docs/README.md" 2>/dev/null || stat -c "%Y" "$canonical/docs/README.md")"
+  local after_mtime_main;   after_mtime_main="$(stat -c "%Y" "$canonical/src/main.txt" 2>/dev/null || stat -f "%m" "$canonical/src/main.txt")"
+  local after_mtime_docs;   after_mtime_docs="$(stat -c "%Y" "$canonical/docs/README.md" 2>/dev/null || stat -f "%m" "$canonical/docs/README.md")"
 
   assert_eq "$before_content_main" "$after_content_main" || return 1
   assert_eq "$before_content_docs" "$after_content_docs" || return 1

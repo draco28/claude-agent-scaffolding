@@ -211,12 +211,12 @@ test_no_spurious_overwrite_when_owned() {
   printf "scaffold-onboard" > "$marker"
   # Record mtime (use stat — macOS form first, GNU fallback).
   local mtime_before
-  mtime_before="$(stat -f %m "$marker" 2>/dev/null || stat -c %Y "$marker" 2>/dev/null)"
+  mtime_before="$(stat -c %Y "$marker" 2>/dev/null || stat -f %m "$marker" 2>/dev/null)"
   # Sleep ≥1s to make any spurious write produce a measurable mtime change.
   sleep 1
   _run_hook "$TMP_DIR" "$sid" > /dev/null
   local mtime_after
-  mtime_after="$(stat -f %m "$marker" 2>/dev/null || stat -c %Y "$marker" 2>/dev/null)"
+  mtime_after="$(stat -c %Y "$marker" 2>/dev/null || stat -f %m "$marker" 2>/dev/null)"
   assert_eq "marker mtime unchanged (no spurious write)" "$mtime_before" "$mtime_after"
 }
 

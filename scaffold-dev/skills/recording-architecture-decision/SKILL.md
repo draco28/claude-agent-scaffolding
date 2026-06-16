@@ -1,6 +1,6 @@
 ---
 name: recording-architecture-decision
-description: Author a new MADR-lite ADR under the manifest-routed target — product ADRs to `<canonical>/docs/adr/`, process ADRs to `<ai-workspace>/docs/adr/`; always prompts to disambiguate product-vs-process (never auto-picks). Use this when the user says `record ADR`, `log this decision`, `add architecture decision`, `ADR for X`, or invokes `/adr`. Fails fast when the ADR directory is missing (does NOT auto-create); surfaces a `/scaffold-docs` remediation hint.
+description: Author a new MADR-lite ADR under the manifest-routed target — product ADRs to `<canonical>/docs/adr/`, process ADRs to `<ai-workspace>/docs/adr/`; always prompts to disambiguate product-vs-process (never auto-picks). Use this when the user says `record ADR`, `log this decision`, `add architecture decision`, `ADR for X`, or invokes `/adr`. Fails fast when the ADR directory is missing (does NOT auto-create); surfaces a `/scaffold-docs` remediation hint. Offers a status protocol at authoring time — `accepted-on-author` (default) or `proposed-then-flip` for an ADR that companions a build slice (later flipped to Accepted via `/flip-adr` once an empirical signal lands).
 ---
 
 # recording-architecture-decision
@@ -23,7 +23,7 @@ When invoked, you:
 4. **Verify the dir exists.** If absent, bail with the §6 fail-fast hint naming the resolved-but-missing path AND the literal `/scaffold-docs` token. Do NOT `mkdir -p`.
 5. **Scan the resolved dir** for existing `adr-NNNN-*.md` files. Compute the next number as `max(existing) + 1`, zero-padded to 4 digits. The product and process series are independent — process-ADR numbering does NOT include product ADRs from the sibling dir.
 6. **Prompt for the kebab-case title.** Sanitize to kebab-case (lowercase, hyphens, no whitespace or punctuation).
-7. **Render `templates/adr.md.tmpl`** with the user-provided context/decision/consequences content and the four MADR-lite section headings.
+7. **Render `templates/adr.md.tmpl`** with the user-provided context/decision/consequences content, the four MADR-lite section headings, and the Status per the chosen `status_protocol` (default `Accepted`; `Proposed` for an ADR that companions a build slice — see §9.1).
 8. **Write the file** at `<resolved-dir>/adr-<NNNN>-<title-kebab>.md`.
 9. **Emit the final assistant message** naming the absolute path of the written file.
 
@@ -202,7 +202,12 @@ For the body content, prompt the user (or use the user's already-provided draft 
 - **Decision** — what was decided? (1 paragraph, clearly stated as a decision)
 - **Consequences** — what follows from this decision? (bullet list — positives, negatives, follow-up actions)
 
-The "Status" field defaults to `Accepted` for v0.1 (the only status v0.1 authors — `Proposed`, `Superseded`, etc. are deferred).
+**Status protocol (`status_protocol`).** Default **silently** to `accepted-on-author` — do NOT add a mandatory prompt turn here (a blocking question would shift the dialog order of retrospective-ADR flows). Only switch to `proposed-then-flip` when the user has **explicitly opted in** (e.g., they say "proposed-then-flip", "this ADR companions a build slice", or "mark it Proposed until validated"):
+
+- `accepted-on-author` (default) — retrospective ADRs documenting a decision already made or shipped. Write `{{status}}` as `Accepted`.
+- `proposed-then-flip` (opt-in) — for an ADR that **companions a slice which builds the architecture**, where empirical validation should gate Acceptance. Write `{{status}}` as `Proposed`; after the build merges and the operator reports an empirical signal, `flipping-adr-status` (`/flip-adr`) flips it to `Accepted` and appends an `## Empirical validation` section.
+
+(`Superseded` / `Deprecated` remain deferred — those are amendment lifecycles, not a creation-time choice.)
 
 ### 9.2 Template variables
 
@@ -210,7 +215,7 @@ The "Status" field defaults to `Accepted` for v0.1 (the only status v0.1 authors
 {{adr_number}}      0003 | 0002 | ...
 {{title}}           Use Redis for Session Cache (human-readable form of title_kebab)
 {{title_kebab}}     use-redis-for-session-cache
-{{status}}          Accepted
+{{status}}          Accepted | Proposed   (per the chosen status_protocol — §9.1)
 {{date}}            YYYY-MM-DD
 {{context_body}}    USER-AUTHORED
 {{decision_body}}   USER-AUTHORED

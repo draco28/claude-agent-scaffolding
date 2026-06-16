@@ -63,6 +63,8 @@
 
 ## 9. Not in this work item
 
+> **Banned operator-facing commands.** A work-item spec must never direct the operator or executor to run `git stash` / `git stash pop` / `git stash apply` for baseline isolation — it collides with the operator's pre-existing stash stack and can be unrecoverable. Use a reversible file move instead (`mkdir -p /tmp/<slice-id>-baseline/ && mv <file> /tmp/<slice-id>-baseline/<file>`, reverse on rollback; `<slice-id>` is a placeholder you fill in), visible in `ls /tmp/`.
+
 {{not_in_scope}}
 
 ## Reference index

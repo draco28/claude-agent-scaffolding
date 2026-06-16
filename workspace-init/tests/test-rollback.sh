@@ -110,7 +110,7 @@ test_2_pair_with_skips_existing_canonical() {
   : > "$can/src/important.txt"
   mkdir -p "$can/.git/hooks"
   : > "$can/.git/hooks/commit-msg"; chmod +x "$can/.git/hooks/commit-msg"
-  local user_hook_before; user_hook_before="$(stat -f %m "$can/.git/hooks/commit-msg" 2>/dev/null || stat -c %Y "$can/.git/hooks/commit-msg")"
+  local user_hook_before; user_hook_before="$(stat -c %Y "$can/.git/hooks/commit-msg" 2>/dev/null || stat -f %m "$can/.git/hooks/commit-msg")"
 
   # Pair-with workspace (only AI side was MKDIR'd; canonical was NOT).
   local ai="${parent}/foo-ai"
