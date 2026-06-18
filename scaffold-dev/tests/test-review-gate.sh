@@ -97,6 +97,38 @@ test_resolve_invalid_gate() {
   assert_contains "names the invalid value" "bogus" "$OUT"
 }
 
+# --- B-W2: §7 review-gate seam prose -----------------------------------------
+# The gate's dispatch/defer flow is agent behavior (skill prose), verified here
+# by seam lints (the Phase A pattern). Each §7 must carry the gate-resolution,
+# async-dispatch, dispatch-and-defer, resume-hint, usage-warning, v0.2-fallback,
+# and off=unchanged seams; the spec gate also carries the author→close note.
+
+CLOSING_SKILL="$HERE/../skills/closing-vertical-slice/SKILL.md"
+PLANNING_SKILL="$HERE/../skills/planning-vertical-slice/SKILL.md"
+
+test_seam_prose_closing_vertical_slice() {
+  echo "test_seam_prose_closing_vertical_slice:"
+  assert_file_contains "$CLOSING_SKILL" "sd review_gate_resolve"
+  assert_file_contains "$CLOSING_SKILL" "async=true"
+  assert_file_contains "$CLOSING_SKILL" "dispatch-and-defer"
+  assert_file_contains "$CLOSING_SKILL" "/critique-jobs resume"
+  assert_file_contains "$CLOSING_SKILL" "consumes Codex"
+  assert_file_contains "$CLOSING_SKILL" "architect-critic < v0.3"
+  assert_file_contains "$CLOSING_SKILL" "today's behavior"
+}
+
+test_seam_prose_planning_vertical_slice() {
+  echo "test_seam_prose_planning_vertical_slice:"
+  assert_file_contains "$PLANNING_SKILL" "sd review_gate_resolve"
+  assert_file_contains "$PLANNING_SKILL" "async=true"
+  assert_file_contains "$PLANNING_SKILL" "dispatch-and-defer"
+  assert_file_contains "$PLANNING_SKILL" "/critique-jobs resume"
+  assert_file_contains "$PLANNING_SKILL" "consumes Codex"
+  assert_file_contains "$PLANNING_SKILL" "architect-critic < v0.3"
+  assert_file_contains "$PLANNING_SKILL" "today's behavior"
+  assert_file_contains "$PLANNING_SKILL" "upgrades the default author-depth"
+}
+
 test_resolve_default_when_field_absent
 test_resolve_field_both
 test_resolve_field_slice_close
@@ -106,5 +138,7 @@ test_override_beats_set_manifest
 test_override_missing_value
 test_resolve_no_manifest_defaults
 test_resolve_invalid_gate
+test_seam_prose_closing_vertical_slice
+test_seam_prose_planning_vertical_slice
 
 sd_test_summary

@@ -238,13 +238,27 @@ On all-pass across all `user_steps`: proceed to §7.
 
 After both demo layers pass, invoke architect-critic at close depth.
 
+### 7.0 Review-gate resolution (#39 Phase B — opt-in async)
+
+The opt-in `review_gate` (manifest `.review_gate`, default `off`) decides whether the slice-close audit runs **synchronously** (today's behavior) or as an **async dispatch-and-defer** job (so a slow close-depth Codex audit does not block the close). Resolve the gate FIRST, then detect adversary capability:
+
+1. `gate="$(sd review_gate_resolve)"` → `off | slice_close | spec_close | both`. Default `off` = **today's behavior** exactly (the synchronous review in §7.2).
+2. `cap="$(sd compose_detect_architect_critic)"` → `v0.3 | v0.2 | absent` (§7.1).
+
+Route on the `(gate, cap)` pair (the slice-close attach point fires for `slice_close`/`both` only — `spec_close` gates the *spec* moment, not this one):
+
+- `cap=absent` → **§7.3** (warn-and-proceed), regardless of gate.
+- gate ∈ {`slice_close`, `both`} AND `cap=v0.3` → **§7.2a async dispatch-and-defer**.
+- gate ∈ {`slice_close`, `both`} AND `cap=v0.2` → emit ONE warning — *"review_gate set but architect-critic < v0.3 (no async API); running the synchronous close-depth review instead."* — and fall through to **§7.2**.
+- gate ∈ {`off`, `spec_close`} → **§7.2** synchronous close-depth review (today's behavior).
+
 ### 7.1 Detection (filesystem probe)
 
-Call `sd_compose_detect_architect_critic` (lib/compose.sh). It walks `~/.claude/plugins/cache/*/architect-critic/*/skills/critiquing-spec/SKILL.md` and prints either `v0.2` or `absent`. This is NOT a composition.json read — scaffold-dev does not maintain a composition.json cache (per SPEC §16.3). The probe MUST be observable in the tool-call log (eval S3 asserts a Bash invocation listing or globbing the cache path appears, even when the probe returns absent).
+Call `sd_compose_detect_architect_critic` (lib/compose.sh). It walks `~/.claude/plugins/cache/*/architect-critic/*/skills/{critiquing-spec,managing-async-critique}/SKILL.md` and prints `v0.3` (async-capable — the `managing-async-critique` skill is present), `v0.2` (sync-only — only `critiquing-spec`), or `absent`. This is NOT a composition.json read — scaffold-dev does not maintain a composition.json cache (per SPEC §16.3). The probe MUST be observable in the tool-call log (eval S3 asserts a Bash invocation listing or globbing the cache path appears, even when the probe returns absent).
 
-### 7.2 Invocation (when present, S1 contract)
+### 7.2 Invocation — synchronous (when present, S1 contract)
 
-When the probe returns `v0.2`:
+When routed here by §7.0 (gate `off`/`spec_close`, or the `v0.2` fallback) — **synchronous** close-depth review (the default; gate `off` preserves this exactly):
 
 1. Announce: *"Demos passed — invoking architect-critic for the slice-close adversarial review at close depth. Type `skip` to bypass."*
 2. End the turn and wait. If the user types `skip` (case-insensitive): log the skip in `retrospective.md`'s critic section and proceed to §8.
@@ -257,6 +271,24 @@ When the probe returns `v0.2`:
 5. When control returns: capture the critic's findings + the user's rebuttal outcomes into a section of `retrospective.md` (§8).
 
 **Eval contract (S1):** the `Skill(architect-critic:critiquing-spec)` invocation MUST appear in the tool-call log exactly once AND MUST appear AFTER both `auto:` Bash invocations AND after the manual-demo user response is captured. The judge verifies the relative position. No `Write` to `inbox/` or `outbox/` paths — legacy file IPC was removed in architect-critic v0.2 (SPEC §16.3) and any such write fails the assertion.
+
+### 7.2a Invocation — async dispatch-and-defer (review_gate=slice_close|both, v0.3) [#39 Phase B]
+
+The gate runs the **same** close-depth adversarial review, but dispatched as a background job so the slice close is not blocked on a slow Codex audit. **Dispatch-and-defer:** turn 1 dispatches and proceeds; there is NO in-ceremony polling, and the rebuttal is consolidated later via resume.
+
+1. Announce + usage warning: *"review_gate is on — dispatching the slice-close architect-critic audit as a background job (this consumes Codex/subscription usage). Type `skip` to bypass."*
+2. End the turn and wait. On `skip` (case-insensitive): log the skip in `retrospective.md`'s critic section and proceed to §8.
+3. Otherwise invoke `Skill(architect-critic:critiquing-spec)` **EXACTLY ONCE** with:
+   - `target=slice`
+   - `depth=close`
+   - `async=true` (requests architect-critic v0.3's `--async` defer-to-resume dispatch)
+   - **Context:** identical to §7.2 — the slice's combined diff (VS-start commit → canonical HEAD) + the VS README + all work-item `spec.md` paths.
+   architect-critic dispatches Codex in the background, returns a job handle `<id>`, and STOPS — it does NOT consolidate or run the rebuttal now (that is deferred to resume).
+4. Record the handle in `retrospective.md`'s critic section: the job `<id>`, that it was dispatched async at slice-close, and the resume command `/critique-jobs resume <id>`.
+5. Surface and **PROCEED to §8** (do NOT block, do NOT consolidate now):
+   > Slice-close audit running in the background as job `<id>`. The close proceeds now; resume with `/critique-jobs resume <id>` before final sign-off to fold both adversaries into one rebuttal. If it never completes (stalled/capped/failed), `/critique-jobs status <id>` shows the disposition — the close is not blocked either way.
+
+**Eval contract (S1 still holds):** still EXACTLY ONE `Skill(architect-critic:critiquing-spec)` invocation, after both `auto:` Bash invocations and after the manual-demo response — only with `async=true`. No `Write` to `inbox/`/`outbox/`.
 
 ### 7.3 Absent / warn-and-proceed (S3 contract)
 
