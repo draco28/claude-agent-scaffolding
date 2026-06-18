@@ -55,4 +55,25 @@ assert_eq "no in_flight after migrate" "null" "$(jq -r '.in_flight // "null"' "$
 bash "$ARC" state_migrate   # idempotent re-run
 assert_eq "still v3 after re-migrate" "3" "$(jq -r '.schema_version' "$state_file")"
 
+echo "-- session-start hook surfaces in-flight count --"
+bash "$ARC" state_external_run_add --run-id r9 --host claude --adversary codex \
+  --artifact /tmp/s.md --depth close --result-path /tmp/r.json
+out="$(bash "$PLUGIN_ROOT/hooks-handlers/session-start.sh" 2>&1)"
+echo "$out" | grep -qiE "in.?flight|background audit" && { echo "  ✓ hook surfaces in-flight"; PASS=$((PASS+1)); } || { echo "  ✗ hook silent on in-flight"; FAIL=$((FAIL+1)); }
+# Hook must never fail the session (fail-open).
+assert_exit_code 0 bash "$PLUGIN_ROOT/hooks-handlers/session-start.sh"
+
+echo "-- skill/command surfaces exist --"
+JOBSK="$PLUGIN_ROOT/skills/managing-async-critique/SKILL.md"
+assert_file_exists "$JOBSK"
+for verb in status result cancel resume; do
+  grep -qi "$verb" "$JOBSK" && { echo "  ✓ job-manager documents '$verb'"; PASS=$((PASS+1)); } || { echo "  ✗ job-manager missing '$verb'"; FAIL=$((FAIL+1)); }
+done
+grep -qi "resolved_run_request_id\|inspect-only\|idempoten" "$JOBSK" && { echo "  ✓ resume idempotency documented"; PASS=$((PASS+1)); } || { echo "  ✗ resume idempotency missing"; FAIL=$((FAIL+1)); }
+grep -qi "Consolidate + Rebuttal + Append\|critiquing-spec" "$JOBSK" && { echo "  ✓ resume reuses shared procedure"; PASS=$((PASS+1)); } || { echo "  ✗ resume shared-procedure link missing"; FAIL=$((FAIL+1)); }
+
+echo "-- history lists external runs --"
+HIST="$PLUGIN_ROOT/skills/reviewing-critique-history/SKILL.md"
+grep -qi "external_run\|in-flight\|background" "$HIST" && { echo "  ✓ history mentions external runs"; PASS=$((PASS+1)); } || { echo "  ✗ history missing external runs"; FAIL=$((FAIL+1)); }
+
 report_results

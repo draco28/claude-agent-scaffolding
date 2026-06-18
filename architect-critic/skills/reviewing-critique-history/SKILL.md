@@ -1,11 +1,11 @@
 ---
 name: reviewing-critique-history
-description: Show recent architect-critic runs as a table. Triggers on "show recent critiques", "critique history", "list pending audits", "recent audits", "audit log". Reads state.json schema v2 (no in_flight field). Default N=10 rows; --limit N overrides.
+description: Show recent architect-critic runs as a table, plus any in-flight background (async) audits. Triggers on "show recent critiques", "critique history", "list pending audits", "recent audits", "audit log", "in-flight critiques", "background audits". Reads state.json schema v3 (recent_runs[] + external_runs[]). Default N=10 rows; --limit N overrides.
 ---
 
 # reviewing-critique-history
 
-You have been invoked because the user wants to see a history of recent architect-critic audit runs. Your job is to read `state.json` (schema v2), slice the most-recent N rows from `recent_runs[]`, and render them as a clean markdown table in the current conversation.
+You have been invoked because the user wants to see a history of recent architect-critic audit runs. Your job is to read `state.json` (schema v3), slice the most-recent N rows from `recent_runs[]`, render them as a clean markdown table, and — when present — list any **in-flight / recent background (async) audits** from `external_runs[]` (#39).
 
 This skill is intentionally narrow: read, format, display. No judgment, no rebuttal, no state mutation.
 
@@ -99,6 +99,19 @@ If `TOTAL > LIMIT`, prepend a one-line note before the table:
 > Showing 10 of 23 total runs. Use `--limit N` to see more.
 
 If `TOTAL <= LIMIT`, no annotation needed.
+
+---
+
+## Step 4b: List background (async) audits from `external_runs[]` (#39)
+
+After the `recent_runs` table, surface any background close-depth audits. These are dispatched by `/critique --close --async` and tracked in `external_runs[]`.
+
+```bash
+arc state_external_run_list                 # all background runs
+arc state_external_run_list --status running   # just the in-flight ones
+```
+
+If the array is empty, render nothing for this section (no header). Otherwise, emit a short second table — **running jobs first** — with columns: `run_id`, `status`, `artifact_path` (basename), `started_at` (relative), and a `resumed?` mark (`*` when `resolved_run_request_id` is non-null). End with a one-line pointer: *"Manage background audits with `/critique-jobs status|result|cancel|resume`."* This section is read-only — it never polls, cancels, or resumes (that is `managing-async-critique`).
 
 ---
 
