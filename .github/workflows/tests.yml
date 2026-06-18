@@ -52,6 +52,9 @@ jobs:
       - name: scaffold-onboard suite
         run: bash scaffold-onboard/run-tests.sh
 
+      - name: architect-critic suite
+        run: bash architect-critic/run-tests.sh
+
       - name: claude-security-audit suite
         run: bash claude-security-audit/run-tests.sh
 
