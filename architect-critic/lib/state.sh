@@ -362,8 +362,8 @@ ac_state_external_run_add() {
        "completed_at": null,
        "result_path": $rp,
        "codex_session_id": (if $sid == "" then null else $sid end),
-	       "resolved_run_request_id": null
-	     }]) | trim_external_runs)' \
+       "resolved_run_request_id": null
+     }]) | trim_external_runs)' \
     "$state_file"; then
     rc=0
   else
@@ -402,11 +402,12 @@ ac_state_external_run_set_status() {
     completed|failed|cancelled|stalled|capped|error)
       [[ -z "$completed_at" ]] && completed_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" ;;
   esac
+  ac_lock_acquire "$lock_path" || return 1
   if ! jq -e --arg rid "$run_id" '(.external_runs // []) | any(.run_id == $rid)' "$state_file" >/dev/null 2>&1; then
     ac_log_error "ac_state_external_run_set_status: run-id not found: $run_id"
+    ac_lock_release "$lock_path"
     return 1
   fi
-  ac_lock_acquire "$lock_path" || return 1
   local rc
   if ac_guarded_jq_write "$state_file" \
     --arg rid "$run_id" --arg st "$status" --arg ca "$completed_at" \
