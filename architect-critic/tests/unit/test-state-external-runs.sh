@@ -57,6 +57,7 @@ assert_eq "status updated" "completed" "$(bash "$ARC" state_external_run_get r1 
 ca="$(bash "$ARC" state_external_run_get r1 | jq -r '.completed_at')"
 [[ -n "$ca" && "$ca" != "null" ]] && { echo "  ✓ completed_at stamped"; PASS=$((PASS+1)); } || { echo "  ✗ completed_at not stamped"; FAIL=$((FAIL+1)); }
 assert_exit_code 1 bash "$ARC" state_external_run_set_status nope completed
+assert_exit_code 2 bash "$ARC" state_external_run_set_status r1 typo-status
 
 echo "-- list + status filter --"
 assert_eq "one completed in list" "1" "$(bash "$ARC" state_external_run_list --status completed | jq 'length')"
@@ -95,6 +96,15 @@ assert_exit_code 1 bash "$ARC" state_external_run_finalize_resume \
   --elapsed-ms 1200
 assert_eq "finalize appended once" "1" "$(jq '[.recent_runs[] | select(.request_id | startswith("req-final"))] | length' "$state_file")"
 assert_eq "finalize pinned request id" "req-final" "$(bash "$ARC" state_external_run_get r2 | jq -r '.resolved_run_request_id')"
+
+echo "-- external_runs cap preserves all unresolved jobs --"
+printf '%s' '{"schema_version":3,"recent_runs":[],"principle_promotions":[],"candidate_promotions":[],"declined_candidates":[],"auto_promote_suppressions":[],"external_runs":[]}' > "$state_file"
+for i in $(seq 1 21); do
+  bash "$ARC" state_external_run_add --run-id "run-$i" --host claude --adversary codex \
+    --artifact "/tmp/spec-$i.md" --depth close --result-path "/tmp/result-$i.json"
+done
+assert_eq "all 21 unresolved jobs retained" "21" "$(jq '.external_runs | length' "$state_file")"
+assert_eq "oldest unresolved job retained" "run-1" "$(bash "$ARC" state_external_run_get run-1 | jq -r '.run_id')"
 
 echo "-- migration v2 → v3 (idempotent, preserves recent_runs, no in_flight) --"
 printf '%s' '{"schema_version":2,"recent_runs":[{"request_id":"old"}],"principle_promotions":[],"candidate_promotions":[],"declined_candidates":[],"auto_promote_suppressions":[]}' > "$state_file"

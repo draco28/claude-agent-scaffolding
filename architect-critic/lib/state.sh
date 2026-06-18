@@ -310,7 +310,8 @@ ac_state_add_suppression() {
 
 # ac_state_external_run_add --run-id R --host H --adversary A --artifact P --depth D
 #                           --result-path RP [--codex-session-id S]
-# Appends a {status:"running"} record (started_at=now); caps to last 20. rc0/rc2.
+# Appends a {status:"running"} record (started_at=now). Retains every unresolved
+# record, and caps only resolved history to fit the last 20 when possible.
 ac_state_external_run_add() {
   local run_id="" host="" adversary="" artifact="" depth="" result_path="" session_id=""
   while [[ $# -gt 0 ]]; do
@@ -340,7 +341,17 @@ ac_state_external_run_add() {
     --arg rid "$run_id" --arg host "$host" --arg adv "$adversary" \
     --arg art "$artifact" --arg dep "$depth" --arg rp "$result_path" \
     --arg sid "$session_id" --arg sa "$started_at" \
-    '.external_runs = (((.external_runs // []) + [{
+    'def unresolved:
+       select(.resolved_run_request_id == null);
+     def trim_external_runs:
+       if length <= 20 then .
+       else
+         ([.[] | unresolved] as $unresolved |
+          [.[] | select(.resolved_run_request_id != null)] as $resolved |
+          (20 - ($unresolved | length)) as $budget |
+          ((if $budget > 0 then ($resolved | .[(-$budget):]) else [] end) + $unresolved))
+       end;
+     .external_runs = (((.external_runs // []) + [{
        "run_id": $rid,
        "host_agent": $host,
        "adversary": $adv,
@@ -351,8 +362,8 @@ ac_state_external_run_add() {
        "completed_at": null,
        "result_path": $rp,
        "codex_session_id": (if $sid == "" then null else $sid end),
-       "resolved_run_request_id": null
-     }]) | if length > 20 then .[-20:] else . end)' \
+	       "resolved_run_request_id": null
+	     }]) | trim_external_runs)' \
     "$state_file"; then
     rc=0
   else
@@ -379,12 +390,16 @@ ac_state_external_run_set_status() {
     ac_log_error "ac_state_external_run_set_status: usage: <run-id> <status> [--completed-at TS]"
     return 2
   fi
+  case "$status" in
+    running|completed|failed|cancelled|stalled|capped|error) ;;
+    *) ac_log_error "ac_state_external_run_set_status: invalid status: $status"; return 2 ;;
+  esac
   ac_state_init
   local state_file lock_path
   state_file="$(ac_state_path)"
   lock_path="$(ac_data_dir)/state.lock"
   case "$status" in
-    completed|failed|cancelled|stalled|capped)
+    completed|failed|cancelled|stalled|capped|error)
       [[ -z "$completed_at" ]] && completed_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" ;;
   esac
   if ! jq -e --arg rid "$run_id" '(.external_runs // []) | any(.run_id == $rid)' "$state_file" >/dev/null 2>&1; then

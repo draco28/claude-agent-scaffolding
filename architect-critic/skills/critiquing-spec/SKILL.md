@@ -197,7 +197,7 @@ The external adversary is a separate model talking to a separate session — it 
 **If `async_mode=true` AND `close_depth=true` AND `HOST_AGENT=claude`, take this branch instead of the synchronous invocation below — then STOP (do not consolidate or run the rebuttal now).** The Codex audit runs in the background and is consumed later via `/critique-jobs resume`. This is the **defer-to-resume (unified)** model: turn 1 produces *no conclusions* (only a read-only preview + a dispatched job), so resume mutates nothing.
 
 1. **Show the host self-audit as a read-only PREVIEW.** You already produced the host-agent self-audit JSON in Step 5. Present it to the user as a preview only — do **not** enter the rebuttal cycle.
-2. **Persist the self-audit** so resume can consolidate it without re-running Step 5. Write the Step-5 challenge JSON to `${CLAUDE_PLUGIN_DATA}/async/<run_id>/claude-audit.json` (create the dir; `<run_id>` is the job id from step 6). Practically: dispatch first to get the job id, then write the file under that id.
+2. **Persist the self-audit** so resume can consolidate it without re-running Step 5. Write the Step-5 challenge JSON to `$(arc data_dir)/async/<run_id>/claude-audit.json` (create the dir; `<run_id>` is the job id from step 6). Practically: dispatch first to get the job id, then write the file under that id; if the directory or write fails after dispatch, cancel the job before stopping.
 3. **Size hint (advisory).** Surface the recommendation: `arc codex_size_hint "<artifact-path>"` → `foreground` or `background`. (For a `foreground` recommendation on a small spec, you may suggest the user re-run without `--async`; still honor their `--async` choice.)
 4. **Pre-flight — hard-fail, NO silent foreground fallback.** The user explicitly chose async; quietly degrading to foreground would violate intent. Resolve the target root and pre-flight; on failure, surface the remediation and STOP (tell the user the synchronous `/critique --close` is the foreground option):
    ```bash
@@ -218,12 +218,23 @@ The external adversary is a separate model talking to a separate session — it 
    ```
 6. **Dispatch + record, then STOP.**
    ```bash
+   data_dir="$(arc data_dir)"
    job="$(arc codex_dispatch "$target_root" "$pf")"; rm -f "$pf"
-   mkdir -p "${CLAUDE_PLUGIN_DATA}/async/${job}"
-   # ... write the Step-5 self-audit JSON to ${CLAUDE_PLUGIN_DATA}/async/${job}/claude-audit.json ...
-   arc state_external_run_add --run-id "$job" --host claude --adversary codex \
+   job_dir="${data_dir}/async/${job}"
+   if ! mkdir -p "$job_dir"; then
+     arc codex_cancel "$target_root" "$job" >/dev/null 2>&1 || true
+     echo "Failed to create async job directory; cancelled job $job." >&2
+     return 1
+   fi
+   # ... write the Step-5 self-audit JSON to "$job_dir/claude-audit.json" ...
+   # If that write fails, cancel the dispatched job and stop before continuing.
+   if ! arc state_external_run_add --run-id "$job" --host claude --adversary codex \
      --artifact "<artifact-path>" --depth close \
-     --result-path "${CLAUDE_PLUGIN_DATA}/async/${job}/result.json"
+     --result-path "$job_dir/result.json"; then
+     arc codex_cancel "$target_root" "$job" >/dev/null 2>&1 || true
+     echo "Failed to persist async job metadata; cancelled job $job." >&2
+     return 1
+   fi
    ```
    Then tell the user: the audit is running in the background as job `<job>`; resume with **`/critique-jobs resume <job>`** (or just `/critique-jobs resume` for the latest) to consolidate both adversaries and run the rebuttal; `/critique-jobs status <job>` checks progress. **Do not run Steps 7–9 now.**
 

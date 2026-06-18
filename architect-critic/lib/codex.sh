@@ -80,7 +80,8 @@ _ac_codex_schema_path() {
 # string (async path: the fenced block extracted from Codex output). Valid when
 # it is an object with a challenges:[] array whose items each carry
 # text/severity/rationale strings; an optional gaps key, if present, must be an
-# array. Returns 0 if valid, 1 otherwise.
+# array of objects so the consolidator can source-tag each item. Returns 0 if
+# valid, 1 otherwise.
 _ac_codex_validate_json() {
   local input="$1" json
   if [[ -f "$input" ]]; then
@@ -99,7 +100,7 @@ _ac_codex_validate_json() {
         (["premise", "gap", "alternative"] | index($severity) != null)) and
       (.rationale | type == "string")
     )) and
-    (.gaps == null or (.gaps | type == "array"))
+    (.gaps == null or ((.gaps | type == "array") and (.gaps | all(type == "object"))))
   ' >/dev/null 2>&1
 }
 
@@ -632,7 +633,7 @@ ac_codex_status() {
     done) echo "completed" ;;
     running|completed|failed|cancelled|stalled|capped) echo "$status" ;;
     ""|null) ac_log_error "ac_codex_status: unparseable status: $out"; echo "error" ;;
-    *) ac_log_warn "ac_codex_status: unknown companion status: $status"; echo "$status" ;;
+    *) ac_log_warn "ac_codex_status: unknown companion status: $status"; echo "error" ;;
   esac
   return 0
 }
@@ -660,7 +661,8 @@ ac_codex_cancel() {
   case "$cancel_status" in
     done) echo "completed" ;;
     running|completed|failed|cancelled|stalled|capped) echo "$cancel_status" ;;
-    *) echo "cancelled" ;;
+    ""|null) ac_log_error "ac_codex_cancel: unparseable cancel status: $out"; echo "error" ;;
+    *) ac_log_warn "ac_codex_cancel: unknown companion cancel status: $cancel_status"; echo "error" ;;
   esac
   return 0
 }

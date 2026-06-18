@@ -34,9 +34,14 @@ Default `run-id`: the most recent `running` run (else the most recent overall).
 
 Default `run-id`: the most recent `completed` run.
 
-1. Read the record; require `status == completed` (else report the current status and stop).
-2. Fetch the raw Codex challenges (no rebuttal): `arc codex_result "$(arc codex_target_root "<artifact_path>")" "<run-id>"` → a `{challenges,gaps}` object.
-3. Present the challenges read-only. Remind the user that **`resume`** is what folds them into a rebuttal; `result` is inspect-only.
+1. Read the record. If `status == running`, first run the same one-shot refresh as `status`:
+   ```bash
+   term="$(arc codex_status "$(arc codex_target_root "<artifact_path>")" "<run-id>")"
+   ```
+   Persist only terminal tokens (`completed|failed|cancelled|stalled|capped`) and continue with the refreshed value. If it is still `running`, report that and stop.
+2. Require `status == completed` (else report the current terminal status and stop).
+3. Fetch the raw Codex challenges (no rebuttal): `arc codex_result "$(arc codex_target_root "<artifact_path>")" "<run-id>"` → a `{challenges,gaps}` object. If this fails, set the external run to `failed`, report that the stored Codex result is malformed/unparseable, and stop without entering consolidation.
+4. Present the challenges read-only. Remind the user that **`resume`** is what folds them into a rebuttal; `result` is inspect-only.
 
 ## Verb: cancel [run-id]
 
@@ -56,10 +61,10 @@ Default `run-id`: the most recent `completed` (else `running`) run for the curre
 
 1. **Read the record.** `arc state_external_run_get "<run-id>"`.
 2. **Idempotency guard.** If `resolved_run_request_id` is already set, this run was concluded — **resume inspect-only**: print the prior conclusion (the `recent_runs` entry whose `request_id` matches) and STOP. Append nothing. (Mechanically: a later `arc state_external_run_finalize_resume` would also return rc1, so never re-append.)
-3. **Require terminal `completed`.** If the job is still `running`, report status (poll once as in `status`) and stop — do not partially consolidate. If `failed/cancelled/stalled/capped`, report that terminal status and the still-available host self-audit preview, and stop (nothing to consolidate).
+3. **Require terminal `completed`.** If the stored job is still `running`, refresh once with `arc codex_status "$(arc codex_target_root "<artifact_path>")" "<run-id>"` and persist only terminal tokens (`completed|failed|cancelled|stalled|capped`). If the refreshed status is still `running`, report it and stop — do not partially consolidate. If `failed/cancelled/stalled/capped`, report that terminal status and the still-available host self-audit preview, and stop (nothing to consolidate).
 4. **Load both adversaries.**
-   - `claude_audit` = the persisted turn-1 host self-audit at `${CLAUDE_PLUGIN_DATA}/async/<run-id>/claude-audit.json`.
-   - `codex_audit` = `arc codex_result "$(arc codex_target_root "<artifact_path>")" "<run-id>"`.
+   - `claude_audit` = the persisted turn-1 host self-audit at `$(arc data_dir)/async/<run-id>/claude-audit.json`.
+   - `codex_audit` = `arc codex_result "$(arc codex_target_root "<artifact_path>")" "<run-id>"`. If this fails, set the external run to `failed`, report that the Codex result is malformed/unparseable, and stop. Do not enter the shared consolidation flow with a missing or invalid Codex audit.
 5. **Enter the shared procedure.** Run the **"Consolidate + Rebuttal + Append"** procedure defined in `critiquing-spec` Steps 7–9 with `{claude_audit, codex_audit, artifact: <artifact_path>, depth: close}`: consolidate (cross-confirmation surfaces first) and run the one unified sequential rebuttal cycle with T=4 concession scoring. When Step 9 would append the run, use the atomic async finalizer below instead of direct `arc state_append_run`.
 6. **Append + mark resolved atomically.** After the rebuttal concludes, mint the run's `request_id` and finalize with one locked state transaction:
    ```bash

@@ -86,18 +86,29 @@ assert_eq "wait missing poll value returns error token" "error" "$got"
 export CODEX_SHIM_STATUS="completed"
 
 echo ""
-echo "-- result extracts {challenges,gaps} (prose before fence) --"
+echo "-- result extracts last {challenges,gaps} fence (prose before fence) --"
 export CODEX_SHIM_RESULT_RAWOUTPUT='reasoning first
 ```json
 {"challenges":[{"text":"X","severity":"premise","rationale":"r"}],"gaps":[]}
+```
+noise
+```json
+{"challenges":[{"text":"Y","severity":"gap","rationale":"r2"}],"gaps":[]}
 ```'
 got="$(bash "$ARC" codex_result "$ROOT/repo" "job-xyz" 2>/dev/null | jq -r '.challenges[0].text')"
-assert_eq "result extracts challenge text" "X" "$got"
+assert_eq "result extracts last fenced challenge text" "Y" "$got"
 
 echo ""
 echo "-- result rejects non-contract severity labels --"
 export CODEX_SHIM_RESULT_RAWOUTPUT='```json
 {"challenges":[{"text":"X","severity":"high","rationale":"r"}],"gaps":[]}
+```'
+assert_exit_code 1 bash "$ARC" codex_result "$ROOT/repo" "job-xyz"
+
+echo ""
+echo "-- result rejects non-object gaps --"
+export CODEX_SHIM_RESULT_RAWOUTPUT='```json
+{"challenges":[{"text":"X","severity":"gap","rationale":"r"}],"gaps":["missing auth plan"]}
 ```'
 assert_exit_code 1 bash "$ARC" codex_result "$ROOT/repo" "job-xyz"
 
@@ -117,6 +128,12 @@ grep -q '^cancel ' "$CODEX_SHIM_LOG" && { echo "  ✗ status unexpectedly cancel
 unset CODEX_SHIM_LOG
 
 echo ""
+echo "-- status: unknown companion token normalizes to error --"
+export CODEX_SHIM_STATUS="mystery"
+got="$(bash "$ARC" codex_status "$ROOT/repo" "job-xyz" 2>/dev/null)"
+assert_eq "unknown status returns error" "error" "$got"
+
+echo ""
 echo "-- cancel: completed race preserves completed status --"
 export CODEX_SHIM_STATUS="completed"
 export CODEX_SHIM_LOG="$ROOT/cancel-completed.log"; : > "$CODEX_SHIM_LOG"
@@ -124,6 +141,19 @@ got="$(bash "$ARC" codex_cancel "$ROOT/repo" "job-xyz" 2>/dev/null)"
 assert_eq "cancel preserves already-completed job" "completed" "$got"
 grep -q '^cancel ' "$CODEX_SHIM_LOG" && { echo "  ✗ cancel called companion cancel for completed job"; FAIL=$((FAIL+1)); } || { echo "  ✓ cancel skipped terminal completed job"; PASS=$((PASS+1)); }
 unset CODEX_SHIM_LOG
+export CODEX_SHIM_STATUS="completed"
+
+echo ""
+echo "-- cancel: unknown companion token normalizes to error --"
+export CODEX_SHIM_STATUS="running"
+export CODEX_SHIM_CANCEL_STATUS="mystery"
+got="$(bash "$ARC" codex_cancel "$ROOT/repo" "job-xyz" 2>/dev/null)"
+assert_eq "unknown cancel status returns error" "error" "$got"
+unset CODEX_SHIM_CANCEL_STATUS
+export CODEX_SHIM_CANCEL_RAW='{"job":{}}'
+got="$(bash "$ARC" codex_cancel "$ROOT/repo" "job-xyz" 2>/dev/null)"
+assert_eq "unparseable cancel status returns error" "error" "$got"
+unset CODEX_SHIM_CANCEL_RAW
 export CODEX_SHIM_STATUS="completed"
 
 echo ""

@@ -11,6 +11,8 @@
 //   CODEX_SHIM_SETUP             raw JSON string for `setup --json` (overrides default)
 //   CODEX_SHIM_STATUS            .job.status for `status --json` (default "completed")
 //   CODEX_SHIM_STATUS_RAW        emit this raw (possibly non-JSON) string for `status` verbatim
+//   CODEX_SHIM_CANCEL_STATUS     .job.status for `cancel --json` (default "cancelled")
+//   CODEX_SHIM_CANCEL_RAW        emit this raw (possibly non-JSON) string for `cancel` verbatim
 //   CODEX_SHIM_LOGFILE           .job.logFile for `status --json` (stall heuristic target)
 //   CODEX_SHIM_RESULT_RAWOUTPUT  .storedJob.result.rawOutput for `result --json`
 //   CODEX_SHIM_FAIL              subcommand name that should exit non-zero (e.g. task / status)
@@ -70,7 +72,11 @@ switch (sub) {
     break;
   }
   case "cancel": {
-    out({ job: { id: jobId, status: "cancelled" }, cancelledAt: "2026-01-01T00:00:00Z" });
+    if (process.env.CODEX_SHIM_CANCEL_RAW !== undefined) {
+      process.stdout.write(process.env.CODEX_SHIM_CANCEL_RAW + "\n");
+      break;
+    }
+    out({ job: { id: jobId, status: process.env.CODEX_SHIM_CANCEL_STATUS || "cancelled" }, cancelledAt: "2026-01-01T00:00:00Z" });
     break;
   }
   default: {
