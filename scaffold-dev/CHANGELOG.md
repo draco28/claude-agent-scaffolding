@@ -2,6 +2,23 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.8.0] — 2026-06-18
+
+SS-6 — #39 Phase B: opt-in **architect-critic review gate** at slice/spec close, consuming the architect-critic v0.3 async API shipped in Phase A. Default `off` preserves today's behavior exactly.
+
+### Added
+- **#39 Phase B — `review_gate` config (`off | slice_close | spec_close | both`, default `off`).** New `lib/review_gate.sh` `sd_review_gate_resolve` (mirrors `sd_backend_resolve`): per-invocation `--gate` override > manifest `.review_gate` > `off`; set-e-safe manifest read; rc1 on an invalid value, rc2 on bad usage. Absent field / absent manifest → `off`, so existing projects are unchanged and no workspace-init schema change is required. Unit-tested in `tests/test-review-gate.sh`.
+- **#39 Phase B — async dispatch-and-defer at the two §7 gates.** When the gate is on for an attach point and architect-critic v0.3 is present, `closing-vertical-slice` §7 (slice close) and `planning-vertical-slice` §7 (spec author) dispatch the close-depth architect-critic audit as a background job via `Skill(architect-critic:critiquing-spec)` with `async=true`, record the job handle (retrospective/README), surface the `/critique-jobs resume <id>` hint, and **proceed without blocking** the ceremony. No in-ceremony polling; the operator resumes on their own schedule to fold both adversaries into one rebuttal. A usage-consumption warning is surfaced before dispatch.
+- **Capability-aware `sd_compose_detect_architect_critic`.** Now reports `v0.3` (async-capable — `managing-async-critique` present), `v0.2` (sync-only), or `absent`, scanning all cache dirs before deciding.
+
+### Changed
+- **`spec_close`/`both` upgrades the spec-author audit from author-depth to close-depth.** Async exists only at close depth, so the gate at the spec moment runs a heavier close-depth Codex adversary audit (the extra rigor the gate buys); the lighter author-depth Claude-self-audit remains the default when the gate is off.
+- **Graceful degradation.** Gate on but architect-critic is `v0.2` (no async API) → one warning + fall through to the existing **synchronous** close-depth review (the operator still gets a review). Gate on + `absent` → existing warn-and-proceed. Gate `off` / wrong attach point → today's behavior, untouched.
+- **Dual-publish constraint (inherited):** async execution is Claude-host → Codex-adversary only (the architect-critic v0.3 constraint); the gate's skill prose ships on both surfaces.
+
+### Fixed
+- **Stale README.** `Status` corrected from v0.1.0 → v0.8.0; the skills list (was "9 skills") and commands table now reflect the real 12 skills / 6 commands; added a Configuration section documenting `review_gate`.
+
 ## [0.7.0] — 2026-06-15
 
 SS-6 cleanup batch — ADR `proposed-then-flip` lifecycle (#6) + `git stash` ban in operator-facing templates (#8).

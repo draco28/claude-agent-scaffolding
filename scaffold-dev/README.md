@@ -29,17 +29,22 @@ cd <your-paired-ai-workspace>
 | `/work-item <VS-id>` | Single-work-item dispatch — orchestrator invokes `implementer-agent` subagent with a handoff doc; subagent returns structured JSON + `report.md`. |
 | `/impl-check` | Runs R2 mcrule enforcement (banned_imports, coverage_floor, style_invariants, required_pattern) + verify gates (tests, demo criteria). |
 | `/handoff` | Writes a session-boundary handoff markdown to `.workspace/handoffs/` for resume across compaction or clear. |
+| `/defer` | Files a non-blocking gap as a project-repo GitHub issue + records a lean `[TD]` index pointer. |
+| `/flip-adr` | Flips an ADR `Status: Proposed` → `Accepted` and appends an empirical-validation section. |
 
 ## Skills (auto-invoke)
 
-The 9 skills auto-invoke on natural-language triggers — slash commands are thin `Skill(...)` dispatchers:
+The 12 skills auto-invoke on natural-language triggers — slash commands are thin `Skill(...)` dispatchers:
 
-- `planning-vertical-slice` — author slice spec + work-item breakdown from R1/R3
+- `planning-vertical-slice` — author slice spec + work-item breakdown from R1/R3 (+ opt-in `review_gate` at the spec moment)
 - `executing-work-item` — TDD-loop implementer body (subagent system prompt)
 - `implementation-checking` — mcrule + gate enforcement
-- `closing-vertical-slice` — demo verify + report harvest + slice retrospective
+- `closing-vertical-slice` — demo verify + report harvest + slice retrospective (+ opt-in `review_gate` at slice close)
+- `verifying-spec-citations` — resolve file/REQ-ID/signature citations in a draft slice spec
 - `handing-off-session` — `.workspace/handoffs/` escape-valve writer
 - `recording-architecture-decision` — ADR authoring
+- `flipping-adr-status` — flip an ADR `Proposed` → `Accepted` + empirical validation
+- `deferring-work-item` — file a non-blocking gap as a GitHub issue + `[TD]` pointer
 - `appending-changelog-entry` — Keep-a-Changelog append
 - `authoring-runbook` — operational runbook authoring
 - `writing-sprint-retrospective` — sprint-close retrospective + slice harvest
@@ -56,8 +61,18 @@ The **R2 machine-checkable rules** (from `.claude/memory-bank/03-code-patterns.m
 
 - **workspace-init** v0.1+ — pairing manifest consumed for artifact routing (slice specs, ADRs, handoffs per `routing.*` table); single-repo fallback preserved
 - **scaffold-onboard** v0.2+ — R1 hierarchy, R2 mcrules, R3 demo criteria consumed
-- **architect-critic** v0.2+ — `Skill(architect-critic:critiquing-spec)` at slice-spec close, sprint retrospective, ADR draft (filesystem probe, no file IPC)
+- **architect-critic** v0.2+ — `Skill(architect-critic:critiquing-spec)` at slice-spec close, sprint retrospective, ADR draft (filesystem probe, no file IPC). v0.3+ additionally unlocks the opt-in async `review_gate` (see Configuration).
 - **ai-mentor** v2.0+ — `Skill(ai-mentor:grill-me)` at slice-plan close, mid-slice stuck-state, sprint retrospective
+
+## Configuration
+
+- **`review_gate`** (manifest `.workspace/pairing.json` field; default `off`) — opt-in architect-critic review gate at slice/spec close. Values:
+  - `off` — today's behavior exactly (synchronous review at the §7 gates).
+  - `slice_close` — at slice close, dispatch the close-depth audit as an **async background job** (dispatch-and-defer) instead of blocking the ceremony.
+  - `spec_close` — same at the spec-author moment; **upgrades** the default author-depth audit to a close-depth Codex adversary audit (async exists only at close depth).
+  - `both` — both attach points.
+
+  When on, the gate dispatches via `Skill(architect-critic:critiquing-spec)` (`async=true`), records the job handle, surfaces a usage-consumption warning + the `/critique-jobs resume <id>` hint, and proceeds without blocking — the operator resumes on their own schedule. Requires architect-critic **v0.3+**; with v0.2 it falls back to the synchronous review with a warning. Resolved by `lib/review_gate.sh` (`sd review_gate_resolve`).
 
 ## Pointers
 
@@ -72,7 +87,7 @@ Linux and macOS. Windows deferred (matches sibling plugins).
 
 ## Status
 
-v0.1.0 — initial release, 2026-05-25. v0.x polish pass anticipated to deepen skill-first structure once usage data accumulates.
+v0.8.0 — 2026-06-18. Latest: #39 Phase B opt-in async `review_gate` at slice/spec close (see Configuration). Initial release was v0.1.0 (2026-05-25); the v0.x line has deepened the skill-first structure and cross-plugin composition as usage data accumulated.
 
 ## License
 
