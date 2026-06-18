@@ -131,7 +131,7 @@ git commit -m "test(architect-critic): add run-tests.sh runner + wire into CI"
 
 ````
 ```json
-{"challenges":[{"text":"Codex challenge A","severity":"high","rationale":"why"}],"gaps":[]}
+{"challenges":[{"text":"Codex challenge A","severity":"premise","rationale":"why"}],"gaps":[]}
 ```
 ````
 Keep all env knobs: `CODEX_SHIM_LOG`, `CODEX_SHIM_JOBID`, `CODEX_SHIM_STATUS`, `CODEX_SHIM_RESULT_RAWOUTPUT`, `CODEX_SHIM_FAIL`, `CODEX_SHIM_NO_JOBID`. (Read the source first; the five subcommands and env contract are documented in its header.)
@@ -197,8 +197,10 @@ git commit -m "test(architect-critic): port codex-companion shim + async test sk
   - `ac_codex_target_root <artifact-path>` → echoes the git-toplevel (or nearest existing ancestor) containing the artifact.
   - `ac_codex_preflight <target-root>` → rc0 ready; rc1 + remediation string (uninstalled / `codex login` / untrusted).
   - `ac_codex_dispatch <target-root> <prompt-file>` → echoes job-id (rc0); rc1 on launch failure.
-  - `ac_codex_wait <target-root> <job-id> [--poll N --stall N --cap N]` → echoes one of `completed|failed|cancelled|stalled|capped|error`; **always rc0**.
-  - `ac_codex_result <target-root> <job-id>` → echoes the last fenced JSON block (rc0); rc1 if none / not an object with `.challenges`.
+  - `ac_codex_status <target-root> <job-id>` → one-shot non-mutating status probe, echoes `running|completed|failed|cancelled|stalled|capped|error`; **always rc0**.
+  - `ac_codex_wait <target-root> <job-id> [--poll N --stall N --cap N]` → bounded wait, echoes one of `completed|failed|cancelled|stalled|capped|error`; **always rc0**.
+  - `ac_codex_cancel <target-root> <job-id>` → terminal-aware cancel; preserves `completed` if the job raced to completion.
+  - `ac_codex_result <target-root> <job-id>` → echoes the last fenced JSON block (rc0); rc1 if none / not an object with `.challenges` whose severity is `premise|gap|alternative`.
   - internal: `_ac_codex_cancel`, `_ac_codex_version_gt`, `_ac_codex_mtime`.
   - `_ac_codex_validate_json` extended: `.challenges` is a required array; `.gaps` optional array.
 
@@ -234,7 +236,7 @@ echo "-- result --"
 export CODEX_SHIM_STATUS="completed"
 export CODEX_SHIM_RESULT_RAWOUTPUT='prose first
 ```json
-{"challenges":[{"text":"X","severity":"high","rationale":"r"}],"gaps":[]}
+{"challenges":[{"text":"X","severity":"premise","rationale":"r"}],"gaps":[]}
 ```'
 got="$(bash "$ARC" codex_result "$ROOT/repo" "job-xyz" 2>/dev/null | jq -r '.challenges[0].text')"
 assert_eq "result extracts challenge" "X" "$got"
@@ -253,7 +255,7 @@ Expected: FAIL — `arc: unknown function codex_resolve_companion` (exit 2) / as
 
 - [ ] **Step 3: Port the spine into `lib/codex.sh`** — at the END of the file (after the existing sync functions), add an async section. Port these functions from `scaffold-onboard/lib/codex.sh` with the transforms below. **Read the source file first**, then apply uniformly:
   - Rename prefix `sf_` → `ac_`, `_sf_` → `_ac_`.
-  - Keep verbatim: `_ac_codex_version_gt`, `_ac_codex_mtime`, `ac_codex_resolve_companion` (swap env var to `ARCHITECT_CRITIC_CODEX_COMPANION`; keep the cache/marketplace glob + version-aware newest pick), `ac_codex_target_root`, `ac_codex_preflight` (companion `setup --json` parse + path-prefix trust), `ac_codex_wait` (poll/stall/cap, `done`→`completed`, **always rc0**), `ac_codex_result` (fence-parse last block), `_ac_codex_cancel`.
+  - Keep verbatim where applicable: `_ac_codex_version_gt`, `_ac_codex_mtime`, `ac_codex_resolve_companion` (swap env var to `ARCHITECT_CRITIC_CODEX_COMPANION`; keep the cache/marketplace glob + version-aware newest pick), `ac_codex_target_root`, `ac_codex_preflight` (companion `setup --json` parse + path-prefix trust), `ac_codex_wait` (poll/stall/cap, `done`→`completed`, **always rc0**), `ac_codex_result` (fence-parse last block), `_ac_codex_cancel`. Add `ac_codex_status` for non-mutating one-shot checks and `ac_codex_cancel` for terminal-aware public cancellation.
   - `ac_codex_dispatch`: keep the `task --background --prompt-file <abs> --json` launch + jobId extraction, but **drop `--write`** (read-only adversary; see §3.2 open item — if the shim/companion rejects no-`--write`, keep `--write`). Drop `--resume-last`/`--fresh` flags (not needed here).
   - **Drop entirely** (implementer/synthesizer-only): `verify_nocommit`, all worktree management, the `{mode,…}` synthesis return shape.
   - Extend the existing `_ac_codex_validate_json` (do NOT duplicate): accept stdin OR a file; require `.challenges` to be an array; `.gaps` optional array. The sync path already calls it — keep that call green.
@@ -285,7 +287,8 @@ git commit -m "feat(architect-critic): async codex spine (companion task --backg
   - `ac_state_external_run_set_status <run-id> <status> [--completed-at TS]` → updates `status` (+ `completed_at` if terminal); rc0; rc1 if run-id absent.
   - `ac_state_external_run_get <run-id>` → echoes the record JSON; rc1 if absent.
   - `ac_state_external_run_list [--status S]` → echoes a JSON array (optionally filtered).
-  - `ac_state_external_run_resolve <run-id> <request-id>` → sets `resolved_run_request_id` **once**; rc1 if already set (idempotency guard).
+  - `ac_state_external_run_resolve <run-id> <request-id>` → sets `resolved_run_request_id` **once**; rc1 if already set (low-level idempotency guard).
+  - `ac_state_external_run_finalize_resume --run-id R --request-id Q --depth D --adversaries A --challenge-count N --concessions N --skill-invoked S --elapsed-ms N` → atomically appends `recent_runs[]` and sets `resolved_run_request_id`; rc1 if already resolved.
   - migration: a v2→v3 step adding empty `external_runs` + `schema_version=3`, idempotent, preserving all v2 fields (incl. no `in_flight`).
 
 - [ ] **Step 1: Write failing tests** (`tests/unit/test-state-external-runs.sh`)
@@ -323,6 +326,11 @@ assert_exit_code 1 bash "$ARC" state_external_run_resolve r1 req-2
 got="$(bash "$ARC" state_external_run_get r1 | jq -r '.resolved_run_request_id')"
 assert_eq "resolved id pinned" "req-1" "$got"
 
+# atomic resume finalizer: appends exactly once
+bash "$ARC" state_external_run_add --run-id r2 --host claude --adversary codex --artifact /tmp/spec2.md --depth close --result-path /tmp/r2.json
+assert_exit_code 0 bash "$ARC" state_external_run_finalize_resume --run-id r2 --request-id req-final --depth close --adversaries claude,codex --challenge-count 4 --concessions 2 --skill-invoked critiquing-spec --elapsed-ms 1200
+assert_exit_code 1 bash "$ARC" state_external_run_finalize_resume --run-id r2 --request-id req-final-dup --depth close --adversaries claude,codex --challenge-count 4 --concessions 2 --skill-invoked critiquing-spec --elapsed-ms 1200
+
 # migration v2 → v3 (idempotent, preserves recent_runs, no in_flight)
 sf="$(bash "$ARC" state_path 2>/dev/null || echo "$CLAUDE_PLUGIN_DATA/state.json")"
 printf '%s' '{"schema_version":2,"recent_runs":[{"request_id":"old"}],"principle_promotions":[],"candidate_promotions":[],"declined_candidates":[],"auto_promote_suppressions":[]}' > "$sf"
@@ -341,7 +349,7 @@ report_results
 Run: `bash architect-critic/run-tests.sh tests/unit/test-state-external-runs.sh`
 Expected: FAIL — unknown functions / migration leaves `schema_version:2`.
 
-- [ ] **Step 3: Implement** — add the CRUD to `lib/state.sh` following the existing `ac_state_append_run` pattern (lock-guarded `ac_guarded_jq_write`, ISO-8601 UTC `completed_at`, cap the array to the last 20 like `recent_runs`). `ac_state_external_run_resolve` reads the record; if `resolved_run_request_id` is non-null → `return 1`; else set it. Add the v2→v3 step in `lib/migration.sh` mirroring the existing v1→v2 (read `schema_version`; if `2`, `jq '.external_runs = (.external_runs // []) | .schema_version = 3'`; idempotent on `>=3`).
+- [ ] **Step 3: Implement** — add the CRUD to `lib/state.sh` following the existing `ac_state_append_run` pattern (lock-guarded `ac_guarded_jq_write`, ISO-8601 UTC `completed_at`, cap the array to the last 20 like `recent_runs`). `ac_state_external_run_resolve` reads/checks the record inside the lock; if `resolved_run_request_id` is non-null → `return 1`; else set it. Add `ac_state_external_run_finalize_resume` so async resume appends `recent_runs[]` and sets `resolved_run_request_id` in one locked transaction. Add the v2→v3 step in `lib/migration.sh` mirroring the existing v1→v2 (read `schema_version`; if `2`, `jq '.external_runs = (.external_runs // []) | .schema_version = 3'`; idempotent on `>=3`).
 
 - [ ] **Step 4: Run to verify they pass + full suite**
 
@@ -510,7 +518,7 @@ git commit -m "feat(architect-critic): /critique --async dispatch + size guidanc
 - Modify: `architect-critic/tests/unit/test-state-external-runs.sh` (session-start count + history lint)
 
 **Interfaces:**
-- Consumes: `ac_codex_wait/result/_cancel` (Task 2), `ac_state_external_run_*` (Task 3), the shared "Consolidate + Rebuttal + Append" procedure (Task 5).
+- Consumes: `ac_codex_status/result/cancel` (Task 2), `ac_state_external_run_*` (Task 3), the shared "Consolidate + Rebuttal + Append" procedure (Task 5).
 - Produces: `managing-async-critique` skill owning `status|result|cancel|resume`; `session-start.sh` prints an in-flight count.
 
 - [ ] **Step 1: Write failing tests** (append to `test-state-external-runs.sh`, before `report_results`)
@@ -532,10 +540,10 @@ Run: `bash architect-critic/run-tests.sh tests/unit/test-state-external-runs.sh`
 Expected: FAIL — hook silent; history lint fails.
 
 - [ ] **Step 3: Write `managing-async-critique/SKILL.md`** — gerund frontmatter (`name: managing-async-critique`; description triggers: "critique jobs", "resume critique", "cancel critique audit", "/critique-jobs"). Body documents four verbs:
-  - `status [id]` → `arc state_external_run_get` (+ optional live `arc codex_wait … --poll 0` once for a fresh token); print.
+  - `status [id]` → `arc state_external_run_get` (+ optional live `arc codex_status …` once for a fresh non-mutating token); print.
   - `result [id]` → `arc codex_result`; show raw challenges (no rebuttal).
-  - `cancel [id]` → `arc codex_<cancel>` + `arc state_external_run_set_status <id> cancelled`.
-  - `resume [id]` (default latest): read the run; **if `resolved_run_request_id` set → inspect-only** (print prior conclusion, append nothing); else require terminal `completed` (else report status, stop); load persisted `claude-audit.json` + `arc codex_result`; run `consolidator.sh` over both; enter the shared **Consolidate + Rebuttal + Append** procedure; on append, `arc state_external_run_resolve <id> <request_id>`.
+  - `cancel [id]` → `arc codex_cancel` + persist only the returned terminal disposition.
+  - `resume [id]` (default latest): read the run; **if `resolved_run_request_id` set → inspect-only** (print prior conclusion, append nothing); else require terminal `completed` (else report status, stop); load persisted `claude-audit.json` + `arc codex_result`; run `consolidator.sh` over both; enter the shared **Consolidate + Rebuttal + Append** procedure, replacing direct `state_append_run` with `arc state_external_run_finalize_resume`.
   `commands/critique-jobs.md` — thin wrapper.
 
 - [ ] **Step 4: Edit `reviewing-critique-history/SKILL.md`** — add a section that calls `arc state_external_run_list` and renders in-flight/terminal external runs alongside `recent_runs`.

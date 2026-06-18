@@ -102,7 +102,7 @@ ac_state_write_field() {
   return $rc
 }
 
-# Append a completed run to recent_runs (schema v2), then trim to the last 20 entries.
+# Append a completed run to recent_runs (schema v2+), then trim to the last 20 entries.
 # Args: <request_id> <depth> <adversaries_used_json> <challenge_count> <concessions> <skill_invoked> <elapsed_ms>
 #   adversaries_used_json: a JSON array literal, e.g. '["claude"]' or '["claude","codex"]'
 ac_state_append_run() {
@@ -112,13 +112,13 @@ ac_state_append_run() {
     local adversaries_raw=""
     while [[ $# -gt 0 ]]; do
       case "$1" in
-        --request-id) request_id="${2:-}"; shift 2 ;;
-        --depth) depth="${2:-}"; shift 2 ;;
-        --adversaries) adversaries_raw="${2:-}"; shift 2 ;;
-        --challenge-count) challenge_count="${2:-}"; shift 2 ;;
-        --concessions) concessions="${2:-}"; shift 2 ;;
-        --skill-invoked) skill_invoked="${2:-}"; shift 2 ;;
-        --elapsed-ms) elapsed_ms="${2:-}"; shift 2 ;;
+        --request-id) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --request-id requires a value"; return 2; }; request_id="$2"; shift 2 ;;
+        --depth) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --depth requires a value"; return 2; }; depth="$2"; shift 2 ;;
+        --adversaries) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --adversaries requires a value"; return 2; }; adversaries_raw="$2"; shift 2 ;;
+        --challenge-count) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --challenge-count requires a value"; return 2; }; challenge_count="$2"; shift 2 ;;
+        --concessions) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --concessions requires a value"; return 2; }; concessions="$2"; shift 2 ;;
+        --skill-invoked) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --skill-invoked requires a value"; return 2; }; skill_invoked="$2"; shift 2 ;;
+        --elapsed-ms) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --elapsed-ms requires a value"; return 2; }; elapsed_ms="$2"; shift 2 ;;
         *)
           ac_log_error "ac_state_append_run: unknown flag: $1"
           return 2
@@ -279,6 +279,10 @@ ac_state_add_suppression() {
 
   # Portable date arithmetic (GNU date -d on Linux, BSD date -v on macOS).
   expires_at="$(_ac_date_add_days "$suppressed_at" "$days")"
+  if [[ -z "$expires_at" ]]; then
+    ac_log_error "ac_state_add_suppression: failed to compute expires_at from $suppressed_at (+${days}d)"
+    return 1
+  fi
 
   ac_lock_acquire "$lock_path" || return 1
   ac_guarded_jq_write "$state_file" \
@@ -311,13 +315,13 @@ ac_state_external_run_add() {
   local run_id="" host="" adversary="" artifact="" depth="" result_path="" session_id=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --run-id) run_id="${2:-}"; shift 2 ;;
-      --host) host="${2:-}"; shift 2 ;;
-      --adversary) adversary="${2:-}"; shift 2 ;;
-      --artifact) artifact="${2:-}"; shift 2 ;;
-      --depth) depth="${2:-}"; shift 2 ;;
-      --result-path) result_path="${2:-}"; shift 2 ;;
-      --codex-session-id) session_id="${2:-}"; shift 2 ;;
+      --run-id) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_add: --run-id requires a value"; return 2; }; run_id="$2"; shift 2 ;;
+      --host) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_add: --host requires a value"; return 2; }; host="$2"; shift 2 ;;
+      --adversary) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_add: --adversary requires a value"; return 2; }; adversary="$2"; shift 2 ;;
+      --artifact) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_add: --artifact requires a value"; return 2; }; artifact="$2"; shift 2 ;;
+      --depth) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_add: --depth requires a value"; return 2; }; depth="$2"; shift 2 ;;
+      --result-path) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_add: --result-path requires a value"; return 2; }; result_path="$2"; shift 2 ;;
+      --codex-session-id) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_add: --codex-session-id requires a value"; return 2; }; session_id="$2"; shift 2 ;;
       *) ac_log_error "ac_state_external_run_add: unknown flag: $1"; return 2 ;;
     esac
   done
@@ -367,7 +371,7 @@ ac_state_external_run_set_status() {
   local completed_at=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --completed-at) completed_at="${2:-}"; shift 2 ;;
+      --completed-at) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_set_status: --completed-at requires a value"; return 2; }; completed_at="$2"; shift 2 ;;
       *) ac_log_error "ac_state_external_run_set_status: unknown flag: $1"; return 2 ;;
     esac
   done
@@ -426,7 +430,7 @@ ac_state_external_run_list() {
   local filter=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --status) filter="${2:-}"; shift 2 ;;
+      --status) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_list: --status requires a value"; return 2; }; filter="$2"; shift 2 ;;
       *) ac_log_error "ac_state_external_run_list: unknown flag: $1"; return 2 ;;
     esac
   done
@@ -455,21 +459,110 @@ ac_state_external_run_resolve() {
   local state_file lock_path existing
   state_file="$(ac_state_path)"
   lock_path="$(ac_data_dir)/state.lock"
+  ac_lock_acquire "$lock_path" || return 1
   if ! jq -e --arg rid "$run_id" '(.external_runs // []) | any(.run_id == $rid)' "$state_file" >/dev/null 2>&1; then
     ac_log_error "ac_state_external_run_resolve: run-id not found: $run_id"
+    ac_lock_release "$lock_path"
     return 1
   fi
   existing="$(jq -r --arg rid "$run_id" '(.external_runs // []) | map(select(.run_id == $rid)) | .[0].resolved_run_request_id // "null"' "$state_file" 2>/dev/null || echo "null")"
   if [[ "$existing" != "null" && -n "$existing" ]]; then
     ac_log_warn "ac_state_external_run_resolve: run $run_id already resolved to $existing (inspect-only)"
+    ac_lock_release "$lock_path"
     return 1
   fi
-  ac_lock_acquire "$lock_path" || return 1
   local rc
   if ac_guarded_jq_write "$state_file" \
     --arg rid "$run_id" --arg req "$request_id" \
     '.external_runs = ((.external_runs // []) | map(
        if .run_id == $rid then .resolved_run_request_id = $req else . end))' \
+    "$state_file"; then
+    rc=0
+  else
+    rc=$?
+  fi
+  ac_lock_release "$lock_path"
+  return $rc
+}
+
+# ac_state_external_run_finalize_resume --run-id R --request-id Q --depth D
+#   --adversaries JSON_OR_CSV --challenge-count N --concessions N
+#   --skill-invoked S --elapsed-ms N
+# Atomically appends the completed critique to recent_runs[] and pins
+# external_runs[].resolved_run_request_id. rc1 if the external run is absent or
+# already resolved; callers then treat resume as inspect-only.
+ac_state_external_run_finalize_resume() {
+  local run_id="" request_id="" depth="" adversaries_raw="" adversaries_json=""
+  local challenge_count="" concessions="" skill_invoked="" elapsed_ms=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --run-id) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --run-id requires a value"; return 2; }; run_id="$2"; shift 2 ;;
+      --request-id) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --request-id requires a value"; return 2; }; request_id="$2"; shift 2 ;;
+      --depth) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --depth requires a value"; return 2; }; depth="$2"; shift 2 ;;
+      --adversaries) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --adversaries requires a value"; return 2; }; adversaries_raw="$2"; shift 2 ;;
+      --challenge-count) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --challenge-count requires a value"; return 2; }; challenge_count="$2"; shift 2 ;;
+      --concessions) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --concessions requires a value"; return 2; }; concessions="$2"; shift 2 ;;
+      --skill-invoked) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --skill-invoked requires a value"; return 2; }; skill_invoked="$2"; shift 2 ;;
+      --elapsed-ms) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --elapsed-ms requires a value"; return 2; }; elapsed_ms="$2"; shift 2 ;;
+      *) ac_log_error "ac_state_external_run_finalize_resume: unknown flag: $1"; return 2 ;;
+    esac
+  done
+  if [[ -z "$run_id" || -z "$request_id" || -z "$depth" || -z "$adversaries_raw" || -z "$challenge_count" || -z "$concessions" || -z "$skill_invoked" || -z "$elapsed_ms" ]]; then
+    ac_log_error "ac_state_external_run_finalize_resume: --run-id --request-id --depth --adversaries --challenge-count --concessions --skill-invoked --elapsed-ms are required"
+    return 2
+  fi
+  if [[ "$adversaries_raw" == \[* ]]; then
+    adversaries_json="$adversaries_raw"
+  else
+    adversaries_json="$(printf '%s\n' "$adversaries_raw" \
+      | awk -F',' 'BEGIN { printf "[" } { for (i=1;i<=NF;i++) { gsub(/^[ \t]+|[ \t]+$/, "", $i); if ($i != "") { if (n++) printf ","; gsub(/"/, "\\\"", $i); printf "\"%s\"", $i } } } END { printf "]" }')"
+  fi
+  if ! printf '%s' "$adversaries_json" | jq -e 'type == "array"' >/dev/null 2>&1; then
+    ac_log_error "ac_state_external_run_finalize_resume: adversaries must be a JSON array or CSV list"
+    return 2
+  fi
+
+  ac_state_init
+  local state_file lock_path existing completed_at
+  state_file="$(ac_state_path)"
+  lock_path="$(ac_data_dir)/state.lock"
+  completed_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  ac_lock_acquire "$lock_path" || return 1
+  if ! jq -e --arg rid "$run_id" '(.external_runs // []) | any(.run_id == $rid)' "$state_file" >/dev/null 2>&1; then
+    ac_log_error "ac_state_external_run_finalize_resume: run-id not found: $run_id"
+    ac_lock_release "$lock_path"
+    return 1
+  fi
+  existing="$(jq -r --arg rid "$run_id" '(.external_runs // []) | map(select(.run_id == $rid)) | .[0].resolved_run_request_id // "null"' "$state_file" 2>/dev/null || echo "null")"
+  if [[ "$existing" != "null" && -n "$existing" ]]; then
+    ac_log_warn "ac_state_external_run_finalize_resume: run $run_id already resolved to $existing (inspect-only)"
+    ac_lock_release "$lock_path"
+    return 1
+  fi
+
+  local rc
+  if ac_guarded_jq_write "$state_file" \
+    --arg run "$run_id" \
+    --arg rid "$request_id" \
+    --arg cat "$completed_at" \
+    --arg dep "$depth" \
+    --argjson adv "$adversaries_json" \
+    --argjson cc "$challenge_count" \
+    --argjson con "$concessions" \
+    --arg skl "$skill_invoked" \
+    --argjson elm "$elapsed_ms" \
+    '.recent_runs = (((.recent_runs // []) + [{
+       "request_id": $rid,
+       "completed_at": $cat,
+       "depth": $dep,
+       "adversaries_used": $adv,
+       "challenge_count": $cc,
+       "concessions": $con,
+       "skill_invoked": $skl,
+       "elapsed_ms": $elm
+     }]) | if length > 20 then .[-20:] else . end)
+     | .external_runs = ((.external_runs // []) | map(
+       if .run_id == $run then .resolved_run_request_id = $rid else . end))' \
     "$state_file"; then
     rc=0
   else

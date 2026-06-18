@@ -65,7 +65,7 @@ switch (sub) {
     // exact shape consolidator.sh + _ac_codex_validate_json consume.
     const raw =
       process.env.CODEX_SHIM_RESULT_RAWOUTPUT ??
-      'Adversarial audit complete.\n\n```json\n{"challenges":[{"text":"Codex challenge A","severity":"high","rationale":"why it matters"}],"gaps":[]}\n```\n';
+      'Adversarial audit complete.\n\n```json\n{"challenges":[{"text":"Codex challenge A","severity":"premise","rationale":"why it matters"}],"gaps":[]}\n```\n';
     out({ job: { id: jobId, status: "completed" }, storedJob: { result: { rawOutput: raw } } });
     break;
   }

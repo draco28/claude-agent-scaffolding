@@ -5,8 +5,9 @@ argument-hint: [--limit N]
 
 # /critique-list
 
-Invoke the **reviewing-critique-history** skill. The skill body reads state.json (schema v2)
-and renders `recent_runs[]` as a human-readable table. This slash command is a thin wrapper.
+Invoke the **reviewing-critique-history** skill. The skill body reads state.json (schema v3)
+and renders `recent_runs[]` plus any background `external_runs[]` as human-readable tables.
+This slash command is a thin wrapper.
 
 ## Arguments
 

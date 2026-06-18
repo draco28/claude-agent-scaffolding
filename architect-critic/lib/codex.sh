@@ -94,7 +94,9 @@ _ac_codex_validate_json() {
     (.challenges | all(
       type == "object" and
       (.text | type == "string") and
-      (.severity | type == "string") and
+      (.severity as $severity |
+        ($severity | type == "string") and
+        (["premise", "gap", "alternative"] | index($severity) != null)) and
       (.rationale | type == "string")
     )) and
     (.gaps == null or (.gaps | type == "array"))
@@ -157,8 +159,18 @@ ac_codex_run_audit() {
   local timeout_override=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --model)   model_override="$2"; shift 2 ;;
-      --timeout) timeout_override="$2"; shift 2 ;;
+      --model)
+        if ! _ac_codex_require_value "ac_codex_run_audit" "$1" "${2:-}"; then
+          printf '%s' '{"challenges":[]}'
+          return 1
+        fi
+        model_override="$2"; shift 2 ;;
+      --timeout)
+        if ! _ac_codex_require_nonnegative_int "ac_codex_run_audit" "$1" "${2:-}"; then
+          printf '%s' '{"challenges":[]}'
+          return 1
+        fi
+        timeout_override="$2"; shift 2 ;;
       *) shift ;;
     esac
   done
@@ -600,6 +612,59 @@ ac_codex_wait() {
   done
 }
 
+# ac_codex_status <target-root> <job-id>
+# Single non-mutating status probe. ALWAYS rc0; echoes one token:
+#   running | completed | failed | cancelled | stalled | capped | error
+ac_codex_status() {
+  local root="${1:-}" job="${2:-}"
+  if [[ -z "$root" || -z "$job" ]]; then
+    ac_log_error "ac_codex_status: usage: arc codex_status <target-root> <job-id>"
+    echo "error"; return 0
+  fi
+  local companion
+  if ! companion="$(ac_codex_resolve_companion)"; then echo "error"; return 0; fi
+  local out status
+  if out="$(cd "$root" && node "$companion" status "$job" --json 2>&1)"; then :; else
+    ac_log_error "ac_codex_status: status call failed: $out"; echo "error"; return 0
+  fi
+  status="$(printf '%s' "$out" | jq -r '.job.status // empty' 2>/dev/null || echo "")"
+  case "$status" in
+    done) echo "completed" ;;
+    running|completed|failed|cancelled|stalled|capped) echo "$status" ;;
+    ""|null) ac_log_error "ac_codex_status: unparseable status: $out"; echo "error" ;;
+    *) ac_log_warn "ac_codex_status: unknown companion status: $status"; echo "$status" ;;
+  esac
+  return 0
+}
+
+# ac_codex_cancel <target-root> <job-id>
+# Terminal-aware public cancel. If the job already completed/failed/etc., preserve
+# that terminal token and do not call companion cancel. ALWAYS rc0.
+ac_codex_cancel() {
+  local root="${1:-}" job="${2:-}"
+  if [[ -z "$root" || -z "$job" ]]; then
+    ac_log_error "ac_codex_cancel: usage: arc codex_cancel <target-root> <job-id>"
+    echo "error"; return 0
+  fi
+  local status companion out cancel_status
+  status="$(ac_codex_status "$root" "$job")"
+  case "$status" in
+    completed|failed|cancelled|stalled|capped|error) echo "$status"; return 0 ;;
+  esac
+  if ! companion="$(ac_codex_resolve_companion)"; then echo "error"; return 0; fi
+  if out="$(cd "$root" && node "$companion" cancel "$job" --json 2>&1)"; then :; else
+    ac_log_warn "ac_codex_cancel: cancel reported non-zero (job may already be terminal): $out"
+    echo "error"; return 0
+  fi
+  cancel_status="$(printf '%s' "$out" | jq -r '.job.status // empty' 2>/dev/null || echo "")"
+  case "$cancel_status" in
+    done) echo "completed" ;;
+    running|completed|failed|cancelled|stalled|capped) echo "$cancel_status" ;;
+    *) echo "cancelled" ;;
+  esac
+  return 0
+}
+
 # _ac_codex_cancel <target-root> <companion> <job> — best-effort cancel + confirm.
 _ac_codex_cancel() {
   local root="$1" companion="$2" job="$3" out
@@ -722,6 +787,10 @@ ac_codex_size_hint() {
   local artifact="${1:-}"
   local thresh="${ARCHITECT_CRITIC_ASYNC_HINT_LINES:-400}"
   local lines=0
+  if [[ ! "$thresh" =~ ^[0-9]+$ ]]; then
+    ac_log_warn "ac_codex_size_hint: ARCHITECT_CRITIC_ASYNC_HINT_LINES must be a non-negative integer; using 400"
+    thresh=400
+  fi
   [[ -f "$artifact" ]] && lines="$(wc -l < "$artifact" 2>/dev/null | tr -d ' ')"
   [[ "$lines" =~ ^[0-9]+$ ]] || lines=0
   if [[ "$lines" -ge "$thresh" ]]; then

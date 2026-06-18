@@ -16,6 +16,28 @@ ARC="$PLUGIN_ROOT/bin/arc"
 echo "=== test-state-external-runs.sh ==="
 setup_tmp_repo > /dev/null
 
+assert_quick_exit_code() {
+  local expected="$1"; shift
+  local out="$CLAUDE_PLUGIN_DATA/quick-exit.out"
+  set +e
+  "$@" >"$out" 2>&1 &
+  local pid=$!
+  sleep 1
+  if kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null
+    wait "$pid" 2>/dev/null
+    echo "  ✗ command did not exit promptly: $*"; FAIL=$((FAIL+1))
+    return
+  fi
+  wait "$pid"
+  local ec=$?
+  if [[ "$ec" == "$expected" ]]; then
+    echo "  ✓ exit code $expected for: $*"; PASS=$((PASS+1))
+  else
+    echo "  ✗ exit code $expected for: $* (got $ec)"; FAIL=$((FAIL+1))
+  fi
+}
+
 echo "-- fresh init is schema v3 with external_runs[] --"
 ac_state_init
 state_file="$(ac_state_path)"
@@ -40,10 +62,39 @@ echo "-- list + status filter --"
 assert_eq "one completed in list" "1" "$(bash "$ARC" state_external_run_list --status completed | jq 'length')"
 assert_eq "zero running in list" "0" "$(bash "$ARC" state_external_run_list --status running | jq 'length')"
 
+echo "-- missing flag values fail promptly --"
+assert_quick_exit_code 2 bash "$ARC" state_external_run_add --run-id
+assert_quick_exit_code 2 bash "$ARC" state_external_run_set_status r1 completed --completed-at
+assert_quick_exit_code 2 bash "$ARC" state_external_run_list --status
+
 echo "-- resolve once; second resolve fails (idempotency guard) --"
 assert_exit_code 0 bash "$ARC" state_external_run_resolve r1 req-1
 assert_exit_code 1 bash "$ARC" state_external_run_resolve r1 req-2
 assert_eq "resolved id pinned" "req-1" "$(bash "$ARC" state_external_run_get r1 | jq -r '.resolved_run_request_id')"
+
+echo "-- finalize_resume appends recent run and resolves atomically once --"
+bash "$ARC" state_external_run_add --run-id r2 --host claude --adversary codex \
+  --artifact /tmp/spec2.md --depth close --result-path "$CLAUDE_PLUGIN_DATA/async/r2/result.json"
+assert_exit_code 0 bash "$ARC" state_external_run_finalize_resume \
+  --run-id r2 \
+  --request-id req-final \
+  --depth close \
+  --adversaries claude,codex \
+  --challenge-count 4 \
+  --concessions 2 \
+  --skill-invoked critiquing-spec \
+  --elapsed-ms 1200
+assert_exit_code 1 bash "$ARC" state_external_run_finalize_resume \
+  --run-id r2 \
+  --request-id req-final-dup \
+  --depth close \
+  --adversaries claude,codex \
+  --challenge-count 4 \
+  --concessions 2 \
+  --skill-invoked critiquing-spec \
+  --elapsed-ms 1200
+assert_eq "finalize appended once" "1" "$(jq '[.recent_runs[] | select(.request_id | startswith("req-final"))] | length' "$state_file")"
+assert_eq "finalize pinned request id" "req-final" "$(bash "$ARC" state_external_run_get r2 | jq -r '.resolved_run_request_id')"
 
 echo "-- migration v2 → v3 (idempotent, preserves recent_runs, no in_flight) --"
 printf '%s' '{"schema_version":2,"recent_runs":[{"request_id":"old"}],"principle_promotions":[],"candidate_promotions":[],"declined_candidates":[],"auto_promote_suppressions":[]}' > "$state_file"
@@ -75,5 +126,7 @@ grep -qi "Consolidate + Rebuttal + Append\|critiquing-spec" "$JOBSK" && { echo "
 echo "-- history lists external runs --"
 HIST="$PLUGIN_ROOT/skills/reviewing-critique-history/SKILL.md"
 grep -qi "external_run\|in-flight\|background" "$HIST" && { echo "  ✓ history mentions external runs"; PASS=$((PASS+1)); } || { echo "  ✗ history missing external runs"; FAIL=$((FAIL+1)); }
+grep -qi "recent_runs.*empty.*external_runs.*entries\|continue to Step 4b" "$HIST" && { echo "  ✓ history keeps background runs visible when completed history is empty"; PASS=$((PASS+1)); } || { echo "  ✗ history may hide background runs when recent_runs is empty"; FAIL=$((FAIL+1)); }
+grep -q '"schema_version": 3' "$HIST" && { echo "  ✓ history worked example uses schema v3"; PASS=$((PASS+1)); } || { echo "  ✗ history worked example is not schema v3"; FAIL=$((FAIL+1)); }
 
 report_results

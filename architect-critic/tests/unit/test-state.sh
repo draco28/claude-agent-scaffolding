@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# tests/unit/test-state.sh — tests for lib/state.sh (schema v2, Phase 3)
-# Covers: init at schema v2, recent_runs with concessions/skill_invoked (no cost_usd),
+# tests/unit/test-state.sh — tests for lib/state.sh (schema v3, async external runs)
+# Covers: init at schema v3, recent_runs with concessions/skill_invoked (no cost_usd),
 # auto_promote_suppressions with 30/90-day windows, promotions, declined, locks.
 
 set -u
@@ -17,6 +17,28 @@ source "$LIB_DIR/state.sh"
 # Setup
 # ---------------------------------------------------------------------------
 setup_tmp_repo
+
+assert_quick_exit_code() {
+  local expected="$1"; shift
+  local out="$CLAUDE_PLUGIN_DATA/quick-exit.out"
+  set +e
+  "$@" >"$out" 2>&1 &
+  local pid=$!
+  sleep 1
+  if kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null
+    wait "$pid" 2>/dev/null
+    echo "  ✗ command did not exit promptly: $*"; FAIL=$((FAIL+1))
+    return
+  fi
+  wait "$pid"
+  local ec=$?
+  if [[ "$ec" == "$expected" ]]; then
+    echo "  ✓ exit code $expected for: $*"; PASS=$((PASS+1))
+  else
+    echo "  ✗ exit code $expected for: $* (got $ec)"; FAIL=$((FAIL+1))
+  fi
+}
 
 # ---------------------------------------------------------------------------
 # T1: ac_state_path returns expected path
@@ -79,9 +101,9 @@ read_output="$(ac_state_read | jq '.schema_version')"
 assert_eq "ac_state_read emits parseable JSON" "2" "$read_output"
 
 # ---------------------------------------------------------------------------
-# T7: ac_state_append_run — schema v2 row with concessions + skill_invoked, no cost_usd
+# T7: ac_state_append_run — schema v3-compatible row with concessions + skill_invoked, no cost_usd
 # ---------------------------------------------------------------------------
-echo "T7: ac_state_append_run (schema v2)"
+echo "T7: ac_state_append_run (schema v3-compatible)"
 ac_state_append_run "crit-2026-05-24T10:00:00Z-close-abc123" "close" '["claude","codex"]' 8 2 "critiquing-spec" 65000
 runs_len="$(jq '.recent_runs | length' "$state_file")"
 assert_eq "recent_runs has 1 entry after append" "1" "$runs_len"
@@ -134,6 +156,9 @@ flag_adv="$(jq -r '.recent_runs[0].adversaries_used | join(",")' "$state_file")"
 assert_eq "CSV adversaries converted to JSON array" "claude,codex" "$flag_adv"
 flag_count="$(jq -r '.recent_runs[0].challenge_count' "$state_file")"
 assert_eq "flag-style challenge_count stored" "13" "$flag_count"
+
+echo "T7f: ac_state_append_run missing flag values fail promptly"
+assert_quick_exit_code 2 "$TESTS_DIR/../bin/arc" state_append_run --request-id
 
 # ---------------------------------------------------------------------------
 # T8: recent_runs cap at 20 entries (drops oldest)

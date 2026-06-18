@@ -16,7 +16,7 @@ This skill is **advisory and fail-soft**: it reports readiness and how to fix ga
 Run the doctor through the dispatcher (it sources the libs and always exits 0):
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/bin/arc" codex_doctor
+arc codex_doctor
 ```
 
 This prints, one line each:

@@ -398,7 +398,7 @@ arc state_append_run \
 
 `--adversaries` accepts either a JSON array such as `["claude","codex"]` or a CSV string such as `claude,codex`.
 
-The schema v2 `recent_runs[]` entry includes:
+The schema v3 `recent_runs[]` entry includes:
 - `request_id` — `crit-<ISO8601>-<entropy>` generated upstream
 - `completed_at` — ISO8601 UTC
 - `depth` — `shallow` or `close`

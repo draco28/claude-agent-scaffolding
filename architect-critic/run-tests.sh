@@ -13,11 +13,17 @@ FAILED_FILES=()
 if [[ $# -gt 0 ]]; then
   TARGETS=("$@")
 else
+  shopt -s nullglob
   TARGETS=(tests/unit/test-*.sh tests/integration/test-*.sh)
+  shopt -u nullglob
 fi
 
 for t in "${TARGETS[@]}"; do
-  [[ -f "$t" ]] || continue
+  if [[ ! -f "$t" ]]; then
+    echo "run-tests.sh: test file not found: $t" >&2
+    FAILED_FILES+=("$t")
+    continue
+  fi
   FILES=$((FILES + 1))
   echo "=== $t ==="
   if bash "$t"; then
@@ -31,6 +37,10 @@ done
 echo "================================================================"
 echo "Test files run: $FILES"
 echo "Failed files:   ${#FAILED_FILES[@]}"
+if [[ "$FILES" -eq 0 && "${#FAILED_FILES[@]}" -eq 0 ]]; then
+  echo "run-tests.sh: no test files found" >&2
+  exit 1
+fi
 if [[ "${#FAILED_FILES[@]}" -gt 0 ]]; then
   printf '  - %s\n' "${FAILED_FILES[@]}"
   exit 1
