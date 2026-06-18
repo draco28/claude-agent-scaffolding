@@ -1,29 +1,36 @@
 #!/usr/bin/env bash
-# lib/state.sh — state.json CRUD for architect-critic (schema v2, Phase 3)
-# macOS bash 3.2 portable; no declare -A; explicit lock release before each return.
+# lib/state.sh — state.json CRUD for architect-critic (schema v3, #39)
+# Linux + macOS bash 3.2 portable; no declare -A; explicit lock release before each return.
 #
-# Schema v2 (SPEC §6.1):
+# Schema v3 (#39):
 #   {
-#     "schema_version": 2,
+#     "schema_version": 3,
 #     "recent_runs": [ {request_id, completed_at, depth, adversaries_used[],
 #                       challenge_count, concessions, skill_invoked, elapsed_ms} ],
+#     "external_runs": [ {run_id, host_agent, adversary, artifact_path, depth, status,
+#                         started_at, completed_at, result_path, codex_session_id,
+#                         resolved_run_request_id} ],
 #     "principle_promotions": [...],
 #     "candidate_promotions": [...],
 #     "declined_candidates": [...],
 #     "auto_promote_suppressions": [ {fingerprint, suppressed_at, expires_at, reason_score} ]
 #   }
-# v2 changes vs v1: drops the per-request in-flight tracker and per-run USD field;
-# adds concessions + skill_invoked to recent_runs; adds auto_promote_suppressions[].
+# v3 changes vs v2 (#39): adds external_runs[] — durable async external-adversary job
+#   memory (status/result/resume + re-resume idempotency via resolved_run_request_id).
+# v2 changes vs v1: dropped the per-request in-flight tracker and per-run USD field;
+#   added concessions + skill_invoked to recent_runs; added auto_promote_suppressions[].
 
 # Returns the absolute path to state.json.
 ac_state_path() {
   echo "$(ac_data_dir)/state.json"
 }
 
-# Initialise state.json with an empty schema v2 if it does not already exist.
-# If file exists (any schema_version), leave it untouched. When the on-disk
-# schema_version is higher than what this build knows (2), log info and preserve
-# — forward-compatibility tolerance.
+# Initialise state.json with an empty schema v3 if it does not already exist.
+# If the file exists at the immediate predecessor (v2), upgrade it in place via
+# ac_state_migrate (adds external_runs[], bumps to 3). A schema_version higher
+# than this build knows (>3) is preserved untouched with an info log
+# (forward-compatibility tolerance). Files < 2 are the v0.1→v0.2 filesystem
+# migration's responsibility (lib/migration.sh), not touched here.
 ac_state_init() {
   local state_file
   state_file="$(ac_state_path)"
@@ -31,14 +38,43 @@ ac_state_init() {
   data_dir="$(ac_data_dir)"
   if [[ ! -f "$state_file" ]]; then
     mkdir -p "$data_dir"
-    printf '%s\n' '{"schema_version":2,"recent_runs":[],"principle_promotions":[],"candidate_promotions":[],"declined_candidates":[],"auto_promote_suppressions":[]}' > "$state_file"
+    printf '%s\n' '{"schema_version":3,"recent_runs":[],"external_runs":[],"principle_promotions":[],"candidate_promotions":[],"declined_candidates":[],"auto_promote_suppressions":[]}' > "$state_file"
   else
     local on_disk_ver
     on_disk_ver="$(jq -r '.schema_version // 0' "$state_file" 2>/dev/null || echo 0)"
-    if [[ "$on_disk_ver" -gt 2 ]] 2>/dev/null; then
+    if [[ "$on_disk_ver" -gt 3 ]] 2>/dev/null; then
       ac_log_info "state.json has future schema_version=${on_disk_ver}; preserving without modification"
+    elif [[ "$on_disk_ver" -eq 2 ]] 2>/dev/null; then
+      ac_state_migrate
     fi
   fi
+}
+
+# ac_state_migrate — upgrade an existing state.json to the current schema (v3),
+# idempotently. v2 → add external_runs[] (if absent) + set schema_version=3,
+# preserving every existing field. Files already >=3 are left untouched; files
+# <2 are the v0.1→v0.2 filesystem migration's job and are not touched here.
+ac_state_migrate() {
+  local state_file lock_path ver
+  state_file="$(ac_state_path)"
+  lock_path="$(ac_data_dir)/state.lock"
+  [[ -f "$state_file" ]] || return 0
+  ver="$(jq -r '.schema_version // 0' "$state_file" 2>/dev/null || echo 0)"
+  [[ "$ver" =~ ^[0-9]+$ ]] || ver=0
+  if [[ "$ver" -ge 3 || "$ver" -lt 2 ]]; then
+    return 0
+  fi
+  ac_lock_acquire "$lock_path" || return 1
+  local rc
+  if ac_guarded_jq_write "$state_file" \
+    '.external_runs = (.external_runs // []) | .schema_version = 3' \
+    "$state_file"; then
+    rc=0
+  else
+    rc=$?
+  fi
+  ac_lock_release "$lock_path"
+  return $rc
 }
 
 # Emit the raw contents of state.json to stdout.
@@ -198,11 +234,32 @@ ac_state_append_declined() {
   return $rc
 }
 
+# _ac_date_add_days <iso-8601-utc> <days> — echo the timestamp + N days, UTC.
+# Portable across macOS/BSD (`date -j -f -v`) and Linux (GNU coreutils `date -d`).
+# BSD is tried FIRST: its `-j` fails cleanly on GNU date, whereas GNU's `-d`
+# syntax makes BSD date emit non-empty GARBAGE (its `-d` means daylight-saving),
+# so "first non-empty wins" would silently return the wrong value on macOS. Each
+# branch is therefore also validated against a strict ISO-8601 regex so no
+# non-conforming output can slip through. Echoes empty + rc1 if neither parses.
+_ac_date_add_days() {
+  local ts="$1" days="$2" out
+  local re='^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$'
+  # BSD: -v MUST precede -f — BSD getopt stops at the first positional, so a -v
+  # placed after the input date is silently ignored (returns the input unchanged).
+  if out="$(date -u -j "-v+${days}d" -f "%Y-%m-%dT%H:%M:%SZ" "$ts" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null)" && [[ "$out" =~ $re ]]; then
+    echo "$out"; return 0
+  fi
+  if out="$(date -u -d "$ts +$days days" +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null)" && [[ "$out" =~ $re ]]; then
+    echo "$out"; return 0
+  fi
+  echo ""; return 1
+}
+
 # Append an auto-promote suppression entry by fingerprint.
 # Args: <fingerprint> <reason_score>
 #   fingerprint: opaque string identifying the candidate (caller computes SHA-256)
 #   reason_score: integer 4 → 30-day window; 5 → 90-day window
-# Uses BSD date arithmetic (date -u -v+30d) for macOS portability.
+# Window arithmetic is portable (GNU date -d OR BSD date -v) via _ac_date_add_days.
 ac_state_add_suppression() {
   local fingerprint="$1"
   local reason_score="$2"
@@ -220,8 +277,8 @@ ac_state_add_suppression() {
       ;;
   esac
 
-  # BSD date: parse suppressed_at then add N days. -j = no set, -f = input format.
-  expires_at="$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$suppressed_at" "-v+${days}d" +"%Y-%m-%dT%H:%M:%SZ")"
+  # Portable date arithmetic (GNU date -d on Linux, BSD date -v on macOS).
+  expires_at="$(_ac_date_add_days "$suppressed_at" "$days")"
 
   ac_lock_acquire "$lock_path" || return 1
   ac_guarded_jq_write "$state_file" \
@@ -237,6 +294,187 @@ ac_state_add_suppression() {
      }]' \
     "$state_file"
   local rc=$?
+  ac_lock_release "$lock_path"
+  return $rc
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+# external_runs[] — durable async external-adversary job memory (schema v3, #39).
+# Each function calls ac_state_init first (creates a v3 file / lazily migrates a
+# v2 file), so external_runs[] always exists before read/write.
+# ═════════════════════════════════════════════════════════════════════════════
+
+# ac_state_external_run_add --run-id R --host H --adversary A --artifact P --depth D
+#                           --result-path RP [--codex-session-id S]
+# Appends a {status:"running"} record (started_at=now); caps to last 20. rc0/rc2.
+ac_state_external_run_add() {
+  local run_id="" host="" adversary="" artifact="" depth="" result_path="" session_id=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --run-id) run_id="${2:-}"; shift 2 ;;
+      --host) host="${2:-}"; shift 2 ;;
+      --adversary) adversary="${2:-}"; shift 2 ;;
+      --artifact) artifact="${2:-}"; shift 2 ;;
+      --depth) depth="${2:-}"; shift 2 ;;
+      --result-path) result_path="${2:-}"; shift 2 ;;
+      --codex-session-id) session_id="${2:-}"; shift 2 ;;
+      *) ac_log_error "ac_state_external_run_add: unknown flag: $1"; return 2 ;;
+    esac
+  done
+  if [[ -z "$run_id" || -z "$host" || -z "$adversary" || -z "$artifact" || -z "$depth" || -z "$result_path" ]]; then
+    ac_log_error "ac_state_external_run_add: --run-id --host --adversary --artifact --depth --result-path are required"
+    return 2
+  fi
+  ac_state_init
+  local state_file lock_path started_at
+  state_file="$(ac_state_path)"
+  lock_path="$(ac_data_dir)/state.lock"
+  started_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  ac_lock_acquire "$lock_path" || return 1
+  local rc
+  if ac_guarded_jq_write "$state_file" \
+    --arg rid "$run_id" --arg host "$host" --arg adv "$adversary" \
+    --arg art "$artifact" --arg dep "$depth" --arg rp "$result_path" \
+    --arg sid "$session_id" --arg sa "$started_at" \
+    '.external_runs = (((.external_runs // []) + [{
+       "run_id": $rid,
+       "host_agent": $host,
+       "adversary": $adv,
+       "artifact_path": $art,
+       "depth": $dep,
+       "status": "running",
+       "started_at": $sa,
+       "completed_at": null,
+       "result_path": $rp,
+       "codex_session_id": (if $sid == "" then null else $sid end),
+       "resolved_run_request_id": null
+     }]) | if length > 20 then .[-20:] else . end)' \
+    "$state_file"; then
+    rc=0
+  else
+    rc=$?
+  fi
+  ac_lock_release "$lock_path"
+  return $rc
+}
+
+# ac_state_external_run_set_status <run-id> <status> [--completed-at TS]
+# Terminal statuses (completed/failed/cancelled/stalled/capped) auto-stamp
+# completed_at when not supplied. rc1 if run-id absent.
+ac_state_external_run_set_status() {
+  local run_id="${1:-}" status="${2:-}"
+  shift 2 2>/dev/null || true
+  local completed_at=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --completed-at) completed_at="${2:-}"; shift 2 ;;
+      *) ac_log_error "ac_state_external_run_set_status: unknown flag: $1"; return 2 ;;
+    esac
+  done
+  if [[ -z "$run_id" || -z "$status" ]]; then
+    ac_log_error "ac_state_external_run_set_status: usage: <run-id> <status> [--completed-at TS]"
+    return 2
+  fi
+  ac_state_init
+  local state_file lock_path
+  state_file="$(ac_state_path)"
+  lock_path="$(ac_data_dir)/state.lock"
+  case "$status" in
+    completed|failed|cancelled|stalled|capped)
+      [[ -z "$completed_at" ]] && completed_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")" ;;
+  esac
+  if ! jq -e --arg rid "$run_id" '(.external_runs // []) | any(.run_id == $rid)' "$state_file" >/dev/null 2>&1; then
+    ac_log_error "ac_state_external_run_set_status: run-id not found: $run_id"
+    return 1
+  fi
+  ac_lock_acquire "$lock_path" || return 1
+  local rc
+  if ac_guarded_jq_write "$state_file" \
+    --arg rid "$run_id" --arg st "$status" --arg ca "$completed_at" \
+    '.external_runs = ((.external_runs // []) | map(
+       if .run_id == $rid then
+         (.status = $st) | (if $ca != "" then .completed_at = $ca else . end)
+       else . end))' \
+    "$state_file"; then
+    rc=0
+  else
+    rc=$?
+  fi
+  ac_lock_release "$lock_path"
+  return $rc
+}
+
+# ac_state_external_run_get <run-id> — echo the record (compact JSON); rc1 absent.
+ac_state_external_run_get() {
+  local run_id="${1:-}"
+  if [[ -z "$run_id" ]]; then
+    ac_log_error "ac_state_external_run_get: run-id required"; return 1
+  fi
+  ac_state_init
+  local state_file rec
+  state_file="$(ac_state_path)"
+  rec="$(jq -c --arg rid "$run_id" '(.external_runs // []) | map(select(.run_id == $rid)) | .[0] // empty' "$state_file" 2>/dev/null || echo "")"
+  if [[ -z "$rec" ]]; then
+    return 1
+  fi
+  printf '%s\n' "$rec"
+  return 0
+}
+
+# ac_state_external_run_list [--status S] — echo a JSON array (optionally filtered).
+ac_state_external_run_list() {
+  local filter=""
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --status) filter="${2:-}"; shift 2 ;;
+      *) ac_log_error "ac_state_external_run_list: unknown flag: $1"; return 2 ;;
+    esac
+  done
+  ac_state_init
+  local state_file
+  state_file="$(ac_state_path)"
+  if [[ -n "$filter" ]]; then
+    jq -c --arg st "$filter" '(.external_runs // []) | map(select(.status == $st))' "$state_file" 2>/dev/null || echo "[]"
+  else
+    jq -c '(.external_runs // [])' "$state_file" 2>/dev/null || echo "[]"
+  fi
+  return 0
+}
+
+# ac_state_external_run_resolve <run-id> <request-id>
+# Set resolved_run_request_id ONCE (re-resume idempotency guard). rc1 if the run
+# is absent OR already resolved (caller treats an already-resolved run as
+# inspect-only).
+ac_state_external_run_resolve() {
+  local run_id="${1:-}" request_id="${2:-}"
+  if [[ -z "$run_id" || -z "$request_id" ]]; then
+    ac_log_error "ac_state_external_run_resolve: usage: <run-id> <request-id>"
+    return 2
+  fi
+  ac_state_init
+  local state_file lock_path existing
+  state_file="$(ac_state_path)"
+  lock_path="$(ac_data_dir)/state.lock"
+  if ! jq -e --arg rid "$run_id" '(.external_runs // []) | any(.run_id == $rid)' "$state_file" >/dev/null 2>&1; then
+    ac_log_error "ac_state_external_run_resolve: run-id not found: $run_id"
+    return 1
+  fi
+  existing="$(jq -r --arg rid "$run_id" '(.external_runs // []) | map(select(.run_id == $rid)) | .[0].resolved_run_request_id // "null"' "$state_file" 2>/dev/null || echo "null")"
+  if [[ "$existing" != "null" && -n "$existing" ]]; then
+    ac_log_warn "ac_state_external_run_resolve: run $run_id already resolved to $existing (inspect-only)"
+    return 1
+  fi
+  ac_lock_acquire "$lock_path" || return 1
+  local rc
+  if ac_guarded_jq_write "$state_file" \
+    --arg rid "$run_id" --arg req "$request_id" \
+    '.external_runs = ((.external_runs // []) | map(
+       if .run_id == $rid then .resolved_run_request_id = $req else . end))' \
+    "$state_file"; then
+    rc=0
+  else
+    rc=$?
+  fi
   ac_lock_release "$lock_path"
   return $rc
 }

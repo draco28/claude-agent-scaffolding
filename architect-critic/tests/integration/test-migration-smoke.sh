@@ -70,10 +70,10 @@ grep -q "My custom user principle" "$DATA_DIR/principles.md" || \
 grep -q "migrated from v0.1.x" "$DATA_DIR/principles.md" || \
   fail_msg "migration tag (migrated from v0.1.x) missing from principles.md"
 
-# 7. Fresh state.json has schema 2
+# 7. Fresh state.json has the current schema (v3 as of #39)
 schema_ver="$(jq -r '.schema_version' "$DATA_DIR/state.json" 2>/dev/null)"
-if [[ "$schema_ver" != "2" ]]; then
-  fail_msg "fresh state.json schema_version='$schema_ver' (expected 2)"
+if [[ "$schema_ver" != "3" ]]; then
+  fail_msg "fresh state.json schema_version='$schema_ver' (expected 3)"
 fi
 
 # 8. Fresh state.json has no in_flight, no cost_usd anywhere

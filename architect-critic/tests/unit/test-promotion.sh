@@ -141,7 +141,7 @@ assert_eq "after 30d suppression: NOT surfaced" "0" "$SURFACED_COUNT"
 state_file="$(ac_state_path)"
 SUPPRESSED_AT="$(jq -r --arg fp "$FP_S" '.auto_promote_suppressions[] | select(.fingerprint == $fp) | .suppressed_at' "$state_file")"
 EXPIRES_AT="$(jq -r --arg fp "$FP_S" '.auto_promote_suppressions[] | select(.fingerprint == $fp) | .expires_at' "$state_file")"
-EXPECTED_30="$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$SUPPRESSED_AT" "-v+30d" +"%Y-%m-%dT%H:%M:%SZ")"
+EXPECTED_30="$(_ac_date_add_days "$SUPPRESSED_AT" 30)"
 assert_eq "reason_score=4 → 30-day window" "$EXPECTED_30" "$EXPIRES_AT"
 
 # ---------------------------------------------------------------------------
@@ -159,7 +159,7 @@ ac_promotion_apply_suppression "$FP_S2" 5
 state_file="$(ac_state_path)"
 SUPPRESSED_AT="$(jq -r --arg fp "$FP_S2" '.auto_promote_suppressions[] | select(.fingerprint == $fp) | .suppressed_at' "$state_file")"
 EXPIRES_AT="$(jq -r --arg fp "$FP_S2" '.auto_promote_suppressions[] | select(.fingerprint == $fp) | .expires_at' "$state_file")"
-EXPECTED_90="$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$SUPPRESSED_AT" "-v+90d" +"%Y-%m-%dT%H:%M:%SZ")"
+EXPECTED_90="$(_ac_date_add_days "$SUPPRESSED_AT" 90)"
 assert_eq "reason_score=5 → 90-day window" "$EXPECTED_90" "$EXPIRES_AT"
 
 SURFACED="$(ac_promotion_check_candidates)"

@@ -88,7 +88,7 @@ else
   echo "  SKIP: mock-codex fixture not available; skipping codex subshell test"
 fi
 
-# --- 4. State.sh schema v2 init works in fresh HOME ---
+# --- 4. State.sh schema v3 init works in fresh HOME ---
 echo ""
 echo "=== Subshell check: state.sh init under fresh HOME ==="
 fresh_home="$(mktemp -d)"
@@ -96,8 +96,8 @@ trap 'rm -rf "$mock_dir" "$fresh_home"' EXIT
 if HOME="$fresh_home" CLAUDE_PLUGIN_DATA="$fresh_home/.claude/architect-critic" \
    bash -c "source '$PLUGIN_DIR/lib/_helpers.sh'; source '$PLUGIN_DIR/lib/state.sh'; ac_state_init && [[ -f \"\$(ac_state_path)\" ]]" 2>/dev/null; then
   schema_ver="$(jq -r '.schema_version' "$fresh_home/.claude/architect-critic/state.json" 2>/dev/null)"
-  if [[ "$schema_ver" == "2" ]]; then
-    assert_pass "ac_state_init creates schema v2 state.json under fresh HOME"
+  if [[ "$schema_ver" == "3" ]]; then
+    assert_pass "ac_state_init creates schema v3 state.json under fresh HOME"
   else
     assert_fail "ac_state_init created wrong schema_version: $schema_ver"
   fi
