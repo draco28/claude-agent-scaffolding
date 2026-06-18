@@ -106,6 +106,8 @@ You need four values: `HOST_AGENT`, `codex_available`, `claude_available`, and `
 
 Otherwise `close_depth = false` (shallow = claude-only audit, the default).
 
+**Async detection (#39).** Set `async_mode = true` if `--async` is present in `$ARCHITECT_CRITIC_ARGS`. Async is only meaningful for a **close-depth** audit with `HOST_AGENT=claude` (the Codex companion is the only proven background backend; Codex-host keeps the synchronous path). If `--async` is set but `close_depth=false` or `HOST_AGENT=codex`, ignore it and run synchronously, telling the user why. When `async_mode=true` and applicable, Step 6 takes the **defer-to-resume** path (dispatch now, resume later) instead of the inline invocation.
+
 The close-depth adversary is host-aware:
 
 | HOST_AGENT | close_depth | available check | What runs |
@@ -190,6 +192,43 @@ Skip this step if `close_depth = false` or the external adversary for `HOST_AGEN
 
 The external adversary is a separate model talking to a separate session — it has no knowledge of this conversation, the user, or the principles you applied. That fresh-frame view is exactly the value: it catches what the host-agent self-audit cannot see because the host agent has already absorbed the spec's framing.
 
+### Step 6-async: `--async` defer-to-resume dispatch (#39)
+
+**If `async_mode=true` AND `close_depth=true` AND `HOST_AGENT=claude`, take this branch instead of the synchronous invocation below — then STOP (do not consolidate or run the rebuttal now).** The Codex audit runs in the background and is consumed later via `/critique-jobs resume`. This is the **defer-to-resume (unified)** model: turn 1 produces *no conclusions* (only a read-only preview + a dispatched job), so resume mutates nothing.
+
+1. **Show the host self-audit as a read-only PREVIEW.** You already produced the host-agent self-audit JSON in Step 5. Present it to the user as a preview only — do **not** enter the rebuttal cycle.
+2. **Persist the self-audit** so resume can consolidate it without re-running Step 5. Write the Step-5 challenge JSON to `${CLAUDE_PLUGIN_DATA}/async/<run_id>/claude-audit.json` (create the dir; `<run_id>` is the job id from step 6). Practically: dispatch first to get the job id, then write the file under that id.
+3. **Size hint (advisory).** Surface the recommendation: `arc codex_size_hint "<artifact-path>"` → `foreground` or `background`. (For a `foreground` recommendation on a small spec, you may suggest the user re-run without `--async`; still honor their `--async` choice.)
+4. **Pre-flight — hard-fail, NO silent foreground fallback.** The user explicitly chose async; quietly degrading to foreground would violate intent. Resolve the target root and pre-flight; on failure, surface the remediation and STOP (tell the user the synchronous `/critique --close` is the foreground option):
+   ```bash
+   target_root="$(arc codex_target_root "<artifact-path>")"
+   arc codex_preflight "$target_root"   # rc≠0 → hard-fail with remediation; do NOT fall back
+   ```
+5. **Build the adversarial prompt + embed the return contract**, then write it to a prompt-file OUTSIDE any repo output tree (e.g. under `${CLAUDE_PLUGIN_DATA}` or `mktemp`). The companion runs a bare prompt-file and never sees this skill, so the `{challenges,gaps}` return contract MUST be embedded verbatim:
+   ```bash
+   pf="$(mktemp "${TMPDIR:-/tmp}/arc-adv.XXXXXX.md")"
+   {
+     printf '%s\n\n' "$ADVERSARIAL_PROMPT"
+     printf '%s\n' '## Return contract'
+     printf '%s\n' 'End your final message with a fenced JSON block of this exact shape:'
+     printf '%s\n' '```json'
+     printf '%s\n' '{"challenges":[{"text":"<one paragraph>","severity":"premise|gap|alternative","rationale":"<why>"}],"gaps":[]}'
+     printf '%s\n' '```'
+   } > "$pf"
+   ```
+6. **Dispatch + record, then STOP.**
+   ```bash
+   job="$(arc codex_dispatch "$target_root" "$pf")"; rm -f "$pf"
+   mkdir -p "${CLAUDE_PLUGIN_DATA}/async/${job}"
+   # ... write the Step-5 self-audit JSON to ${CLAUDE_PLUGIN_DATA}/async/${job}/claude-audit.json ...
+   arc state_external_run_add --run-id "$job" --host claude --adversary codex \
+     --artifact "<artifact-path>" --depth close \
+     --result-path "${CLAUDE_PLUGIN_DATA}/async/${job}/result.json"
+   ```
+   Then tell the user: the audit is running in the background as job `<job>`; resume with **`/critique-jobs resume <job>`** (or just `/critique-jobs resume` for the latest) to consolidate both adversaries and run the rebuttal; `/critique-jobs status <job>` checks progress. **Do not run Steps 7–9 now.**
+
+Everything below is the **synchronous** path (the default, unchanged).
+
 **If HOST_AGENT=claude, invoke Codex.** Display a progress message first (so the user knows ~60s of latency is incoming):
 
 > *"Invoking codex for adversarial fresh-frame audit. This typically takes 30–90 seconds."*
@@ -241,6 +280,11 @@ Capture the JSON response, validate that it has the same `{"challenges":[...]}` 
 Hold the external adversary JSON in working context alongside the host-agent self-audit JSON for Step 7.
 
 ---
+
+<!-- shared-procedure:consolidate-rebuttal-append -->
+## Steps 7–9 are the "Consolidate + Rebuttal + Append" procedure (shared)
+
+Steps 7 (consolidate), 8 (rebuttal cycle), and 9 (append run) form one reusable procedure that takes `{claude_audit, codex_audit, artifact, depth}`. The synchronous path enters it inline below. The **async resume path** (`managing-async-critique`) enters the *same* procedure after fetching a finished background Codex result — with the persisted turn-1 host self-audit as `claude_audit` and the Codex result as `codex_audit` — so both adversaries are consolidated and one unified rebuttal runs. Do not duplicate this logic elsewhere; resume points here.
 
 ## Step 7: Consolidate challenges
 

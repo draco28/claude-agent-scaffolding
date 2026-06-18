@@ -94,4 +94,20 @@ export CODEX_SHIM_RESULT_RAWOUTPUT='no json here at all'
 assert_exit_code 1 bash "$ARC" codex_result "$ROOT/repo" "job-xyz"
 unset CODEX_SHIM_RESULT_RAWOUTPUT
 
+echo ""
+echo "-- size hint: big→background, small→foreground --"
+big="$ROOT/big.md"; i=0; while [[ $i -lt 500 ]]; do echo "line $i"; i=$((i+1)); done > "$big"
+small="$ROOT/small.md"; printf 'tiny spec\n' > "$small"
+assert_eq "big artifact → background" "background" "$(bash "$ARC" codex_size_hint "$big")"
+assert_eq "small artifact → foreground" "foreground" "$(bash "$ARC" codex_size_hint "$small")"
+assert_eq "threshold override honored" "background" "$(ARCHITECT_CRITIC_ASYNC_HINT_LINES=1 bash "$ARC" codex_size_hint "$small")"
+
+echo ""
+echo "-- seam-prose lints (critiquing-spec) --"
+SK="$PLUGIN_ROOT/skills/critiquing-spec/SKILL.md"
+grep -q -- "--async" "$SK" && { echo "  ✓ --async branch documented"; PASS=$((PASS+1)); } || { echo "  ✗ no --async branch"; FAIL=$((FAIL+1)); }
+grep -qi "Consolidate + Rebuttal + Append" "$SK" && { echo "  ✓ shared procedure labelled"; PASS=$((PASS+1)); } || { echo "  ✗ no shared-procedure label"; FAIL=$((FAIL+1)); }
+grep -qi "no silent\|NO silent\|do not silently\|no foreground fallback\|hard-fail" "$SK" && { echo "  ✓ no-silent-fallback rule present"; PASS=$((PASS+1)); } || { echo "  ✗ fallback rule missing"; FAIL=$((FAIL+1)); }
+grep -q "codex_size_hint" "$SK" && { echo "  ✓ size hint wired"; PASS=$((PASS+1)); } || { echo "  ✗ size hint not referenced"; FAIL=$((FAIL+1)); }
+
 report_results

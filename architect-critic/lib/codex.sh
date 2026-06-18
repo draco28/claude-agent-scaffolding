@@ -713,3 +713,21 @@ ac_codex_doctor() {
   echo "Async close-depth audits run Claude-host → Codex-adversary only; Codex-host keeps the synchronous path."
   return 0
 }
+
+# ac_codex_size_hint <artifact-path> — advisory recommendation for foreground vs
+# background based on artifact size. Echoes "background" when the artifact has
+# >= ARCHITECT_CRITIC_ASYNC_HINT_LINES lines (default 400), else "foreground".
+# Always rc0; a missing/unreadable artifact → "foreground" (conservative).
+ac_codex_size_hint() {
+  local artifact="${1:-}"
+  local thresh="${ARCHITECT_CRITIC_ASYNC_HINT_LINES:-400}"
+  local lines=0
+  [[ -f "$artifact" ]] && lines="$(wc -l < "$artifact" 2>/dev/null | tr -d ' ')"
+  [[ "$lines" =~ ^[0-9]+$ ]] || lines=0
+  if [[ "$lines" -ge "$thresh" ]]; then
+    echo "background"
+  else
+    echo "foreground"
+  fi
+  return 0
+}
