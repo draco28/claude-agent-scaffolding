@@ -664,3 +664,52 @@ ac_codex_result() {
   printf '%s' "$block" | jq -c .
   return 0
 }
+
+# _ac_probe_bin <name> — echo one readiness line for a binary (always rc0).
+_ac_probe_bin() {
+  local name="$1" ver
+  if command -v "$name" >/dev/null 2>&1; then
+    ver="$("$name" --version 2>/dev/null | head -1)"
+    echo "  ✓ ${name}: ${ver:-present}"
+  else
+    echo "  ✗ ${name}: not found on PATH — install it to use ${name} as an adversary"
+  fi
+}
+
+# ac_codex_doctor — print an adversary-readiness report and ALWAYS return 0
+# (fail-soft, advisory by design — never blocks). Probes the codex + claude
+# binaries, resolves the companion, and reads companion `setup --json` for
+# auth/schema readiness. Each not-ready line carries an actionable fix; install
+# and `codex login` stay user-driven (non-goal: auto-install).
+ac_codex_doctor() {
+  echo "architect-critic adversary readiness:"
+  _ac_probe_bin codex
+  _ac_probe_bin claude
+
+  local companion
+  if companion="$(ac_codex_resolve_companion 2>/dev/null)"; then
+    echo "  ✓ codex companion: ${companion}"
+    local setup_out ready codex_ok auth_ok
+    if setup_out="$(node "$companion" setup --json 2>/dev/null)"; then
+      ready="$(printf '%s' "$setup_out" | jq -r '.ready // false' 2>/dev/null || echo false)"
+      codex_ok="$(printf '%s' "$setup_out" | jq -r '.codex.available // false' 2>/dev/null || echo false)"
+      auth_ok="$(printf '%s' "$setup_out" | jq -r '.auth.loggedIn // false' 2>/dev/null || echo false)"
+      if [[ "$ready" == "true" ]]; then
+        echo "  ✓ codex ready (installed + authenticated + schema-capable)"
+      else
+        [[ "$codex_ok" == "true" ]] || echo "  ✗ codex CLI not available — install: https://github.com/openai/codex"
+        [[ "$auth_ok" == "true" ]] || echo "  ✗ codex not authenticated — run: codex login"
+      fi
+    else
+      echo "  ✗ codex companion 'setup' did not run — ensure node is installed and the companion is current"
+    fi
+  else
+    echo "  ✗ codex companion: not found — install the openai-codex plugin (/plugin install codex), or set ARCHITECT_CRITIC_CODEX_COMPANION to the codex-companion.mjs path"
+  fi
+
+  echo "  • sync timeout: ${ARCHITECT_CRITIC_CODEX_TIMEOUT_S:-300}s (env ARCHITECT_CRITIC_CODEX_TIMEOUT_S)"
+  echo "  • async poll/stall/cap defaults: 45s / 300s / 1200s (arc codex_wait --poll/--stall/--cap)"
+  echo ""
+  echo "Async close-depth audits run Claude-host → Codex-adversary only; Codex-host keeps the synchronous path."
+  return 0
+}
