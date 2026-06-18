@@ -13,6 +13,15 @@ _mk_ac_cache() {
   mkdir -p "$cache/test-mp/architect-critic/0.2.0/skills/critiquing-spec"
   touch "$cache/test-mp/architect-critic/0.2.0/skills/critiquing-spec/SKILL.md"
 }
+# v0.3 marker: the managing-async-critique skill (async API). A real v0.3 cache
+# also carries critiquing-spec; build both so detection sees a faithful layout.
+_mk_ac_cache_v03() {
+  local cache="$1"
+  mkdir -p "$cache/test-mp/architect-critic/0.3.0/skills/critiquing-spec"
+  touch "$cache/test-mp/architect-critic/0.3.0/skills/critiquing-spec/SKILL.md"
+  mkdir -p "$cache/test-mp/architect-critic/0.3.0/skills/managing-async-critique"
+  touch "$cache/test-mp/architect-critic/0.3.0/skills/managing-async-critique/SKILL.md"
+}
 _mk_mentor_cache() {
   local cache="$1"
   mkdir -p "$cache/test-mp/ai-mentor/2.0.0/skills/grill-me"
@@ -118,6 +127,49 @@ test_detect_ac_multi_dir() {
   assert_eq "detected across multiple dirs" "v0.2" "$out"
 }
 
+# 11b. detect_architect_critic — v0.3 marker present (async-capable)
+test_detect_ac_v03_present() {
+  echo "test_detect_ac_v03_present:"
+  setup_tmp_repo
+  _mk_ac_cache_v03 "$TMP_DIR/cache"
+  local out
+  out="$(SD_COMPOSE_AC_CACHE_DIRS="$TMP_DIR/cache" sd_compose_detect_architect_critic)"
+  assert_eq "ac v0.3 detected" "v0.3" "$out"
+}
+
+# 11c. detect_architect_critic — only critiquing-spec → sync-only v0.2
+test_detect_ac_v02_only() {
+  echo "test_detect_ac_v02_only:"
+  setup_tmp_repo
+  _mk_ac_cache "$TMP_DIR/cache"
+  local out
+  out="$(SD_COMPOSE_AC_CACHE_DIRS="$TMP_DIR/cache" sd_compose_detect_architect_critic)"
+  assert_eq "sync-only reports v0.2" "v0.2" "$out"
+}
+
+# 11d. v0.3 wins even when a v0.2-only cache dir precedes it
+test_detect_ac_v03_across_dirs() {
+  echo "test_detect_ac_v03_across_dirs:"
+  setup_tmp_repo
+  _mk_ac_cache "$TMP_DIR/v2cache"
+  _mk_ac_cache_v03 "$TMP_DIR/v3cache"
+  local out
+  out="$(SD_COMPOSE_AC_CACHE_DIRS="$TMP_DIR/v2cache:$TMP_DIR/v3cache" sd_compose_detect_architect_critic)"
+  assert_eq "v0.3 wins across dirs" "v0.3" "$out"
+}
+
+# 11e. v0.3-present still returns rc=0
+test_detect_ac_v03_rc() {
+  echo "test_detect_ac_v03_rc:"
+  setup_tmp_repo
+  _mk_ac_cache_v03 "$TMP_DIR/cache"
+  set +e
+  SD_COMPOSE_AC_CACHE_DIRS="$TMP_DIR/cache" sd_compose_detect_architect_critic >/dev/null
+  local rc=$?
+  :
+  assert_eq "rc=0 when v0.3 present" "0" "$rc"
+}
+
 # 11. default cache dirs include Codex cache
 test_default_cache_dirs_include_codex() {
   echo "test_default_cache_dirs_include_codex:"
@@ -136,6 +188,10 @@ test_warn_critic_stderr
 test_warn_grillme_stderr
 test_warn_critic_silent_stdout
 test_detect_ac_multi_dir
+test_detect_ac_v03_present
+test_detect_ac_v02_only
+test_detect_ac_v03_across_dirs
+test_detect_ac_v03_rc
 test_default_cache_dirs_include_codex
 
 sd_test_summary

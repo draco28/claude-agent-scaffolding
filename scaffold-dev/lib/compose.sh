@@ -38,8 +38,13 @@ _sd_compose_split_dirs() {
 }
 
 # sd_compose_detect_architect_critic
-# Echoes "v0.2" + rc=0 when a v0.2 critiquing-spec SKILL.md is reachable;
-# echoes "absent" + rc=1 otherwise.
+# Capability-aware detection (#39 Phase B). Echoes:
+#   "v0.3"   + rc=0 — async-capable: the managing-async-critique SKILL.md is
+#                     reachable (the v0.3 async API the review gate consumes).
+#   "v0.2"   + rc=0 — sync-only: critiquing-spec is reachable but no async API.
+#   "absent" + rc=1 — architect-critic not installed.
+# Scans all cache dirs once and decides afterward, so a v0.3 install wins even
+# when a v0.2-only cache dir precedes it on the search path.
 sd_compose_detect_architect_critic() {
   local cache_dirs=()
   if [[ -n "${SD_COMPOSE_AC_CACHE_DIRS:-}" ]]; then
@@ -48,12 +53,18 @@ sd_compose_detect_architect_critic() {
     while IFS= read -r d; do cache_dirs+=("$d"); done < <(_sd_compose_default_cache_dirs)
   fi
   local cache skill_md
+  local found_v02="" found_v03=""
   for cache in "${cache_dirs[@]+"${cache_dirs[@]}"}"; do
     [[ -z "$cache" || ! -d "$cache" ]] && continue
+    for skill_md in "$cache"/*/architect-critic/*/skills/managing-async-critique/SKILL.md; do
+      [[ -f "$skill_md" ]] && { found_v03="1"; break; }
+    done
     for skill_md in "$cache"/*/architect-critic/*/skills/critiquing-spec/SKILL.md; do
-      [[ -f "$skill_md" ]] && { echo "v0.2"; return 0; }
+      [[ -f "$skill_md" ]] && { found_v02="1"; break; }
     done
   done
+  if [[ -n "$found_v03" ]]; then echo "v0.3"; return 0; fi
+  if [[ -n "$found_v02" ]]; then echo "v0.2"; return 0; fi
   echo "absent"
   return 1
 }
