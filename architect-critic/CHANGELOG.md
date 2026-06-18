@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.3.0 — 2026-06-18
+
+**Feature:** the close-depth external adversary can now run as a managed **background (async)** job (#39). The existing synchronous path is unchanged and remains the default.
+
+### Added
+- **Async close-depth adversary.** `/critique --close --async` dispatches Codex via the `codex-plugin-cc` companion's `task --background` (reusing the proven SS-5/SS-5.1 `lib/codex.sh` spine, ported to `ac_` prefix), records the run, and returns a job handle. **Defer-to-resume (unified) model:** turn 1 shows a read-only host self-audit preview + persists it + dispatches; `resume` later consolidates *both* adversaries (cross-confirmation preserved) and runs one unified rebuttal. The adversary runs **read-only** (no `--write`).
+- **Job manager.** New `managing-async-critique` skill + `/critique-jobs <status|result|cancel|resume> [run-id]`. `resume` re-enters the shared "Consolidate + Rebuttal + Append" procedure (critiquing-spec Steps 7–9); a concluded run resumes **inspect-only** (re-resume idempotency guard via `resolved_run_request_id`).
+- **Readiness doctor.** New `checking-adversary-readiness` skill + `/critique-doctor` (`ac_codex_doctor`): fail-soft probe of codex/claude binaries, companion resolution, and codex auth/schema readiness, with actionable (user-driven) remediation.
+- **Size-aware guidance.** `ac_codex_size_hint` recommends foreground vs background at dispatch (threshold `ARCHITECT_CRITIC_ASYNC_HINT_LINES`, default 400).
+- **state.json schema v2 → v3:** new `external_runs[]` durable job memory (idempotent `ac_state_migrate`; lazily applied to a v2 file by `ac_state_init`). `reviewing-critique-history` now also lists in-flight/recent background audits; the session-start hook surfaces a read-only in-flight count.
+- **CI:** architect-critic now ships a `run-tests.sh` runner and runs in the repo's GitHub Actions suite (previously absent).
+
+### Fixed
+- **macOS-only suppression-expiry bug (pre-existing).** `ac_state_add_suppression` computed `expires_at` with a BSD `date` form where `-v+Nd` followed the positional input — BSD getopt stops at the first positional, so the adjustment was silently ignored (expiry == suppressed_at). The suppression tests used the identical broken command to compute their expected value, so the equality checks were circular false-greens that masked it. New portable `_ac_date_add_days` (BSD `-v` before `-f`; GNU `date -d` fallback; each branch validated against a strict ISO-8601 regex) fixes both macOS and Linux; an independent guard breaks the circular check.
+
+### Notes
+- **Dual-publish constraint:** async = Claude-host → Codex-adversary only (the proven companion backend). Codex-host → Claude-adversary keeps the synchronous path. Skills/commands ship on both surfaces.
+- **Migration:** existing v2 state files upgrade to v3 in place on next use (adds an empty `external_runs[]`); all v2 fields preserved.
+
 ## v0.2.2 — 2026-05-28
 
 ### Fixed
