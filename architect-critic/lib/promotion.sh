@@ -6,14 +6,14 @@
 # Supplementary instinct-recurrence signal surfaces fingerprints that appear
 # in N=3 consecutive recent_runs (basis: instinct-recurrence).
 #
-# State.json (schema v2) shape used by this file:
+# State.json (schema v3; v2 fields retained) shape used by this file:
 #
 #   candidate_promotions[] := [
 #     {fingerprint, first_seen_at, last_seen_at, vote_count,
 #      appeared_in_runs: [run_id, ...], texts: [challenge_text, ...]}
 #   ]
 #   auto_promote_suppressions[] := [
-#     {fingerprint, suppressed_at, expires_at, reason_score}    # state.sh schema v2
+#     {fingerprint, suppressed_at, expires_at, reason_score}
 #   ]
 #   principle_promotions[] := [
 #     {timestamp, source, text, scope, fingerprint, promotion_basis}

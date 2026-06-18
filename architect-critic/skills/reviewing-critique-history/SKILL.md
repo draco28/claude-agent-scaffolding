@@ -1,11 +1,11 @@
 ---
 name: reviewing-critique-history
-description: Show recent architect-critic runs as a table. Triggers on "show recent critiques", "critique history", "list pending audits", "recent audits", "audit log". Reads state.json schema v2 (no in_flight field). Default N=10 rows; --limit N overrides.
+description: Show recent architect-critic runs as a table, plus any in-flight background (async) audits. Triggers on "show recent critiques", "critique history", "list pending audits", "recent audits", "audit log", "in-flight critiques", "background audits". Reads state.json schema v3 (recent_runs[] + external_runs[]). Default N=10 rows; --limit N overrides.
 ---
 
 # reviewing-critique-history
 
-You have been invoked because the user wants to see a history of recent architect-critic audit runs. Your job is to read `state.json` (schema v2), slice the most-recent N rows from `recent_runs[]`, and render them as a clean markdown table in the current conversation.
+You have been invoked because the user wants to see a history of recent architect-critic audit runs. Your job is to read `state.json` (schema v3), slice the most-recent N rows from `recent_runs[]`, render them as a clean markdown table, and — when present — list any **in-flight / recent background (async) audits** from `external_runs[]` (#39).
 
 This skill is intentionally narrow: read, format, display. No judgment, no rebuttal, no state mutation.
 
@@ -42,20 +42,23 @@ Valid range: 1–100. If the user passes `--limit 0` or a negative value, treat 
 
 ---
 
-## Step 3: Read `recent_runs[]`
+## Step 3: Read `recent_runs[]` and `external_runs[]`
 
-Read the file and extract the array. The schema v2 shape has **no `in_flight` field** — do not look for it, do not render it, do not mention its absence. This is not an oversight; in-flight tracking was dropped in v0.2.
+Read the file and extract both arrays. The schema v3 shape has **no `in_flight` field** — do not look for it, do not render it, do not mention its absence. Background audits are represented by durable `external_runs[]` records instead.
 
 ```bash
 TOTAL="$(jq '.recent_runs | length' "$STATE_FILE" 2>/dev/null || echo 0)"
 RUNS_JSON="$(jq -c ".recent_runs | sort_by(.completed_at) | reverse | .[:${LIMIT}] | .[]" "$STATE_FILE" 2>/dev/null)"
+EXTERNAL_TOTAL="$(jq '(.external_runs // []) | length' "$STATE_FILE" 2>/dev/null || echo 0)"
 ```
 
-If `recent_runs` is an empty array (`TOTAL == 0`), output:
+If `recent_runs` is an empty array (`TOTAL == 0`) and `external_runs[]` is also empty (`EXTERNAL_TOTAL == 0`), output:
 
 > No critique runs yet.
 
 Do not render an empty table. An empty table with headers but no rows is harder to read than a one-line message.
+
+If `recent_runs` is empty but `external_runs[]` has entries, output the empty completed-run message briefly and continue to Step 4b so the background audit table is still visible.
 
 ---
 
@@ -102,13 +105,26 @@ If `TOTAL <= LIMIT`, no annotation needed.
 
 ---
 
+## Step 4b: List background (async) audits from `external_runs[]` (#39)
+
+After the `recent_runs` table, or immediately after the empty completed-run message when there are no completed runs, surface any background close-depth audits. These are dispatched by `/critique --close --async` and tracked in `external_runs[]`.
+
+```bash
+arc state_external_run_list                 # all background runs
+arc state_external_run_list --status running   # just the in-flight ones
+```
+
+If the array is empty, render nothing for this section (no header). Otherwise, emit a short second table — **running jobs first** — with columns: `run_id`, `status`, `artifact_path` (basename), `started_at` (relative), and a `resumed?` mark (`*` when `resolved_run_request_id` is non-null). End with a one-line pointer: *"Manage background audits with `/critique-jobs status|result|cancel|resume`."* This section is read-only — it never polls, cancels, or resumes (that is `managing-async-critique`).
+
+---
+
 ## Step 5: Worked example
 
-Suppose state.json contains this `recent_runs` array (3 entries):
+Suppose state.json contains this schema v3 state (3 completed runs and one background run):
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "recent_runs": [
     {
       "request_id": "crit-20260520T140000Z-shallow-a1b2",
@@ -142,6 +158,21 @@ Suppose state.json contains this `recent_runs` array (3 entries):
       "elapsed_ms": 95000,
       "codex_timeout": true
     }
+  ],
+  "external_runs": [
+    {
+      "run_id": "task-async-001",
+      "host_agent": "claude",
+      "adversary": "codex",
+      "artifact_path": "/repo/docs/spec.md",
+      "depth": "close",
+      "status": "running",
+      "started_at": "2026-05-24T09:00:00Z",
+      "completed_at": null,
+      "result_path": "/tmp/async/task-async-001/result.json",
+      "codex_session_id": null,
+      "resolved_run_request_id": null
+    }
   ]
 }
 ```
@@ -158,13 +189,13 @@ With `--limit 10` (default) and today being `2026-05-24`, the rendered output is
 
 ---
 
-The `timeout?` column appears because at least one row has `codex_timeout: true`. The `*` marks the affected row. The rows are sorted most-recent first.
+The `timeout?` column appears because at least one row has `codex_timeout: true`. The `*` marks the affected row. The rows are sorted most-recent first. Because `external_runs[]` is non-empty, also render the background-audits table after the completed-runs table.
 
 ---
 
 ## Schema fields this skill depends on
 
-Coupled to these `recent_runs[]` fields in schema v2. If `lib/state.sh:ac_state_append_recent_run` renames any field, this skill breaks silently (jq returns `null`).
+Coupled to these `recent_runs[]` and `external_runs[]` fields in schema v3. If `lib/state.sh:ac_state_append_run`, `ac_state_external_run_add`, or `ac_state_external_run_finalize_resume` renames any field, this skill breaks silently (jq returns `null`).
 
 | Field | Type | Notes |
 |---|---|---|

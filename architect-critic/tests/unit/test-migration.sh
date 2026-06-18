@@ -39,10 +39,10 @@ TH1="$(make_tmp_home)"
 printf '%s\n' "$V01_STATE_JSON" > "$TH1/.claude/architect-critic/state.json"
 HOME="$TH1" ac_migration_check_v01_state > /dev/null
 assert_file_exists "$TH1/.claude/architect-critic/state.json.v0.1.3.bak"
-# Verify fresh state.json now exists at schema v2
+# Verify fresh state.json now exists at the current schema (v3 as of #39)
 assert_file_exists "$TH1/.claude/architect-critic/state.json"
 new_ver="$(jq '.schema_version' "$TH1/.claude/architect-critic/state.json")"
-assert_eq "fresh state.json after migration is schema_version 2" "2" "$new_ver"
+assert_eq "fresh state.json after migration is schema_version 3" "3" "$new_ver"
 rm -rf "$TH1"
 
 # ---------------------------------------------------------------------------

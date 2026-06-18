@@ -72,6 +72,13 @@ setup_mock_codex() {
   export MOCK_CODEX_OUTPUT="$fixtures_dir/codex-payloads/$payload"
 }
 
+# Async path (#39): point the codex-companion override at the env-driven node shim.
+setup_codex_companion_shim() {
+  local shim_dir
+  shim_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/fixtures/codex-shim" && pwd)"
+  export ARCHITECT_CRITIC_CODEX_COMPANION="$shim_dir/codex-companion.mjs"
+}
+
 report_results() {
   echo ""
   echo "Results: $PASS passed, $FAIL failed"

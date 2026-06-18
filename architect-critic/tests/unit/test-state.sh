@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# tests/unit/test-state.sh — tests for lib/state.sh (schema v2, Phase 3)
-# Covers: init at schema v2, recent_runs with concessions/skill_invoked (no cost_usd),
+# tests/unit/test-state.sh — tests for lib/state.sh (schema v3, async external runs)
+# Covers: init at schema v3, recent_runs with concessions/skill_invoked (no cost_usd),
 # auto_promote_suppressions with 30/90-day windows, promotions, declined, locks.
 
 set -u
@@ -18,6 +18,28 @@ source "$LIB_DIR/state.sh"
 # ---------------------------------------------------------------------------
 setup_tmp_repo
 
+assert_quick_exit_code() {
+  local expected="$1"; shift
+  local out="$CLAUDE_PLUGIN_DATA/quick-exit.out"
+  set +e
+  "$@" >"$out" 2>&1 &
+  local pid=$!
+  sleep 1
+  if kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null
+    wait "$pid" 2>/dev/null
+    echo "  ✗ command did not exit promptly: $*"; FAIL=$((FAIL+1))
+    return
+  fi
+  wait "$pid"
+  local ec=$?
+  if [[ "$ec" == "$expected" ]]; then
+    echo "  ✓ exit code $expected for: $*"; PASS=$((PASS+1))
+  else
+    echo "  ✗ exit code $expected for: $* (got $ec)"; FAIL=$((FAIL+1))
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # T1: ac_state_path returns expected path
 # ---------------------------------------------------------------------------
@@ -27,15 +49,16 @@ actual_path="$(ac_state_path)"
 assert_eq "ac_state_path returns data-dir/state.json" "$expected_path" "$actual_path"
 
 # ---------------------------------------------------------------------------
-# T2: schema_v2_init — fresh init writes schema_version: 2
+# T2: schema_v3_init — fresh init writes schema_version: 3 (#39)
 # ---------------------------------------------------------------------------
-echo "T2: schema_v2_init"
+echo "T2: schema_v3_init"
 state_file="$(ac_state_path)"
 assert_file_missing "$state_file"
 ac_state_init
 assert_file_exists "$state_file"
 schema_ver="$(jq '.schema_version' "$state_file")"
-assert_eq "schema_version=2" "2" "$schema_ver"
+assert_eq "schema_version=3" "3" "$schema_ver"
+assert_eq "external_runs seeded empty on init" "0" "$(jq '.external_runs | length' "$state_file")"
 
 # ---------------------------------------------------------------------------
 # T3: init empty arrays for all required keys (incl. auto_promote_suppressions)
@@ -78,9 +101,9 @@ read_output="$(ac_state_read | jq '.schema_version')"
 assert_eq "ac_state_read emits parseable JSON" "2" "$read_output"
 
 # ---------------------------------------------------------------------------
-# T7: ac_state_append_run — schema v2 row with concessions + skill_invoked, no cost_usd
+# T7: ac_state_append_run — schema v3-compatible row with concessions + skill_invoked, no cost_usd
 # ---------------------------------------------------------------------------
-echo "T7: ac_state_append_run (schema v2)"
+echo "T7: ac_state_append_run (schema v3-compatible)"
 ac_state_append_run "crit-2026-05-24T10:00:00Z-close-abc123" "close" '["claude","codex"]' 8 2 "critiquing-spec" 65000
 runs_len="$(jq '.recent_runs | length' "$state_file")"
 assert_eq "recent_runs has 1 entry after append" "1" "$runs_len"
@@ -133,6 +156,9 @@ flag_adv="$(jq -r '.recent_runs[0].adversaries_used | join(",")' "$state_file")"
 assert_eq "CSV adversaries converted to JSON array" "claude,codex" "$flag_adv"
 flag_count="$(jq -r '.recent_runs[0].challenge_count' "$state_file")"
 assert_eq "flag-style challenge_count stored" "13" "$flag_count"
+
+echo "T7f: ac_state_append_run missing flag values fail promptly"
+assert_quick_exit_code 2 "$TESTS_DIR/../bin/arc" state_append_run --request-id
 
 # ---------------------------------------------------------------------------
 # T8: recent_runs cap at 20 entries (drops oldest)
@@ -206,17 +232,17 @@ new_ver="$(jq '.schema_version' "$state_file")"
 assert_eq "write_field updates schema_version to 2" "2" "$new_ver"
 
 # ---------------------------------------------------------------------------
-# T14: ac_state_init preserves on-disk state.json with future schema_version (>2)
+# T14: ac_state_init preserves on-disk state.json with future schema_version (>3)
 # ---------------------------------------------------------------------------
 echo "T14: future schema preserved"
 setup_tmp_repo > /dev/null
 mkdir -p "$(ac_data_dir)"
 state_file="$(ac_state_path)"
-printf '%s\n' '{"schema_version":3,"recent_runs":[],"future_field":"x"}' > "$state_file"
-ac_state_init 2>&1 | grep -q "future schema_version=3"
+printf '%s\n' '{"schema_version":99,"recent_runs":[],"future_field":"x"}' > "$state_file"
+ac_state_init 2>&1 | grep -q "future schema_version=99"
 assert_eq "future schema_version logs info" "0" "$?"
 preserved_ver="$(jq '.schema_version' "$state_file")"
-assert_eq "future schema preserved" "3" "$preserved_ver"
+assert_eq "future schema preserved" "99" "$preserved_ver"
 preserved_future="$(jq -r '.future_field' "$state_file")"
 assert_eq "future field preserved" "x" "$preserved_future"
 
@@ -237,8 +263,16 @@ stored_score="$(jq '.auto_promote_suppressions[0].reason_score' "$state_file")"
 assert_eq "reason_score=4 stored" "4" "$stored_score"
 suppressed_at="$(jq -r '.auto_promote_suppressions[0].suppressed_at' "$state_file")"
 expires_at="$(jq -r '.auto_promote_suppressions[0].expires_at' "$state_file")"
-# Verify expires_at is exactly suppressed_at + 30 days (BSD date math).
-expected_expires="$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$suppressed_at" -v+30d +"%Y-%m-%dT%H:%M:%SZ")"
+# Independent (non-circular) guard: stored expires_at is a well-formed ISO-8601
+# UTC stamp that actually moved off suppressed_at — catches a date-helper that
+# silently returns empty/garbage (which a bare helper==stored equality would mask).
+if [[ "$expires_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ && "$expires_at" != "$suppressed_at" ]]; then
+  echo "  ✓ expires_at is well-formed ISO and advanced from suppressed_at"; PASS=$((PASS+1))
+else
+  echo "  ✗ expires_at malformed or unchanged: '$expires_at' (suppressed_at='$suppressed_at')"; FAIL=$((FAIL+1))
+fi
+# Verify expires_at is exactly suppressed_at + 30 days (portable date math).
+expected_expires="$(_ac_date_add_days "$suppressed_at" 30)"
 assert_eq "expires_at = suppressed_at + 30d for reason_score=4" "$expected_expires" "$expires_at"
 
 # ---------------------------------------------------------------------------
@@ -255,7 +289,7 @@ stored_score_90="$(jq '.auto_promote_suppressions[1].reason_score' "$state_file"
 assert_eq "reason_score=5 stored" "5" "$stored_score_90"
 sup_at_90="$(jq -r '.auto_promote_suppressions[1].suppressed_at' "$state_file")"
 exp_at_90="$(jq -r '.auto_promote_suppressions[1].expires_at' "$state_file")"
-expected_expires_90="$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$sup_at_90" -v+90d +"%Y-%m-%dT%H:%M:%SZ")"
+expected_expires_90="$(_ac_date_add_days "$sup_at_90" 90)"
 assert_eq "expires_at = suppressed_at + 90d for reason_score=5" "$expected_expires_90" "$exp_at_90"
 
 # ---------------------------------------------------------------------------
