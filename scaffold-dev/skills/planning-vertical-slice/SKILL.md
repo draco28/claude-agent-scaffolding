@@ -344,7 +344,7 @@ Call `sd_compose_detect_architect_critic` (lib/compose.sh). It walks `~/.claude/
 
 ### 7.2 Invocation — synchronous (when present)
 
-When routed here by §7.0 (gate `off`, or `slice_close` which gates the *slice-close* moment, not this one) — **synchronous** author-depth review (the default; gate `off` preserves this exactly). The `v0.2` and Codex-host cases do NOT land here — they route through §7.2a, whose react-to-return step runs a synchronous **close**-depth review (the gate's depth upgrade is preserved; only background dispatch is lost):
+When routed here by §7.0 (gate `off`, or `slice_close` which gates the *slice-close* moment, not this one) — **synchronous** author-depth review (the default; gate `off` preserves this exactly). With gate `off`, **everything** lands here (including `v0.2`/Codex-host) — that is the default. Only when `review_gate` is `spec_close`/`both` do the `v0.2` and Codex-host cases route through §7.2a instead, whose react-to-return step runs a synchronous **close**-depth review (the gate's depth upgrade is preserved; only background dispatch is lost):
 
 1. Announce: *"Specs authored — invoking architect-critic for a spec-audit on the combined work-item specs. Type `skip` to bypass."*
 2. End the turn and wait. If the user types `skip` (case-insensitive): log the skip in the slice README and proceed to §8.

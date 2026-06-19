@@ -257,7 +257,7 @@ Call `sd_compose_detect_architect_critic` (lib/compose.sh). It walks `~/.claude/
 
 ### 7.2 Invocation — synchronous (when present, S1 contract)
 
-When routed here by §7.0 (gate `off`, or `spec_close` which gates the *spec* moment, not this one) — **synchronous** close-depth review (the default; gate `off` preserves this exactly). The `v0.2` and Codex-host cases do NOT land here — they route through §7.2a, whose react-to-return step degrades to a synchronous close-depth review:
+When routed here by §7.0 (gate `off`, or `spec_close` which gates the *spec* moment, not this one) — **synchronous** close-depth review (the default; gate `off` preserves this exactly). With gate `off`, **everything** lands here (including `v0.2`/Codex-host) — that is the default. Only when `review_gate` is `slice_close`/`both` do the `v0.2` and Codex-host cases route through §7.2a instead, whose react-to-return step degrades to a synchronous close-depth review:
 
 1. Announce: *"Demos passed — invoking architect-critic for the slice-close adversarial review at close depth. Type `skip` to bypass."*
 2. End the turn and wait. If the user types `skip` (case-insensitive): log the skip in `retrospective.md`'s critic section and proceed to §8.
