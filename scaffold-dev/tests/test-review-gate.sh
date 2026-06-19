@@ -135,6 +135,11 @@ _seam_async_contract() {
   assert_file_contains "$skill" "Pre-flight hard-fail"
   # non-runnable-in-active-host degrades to warn-and-proceed, not a failed call (New-5).
   assert_file_contains "$skill" "runnable in the active host"
+  # per-invocation --gate override is wired through §13 to the resolver (Codex round-5 R5-A).
+  assert_file_contains "$skill" "gate_override"
+  assert_file_contains "$skill" "review_gate_resolve --gate"
+  # absent probe (exits 1 by design) is set-e-guarded before routing (Codex round-5 R5-B).
+  assert_file_contains "$skill" "exits 1 by design"
   # async=true was the broken informal-parameter form (Codex P1) — must be gone.
   assert_file_not_contains "$skill" "async=true"
 }
@@ -154,6 +159,8 @@ test_seam_prose_closing_vertical_slice() {
   assert_file_contains "$CLOSING_SKILL" "merge-base"
   assert_file_contains "$CLOSING_SKILL" "diff_base"
   assert_file_not_contains "$CLOSING_SKILL" "vs-start-commit"
+  # diff included only when non-empty (direct-mode merge-base==HEAD → skip) — R5-C.
+  assert_file_contains "$CLOSING_SKILL" "diff --quiet"
 }
 
 test_seam_prose_planning_vertical_slice() {

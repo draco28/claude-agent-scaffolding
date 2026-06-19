@@ -327,8 +327,14 @@ After specs are written, gate-2 grill-me has settled, and the §6.4 citation-che
 
 The opt-in `review_gate` (manifest `.review_gate`, default `off`) decides whether the spec-author audit runs **synchronously** at the default `depth=author` (today's behavior) or as a **close-depth** audit — dispatched async when supported, else synchronous. Resolve the gate FIRST:
 
-1. `gate="$(cd "$ai_workspace" && sd review_gate_resolve)"` → `off | slice_close | spec_close | both`. **Resolve from the AI-workspace root** — `sd review_gate_resolve` walks up from the CWD for the pairing manifest, which lives under the AI workspace; resolving from there is correct regardless of where the orchestrator's CWD currently sits. Default `off` = **today's behavior** exactly (the synchronous author-depth review in §7.2).
-2. `cap="$(sd compose_detect_architect_critic)"` → `v0.3 | v0.2 | absent` (§7.1). **Advisory only** and **host-agnostic**: it reports what is installed across *all* plugin caches, but only the **active host's** architect-critic is invocable here. Two consequences: (a) **Runnability** — if the probe reports present but `Skill(architect-critic:critiquing-spec)` is not runnable in the active host (e.g. installed only in the *other* host's cache), treat it as **`absent`** and take §7.3 — never invoke a skill the active host cannot resolve. (b) **Version/host** — a mixed-version cache can never force a phantom background job; the react-to-return step (§7.2a step 4) degrades any non-async outcome to a synchronous review.
+1. Resolve the gate, honoring any per-invocation `--gate` override carried from §13:
+   ```bash
+   gate_override_args=()
+   [[ -n "${gate_override:-}" ]] && gate_override_args=(--gate "$gate_override")
+   gate="$(cd "$ai_workspace" && sd review_gate_resolve "${gate_override_args[@]}")"
+   ```
+   → `off | slice_close | spec_close | both`. **Resolve from the AI-workspace root** — `sd review_gate_resolve` walks up from the CWD for the pairing manifest, which lives under the AI workspace; resolving from there is correct regardless of where the orchestrator's CWD sits. Precedence: `--gate` override > manifest `.review_gate` > `off` (an invalid value fails loud). Default `off` = **today's behavior** exactly (the synchronous author-depth review in §7.2).
+2. `cap="$(sd compose_detect_architect_critic 2>/dev/null || true)"` → `v0.3 | v0.2 | absent` (§7.1). The `|| true` is load-bearing: the probe prints `absent` but **exits 1 by design** when architect-critic is missing, and an unguarded command substitution would abort a `set -e` block before the §7.3 warn-and-proceed branch runs. **Advisory only** and **host-agnostic**: it reports what is installed across *all* plugin caches, but only the **active host's** architect-critic is invocable here. Two consequences: (a) **Runnability** — if the probe reports present but `Skill(architect-critic:critiquing-spec)` is not runnable in the active host (e.g. installed only in the *other* host's cache), treat it as **`absent`** and take §7.3 — never invoke a skill the active host cannot resolve. (b) **Version/host** — a mixed-version cache can never force a phantom background job; the react-to-return step (§7.2a step 4) degrades any non-async outcome to a synchronous review.
 
 Route (the spec attach point fires for `spec_close`/`both` only — `slice_close` gates the *slice-close* moment, not this one):
 
@@ -650,6 +656,7 @@ Parse `$SCAFFOLD_DEV_ARGS` in bash; never reference `$1` / `$2`. Extract the VS-
 ```bash
 vs_id=""
 backend_override=""
+gate_override=""
 read -r -a scaffold_dev_argv <<<"${SCAFFOLD_DEV_ARGS:-}"
 i=0
 while [[ "$i" -lt "${#scaffold_dev_argv[@]}" ]]; do
@@ -664,6 +671,15 @@ while [[ "$i" -lt "${#scaffold_dev_argv[@]}" ]]; do
       backend_override="${scaffold_dev_argv[$next_i]}"
       i=$((i + 2))
       ;;
+    --gate)
+      next_i=$((i + 1))
+      if [[ "$next_i" -ge "${#scaffold_dev_argv[@]}" || "${scaffold_dev_argv[$next_i]}" == --* ]]; then
+        echo "orchestrate: missing value for --gate" >&2
+        exit 2
+      fi
+      gate_override="${scaffold_dev_argv[$next_i]}"
+      i=$((i + 2))
+      ;;
     VS-*)
       vs_id="$arg"
       i=$((i + 1))
@@ -676,7 +692,7 @@ while [[ "$i" -lt "${#scaffold_dev_argv[@]}" ]]; do
 done
 ```
 
-Carry `backend_override` through §8.3 as `sd backend_resolve --backend "$backend_override"` when set. Then proceed to §3 pre-flight.
+Carry `backend_override` through §8.3 as `sd backend_resolve --backend "$backend_override"` when set, and `gate_override` through §7.0 as `sd review_gate_resolve --gate "$gate_override"` when set (a one-off review gate, e.g. `/orchestrate VS-1.1.1 --gate spec_close`, that overrides the manifest `.review_gate`). Then proceed to §3 pre-flight.
 
 Unknown or missing VS-id → one-line error + stop:
 

@@ -242,8 +242,14 @@ After both demo layers pass, invoke architect-critic at close depth.
 
 The opt-in `review_gate` (manifest `.review_gate`, default `off`) decides whether the slice-close audit runs **synchronously** (today's behavior) or as an **async dispatch-and-defer** job (so a slow close-depth Codex audit does not block the close). Resolve the gate FIRST:
 
-1. `gate="$(cd "$ai_workspace" && sd review_gate_resolve)"` → `off | slice_close | spec_close | both`. **Resolve from the AI-workspace root:** the §5 auto-demo loop `cd`s into `$canonical`, but the pairing manifest (and its `.review_gate`) lives under the AI workspace. `sd review_gate_resolve` walks up from the CWD, so resolving from `$canonical` would find no manifest and default to `off` — silently skipping an opted-in gate. Default `off` = **today's behavior** exactly (the synchronous review in §7.2).
-2. `cap="$(sd compose_detect_architect_critic)"` → `v0.3 | v0.2 | absent` (§7.1). This probe is **advisory only** and **host-agnostic**: it reports what is installed across *all* plugin caches, but only the **active host's** architect-critic is actually invocable here. Two consequences: (a) **Runnability** — if the probe reports present but `Skill(architect-critic:critiquing-spec)` is not runnable in the active host (e.g. it lives only in the *other* host's cache), treat it as **`absent`** and take §7.3 — never invoke a skill the active host cannot resolve. (b) **Version/host** — a mixed-version cache can never force a phantom background job; the react-to-return step (§7.2a step 4) degrades any non-async outcome to a synchronous review.
+1. Resolve the gate, honoring any per-invocation `--gate` override carried from §13:
+   ```bash
+   gate_override_args=()
+   [[ -n "${gate_override:-}" ]] && gate_override_args=(--gate "$gate_override")
+   gate="$(cd "$ai_workspace" && sd review_gate_resolve "${gate_override_args[@]}")"
+   ```
+   → `off | slice_close | spec_close | both`. **Resolve from the AI-workspace root:** the §5 auto-demo loop `cd`s into `$canonical`, but the pairing manifest (and its `.review_gate`) lives under the AI workspace. `sd review_gate_resolve` walks up from the CWD, so resolving from `$canonical` would find no manifest and default to `off` — silently skipping an opted-in gate. Precedence: `--gate` override > manifest `.review_gate` > `off` (an invalid value fails loud). Default `off` = **today's behavior** exactly (the synchronous review in §7.2).
+2. `cap="$(sd compose_detect_architect_critic 2>/dev/null || true)"` → `v0.3 | v0.2 | absent` (§7.1). The `|| true` is load-bearing: the probe prints `absent` but **exits 1 by design** when architect-critic is missing, and an unguarded command substitution would abort a `set -e` block before the §7.3 warn-and-proceed branch runs. This probe is **advisory only** and **host-agnostic**: it reports what is installed across *all* plugin caches, but only the **active host's** architect-critic is actually invocable here. Two consequences: (a) **Runnability** — if the probe reports present but `Skill(architect-critic:critiquing-spec)` is not runnable in the active host (e.g. it lives only in the *other* host's cache), treat it as **`absent`** and take §7.3 — never invoke a skill the active host cannot resolve. (b) **Version/host** — a mixed-version cache can never force a phantom background job; the react-to-return step (§7.2a step 4) degrades any non-async outcome to a synchronous review.
 
 Route (the slice-close attach point fires for `slice_close`/`both` only — `spec_close` gates the *spec* moment, not this one):
 
@@ -277,14 +283,16 @@ The gate runs the **same** close-depth adversarial review, but requests backgrou
 
 1. Announce + usage warning: *"review_gate is on — requesting a close-depth architect-critic audit, dispatched as a background job when supported (**Claude-host** + architect-critic v0.3) and run synchronously otherwise. This consumes Codex/subscription usage. Type `skip` to bypass."*
 2. End the turn and wait. On `skip` (case-insensitive): carry a *"skipped — review_gate bypassed by user"* note forward to §8 (do NOT write `retrospective.md` here — it is rendered in §8; §8 step 3 records the note) and proceed to §8.
-3. **Materialize a single review bundle under a trusted project root.** architect-critic's CLI/async path resolves and reads exactly ONE artifact file (`critiquing-spec` Step 1a: `--spec PATH` or the first positional only), so a space-separated path list would audit just the first file. Assemble the full slice-close context into one bundle file so the **Codex fresh-frame sees the diff + README + every spec + every report**, not only the first. Write it **inside the slice directory** (`${slice_root}`, in the AI-workspace repo) — NOT under `/tmp`: architect-critic derives the async target root from the artifact's git-toplevel (`arc codex_target_root`) and its pre-flight **rejects roots outside the operator's Codex-trusted projects**, so a `/tmp` bundle (no trusted git-toplevel) would always hard-fail. The slice dir resolves to a trusted project repo. **Diff base:** scaffold-dev records no explicit VS-start commit, so derive the slice's divergence point as the **merge-base** of canonical `HEAD` and the branch the slice was cut from / its PR targets (the canonical default branch from manifest `canonical.default_branch`, or the sprint integration branch under `pr_hierarchical`); if it cannot be resolved, omit the diff section and rely on README + specs + reports (never substitute an empty/failed diff):
+3. **Materialize a single review bundle under a trusted project root.** architect-critic's CLI/async path resolves and reads exactly ONE artifact file (`critiquing-spec` Step 1a: `--spec PATH` or the first positional only), so a space-separated path list would audit just the first file. Assemble the full slice-close context into one bundle file so the **Codex fresh-frame sees the diff + README + every spec + every report**, not only the first. Write it **inside the slice directory** (`${slice_root}`, in the AI-workspace repo) — NOT under `/tmp`: architect-critic derives the async target root from the artifact's git-toplevel (`arc codex_target_root`) and its pre-flight **rejects roots outside the operator's Codex-trusted projects**, so a `/tmp` bundle (no trusted git-toplevel) would always hard-fail. The slice dir resolves to a trusted project repo. **Diff base (best-effort, only if non-empty):** scaffold-dev records no explicit VS-start commit, so derive the slice's divergence point as the **merge-base** of canonical `HEAD` and the branch the slice was cut from / its PR targets (the canonical default branch from manifest `canonical.default_branch`, or the sprint integration branch under `pr_hierarchical`). Include the diff **only when it is actually non-empty** — in the default `direct` merge mode the slice's work is already merged into the default branch by close time, so `merge-base == HEAD` and the range is empty; including it would mislead. When the diff is empty or unresolvable, omit the section and rely on README + specs + reports (never emit an empty/failed diff). *(A recorded slice-start baseline that would let `direct`-mode audits include the diff is a tracked follow-up — issue #76.)*
    ```bash
    bundle="${slice_root}/.sd-review-bundle.md"   # transient; under a trusted git root; removed after dispatch
    base_branch="<canonical.default_branch, or the slice's integration base under pr_hierarchical>"
    diff_base="$(git -C "<canonical-root>" merge-base "$base_branch" HEAD 2>/dev/null || true)"
    {
      echo "# Slice-close review bundle: <VS-id>"
-     if [ -n "$diff_base" ]; then
+     # include the diff ONLY when the range is real AND non-empty (pr_hierarchical);
+     # direct mode merges into the default branch by close → merge-base==HEAD → skip.
+     if [ -n "$diff_base" ] && ! git -C "<canonical-root>" diff --quiet "$diff_base..HEAD" 2>/dev/null; then
        echo; echo "## Combined diff ($diff_base → canonical HEAD)"; echo '```diff'
        git -C "<canonical-root>" diff "$diff_base..HEAD"; echo '```'
      fi
@@ -607,7 +615,29 @@ If the user skips, leave `05` untouched and say so; the ceremony still proceeds 
 
 The `/close-slice VS-N.M.K` slash command (`commands/close-slice.md`) exports the raw arg string as `$ARGUMENTS` (env-var bridge per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
 
-Parse `$ARGUMENTS` in bash; never reference `$1` / `$2`. Extract the VS-id (e.g., `VS-1.1.1` — the full 3-part id `VS-<phase>.<sprint>.<slice>`) and proceed to §3 pre-flight.
+Parse `$ARGUMENTS` in bash; never reference `$1` / `$2`. Extract the VS-id (e.g., `VS-1.1.1` — the full 3-part id `VS-<phase>.<sprint>.<slice>`) and the optional per-invocation `--gate` review-gate override:
+
+```bash
+vs_id=""
+gate_override=""
+read -r -a sd_close_argv <<<"${ARGUMENTS:-}"
+i=0
+while [[ "$i" -lt "${#sd_close_argv[@]}" ]]; do
+  arg="${sd_close_argv[$i]}"
+  case "$arg" in
+    --gate)
+      next_i=$((i + 1))
+      if [[ "$next_i" -ge "${#sd_close_argv[@]}" || "${sd_close_argv[$next_i]}" == --* ]]; then
+        echo "close-slice: missing value for --gate" >&2; exit 2
+      fi
+      gate_override="${sd_close_argv[$next_i]}"; i=$((i + 2)) ;;
+    VS-*) vs_id="$arg"; i=$((i + 1)) ;;
+    *) echo "close-slice: unknown argument: $arg" >&2; exit 2 ;;
+  esac
+done
+```
+
+Carry `gate_override` through §7.0 as `sd review_gate_resolve --gate "$gate_override"` when set (a one-off review gate, e.g. `/close-slice VS-1.1.1 --gate slice_close`, overriding the manifest `.review_gate`). Then proceed to §3 pre-flight.
 
 Unknown or missing VS-id → one-line error + stop:
 
