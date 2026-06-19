@@ -111,6 +111,16 @@ sd_review_gate_bundle() {
     sd_log_error "sd_review_gate_bundle: slice-root is not a directory: $slice_root"
     return 2
   fi
+  # Fail loud on caller mistakes rather than silently emitting an incomplete bundle:
+  # --diff-root/--diff-base must be given together, and section args must be pairs.
+  if { [[ -n "$diff_root" ]] && [[ -z "$diff_base" ]]; } || { [[ -z "$diff_root" ]] && [[ -n "$diff_base" ]]; }; then
+    sd_log_error "sd_review_gate_bundle: --diff-root and --diff-base must be given together"
+    return 2
+  fi
+  if [[ $(( $# % 2 )) -ne 0 ]]; then
+    sd_log_error "sd_review_gate_bundle: section args must be HEADING PATH pairs (odd arg count: $#)"
+    return 2
+  fi
 
   local dest="$slice_root/.sd-review-bundle.md"
   {

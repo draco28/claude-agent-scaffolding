@@ -158,6 +158,20 @@ test_bundle_requires_slice_root() {
   assert_exit_code 2 bash "$SD_BIN" review_gate_bundle --title "T"
 }
 
+test_bundle_diff_pair_required() {
+  echo "test_bundle_diff_pair_required:"
+  setup_tmp_workspace
+  # lone --diff-root (no --diff-base) must fail loud, not silently skip the diff
+  assert_exit_code 2 bash "$SD_BIN" review_gate_bundle --slice-root "$TMP_AI_WORKSPACE" --title "T" --diff-root "$TMP_CANONICAL"
+}
+
+test_bundle_odd_section_args() {
+  echo "test_bundle_odd_section_args:"
+  setup_tmp_workspace
+  # a trailing unpaired section arg must fail loud
+  assert_exit_code 2 bash "$SD_BIN" review_gate_bundle --slice-root "$TMP_AI_WORKSPACE" --title "T" "ghost-heading"
+}
+
 # --- B-W2: §7 review-gate seam prose -----------------------------------------
 # The gate's dispatch/defer flow is agent behavior (skill prose), verified here
 # by seam lints (the Phase A pattern). Each §7 must carry the gate-resolution,
@@ -182,7 +196,11 @@ _seam_async_contract() {
   # (its trusted-root / non-empty-diff / concat invariants live in the bundle unit
   # tests above — Codex rounds 2-5); the prose just CALLS it.
   assert_file_contains "$skill" "sd review_gate_bundle"
-  assert_file_contains "$skill" "bundle --close --async"
+  # args must be EXPORTED (a plain assignment isn't seen by critiquing-spec) and
+  # the bundle passed as an explicit --spec path (Codex round-6 T2/T3).
+  assert_file_contains "$skill" "export ARCHITECT_CRITIC_ARGS"
+  assert_file_contains "$skill" "[-][-]spec "
+  assert_file_contains "$skill" "[-][-]close [-][-]async"
   assert_file_contains "$skill" "dispatch-and-defer"
   assert_file_contains "$skill" "/critique-jobs resume"
   assert_file_contains "$skill" "consumes Codex"
@@ -239,6 +257,8 @@ test_bundle_omits_empty_diff
 test_bundle_spec_mode_no_diff
 test_bundle_missing_section_file_graceful
 test_bundle_requires_slice_root
+test_bundle_diff_pair_required
+test_bundle_odd_section_args
 test_seam_prose_closing_vertical_slice
 test_seam_prose_planning_vertical_slice
 
