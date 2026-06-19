@@ -114,13 +114,20 @@ _seam_async_contract() {
   local skill="$1"
   assert_file_contains "$skill" "sd review_gate_resolve"
   assert_file_contains "$skill" "ARCHITECT_CRITIC_ARGS"
-  assert_file_contains "$skill" "--close --async"
+  # bundle materialization: a single artifact carries the full context, since the
+  # async/CLI path reads only one file (Codex round-2 New-1/New-4).
+  assert_file_contains "$skill" "Materialize a single"
+  assert_file_contains "$skill" "bundle --close --async"
   assert_file_contains "$skill" "dispatch-and-defer"
   assert_file_contains "$skill" "/critique-jobs resume"
   assert_file_contains "$skill" "consumes Codex"
   assert_file_contains "$skill" "synchronous"
   assert_file_contains "$skill" "Claude-host"
   assert_file_contains "$skill" "today's behavior"
+  # preflight hard-fail is an explicit third react-to-return outcome (New-2).
+  assert_file_contains "$skill" "Pre-flight hard-fail"
+  # non-runnable-in-active-host degrades to warn-and-proceed, not a failed call (New-5).
+  assert_file_contains "$skill" "runnable in the active host"
   # async=true was the broken informal-parameter form (Codex P1) — must be gone.
   assert_file_not_contains "$skill" "async=true"
 }

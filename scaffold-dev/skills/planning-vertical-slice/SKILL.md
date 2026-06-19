@@ -328,11 +328,11 @@ After specs are written, gate-2 grill-me has settled, and the §6.4 citation-che
 The opt-in `review_gate` (manifest `.review_gate`, default `off`) decides whether the spec-author audit runs **synchronously** at the default `depth=author` (today's behavior) or as a **close-depth** audit — dispatched async when supported, else synchronous. Resolve the gate FIRST:
 
 1. `gate="$(sd review_gate_resolve)"` → `off | slice_close | spec_close | both`. Default `off` = **today's behavior** exactly (the synchronous author-depth review in §7.2).
-2. `cap="$(sd compose_detect_architect_critic)"` → `v0.3 | v0.2 | absent` (§7.1). **Advisory only**: it reports what is installed across the plugin caches, but the active host's actually-runnable architect-critic governs the outcome (the react-to-return step, §7.2a step 4), so a mixed-version cache can never force a phantom background job.
+2. `cap="$(sd compose_detect_architect_critic)"` → `v0.3 | v0.2 | absent` (§7.1). **Advisory only** and **host-agnostic**: it reports what is installed across *all* plugin caches, but only the **active host's** architect-critic is invocable here. Two consequences: (a) **Runnability** — if the probe reports present but `Skill(architect-critic:critiquing-spec)` is not runnable in the active host (e.g. installed only in the *other* host's cache), treat it as **`absent`** and take §7.3 — never invoke a skill the active host cannot resolve. (b) **Version/host** — a mixed-version cache can never force a phantom background job; the react-to-return step (§7.2a step 4) degrades any non-async outcome to a synchronous review.
 
 Route (the spec attach point fires for `spec_close`/`both` only — `slice_close` gates the *slice-close* moment, not this one):
 
-- `cap=absent` → **§7.3** (warn-and-proceed), regardless of gate.
+- `cap=absent` (or reported-present-but-not-runnable-in-the-active-host, per the runnability check above) → **§7.3** (warn-and-proceed), regardless of gate.
 - gate ∈ {`spec_close`, `both`} (architect-critic present) → **§7.2a** — request a close-depth audit (async when supported). Async is **Claude-host** → Codex-adversary only; under Codex-host or architect-critic v0.2 the same call runs a **synchronous** close-depth review instead (§7.2a step 4) — still the upgraded depth, only without background dispatch.
 - gate ∈ {`off`, `slice_close`} → **§7.2** synchronous author-depth review (today's behavior).
 
@@ -344,7 +344,7 @@ Call `sd_compose_detect_architect_critic` (lib/compose.sh). It walks `~/.claude/
 
 ### 7.2 Invocation — synchronous (when present)
 
-When routed here by §7.0 (gate `off`/`slice_close`, or the `v0.2` fallback) — **synchronous** author-depth review (the default; gate `off` preserves this exactly):
+When routed here by §7.0 (gate `off`, or `slice_close` which gates the *slice-close* moment, not this one) — **synchronous** author-depth review (the default; gate `off` preserves this exactly). The `v0.2` and Codex-host cases do NOT land here — they route through §7.2a, whose react-to-return step runs a synchronous **close**-depth review (the gate's depth upgrade is preserved; only background dispatch is lost):
 
 1. Announce: *"Specs authored — invoking architect-critic for a spec-audit on the combined work-item specs. Type `skip` to bypass."*
 2. End the turn and wait. If the user types `skip` (case-insensitive): log the skip in the slice README and proceed to §8.
@@ -364,13 +364,22 @@ The gate runs a **close-depth** adversarial spec audit (upgraded from the defaul
 
 1. Announce + usage warning: *"review_gate is on — requesting a close-depth architect-critic spec audit, dispatched as a background job when supported (**Claude-host** + architect-critic v0.3) and run synchronously otherwise. This consumes Codex/subscription usage. Type `skip` to bypass."*
 2. End the turn and wait. On `skip` (case-insensitive): log the skip in the slice README and proceed to §8.
-3. Otherwise drive architect-critic through its **real CLI contract** — informal parameters do NOT set async (`async_mode` is read only from `--async` in `$ARCHITECT_CRITIC_ARGS`; see [[feedback_slash_command_dollar_n_bug]]). Mirror the env-var bridge `/critique` uses: set `ARCHITECT_CRITIC_ARGS="<combined-spec-paths> --close --async"`, then invoke `Skill(architect-critic:critiquing-spec)` **EXACTLY ONCE** (target = the combined work-item `spec.md` set — the same `<list of all work-N.NN-<kebab>/spec.md absolute paths>` §7.2 audits). (`--close` = the upgraded close depth; `--async` = defer-to-resume, honored only for Claude-host + v0.3 and otherwise ignored, running synchronously.)
-4. **React to the return** (do NOT assume async happened):
+3. **Materialize a single combined-spec bundle.** architect-critic's CLI/async path resolves and reads exactly ONE artifact file (`critiquing-spec` Step 1a: `--spec PATH` or the first positional only), so passing a space-separated list of spec paths would audit just the first one. Concatenate all work-item specs into one bundle file OUTSIDE the repo tree so the **Codex fresh-frame sees every spec**:
+   ```bash
+   bundle="$(mktemp "${TMPDIR:-/tmp}/sd-spec-bundle.XXXXXX.md")"
+   { echo "# Combined work-item specs: <VS-id>"
+     for s in <list of all work-N.NN-<kebab>/spec.md absolute paths>; do
+       echo; echo "## $s"; cat "$s"; echo
+     done; } > "$bundle"
+   ```
+4. Drive architect-critic through its **real CLI contract** — informal parameters do NOT set async (`async_mode` is read only from `--async` in `$ARCHITECT_CRITIC_ARGS`; see [[feedback_slash_command_dollar_n_bug]]). Set `ARCHITECT_CRITIC_ARGS="$bundle --close --async"`, then invoke `Skill(architect-critic:critiquing-spec)` **EXACTLY ONCE**. (`--close` = the upgraded close depth; `--async` = defer-to-resume, honored only for Claude-host + v0.3 and otherwise ignored, running synchronously.)
+5. **React to the return — three outcomes** (do NOT assume async happened); `rm -f "$bundle"` once the call returns (the artifact is fully consumed at dispatch):
    - **Async dispatched** — architect-critic returns a background **job handle `<id>`** and STOPS without a rebuttal: record the handle in the slice README (job `<id>`, dispatched async at spec-author, resume command `/critique-jobs resume <id>`), then surface and **PROCEED to §8**:
      > Spec audit running in the background as job `<id>`. Planning proceeds now; resume with `/critique-jobs resume <id>` to fold both adversaries into one rebuttal, then accept-and-revise any standing challenges into the affected `spec.md` via `sd_render`. If it never completes (stalled/capped/failed), `/critique-jobs status <id>` shows the disposition — planning is not blocked either way.
-   - **Ran synchronously** — architect-critic instead completed its rebuttal cycle inline (no job handle: the Codex-host, architect-critic v0.2, foreground-size-hint, or degraded-pre-flight cases): treat it exactly as §7.2 step 5 — surface standing challenges as edit candidates, accept-and-revise into the affected `spec.md` via `sd_render`, then proceed to §8. Do NOT record a `/critique-jobs resume` pointer — there is no job.
+   - **Ran synchronously** — architect-critic instead completed its rebuttal cycle inline (no job handle: the Codex-host, architect-critic v0.2, or foreground-size-hint cases): treat it exactly as §7.2 step 5 — surface standing challenges as edit candidates, accept-and-revise into the affected `spec.md` via `sd_render`, then proceed to §8. Do NOT record a `/critique-jobs resume` pointer — there is no job.
+   - **Pre-flight hard-fail** — under Claude-host + v0.3 but Codex uninstalled/unauthed/untrusted, `critiquing-spec` Step 6-async HARD-FAILS with remediation and **no** silent foreground fallback, so it returns NEITHER a job handle NOR a rebuttal. Do NOT stall: surface the remediation verbatim, note that `/critique-doctor` diagnoses readiness and that a synchronous review is available by re-running without `--async`, log the skipped audit in the slice README, and **PROCEED to §8** (the gate is non-blocking by contract). Re-run synchronously only if the user asks.
 
-**Eval contract (still holds):** still EXACTLY ONE `Skill(architect-critic:critiquing-spec)` invocation AFTER all spec files are written — only driven through `ARCHITECT_CRITIC_ARGS="… --close --async"`. No Task tool; no `inbox/`/`outbox/` writes.
+**Eval contract (still holds):** still EXACTLY ONE `Skill(architect-critic:critiquing-spec)` invocation AFTER all spec files are written — only driven through `ARCHITECT_CRITIC_ARGS="$bundle --close --async"`. No Task tool; no `inbox/`/`outbox/` writes.
 
 ### 7.3 Absent / warn-and-skip (S4 contract)
 
