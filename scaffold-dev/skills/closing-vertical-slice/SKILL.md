@@ -283,26 +283,16 @@ The gate runs the **same** close-depth adversarial review, but requests backgrou
 
 1. Announce + usage warning: *"review_gate is on — requesting a close-depth architect-critic audit, dispatched as a background job when supported (**Claude-host** + architect-critic v0.3) and run synchronously otherwise. This consumes Codex/subscription usage. Type `skip` to bypass."*
 2. End the turn and wait. On `skip` (case-insensitive): carry a *"skipped — review_gate bypassed by user"* note forward to §8 (do NOT write `retrospective.md` here — it is rendered in §8; §8 step 3 records the note) and proceed to §8.
-3. **Materialize a single review bundle under a trusted project root.** architect-critic's CLI/async path resolves and reads exactly ONE artifact file (`critiquing-spec` Step 1a: `--spec PATH` or the first positional only), so a space-separated path list would audit just the first file. Assemble the full slice-close context into one bundle file so the **Codex fresh-frame sees the diff + README + every spec + every report**, not only the first. Write it **inside the slice directory** (`${slice_root}`, in the AI-workspace repo) — NOT under `/tmp`: architect-critic derives the async target root from the artifact's git-toplevel (`arc codex_target_root`) and its pre-flight **rejects roots outside the operator's Codex-trusted projects**, so a `/tmp` bundle (no trusted git-toplevel) would always hard-fail. The slice dir resolves to a trusted project repo. **Diff base (best-effort, only if non-empty):** scaffold-dev records no explicit VS-start commit, so derive the slice's divergence point as the **merge-base** of canonical `HEAD` and the branch the slice was cut from / its PR targets (the canonical default branch from manifest `canonical.default_branch`, or the sprint integration branch under `pr_hierarchical`). Include the diff **only when it is actually non-empty** — in the default `direct` merge mode the slice's work is already merged into the default branch by close time, so `merge-base == HEAD` and the range is empty; including it would mislead. When the diff is empty or unresolvable, omit the section and rely on README + specs + reports (never emit an empty/failed diff). *(A recorded slice-start baseline that would let `direct`-mode audits include the diff is a tracked follow-up — issue #76.)*
+3. **Build the review bundle (one tested call).** architect-critic's async/CLI path reads exactly ONE artifact file (`critiquing-spec` Step 1a), so the full slice-close context must be assembled into a single artifact. The mechanical assembly is the tested helper `sd review_gate_bundle` (`lib/review_gate.sh`) — it writes the bundle **under the slice dir** (a trusted git root, never `/tmp`, so architect-critic's async target-root pre-flight accepts it), includes the slice diff **only when non-empty** (omitted in the default `direct` merge mode where the slice is already merged into the default branch so `merge-base == HEAD` — tracked as #76), and appends each `HEADING PATH` section (a missing file is noted, not fatal):
    ```bash
-   bundle="${slice_root}/.sd-review-bundle.md"   # transient; under a trusted git root; removed after dispatch
-   base_branch="<canonical.default_branch, or the slice's integration base under pr_hierarchical>"
-   diff_base="$(git -C "<canonical-root>" merge-base "$base_branch" HEAD 2>/dev/null || true)"
-   {
-     echo "# Slice-close review bundle: <VS-id>"
-     # include the diff ONLY when the range is real AND non-empty (pr_hierarchical);
-     # direct mode merges into the default branch by close → merge-base==HEAD → skip.
-     if [ -n "$diff_base" ] && ! git -C "<canonical-root>" diff --quiet "$diff_base..HEAD" 2>/dev/null; then
-       echo; echo "## Combined diff ($diff_base → canonical HEAD)"; echo '```diff'
-       git -C "<canonical-root>" diff "$diff_base..HEAD"; echo '```'
-     fi
-     echo; echo "## VS README"; cat "<slice-README-path>"
-     echo; echo "## Work-item specs + reports"
-     for s in <all work-item spec.md absolute paths>; do echo "### spec: $s"; cat "$s"; echo; done
-     for r in <all work-item report.md absolute paths>; do echo "### report: $r"; cat "$r"; echo; done
-   } > "$bundle"
+   bundle="$(sd review_gate_bundle --slice-root "$slice_root" \
+     --title "Slice-close review bundle: $vs_id" \
+     --diff-root "$canonical" --diff-base "$base_branch" \
+     "VS README" "$slice_readme" \
+     "spec: <work-id>" "<work-item spec.md>" \
+     "report: <work-id>" "<work-item report.md>")"   # repeat the spec/report pairs per work item
    ```
-   (The leading dot keeps it out of `work-*/spec.md` globs; step 5 removes it right after dispatch so it never reaches a commit.)
+   `$base_branch` = the canonical default branch (`canonical.default_branch`) or the sprint integration base under `pr_hierarchical`. The helper echoes the bundle path; step 5 removes it after dispatch (a dotfile, kept out of `work-*/spec.md` globs, never committed).
 4. Drive architect-critic through its **real CLI contract** — informal parameters do NOT set async (`async_mode` is read only from `--async` in `$ARCHITECT_CRITIC_ARGS`; see [[feedback_slash_command_dollar_n_bug]]). Set `ARCHITECT_CRITIC_ARGS="$bundle --close --async"`, then invoke `Skill(architect-critic:critiquing-spec)` **EXACTLY ONCE**. (`--close` = close depth; `--async` = defer-to-resume, honored only for Claude-host + v0.3 and otherwise ignored, running synchronously.)
 5. **React to the return — three outcomes** (do NOT assume async happened); `rm -f "$bundle"` once the call returns (the artifact is fully consumed at dispatch):
    - **Async dispatched** — architect-critic returns a background **job handle `<id>`** and STOPS without a rebuttal: **carry the job `<id>` + resume command forward to §8** — do NOT write `retrospective.md` here (it does not exist yet; §8 renders it from the template and would overwrite an early write). §8 step 3 records the async handle in the Architect-critic findings section. Surface the status and **PROCEED to §8** (do NOT block, do NOT consolidate now):

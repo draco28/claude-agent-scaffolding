@@ -97,6 +97,67 @@ test_resolve_invalid_gate() {
   assert_contains "names the invalid value" "bogus" "$OUT"
 }
 
+# --- sd_review_gate_bundle: mechanical bundle assembly (extracted from §7.2a prose
+#     after Codex rounds 3-5 kept finding plumbing bugs there; the AGENT still makes
+#     every decision and just calls this tested helper). Bakes in: write under a
+#     trusted git root (never /tmp), diff only when non-empty, file concat. ---------
+
+test_bundle_under_slice_root_with_diff() {
+  echo "test_bundle_under_slice_root_with_diff:"
+  setup_tmp_workspace
+  ( cd "$TMP_CANONICAL" && git checkout -q -b feature && echo "feat line added" >> README.md && git commit -qam "feat" )
+  local bundle
+  bundle="$(bash "$SD_BIN" review_gate_bundle --slice-root "$TMP_AI_WORKSPACE" \
+    --title "Slice-close review bundle: VS-1.1.1" \
+    --diff-root "$TMP_CANONICAL" --diff-base main \
+    "VS README" "$TMP_CANONICAL/README.md")"
+  assert_contains "bundle path under slice root" "$TMP_AI_WORKSPACE" "$bundle"
+  assert_contains "bundle is the dotfile under slice root" "/.sd-review-bundle.md" "$bundle"
+  assert_file_contains "$bundle" "Slice-close review bundle: VS-1.1.1"
+  assert_file_contains "$bundle" "Combined diff"
+  assert_file_contains "$bundle" "feat line added"
+  assert_file_contains "$bundle" "VS README"
+}
+
+test_bundle_omits_empty_diff() {
+  echo "test_bundle_omits_empty_diff:"
+  setup_tmp_workspace
+  ( cd "$TMP_CANONICAL" && git checkout -q -b feature && echo "x" >> README.md && git commit -qam "feat" )
+  # diff-base = current branch → merge-base == HEAD → empty diff (the direct-mode case)
+  local bundle
+  bundle="$(bash "$SD_BIN" review_gate_bundle --slice-root "$TMP_AI_WORKSPACE" --title "T" \
+    --diff-root "$TMP_CANONICAL" --diff-base feature \
+    "spec: a" "$TMP_CANONICAL/README.md")"
+  assert_file_not_contains "$bundle" "Combined diff"
+  assert_file_contains "$bundle" "spec: a"
+}
+
+test_bundle_spec_mode_no_diff() {
+  echo "test_bundle_spec_mode_no_diff:"
+  setup_tmp_workspace
+  printf 'spec body here\n' > "$TMP_AI_WORKSPACE/specA.md"
+  local bundle
+  bundle="$(bash "$SD_BIN" review_gate_bundle --slice-root "$TMP_AI_WORKSPACE" \
+    --title "Combined work-item specs: VS-1.1.1" \
+    "spec: work-1.01" "$TMP_AI_WORKSPACE/specA.md")"
+  assert_file_not_contains "$bundle" "Combined diff"
+  assert_file_contains "$bundle" "Combined work-item specs: VS-1.1.1"
+  assert_file_contains "$bundle" "spec body here"
+}
+
+test_bundle_missing_section_file_graceful() {
+  echo "test_bundle_missing_section_file_graceful:"
+  setup_tmp_workspace
+  assert_exit_code 0 bash "$SD_BIN" review_gate_bundle --slice-root "$TMP_AI_WORKSPACE" --title "T" \
+    "ghost" "$TMP_DIR/does-not-exist.md"
+}
+
+test_bundle_requires_slice_root() {
+  echo "test_bundle_requires_slice_root:"
+  setup_tmp_workspace
+  assert_exit_code 2 bash "$SD_BIN" review_gate_bundle --title "T"
+}
+
 # --- B-W2: §7 review-gate seam prose -----------------------------------------
 # The gate's dispatch/defer flow is agent behavior (skill prose), verified here
 # by seam lints (the Phase A pattern). Each §7 must carry the gate-resolution,
@@ -117,14 +178,11 @@ _seam_async_contract() {
   # canonical) — Codex round-4 R4-A.
   assert_file_contains "$skill" 'ai_workspace" && sd review_gate_resolve'
   assert_file_contains "$skill" "ARCHITECT_CRITIC_ARGS"
-  # bundle materialization: a single artifact carries the full context, since the
-  # async/CLI path reads only one file (Codex round-2 New-1/New-4).
-  assert_file_contains "$skill" "Materialize a single"
+  # the single-artifact bundle is assembled by the tested helper sd_review_gate_bundle
+  # (its trusted-root / non-empty-diff / concat invariants live in the bundle unit
+  # tests above — Codex rounds 2-5); the prose just CALLS it.
+  assert_file_contains "$skill" "sd review_gate_bundle"
   assert_file_contains "$skill" "bundle --close --async"
-  # bundle must live under a trusted git root, not /tmp, or preflight rejects the
-  # derived target root (Codex round-3 R3-A).
-  assert_file_contains "$skill" "trusted project root"
-  assert_file_contains "$skill" "slice_root}/.sd-"
   assert_file_contains "$skill" "dispatch-and-defer"
   assert_file_contains "$skill" "/critique-jobs resume"
   assert_file_contains "$skill" "consumes Codex"
@@ -155,12 +213,9 @@ test_seam_prose_closing_vertical_slice() {
   # async-dispatched one — Codex round-4 R4-B.
   assert_file_contains "$CLOSING_SKILL" "carry the critic's findings"
   assert_file_contains "$CLOSING_SKILL" "bypassed by user"
-  # diff base is concrete (merge-base), not the undefined <vs-start-commit> — R4-C.
-  assert_file_contains "$CLOSING_SKILL" "merge-base"
-  assert_file_contains "$CLOSING_SKILL" "diff_base"
+  # the undefined <vs-start-commit> placeholder must not reappear (R4-C); the real
+  # diff-base / non-empty logic now lives in the tested helper, not the prose.
   assert_file_not_contains "$CLOSING_SKILL" "vs-start-commit"
-  # diff included only when non-empty (direct-mode merge-base==HEAD → skip) — R5-C.
-  assert_file_contains "$CLOSING_SKILL" "diff --quiet"
 }
 
 test_seam_prose_planning_vertical_slice() {
@@ -179,6 +234,11 @@ test_override_beats_set_manifest
 test_override_missing_value
 test_resolve_no_manifest_defaults
 test_resolve_invalid_gate
+test_bundle_under_slice_root_with_diff
+test_bundle_omits_empty_diff
+test_bundle_spec_mode_no_diff
+test_bundle_missing_section_file_graceful
+test_bundle_requires_slice_root
 test_seam_prose_closing_vertical_slice
 test_seam_prose_planning_vertical_slice
 
