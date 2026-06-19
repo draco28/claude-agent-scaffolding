@@ -113,6 +113,9 @@ PLANNING_SKILL="$HERE/../skills/planning-vertical-slice/SKILL.md"
 _seam_async_contract() {
   local skill="$1"
   assert_file_contains "$skill" "sd review_gate_resolve"
+  # gate resolved from the AI-workspace root (manifest lives there; §5 cd's to
+  # canonical) — Codex round-4 R4-A.
+  assert_file_contains "$skill" 'ai_workspace" && sd review_gate_resolve'
   assert_file_contains "$skill" "ARCHITECT_CRITIC_ARGS"
   # bundle materialization: a single artifact carries the full context, since the
   # async/CLI path reads only one file (Codex round-2 New-1/New-4).
@@ -143,6 +146,14 @@ test_seam_prose_closing_vertical_slice() {
   # an early write would be clobbered) — Codex round-3 R3-B.
   assert_file_contains "$CLOSING_SKILL" "carry the job"
   assert_file_contains "$CLOSING_SKILL" "durable home for the job handle"
+  # ALL §7.2a outcomes (skip / synchronous / hard-fail) defer to §8, not just the
+  # async-dispatched one — Codex round-4 R4-B.
+  assert_file_contains "$CLOSING_SKILL" "carry the critic's findings"
+  assert_file_contains "$CLOSING_SKILL" "bypassed by user"
+  # diff base is concrete (merge-base), not the undefined <vs-start-commit> — R4-C.
+  assert_file_contains "$CLOSING_SKILL" "merge-base"
+  assert_file_contains "$CLOSING_SKILL" "diff_base"
+  assert_file_not_contains "$CLOSING_SKILL" "vs-start-commit"
 }
 
 test_seam_prose_planning_vertical_slice() {
