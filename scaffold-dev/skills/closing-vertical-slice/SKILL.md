@@ -11,7 +11,7 @@ The ceremony order is binding. The §11 M2 marker — worktrees + branches remov
 
 Bash helpers in `lib/manifest.sh`, `lib/render.sh`, `lib/worktree.sh`, `lib/compose.sh`, and `lib/harvest.sh` do the bookkeeping (manifest resolution, template substitution, filesystem probes, worktree teardown, harvest write/idempotency/reroute + lean-index length leg). Demo-line parsing happens directly in the orchestrator (trivial two-field split on ` → expected: `); demo-criterion evaluation is agent-judged for content expectations. The judgment work — which §12.2 menu row matches the failing auto-demo, whether captured output satisfies a content expectation (with a recorded reason), how to phrase the source-tagged harvest candidates, when to count the rejected handoff item as "left in handoff" — happens here, in conversation.
 
-This skill is the slice-close terminal step. It does NOT plan slices (that's `planning-vertical-slice` per §5), does NOT verify per-work-item ACs (that's `implementation-checking` per §12.1), and does NOT author the work-item bodies (that's the `scaffold-dev:implementer-agent` subagent body via `executing-work-item` per §6). It is invoked at the end of the slice when all rounds complete, either by trigger phrase or by the `/close-slice VS-N.M.K` slash command.
+This skill is the slice-close terminal step. It does NOT plan slices (that's `planning-vertical-slice` per §5), does NOT verify per-work-item ACs (that's `implementation-checking` per §12.1), and does NOT author the work-item bodies (that's the `scaffold-dev:implementer-agent` subagent body via `executing-work-item` per §6). It is invoked at the end of the slice when all rounds complete, either by a natural-language trigger ("close VS-N.M.K") or from `/orchestrate`'s close phase (there is no dedicated `/close-slice` command — see §13).
 
 ---
 
@@ -44,7 +44,7 @@ Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/c
 - `slice close`
 - `wrap up the slice`
 - `run slice-close ceremony`
-- `/close-slice VS-N.M.K` (slash command — see §11 for the `$ARGUMENTS` env-var bridge)
+- `close VS-N.M.K` (natural-language trigger) or `/orchestrate`'s close phase (see §13 for invocation + the `--gate` override)
 
 All four phrase forms are load-bearing in the description block above — the four eval scenarios trigger via description-match on each, so do not paraphrase any of them in your acknowledgement.
 
@@ -86,7 +86,7 @@ Never read manifest fields via raw inline `jq`. All manifest reads route through
 
 Resolution priority:
 
-1. **Explicit id** in the user message (e.g., `close VS-1.1.1`, `/close-slice VS-1.1.1`) — match the full 3-part `VS-<phase>.<sprint>.<slice>` token and normalize to the `VS-`-prefixed form (`vs_id="VS-1.1.1"`).
+1. **Explicit id** in the user message (e.g., `close VS-1.1.1`) — match the full 3-part `VS-<phase>.<sprint>.<slice>` token and normalize to the `VS-`-prefixed form (`vs_id="VS-1.1.1"`).
 2. **Active-context cursor** — read `<ai-workspace>/.claude/memory-bank/05-active-context.md` for the in-flight slice; use that when the message is ambiguous (e.g., `slice close`, `wrap up the slice`).
 3. If neither produces an id, ask: *"Which slice? (e.g., `VS-1.1.1`)"* and wait.
 
@@ -601,37 +601,15 @@ If the user skips, leave `05` untouched and say so; the ceremony still proceeds 
 
 ---
 
-## 13. Slash-command interaction (`/close-slice VS-N.M.K`)
+## 13. Invocation (natural language or `/orchestrate` close phase)
 
-The `/close-slice VS-N.M.K` slash command (`commands/close-slice.md`) exports the raw arg string as `$ARGUMENTS` (env-var bridge per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
+The closing ceremony has **no dedicated slash command** — it is invoked by a natural-language trigger ("close VS-N.M.K", "slice close", "wrap up the slice") or from `/orchestrate`'s close phase (the sprint driver closes each slice). Extract the VS-id (the full 3-part id `VS-<phase>.<sprint>.<slice>`) from the trigger; never reference `$1`/`$2` (`feedback_slash_command_dollar_n_bug`).
 
-Parse `$ARGUMENTS` in bash; never reference `$1` / `$2`. Extract the VS-id (e.g., `VS-1.1.1` — the full 3-part id `VS-<phase>.<sprint>.<slice>`) and the optional per-invocation `--gate` review-gate override:
-
-```bash
-vs_id=""
-gate_override=""
-read -r -a sd_close_argv <<<"${ARGUMENTS:-}"
-i=0
-while [[ "$i" -lt "${#sd_close_argv[@]}" ]]; do
-  arg="${sd_close_argv[$i]}"
-  case "$arg" in
-    --gate)
-      next_i=$((i + 1))
-      if [[ "$next_i" -ge "${#sd_close_argv[@]}" || "${sd_close_argv[$next_i]}" == --* ]]; then
-        echo "close-slice: missing value for --gate" >&2; exit 2
-      fi
-      gate_override="${sd_close_argv[$next_i]}"; i=$((i + 2)) ;;
-    VS-*) vs_id="$arg"; i=$((i + 1)) ;;
-    *) echo "close-slice: unknown argument: $arg" >&2; exit 2 ;;
-  esac
-done
-```
-
-Carry `gate_override` through §7.0 as `sd review_gate_resolve --gate "$gate_override"` when set (a one-off review gate, e.g. `/close-slice VS-1.1.1 --gate slice_close`, overriding the manifest `.review_gate`). Then proceed to §3 pre-flight.
+**Review-gate override:** when the close runs inside `/orchestrate`, any per-invocation `--gate` override that `/orchestrate` parsed (see `planning-vertical-slice` §13) is already in context as `gate_override`, and §7.0 passes it through as `sd review_gate_resolve --gate "$gate_override"`. A standalone natural-language close carries no override, so the manifest `.review_gate` applies.
 
 Unknown or missing VS-id → one-line error + stop:
 
-> /close-slice requires a VS-id argument. Example: /close-slice VS-1.1.1
+> Closing requires a VS-id. Example: close VS-1.1.1
 
 ---
 
