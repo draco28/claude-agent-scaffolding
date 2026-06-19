@@ -325,19 +325,18 @@ After specs are written, gate-2 grill-me has settled, and the §6.4 citation-che
 
 ### 7.0 Review-gate resolution (#39 Phase B — opt-in async)
 
-The opt-in `review_gate` (manifest `.review_gate`, default `off`) decides whether the spec-author audit runs **synchronously** at `depth=author` (today's behavior) or as an **async dispatch-and-defer** job. Resolve the gate FIRST, then detect adversary capability:
+The opt-in `review_gate` (manifest `.review_gate`, default `off`) decides whether the spec-author audit runs **synchronously** at the default `depth=author` (today's behavior) or as a **close-depth** audit — dispatched async when supported, else synchronous. Resolve the gate FIRST:
 
 1. `gate="$(sd review_gate_resolve)"` → `off | slice_close | spec_close | both`. Default `off` = **today's behavior** exactly (the synchronous author-depth review in §7.2).
-2. `cap="$(sd compose_detect_architect_critic)"` → `v0.3 | v0.2 | absent` (§7.1).
+2. `cap="$(sd compose_detect_architect_critic)"` → `v0.3 | v0.2 | absent` (§7.1). **Advisory only**: it reports what is installed across the plugin caches, but the active host's actually-runnable architect-critic governs the outcome (the react-to-return step, §7.2a step 4), so a mixed-version cache can never force a phantom background job.
 
-Route on the `(gate, cap)` pair (the spec attach point fires for `spec_close`/`both` only — `slice_close` gates the *slice-close* moment, not this one):
+Route (the spec attach point fires for `spec_close`/`both` only — `slice_close` gates the *slice-close* moment, not this one):
 
 - `cap=absent` → **§7.3** (warn-and-proceed), regardless of gate.
-- gate ∈ {`spec_close`, `both`} AND `cap=v0.3` → **§7.2a async dispatch-and-defer**.
-- gate ∈ {`spec_close`, `both`} AND `cap=v0.2` → emit ONE warning — *"review_gate set but architect-critic < v0.3 (no async API); running the synchronous author-depth review instead."* — and fall through to **§7.2**.
+- gate ∈ {`spec_close`, `both`} (architect-critic present) → **§7.2a** — request a close-depth audit (async when supported). Async is **Claude-host** → Codex-adversary only; under Codex-host or architect-critic v0.2 the same call runs a **synchronous** close-depth review instead (§7.2a step 4) — still the upgraded depth, only without background dispatch.
 - gate ∈ {`off`, `slice_close`} → **§7.2** synchronous author-depth review (today's behavior).
 
-**Depth note (load-bearing):** async exists only at **close depth**, so the gate (`spec_close`/`both`, v0.3) **upgrades the default author-depth** spec audit to a heavier **close-depth** Codex adversary audit. This is the extra rigor the gate buys at the spec moment; the lighter author-depth Claude-self-audit remains the default when the gate is off.
+**Depth note (load-bearing):** async exists only at **close depth**, so turning the gate on at the spec moment **upgrades the default author-depth** spec audit to a heavier **close-depth** adversary audit. The upgrade holds whether or not async is available: architect-critic v0.2 (which still supports synchronous close depth) and Codex-host lose only the *background dispatch*, **not** the close depth — §7.2a step 4 runs a synchronous close-depth review in those cases. The lighter author-depth Claude-self-audit remains the default only when the gate is off.
 
 ### 7.1 Detection (filesystem probe; binary)
 
@@ -359,23 +358,19 @@ When routed here by §7.0 (gate `off`/`slice_close`, or the `v0.2` fallback) —
 
 **Eval contract:** S1's tool-call log assertion requires exactly ONE `Skill(architect-critic:critiquing-spec)` invocation AFTER all spec files are written. Do NOT invoke before spec writes complete; do NOT invoke via Task tool; do NOT write to `inbox/` or `outbox/` paths (file-IPC was removed in architect-critic v0.2 per SPEC §16.3).
 
-### 7.2a Invocation — async dispatch-and-defer (review_gate=spec_close|both, v0.3) [#39 Phase B]
+### 7.2a Invocation — close-depth audit, async dispatch-and-defer when supported (review_gate=spec_close|both) [#39 Phase B]
 
-The gate runs a **close-depth** adversarial spec audit (upgraded from the default author-depth — see §7.0), dispatched as a background job. **Dispatch-and-defer:** turn 1 dispatches and proceeds to the handoff; there is NO in-ceremony polling, and the rebuttal is consolidated later via resume.
+The gate runs a **close-depth** adversarial spec audit (upgraded from the default author-depth — see §7.0), requesting background dispatch so planning is not blocked. **Dispatch-and-defer:** when async is available the audit runs in the background and the rebuttal is consolidated later via resume; otherwise the very same call degrades to a **synchronous** close-depth review (still the upgraded depth, never a phantom job). The gate **reacts to what architect-critic actually returns** rather than predicting host/version.
 
-1. Announce + usage warning: *"review_gate is on — dispatching a close-depth architect-critic spec audit as a background job (this consumes Codex/subscription usage). Type `skip` to bypass."*
+1. Announce + usage warning: *"review_gate is on — requesting a close-depth architect-critic spec audit, dispatched as a background job when supported (**Claude-host** + architect-critic v0.3) and run synchronously otherwise. This consumes Codex/subscription usage. Type `skip` to bypass."*
 2. End the turn and wait. On `skip` (case-insensitive): log the skip in the slice README and proceed to §8.
-3. Otherwise invoke `Skill(architect-critic:critiquing-spec)` **EXACTLY ONCE** with:
-   - `target=spec`
-   - `depth=close` (the gate's upgrade from the default author-depth; async requires close depth)
-   - `async=true` (requests architect-critic v0.3's `--async` defer-to-resume dispatch)
-   - `spec_paths=<list of all work-N.NN-<kebab>/spec.md absolute paths>`
-   architect-critic dispatches Codex in the background, returns a job handle `<id>`, and STOPS — it does NOT consolidate or run the rebuttal now (deferred to resume).
-4. Record the handle in the slice README: the job `<id>`, that it was dispatched async at spec-author, and the resume command `/critique-jobs resume <id>`.
-5. Surface and **PROCEED to §8** (do NOT block, do NOT consolidate now):
-   > Spec audit running in the background as job `<id>`. Planning proceeds now; resume with `/critique-jobs resume <id>` to fold both adversaries into one rebuttal, then accept-and-revise any standing challenges into the affected `spec.md` via `sd_render`. If it never completes (stalled/capped/failed), `/critique-jobs status <id>` shows the disposition — planning is not blocked either way.
+3. Otherwise drive architect-critic through its **real CLI contract** — informal parameters do NOT set async (`async_mode` is read only from `--async` in `$ARCHITECT_CRITIC_ARGS`; see [[feedback_slash_command_dollar_n_bug]]). Mirror the env-var bridge `/critique` uses: set `ARCHITECT_CRITIC_ARGS="<combined-spec-paths> --close --async"`, then invoke `Skill(architect-critic:critiquing-spec)` **EXACTLY ONCE** (target = the combined work-item `spec.md` set — the same `<list of all work-N.NN-<kebab>/spec.md absolute paths>` §7.2 audits). (`--close` = the upgraded close depth; `--async` = defer-to-resume, honored only for Claude-host + v0.3 and otherwise ignored, running synchronously.)
+4. **React to the return** (do NOT assume async happened):
+   - **Async dispatched** — architect-critic returns a background **job handle `<id>`** and STOPS without a rebuttal: record the handle in the slice README (job `<id>`, dispatched async at spec-author, resume command `/critique-jobs resume <id>`), then surface and **PROCEED to §8**:
+     > Spec audit running in the background as job `<id>`. Planning proceeds now; resume with `/critique-jobs resume <id>` to fold both adversaries into one rebuttal, then accept-and-revise any standing challenges into the affected `spec.md` via `sd_render`. If it never completes (stalled/capped/failed), `/critique-jobs status <id>` shows the disposition — planning is not blocked either way.
+   - **Ran synchronously** — architect-critic instead completed its rebuttal cycle inline (no job handle: the Codex-host, architect-critic v0.2, foreground-size-hint, or degraded-pre-flight cases): treat it exactly as §7.2 step 5 — surface standing challenges as edit candidates, accept-and-revise into the affected `spec.md` via `sd_render`, then proceed to §8. Do NOT record a `/critique-jobs resume` pointer — there is no job.
 
-**Eval contract (still holds):** still EXACTLY ONE `Skill(architect-critic:critiquing-spec)` invocation AFTER all spec files are written — only with `async=true`. No Task tool; no `inbox/`/`outbox/` writes.
+**Eval contract (still holds):** still EXACTLY ONE `Skill(architect-critic:critiquing-spec)` invocation AFTER all spec files are written — only driven through `ARCHITECT_CRITIC_ARGS="… --close --async"`. No Task tool; no `inbox/`/`outbox/` writes.
 
 ### 7.3 Absent / warn-and-skip (S4 contract)
 

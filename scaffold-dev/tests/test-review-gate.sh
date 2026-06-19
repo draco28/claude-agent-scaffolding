@@ -106,26 +106,34 @@ test_resolve_invalid_gate() {
 CLOSING_SKILL="$HERE/../skills/closing-vertical-slice/SKILL.md"
 PLANNING_SKILL="$HERE/../skills/planning-vertical-slice/SKILL.md"
 
+# Both §7 sections must drive architect-critic through its REAL async contract
+# (ARCHITECT_CRITIC_ARGS="… --close --async" — informal params don't set async),
+# react-to-return (so v0.2 / Codex-host degrade to a synchronous review, never a
+# phantom job), gate async on Claude-host, and preserve gate-off behavior.
+_seam_async_contract() {
+  local skill="$1"
+  assert_file_contains "$skill" "sd review_gate_resolve"
+  assert_file_contains "$skill" "ARCHITECT_CRITIC_ARGS"
+  assert_file_contains "$skill" "--close --async"
+  assert_file_contains "$skill" "dispatch-and-defer"
+  assert_file_contains "$skill" "/critique-jobs resume"
+  assert_file_contains "$skill" "consumes Codex"
+  assert_file_contains "$skill" "synchronous"
+  assert_file_contains "$skill" "Claude-host"
+  assert_file_contains "$skill" "today's behavior"
+  # async=true was the broken informal-parameter form (Codex P1) — must be gone.
+  assert_file_not_contains "$skill" "async=true"
+}
+
 test_seam_prose_closing_vertical_slice() {
   echo "test_seam_prose_closing_vertical_slice:"
-  assert_file_contains "$CLOSING_SKILL" "sd review_gate_resolve"
-  assert_file_contains "$CLOSING_SKILL" "async=true"
-  assert_file_contains "$CLOSING_SKILL" "dispatch-and-defer"
-  assert_file_contains "$CLOSING_SKILL" "/critique-jobs resume"
-  assert_file_contains "$CLOSING_SKILL" "consumes Codex"
-  assert_file_contains "$CLOSING_SKILL" "architect-critic < v0.3"
-  assert_file_contains "$CLOSING_SKILL" "today's behavior"
+  _seam_async_contract "$CLOSING_SKILL"
 }
 
 test_seam_prose_planning_vertical_slice() {
   echo "test_seam_prose_planning_vertical_slice:"
-  assert_file_contains "$PLANNING_SKILL" "sd review_gate_resolve"
-  assert_file_contains "$PLANNING_SKILL" "async=true"
-  assert_file_contains "$PLANNING_SKILL" "dispatch-and-defer"
-  assert_file_contains "$PLANNING_SKILL" "/critique-jobs resume"
-  assert_file_contains "$PLANNING_SKILL" "consumes Codex"
-  assert_file_contains "$PLANNING_SKILL" "architect-critic < v0.3"
-  assert_file_contains "$PLANNING_SKILL" "today's behavior"
+  _seam_async_contract "$PLANNING_SKILL"
+  # spec gate keeps the depth upgrade even when async is unavailable (Codex P2a)
   assert_file_contains "$PLANNING_SKILL" "upgrades the default author-depth"
 }
 
