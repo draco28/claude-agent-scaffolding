@@ -364,14 +364,15 @@ The gate runs a **close-depth** adversarial spec audit (upgraded from the defaul
 
 1. Announce + usage warning: *"review_gate is on — requesting a close-depth architect-critic spec audit, dispatched as a background job when supported (**Claude-host** + architect-critic v0.3) and run synchronously otherwise. This consumes Codex/subscription usage. Type `skip` to bypass."*
 2. End the turn and wait. On `skip` (case-insensitive): log the skip in the slice README and proceed to §8.
-3. **Materialize a single combined-spec bundle.** architect-critic's CLI/async path resolves and reads exactly ONE artifact file (`critiquing-spec` Step 1a: `--spec PATH` or the first positional only), so passing a space-separated list of spec paths would audit just the first one. Concatenate all work-item specs into one bundle file OUTSIDE the repo tree so the **Codex fresh-frame sees every spec**:
+3. **Materialize a single combined-spec bundle under a trusted project root.** architect-critic's CLI/async path resolves and reads exactly ONE artifact file (`critiquing-spec` Step 1a: `--spec PATH` or the first positional only), so passing a space-separated list of spec paths would audit just the first one. Concatenate all work-item specs into one bundle file so the **Codex fresh-frame sees every spec**. Write it **inside the slice directory** (`${slice_root}`, in the AI-workspace repo) — NOT under `/tmp`: architect-critic derives the async target root from the artifact's git-toplevel (`arc codex_target_root`) and its pre-flight **rejects roots outside the operator's Codex-trusted projects**, so a `/tmp` bundle would always hard-fail. The slice dir resolves to a trusted project repo:
    ```bash
-   bundle="$(mktemp "${TMPDIR:-/tmp}/sd-spec-bundle.XXXXXX.md")"
+   bundle="${slice_root}/.sd-spec-bundle.md"   # transient; under a trusted git root; removed after dispatch
    { echo "# Combined work-item specs: <VS-id>"
      for s in <list of all work-N.NN-<kebab>/spec.md absolute paths>; do
        echo; echo "## $s"; cat "$s"; echo
      done; } > "$bundle"
    ```
+   (The leading dot keeps it out of `work-*/spec.md` globs; step 5 removes it right after dispatch so it never reaches a commit.)
 4. Drive architect-critic through its **real CLI contract** — informal parameters do NOT set async (`async_mode` is read only from `--async` in `$ARCHITECT_CRITIC_ARGS`; see [[feedback_slash_command_dollar_n_bug]]). Set `ARCHITECT_CRITIC_ARGS="$bundle --close --async"`, then invoke `Skill(architect-critic:critiquing-spec)` **EXACTLY ONCE**. (`--close` = the upgraded close depth; `--async` = defer-to-resume, honored only for Claude-host + v0.3 and otherwise ignored, running synchronously.)
 5. **React to the return — three outcomes** (do NOT assume async happened); `rm -f "$bundle"` once the call returns (the artifact is fully consumed at dispatch):
    - **Async dispatched** — architect-critic returns a background **job handle `<id>`** and STOPS without a rebuttal: record the handle in the slice README (job `<id>`, dispatched async at spec-author, resume command `/critique-jobs resume <id>`), then surface and **PROCEED to §8**:

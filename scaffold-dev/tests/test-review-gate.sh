@@ -118,6 +118,10 @@ _seam_async_contract() {
   # async/CLI path reads only one file (Codex round-2 New-1/New-4).
   assert_file_contains "$skill" "Materialize a single"
   assert_file_contains "$skill" "bundle --close --async"
+  # bundle must live under a trusted git root, not /tmp, or preflight rejects the
+  # derived target root (Codex round-3 R3-A).
+  assert_file_contains "$skill" "trusted project root"
+  assert_file_contains "$skill" "slice_root}/.sd-"
   assert_file_contains "$skill" "dispatch-and-defer"
   assert_file_contains "$skill" "/critique-jobs resume"
   assert_file_contains "$skill" "consumes Codex"
@@ -135,6 +139,10 @@ _seam_async_contract() {
 test_seam_prose_closing_vertical_slice() {
   echo "test_seam_prose_closing_vertical_slice:"
   _seam_async_contract "$CLOSING_SKILL"
+  # async job handle is carried to §8 (retrospective is template-rendered there;
+  # an early write would be clobbered) — Codex round-3 R3-B.
+  assert_file_contains "$CLOSING_SKILL" "carry the job"
+  assert_file_contains "$CLOSING_SKILL" "durable home for the job handle"
 }
 
 test_seam_prose_planning_vertical_slice() {
