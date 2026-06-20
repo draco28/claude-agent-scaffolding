@@ -79,10 +79,14 @@ Two operations only — both idempotent and non-destructive to existing AI-works
 ### 6.1 Write the pairing manifest
 
 ```bash
-# Detect whether the existing AI workspace is a git repo (Scenario C is the only
-# path where it may NOT be). Recorded in the manifest via --ai-git-tracked and
-# reused for the §6.2 hook decision — detect once, use twice.
-if git -C "$ai_root" rev-parse --git-dir >/dev/null 2>&1; then
+# Detect whether the existing AI workspace is its OWN git repo root (Scenario C is the
+# only path where it may NOT be). Use `[[ -d "$ai_root/.git" ]]`, NOT `git rev-parse
+# --git-dir`: the latter succeeds for a plain subdirectory nested inside some PARENT
+# repo (it reports the parent's .git), which would record git_tracked:true and then
+# fail the §6.2 hook install since `$ai_root/.git` does not exist. `[[ -d .git ]]` is
+# exactly the gate `wi trace_filter_install` uses, so detection and install never
+# disagree. Recorded in the manifest via --ai-git-tracked and reused below.
+if [[ -d "$ai_root/.git" ]]; then
   ai_git_tracked=true
 else
   ai_git_tracked=false

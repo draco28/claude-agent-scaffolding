@@ -88,8 +88,11 @@ _run_existing_dual_pairing() {
 
   # Mirror SKILL.md §6.1: detect the AI workspace's git status once, record it in
   # the manifest via --ai-git-tracked, and reuse it for the hook decision below.
+  # `[[ -d .git ]]` (own repo root), NOT `rev-parse --git-dir` (true for a nested
+  # subdir of a parent repo → would record true then fail hook install). Matches
+  # wi_trace_filter_install's own gate. (#84 Codex)
   local ai_git_tracked=false
-  if git -C "$ai_root" rev-parse --git-dir >/dev/null 2>&1; then
+  if [[ -d "$ai_root/.git" ]]; then
     ai_git_tracked=true
   fi
 
@@ -263,6 +266,25 @@ test_C_both_repos_have_hook() {
 # Scenario C explicitly allows a NON-git AI workspace: the canonical hook still
 # installs, but the AI hook is skipped (no .git/hooks to install into) — and that
 # is NOT an error.
+test_C_nested_ai_workspace_records_false_and_skips_hook() {
+  local d="$_WI_TMP/k2"; mkdir -p "$d"
+  local canonical; canonical="$(_make_existing_canonical "$d" "proj")"
+  # A parent git repo that merely CONTAINS the AI workspace as a subdirectory.
+  local parent="$d/parent"; mkdir -p "$parent"
+  git -C "$parent" init -q
+  git -C "$parent" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+  local ai; ai="$(_make_existing_ai_workspace "$parent" "nested-ws" nogit)"   # inside parent, no own .git
+  # Fixture invariant: rev-parse --git-dir succeeds (reports the PARENT) but $ai/.git is absent.
+  git -C "$ai" rev-parse --git-dir >/dev/null 2>&1 || { echo "    fixture: ai not inside parent repo"; return 1; }
+  [[ ! -d "$ai/.git" ]] || { echo "    fixture: ai should not have its own .git"; return 1; }
+  _run_existing_dual_pairing "$ai" "$canonical" personal >/dev/null 2>&1 \
+    || { echo "    pairing failed for a nested AI workspace"; return 1; }
+  jq -e '.ai_workspace.git_tracked == false' "$ai/.workspace/pairing.json" >/dev/null \
+    || { echo "    nested AI workspace should record git_tracked:false (#84 Codex)"; return 1; }
+  [[ ! -e "$ai/.git/hooks/commit-msg" ]] || { echo "    AI hook installed for a nested workspace"; return 1; }
+  assert_file_exists "$canonical/.git/hooks/commit-msg" || return 1   # canonical hook still installs
+}
+
 test_C_non_git_ai_workspace_skips_ai_hook() {
   local d="$_WI_TMP/k1"; mkdir -p "$d"
   local canonical; canonical="$(_make_existing_canonical "$d" "proj")"
@@ -330,6 +352,7 @@ wi_test_run test_C_manifest_ai_git_tracked_true_for_git_ai
 wi_test_run test_C_manifest_ai_git_tracked_false_for_nongit_ai
 
 wi_test_run test_C_both_repos_have_hook
+wi_test_run test_C_nested_ai_workspace_records_false_and_skips_hook
 wi_test_run test_C_non_git_ai_workspace_skips_ai_hook
 
 wi_test_run test_C_canonical_working_tree_unchanged
