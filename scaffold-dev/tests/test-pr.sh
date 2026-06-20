@@ -22,7 +22,7 @@ _setup_pr_workspace() {
   export GH_SHIM_LOG="$TMP_DIR/gh-calls.log"
   : > "$GH_SHIM_LOG"
   # Reset shim env to defaults each setup.
-  unset GH_SHIM_AUTH_RC GH_SHIM_MERGE_RC GH_SHIM_PR_VIEW_JSON GH_SHIM_ISSUE_LIST_JSON GH_SHIM_ISSUE_URL GH_SHIM_PR_COMMENTS_JSON GH_SHIM_PR_COMMENTS_PAGED_JSON GH_SHIM_API_RC GH_SHIM_API_ERR GH_SHIM_PR_LIST_URL
+  unset GH_SHIM_AUTH_RC GH_SHIM_MERGE_RC GH_SHIM_PR_VIEW_JSON GH_SHIM_ISSUE_LIST_JSON GH_SHIM_ISSUE_URL GH_SHIM_PR_COMMENTS_JSON GH_SHIM_PR_COMMENTS_PAGED_JSON GH_SHIM_API_RC GH_SHIM_API_ERR GH_SHIM_PR_LIST_URL GH_SHIM_LABEL_RC GH_SHIM_LABEL_ERR GH_SHIM_LABEL_OUT GH_SHIM_CWD_LOG
   export GH_SHIM_PR_URL="https://github.com/test/repo/pull/123"
 }
 
@@ -353,6 +353,128 @@ test_issue_list_explicit_limit() {
   fi
 }
 
+# --- #48 Stage 2: tech-debt label auto-create + --repo-root marketplace routing ---
+
+# 27. label_ensure creates the label (gh label create) and returns rc 0
+test_label_ensure_creates() {
+  echo "test_label_ensure_creates:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_label_ensure tech-debt 2>/dev/null; local rc=$?; :
+  assert_eq "create rc=0" "0" "$rc"
+  assert_file_contains "$GH_SHIM_LOG" "label create tech-debt"
+}
+
+# 28. label_ensure is idempotent — an "already exists" rejection is success (rc 0)
+test_label_ensure_idempotent() {
+  echo "test_label_ensure_idempotent:"
+  _setup_pr_workspace
+  export GH_SHIM_LABEL_RC=1
+  export GH_SHIM_LABEL_ERR='Label "tech-debt" already exists; use --force to update'
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_label_ensure tech-debt 2>/dev/null; local rc=$?; :
+  unset GH_SHIM_LABEL_RC GH_SHIM_LABEL_ERR
+  assert_eq "already-exists rc=0" "0" "$rc"
+}
+
+# 29. label_ensure surfaces a real failure as rc 1 (not swallowed as success)
+test_label_ensure_hard_failure() {
+  echo "test_label_ensure_hard_failure:"
+  _setup_pr_workspace
+  export GH_SHIM_LABEL_RC=1
+  export GH_SHIM_LABEL_ERR='HTTP 500: server error'
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_label_ensure tech-debt 2>/dev/null; local rc=$?; :
+  unset GH_SHIM_LABEL_RC GH_SHIM_LABEL_ERR
+  assert_ne "hard-failure rc!=0" "0" "$rc"
+}
+
+# 30. label_ensure [repo-root] runs gh from the given repo, not canonical
+test_label_ensure_repo_root() {
+  echo "test_label_ensure_repo_root:"
+  _setup_pr_workspace
+  local tooling="$TMP_DIR/tooling"; mkdir -p "$tooling"
+  export GH_SHIM_CWD_LOG="$TMP_DIR/gh-cwd.log"; : > "$GH_SHIM_CWD_LOG"
+  cd "$TMP_AI_WORKSPACE"
+  sd_label_ensure tech-debt "$tooling" >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_CWD_LOG" "$tooling"
+}
+
+# 31. issue_create --repo-root routes gh to the given repo (not canonical) and
+#     strips --repo-root from the gh passthrough (gh issue create can't grok it)
+test_issue_create_repo_root() {
+  echo "test_issue_create_repo_root:"
+  _setup_pr_workspace
+  local tooling="$TMP_DIR/tooling"; mkdir -p "$tooling"
+  export GH_SHIM_CWD_LOG="$TMP_DIR/gh-cwd.log"; : > "$GH_SHIM_CWD_LOG"
+  cd "$TMP_AI_WORKSPACE"
+  local body; body="$(mktemp)"; echo "deferred: tune backoff" > "$body"
+  sd_issue_create "Tune retry backoff" "$body" --repo-root "$tooling" --label tech-debt >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_CWD_LOG" "$tooling"
+  assert_file_not_contains "$GH_SHIM_LOG" "repo-root"
+  assert_file_contains "$GH_SHIM_LOG" "--label tech-debt"
+}
+
+# 32. issue_create WITHOUT --repo-root still targets canonical (byte-compat)
+test_issue_create_default_canonical() {
+  echo "test_issue_create_default_canonical:"
+  _setup_pr_workspace
+  export GH_SHIM_CWD_LOG="$TMP_DIR/gh-cwd.log"; : > "$GH_SHIM_CWD_LOG"
+  cd "$TMP_AI_WORKSPACE"
+  local body; body="$(mktemp)"; echo "deferred" > "$body"
+  sd_issue_create "T" "$body" --label tech-debt >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_CWD_LOG" "$TMP_CANONICAL"
+}
+
+# 33. issue_list --repo-root routes gh to the given repo (not canonical)
+test_issue_list_repo_root() {
+  echo "test_issue_list_repo_root:"
+  _setup_pr_workspace
+  local tooling="$TMP_DIR/tooling"; mkdir -p "$tooling"
+  export GH_SHIM_CWD_LOG="$TMP_DIR/gh-cwd.log"; : > "$GH_SHIM_CWD_LOG"
+  cd "$TMP_AI_WORKSPACE"
+  sd_issue_list --repo-root "$tooling" >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_CWD_LOG" "$tooling"
+  assert_file_not_contains "$GH_SHIM_LOG" "repo-root"
+}
+
+# 34. dispatcher exposes label_ensure
+test_dispatcher_lists_label_ensure() {
+  echo "test_dispatcher_lists_label_ensure:"
+  local listed; listed="$("$HERE/../bin/sd" --list)"
+  assert_contains "lists label_ensure" "label_ensure" "$listed"
+}
+
+# 35. --repo-root with NO value fails fast (rc 1), never spins the parse loop
+#     forever (regression: `shift 2` on a 1-arg tail leaves $1 unchanged).
+test_issue_create_repo_root_no_value() {
+  echo "test_issue_create_repo_root_no_value:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  local body; body="$(mktemp)"; echo x > "$body"
+  set +e; sd_issue_create "t" "$body" --repo-root 2>/dev/null; local rc=$?; :
+  assert_eq "no-value --repo-root rc=1" "1" "$rc"
+}
+
+# 36. --repo-root= (explicit empty) fails loud, not a silent canonical fallback
+test_issue_create_repo_root_empty() {
+  echo "test_issue_create_repo_root_empty:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  local body; body="$(mktemp)"; echo x > "$body"
+  set +e; sd_issue_create "t" "$body" --repo-root= 2>/dev/null; local rc=$?; :
+  assert_eq "empty --repo-root= rc=1" "1" "$rc"
+}
+
+# 37. same no-value guard on sd_issue_list (rc 1, no infinite loop)
+test_issue_list_repo_root_no_value() {
+  echo "test_issue_list_repo_root_no_value:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_issue_list --repo-root 2>/dev/null; local rc=$?; :
+  assert_eq "no-value --repo-root rc=1" "1" "$rc"
+}
+
 # 24. pr_review_comments fetches inline review comments via gh api (not gh pr view),
 #     accepts a PR URL (normalizes to the numeric id), and returns one flat array.
 test_pr_review_comments() {
@@ -484,5 +606,18 @@ test_pr_review_comments_api_failure
 test_branch_sync
 test_branch_sync_diverged
 test_branch_create_reuses_origin
+
+# #48 Stage 2
+test_label_ensure_creates
+test_label_ensure_idempotent
+test_label_ensure_hard_failure
+test_label_ensure_repo_root
+test_issue_create_repo_root
+test_issue_create_default_canonical
+test_issue_list_repo_root
+test_dispatcher_lists_label_ensure
+test_issue_create_repo_root_no_value
+test_issue_create_repo_root_empty
+test_issue_list_repo_root_no_value
 
 sd_test_summary

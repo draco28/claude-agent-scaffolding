@@ -28,6 +28,15 @@
 //   ${CANONICAL_GIT_TRACKED}     — always true
 //   ${CANONICAL_GIT_REMOTE}      — null or "<url>"
 //   ${CANONICAL_DEFAULT_BRANCH}  — e.g. "main"
+//   ${TOOLING_REPO}              — OPTIONAL (#48 Stage 2). When --tooling-repo is
+//                                  passed to wi_manifest_write, a tooling_repo
+//                                  object { root, name, git_remote } is emitted
+//                                  right after `canonical` (mirroring its
+//                                  sub-schema); name = basename of the root,
+//                                  git_remote = null or the --tooling-repo-remote
+//                                  URL. Absent by default → the key is omitted
+//                                  entirely (NOT null) and behavior is unchanged.
+//                                  Routes `/defer --tooling` to a tooling repo.
 //   ${PROJECT_TYPE}              — "personal" or "work"
 //   ${CREATED_AT}                — ISO 8601 (e.g. 2026-05-25T14:30:00Z)
 //   ${CREATED_BY}                — "workspace-init@0.1.0"
@@ -53,6 +62,15 @@
     "git_remote": ${CANONICAL_GIT_REMOTE},
     "default_branch": "${CANONICAL_DEFAULT_BRANCH}"
   },
+
+  // OPTIONAL (#48 Stage 2) — present only when wi_manifest_write is given
+  // --tooling-repo. Mirrors canonical's sub-schema; routes `/defer --tooling`.
+  // Omit the whole key when there is no tooling repo (do NOT write null).
+  // "tooling_repo": {
+  //   "root": "${TOOLING_REPO_ROOT}",
+  //   "name": "${TOOLING_REPO_NAME}",
+  //   "git_remote": ${TOOLING_REPO_GIT_REMOTE}
+  // },
 
   "routing": {
     "master_spec":              "ai_workspace",
