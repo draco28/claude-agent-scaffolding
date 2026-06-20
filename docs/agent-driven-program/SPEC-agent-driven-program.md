@@ -126,7 +126,7 @@ Every open issue + every new audit finding, mapped to a sub-spec. **Target: 0 op
 | ~~**#42**~~ | agent-driven post-derivation doc review | **dissolved** (is the refactor) | **SS-2** | ✅ CLOSED 2026-06-05 (PR #55) |
 | ~~**#7**~~ | verifying-spec-citations (agent-assisted) | **dissolved** | **SS-4** | ✅ CLOSED 2026-06-12 (SS-4, scaffold-dev v0.4.0) |
 | ~~**#5**~~ | pre-flight RED-tests gate | partial (reframe) | **SS-4** | ✅ CLOSED 2026-06-12 (SS-4, scaffold-dev v0.4.0) |
-| **#48** | #33 C–F + /defer routing + label auto-create | partial | **SS-1** (C/D/E) + **SS-4** (F) + **SS-6** (routing/label) | Part F ✅ SHIPPED 2026-06-12 (SS-4, scaffold-dev v0.4.0); C/D/E + routing/label **design-locked 2026-06-20** (`docs/SPEC-lean-index-CDEF.md`) → Stage 1 (C/D/E) + Stage 2 (routing/label) |
+| **#48** | #33 C–F + /defer routing + label auto-create | partial | **SS-1** (C/D/E) + **SS-4** (F) + **SS-6** (routing/label) | Part F ✅ SHIPPED 2026-06-12 (SS-4, v0.4.0); **Stage 1 C/D/E ✅ SHIPPED 2026-06-20** (PR #80, scaffold-dev v0.9.0 + scaffold-onboard v0.9.2; `docs/SPEC-lean-index-CDEF.md`); **Stage 2** (marketplace routing + label auto-create) open |
 | ~~**#47**~~ | Codex implementer backend | independent | **SS-5** | ✅ CLOSED 2026-06-12 (SS-5, scaffold-dev v0.5.0) |
 | ~~**#67**~~ | Codex **synthesizer** backend (scaffold-onboard derivation) | fast-follow to SS-5 | **SS-5.1** | ✅ scaffold-onboard v0.9.0 (folded from SS-5's deferred scope) |
 | ~~**#8**~~ | ban `git stash` in templates | independent (keep-mech) | **SS-6** | ✅ SHIPPED 2026-06-15 (SS-6, scaffold-dev v0.7.0) |
