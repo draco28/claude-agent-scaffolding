@@ -47,7 +47,16 @@ sd_verify_auto_step() {
 
   case "$expected" in
     "exit 0")
-      [[ "$ec" -eq 0 ]] && return 0 || return 1
+      if [[ "$ec" -ne 0 ]]; then return 1; fi
+      # #74: an exit-0 from a recognized test runner that collected ZERO tests is
+      # a false-green (e.g. `cargo test <filter>` → "0 passed; N filtered out",
+      # exit 0). Fail loud instead of trusting the exit code. Scoped to `exit 0`:
+      # `exit N` negative-test ACs intentionally expect failure.
+      if ! sd_zero_tests_guard "$cmd" "$output"; then
+        sd_log_error "sd_verify_auto_step: '$cmd' exited 0 but a recognized test runner collected ZERO tests (vacuous green) — fix the filter/path or author the missing test"
+        return 1
+      fi
+      return 0
       ;;
     "exit "*)
       local code="${expected#exit }"
@@ -70,6 +79,83 @@ sd_verify_auto_step() {
       return 2
       ;;
   esac
+}
+
+# sd_zero_tests_guard <cmd> <captured_output>   (#74)
+# Detect a VACUOUS test run: a recognized test runner that exited 0 having
+# collected ZERO tests (a name/path filter matched nothing, so `exit 0` is a
+# false-green). Pure + side-effect-free — it never executes <cmd>; it inspects
+# the already-captured combined stdout+stderr — so it is unit-testable with
+# canned output. ALLOWLIST-ONLY + FAIL-SOFT: an unrecognized runner returns SAFE,
+# preserving today's behavior (no regression). Biased hard toward false-negatives
+# (miss → today's behavior) over false-positives (wrongly failing a real green).
+# Markers are best-effort against common runner output and may drift across
+# runner versions; drift degrades to a miss, never a false fire.
+# Returns:
+#   0 — SAFE     (not a recognized runner, or it collected >=1 test)
+#   1 — VACUOUS  (recognized runner collected zero tests)
+# set -e-safe: every match runs inside an if/&&/! condition.
+sd_zero_tests_guard() {
+  local cmd="${1:-}" out="${2:-}"
+
+  # cargo nextest — check BEFORE plain `cargo test` (more specific).
+  if printf '%s' "$cmd" | grep -Eq 'cargo[[:space:]]+nextest'; then
+    if printf '%s' "$out" | grep -Eq 'Starting 0 tests'; then return 1; fi
+    return 0
+  fi
+
+  # cargo test (libtest). Fire only on genuine zero-result, and NEVER when any
+  # binary in the same run reported tests running / passing (multi-binary safe).
+  if printf '%s' "$cmd" | grep -Eq 'cargo[[:space:]]+test'; then
+    if printf '%s' "$out" | grep -Eq 'running 0 tests' \
+       && ! printf '%s' "$out" | grep -Eq 'running [1-9][0-9]* tests?'; then
+      return 1
+    fi
+    if printf '%s' "$out" | grep -Eq 'test result:.* 0 passed;.*filtered out' \
+       && ! printf '%s' "$out" | grep -Eq 'test result:.* [1-9][0-9]* passed'; then
+      return 1
+    fi
+    return 0
+  fi
+
+  # pytest.
+  if printf '%s' "$cmd" | grep -Eq '(^|[^[:alnum:]])pytest([^[:alnum:]]|$)|python[0-9.]*[[:space:]]+-m[[:space:]]+pytest'; then
+    if printf '%s' "$out" | grep -Eq 'collected 0 items|no tests ran'; then return 1; fi
+    return 0
+  fi
+
+  # go test. `no tests to run` (an explicit -run filter matched nothing) is
+  # unambiguous. `[no test files]` is vacuous ONLY when no sibling package ran
+  # (mixed `go test ./...` prints `ok pkg/a` alongside `? pkg/b [no test files]`).
+  if printf '%s' "$cmd" | grep -Eq '(^|[^[:alnum:]])go[[:space:]]+test'; then
+    if printf '%s' "$out" | grep -Eq 'no tests to run'; then return 1; fi
+    if printf '%s' "$out" | grep -Eq 'no test files' \
+       && ! printf '%s' "$out" | grep -Eq '^(ok|PASS|--- PASS)'; then
+      return 1
+    fi
+    return 0
+  fi
+
+  # jest — only reaches exit 0 on no-tests via --passWithNoTests (plain exits 1).
+  if printf '%s' "$cmd" | grep -Eq '(^|[^[:alnum:]])jest([^[:alnum:]]|$)|npx[[:space:]]+jest'; then
+    if printf '%s' "$out" | grep -Eq 'No tests found|Tests:[[:space:]]+0 total'; then return 1; fi
+    return 0
+  fi
+
+  # vitest — likewise exit 0 on no-tests only via --passWithNoTests.
+  if printf '%s' "$cmd" | grep -Eq '(^|[^[:alnum:]])vitest([^[:alnum:]]|$)'; then
+    if printf '%s' "$out" | grep -Eq 'No test files found|Test Files[[:space:]]+0([^0-9]|$)'; then return 1; fi
+    return 0
+  fi
+
+  # node --test (TAP summary line).
+  if printf '%s' "$cmd" | grep -Eq 'node[[:space:]].*--test'; then
+    if printf '%s' "$out" | grep -Eq '# tests 0([^0-9]|$)'; then return 1; fi
+    return 0
+  fi
+
+  # Unrecognized runner → fail-soft, behavior unchanged.
+  return 0
 }
 
 # sd_redgate_assert_red <command> [expected]

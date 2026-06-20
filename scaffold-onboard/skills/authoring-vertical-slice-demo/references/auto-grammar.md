@@ -35,6 +35,8 @@ expected: exit <N>     (non-zero permitted for negative-test slices, e.g., expec
 
 **Evaluation: deterministic.** scaffold-dev's closing orchestrator runs the command via `bash -c` (subshell) and asserts `$? == <N>`. Stdout/stderr are captured for the slice-close log but NOT pattern-checked. The exit code is a mechanical fact — pass/fail is an integer comparison, no agent judgment involved. Use exit-code mode when the command's own assertions (pytest, go test, jest, `set -e` scripts) carry the verification weight.
 
+**`exit 0` zero-test guard (scaffold-dev #74).** For `exit 0` specifically, scaffold-dev additionally rejects a *vacuously green* run: a recognized test runner (pytest / go test / cargo test / cargo nextest / jest / vitest / node --test) that exits 0 having collected **zero** tests fails the gate even though the process exited 0. This catches the common trap where a name/path filter matches nothing (e.g. `` `cargo test mymod::feature` `` → `0 passed; N filtered out`, exit 0) and would otherwise demo-verify green having run no test. The exit code stays a mechanical fact; the guard (`scaffold-dev lib/verify.sh::sd_zero_tests_guard`) adds a second mechanical fact — collected ≥1. It is allowlist-only and fail-soft: an unrecognized runner (or a wrapper script) is unaffected, and `exit <N>` (N≠0) negative-test slices are exempt. For runners outside the allowlist, assert the count yourself with a pattern-mode expectation (e.g. `output contains "<N> passed"`).
+
 ### 2.2 Pattern mode (agent-judged at slice-close)
 
 ```

@@ -1,6 +1,6 @@
 {
   "name": "scaffold-dev",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Sprint-driven implementation workflow for shared Claude/Codex dual-repo workspaces. Opt-in async architect-critic review gate at slice/spec close.",
   "author": {
     "name": "Pras"
