@@ -323,13 +323,34 @@ The check is enrichment, not a contract — never block slice planning on its ab
 
 After specs are written, gate-2 grill-me has settled, and the §6.4 citation-check offer has settled, invoke architect-critic for adversarial review.
 
+### 7.0 Review-gate resolution (#39 Phase B — opt-in async)
+
+The opt-in `review_gate` (manifest `.review_gate`, default `off`) decides whether the spec-author audit runs **synchronously** at the default `depth=author` (today's behavior) or as a **close-depth** audit — dispatched async when supported, else synchronous. Resolve the gate FIRST:
+
+1. Resolve the gate, honoring any per-invocation `--gate` override carried from §13:
+   ```bash
+   gate_override_args=()
+   [[ -n "${gate_override:-}" ]] && gate_override_args=(--gate "$gate_override")
+   gate="$(cd "$ai_workspace" && sd review_gate_resolve "${gate_override_args[@]}")"
+   ```
+   → `off | slice_close | spec_close | both`. **Resolve from the AI-workspace root** — `sd review_gate_resolve` walks up from the CWD for the pairing manifest, which lives under the AI workspace; resolving from there is correct regardless of where the orchestrator's CWD sits. Precedence: `--gate` override > manifest `.review_gate` > `off` (an invalid value fails loud). Default `off` = **today's behavior** exactly (the synchronous author-depth review in §7.2).
+2. `cap="$(sd compose_detect_architect_critic 2>/dev/null || true)"` → `v0.3 | v0.2 | absent` (§7.1). The `|| true` is load-bearing: the probe prints `absent` but **exits 1 by design** when architect-critic is missing, and an unguarded command substitution would abort a `set -e` block before the §7.3 warn-and-proceed branch runs. **Advisory only** and **host-agnostic**: it reports what is installed across *all* plugin caches, but only the **active host's** architect-critic is invocable here. Two consequences: (a) **Runnability** — if the probe reports present but `Skill(architect-critic:critiquing-spec)` is not runnable in the active host (e.g. installed only in the *other* host's cache), treat it as **`absent`** and take §7.3 — never invoke a skill the active host cannot resolve. (b) **Version/host** — a mixed-version cache can never force a phantom background job; the react-to-return step (§7.2a step 4) degrades any non-async outcome to a synchronous review.
+
+Route (the spec attach point fires for `spec_close`/`both` only — `slice_close` gates the *slice-close* moment, not this one):
+
+- `cap=absent` (or reported-present-but-not-runnable-in-the-active-host, per the runnability check above) → **§7.3** (warn-and-proceed), regardless of gate.
+- gate ∈ {`spec_close`, `both`} (architect-critic present) → **§7.2a** — request a close-depth audit (async when supported). Async is **Claude-host** → Codex-adversary only; under Codex-host or architect-critic v0.2 the same call runs a **synchronous** close-depth review instead (§7.2a step 4) — still the upgraded depth, only without background dispatch.
+- gate ∈ {`off`, `slice_close`} → **§7.2** synchronous author-depth review (today's behavior).
+
+**Depth note (load-bearing):** async exists only at **close depth**, so turning the gate on at the spec moment **upgrades the default author-depth** spec audit to a heavier **close-depth** adversary audit. The upgrade holds whether or not async is available: architect-critic v0.2 (which still supports synchronous close depth) and Codex-host lose only the *background dispatch*, **not** the close depth — §7.2a step 4 runs a synchronous close-depth review in those cases. The lighter author-depth Claude-self-audit remains the default only when the gate is off.
+
 ### 7.1 Detection (filesystem probe; binary)
 
-Call `sd_compose_detect_architect_critic` (lib/compose.sh). It walks `~/.claude/plugins/cache/*/architect-critic/*/skills/critiquing-spec/SKILL.md` and prints either `v0.2` or `absent`. This is **NOT a composition.json read** — scaffold-dev does not maintain a composition.json cache (per SPEC §16.3).
+Call `sd_compose_detect_architect_critic` (lib/compose.sh). It walks `~/.claude/plugins/cache/*/architect-critic/*/skills/{critiquing-spec,managing-async-critique}/SKILL.md` and prints `v0.3` (async-capable — the `managing-async-critique` skill is present), `v0.2` (sync-only — only `critiquing-spec`), or `absent`. This is **NOT a composition.json read** — scaffold-dev does not maintain a composition.json cache (per SPEC §16.3).
 
-### 7.2 Invocation (when present)
+### 7.2 Invocation — synchronous (when present)
 
-When the probe returns `v0.2`:
+When routed here by §7.0 (gate `off`, or `slice_close` which gates the *slice-close* moment, not this one) — **synchronous** author-depth review (the default; gate `off` preserves this exactly). With gate `off`, **everything** lands here (including `v0.2`/Codex-host) — that is the default. Only when `review_gate` is `spec_close`/`both` do the `v0.2` and Codex-host cases route through §7.2a instead, whose react-to-return step runs a synchronous **close**-depth review (the gate's depth upgrade is preserved; only background dispatch is lost):
 
 1. Announce: *"Specs authored — invoking architect-critic for a spec-audit on the combined work-item specs. Type `skip` to bypass."*
 2. End the turn and wait. If the user types `skip` (case-insensitive): log the skip in the slice README and proceed to §8.
@@ -342,6 +363,28 @@ When the probe returns `v0.2`:
 5. When control returns: surface any challenges that stood as edit candidates. The user may accept-and-revise; for each accepted revision, re-write the affected spec.md via `sd_render`. If revisions are substantial, offer gate-3 grill-me on the fix-up (§9).
 
 **Eval contract:** S1's tool-call log assertion requires exactly ONE `Skill(architect-critic:critiquing-spec)` invocation AFTER all spec files are written. Do NOT invoke before spec writes complete; do NOT invoke via Task tool; do NOT write to `inbox/` or `outbox/` paths (file-IPC was removed in architect-critic v0.2 per SPEC §16.3).
+
+### 7.2a Invocation — close-depth audit, async dispatch-and-defer when supported (review_gate=spec_close|both) [#39 Phase B]
+
+The gate runs a **close-depth** adversarial spec audit (upgraded from the default author-depth — see §7.0), requesting background dispatch so planning is not blocked. **Dispatch-and-defer:** when async is available the audit runs in the background and the rebuttal is consolidated later via resume; otherwise the very same call degrades to a **synchronous** close-depth review (still the upgraded depth, never a phantom job). The gate **reacts to what architect-critic actually returns** rather than predicting host/version.
+
+1. Announce + usage warning: *"review_gate is on — requesting a close-depth architect-critic spec audit, dispatched as a background job when supported (**Claude-host** + architect-critic v0.3) and run synchronously otherwise. This consumes Codex/subscription usage. Type `skip` to bypass."*
+2. End the turn and wait. On `skip` (case-insensitive): log the skip in the slice README and proceed to §8.
+3. **Build the combined-spec bundle (one tested call).** architect-critic's async/CLI path reads exactly ONE artifact file (`critiquing-spec` Step 1a), so concatenate all work-item specs into a single artifact via the tested helper `sd review_gate_bundle` (`lib/review_gate.sh`) — it writes **under the slice dir** (a trusted git root, never `/tmp`, so the async target-root pre-flight accepts it) and appends each `HEADING PATH` section. No `--diff-*` here — the spec moment has no slice diff:
+   ```bash
+   bundle="$(sd review_gate_bundle --slice-root "$slice_root" \
+     --title "Combined work-item specs: $vs_id" \
+     "spec: <work-id>" "<work-item spec.md>")"   # repeat the spec pair per work item
+   ```
+   The helper echoes the bundle path; step 5 removes it after dispatch (a dotfile, kept out of `work-*/spec.md` globs, never committed).
+4. Drive architect-critic through its **real CLI contract** — informal parameters do NOT set async (`async_mode` is read only from `--async` in `$ARCHITECT_CRITIC_ARGS`; see [[feedback_slash_command_dollar_n_bug]]). **Export** the args through the same env-var bridge `/critique` uses — a plain (non-exported) assignment is NOT visible to the `critiquing-spec` bash that reads `$ARCHITECT_CRITIC_ARGS`. Pass the bundle as an explicit, quoted `--spec` path (Step 1a checks `--spec` before any positional, and quoting guards a bundle path that contains spaces): `export ARCHITECT_CRITIC_ARGS="--spec \"$bundle\" --close --async"`. Then invoke `Skill(architect-critic:critiquing-spec)` **EXACTLY ONCE**. (`--close` = the upgraded close depth; `--async` = defer-to-resume, honored only for Claude-host + v0.3 and otherwise ignored, running synchronously.)
+5. **React to the return — three outcomes** (do NOT assume async happened); `rm -f "$bundle"` once the call returns (the artifact is fully consumed at dispatch):
+   - **Async dispatched** — architect-critic returns a background **job handle `<id>`** and STOPS without a rebuttal: record the handle in the slice README (job `<id>`, dispatched async at spec-author, resume command `/critique-jobs resume <id>`), then surface and **PROCEED to §8**:
+     > Spec audit running in the background as job `<id>`. Planning proceeds now; resume with `/critique-jobs resume <id>` to fold both adversaries into one rebuttal, then accept-and-revise any standing challenges into the affected `spec.md` via `sd_render`. If it never completes (stalled/capped/failed), `/critique-jobs status <id>` shows the disposition — planning is not blocked either way.
+   - **Ran synchronously** — architect-critic instead completed its rebuttal cycle inline (no job handle: the Codex-host, architect-critic v0.2, or foreground-size-hint cases): treat it exactly as §7.2 step 5 — surface standing challenges as edit candidates, accept-and-revise into the affected `spec.md` via `sd_render`, then proceed to §8. Do NOT record a `/critique-jobs resume` pointer — there is no job.
+   - **Pre-flight hard-fail** — under Claude-host + v0.3 but Codex uninstalled/unauthed/untrusted, `critiquing-spec` Step 6-async HARD-FAILS with remediation and **no** silent foreground fallback, so it returns NEITHER a job handle NOR a rebuttal. Do NOT stall: surface the remediation verbatim, note that `/critique-doctor` diagnoses readiness and that a synchronous review is available by re-running without `--async`, log the skipped audit in the slice README, and **PROCEED to §8** (the gate is non-blocking by contract). Re-run synchronously only if the user asks.
+
+**Eval contract (still holds):** still EXACTLY ONE `Skill(architect-critic:critiquing-spec)` invocation AFTER all spec files are written — only driven through the exported `ARCHITECT_CRITIC_ARGS="--spec \"$bundle\" --close --async"`. No Task tool; no `inbox/`/`outbox/` writes.
 
 ### 7.3 Absent / warn-and-skip (S4 contract)
 
@@ -611,6 +654,7 @@ Parse `$SCAFFOLD_DEV_ARGS` in bash; never reference `$1` / `$2`. Extract the VS-
 ```bash
 vs_id=""
 backend_override=""
+gate_override=""
 read -r -a scaffold_dev_argv <<<"${SCAFFOLD_DEV_ARGS:-}"
 i=0
 while [[ "$i" -lt "${#scaffold_dev_argv[@]}" ]]; do
@@ -625,6 +669,15 @@ while [[ "$i" -lt "${#scaffold_dev_argv[@]}" ]]; do
       backend_override="${scaffold_dev_argv[$next_i]}"
       i=$((i + 2))
       ;;
+    --gate)
+      next_i=$((i + 1))
+      if [[ "$next_i" -ge "${#scaffold_dev_argv[@]}" || "${scaffold_dev_argv[$next_i]}" == --* ]]; then
+        echo "orchestrate: missing value for --gate" >&2
+        exit 2
+      fi
+      gate_override="${scaffold_dev_argv[$next_i]}"
+      i=$((i + 2))
+      ;;
     VS-*)
       vs_id="$arg"
       i=$((i + 1))
@@ -637,7 +690,7 @@ while [[ "$i" -lt "${#scaffold_dev_argv[@]}" ]]; do
 done
 ```
 
-Carry `backend_override` through §8.3 as `sd backend_resolve --backend "$backend_override"` when set. Then proceed to §3 pre-flight.
+Carry `backend_override` through §8.3 as `sd backend_resolve --backend "$backend_override"` when set, and `gate_override` through §7.0 as `sd review_gate_resolve --gate "$gate_override"` when set (a one-off review gate, e.g. `/orchestrate VS-1.1.1 --gate spec_close`, that overrides the manifest `.review_gate`). Then proceed to §3 pre-flight.
 
 Unknown or missing VS-id → one-line error + stop:
 

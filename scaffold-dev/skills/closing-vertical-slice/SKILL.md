@@ -11,7 +11,7 @@ The ceremony order is binding. The §11 M2 marker — worktrees + branches remov
 
 Bash helpers in `lib/manifest.sh`, `lib/render.sh`, `lib/worktree.sh`, `lib/compose.sh`, and `lib/harvest.sh` do the bookkeeping (manifest resolution, template substitution, filesystem probes, worktree teardown, harvest write/idempotency/reroute + lean-index length leg). Demo-line parsing happens directly in the orchestrator (trivial two-field split on ` → expected: `); demo-criterion evaluation is agent-judged for content expectations. The judgment work — which §12.2 menu row matches the failing auto-demo, whether captured output satisfies a content expectation (with a recorded reason), how to phrase the source-tagged harvest candidates, when to count the rejected handoff item as "left in handoff" — happens here, in conversation.
 
-This skill is the slice-close terminal step. It does NOT plan slices (that's `planning-vertical-slice` per §5), does NOT verify per-work-item ACs (that's `implementation-checking` per §12.1), and does NOT author the work-item bodies (that's the `scaffold-dev:implementer-agent` subagent body via `executing-work-item` per §6). It is invoked at the end of the slice when all rounds complete, either by trigger phrase or by the `/close-slice VS-N.M.K` slash command.
+This skill is the slice-close terminal step. It does NOT plan slices (that's `planning-vertical-slice` per §5), does NOT verify per-work-item ACs (that's `implementation-checking` per §12.1), and does NOT author the work-item bodies (that's the `scaffold-dev:implementer-agent` subagent body via `executing-work-item` per §6). It is invoked at the end of the slice when all rounds complete, either by a natural-language trigger ("close VS-N.M.K") or from `/orchestrate`'s close phase (there is no dedicated `/close-slice` command — see §13).
 
 ---
 
@@ -44,7 +44,7 @@ Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/c
 - `slice close`
 - `wrap up the slice`
 - `run slice-close ceremony`
-- `/close-slice VS-N.M.K` (slash command — see §11 for the `$ARGUMENTS` env-var bridge)
+- `close VS-N.M.K` (natural-language trigger) or `/orchestrate`'s close phase (see §13 for invocation + the `--gate` override)
 
 All four phrase forms are load-bearing in the description block above — the four eval scenarios trigger via description-match on each, so do not paraphrase any of them in your acknowledgement.
 
@@ -86,7 +86,7 @@ Never read manifest fields via raw inline `jq`. All manifest reads route through
 
 Resolution priority:
 
-1. **Explicit id** in the user message (e.g., `close VS-1.1.1`, `/close-slice VS-1.1.1`) — match the full 3-part `VS-<phase>.<sprint>.<slice>` token and normalize to the `VS-`-prefixed form (`vs_id="VS-1.1.1"`).
+1. **Explicit id** in the user message (e.g., `close VS-1.1.1`) — match the full 3-part `VS-<phase>.<sprint>.<slice>` token and normalize to the `VS-`-prefixed form (`vs_id="VS-1.1.1"`).
 2. **Active-context cursor** — read `<ai-workspace>/.claude/memory-bank/05-active-context.md` for the in-flight slice; use that when the message is ambiguous (e.g., `slice close`, `wrap up the slice`).
 3. If neither produces an id, ask: *"Which slice? (e.g., `VS-1.1.1`)"* and wait.
 
@@ -238,13 +238,32 @@ On all-pass across all `user_steps`: proceed to §7.
 
 After both demo layers pass, invoke architect-critic at close depth.
 
+### 7.0 Review-gate resolution (#39 Phase B — opt-in async)
+
+The opt-in `review_gate` (manifest `.review_gate`, default `off`) decides whether the slice-close audit runs **synchronously** (today's behavior) or as an **async dispatch-and-defer** job (so a slow close-depth Codex audit does not block the close). Resolve the gate FIRST:
+
+1. Resolve the gate, honoring any per-invocation `--gate` override carried from §13:
+   ```bash
+   gate_override_args=()
+   [[ -n "${gate_override:-}" ]] && gate_override_args=(--gate "$gate_override")
+   gate="$(cd "$ai_workspace" && sd review_gate_resolve "${gate_override_args[@]}")"
+   ```
+   → `off | slice_close | spec_close | both`. **Resolve from the AI-workspace root:** the §5 auto-demo loop `cd`s into `$canonical`, but the pairing manifest (and its `.review_gate`) lives under the AI workspace. `sd review_gate_resolve` walks up from the CWD, so resolving from `$canonical` would find no manifest and default to `off` — silently skipping an opted-in gate. Precedence: `--gate` override > manifest `.review_gate` > `off` (an invalid value fails loud). Default `off` = **today's behavior** exactly (the synchronous review in §7.2).
+2. `cap="$(sd compose_detect_architect_critic 2>/dev/null || true)"` → `v0.3 | v0.2 | absent` (§7.1). The `|| true` is load-bearing: the probe prints `absent` but **exits 1 by design** when architect-critic is missing, and an unguarded command substitution would abort a `set -e` block before the §7.3 warn-and-proceed branch runs. This probe is **advisory only** and **host-agnostic**: it reports what is installed across *all* plugin caches, but only the **active host's** architect-critic is actually invocable here. Two consequences: (a) **Runnability** — if the probe reports present but `Skill(architect-critic:critiquing-spec)` is not runnable in the active host (e.g. it lives only in the *other* host's cache), treat it as **`absent`** and take §7.3 — never invoke a skill the active host cannot resolve. (b) **Version/host** — a mixed-version cache can never force a phantom background job; the react-to-return step (§7.2a step 4) degrades any non-async outcome to a synchronous review.
+
+Route (the slice-close attach point fires for `slice_close`/`both` only — `spec_close` gates the *spec* moment, not this one):
+
+- `cap=absent` (or reported-present-but-not-runnable-in-the-active-host, per the runnability check above) → **§7.3** (warn-and-proceed), regardless of gate.
+- gate ∈ {`slice_close`, `both`} (architect-critic present) → **§7.2a** — request an async close-depth audit and react to what architect-critic actually does. Async is **Claude-host** → Codex-adversary only; under Codex-host or architect-critic v0.2 the very same call runs a **synchronous** close-depth review instead (§7.2a step 4).
+- gate ∈ {`off`, `spec_close`} → **§7.2** synchronous close-depth review (today's behavior).
+
 ### 7.1 Detection (filesystem probe)
 
-Call `sd_compose_detect_architect_critic` (lib/compose.sh). It walks `~/.claude/plugins/cache/*/architect-critic/*/skills/critiquing-spec/SKILL.md` and prints either `v0.2` or `absent`. This is NOT a composition.json read — scaffold-dev does not maintain a composition.json cache (per SPEC §16.3). The probe MUST be observable in the tool-call log (eval S3 asserts a Bash invocation listing or globbing the cache path appears, even when the probe returns absent).
+Call `sd_compose_detect_architect_critic` (lib/compose.sh). It walks `~/.claude/plugins/cache/*/architect-critic/*/skills/{critiquing-spec,managing-async-critique}/SKILL.md` and prints `v0.3` (async-capable — the `managing-async-critique` skill is present), `v0.2` (sync-only — only `critiquing-spec`), or `absent`. This is NOT a composition.json read — scaffold-dev does not maintain a composition.json cache (per SPEC §16.3). The probe MUST be observable in the tool-call log (eval S3 asserts a Bash invocation listing or globbing the cache path appears, even when the probe returns absent).
 
-### 7.2 Invocation (when present, S1 contract)
+### 7.2 Invocation — synchronous (when present, S1 contract)
 
-When the probe returns `v0.2`:
+When routed here by §7.0 (gate `off`, or `spec_close` which gates the *spec* moment, not this one) — **synchronous** close-depth review (the default; gate `off` preserves this exactly). With gate `off`, **everything** lands here (including `v0.2`/Codex-host) — that is the default. Only when `review_gate` is `slice_close`/`both` do the `v0.2` and Codex-host cases route through §7.2a instead, whose react-to-return step degrades to a synchronous close-depth review:
 
 1. Announce: *"Demos passed — invoking architect-critic for the slice-close adversarial review at close depth. Type `skip` to bypass."*
 2. End the turn and wait. If the user types `skip` (case-insensitive): log the skip in `retrospective.md`'s critic section and proceed to §8.
@@ -257,6 +276,31 @@ When the probe returns `v0.2`:
 5. When control returns: capture the critic's findings + the user's rebuttal outcomes into a section of `retrospective.md` (§8).
 
 **Eval contract (S1):** the `Skill(architect-critic:critiquing-spec)` invocation MUST appear in the tool-call log exactly once AND MUST appear AFTER both `auto:` Bash invocations AND after the manual-demo user response is captured. The judge verifies the relative position. No `Write` to `inbox/` or `outbox/` paths — legacy file IPC was removed in architect-critic v0.2 (SPEC §16.3) and any such write fails the assertion.
+
+### 7.2a Invocation — async dispatch-and-defer (review_gate=slice_close|both) [#39 Phase B]
+
+The gate runs the **same** close-depth adversarial review, but requests background dispatch so the slice close is not blocked on a slow Codex audit. **Dispatch-and-defer:** when async is available the audit runs in the background and the rebuttal is consolidated later via resume; otherwise the very same call degrades to a **synchronous** close-depth review (never a broken or phantom job). The gate **reacts to what architect-critic actually returns** rather than predicting host/version.
+
+1. Announce + usage warning: *"review_gate is on — requesting a close-depth architect-critic audit, dispatched as a background job when supported (**Claude-host** + architect-critic v0.3) and run synchronously otherwise. This consumes Codex/subscription usage. Type `skip` to bypass."*
+2. End the turn and wait. On `skip` (case-insensitive): carry a *"skipped — review_gate bypassed by user"* note forward to §8 (do NOT write `retrospective.md` here — it is rendered in §8; §8 step 3 records the note) and proceed to §8.
+3. **Build the review bundle (one tested call).** architect-critic's async/CLI path reads exactly ONE artifact file (`critiquing-spec` Step 1a), so the full slice-close context must be assembled into a single artifact. The mechanical assembly is the tested helper `sd review_gate_bundle` (`lib/review_gate.sh`) — it writes the bundle **under the slice dir** (a trusted git root, never `/tmp`, so architect-critic's async target-root pre-flight accepts it), includes the slice diff **only when non-empty** (omitted in the default `direct` merge mode where the slice is already merged into the default branch so `merge-base == HEAD` — tracked as #76), and appends each `HEADING PATH` section (a missing file is noted, not fatal):
+   ```bash
+   bundle="$(sd review_gate_bundle --slice-root "$slice_root" \
+     --title "Slice-close review bundle: $vs_id" \
+     --diff-root "$canonical" --diff-base "$base_branch" \
+     "VS README" "$slice_readme" \
+     "spec: <work-id>" "<work-item spec.md>" \
+     "report: <work-id>" "<work-item report.md>")"   # repeat the spec/report pairs per work item
+   ```
+   `$base_branch` = the canonical default branch (`canonical.default_branch`) or the sprint integration base under `pr_hierarchical`. The helper echoes the bundle path; step 5 removes it after dispatch (a dotfile, kept out of `work-*/spec.md` globs, never committed).
+4. Drive architect-critic through its **real CLI contract** — informal parameters do NOT set async (`async_mode` is read only from `--async` in `$ARCHITECT_CRITIC_ARGS`; see [[feedback_slash_command_dollar_n_bug]]). **Export** the args through the same env-var bridge `/critique` uses — a plain (non-exported) assignment is NOT visible to the `critiquing-spec` bash that reads `$ARCHITECT_CRITIC_ARGS`. Pass the bundle as an explicit, quoted `--spec` path (Step 1a checks `--spec` before any positional, and quoting guards a bundle path that contains spaces): `export ARCHITECT_CRITIC_ARGS="--spec \"$bundle\" --close --async"`. Then invoke `Skill(architect-critic:critiquing-spec)` **EXACTLY ONCE**. (`--close` = close depth; `--async` = defer-to-resume, honored only for Claude-host + v0.3 and otherwise ignored, running synchronously.)
+5. **React to the return — three outcomes** (do NOT assume async happened); `rm -f "$bundle"` once the call returns (the artifact is fully consumed at dispatch):
+   - **Async dispatched** — architect-critic returns a background **job handle `<id>`** and STOPS without a rebuttal: **carry the job `<id>` + resume command forward to §8** — do NOT write `retrospective.md` here (it does not exist yet; §8 renders it from the template and would overwrite an early write). §8 step 3 records the async handle in the Architect-critic findings section. Surface the status and **PROCEED to §8** (do NOT block, do NOT consolidate now):
+     > Slice-close audit running in the background as job `<id>`. The close proceeds now; resume with `/critique-jobs resume <id>` before final sign-off to fold both adversaries into one rebuttal. If it never completes (stalled/capped/failed), `/critique-jobs status <id>` shows the disposition — the close is not blocked either way.
+   - **Ran synchronously** — architect-critic instead completed its rebuttal cycle inline (no job handle: the Codex-host, architect-critic v0.2, or foreground-size-hint cases): treat it exactly as §7.2 — **carry the critic's findings + rebuttal outcomes forward to §8** (do NOT write `retrospective.md` here — §8 renders it from the template; §8 step 3 records them in the Architect-critic findings section), then proceed to §8. Do NOT record a `/critique-jobs resume` pointer — there is no job.
+   - **Pre-flight hard-fail** — under Claude-host + v0.3 but Codex uninstalled/unauthed/untrusted, `critiquing-spec` Step 6-async HARD-FAILS with remediation and **no** silent foreground fallback, so it returns NEITHER a job handle NOR a rebuttal. Do NOT stall: surface the remediation verbatim, note that `/critique-doctor` diagnoses readiness and that a synchronous review is available by re-running without `--async`, **carry a *"skipped — async pre-flight unmet"* note forward to §8** (do NOT write `retrospective.md` here — §8 renders it; §8 step 3 records the note), and **PROCEED to §8** (the gate is non-blocking by contract). Re-run synchronously only if the user asks.
+
+**Eval contract (S1 still holds):** still EXACTLY ONE `Skill(architect-critic:critiquing-spec)` invocation, after both `auto:` Bash invocations and after the manual-demo response — only driven through the exported `ARCHITECT_CRITIC_ARGS="--spec \"$bundle\" --close --async"`. No `Write` to `inbox/`/`outbox/`.
 
 ### 7.3 Absent / warn-and-proceed (S3 contract)
 
@@ -274,7 +318,7 @@ Render `templates/slice-retrospective.md.tmpl` into `${slice_root}/retrospective
 
 1. **Slice metadata** — VS-id, name, sprint, start date, close date, work-item count, round count.
 2. **Demo verification results** — the populated "Demo verification" block from the VS README (auto-demo outcomes + manual-demo outcomes with user notes).
-3. **Architect-critic findings** — both moments: moment-1 spec-author audit (cached from `planning-vertical-slice` §7) + moment-2 slice-close adversarial (captured in §7.2 above), each with their challenges and the user's resolutions. If a moment was skipped (architect-critic absent), note "skipped — architect-critic not detected" in that subsection.
+3. **Architect-critic findings** — both moments: moment-1 spec-author audit (cached from `planning-vertical-slice` §7) + moment-2 slice-close adversarial (captured in §7.2 above), each with their challenges and the user's resolutions. If a moment was skipped (architect-critic absent), note "skipped — architect-critic not detected" in that subsection. **If the moment-2 audit was dispatched async (§7.2a, review_gate) and not yet resumed,** this is the durable home for the job handle carried forward from §7.2a: record `dispatched async as job <id> — resume with /critique-jobs resume <id> to fold both adversaries into one rebuttal` (so the resumable pointer survives this render rather than being written before the file exists). If it was dispatched async but pre-flight hard-failed, note "skipped — async pre-flight unmet (`/critique-doctor`)". If the gate was bypassed by the user (`skip` at §7.2a), note "skipped — review_gate bypassed by user". (All §7.2a outcomes are *carried forward* and recorded here so the template render does not clobber an early write.)
 4. **Memory bank harvest** — placeholder; §9 fills it after harvest completes.
 5. **Deviations + deferrals** — anything that landed as accept-with-deferred during demo layers, plus any cross-cutting deviations from the original spec discovered during the rounds.
 6. **Lessons learned** — free-form observations the orchestrator + user captured.
@@ -557,15 +601,15 @@ If the user skips, leave `05` untouched and say so; the ceremony still proceeds 
 
 ---
 
-## 13. Slash-command interaction (`/close-slice VS-N.M.K`)
+## 13. Invocation (natural language or `/orchestrate` close phase)
 
-The `/close-slice VS-N.M.K` slash command (`commands/close-slice.md`) exports the raw arg string as `$ARGUMENTS` (env-var bridge per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
+The closing ceremony has **no dedicated slash command** — it is invoked by a natural-language trigger ("close VS-N.M.K", "slice close", "wrap up the slice") or from `/orchestrate`'s close phase (the sprint driver closes each slice). Extract the VS-id (the full 3-part id `VS-<phase>.<sprint>.<slice>`) from the trigger; never reference `$1`/`$2` (`feedback_slash_command_dollar_n_bug`).
 
-Parse `$ARGUMENTS` in bash; never reference `$1` / `$2`. Extract the VS-id (e.g., `VS-1.1.1` — the full 3-part id `VS-<phase>.<sprint>.<slice>`) and proceed to §3 pre-flight.
+**Review-gate override:** when the close runs inside `/orchestrate`, any per-invocation `--gate` override that `/orchestrate` parsed (see `planning-vertical-slice` §13) is already in context as `gate_override`, and §7.0 passes it through as `sd review_gate_resolve --gate "$gate_override"`. A standalone natural-language close carries no override, so the manifest `.review_gate` applies.
 
 Unknown or missing VS-id → one-line error + stop:
 
-> /close-slice requires a VS-id argument. Example: /close-slice VS-1.1.1
+> Closing requires a VS-id. Example: close VS-1.1.1
 
 ---
 
