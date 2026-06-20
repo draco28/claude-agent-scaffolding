@@ -344,6 +344,14 @@ sd worktree_add "${work_id}" "${vs_id}" "${kebab}" "${sprint_id}"
 
 Halt if `sd_worktree_add` fails (dirty canonical tree, existing branch, etc.); surface the failure-response menu (SPEC §12.2 "Merge conflict" row adapted for setup conflicts).
 
+Then record the **slice-start baseline** once (#76) — the canonical default-branch HEAD at slice start — so the direct-mode slice-close review bundle can diff `<recorded-base>..HEAD` (`closing-vertical-slice` §7.2a; today direct mode yields an empty diff because the slice is already merged by close). `sd slice_baseline_write` is append-once, so calling it every round is safe (round 2+ re-computes but no-ops, preserving the round-1 value):
+
+```bash
+default_branch="$(sd manifest_get '.canonical.default_branch')" || default_branch="main"
+base_sha="$(git -C "$canonical" rev-parse "$default_branch")"
+sd slice_baseline_write "$slice_root" "$base_sha" "$default_branch"
+```
+
 ### 8.2 Author handoff per work item
 
 Render `templates/implementation-handoff.md.tmpl` into each `work-N.NN-<kebab>/handoff.md` via `sd_render`. The handoff is heavy + self-contained (~200-400 lines per SPEC §10): pre-flight calibration, worktree absolute path, what's already merged, memory-bank pointers, ACs embedded, verification commands embedded, constraints (git_policy + STAGE-not-commit + subagent return format), report template, notes-for-orchestrator footer.

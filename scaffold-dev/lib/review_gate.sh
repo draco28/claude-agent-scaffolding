@@ -85,7 +85,9 @@ sd_review_gate_resolve() {
 #   1. written UNDER the slice root (a trusted git root) — never /tmp, so
 #      architect-critic's async target-root preflight accepts it;
 #   2. the slice diff section is included ONLY when the merge-base range is
-#      resolvable AND non-empty (direct-mode merge-base==HEAD yields nothing — #76);
+#      resolvable AND non-empty (an empty range yields nothing; the direct-mode
+#      caller passes a recorded slice-start baseline as --diff-base so the range
+#      is real — #76, resolved at closing-vertical-slice §7.2a);
 #   3. remaining (HEADING PATH) pairs are appended as "## HEADING" + file contents
 #      (a missing file is noted, not fatal).
 # rc=0 on success; rc=2 on usage error.
