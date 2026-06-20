@@ -66,7 +66,9 @@ This is the plugin **source** repo (no `.workspace/pairing.json`) — scaffold-d
 
 ## 5. Program state snapshot
 
-**Sub-spec status (SPEC §5):** SS-1…SS-5 ✅ · SS-5.1 ✅ · SS-7 ✅ · **SS-6 — in progress** (all correctness bugs cleared incl. #74; remaining #48/#10/#37/#38/#71 + Phase-B follow-ups #76/#77 — all enhancements/chores).
+**Where the whole program stands (the strategic picture for the next session):** the agent-driven-program SPEC's North Star is **zero open backlog** via a planned sequence of sub-specs (SPEC §5). **Every architectural/derivation-pivot sub-spec is now SHIPPED** — SS-1 (memory-bank ownership), SS-2 (live synthesis + post-derivation review), SS-3 (agent-synthesized resumable onboarding), SS-4 (agent-review of verification seams), SS-5 (Codex implementer backend), SS-5.1 (Codex synthesizer backend), SS-7 (remove deterministic `--fast` fallback). **SS-6 — "standalone cleanup to zero" — is the FINAL sub-spec, and the program is now inside its end-game.** With #74 closed there are **no correctness bugs and no architectural work left anywhere in the program**: what remains is pure enhancement/chore burn-down toward zero backlog. So the next session is not picking up a feature thread — it's choosing which cleanup item to retire next on the way to closing the program out.
+
+**Sub-spec status (SPEC §5):** SS-1…SS-5 ✅ · SS-5.1 ✅ · SS-7 ✅ · **SS-6 — final phase, in progress** (all correctness bugs cleared incl. #74/#66/#63; remaining are all enhancements/chores — see §2 backlog table). SS-6's original §5 scope ("Closes the 9 independent issues + N5") is largely done; the open items are the demand-gated/partial enhancements (#10/#37/#38), the #48 remainder, and chores/follow-ups (#71/#76/#77/#79) plus #59 (SS-3 residual polish, non-bug, "future").
 
 **Plugin versions (current main, HEAD `f0cf79d`):** workspace-init 0.2.0 · scaffold-onboard 0.9.1 · **scaffold-dev 0.8.1** · architect-critic 0.3.0 · claude-security-audit 0.1.2 · ai-mentor 2.0.0.
 
