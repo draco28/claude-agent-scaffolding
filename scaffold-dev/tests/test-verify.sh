@@ -446,14 +446,15 @@ test_ztg_go_no_test_files_only() {
   assert_eq "go [no test files] only → VACUOUS rc=1" "1" "$rc"
 }
 
-# 38. go test -run matched nothing → VACUOUS via "no tests to run" (even with trailing ok)
+# 38. go test -run matched nothing (single pkg) → VACUOUS. Modern Go appends
+#     "[no tests to run]" to the package's own ok line, so there is no genuine ok.
 test_ztg_go_no_tests_to_run() {
   echo "test_ztg_go_no_tests_to_run:"
   set +e
   sd_zero_tests_guard 'go test -run NoMatch ./pkg/feed' \
-    "$(printf 'testing: warning: no tests to run\nPASS\nok  \tpkg/feed\t0.001s\n')" >/dev/null 2>&1
+    "$(printf 'testing: warning: no tests to run\nPASS\nok  \tpkg/feed\t0.001s [no tests to run]\n')" >/dev/null 2>&1
   local rc=$?; set -e
-  assert_eq "go no tests to run → VACUOUS rc=1" "1" "$rc"
+  assert_eq "go single-pkg no tests to run → VACUOUS rc=1" "1" "$rc"
 }
 
 # 39. jest --passWithNoTests, zero found → VACUOUS
@@ -536,6 +537,38 @@ test_ztg_jest_real_run() {
   assert_eq "jest 3 passed → SAFE rc=0" "0" "$rc"
 }
 
+# 46b. cargo with options/toolchain before `test` → still detected (Codex #3)
+test_ztg_cargo_with_options() {
+  echo "test_ztg_cargo_with_options:"
+  set +e
+  sd_zero_tests_guard 'cargo --locked test feed' \
+    "$(printf 'running 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out\n')" >/dev/null 2>&1
+  local rc=$?; set -e
+  assert_eq "cargo --locked test, zero collected → VACUOUS rc=1" "1" "$rc"
+}
+
+# 46c. go test -json multi-package: one pkg passed (JSON), one has no test files
+#      → NOT vacuous (Codex #1: passes are embedded in JSON, not ^ok lines)
+test_ztg_go_json_mixed() {
+  echo "test_ztg_go_json_mixed:"
+  set +e
+  sd_zero_tests_guard 'go test -json ./...' \
+    "$(printf '{"Action":"run","Package":"ex/pkg/a","Test":"TestA"}\n{"Action":"pass","Package":"ex/pkg/a","Test":"TestA"}\n{"Action":"output","Package":"ex/pkg/b","Output":"?   \\tex/pkg/b\\t[no test files]\\n"}\n{"Action":"skip","Package":"ex/pkg/b"}\n')" >/dev/null 2>&1
+  local rc=$?; set -e
+  assert_eq "go -json one pkg passed → SAFE rc=0" "0" "$rc"
+}
+
+# 46d. go test -run multi-package: one pkg ran TestA (genuine ok), one matched
+#      nothing (ok ... [no tests to run]) → NOT vacuous (Codex #2)
+test_ztg_go_run_multipkg() {
+  echo "test_ztg_go_run_multipkg:"
+  set +e
+  sd_zero_tests_guard 'go test -run TestA ./...' \
+    "$(printf 'ok  \tex/pkg/a\t0.005s\nok  \tex/pkg/b\t0.002s [no tests to run]\n')" >/dev/null 2>&1
+  local rc=$?; set -e
+  assert_eq "go -run multi-pkg one ran → SAFE rc=0" "0" "$rc"
+}
+
 # 47. non-runner — `true` → SAFE (no runner token)
 test_ztg_nonrunner_true() {
   echo "test_ztg_nonrunner_true:"
@@ -590,6 +623,27 @@ test_ztg_dispatcher_safe() {
   "$SD_BIN" zero_tests_guard 'true' '' >/dev/null 2>&1
   local rc=$?; set -e
   assert_eq "dispatcher: non-runner → rc=0" "0" "$rc"
+}
+
+# 52b. dispatcher — STDIN path (the call pattern the SKILL.md gates use): the log
+#      is piped, not passed as argv, so a verbose log can't exceed ARG_MAX (#74/Codex #4)
+test_ztg_dispatcher_stdin_vacuous() {
+  echo "test_ztg_dispatcher_stdin_vacuous:"
+  set +e
+  printf 'running 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 209 filtered out\n' \
+    | "$SD_BIN" zero_tests_guard 'cargo test --lib feed' >/dev/null 2>&1
+  local rc=$?; set -e
+  assert_eq "dispatcher stdin: vacuous → rc=1" "1" "$rc"
+}
+
+# 52c. dispatcher — STDIN path, safe (real run) → rc=0
+test_ztg_dispatcher_stdin_safe() {
+  echo "test_ztg_dispatcher_stdin_safe:"
+  set +e
+  printf 'collected 8 items\n........\n8 passed in 0.30s\n' \
+    | "$SD_BIN" zero_tests_guard 'pytest tests/x.py' >/dev/null 2>&1
+  local rc=$?; set -e
+  assert_eq "dispatcher stdin: real run → rc=0" "0" "$rc"
 }
 
 # 53. wired — sd_verify_auto_step fails an `exit 0` AC whose recognized runner
@@ -661,12 +715,17 @@ test_ztg_cargo_multibinary_mixed
 test_ztg_pytest_all_passed
 test_ztg_go_mixed_packages
 test_ztg_jest_real_run
+test_ztg_cargo_with_options
+test_ztg_go_json_mixed
+test_ztg_go_run_multipkg
 test_ztg_nonrunner_true
 test_ztg_nonrunner_ls
 test_ztg_adversarial_unrelated_output
 test_ztg_nonrunner_alembic
 test_ztg_dispatcher_vacuous
 test_ztg_dispatcher_safe
+test_ztg_dispatcher_stdin_vacuous
+test_ztg_dispatcher_stdin_safe
 test_auto_exit0_vacuous_cargo_wired
 test_auto_exit0_still_passes_nonrunner
 

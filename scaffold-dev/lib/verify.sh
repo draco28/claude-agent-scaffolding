@@ -81,7 +81,7 @@ sd_verify_auto_step() {
   esac
 }
 
-# sd_zero_tests_guard <cmd> <captured_output>   (#74)
+# sd_zero_tests_guard <cmd> [captured_output]   (#74)
 # Detect a VACUOUS test run: a recognized test runner that exited 0 having
 # collected ZERO tests (a name/path filter matched nothing, so `exit 0` is a
 # false-green). Pure + side-effect-free — it never executes <cmd>; it inspects
@@ -91,22 +91,30 @@ sd_verify_auto_step() {
 # (miss → today's behavior) over false-positives (wrongly failing a real green).
 # Markers are best-effort against common runner output and may drift across
 # runner versions; drift degrades to a miss, never a false fire.
+#
+# The captured output is taken from $2 when given, else read from STDIN. Callers
+# that exec the dispatcher (`sd zero_tests_guard "$cmd"`) should PIPE the log via
+# stdin — a verbose log passed as argv can exceed ARG_MAX (Codex #4); in-process
+# callers may pass it as $2.
 # Returns:
 #   0 — SAFE     (not a recognized runner, or it collected >=1 test)
 #   1 — VACUOUS  (recognized runner collected zero tests)
 # set -e-safe: every match runs inside an if/&&/! condition.
 sd_zero_tests_guard() {
-  local cmd="${1:-}" out="${2:-}"
+  local cmd="${1:-}" out
+  if [[ $# -ge 2 ]]; then out="$2"; else out="$(cat)"; fi
 
-  # cargo nextest — check BEFORE plain `cargo test` (more specific).
-  if printf '%s' "$cmd" | grep -Eq 'cargo[[:space:]]+nextest'; then
+  # cargo nextest — check BEFORE plain `cargo test` (more specific). The token
+  # regexes allow options/toolchain between `cargo` and the subcommand
+  # (`cargo --locked test`, `cargo +nightly test`) — Codex #3.
+  if printf '%s' "$cmd" | grep -Eq 'cargo[[:space:]]+([^[:space:]]+[[:space:]]+)*nextest([[:space:]]|$)'; then
     if printf '%s' "$out" | grep -Eq 'Starting 0 tests'; then return 1; fi
     return 0
   fi
 
   # cargo test (libtest). Fire only on genuine zero-result, and NEVER when any
   # binary in the same run reported tests running / passing (multi-binary safe).
-  if printf '%s' "$cmd" | grep -Eq 'cargo[[:space:]]+test'; then
+  if printf '%s' "$cmd" | grep -Eq 'cargo[[:space:]]+([^[:space:]]+[[:space:]]+)*test([[:space:]]|$)'; then
     if printf '%s' "$out" | grep -Eq 'running 0 tests' \
        && ! printf '%s' "$out" | grep -Eq 'running [1-9][0-9]* tests?'; then
       return 1
@@ -124,13 +132,18 @@ sd_zero_tests_guard() {
     return 0
   fi
 
-  # go test. `no tests to run` (an explicit -run filter matched nothing) is
-  # unambiguous. `[no test files]` is vacuous ONLY when no sibling package ran
-  # (mixed `go test ./...` prints `ok pkg/a` alongside `? pkg/b [no test files]`).
+  # go test. Zero-collection markers: `[no test files]` (no _test.go in a pkg) or
+  # `no tests to run` (a -run filter matched nothing). A multi-package `./...` run
+  # is NOT vacuous if any sibling package actually ran — so before firing, suppress
+  # on any genuine-pass evidence in EITHER plain or -json form (Codex #1/#2):
+  #   • `--- PASS:`                  (verbose plain)
+  #   • -json `"Action":"pass"|"run"`(passes are embedded in JSON, not `^ok` lines)
+  #   • an `ok <pkg>` summary line that does NOT carry a `[no tests…]` note
+  #     (a bare `ok pkg` is a real pass; `ok pkg [no tests to run]` is not).
   if printf '%s' "$cmd" | grep -Eq '(^|[^[:alnum:]])go[[:space:]]+test'; then
-    if printf '%s' "$out" | grep -Eq 'no tests to run'; then return 1; fi
-    if printf '%s' "$out" | grep -Eq 'no test files' \
-       && ! printf '%s' "$out" | grep -Eq '^(ok|PASS|--- PASS)'; then
+    if printf '%s' "$out" | grep -Eq 'no tests to run|no test files'; then
+      if printf '%s' "$out" | grep -Eq '[-]{3} PASS:|"Action":"(pass|run)"'; then return 0; fi
+      if printf '%s' "$out" | grep -E '^ok[[:space:]]' | grep -vqE '\[no tests'; then return 0; fi
       return 1
     fi
     return 0

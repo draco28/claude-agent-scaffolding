@@ -225,7 +225,7 @@ Iterate the `(ac_label, command, expectation)` tuples in declared order. For eac
 
 - Run `cd "$worktree" && eval "$command"` for shell commands (or `git -C "$worktree" <subcommand>` for git ops, per SPEC §6.5); capture the exit code + combined stdout/stderr.
 - Check `expectation` per §14.1 — the only three supported forms: `exit 0` → exit code is 0; `exit N` → exit code is N; `output contains <substring>` → captured output contains the **unquoted** substring (literal `grep -F`).
-- For `exit 0` only, additionally gate on `sd zero_tests_guard "$cmd" "$output"` (#74): a recognized test runner (pytest/go test/cargo test/nextest/jest/vitest/node --test) that exited 0 having collected **zero** tests is a vacuous green — the guard returns non-zero and the AC fails. Allowlist-only + fail-soft: an unrecognized command is unaffected. `exit N` is exempt (negative-test ACs intentionally expect failure).
+- For `exit 0` only, additionally gate on `printf '%s' "$output" | sd zero_tests_guard "$cmd"` (#74): a recognized test runner (pytest/go test/cargo test/nextest/jest/vitest/node --test) that exited 0 having collected **zero** tests is a vacuous green — the guard returns non-zero and the AC fails. The captured log is piped via **stdin**, not passed as an argument, so a verbose run can't exceed `ARG_MAX`. Allowlist-only + fail-soft: an unrecognized command is unaffected. `exit N` is exempt (negative-test ACs intentionally expect failure).
 - On pass, record `${label}:pass`. On the **first** fail, halt and keep `(failing_ac_label, failing_cmd, observed exit + output excerpt)` for the §12.2 menu.
 
 (`lib/verify.sh::sd_verify_auto_step "<full auto: line>"` runs the same parse-and-check on a **single full line** — it extracts the command from the backticks and runs in the **current directory**, including the same `sd_zero_tests_guard` zero-tests check on `exit 0`. It is the line-level utility `tests/test-verify.sh` exercises, NOT a worktree-scoped 3-arg call; the gate runs in the worktree as above.)
@@ -240,7 +240,8 @@ for tuple in "${ac_tuples[@]}"; do
   case "$expect" in
     # #74: an `exit 0` from a recognized test runner that collected ZERO tests is
     # a false-green — `sd zero_tests_guard` returns non-zero, so ok stays 0 → halt.
-    "exit 0")            if [[ $ec -eq 0 ]] && sd zero_tests_guard "$cmd" "$output"; then ok=1; fi ;;
+    # The log is piped via stdin (not argv) so a verbose run can't exceed ARG_MAX.
+    "exit 0")            if [[ $ec -eq 0 ]] && printf '%s' "$output" | sd zero_tests_guard "$cmd"; then ok=1; fi ;;
     "exit "*)            [[ $ec -eq "${expect#exit }" ]] && ok=1 ;;
     "output contains "*) printf '%s' "$output" | grep -qF -- "${expect#output contains }" && ok=1 ;;
   esac
@@ -426,7 +427,7 @@ This skill never bash-orchestrates judgment work (which menu row applies, how to
 
 **Manifest (lib/manifest.sh — T3.2):** `sd_manifest_require`, `sd_manifest_get`, `sd_manifest_resolve`.
 
-**Verify (lib/verify.sh — T3.6):** `sd_verify_auto_step <auto-line>` — line-level utility that parses one full `auto:` line (extracts the command from the backticks + the `expected:` predicate) and checks the expectation, running in the **current directory**. The gate itself runs each command in the worktree (§6); this helper is what `tests/test-verify.sh` exercises. `sd_zero_tests_guard <cmd> <output>` — pure (no execution) zero-test-collection detector used by both the §6 gate and `sd_verify_auto_step` on the `exit 0` form: returns non-zero (vacuous) when a recognized test runner collected zero tests, SAFE otherwise (#74). `sd_verify_report_cross_check <report> <spec>` — confirms each declared `auto:` `AC-N` row in the spec is referenced in the report.
+**Verify (lib/verify.sh — T3.6):** `sd_verify_auto_step <auto-line>` — line-level utility that parses one full `auto:` line (extracts the command from the backticks + the `expected:` predicate) and checks the expectation, running in the **current directory**. The gate itself runs each command in the worktree (§6); this helper is what `tests/test-verify.sh` exercises. `sd_zero_tests_guard <cmd> [output]` — pure (no execution) zero-test-collection detector used by both the §6 gate and `sd_verify_auto_step` on the `exit 0` form: returns non-zero (vacuous) when a recognized test runner collected zero tests, SAFE otherwise (#74). Output is taken from `$2` or, when omitted, **stdin** (pipe the log via stdin from the dispatcher to avoid `ARG_MAX`). `sd_verify_report_cross_check <report> <spec>` — confirms each declared `auto:` `AC-N` row in the spec is referenced in the report.
 
 **Rules (lib/rules.sh — T3.7):** `sd_rules_apply <rules_json> <worktree> <modified_files...>` — scaffold-dev's adapter; dispatches per rule type and halts on first violation.
 
