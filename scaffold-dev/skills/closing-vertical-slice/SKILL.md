@@ -9,7 +9,7 @@ You are the slice-close ceremony for scaffold-dev v0.1's vertical-slice lifecycl
 
 The ceremony order is binding. The §11 M2 marker — worktrees + branches removed ONLY after harvest completes — is the load-bearing discipline this body enforces. Halt-on-first-auto-demo-failure preserves worktrees for inspection (eval S2). Warn-and-proceed on architect-critic absence keeps the ceremony moving without blocking (eval S3). Source-tagged harvest with literal `[report]` / `[handoff]` brackets and the provenance trailer carries SPEC §15.2's 8-step contract through eval S4.
 
-Bash helpers in `lib/manifest.sh`, `lib/render.sh`, `lib/worktree.sh`, `lib/compose.sh`, and `lib/harvest.sh` do the bookkeeping (manifest resolution, template substitution, filesystem probes, worktree teardown, harvest write/idempotency/reroute + lean-index length leg). Demo-line parsing happens directly in the orchestrator (trivial two-field split on ` → expected: `); demo-criterion evaluation is agent-judged for content expectations. The judgment work — which §12.2 menu row matches the failing auto-demo, whether captured output satisfies a content expectation (with a recorded reason), how to phrase the source-tagged harvest candidates, when to count the rejected handoff item as "left in handoff" — happens here, in conversation.
+Bash helpers (`lib/manifest.sh`, `lib/render.sh`, `lib/worktree.sh`, `lib/compose.sh`, `lib/harvest.sh`) do the bookkeeping (see §16); the judgment work — demo-criterion evaluation, harvest categorization, menu phrasing — happens here, in conversation.
 
 This skill is the slice-close terminal step. It does NOT plan slices (that's `planning-vertical-slice` per §5), does NOT verify per-work-item ACs (that's `implementation-checking` per §12.1), and does NOT author the work-item bodies (that's the `scaffold-dev:implementer-agent` subagent body via `executing-work-item` per §6). It is invoked at the end of the slice when all rounds complete, either by a natural-language trigger ("close VS-N.M.K") or from `/orchestrate`'s close phase (there is no dedicated `/close-slice` command — see §13).
 
@@ -17,20 +17,16 @@ This skill is the slice-close terminal step. It does NOT plan slices (that's `pl
 
 ## 1. Overview
 
-When invoked, you:
+When invoked, you, in order:
 
-1. Discover the workspace-init pairing manifest; refuse fail-fast if absent (mirrors `planning-vertical-slice` §3.1).
-2. Resolve the target VS-id from the user message (or active-context cursor) and locate the slice directory under `<ai-workspace>/docs/specs/sprint-<sprint_id>/VS-<id>-<kebab>/` (e.g. `sprint-1.1/VS-1.1.1-<kebab>/`), with `sprint_id` field-read from the structured roadmap.
-3. Read the VS README; parse `auto:` and `user:` demo criteria per SPEC §14.1 grammar directly in the orchestrator (split each line on the literal ` → expected: ` after stripping the `auto:`/`user:` prefix).
-4. **Layer 1 — auto-demo:** run each `auto:` command in canonical (NOT in any work-item worktree), evaluate the expectation, halt on first failure. Record outcomes in the VS README's "Demo verification" section.
-5. **Layer 2 — manual-demo:** surface each `user:` step to the user with the expected outcome; capture pass/fail/partial + notes. Record outcomes in "Demo verification".
-6. **Layer 3 — architect-critic at close depth:** probe via `lib/compose.sh::sd_compose_detect_architect_critic`; if v0.2 present, invoke `Skill(architect-critic:critiquing-spec)` in-conversation at `depth=close` with the slice diff + VS README + work-item specs as context; if absent, emit one warning naming `architect-critic` or `adversarial review` and proceed.
-7. **Retrospective:** render `templates/slice-retrospective.md.tmpl` (7 sections per SPEC §16b) into `${slice_root}/retrospective.md`.
-8. **Memory-bank harvest (§15.2 8-step flow):** read all work-item `report.md` files + all slice-scoped handoffs at `<ai-workspace>/.workspace/handoffs/vs-N.M.K-*.md`; extract "Suggestions for memory bank" + handoff section-4 promote candidates; categorize by target memory-bank file; surface each candidate prefixed `[report]` or `[handoff]`; consume per-item accept/edit/reject decisions; apply approved items with the provenance trailer `<!-- Added from VS-N.M.K retrospective, YYYY-MM-DD; source: report | handoff -->`; record harvest outcomes in `retrospective.md`.
-9. **Cleanup (M2):** remove each work-item worktree via `sd_worktree_remove` + delete each work-item branch — ONLY after harvest completes successfully.
-10. **Sprint-close cleanup:** if this is the FINAL slice of the sprint, sweep non-carry-forward handoffs from `<ai-workspace>/.workspace/handoffs/` per §6b.6.
-11. **Reconcile active-context (§12):** surface a targeted edit to `05-active-context.md` — flip the closed slice's "Current focus" status to CLOSED + merge ref, and advance "Next up" to the field-read next roadmap slice (or sprint-close → next sprint on the final slice). Prose only; the closed slice's round log is preserved verbatim; the structured cursor block and spec-derived files are never touched.
-12. Emit final `VS-N.M.K closed` handoff message.
+1. **Pre-flight (§3):** discover the manifest (refuse fail-fast if absent); resolve the VS-id; field-read `sprint_id` + locate the slice dir; confirm all work items are at complete status.
+2. **Parse demo criteria (§4)** from the VS README per §14.1 grammar.
+3. **Layer 1 — auto-demo (§5):** run each `auto:` in canonical (NOT a worktree), evaluate, **halt on first fail**.
+4. **Layer 2 — manual-demo (§6):** surface each `user:` step, capture pass/fail/partial.
+5. **Layer 3 — architect-critic (§7):** probe; invoke at close depth if present (sync or opt-in async per the `review_gate`), else warn-and-proceed.
+6. **Retrospective (§8):** render the 7-section `retrospective.md` (BEFORE harvest).
+7. **Harvest (§9):** sweep `report.md` + slice-scoped handoffs; surface `[report]`/`[handoff]` candidates; apply accepted items via `sd harvest_apply`.
+8. **Cleanup (§10, M2):** remove worktrees + branches — ONLY after harvest. Then sprint-close sweep on the final slice (§11), the slice→sprint PR under `pr_hierarchical` (§10a), the §12 active-context reconcile, and the §14 closing message.
 
 Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/closing-vertical-slice.md` — the six scenarios there are the binding spec.
 
@@ -69,9 +65,9 @@ Call `sd_manifest_require` (lib/manifest.sh). If absent, surface this verbatim r
 
 > scaffold-dev requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first.
 
-The literal `/init-workspace` and `/pair-workspace` slash-command tokens are load-bearing (mirrors `planning-vertical-slice` §3.1 + `implementation-checking` §3.1). Do NOT read the VS README, do NOT run any `auto:` command, do NOT invoke architect-critic, do NOT touch any worktree.
+The literal `/init-workspace` and `/pair-workspace` slash-command tokens are load-bearing (mirrors `planning-vertical-slice` §3.1 + `implementation-checking` §3.1). On refusal, do NOT read the VS README, run any `auto:` command, invoke architect-critic, or touch any worktree.
 
-All scaffold-dev lib calls go through the `sd` dispatcher (`scaffold-dev/bin/sd`, on `$PATH` because Claude Code adds each plugin's `bin/` automatically; the dispatcher's bash shebang forces a bash runtime under it regardless of the calling shell — required because Claude Code's Bash tool runs zsh by default on macOS):
+All scaffold-dev lib calls go through the `sd` dispatcher (`scaffold-dev/bin/sd`, on `$PATH`; its bash shebang forces a bash runtime regardless of the calling shell):
 
 ```bash
 if ! sd manifest_require 2>/dev/null; then
@@ -143,7 +139,7 @@ For each line under the `## Demo criteria` (or `##### Demo criteria`) section, s
 - Lines starting with `user: ` → split the same way to yield `(action, expectation)`.
 - Lines not matching either prefix → skip (section headers, blank lines, etc.).
 
-**Strip the command's surrounding backticks.** The `auto:` grammar wraps the command in backticks (e.g. `` auto: `pytest tests/x.py` → expected: exit 0 ``). After the split, remove a single leading and trailing backtick from `command` (then trim surrounding whitespace) so the tuple holds the bare command. Skipping this is a real bug: §5's `eval "$command"` on a still-backticked string runs the inner text as **command substitution** (so `` `echo ok` `` would run `echo ok`, then try to execute its output `ok`), failing slice-close even though the demo actually passes.
+**Strip the command's surrounding backticks** after the split (then trim whitespace) so the tuple holds the bare command. Skipping this is a real bug: §5's `eval "$command"` on a still-backticked string runs the inner text as command substitution and fails slice-close even though the demo passes.
 
 Build two ordered lists: `auto_steps` (the `auto:` tuples in declared order) and `user_steps` (the `user:` tuples in declared order). If both lists are empty, surface:
 
@@ -164,16 +160,7 @@ result_stdout="$(eval "$command" 2>&1)"; result_exit=$?
 
 The `cd "$canonical"` is binding — eval S1's judge confirms either the absence of any `cd <worktree>` prefix OR the explicit presence of a canonical-root marker. Auto-demo against a work-item worktree produces false-greens (the worktree's branch may be at a pre-merge HEAD).
 
-Under `merge_mode=pr_hierarchical` (read via `sd merge_mode`), the slice's work
-lives on the slice branch, not `default_branch`. Check it out before demos:
-
-```bash
-if [[ "$(sd merge_mode)" == "pr_hierarchical" ]]; then
-  git -C "$canonical" checkout -q "$(sd slice_branch_name "$vs_id")" \
-    || { printf 'Cannot check out the slice branch in canonical (dirty tree or checked out elsewhere?); resolve before running auto-demos.\n' >&2; exit 1; }
-fi
-```
-**Guard the checkout.** A failed `checkout` (dirty canonical tree, branch checked out in another worktree) would leave canonical on the *wrong* branch and the `auto:` demos below would run against it — a silent false green/red. HALT on failure and surface it; never demo against an unverified checkout. Restore is unnecessary on success — the slice branch is the integration target until its PR merges.
+Under `merge_mode=pr_hierarchical` the slice's work lives on the slice branch, not `default_branch` — check out the slice branch in canonical FIRST (guard the checkout; HALT on failure, never demo against an unverified checkout). See `references/pr-hierarchical-close.md`. The default `direct` mode needs no checkout.
 
 Evaluate `expectation` using a **run-then-judge** approach:
 
@@ -330,111 +317,28 @@ Write the file BEFORE harvest runs (so the harvest step can append to section 4 
 
 ## 9. Memory-bank harvest (§15.2 8-step flow)
 
-> Harvest is the slice-close memory-bank write event per the cadence policy (`memory-bank/WORKFLOW.md` → **Memory-bank update cadence**). This section is the *mechanics*; the policy owns *which files at which event*.
+> Harvest is the slice-close memory-bank write event per the cadence policy (`memory-bank/WORKFLOW.md` → **Memory-bank update cadence**). This section is the operative 8-step order; **`references/harvest-mechanics.md`** holds the categorization routing detail, the lean-index check mechanics, a worked surface example, and the `sd harvest_apply` payload schema + provenance-trailer format.
 
-The harvest is the heart of the slice's memory-bank promotion contract. Eight steps, executed in this order.
+The harvest is the heart of the slice's memory-bank promotion contract. Eight steps, in order:
 
-### 9.1 Step 1 — Read all work-item `report.md`
-
-Iterate `${slice_root}/work-*/report.md`. Read each one. Eval S1 + S4 assert that ALL work-item reports appear in the Read tool-call log (4 reports in the standard 4-item slice).
-
-### 9.2 Step 2 — Read all slice-scoped handoffs
-
-Derive the slice slug from the full id and glob `${handoffs_dir}/${vs_slug}-*.md` (`vs_slug="vs-${vs_id#VS-}"`, e.g. `vs-1.1.1`). Read each match. The glob is **slice-scoped**: it matches `vs-1.1.1-bugfix-auth-a1b2.md` and `vs-1.1.1-techdebt-logging-e5f6.md` but does NOT match `sprint-1-context-bloat-c3d4.md` (sprint-scoped, different naming pattern). Eval S1 + S4 explicitly assert the unrelated sprint-scoped handoff MUST NOT appear in any Read — accidentally sweeping it fails the assertion.
-
-```bash
-vs_slug="vs-${vs_id#VS-}"
-for handoff in "${handoffs_dir}/${vs_slug}"-*.md; do
-  [[ -f "$handoff" ]] || continue
-  # Read the handoff file (Read tool, not bash cat)
-done
-```
-
-### 9.3 Step 3 — Extract promote candidates
-
-From each `report.md`: extract the **"Suggestions for memory bank"** section (per SPEC §10 report template). May be empty for some reports — that's fine. The implementer's `report.md` "Suggestions for memory bank" section is **free-form prose**, **agent-read, not machine-parsed** — read it with judgment; there is no bullet grammar to satisfy. (Per SS-4 / #52: the former `sd_harvest_reports`/`sd_harvest_handoffs` AWK parsers are deleted; you are the single authority over extraction.)
-
-From each `vs-N.M.K-*.md` handoff: extract **section 4 — "What's NOT in memory bank yet"** (per SPEC §6b.5 handoff doc structure). May be empty for some handoffs — that's fine.
-
-### 9.4 Step 4 — Categorize by target memory-bank file
-
-For each candidate, decide which **dev-authored** memory-bank file it belongs in, per
-the cadence policy (`memory-bank/WORKFLOW.md` → **Memory-bank update cadence**, harvest
-routing): caveats / gotchas / stack notes → `09-known-issues.md`; decisions / advisory
-patterns → `10-decisions-log.md`; an enforceable pattern → NOT a raw harvest append —
-route the user to `Skill(scaffold-onboard:authoring-machine-checkable-rules)` so it
-lands in `03`'s preserved rules zone. Spec-derived files (`00,01,02,04,07,08,index`)
-and `03`'s derived prose are **never** harvest targets; `sd harvest_apply` reroutes any
-such target to `09-known-issues.md` and warns. (There is no `06-product-context.md`
-file — `06` is `06-progress`; `01` is product-context.) Surface the proposed target
-alongside the candidate at step 5.
-
-**Lean-index check (#48-F, write-time prevention).** Before proposing a target, judge whether the candidate **restates content already tracked** in a doc/ADR/issue (a `DOC §anchor` like `MASTER-SPEC.md §5.2`, an existing ADR id like `ADR-0007`, an open issue `#N`). If it does, do NOT harvest the prose — surface a **pointer** instead, per the forms in `memory-bank/WORKFLOW.md` → **Lean-index pointer conventions** (#33/#48 C/D/E) — and route the deferral via `Skill(scaffold-dev:deferring-work-item)` if it is genuinely new debt. **When you surface (or harvest an entry carrying) a pointer, confirm it resolves** so the bank never stores a dangling reference: `sd citations_check_anchor "<doc-file>" "<anchor>"` for a `DOC §anchor` and `sd citations_check_adr "ADR-NNNN" "<product-adr-dir>" "<process-adr-dir>"` for an ADR id (each returns 0 = resolves, non-zero = flag it to the user; you still judge whether the cited target still *denotes* what the entry claims — the mechanical leg only confirms the heading/ADR exists). If the **claude-mem** plugin is present, a history/recall candidate may instead become a claude-mem topic pointer (e.g. `claude-mem: "data-pipeline decisions" corpus <name>`) rather than harvested prose; if claude-mem is absent, skip this — do not author a dead pointer. Also run the **mechanical length leg** through the dispatcher: `sd harvest_lint_length "<candidate text>"` — if it returns non-zero (exceeds ~12 lines), the entry is too long for a lean index; ask the user to tighten it to a pointer + one-line gist before accepting. These checks are advisory nudges surfaced at step 5, not hard blocks.
-
-### 9.5 Step 5 — Surface candidates with source-tag prefix
-
-Present each candidate to the user as a numbered list. Each item's first line MUST start with the literal source-tag token in square brackets — either `[report]` or `[handoff]`. The brackets are load-bearing per eval S1 + S4: paraphrased spellings (`(report)`, `<handoff>`, `*report*`, `[Report]`) fail the assertion.
-
-Example surface:
-
-```
-Harvest candidates for VS-1.1.1 (4 items):
-
-1. [report] from work-1.01/report.md → target: 09-known-issues.md
-   "subagent must use absolute paths when reading worktree files (relative paths break under Task dispatch)"
-
-2. [report] from work-1.03/report.md → target: 09-known-issues.md
-   "merge conflict surface on shared schema.json when two parallel work items both touch it"
-
-3. [handoff] from vs-1.1.1-bugfix-auth-a1b2.md section 4 → target: 10-decisions-log.md
-   "auth retry pattern: exponential backoff with 3 attempts, jitter 100-500ms"
-
-4. [handoff] from vs-1.1.1-techdebt-logging-e5f6.md section 4 → target: 09-known-issues.md
-   "log-rotation cron caveat — rotation fires at 03:00 UTC and races with the scheduled backup"
-
-Per item: accept (apply as-is) / edit (give me the revised text) / reject (drop).
-
-> Targets are dev-authored files only (`09`/`10`). A candidate that is a strictly
-> **enforceable** rule (not advisory prose) is NOT harvested into `03` as raw text —
-> route it to `Skill(scaffold-onboard:authoring-machine-checkable-rules)` so it lands
-> in `03`'s preserved rules zone as a machine-checkable rule. `sd harvest_apply`
-> reroutes any spec-derived target to `09-known-issues.md` and warns.
-```
-
-### 9.6 Step 6 — Consume per-item decisions
-
-For each candidate, accept the user's decision: `accept`, `edit: <new text>`, or `reject`. The user may answer per-item or as a batch (`accept all`, `accept 1,2; edit 3; reject 4`).
-
-### 9.7 Step 7 — Apply with provenance trailer
-
-Build a JSON array of all accepted / edited candidates — one object per item:
-
-- Report-origin item: `{"source": "report", "target_file": "<filename>.md", "suggestion": "<text>"}`
-- Handoff-origin item: `{"source": "handoff", "target_file": "<filename>.md", "handoff_file": "<vs-N.M.K-*.md basename>", "item": "<text>"}`
-
-Then apply in one call:
-
-```bash
-sd harvest_apply "$accepted_json" "VS-N.M.K"
-```
-
-The dispatcher call `sd harvest_apply` is the **single mechanical write authority**: it writes each item to its target memory-bank file at `${ai_workspace}/.claude/memory-bank/<file>.md` with the exact provenance trailer, enforces idempotency (skips text already present), and reroutes any spec-derived target to `09-known-issues.md` with a warning. Do **not** hand-author the trailer or append directly — the trailer format is load-bearing (eval S4) and belongs to the helper.
-
-The provenance trailer format `sd harvest_apply` produces (documented here for eval reference):
-
-```
-<!-- Added from VS-N.M.K retrospective, YYYY-MM-DD; source: report -->
-```
-
-or
-
-```
-<!-- Added from VS-N.M.K retrospective, YYYY-MM-DD; source: handoff -->
-```
-
-Every accepted item MUST include `target_file`. The `source:` field MUST be set by the agent to exactly match the candidate's origin (`report` for report-sourced, `handoff` for handoff-sourced); `sd harvest_apply` writes the provided source verbatim. Eval S4 explicitly rejects: missing trailer, missing `source:` field, mis-labeled source (e.g., `source: report` on a handoff-origin item). Eval S1 accepts minor date-format variation but rejects missing `VS-N.M.K` reference.
-
-For `reject` decisions: omit those items from the `$accepted_json` array — do NOT write to any memory-bank file. The candidate is dropped. Eval S4 asserts filesystem diff confirms only the count of accepted items appears as memory-bank file modifications.
+1. **Read all work-item `report.md`.** Iterate `${slice_root}/work-*/report.md` (Read tool). Eval S1 + S4 assert ALL reports appear in the Read log.
+2. **Read all slice-scoped handoffs.** Glob `${handoffs_dir}/${vs_slug}-*.md` and Read each match (Read tool, not `cat`). The glob is **slice-scoped** — it matches `vs-1.1.1-*.md` but NOT `sprint-1-context-bloat-c3d4.md`; eval S1 + S4 reject reading a sprint-scoped handoff:
+   ```bash
+   vs_slug="vs-${vs_id#VS-}"
+   for handoff in "${handoffs_dir}/${vs_slug}"-*.md; do
+     [[ -f "$handoff" ]] || continue
+     # Read the handoff file (Read tool)
+   done
+   ```
+3. **Extract promote candidates.** From each `report.md`: the **"Suggestions for memory bank"** section (free-form prose, **agent-read not machine-parsed** — the SS-4/#52 AWK parsers are deleted; you are the sole extraction authority). From each handoff: **section 4 — "What's NOT in memory bank yet"**. Either may be empty.
+4. **Categorize by target file** (per `references/harvest-mechanics.md`): caveats/gotchas → `09-known-issues.md`; decisions/advisory patterns → `10-decisions-log.md`; an **enforceable** rule → route to `Skill(scaffold-onboard:authoring-machine-checkable-rules)`, never a raw `03` append. Spec-derived files are never targets (`sd harvest_apply` reroutes + warns). Run the **lean-index check** before proposing a target — if the candidate restates a tracked `DOC §anchor`/ADR/`#issue`, surface a pointer (not prose), confirm it resolves (`sd citations_check_anchor` / `sd citations_check_adr`), and length-lint it (`sd harvest_lint_length`); see the reference for the pointer forms.
+5. **Surface candidates with source-tag prefix.** Numbered list; each item's first line MUST start with the literal `[report]` or `[handoff]` — the square brackets are load-bearing per eval S1 + S4 (`(report)`, `<handoff>`, `[Report]` all fail). Show the proposed target per item; ask accept / edit / reject. (Worked example in the reference.)
+6. **Consume per-item decisions** — `accept` / `edit: <new text>` / `reject`, per-item or batch (`accept all`, `accept 1,2; edit 3; reject 4`).
+7. **Apply with the provenance trailer.** Build the accepted-items JSON array (schema in the reference) and apply in one call — `sd harvest_apply` is the **single mechanical write authority** (exact trailer, idempotency, spec-derived reroute); never hand-author the trailer:
+   ```bash
+   sd harvest_apply "$accepted_json" "VS-N.M.K"
+   ```
+   Each accepted item MUST carry `target_file` and a `source:` field matching its origin exactly (`report` vs `handoff`) — eval S4 rejects missing/mis-labeled source. `reject` items are omitted from the array (dropped, no write).
 
 ### 9.8 Step 8 — Record harvest outcomes in retrospective.md
 
@@ -482,76 +386,13 @@ Branch deletion is bundled into `sd_worktree_remove` per `lib/worktree.sh`'s con
 
 ## 10a. Open the slice→sprint PR (pr_hierarchical only)
 
-Runs only when `sd merge_mode` == `pr_hierarchical`, AFTER §9 harvest + §10
-worktree cleanup (work-item worktree/branch cleanup is decoupled from this PR —
-the slice branch already holds every work-item commit; see
-`references/git-workflow.md`).
-
-1. **Resolve and push the integration branches:**
-   ```bash
-   slice_branch="$(sd slice_branch_name "$vs_id")"
-   sprint_branch="$(sd sprint_branch_name "$sprint_id")"
-   sd branch_sync "$sprint_branch"
-   sd branch_push "$sprint_branch"
-   sd branch_push "$slice_branch"
-   ```
-2. **Compose the PR body** to a temp file: the slice README (with the populated
-   Demo-verification section) + the architect-critic close-depth summary (§7) +
-   any linked tech-debt/issue references.
-3. **Open the PR:**
-   ```bash
-   slice_pr="$(sd pr_open "$slice_branch" "$sprint_branch" "${vs_id}: <slice title>" "<body-file>")"
-   ```
-4. **Run the agent-driven pre-merge gate** per `references/git-workflow.md`
-   (`sd pr_state "$slice_pr"` + `sd pr_review_comments "$slice_pr"` → reason
-   over CI **and** inline review comments → surface → ask). Merge via
-   `sd pr_merge` only on explicit user acknowledgment. If the PR is left open for
-   asynchronous CI/review, HALT before §11: report the PR URL/number and do NOT
-   run sprint-close cleanup or tell the user the slice/sprint is closed. Do NOT
-   busy-wait.
-
-`direct` mode skips this section entirely — work items already merged into
-`default_branch` at §8.6, exactly as in v0.1.
+Runs only when `sd merge_mode` == `pr_hierarchical`, AFTER §9 harvest + §10 cleanup: push the integration branches, compose the PR body (slice README + architect-critic summary + linked refs), `sd pr_open`, then the agent-driven pre-merge gate (`sd pr_state` + `sd pr_review_comments` → reason → surface → ask; merge via `sd pr_merge` only on explicit ack). If left open for async CI/review, HALT before §11 and do NOT run sprint-close cleanup or claim the slice is closed; never busy-wait. Full steps in `references/pr-hierarchical-close.md`. The default `direct` mode skips this section entirely (work items already merged into `default_branch` at §8.6).
 
 ---
 
 ## 11. Sprint-close branch (final slice of the sprint)
 
-If this slice is the FINAL slice of its sprint (resolved by field-reading the structured roadmap for any later slice with the same `sprint_id`), run the sprint-close cleanup per §6b.6.
-
-### 11.1 Detect final-slice condition
-
-```bash
-# Field-read the next slice in THIS sprint via the shared lookup (single source of
-# truth — the close-time §12 reconcile calls the same helper). Empty ⇒ this is the
-# final slice of the sprint. Never grep ROADMAP headings or split on the wrong id
-# field (the #28 bug); sd_roadmap_next_slice sorts same-sprint slices by the 3rd
-# id index and returns the smallest one greater than this slice's.
-next_vs_id="$(sd roadmap_next_slice "$vs_id")"
-if [[ -z "$next_vs_id" ]]; then
-  is_final_slice_of_sprint=1
-  # Next sprint is an array-order lookup over sprints[] (dotted ids, no integer +1).
-  next_sprint_id="$(sd roadmap_next_sprint "$sprint_id")"
-else
-  is_final_slice_of_sprint=0
-  next_sprint_id=""
-fi
-```
-
-### 11.2 Sweep non-carry-forward handoffs
-
-When `is_final_slice_of_sprint=1`:
-
-- Read every handoff in `${handoffs_dir}/`.
-- For each handoff, check its frontmatter or section-1 metadata for a `carry_forward: true` marker (per §6b.5).
-- Delete handoffs WITHOUT the carry-forward marker. Carry-forward handoffs (e.g., `sprint-${sprint_id}-to-${next_sprint_id}-handoff-XXXX.md`, where `next_sprint_id` is field-read from the next entry in the roadmap `sprints[]` array — there is no integer `+1` for a dotted `sprint_id` like `1.1`) survive into the next sprint. If `next_sprint_id` is empty because this is the final roadmap sprint, preserve only explicitly marked carry-forward handoffs and say there is no next sprint in the published roadmap.
-- Surface to user: *"Sprint ${sprint_id} closed. Swept N non-carry-forward handoffs; K carry-forward handoffs preserved for sprint ${next_sprint_id:-<none in roadmap>}."*.
-
-**Ownership lock for v0.1:** sprint-close cleanup lives in this skill, not a separate `closing-sprint` skill (per SPEC §6b.6 settlement during PLAN). A future v0.2 may split this out, but v0.1's surface is a single slice-close skill with sprint-close as a conditional final step.
-
-### 11.3 Sprint retrospective (out of scope for this skill)
-
-Sprint-level retrospective authoring (`sprint-${sprint_id}/sprint-retrospective.md`, 6 sections per §16b) is handled by `writing-sprint-retrospective` (Phase 1 task T1.7, separate skill). This skill does NOT author the sprint retrospective — only the slice retrospective + the conditional handoff sweep.
+If this is the FINAL slice of its sprint — detected via `next_vs_id="$(sd roadmap_next_slice "$vs_id")"` (empty ⇒ final; the same shared lookup §12.1 uses) with `next_sprint_id="$(sd roadmap_next_sprint "$sprint_id")"` — run the sprint-close cleanup per §6b.6: sweep handoffs in `${handoffs_dir}/` that lack a `carry_forward: true` marker (carry-forward ones survive into the next sprint), then surface the swept/preserved counts. Full steps in `references/sprint-close-cleanup.md`. The sprint-level retrospective is out of scope here — `writing-sprint-retrospective` (separate skill) owns it.
 
 ---
 
@@ -561,7 +402,7 @@ On the all-pass path — after harvest (§9) and cleanup (§10), after the §11 
 
 ### 12.1 Compute the cursor target (field-read, mechanical)
 
-Reuse the same shared lookup §11.1 uses — never paraphrase a slice name or grep ROADMAP headings:
+Reuse the same shared lookup §11 uses (`sd roadmap_next_slice` / `sd roadmap_next_sprint`) — never paraphrase a slice name or grep ROADMAP headings:
 
 ```bash
 next_vs_id="$(sd roadmap_next_slice "$vs_id")"   # empty ⇒ final slice of the sprint
@@ -625,36 +466,28 @@ Eval S1 / S3 / S4 assert the target subagent's final assistant message indicates
 
 ## 15. Anti-patterns (do not do these)
 
-- **Running auto-demo commands inside a worktree.** `cd "$canonical"` is binding — auto-demo runs in canonical (post-merge state). Eval S1's judge rejects any `cd <worktree>` prefix on the auto-demo Bash invocations. The work-item worktree's branch may be at a pre-merge HEAD; running there produces false-greens.
-- **Continuing past the first auto-demo failure.** Eval S2's assertion is binding — exactly one Bash invocation in the tool-call log when the first `auto:` line fails. Halt immediately; preserve worktrees; surface the 3-option recovery menu.
-- **Removing worktrees before harvest completes.** §11 M2 marker is the entire ceremony's discipline. Eval S1 + S4 scan the tool-call log: any `git worktree remove` or `git branch -D work-*` invocation that precedes the `retrospective.md` Write OR precedes any harvest Read fails the scenario.
-- **Removing worktrees on an auto-demo halt.** Eval S2 explicitly asserts no `git worktree remove` invocation appears when ceremony halts in Layer 1. Worktrees + branches stay preserved for user inspection; the user picks the recovery menu option and the ceremony re-runs from §5 on the next pass.
-- **Paraphrasing the source-tag tokens.** The literal `[report]` and `[handoff]` square brackets are load-bearing per eval S1 + S4. Spellings like `(report)`, `<handoff>`, `*report*`, `[Report]`, `[report-sourced]` all fail the assertion.
-- **Mis-labeling the `source:` field in the provenance trailer.** Eval S4 cross-checks each accepted item against its origin: `source: report` for items extracted from `report.md`; `source: handoff` for items extracted from a `vs-N.M.K-*.md` handoff. Swapping the labels fails the assertion.
-- **Sweeping sprint-scoped handoffs at slice close.** The glob is `${handoffs_dir}/${vs_slug}-*.md` (`vs_slug="vs-${vs_id#VS-}"`, e.g. `vs-1.1.1-*.md`) — slice-scoped only; do NOT write `vs-${vs_id}-*.md`, which with the `VS-`-prefixed `vs_id` would resolve to a never-matching `vs-VS-1.1.1-*.md`. Files like `sprint-3-context-bloat-c3d4.md` are sprint-scoped and MUST NOT appear in any Read during harvest. Eval S1 + S4 reject any accidental read of a sprint-scoped handoff.
-- **Silent skip when architect-critic is absent.** Eval S3 rejects silent skip — emit the §7.3 warning naming `architect-critic` or `adversarial review`. Also rejects blocking error — never prompt the user to install architect-critic; never retry the probe.
-- **Invoking architect-critic via Task tool or via `inbox/` / `outbox/` file IPC.** Eval S1 rejects both. The only correct invocation is the in-conversation `Skill(architect-critic:critiquing-spec)` pattern per SPEC §16.3.
-- **Authoring the retrospective BEFORE the architect-critic moment.** Eval S1 asserts the `Write` of `retrospective.md` appears AFTER the architect-critic invocation in tool-call order. The retrospective's section 3 captures the critic's findings; writing it earlier means section 3 is empty.
-- **Authoring the retrospective AFTER harvest applies items.** The retrospective's section 4 is the harvest's destination for outcomes (step 8). The Write happens before harvest Reads (§9.1), then harvest results are appended in-place. Inverting that order means section 4 is mute on the actual harvest outcomes.
-- **Auto-selecting a recovery menu option.** The menu is a user decision boundary; surfacing-and-waiting is the entire contract. Eval S2 asserts no `Task` tool invocation on the halt turn — option 3 (re-spawn implementer) is user-selected, not ceremony-driven.
-- **Reading manifest fields via raw `jq`.** All manifest reads route through `sd_manifest_get` / `sd_manifest_resolve` — mirrors `planning-vertical-slice` §3.1 + `implementation-checking` §3.1 discipline.
-- **Calling `Skill(architect-critic:critique)`** (the legacy v0.1.x slash-command-shaped name). The v0.2 skill is `critiquing-spec` per SPEC §16.3 last paragraph.
-- **Regenerating `05-active-context.md` from a template at §12.** It is a LIVE, dev-authored file — the reconcile is a *targeted* edit to the `## Current focus` / `## Next up` blocks only. A templated regen wipes the user's narrative, recent decisions, and blockers.
-- **Deleting the closed slice's round log during the §12 reconcile.** Flip only the status header; the round detail is historical record (issue #66 AC).
-- **Paraphrasing the next slice in "Next up" instead of field-reading it.** The §12 Next-up pointer MUST come from `sd roadmap_next_slice` / `sd roadmap_slice_field … name` (issue #66 AC: "field-read, not paraphrased"). Never hand-type a remembered slice name or grep ROADMAP headings.
-- **Writing the structured cursor block (the `<!-- sd:cursor:start -->` / `<!-- sd:cursor:end -->` sentinels) or any spec-derived file at §12.** The reconcile is prose-only; the JSON cursor belongs to `planning-vertical-slice` and advances when the next slice is actually planned.
-- **Auto-applying the §12 reconcile without surfacing.** Like every other ceremony decision boundary, surface the proposed edit and wait for confirm / edit / skip — never write `05` silently.
-- **Letting this body exceed 500 lines.** Hard cap per superpowers:writing-skills Pass D guidance.
+- **Running auto-demo commands inside a worktree.** `cd "$canonical"` is binding (eval S1 rejects any `cd <worktree>` prefix) — a worktree branch may be at a pre-merge HEAD → false-greens.
+- **Continuing past the first auto-demo failure.** Halt immediately (eval S2: exactly one Bash invocation on first-fail); preserve worktrees; surface the 3-option recovery menu.
+- **Removing worktrees before harvest completes** (§11 M2). Eval S1 + S4 fail any `git worktree remove` / `git branch -D work-*` that precedes the `retrospective.md` Write or any harvest Read.
+- **Removing worktrees on an auto-demo halt.** Eval S2: none may appear — worktrees stay for inspection; the user picks the menu option and the ceremony re-runs from §5.
+- **Paraphrasing the source-tag tokens.** Literal `[report]` / `[handoff]` square brackets are load-bearing (eval S1 + S4) — `(report)`, `<handoff>`, `[Report]` all fail.
+- **Mis-labeling the `source:` field** in the provenance trailer — `source: report` for `report.md` origin, `source: handoff` for a handoff; swapping fails eval S4.
+- **Sweeping sprint-scoped handoffs.** The glob is slice-scoped `${handoffs_dir}/${vs_slug}-*.md` (`vs_slug="vs-${vs_id#VS-}"`); never `vs-${vs_id}-*.md` (would be `vs-VS-1.1.1-*.md`). A `sprint-3-context-bloat-*.md` Read fails eval S1 + S4.
+- **Silent skip OR blocking error when architect-critic is absent.** Emit the one §7.3 warning naming `architect-critic` / `adversarial review`; never prompt to install; never retry the probe (eval S3).
+- **Invoking architect-critic via Task tool or `inbox/`/`outbox/` file IPC** (eval S1). Only the in-conversation `Skill(architect-critic:critiquing-spec)` is correct; never the legacy `Skill(architect-critic:critique)` name.
+- **Authoring `retrospective.md` BEFORE the architect-critic moment** (eval S1: Write after the invocation; section 3 captures findings) **or AFTER harvest applies items** (section 4 is harvest's in-place destination — Write before §9 Reads).
+- **Auto-selecting a recovery menu option.** It is a user decision boundary; eval S2 asserts no `Task` on the halt turn (option 3 is user-gated).
+- **Reading manifest fields via raw `jq`.** Route all reads through `sd_manifest_get` / `sd_manifest_resolve`.
+- **At the §12 reconcile:** regenerating `05-active-context.md` from a template (it is LIVE, dev-authored — targeted edit to `## Current focus` / `## Next up` only); deleting the closed slice's round log (flip only the status header, #66 AC); paraphrasing the "Next up" slice instead of field-reading via `sd roadmap_next_slice` / `sd roadmap_slice_field … name` (#66 AC); writing the `<!-- sd:cursor:start/end -->` block or any spec-derived file (cursor belongs to `planning-vertical-slice`); applying without surfacing-and-waiting.
+- **Letting this body exceed 500 lines.** Hard cap per superpowers:writing-skills Pass D guidance; move reference-grade detail to `references/*.md`.
 
 ---
 
 ## 16. Notes on tool boundaries
 
-- **You** (Claude reading this skill body) make every judgment call: how to phrase the failing-step recovery menu, how to categorize each harvest candidate by target memory-bank file, how to surface the source-tagged candidates with enough context for the user's per-item decision, how to phrase the closing handoff message.
-- **Bash helpers** (`lib/manifest.sh`, `lib/render.sh`, `lib/compose.sh`, `lib/worktree.sh`, `lib/harvest.sh`) handle pure I/O: manifest reads, template substitution, filesystem probes, worktree teardown, harvest write + idempotency + derived-reroute (`sd_harvest_apply`) and the lean-index length leg (`sd_harvest_lint_length`). Demo-line parsing is done inline in the orchestrator (split on ` → expected: `); demo-criterion evaluation for content expectations is agent-judged.
-- **`architect-critic:critiquing-spec`** owns the adversarial review at close depth; you invoke it once between Layer 2 and §8 retrospective authoring, and it runs its own sequential rebuttal cycle before returning control. This skill never enters that cycle; the user does, in conversation.
-- **`writing-sprint-retrospective`** (separate skill, T1.7) owns the sprint-level retrospective. This skill does NOT author it — only the slice retrospective + the conditional handoff sweep at §11.
-- **`scaffold-onboard:authoring-vertical-slice-demo`** owns demo-criteria authoring. When the user picks recovery option 1 ("re-author the demo step"), this skill hands off to that flow; it does NOT edit the VS README's demo criteria itself.
-- **The user** is the final authority. They pass/fail each manual-demo step, resolve architect-critic challenges, accept/edit/reject each harvest candidate, pick the recovery menu option on any halt. You never auto-advance past a decision boundary; you never auto-cleanup; you never auto-select a menu option.
+- **You** make every judgment call: phrasing the recovery menu, categorizing each harvest candidate, surfacing source-tagged candidates with enough context, phrasing the closing handoff.
+- **Bash helpers** (`lib/manifest.sh`, `lib/render.sh`, `lib/compose.sh`, `lib/worktree.sh`, `lib/harvest.sh`) handle pure I/O: manifest reads, template substitution, filesystem probes, worktree teardown, `sd_harvest_apply` (write + idempotency + reroute) and `sd_harvest_lint_length`. Demo-line parsing is inline (split on ` → expected: `); content-expectation evaluation is agent-judged.
+- **`architect-critic:critiquing-spec`** owns the close-depth review (invoked once between Layer 2 and §8); **`writing-sprint-retrospective`** owns the sprint retrospective (not this skill); **`scaffold-onboard:authoring-vertical-slice-demo`** owns demo-criteria authoring (recovery option 1 hands off to it).
+- **The user** is the final authority on every demo result, critic challenge, harvest decision, and menu choice. Never auto-advance past a decision boundary; never auto-cleanup; never auto-select a menu option.
 
-When in doubt, prefer surfacing-and-waiting over acting. The ceremony's value is the deterministic ordering: demos before critic, critic before retrospective, retrospective before harvest, harvest before cleanup, cleanup before the §12 active-context reconcile. Every step is a user-observable artifact; every halt preserves the workspace for inspection. The §11 M2 marker — worktrees + branches survive until harvest completes — is the load-bearing discipline that makes the retrospective harvest meaningful.
+When in doubt, prefer surfacing-and-waiting. The ceremony's value is the deterministic ordering — demos before critic, critic before retrospective, retrospective before harvest, harvest before cleanup, cleanup before the §12 reconcile — with the §11 M2 marker (worktrees survive until harvest completes) the load-bearing discipline.

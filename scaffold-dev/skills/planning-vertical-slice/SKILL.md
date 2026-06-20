@@ -15,20 +15,15 @@ This skill is the orchestrator's entry point. It does NOT author work-item imple
 
 ## 1. Overview
 
-When invoked, you:
+When invoked, you, in order:
 
-1. Discover the workspace-init pairing manifest (refuse fail-fast if absent per SPEC §16.1).
-2. Resolve the published structured roadmap (`project-roadmap.json` via `sd_roadmap_state_path`), field-read the target slice by exact `id` (get `sprint_id` + metadata), read MASTER-SPEC + memory bank Tier 0 + the active-context cursor.
-3. Propose a 4-5 work-item decomposition (each ~200-500 LOC, stable `N.NN` numbering); iterate with the user.
-4. Offer grill-me (gate 1).
-5. Identify rounds via strict-layer DAG topological sort over declared dependencies; user may loosen or tighten.
-6. Author the full slice scaffold upfront: `README.md`, all `work-N.NN-<kebab>/spec.md` files, empty `handoff.md` + `report.md` placeholders alongside each spec.
-7. Offer grill-me on specs (gate 2).
-8. Offer spec-citations check (opt-in gate, §6.4).
-9. Invoke `Skill(architect-critic:critiquing-spec)` in-conversation (per SPEC §16.3 moment 1) — challenges/concessions cycle.
-10. **Per round (sequential):** create worktrees via `sd_worktree_add`, author handoff via `templates/implementation-handoff.md.tmpl`, dispatch `Task(subagent_type="scaffold-dev:implementer-agent", ...)`, process gaps-mode or complete-mode returns (§6.3), run `implementation-checking` (§12.1), commit + merge per `git_policy` (HALT on conflict per §11), offer grill-me at fix-up replan (gate 3).
-11. After all items in a round: surface "Round K complete; ready for K+1 or close slice?"
-12. At slice-close intent: suggest invoking `closing-vertical-slice`.
+1. **Pre-flight (§3):** discover the manifest (refuse fail-fast if absent); field-read the target slice by exact `id` from `project-roadmap.json` (get `sprint_id` + metadata); merge-mode pre-flight (§3.3a); read MASTER-SPEC + memory-bank Tier 0 + the active-context cursor.
+2. **Decompose (§4)** into 4-5 work items (~200-500 LOC, stable `N.NN` ids); iterate; **offer grill-me (gate 1)**.
+3. **Identify rounds (§5)** via strict-layer DAG sort; user may loosen/tighten.
+4. **Author the full slice scaffold upfront (§6):** README + every `spec.md` + empty `handoff.md`/`report.md` placeholders. **Offer grill-me (gate 2)** + the **spec-citations check (§6.3)**.
+5. **Invoke architect-critic (§7)** in-conversation (SPEC §16.3 moment 1; sync author-depth by default, or close-depth/async per the `review_gate`).
+6. **Per round (§8, sequential):** create worktrees → author handoff → dispatch the implementer (Claude subagent or Codex backend) → process gaps/complete returns → `implementation-checking` (gate; **grill-me gate 3** on fix-up) → commit + merge per `git_policy` (HALT on conflict) → round-complete handoff.
+7. **At slice-close intent (§10):** suggest `closing-vertical-slice`.
 
 Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/planning-vertical-slice.md` — the four scenarios there are the binding spec.
 
@@ -126,58 +121,13 @@ When the record is found, read every field directly from `vs_record` (all carrie
 
 ### 3.3a Merge-mode pre-flight (pr_hierarchical)
 
-Read the mode early (it gates §8.1 + §8.6 + slice-close). See
-`references/git-workflow.md` for the full topology and primitive contracts.
+Read the mode early (it gates §8.1 + §8.6 + slice-close):
 
 ```bash
 merge_mode="$(sd merge_mode)"   # "direct" (default) | "pr_hierarchical"
 ```
 
-If `merge_mode == "direct"`: skip the rest of this subsection — behavior is
-unchanged from v0.1.
-
-If `merge_mode == "pr_hierarchical"`:
-
-1. **Refuse fast if the remote/gh prerequisites are missing:**
-   ```bash
-   sd remote_check || exit 1   # surfaces the actionable error verbatim
-   ```
-   Do NOT silently fall back to `direct`.
-2. **Ensure the sprint integration branch exists — on origin and current**
-   (create off `default_branch` at the first slice; reuse otherwise):
-   ```bash
-   sprint_branch="$(sd sprint_branch_name "$sprint_id")"
-   default_branch="$(sd manifest_get '.canonical.default_branch')" || default_branch="main"
-   sd branch_sync "$default_branch"   # fast-forward local main/default after prior sprint→main PRs
-   sd branch_create_from "$default_branch" "$sprint_branch"   # reuses origin/$sprint_branch when it exists (fresh clone / deleted local); else cuts from $default_branch (first slice)
-   sd branch_sync "$sprint_branch"   # FIRST: fast-forward a reused base if a prior slice PR already merged
-   sd branch_push "$sprint_branch"   # THEN: ensure the base exists on origin for the slice→sprint PR
-   ```
-   **Halt on any non-zero return above.** `branch_sync` HARD-FAILS when a local
-   base has *diverged* from `origin` (or cannot be fast-forwarded). On any failure,
-   surface the helper's error verbatim and have the user reconcile the branch
-   manually — do NOT branch the slice off a stale or diverged base.
-   **Order matters.** Sync the local `$default_branch` before cutting a new
-   sprint branch; a prior sprint→main PR (or any remote update) advances
-   `origin/$default_branch`, and a stale local default branch would omit landed
-   commits from the next sprint. Then `branch_sync "$sprint_branch"` runs
-   **before** `branch_push`: a merged slice PR advances `sprint-N` on the remote,
-   so the local base is stale; pushing first would be rejected non-fast-forward
-   (and the next slice could never reach the sync). Sync fast-forwards the reused
-   local `$sprint_branch` to `origin/$sprint_branch` (no-op on the first slice,
-   when origin has no `$sprint_branch` yet); then `branch_push` creates it on
-   origin (first slice) or is a no-op fast-forward (later slices). The slice then
-   branches off the fresh base.
-3. **Slice-ordering check:** if a prior slice's PR into `$sprint_branch` is still
-   open, surface it per `references/git-workflow.md` (slice-ordering rule) and wait
-   for the user before continuing.
-4. **Create the slice branch off the sprint branch:**
-   ```bash
-   slice_branch="$(sd slice_branch_name "$vs_id")"
-   sd branch_create_from "$sprint_branch" "$slice_branch"
-   ```
-   Carry `$slice_branch` forward — §8.1 bases work-item worktrees on it and §8.6
-   merges into it.
+`direct` mode needs nothing further — behavior is unchanged from v0.1. `pr_hierarchical` mode runs a remote/gh pre-flight (refuse fast, never silently fall back to `direct`), ensures the sprint integration branch exists on origin and is current (strict sync-before-push order), runs the slice-ordering check, then cuts the slice branch off the sprint branch and carries `$slice_branch` forward (§8.1 bases worktrees on it; §8.6 merges into it). Full steps + the order-matters rationale in `references/pr-hierarchical-preflight.md`; topology in `references/git-workflow.md`.
 
 ### 3.4 Read MASTER-SPEC + memory bank + cursor
 
@@ -203,25 +153,11 @@ Propose a draft decomposition into 4-5 work items, surfaced to the user as a num
 2. Ask: *"This decomposition: accept as-is, refine (which items?), or restart?"*
 3. On refine: re-draft per user feedback. Loop until the user accepts.
 
-Anti-patterns:
-
-- **Mega-items.** A "build the whole API surface" item that hides 1500 LOC behind one bullet is a decomposition failure — break it.
-- **Microscope items.** A "rename one constant" item is too fine — fold it into a sibling.
-- **Hidden dependencies.** If items 1.02 and 1.03 both require a schema migration that's not its own item, surface the migration as 1.01.
-- **Demoability drift.** Each work item should advance at least one demo criterion from the VS block; if an item advances zero, justify or merge.
+Anti-patterns: **mega-items** (1500 LOC behind one bullet — break it); **microscope items** (rename-one-constant — fold into a sibling); **hidden dependencies** (a shared schema migration that's not its own item — surface it as 1.01); **demoability drift** (an item advancing zero demo criteria — justify or merge).
 
 ### 4.1 grill-me offer (gate 1, post-decomposition)
 
-After the user accepts the decomposition, probe for ai-mentor v2.0 via `sd_compose_detect_ai_mentor` (lib/compose.sh — filesystem probe at `~/.claude/plugins/cache/*/ai-mentor/*/skills/grill-me/SKILL.md`). If present, surface this explicit offer:
-
-> Decomposition settled (N items). Want to grill-me on it before locking the spec authoring? (yes/no, default no)
-
-This is an **offer**, not auto-invocation (eval S1 rejects silent skip; S1 also rejects silent invocation). The user can:
-
-- **yes** → invoke `Skill(ai-mentor:grill-me)` with `target=decomposition, context=<decomp-summary>`. When grill-me returns, the user may revise the decomposition; loop back to §4 if so.
-- **no / skip** → record the skip and proceed to §5.
-
-If ai-mentor is absent: skip the offer silently (no warning needed — grill-me is enrichment, not a contract).
+After the user accepts the decomposition, probe ai-mentor via `sd_compose_detect_ai_mentor` (lib/compose.sh); if present, surface an **explicit offer** (not auto-invocation — eval S1 rejects both silent skip and silent invocation): *"Decomposition settled (N items). Want to grill-me on it before locking spec authoring? (yes/no, default no)"*. **yes** → `Skill(ai-mentor:grill-me)` with `target=decomposition` (loop back to §4 on revisions); **no/skip** → record + proceed to §5. If ai-mentor is absent, skip silently (grill-me is enrichment, not a contract).
 
 ---
 
@@ -291,37 +227,24 @@ Use `sd_render` (lib/render.sh, ported from scaffold-onboard) to fill templates:
   - [ ] user: click "Export" and confirm a CSV downloads
   ```
 
-  Two hard requirements the `lib/verify.sh` helpers enforce — get either wrong and the gate misfires: **(a)** the command MUST be wrapped in backticks — `sd_verify_auto_step` extracts the command from the backticks, and an un-backticked command is rejected as malformed so the AC never runs; **(b)** every **`auto:`** AC line MUST carry an `AC-N` label — `sd_verify_report_cross_check` keys off `AC-N` IDs, and a spec with none *silently skips* the report cross-check. Use ONLY the supported `expected:` forms: `exit 0`, `exit N`, `output contains <substring>` — the substring is **unquoted** (`sd_verify_auto_step` passes everything after `output contains ` straight to `grep -F`, so wrapping quotes would become part of the required output). No `count > 0` / arithmetic — unsupported. `user:` lines are manual demo steps and carry **no** `AC-N` — they're verified at slice-close, not cross-checked against `report.md` (a labeled `user:` row would be wrongly required in the report). These lines are the single AC source of truth the `implementation-checking` gate parses (§4). Do NOT author a parallel prose AC table — the table/`auto:` split is what caused the gate to find zero ACs (#36).
+  These are the single AC source of truth the `implementation-checking` gate parses; never author a parallel prose AC table (the split caused the zero-ACs bug, #36). Two hard requirements the `lib/verify.sh` helpers enforce — get either wrong and the gate misfires: **(a)** every `auto:` command MUST be backtick-wrapped; **(b)** every `auto:` line MUST carry an `AC-N` label (`user:` lines carry none). Supported `expected:` forms only: `exit 0`, `exit N`, `output contains <substring>` (substring unquoted). Full rules + rationale in `references/ac-authoring-grammar.md`.
 
 The worktree path and branch are computed at spec-authoring time (so the spec is self-contained as a fresh-session starter per §6.4) but the actual `git worktree add` does NOT happen until the round starts (§8.1).
 
-### 6.3 grill-me offer (gate 2, post-spec)
+### 6.3 Pre-audit offers (grill-me gate 2 + spec-citations)
 
-After all specs are written, surface gate-2 grill-me (per SPEC §16.4 offer 2 — **before** architect-critic so undecided items surface first):
+After all specs are written, surface two opt-in offers **before** architect-critic (so undecided items + citation drift surface first), each probed for presence and silent-skipped if absent (enrichment, not a contract):
 
-> Specs authored (N work items). Want to grill-me on the specs before adversarial review? (yes/no, default no)
+- **grill-me (gate 2, SPEC §16.4 offer 2):** *"Specs authored (N items). Want to grill-me on the specs before adversarial review? (yes/no, default no)"* → `Skill(ai-mentor:grill-me)` with `target=specs`.
+- **spec-citations (§6.4 opt-in):** *"… verify spec citations (file paths, signatures, REQ-IDs, ARCH §-refs) before adversarial review? (yes/no, default no)"* → `Skill(scaffold-dev:verifying-spec-citations)` over each `work-N.NN-*/spec.md`.
 
-- **yes** → `Skill(ai-mentor:grill-me)` with `target=specs, context=<spec-paths>`. Returns may produce edits; re-write affected spec.md files via `sd_render`, then proceed to §6.4.
-- **no / skip** → proceed to §6.4.
-
-Probe for ai-mentor presence first (silent skip if absent, per §4.1).
-
-### 6.4 Spec-citations check (opt-in gate)
-
-After specs are written and gate-2 grill-me has settled, offer the citation check **before** architect-critic so drift surfaces first:
-
-> Specs authored (N work items). Want to verify spec citations (file paths, function signatures, REQ-IDs, ARCH §-refs) before adversarial review? (yes/no, default no)
-
-- **yes** → invoke `Skill(scaffold-dev:verifying-spec-citations)` over each `work-N.NN-*/spec.md`. Drift reports may produce edits; re-write affected `spec.md` files via `sd_render` (or `sd render`), then continue to §7.
-- **no / absent** → skip silently and continue to §7.
-
-The check is enrichment, not a contract — never block slice planning on its absence or on a project without a REQ-ID scheme.
+Either may produce edits — re-write affected `spec.md` via `sd_render`, then continue to §7. Never block planning on their absence or on a project without a REQ-ID scheme.
 
 ---
 
 ## 7. Architect-critic invocation (in-conversation, §16.3 moment 1)
 
-After specs are written, gate-2 grill-me has settled, and the §6.4 citation-check offer has settled, invoke architect-critic for adversarial review.
+After specs are written and the §6.3 pre-audit offers (gate-2 grill-me + citation check) have settled, invoke architect-critic for adversarial review.
 
 ### 7.0 Review-gate resolution (#39 Phase B — opt-in async)
 
@@ -410,24 +333,16 @@ When the user invokes round execution (e.g., "execute round 1", "run round K"), 
 
 ### 8.1 Create worktrees
 
-For each work item in the round:
+For each work item in the round (`{N}` in `${branch_naming}` = `sprint_id`, field-read in §3.3, NOT split from the slice id):
 
 ```bash
 sd worktree_add "${work_id}" "${vs_id}" "${kebab}" "${sprint_id}"
-# Creates ${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}
-# Branches per ${branch_naming} template — {N} = sprint_id (e.g. sprint-1.1),
-# field-read in §3.3, NOT split from the slice id
-# Base: canonical default branch HEAD at creation
+# → ${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}; base = canonical default-branch HEAD.
+# Under merge_mode=pr_hierarchical, pass "${slice_branch}" as a 5th arg so the
+# worktree branches off the slice, not the default branch.
 ```
 
-Under `merge_mode=pr_hierarchical`, pass the slice branch as the base so the
-worktree branches off the slice (not the canonical default branch):
-
-```bash
-sd worktree_add "${work_id}" "${vs_id}" "${kebab}" "${sprint_id}" "${slice_branch}"
-```
-
-Halt if `sd_worktree_add` fails (dirty canonical tree, existing branch, etc.). Surface the failure-response menu (SPEC §12.2 "Merge conflict" row adapted for setup conflicts).
+Halt if `sd_worktree_add` fails (dirty canonical tree, existing branch, etc.); surface the failure-response menu (SPEC §12.2 "Merge conflict" row adapted for setup conflicts).
 
 ### 8.2 Author handoff per work item
 
@@ -451,89 +366,18 @@ Precedence: a **per-invocation override** (the user asked to run this slice/roun
 
 The **manual fresh-session handoff** remains a first-class path for either backend whenever the user wants a fresh boundary: stop after writing the handoff and hand over the absolute `handoff.md` path — the handoff is self-contained by design.
 
-#### 8.3a — `claude_subagent` (default)
+Both dispatch templates live in **`references/backend-dispatch.md`**:
 
-For Claude Code, dispatch each work item in the round with:
-
-```text
-Task(
-  subagent_type="scaffold-dev:implementer-agent",
-  description="Execute work item ${work_id}",
-  prompt="""
-    Read handoff at <abs path to work-${work_id}-${kebab}/handoff.md>
-    and execute the work item per its instructions.
-
-    Your worktree: <abs path to ${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}>
-    Use this path for all git operations and file edits in canonical.
-
-    First turn: PRE-FLIGHT CHECK (per SPEC §6.2).
-    Return structured response (gaps-surfaced | complete) per the multi-call protocol.
-  """
-)
-```
-
-The `scaffold-dev:` prefix on `subagent_type` is load-bearing — that's the registered custom subagent type per SPEC §6.1. Do NOT use the bare `implementer-agent` or any other prefix.
-
-#### 8.3b — `codex` (optional backend, SS-5)
-
-The Codex backend dispatches the **same** work item to the externally-installed `codex-plugin-cc` companion through `lib/codex.sh`, under the **same** `{mode,…}` contract, gaps-mode escalation, and no-commit boundary as the Claude path. The only new surface is async liveness — Codex is an external process, so the orchestrator polls for the surface. **Dispatch Codex work items sequentially within a round** (the companion's `--resume-last` resolves the latest session thread; concurrent same-session tasks race).
-
-Per work item (let `WT` = the absolute worktree path):
-
-1. **Pre-flight — hard gate, no silent fallback.**
-   ```bash
-   sd codex_preflight "$WT"
-   ```
-   rc≠0 → **STOP** and surface the remediation (§12.2). Do NOT fall back to Claude — the user explicitly chose Codex; quietly running Claude would violate intent.
-
-2. **Assemble the prompt-file.** Codex does not auto-load the skill, so the contract is prompt-carried. Write a temp prompt file outside the worktree (for example under `${TMPDIR:-/tmp}`), not `$WT/.codex-prompt.md`, containing, in order: the full `executing-work-item` contract (read it from the installed scaffold-dev skill as the single source of truth, else treat the handoff's embedded constraints as binding); `Read the handoff at <abs handoff.md> and execute the work item per its instructions.`; `Your worktree: $WT — use it for all git operations and file edits.`; the no-commit prohibition `NEVER run git commit / push / pull / fetch; never launch nested subagents.`; and the return-contract instruction: *end your turn with a single fenced ```json block holding `{mode, report_path, summary, stage_status, gaps}` exactly as the Claude implementer returns; if pre-flight surfaces blocking gaps, emit `{"mode":"gaps-surfaced","gaps":[…]}` and stop.* Remove the temp prompt file after `sd codex_dispatch` returns a job id.
-
-3. **Record baseline + dispatch + watch:**
-   ```bash
-   baseline="$(git -C "$WT" rev-parse HEAD)"
-   prompt_file="$(mktemp "${TMPDIR:-/tmp}/sd-codex-prompt.XXXXXX.md")"
-   trap 'rm -f "$prompt_file"' EXIT INT TERM
-   # write the Codex prompt contract to "$prompt_file"
-   job="$(sd codex_dispatch "$WT" "$prompt_file" [--model M] [--effort E])"
-   rm -f "$prompt_file"
-   trap - EXIT INT TERM
-   term="$(sd codex_wait "$WT" "$job")"   # background+poll+stall+cap; one of: completed|failed|cancelled|stalled|capped|error
-   ```
-
-4. **No-commit verify immediately after wait** — before any failure/malformed exit path:
-   ```bash
-   if ! verdict="$(sd codex_verify_nocommit "$WT" "$baseline")"; then
-     # commit-violation or helper usage failure: surface loudly before any retry/menu
-   fi
-   ```
-   rc≠0 / `commit-violation` → surface loudly; the orchestrator decides remediation. This check runs even when `term` is `failed`/`cancelled`/`stalled`/`capped`/`error`, because an aborted or malformed Codex run may still have moved `HEAD`.
-
-   Any `term` other than `completed` (`stalled`/`capped`/`failed`/`cancelled`/`error`) → surface the failure-response menu (§12.2 "Subagent crash/timeout" row) only after the no-commit verdict is clean. `sd codex_wait` already cancelled a stalled/capped job. A stall/cap is recoverable — re-dispatch (Codex `--resume-last`) or fall back to a manual session.
-
-5. **Read the return** (only on `completed`):
-   ```bash
-   if ! out="$(sd codex_result "$WT" "$job")"; then
-     # no-commit already verified above; route to §8.4 malformed-return menu
-   fi
-   ```
-
-6. **Judge dirtiness before trusting a complete result.** A `complete` return with `ok-clean` (no staged/working-tree changes) is suspect → treat as a malformed/empty return; a `gaps-surfaced` return with `ok-clean` is expected.
-
-7. **Join the Claude downstream unchanged.** The `{mode,…}` object feeds §8.4 exactly as a Claude subagent return would: `gaps-surfaced` → clarify + re-dispatch (Codex via `--resume-last`); `complete` → read `report.md`, proceed to §8.5 verification. Everything from here is backend-agnostic.
+- **`claude_subagent` (default, §8.3a):** dispatch each work item via `Task(subagent_type="scaffold-dev:implementer-agent", …)` — the `scaffold-dev:` prefix is load-bearing (the registered custom subagent type per SPEC §6.1).
+- **`codex` (optional backend, §8.3b):** dispatches the same work item to the `codex-plugin-cc` companion via `lib/codex.sh` under the same `{mode,…}` contract + no-commit boundary, sequentially within a round. Flow: `sd codex_preflight` (hard gate, no silent fallback) → assemble a prompt-file outside the worktree (Codex doesn't auto-load the skill — the contract is prompt-carried) → record baseline + `sd codex_dispatch` + `sd codex_wait` → `sd codex_verify_nocommit` immediately (even on non-`completed` term, since an aborted run may have moved HEAD) → `sd codex_result` on `completed` → judge dirtiness (a `complete`+`ok-clean` return is suspect) → join §8.4 backend-agnostic.
 
 ### 8.4 Process returns (§6.3 multi-call protocol)
 
-Per SPEC §13, returns are processed **strictly in decomposition order** — work item N+1 is NOT verified until N is fully committed + merged. This prevents the H3 "1.03 verified while 1.02 failed" interleaving the adversarial review surfaced.
+Per SPEC §13, returns are processed **strictly in decomposition order** — work item N+1 is NOT verified until N is fully committed + merged (prevents the H3 "1.03 verified while 1.02 failed" interleaving). For each work item in order:
 
-For each work item in decomposition order:
-
-**`mode: gaps-surfaced`** — surface the gaps to the user in conversation, gather clarifications, append a `## Clarifications` section to the work item's `handoff.md`, then re-dispatch using the same backend that produced the gaps. For `claude_subagent`, re-invoke the same `Task(...)` dispatch with the same handoff path. For `codex`, re-run §8.3b with `sd codex_dispatch ... --resume-last` so the companion continues the prior Codex thread/session. Loop until pre-flight passes. If gaps loop 3+ iterations: halt and surface the failure-response menu (§12.2 "Subagent loops in gaps-mode" row) — suggest replan or manual implementer session.
-
-**Blocker-recall (issues, #33).** On a `gaps-surfaced` return, before re-dispatching or escalating to the §12.2 menu, run `sd issue_list` and JUDGE whether an open issue already covers the surfaced gap. If one does, surface "known — see #N" and fold that into the clarification appended to the handoff (so the re-dispatched implementer proceeds informed) rather than treating the gap as novel. Judgment, not string-matching; skip silently if `sd remote_check` fails.
-
-**`mode: complete`** — read `report.md` from disk (path returned by subagent), proceed to §8.5 verification.
-
-**Malformed / crash / timeout** — halt and surface the failure-response menu (§12.2 "Subagent crash" row). Options: re-invoke, extend timeout + re-invoke, fall back to manual session per §6.4, abandon.
+- **`mode: gaps-surfaced`** — surface the gaps, gather clarifications, append a `## Clarifications` section to the work item's `handoff.md`, then re-dispatch on the **same backend** (`claude_subagent`: same `Task(...)`; `codex`: §8.3b with `sd codex_dispatch … --resume-last`). Loop until pre-flight passes; halt at 3+ gaps iterations (§12.2 "Subagent loops in gaps-mode"). **Blocker-recall (#33):** before re-dispatching, run `sd issue_list` and JUDGE whether an open issue already covers the gap — if so, surface "known — see #N" and fold it into the clarification (skip silently if `sd remote_check` fails; judgment, not string-match).
+- **`mode: complete`** — read `report.md` from disk (path returned by subagent), proceed to §8.5.
+- **Malformed / crash / timeout** — halt and surface the §12.2 "Subagent crash" menu (re-invoke / extend-timeout / manual session per §6.4 / abandon).
 
 ### 8.5 Verification (§12.1 gate)
 
@@ -553,55 +397,23 @@ Per §4.1, probe ai-mentor first; offer only when detected.
 
 ### 8.6 Commit + merge
 
-On verification pass:
+On verification pass: (1) commit in the work-item worktree per `git_policy` — the subagent staged but did NOT commit (SPEC §6.2); the orchestrator owns the commit boundary. (2) Merge via `sd_merge_work_item "<worktree>" "<branch>"` (direct → `default_branch`) or `… "${slice_branch}"` (pr_hierarchical → slice branch locally, **no push/PR at this level**); **HALT on conflict** (SPEC §11, §12.2 "Merge conflict" row). (3) Mark the work-item status complete in the VS README.
 
-1. Commit in the work-item worktree per `git_policy` (e.g., `git -C <worktree> commit -m "${commit_message}"`). The subagent staged but did NOT commit (per SPEC §6.2 constraint); the orchestrator owns the commit boundary.
-2. Merge the work-item branch into the integration target via `sd_merge_work_item`.
-   - `direct` mode: `sd merge_work_item "<worktree>" "<branch>"` (merges into
-     `default_branch` — today's behavior).
-   - `pr_hierarchical` mode: `sd merge_work_item "<worktree>" "<branch>" "${slice_branch}"`
-     (merges locally into the slice branch; **no push, no PR at this level**).
-
-   **HALT on conflict** per SPEC §11 — surface the failure-response menu ("Merge
-   conflict" row): user resolves via `git merge --continue`, OR aborts via
-   `git merge --abort` and replans integration.
-3. Update VS README: mark work-item status complete.
-
-Do **NOT** remove the worktree at round close — per SPEC §11, worktrees + branches survive until slice close for demo verification and retrospective harvest inspection.
+Do **NOT** remove the worktree at round close — per SPEC §11, worktrees + branches survive until slice close for demo verification + harvest inspection.
 
 ### 8.7 Round-complete handoff
 
-After all work items in the round are processed (committed + merged):
-
-1. Update VS README: round status → complete.
-2. **Deferral auto-file (agent-driven, #33).** Before surfacing round-complete, review each work item's `report.md` **"Deferrals"** section (you already read these reports during §8.4–8.5 — re-read the Deferrals section). This is judgment, not parsing:
-
-   1. For each deferral, DECIDE whether it warrants a tracked GitHub issue (skip trivia and anything already tracked — use `sd issue_list` and judge for de-dup).
-   2. Surface the proposed issues to the user as a single batch for a quick confirm (title + one-line why each). Never file silently.
-   3. For each confirmed item, file + index via the same logic as `/defer`: `Skill(scaffold-dev:deferring-work-item)` (or inline `sd issue_create` + append the `[TD] …→#N` line).
-
-   If `sd remote_check` fails (no gh/remote), SKIP filing — note that the deferrals remain in the reports' Deferrals sections for later — and proceed to round-complete WITHOUT blocking. There is **no deterministic parser** of the Deferrals section; you read and judge.
-
-3. Surface:
+After all work items in the round are committed + merged: (1) set round status → complete in the VS README. (2) **Deferral auto-file (agent-driven, #33):** re-read each `report.md` **"Deferrals"** section (judgment, not parsing — there is no deterministic parser), JUDGE which warrant a tracked issue (de-dup via `sd issue_list`), surface the proposed issues as ONE batch for confirm (never file silently), and file each confirmed one via `Skill(scaffold-dev:deferring-work-item)` (or inline `sd issue_create` + the `[TD] …→#N` line). If `sd remote_check` fails, SKIP filing (deferrals stay in the reports) and proceed without blocking. (3) Surface:
 
 > Round K complete (M items committed + merged). Ready for round K+1, or close VS-<N.M.K>?
 
-If the user says "next round": loop §8.1 for round K+1.
-If the user says "close slice" (or equivalent): proceed to §10.
+"next round" → loop §8.1 for K+1; "close slice" → proceed to §10.
 
 ---
 
 ## 9. State management (cursor + slice README)
 
-State IS the artifacts (per SPEC §17 — no separate state file). The two cursors:
-
-- **`<ai-workspace>/.claude/memory-bank/05-active-context.md`** — top-level cursor: active sprint, active slice, active round, active work item. Updated via `sd_state_write_cursor` after each round transition.
-- **`${slice_root}/README.md`** — slice-level cursor: per-work-item status (planned / in-progress / complete), per-round status, demo verification results (filled by `closing-vertical-slice`).
-
-**Discipline:**
-
-- Update the active-context cursor on round transitions, not on every commit (commits update the work-item status in the slice README; the top-level cursor moves on round boundaries).
-- Never write to the same file the implementer-agent subagent writes (per SPEC §17 write-conflict separation: orchestrator → AI workspace; subagent → canonical worktree + its own `report.md`).
+State IS the artifacts (SPEC §17 — no separate state file). Two cursors: **`05-active-context.md`** (top-level: active sprint/slice/round/work-item — updated via `sd_state_write_cursor` on round transitions, NOT every commit) and **`${slice_root}/README.md`** (slice-level: per-work-item + per-round status, demo verification filled by `closing-vertical-slice`). Never write the file the implementer-agent subagent writes (SPEC §17 write-conflict separation: orchestrator → AI workspace; subagent → canonical worktree + its own `report.md`).
 
 ---
 
@@ -617,113 +429,51 @@ Do NOT auto-invoke `closing-vertical-slice` — slice close is a deliberate gate
 
 ## 11. Failure-response menu (per §12.2)
 
-Whenever a per-round step fails — verification fail, report cross-check mismatch, project rule violation, merge conflict, subagent crash/timeout/malformed — surface the matching row from SPEC §12.2 as an explicit menu and wait for user choice. Never silently retry, never auto-escalate.
-
-The five failure types and their menus are codified in SPEC §12.2 (a table the user can reference). This body does not re-inline the table — it routes failures to the matching row and presents options 1..N as a numbered list with one-line descriptions.
-
-**Hard discipline:** on any halt, leave the workspace in a deterministic state — items 1..N merged, item N+1 halted with menu surfaced, items N+2.. not started. Worktrees + branches preserved for user inspection. Never auto-cleanup on halt.
+Whenever a per-round step fails — verification fail, report cross-check mismatch, rule violation, merge conflict, subagent crash/timeout/malformed — surface the matching SPEC §12.2 row as an explicit numbered menu and wait; never silently retry or auto-escalate. This body routes to the row rather than re-inlining the §12.2 table. **Hard discipline:** on any halt, leave a deterministic state — items 1..N merged, N+1 halted with menu surfaced, N+2.. not started, worktrees + branches preserved; never auto-cleanup on halt.
 
 ---
 
 ## 12. Bash bookkeeping helpers
 
-This skill never bash-orchestrates the judgment work (which work items to propose, when to fire the grill-me offer, how to interpret a subagent gap, whether a verification fail warrants replan or re-spawn). It calls helpers for I/O and templating only.
+This skill calls helpers for I/O + templating only; never bash-orchestrate judgment work. All route through the `sd` dispatcher:
 
-**Manifest (lib/manifest.sh — T3.2):** `sd_manifest_discover`, `sd_manifest_require`, `sd_manifest_get`, `sd_manifest_resolve`.
+- **manifest.sh:** `sd_manifest_discover` / `_require` / `_get` / `_resolve`
+- **state.sh:** `sd_state_read_cursor` / `_write_cursor`; **slice_meta.sh:** `sd_slice_baseline_write` / `_read` (#76)
+- **worktree.sh:** `sd_worktree_add` / `_list` / `_remove` (remove only at slice-close); **merge.sh:** `sd_merge_work_item`
+- **compose.sh:** `sd_compose_detect_architect_critic` / `_ai_mentor`; **render.sh:** `sd_render <template> <output> <var=val …>` (Wabash `{{var}}` substitution)
+- **backend.sh / codex.sh / review_gate.sh:** backend resolution + Codex companion + review-gate bundle (see the §7/§8.3 references)
 
-**State (lib/state.sh — T3.3):** `sd_state_read_cursor`, `sd_state_write_cursor`.
-
-**Worktree (lib/worktree.sh — T3.4):** `sd_worktree_add`, `sd_worktree_list`, `sd_worktree_remove` (used only at slice-close per §11).
-
-**Merge (lib/merge.sh — T3.5):** `sd_merge_work_item`.
-
-**Composition (lib/compose.sh):** `sd_compose_detect_architect_critic`, `sd_compose_detect_ai_mentor`.
-
-**Render (lib/render.sh):** `sd_render <template> <output> <var=val ...>` — Wabash-style `{{var}}` substitution ported from scaffold-onboard.
-
-Implementations live in their respective lib files (Phase 3 tasks). macOS-portable patterns (BSD awk, bash 3.2) required for any inline snippets; prefer calling the helpers over re-inlining shell.
+macOS-portable patterns (BSD awk, bash 3.2) required for any inline snippet; prefer calling helpers over re-inlining shell.
 
 ---
 
 ## 13. Slash-command interaction (`/orchestrate VS-N.M.K`)
 
-The `/orchestrate VS-N.M.K` slash command (`commands/orchestrate.md`) exports the raw slash-argument string as `$SCAFFOLD_DEV_ARGS` for this skill body (per `feedback_slash_command_dollar_n_bug` — Claude Code substitutes `$1`/`$2`/etc. at template-render time and silently corrupts bash positionals).
-
-Parse `$SCAFFOLD_DEV_ARGS` in bash; never reference `$1` / `$2`. Extract the VS-id (e.g., `VS-1.1.1` — the full 3-part id `VS-<phase>.<sprint>.<slice>`) and the optional per-invocation backend override:
-
-```bash
-vs_id=""
-backend_override=""
-gate_override=""
-read -r -a scaffold_dev_argv <<<"${SCAFFOLD_DEV_ARGS:-}"
-i=0
-while [[ "$i" -lt "${#scaffold_dev_argv[@]}" ]]; do
-  arg="${scaffold_dev_argv[$i]}"
-  case "$arg" in
-    --backend)
-      next_i=$((i + 1))
-      if [[ "$next_i" -ge "${#scaffold_dev_argv[@]}" || "${scaffold_dev_argv[$next_i]}" == --* ]]; then
-        echo "orchestrate: missing value for --backend" >&2
-        exit 2
-      fi
-      backend_override="${scaffold_dev_argv[$next_i]}"
-      i=$((i + 2))
-      ;;
-    --gate)
-      next_i=$((i + 1))
-      if [[ "$next_i" -ge "${#scaffold_dev_argv[@]}" || "${scaffold_dev_argv[$next_i]}" == --* ]]; then
-        echo "orchestrate: missing value for --gate" >&2
-        exit 2
-      fi
-      gate_override="${scaffold_dev_argv[$next_i]}"
-      i=$((i + 2))
-      ;;
-    VS-*)
-      vs_id="$arg"
-      i=$((i + 1))
-      ;;
-    *)
-      echo "orchestrate: unknown argument: $arg" >&2
-      exit 2
-      ;;
-  esac
-done
-```
-
-Carry `backend_override` through §8.3 as `sd backend_resolve --backend "$backend_override"` when set, and `gate_override` through §7.0 as `sd review_gate_resolve --gate "$gate_override"` when set (a one-off review gate, e.g. `/orchestrate VS-1.1.1 --gate spec_close`, that overrides the manifest `.review_gate`). Then proceed to §3 pre-flight.
-
-Unknown or missing VS-id → one-line error + stop:
-
-> /orchestrate requires a VS-id argument. Example: /orchestrate VS-1.1.1
+The `/orchestrate VS-N.M.K` slash command (`commands/orchestrate.md`) exports the raw slash-argument string as `$SCAFFOLD_DEV_ARGS` (per `feedback_slash_command_dollar_n_bug` — Claude Code corrupts bash positionals at template-render time). **Parse `$SCAFFOLD_DEV_ARGS` in bash; never reference `$1` / `$2`.** Extract the VS-id (the full 3-part `VS-<phase>.<sprint>.<slice>`) plus the optional `--backend` / `--gate` overrides, then carry `backend_override` through §8.3 (`sd backend_resolve --backend …`) and `gate_override` through §7.0 (`sd review_gate_resolve --gate …`) when set, and proceed to §3 pre-flight. Full arg-parser in `references/orchestrate-args.md`. Unknown or missing VS-id → `> /orchestrate requires a VS-id argument. Example: /orchestrate VS-1.1.1` and stop.
 
 ---
 
 ## 14. Anti-patterns (do not do these)
 
-- **Reading manifest fields via raw `jq -r '.routing.roadmap' .workspace/pairing.json`.** Eval S1's green-light criterion is binding — all manifest reads MUST route through `sd_manifest_get` / `sd_manifest_resolve`. The helpers handle walk-up discovery + variable expansion; inline jq breaks both.
-- **Paraphrasing the manifest-absent refusal.** The literal sentence in §3.1 — including `/init-workspace` and `/pair-workspace` slash-command tokens — is load-bearing. Eval S2 rejects substitutes that omit either token.
-- **Authoring specs AFTER architect-critic invocation.** Eval S1 requires all spec files on disk BEFORE the `Skill(architect-critic:critiquing-spec)` call. Spec writes are the upstream contract; the critic audits what's written.
-- **Invoking architect-critic via Task tool or via `inbox/` / `outbox/` file IPC.** Eval S1 rejects both. The only correct invocation is the in-conversation `Skill(architect-critic:critiquing-spec)` pattern per SPEC §16.3.
-- **Spawning implementer-agent subagents on the slice-planning turn.** Eval S1 explicitly asserts that no `Task(subagent_type="scaffold-dev:implementer-agent", ...)` calls and no worktrees appear on the planning turn. Round execution is a separate user-initiated step.
-- **Auto-fixing ROADMAP.md when the target VS is missing.** Eval S3 asserts no writes to ROADMAP.md on the missing-VS path. Surface the error + the `/plan-roadmap --add-slice` hint and stop.
-- **Silent skip when architect-critic is absent.** Eval S4 rejects silent skip — emit the warning per §7.3, then proceed. Also rejects blocking error — never prompt the user to install architect-critic.
-- **Auto-invoking grill-me.** All three grill-me gates (§4.1 decomposition / §6.3 spec / §8.5 fix-up replan) are explicit offers. Eval S1 asserts the offer surfaces as a user-decidable question; auto-invoke fails the assertion.
-- **Skipping verification before commit + merge.** SPEC §13 requires `implementation-checking` between subagent return and commit. Never commit unverified work item output.
-- **Removing worktrees at round close.** SPEC §11 defers worktree removal to slice close. The branches + worktrees need to survive for slice-close demo verification.
-- **Letting backend-specific dispatch contracts drift from their helper behavior.** Keep prose snippets aligned with `lib/*.sh` helpers and extract stable reference material when a subsection becomes too large to audit locally.
-- **Calling `Skill(architect-critic:critique)`** (the legacy v0.1.x slash-command-shaped name). The v0.2 skill is `critiquing-spec` per SPEC §16.3 last paragraph.
+- **Reading manifest fields via raw `jq`** — all reads MUST route through `sd_manifest_get` / `sd_manifest_resolve` (walk-up + var expansion); inline jq breaks both (eval S1).
+- **Paraphrasing the manifest-absent refusal** — the §3.1 sentence with the `/init-workspace` + `/pair-workspace` tokens is load-bearing (eval S2 rejects omitting either).
+- **Authoring specs AFTER the architect-critic invocation** — eval S1 requires all spec files on disk before the `Skill(architect-critic:critiquing-spec)` call.
+- **Invoking architect-critic via Task tool or `inbox/`/`outbox/` file IPC** (eval S1) — only the in-conversation `Skill(architect-critic:critiquing-spec)` is correct; never the legacy `Skill(architect-critic:critique)` name.
+- **Spawning implementer-agent subagents (or creating worktrees) on the slice-planning turn** — round execution is a separate user-initiated step (eval S1).
+- **Auto-fixing ROADMAP.md on the missing-VS path** — surface the error + `/plan-roadmap --add-slice` hint and stop (eval S3, no ROADMAP writes).
+- **Silent skip OR blocking error when architect-critic is absent** — emit the §7.3 warning and proceed (eval S4); never prompt to install.
+- **Auto-invoking grill-me** — all three gates (§4.1 / §6.3 / §8.5) are explicit user-decidable offers (eval S1).
+- **Skipping `implementation-checking` before commit + merge** (SPEC §13); **removing worktrees at round close** (SPEC §11 defers to slice close).
+- **Letting dispatch contracts drift from their helpers** — keep prose aligned with `lib/*.sh`; extract reference material when a subsection grows too large to audit locally.
+- **Letting this body exceed 500 lines.** Hard cap per superpowers:writing-skills Pass D guidance; move reference-grade detail to `references/*.md` (the body keeps operative steps + seams).
 
 ---
 
 ## 15. Notes on tool boundaries
 
-- **You** (Claude reading this skill body) make every judgment call: how to decompose the VS, how to interpret a subagent gap (blocking vs nice-to-have), whether a verification fail warrants replan or re-spawn, when the round-complete handoff is the right next thing to say.
-- **Bash helpers** (`lib/*.sh`) handle pure I/O: manifest reads, atomic state writes, worktree mechanics, merge orchestration, filesystem probes, template substitution.
-- **`scaffold-dev:implementer-agent`** (the subagent dispatched via Task) owns work-item execution inside its worktree — it has its own skill body (`executing-work-item`) baked in as system prompt and runs TDD + verification-before-completion per SPEC §6.5.
-- **`implementation-checking`** owns the per-work-item verification gate; you invoke it after each subagent complete-mode return.
-- **`architect-critic:critiquing-spec`** owns the adversarial review; you invoke it once after specs are written, and it runs its own internal challenge/rebuttal loop before returning control.
-- **`ai-mentor:grill-me`** owns the stress-test interrogation; you offer it at three gates and the user opts in or out.
-- **`closing-vertical-slice`** owns the slice-close ceremony; you hand off to it at §10 when the user signals close.
-- **The user** is the final authority. They accept or refine the decomposition, accept or adjust the round structure, opt in or out of every grill-me offer, choose the failure-response option, and gate the slice close. You never auto-advance past a decision boundary.
+- **You** make every judgment call: how to decompose, how to read a subagent gap, whether a fail warrants replan vs re-spawn, when round-complete is the right next thing to say.
+- **Bash helpers** (`lib/*.sh`) handle pure I/O: manifest reads, atomic state writes, worktree/merge mechanics, probes, template substitution.
+- **`scaffold-dev:implementer-agent`** (Task-dispatched) owns work-item execution (`executing-work-item` body, TDD + verify); **`implementation-checking`** owns the per-item gate; **`architect-critic:critiquing-spec`** owns the spec audit; **`ai-mentor:grill-me`** owns the three optional gates; **`closing-vertical-slice`** owns slice close (§10).
+- **The user** is the final authority — accepts/refines the decomposition + rounds, opts in/out of each grill-me, picks the failure-response option, gates slice close. Never auto-advance past a decision boundary.
 
-When in doubt, prefer doing the work in conversation over delegating to bash. The bookkeeping-vs-judgment line is: if the next action involves a user-facing decision (which work items to propose, how to recap a round, whether to escalate a failure), it belongs here in the skill body; if it's pure I/O (manifest read, worktree create, template render, atomic state write), it belongs in a lib helper.
+The bookkeeping-vs-judgment line: a user-facing decision (which items, how to recap, whether to escalate) belongs in this body; pure I/O (manifest read, worktree create, render, atomic write) belongs in a lib helper.
