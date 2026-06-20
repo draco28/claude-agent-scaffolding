@@ -6,6 +6,15 @@
 set -u
 source "$(dirname "$0")/_helpers.sh"
 
+# Shared CI runners have variable wall-clock, so the 30s hard-fail threshold below —
+# calibrated for the homelab reference machine — can flake. Let CI opt out via
+# CSA_SKIP_PERF (the benchmark still runs locally / on the homelab). A skip is a
+# no-op pass so the run-tests.sh glob still counts this file. (#71)
+if [[ -n "${CSA_SKIP_PERF:-}" ]]; then
+  printf 'test-perf.sh: skipped (CSA_SKIP_PERF set)\n'
+  exit 0
+fi
+
 _csa_failed=0
 
 test_perf_200_file_workload_under_10s() {

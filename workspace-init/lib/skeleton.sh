@@ -33,6 +33,29 @@ _wi_skeleton_log_once() {
   wi_log_op "$log" "$op" "$target_path"
 }
 
+# wi_git_is_linked_worktree <dir>
+#
+# True (exit 0) when <dir> is a LINKED git worktree (created via `git worktree add`):
+# its `.git` redirects to the main repo's `.git/worktrees/<name>`, so `<dir>/.git/hooks`
+# does not exist and the trace-filter commit-msg hook would silently fail to install
+# (#71). We reject these at preflight rather than half-supporting them — pair against
+# the main working tree. Returns non-zero for a standalone repo, a non-repo, or an
+# empty arg.
+#
+# A LINKED worktree is the ONLY repo shape where --git-dir (…/.git/worktrees/<name>)
+# differs from --git-common-dir (…/.git). A standalone repo whose `.git` is a FILE — a
+# `--separate-git-dir` checkout or a submodule — keeps the two EQUAL and has a working
+# hooks dir, so matching on `.git`-is-a-file alone would wrongly reject it (#84). Compare
+# the two dirs instead.
+wi_git_is_linked_worktree() {
+  local dir="${1:-}"
+  [[ -n "$dir" ]] || return 1
+  local git_dir common_dir
+  git_dir="$(git -C "$dir" rev-parse --git-dir 2>/dev/null)" || return 1
+  common_dir="$(git -C "$dir" rev-parse --git-common-dir 2>/dev/null)" || return 1
+  [[ "$git_dir" != "$common_dir" ]]
+}
+
 # wi_skeleton_preflight <parent> <name> [--pair-with <existing-canonical>]
 #
 # Validates the inputs needed to start an init run, per SPEC §8.1:
@@ -94,6 +117,12 @@ wi_skeleton_preflight() {
       wi_log_error "wi_skeleton_preflight: --pair-with path is not a git repo: $pair_with"
       return 1
     fi
+    # Same bug class as Scenario C (#71): a linked worktree has no own .git/hooks,
+    # so the trace-filter hook would silently fail. Reject it here too.
+    if wi_git_is_linked_worktree "$pair_with"; then
+      wi_log_error "wi_skeleton_preflight: --pair-with is a linked git worktree (its .git is a file, not a repo dir); pair against its main working tree instead: $pair_with"
+      return 1
+    fi
   else
     if [[ -d "$canonical_root" ]]; then
       wi_log_error "wi_skeleton_preflight: canonical target already exists: $canonical_root"
@@ -141,6 +170,12 @@ wi_skeleton_preflight_existing_dual() {
   fi
   if [[ ! -d "$canonical_root/.git" ]] && ! git -C "$canonical_root" rev-parse --git-dir >/dev/null 2>&1; then
     wi_log_error "wi_skeleton_preflight_existing_dual: canonical is not a git repo: $canonical_root"
+    return 1
+  fi
+  # A linked worktree passes the git-repo check above but has no own .git/hooks dir,
+  # so the trace-filter hook would silently fail to install. Reject it (#71).
+  if wi_git_is_linked_worktree "$canonical_root"; then
+    wi_log_error "wi_skeleton_preflight_existing_dual: canonical is a linked git worktree (its .git is a file, not a repo dir); pair against its main working tree instead: $canonical_root"
     return 1
   fi
 

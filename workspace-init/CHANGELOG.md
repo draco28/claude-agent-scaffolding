@@ -1,5 +1,23 @@
 # workspace-init changelog
 
+## 0.4.0 (2026-06-21)
+
+PR #70 review follow-ups (#71) — manifest-writer provenance + a non-git AI workspace flag + a linked-worktree preflight guard.
+
+### Added
+- **`--ai-git-tracked <true|false>` flag on `wi_manifest_write` (#71).** Sets `ai_workspace.git_tracked` (defaults `true`; canonical stays a validated git repo so its `git_tracked` is unchanged). The `pairing-existing-dual` skill (Scenario C — the only path where the existing AI workspace may not be a git repo) detects the AI workspace's git status once and threads it both into the manifest and the hook decision, so the manifest no longer cosmetically records `true` for a non-git AI workspace. Removed the corresponding "known v0.2 limitation" note from the skill.
+
+### Changed
+- **`created_by` is now provenance, not a frozen literal (#71).** `wi_manifest_write` stamps `workspace-init@<running version>`, resolved at write time from the sibling `.claude-plugin/plugin.json` (single source of truth, already guarded by the dual-publish parity test) via the new `wi_plugin_version` helper. Previously hardcoded `workspace-init@0.1.0`. `test-manifest.sh` now asserts the `workspace-init@<semver>` shape **and** parity with the manifest version, so it never needs touching on a version bump.
+
+### Fixed
+- **Reject a linked git worktree as the canonical (#71).** A `git worktree add` checkout passes the bare "is a git repo" preflight check (`git rev-parse --git-dir` succeeds) but has no own `.git/hooks` dir, so the trace-filter `commit-msg` hook would silently fail to install. Both canonical preflights — `wi_skeleton_preflight_existing_dual` (Scenario C) and `wi_skeleton_preflight --pair-with` (Scenario A) — now detect a linked worktree (new `wi_git_is_linked_worktree` helper) and fail early with a clear "pair against its main working tree" message, before any writes. The helper discriminates precisely via `--git-dir` vs `--git-common-dir`, so a standalone `--separate-git-dir` repo or a submodule (whose `.git` is also a file but which keeps its own hooks dir) is **not** over-matched (#84). (The AI-workspace-as-worktree case is out of scope — AI workspaces are created as standard repos.)
+- **Scenario-C AI-workspace git detection requires its OWN repo root (#84).** The `pairing-existing-dual` skill detected the AI workspace's git status with `git rev-parse --git-dir`, which also succeeds for a plain subdirectory nested inside a parent repo — recording `git_tracked: true` and then failing hook install (`$ai_root/.git` absent). Switched to `[[ -d "$ai_root/.git" ]]`, the exact gate `wi_trace_filter_install` uses, so detection and install never disagree (a nested workspace now records `false` and cleanly skips its hook).
+- **`wi_manifest_read` returns a present boolean `false` instead of treating it as missing (#84).** The reader's `jq -e -r "<field> // empty"` violated its own documented contract ("false is present-with-value"): jq's `//` and `-e` both treat `false`/`0` as falsy, so reading a `false` field returned exit 1. Rewritten with `try (<field>) catch null` + an explicit null check. Latent before this release (no consumer read a boolean field by path); the new `git_tracked: false` value makes it reachable, and the existing `allow_ai_*: false` fields are fixed too.
+
+### Notes
+- All items are PR #70 deferred non-blocking review findings tracked in #71. Co-shipped with `claude-security-audit` 0.1.3 (CI perf-benchmark gate) and the repo CI SHA-pin.
+
 ## 0.3.0 (2026-06-20)
 
 ### Added

@@ -95,6 +95,44 @@ test_P7_pair_with_missing_canonical() {
   fi
 }
 
+# #84: wi_git_is_linked_worktree must flag ONLY genuine linked worktrees — a standalone
+# repo whose .git is a FILE (--separate-git-dir, or a submodule) keeps its own hooks dir
+# and must NOT be over-matched (CodeRabbit). Discriminates via --git-dir vs --git-common-dir.
+test_W1_is_linked_worktree_discriminates() {
+  local root="$_WI_TMP/w1"; mkdir -p "$root"
+  # main repo + a linked worktree
+  git -C "$root" init -q main
+  git -C "$root/main" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+  git -C "$root/main" worktree add -q "$root/wt" 2>/dev/null || { echo "    worktree add failed"; return 1; }
+  # a standalone --separate-git-dir repo (its .git is a FILE, but it's not a worktree)
+  mkdir -p "$root/sep"
+  git init -q --separate-git-dir="$root/sep-gitdir" "$root/sep" 2>/dev/null
+  # a plain non-repo dir
+  mkdir -p "$root/plain"
+
+  wi_git_is_linked_worktree "$root/wt"   || { echo "    linked worktree not detected"; return 1; }
+  if wi_git_is_linked_worktree "$root/main"; then echo "    main worktree mis-flagged"; return 1; fi
+  if wi_git_is_linked_worktree "$root/sep";  then echo "    separate-git-dir repo mis-flagged (over-match)"; return 1; fi
+  if wi_git_is_linked_worktree "$root/plain"; then echo "    non-repo mis-flagged"; return 1; fi
+  if wi_git_is_linked_worktree ""; then echo "    empty arg mis-flagged"; return 1; fi
+}
+
+# #71: a linked git worktree passes the bare git-repo check but has no own
+# .git/hooks dir, so the trace-filter hook would silently fail — reject it.
+test_P8_pair_with_linked_worktree_rejected() {
+  local parent="$_WI_TMP/p8"
+  local main="$parent/foo"
+  mkdir -p "$main"
+  git -C "$main" init -q
+  git -C "$main" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+  local wt="$parent/foo-wt"
+  git -C "$main" worktree add -q "$wt" 2>/dev/null || { echo "    could not create test worktree"; return 1; }
+  if wi_skeleton_preflight "$parent" "bar" --pair-with "$wt" 2>/dev/null; then
+    echo "    expected non-zero exit when --pair-with is a linked worktree"
+    return 1
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # R. Root pair (1 test)
 # ---------------------------------------------------------------------------
@@ -229,6 +267,8 @@ wi_test_run test_P4_parent_not_writable
 wi_test_run test_P5_targets_already_exist_fresh_mode
 wi_test_run test_P6_pair_with_existing_git_repo_ok
 wi_test_run test_P7_pair_with_missing_canonical
+wi_test_run test_W1_is_linked_worktree_discriminates
+wi_test_run test_P8_pair_with_linked_worktree_rejected
 
 wi_test_run test_R1_create_root_pair_creates_both_and_logs
 

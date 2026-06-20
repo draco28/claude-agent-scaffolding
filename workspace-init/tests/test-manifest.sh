@@ -141,7 +141,13 @@ test_A8_created_at_and_created_by_present() {
   # ISO 8601-ish: YYYY-MM-DDTHH:MM:SSZ
   [[ "$ca" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]] \
     || { echo "    created_at not ISO 8601: $ca"; return 1; }
-  assert_eq "workspace-init@0.1.0" "$cb" || return 1
+  # created_by is provenance (#71) — workspace-init@<running version>. Assert the
+  # shape AND parity with the .claude-plugin manifest (single source of truth) so
+  # this test never needs touching on a version bump.
+  [[ "$cb" =~ ^workspace-init@[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+    || { echo "    created_by not workspace-init@<semver>: $cb"; return 1; }
+  local pv; pv="$(jq -r '.version' "$WI_LIB_DIR/../.claude-plugin/plugin.json")"
+  assert_eq "workspace-init@$pv" "$cb" || return 1
 }
 
 # A9 — #28 Phase 2: well_known_paths.roadmap_state routes the structured roadmap
@@ -155,6 +161,31 @@ test_A9_well_known_paths_roadmap_state() {
   local resolved; resolved="$(wi_manifest_resolve "$ai" "$rs")"
   local aw; aw="$(jq -r '.ai_workspace.root' "$m")"
   assert_eq "${aw}/.workspace/project-roadmap.json" "$resolved" || return 1
+}
+
+# A10 — #84 (Devin): wi_manifest_read must return a present boolean false (not treat
+# it as missing). Its own contract comment says false is present-with-value; `// empty`
+# violated that. Covers the new git_tracked:false AND the pre-existing allow_ai_* falses.
+test_A10_read_returns_present_boolean_false() {
+  local d="$_WI_TMP/a10"; local ai="$d/foo-ai" cn="$d/foo"
+  mkdir -p "$ai/.workspace" "$cn"
+  wi_manifest_write "$ai" "$cn" personal --ai-git-tracked false >/dev/null 2>&1 || return 1
+  # A present false boolean returns "false" with exit 0 …
+  local v; v="$(wi_manifest_read "$ai" '.ai_workspace.git_tracked')" \
+    || { echo "    read returned nonzero for present git_tracked:false"; return 1; }
+  assert_eq "false" "$v" || return 1
+  local p; p="$(wi_manifest_read "$ai" '.git_policy.allow_ai_push')" \
+    || { echo "    read returned nonzero for allow_ai_push:false"; return 1; }
+  assert_eq "false" "$p" || return 1
+  # … a present true boolean too …
+  local e; e="$(wi_manifest_read "$ai" '.git_policy.trace_filter.enforce')" || return 1
+  assert_eq "true" "$e" || return 1
+  # … but JSON null (no remote) and a missing key are still "missing".
+  wi_manifest_read "$ai" '.ai_workspace.git_remote' >/dev/null 2>&1 \
+    && { echo "    read should treat JSON null as missing"; return 1; }
+  wi_manifest_read "$ai" '.does.not.exist' >/dev/null 2>&1 \
+    && { echo "    read should treat a missing path as missing"; return 1; }
+  return 0
 }
 
 # ---------------------------------------------------------------------------
@@ -365,6 +396,7 @@ wi_test_run test_A6_during_dev_block_complete
 wi_test_run test_A7_git_policy_blocked_patterns_complete
 wi_test_run test_A8_created_at_and_created_by_present
 wi_test_run test_A9_well_known_paths_roadmap_state
+wi_test_run test_A10_read_returns_present_boolean_false
 
 # B
 wi_test_run test_B1_resolve_ai_workspace_root
@@ -499,5 +531,45 @@ wi_test_run test_I5_validate_rejects_malformed_tooling_repo
 wi_test_run test_I6_tooling_repo_remote_requires_root
 wi_test_run test_I7_tooling_repo_root_must_be_absolute
 wi_test_run test_I8_validate_rejects_nonobject_tooling_repo
+
+# ---------------------------------------------------------------------------
+# J. --ai-git-tracked flag (#71) — Scenario-C non-git AI workspace
+# ---------------------------------------------------------------------------
+
+test_J1_ai_git_tracked_defaults_true() {
+  # _setup_pair writes with no --ai-git-tracked → default true (fresh/Scenario-A).
+  local ai; ai="$(_setup_pair j1)" || return 1
+  jq -e '.ai_workspace.git_tracked == true' "$ai/.workspace/pairing.json" >/dev/null \
+    || { echo "    default ai_workspace.git_tracked != JSON true"; return 1; }
+}
+
+test_J2_ai_git_tracked_false_recorded() {
+  local d="$_WI_TMP/j2"; local ai="$d/foo-ai" cn="$d/foo"
+  mkdir -p "$ai/.workspace" "$cn"
+  wi_manifest_write "$ai" "$cn" personal --ai-git-tracked false >/dev/null 2>&1 || return 1
+  # Must be a JSON boolean false, not the string "false".
+  jq -e '.ai_workspace.git_tracked == false' "$ai/.workspace/pairing.json" >/dev/null \
+    || { echo "    ai_workspace.git_tracked not JSON false"; return 1; }
+}
+
+test_J3_ai_git_tracked_rejects_non_boolean() {
+  local d="$_WI_TMP/j3"; local ai="$d/foo-ai" cn="$d/foo"
+  mkdir -p "$ai/.workspace" "$cn"
+  assert_exits_with 1 wi_manifest_write "$ai" "$cn" personal --ai-git-tracked maybe 2>/dev/null || return 1
+}
+
+test_J4_canonical_git_tracked_unaffected_by_flag() {
+  local d="$_WI_TMP/j4"; local ai="$d/foo-ai" cn="$d/foo"
+  mkdir -p "$ai/.workspace" "$cn"
+  # The flag governs ONLY the AI workspace; canonical is always a validated repo.
+  wi_manifest_write "$ai" "$cn" personal --ai-git-tracked false >/dev/null 2>&1 || return 1
+  jq -e '.canonical.git_tracked == true' "$ai/.workspace/pairing.json" >/dev/null \
+    || { echo "    canonical.git_tracked != JSON true"; return 1; }
+}
+
+wi_test_run test_J1_ai_git_tracked_defaults_true
+wi_test_run test_J2_ai_git_tracked_false_recorded
+wi_test_run test_J3_ai_git_tracked_rejects_non_boolean
+wi_test_run test_J4_canonical_git_tracked_unaffected_by_flag
 
 wi_test_summary
