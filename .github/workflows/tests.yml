@@ -27,7 +27,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        # SHA-pinned for supply-chain hardening (#71). Update the SHA + comment together on bump.
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Tool versions
         run: |
@@ -56,6 +57,10 @@ jobs:
         run: bash architect-critic/run-tests.sh
 
       - name: claude-security-audit suite
+        # Skip the wall-clock perf benchmark on shared runners (flaky vs the homelab
+        # reference machine); it still runs locally / on the homelab (#71).
+        env:
+          CSA_SKIP_PERF: "1"
         run: bash claude-security-audit/run-tests.sh
 
       - name: dual-publish parity (repo-root)

@@ -1,5 +1,12 @@
 # claude-security-audit changelog
 
+## 0.1.3 (2026-06-21)
+
+CI hardening (#71) — keep the wall-clock perf benchmark out of blocking PR CI.
+
+### Changed
+- **`tests/test-perf.sh` honors `CSA_SKIP_PERF` (#71).** When the env var is set, the benchmark prints `skipped (CSA_SKIP_PERF set)` and exits 0 (a no-op pass — `run-tests.sh`'s glob still counts the file). The repo CI sets `CSA_SKIP_PERF=1` on the security-audit step because the 30s wall-clock hard-fail threshold is calibrated for the homelab reference machine and flakes on slower shared runners. Local / homelab runs are unaffected — the benchmark still runs there with no env var. No rule or audit-behavior changes; 182 tests otherwise unchanged.
+
 ## 0.1.2 (2026-05-26)
 
 Shell-portability patch (v0.x.1 bundle). See `docs/HANDOFF-shell-portability-v0x1.md` in the marketplace repo.

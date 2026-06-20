@@ -86,18 +86,27 @@ _run_existing_dual_pairing() {
   default_branch="$(wi_git_detect_default_branch "$canonical" </dev/null)"
   [[ -z "$default_branch" ]] && default_branch="main"
 
+  # Mirror SKILL.md §6.1: detect the AI workspace's git status once, record it in
+  # the manifest via --ai-git-tracked, and reuse it for the hook decision below.
+  local ai_git_tracked=false
+  if git -C "$ai_root" rev-parse --git-dir >/dev/null 2>&1; then
+    ai_git_tracked=true
+  fi
+
   local detected_remote
   detected_remote="$(wi_git_detect_remote "$canonical")"
   if [[ -n "$detected_remote" ]]; then
     wi_manifest_write "$ai_root" "$canonical" "$project_type" \
-      --canonical-git-remote "$detected_remote" --default-branch "$default_branch" || return 1
+      --canonical-git-remote "$detected_remote" --default-branch "$default_branch" \
+      --ai-git-tracked "$ai_git_tracked" || return 1
   else
     wi_manifest_write "$ai_root" "$canonical" "$project_type" \
-      --default-branch "$default_branch" || return 1
+      --default-branch "$default_branch" \
+      --ai-git-tracked "$ai_git_tracked" || return 1
   fi
 
   wi_trace_filter_install "$ai_root" "$canonical" || return 1
-  if [[ -d "$ai_root/.git" ]] || git -C "$ai_root" rev-parse --git-dir >/dev/null 2>&1; then
+  if [[ "$ai_git_tracked" == true ]]; then
     wi_trace_filter_install "$ai_root" "$ai_root" || return 1
   fi
   return 0
@@ -142,6 +151,20 @@ test_C_preflight_self_pairing_fails() {
   local canonical; canonical="$(_make_existing_canonical "$d" "proj")"
   local rc; ( wi_skeleton_preflight_existing_dual "$canonical" "$canonical" 2>/dev/null ); rc=$?
   [[ $rc -ne 0 ]] || { echo "    self-pairing should fail preflight"; return 1; }
+}
+
+# #71: a linked git worktree passes the bare "is a git repo" check but has no own
+# .git/hooks dir, so the trace-filter hook would silently fail. Preflight must reject
+# it before any writes (preflight is non-mutating).
+test_C_preflight_worktree_canonical_fails() {
+  local d="$_WI_TMP/p5"; mkdir -p "$d"
+  local main; main="$(_make_existing_canonical "$d" "proj")"
+  local wt="$d/proj-wt"
+  git -C "$main" worktree add -q "$wt" 2>/dev/null || { echo "    could not create test worktree"; return 1; }
+  local ai; ai="$(_make_existing_ai_workspace "$d" "proj-ws")"
+  local rc; ( wi_skeleton_preflight_existing_dual "$ai" "$wt" 2>/dev/null ); rc=$?
+  [[ $rc -ne 0 ]] || { echo "    worktree canonical should fail preflight"; return 1; }
+  [[ ! -e "$ai/.workspace/pairing.json" ]] || { echo "    preflight wrote a manifest on a rejected worktree"; return 1; }
 }
 
 # ---------------------------------------------------------------------------
@@ -200,6 +223,27 @@ test_C_manifest_default_branch_detected() {
   local ai;        ai="$(_make_existing_ai_workspace "$d" "proj-ws")"
   _run_existing_dual_pairing "$ai" "$canonical" personal >/dev/null 2>&1
   assert_eq "main" "$(jq -r '.canonical.default_branch' "$ai/.workspace/pairing.json")" || return 1
+}
+
+# #71: a git AI workspace records ai_workspace.git_tracked: true …
+test_C_manifest_ai_git_tracked_true_for_git_ai() {
+  local d="$_WI_TMP/m3"; mkdir -p "$d"
+  local canonical; canonical="$(_make_existing_canonical "$d" "proj")"
+  local ai;        ai="$(_make_existing_ai_workspace "$d" "proj-ws")"   # as_git → git repo
+  _run_existing_dual_pairing "$ai" "$canonical" personal >/dev/null 2>&1
+  jq -e '.ai_workspace.git_tracked == true' "$ai/.workspace/pairing.json" >/dev/null \
+    || { echo "    git AI workspace should record git_tracked: true"; return 1; }
+}
+
+# … and a NON-git AI workspace records git_tracked: false (the #71 fix: the manifest
+# stops cosmetically claiming true). This is the path the Scenario-C skill threads.
+test_C_manifest_ai_git_tracked_false_for_nongit_ai() {
+  local d="$_WI_TMP/m4"; mkdir -p "$d"
+  local canonical; canonical="$(_make_existing_canonical "$d" "proj")"
+  local ai;        ai="$(_make_existing_ai_workspace "$d" "proj-ws" nogit)"   # NOT a git repo
+  _run_existing_dual_pairing "$ai" "$canonical" personal >/dev/null 2>&1
+  jq -e '.ai_workspace.git_tracked == false' "$ai/.workspace/pairing.json" >/dev/null \
+    || { echo "    non-git AI workspace should record git_tracked: false"; return 1; }
 }
 
 # ---------------------------------------------------------------------------
@@ -274,6 +318,7 @@ wi_test_run test_C_preflight_empty_ai_fails
 wi_test_run test_C_preflight_missing_ai_fails
 wi_test_run test_C_preflight_canonical_not_git_fails
 wi_test_run test_C_preflight_self_pairing_fails
+wi_test_run test_C_preflight_worktree_canonical_fails
 
 wi_test_run test_C_pairing_succeeds
 wi_test_run test_C_existing_ai_content_preserved
@@ -281,6 +326,8 @@ wi_test_run test_C_existing_ai_content_preserved
 wi_test_run test_C_manifest_ai_name_is_basename_not_name_ai
 wi_test_run test_C_manifest_canonical_root_points_at_existing
 wi_test_run test_C_manifest_default_branch_detected
+wi_test_run test_C_manifest_ai_git_tracked_true_for_git_ai
+wi_test_run test_C_manifest_ai_git_tracked_false_for_nongit_ai
 
 wi_test_run test_C_both_repos_have_hook
 wi_test_run test_C_non_git_ai_workspace_skips_ai_hook

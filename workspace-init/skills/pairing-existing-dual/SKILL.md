@@ -79,12 +79,23 @@ Two operations only — both idempotent and non-destructive to existing AI-works
 ### 6.1 Write the pairing manifest
 
 ```bash
+# Detect whether the existing AI workspace is a git repo (Scenario C is the only
+# path where it may NOT be). Recorded in the manifest via --ai-git-tracked and
+# reused for the §6.2 hook decision — detect once, use twice.
+if git -C "$ai_root" rev-parse --git-dir >/dev/null 2>&1; then
+  ai_git_tracked=true
+else
+  ai_git_tracked=false
+fi
+
 if [[ -n "$detected_remote" ]]; then
   wi manifest_write "$ai_root" "$canonical_root" "$project_type" \
-    --canonical-git-remote "$detected_remote" --default-branch "$detected_branch"
+    --canonical-git-remote "$detected_remote" --default-branch "$detected_branch" \
+    --ai-git-tracked "$ai_git_tracked"
 else
   wi manifest_write "$ai_root" "$canonical_root" "$project_type" \
-    --default-branch "$detected_branch"
+    --default-branch "$detected_branch" \
+    --ai-git-tracked "$ai_git_tracked"
 fi
 ```
 
@@ -98,14 +109,12 @@ The canonical hook is the load-bearing one (it guards the production repo's comm
 
 ```bash
 wi trace_filter_install "$ai_root" "$canonical_root"          # canonical: always
-if git -C "$ai_root" rev-parse --git-dir >/dev/null 2>&1; then
+if [[ "$ai_git_tracked" == true ]]; then
   wi trace_filter_install "$ai_root" "$ai_root"               # AI workspace: only if a git repo
 fi
 ```
 
-If the AI workspace is **not** a git repo, skip its hook and say so — do NOT `git init` the user's existing workspace (that's their call). Note in the summary that the AI-workspace trace filter can be added later by `git init`-ing it and re-running this skill.
-
-> Known v0.2 limitation: `wi_manifest_write` hardcodes `ai_workspace.git_tracked: true` (it does not yet take a git-tracked flag), so the written manifest records `true` even when the AI workspace is not a git repo. This is cosmetic — it does not affect routing or the hook decision above — and is tracked for a future manifest-writer enhancement.
+If the AI workspace is **not** a git repo, skip its hook and say so — do NOT `git init` the user's existing workspace (that's their call). Note in the summary that the AI-workspace trace filter can be added later by `git init`-ing it and re-running this skill. The manifest records the real `ai_workspace.git_tracked` value (`false` here) — `--ai-git-tracked` is threaded from §6.1's detection.
 
 ## 7. What this skill does NOT do (the Scenario-C contract)
 

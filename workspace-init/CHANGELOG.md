@@ -1,5 +1,21 @@
 # workspace-init changelog
 
+## 0.4.0 (2026-06-21)
+
+PR #70 review follow-ups (#71) — manifest-writer provenance + a non-git AI workspace flag + a linked-worktree preflight guard.
+
+### Added
+- **`--ai-git-tracked <true|false>` flag on `wi_manifest_write` (#71).** Sets `ai_workspace.git_tracked` (defaults `true`; canonical stays a validated git repo so its `git_tracked` is unchanged). The `pairing-existing-dual` skill (Scenario C — the only path where the existing AI workspace may not be a git repo) detects the AI workspace's git status once and threads it both into the manifest and the hook decision, so the manifest no longer cosmetically records `true` for a non-git AI workspace. Removed the corresponding "known v0.2 limitation" note from the skill.
+
+### Changed
+- **`created_by` is now provenance, not a frozen literal (#71).** `wi_manifest_write` stamps `workspace-init@<running version>`, resolved at write time from the sibling `.claude-plugin/plugin.json` (single source of truth, already guarded by the dual-publish parity test) via the new `wi_plugin_version` helper. Previously hardcoded `workspace-init@0.1.0`. `test-manifest.sh` now asserts the `workspace-init@<semver>` shape **and** parity with the manifest version, so it never needs touching on a version bump.
+
+### Fixed
+- **Reject a linked git worktree as the canonical (#71).** A `git worktree add` checkout passes the bare "is a git repo" preflight check (`git rev-parse --git-dir` succeeds) but has no own `.git/hooks` dir, so the trace-filter `commit-msg` hook would silently fail to install. Both canonical preflights — `wi_skeleton_preflight_existing_dual` (Scenario C) and `wi_skeleton_preflight --pair-with` (Scenario A) — now detect a linked worktree (new `wi_git_is_linked_worktree` helper) and fail early with a clear "pair against its main working tree" message, before any writes. (The AI-workspace-as-worktree case is out of scope — AI workspaces are created as standard repos.)
+
+### Notes
+- All items are PR #70 deferred non-blocking review findings tracked in #71. Co-shipped with `claude-security-audit` 0.1.3 (CI perf-benchmark gate) and the repo CI SHA-pin.
+
 ## 0.3.0 (2026-06-20)
 
 ### Added

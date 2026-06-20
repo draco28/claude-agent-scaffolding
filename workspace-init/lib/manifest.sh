@@ -47,6 +47,22 @@ _wi_manifest_path() {
   echo "$1/.workspace/pairing.json"
 }
 
+# wi_plugin_version — resolve the writing tool's version from the sibling plugin
+# manifest. `created_by` is provenance ("which workspace-init wrote this manifest"),
+# so it must reflect the actual running version, not a frozen literal (#71). The
+# .claude-plugin manifest is the single source of truth and is already guarded by
+# tests/test-codex-dual-publish.sh. Fallback keeps the <semver> shape if unreadable.
+wi_plugin_version() {
+  local libdir manifest ver="" src="${BASH_SOURCE[0]:-}"
+  if [[ -n "$src" ]]; then
+    libdir="$(cd "$(dirname "$src")" && pwd)"
+    manifest="$libdir/../.claude-plugin/plugin.json"
+    ver="$(jq -r '.version // empty' "$manifest" 2>/dev/null)"
+  fi
+  [[ -n "$ver" ]] || ver="0.0.0"
+  printf '%s' "$ver"
+}
+
 # ---------------------------------------------------------------------------
 # wi_plugin_data_dir — Claude Code plugin-data convention
 # ---------------------------------------------------------------------------
@@ -127,6 +143,10 @@ wi_manifest_write() {
   local ai_git_remote_json="null"
   local canonical_git_remote_json="null"
   local default_branch="main"
+  # ai_workspace.git_tracked: a JSON boolean literal. Defaults true (fresh-init and
+  # Scenario-A create the AI workspace as a git repo); the Scenario-C pairing skill
+  # passes --ai-git-tracked false when the existing AI workspace is not a git repo (#71).
+  local ai_git_tracked_json="true"
   # Optional tooling_repo (#48 Stage 2 marketplace routing). Absent → key omitted.
   local tooling_root=""
   local tooling_git_remote_json="null"
@@ -165,6 +185,13 @@ wi_manifest_write() {
           return 1
         fi
         default_branch="$2"
+        shift 2
+        ;;
+      --ai-git-tracked)
+        case "${2:-}" in
+          true|false) ai_git_tracked_json="$2" ;;
+          *) wi_log_error "wi_manifest_write: --ai-git-tracked requires true|false"; return 1 ;;
+        esac
         shift 2
         ;;
       --tooling-repo)
@@ -244,7 +271,8 @@ wi_manifest_write() {
       --arg canonical_default_branch "$default_branch" \
       --arg project_type             "$project_type" \
       --arg created_at               "$created_at" \
-      --arg created_by               "workspace-init@0.1.0" \
+      --arg created_by               "workspace-init@$(wi_plugin_version)" \
+      --argjson ai_git_tracked       "$ai_git_tracked_json" \
       --argjson ai_git_remote        "$ai_git_remote_json" \
       --argjson canonical_git_remote "$canonical_git_remote_json" \
       --arg     tooling_root         "$tooling_root" \
@@ -256,7 +284,7 @@ wi_manifest_write() {
          ai_workspace: {
            root: $ai_root,
            name: $ai_name,
-           git_tracked: true,
+           git_tracked: $ai_git_tracked,
            git_remote: $ai_git_remote
          },
          canonical: {

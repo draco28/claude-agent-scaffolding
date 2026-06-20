@@ -95,6 +95,22 @@ test_P7_pair_with_missing_canonical() {
   fi
 }
 
+# #71: a linked git worktree passes the bare git-repo check but has no own
+# .git/hooks dir, so the trace-filter hook would silently fail — reject it.
+test_P8_pair_with_linked_worktree_rejected() {
+  local parent="$_WI_TMP/p8"
+  local main="$parent/foo"
+  mkdir -p "$main"
+  git -C "$main" init -q
+  git -C "$main" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+  local wt="$parent/foo-wt"
+  git -C "$main" worktree add -q "$wt" 2>/dev/null || { echo "    could not create test worktree"; return 1; }
+  if wi_skeleton_preflight "$parent" "bar" --pair-with "$wt" 2>/dev/null; then
+    echo "    expected non-zero exit when --pair-with is a linked worktree"
+    return 1
+  fi
+}
+
 # ---------------------------------------------------------------------------
 # R. Root pair (1 test)
 # ---------------------------------------------------------------------------
@@ -229,6 +245,7 @@ wi_test_run test_P4_parent_not_writable
 wi_test_run test_P5_targets_already_exist_fresh_mode
 wi_test_run test_P6_pair_with_existing_git_repo_ok
 wi_test_run test_P7_pair_with_missing_canonical
+wi_test_run test_P8_pair_with_linked_worktree_rejected
 
 wi_test_run test_R1_create_root_pair_creates_both_and_logs
 
