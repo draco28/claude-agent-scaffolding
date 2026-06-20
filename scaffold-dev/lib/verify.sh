@@ -47,7 +47,16 @@ sd_verify_auto_step() {
 
   case "$expected" in
     "exit 0")
-      [[ "$ec" -eq 0 ]] && return 0 || return 1
+      if [[ "$ec" -ne 0 ]]; then return 1; fi
+      # #74: an exit-0 from a recognized test runner that collected ZERO tests is
+      # a false-green (e.g. `cargo test <filter>` → "0 passed; N filtered out",
+      # exit 0). Fail loud instead of trusting the exit code. Scoped to `exit 0`:
+      # `exit N` negative-test ACs intentionally expect failure.
+      if ! sd_zero_tests_guard "$cmd" "$output"; then
+        sd_log_error "sd_verify_auto_step: '$cmd' exited 0 but a recognized test runner collected ZERO tests (vacuous green) — fix the filter/path or author the missing test"
+        return 1
+      fi
+      return 0
       ;;
     "exit "*)
       local code="${expected#exit }"
@@ -70,6 +79,102 @@ sd_verify_auto_step() {
       return 2
       ;;
   esac
+}
+
+# sd_zero_tests_guard <cmd> [captured_output]   (#74)
+# Detect a VACUOUS test run: a recognized test runner that exited 0 having
+# collected ZERO tests (a name/path filter matched nothing, so `exit 0` is a
+# false-green). Pure + side-effect-free — it never executes <cmd>; it inspects
+# the already-captured combined stdout+stderr — so it is unit-testable with
+# canned output. ALLOWLIST-ONLY + FAIL-SOFT: an unrecognized runner returns SAFE,
+# preserving today's behavior (no regression). Biased hard toward false-negatives
+# (miss → today's behavior) over false-positives (wrongly failing a real green).
+# Markers are best-effort against common runner output and may drift across
+# runner versions; drift degrades to a miss, never a false fire.
+#
+# The captured output is taken from $2 when given, else read from STDIN. Callers
+# that exec the dispatcher (`sd zero_tests_guard "$cmd"`) should PIPE the log via
+# stdin — a verbose log passed as argv can exceed ARG_MAX (Codex #4); in-process
+# callers may pass it as $2.
+# Returns:
+#   0 — SAFE     (not a recognized runner, or it collected >=1 test)
+#   1 — VACUOUS  (recognized runner collected zero tests)
+# set -e-safe: every match runs inside an if/&&/! condition.
+sd_zero_tests_guard() {
+  local cmd="${1:-}" out
+  if [[ $# -ge 2 ]]; then out="$2"; else out="$(cat)"; fi
+
+  # cargo nextest — check BEFORE plain `cargo test` (more specific). The token
+  # regexes allow options/toolchain between `cargo` and the subcommand
+  # (`cargo --locked test`, `cargo +nightly test`) — Codex #3.
+  if printf '%s' "$cmd" | grep -Eq 'cargo[[:space:]]+([^[:space:]]+[[:space:]]+)*nextest([[:space:]]|$)'; then
+    if printf '%s' "$out" | grep -Eq 'Starting 0 tests'; then return 1; fi
+    return 0
+  fi
+
+  # cargo test (libtest). Fire only on genuine zero-result, and NEVER when any
+  # binary in the same run reported tests running / passing (multi-binary safe).
+  if printf '%s' "$cmd" | grep -Eq 'cargo[[:space:]]+([^[:space:]]+[[:space:]]+)*test([[:space:]]|$)'; then
+    if printf '%s' "$out" | grep -Eq 'running 0 tests' \
+       && ! printf '%s' "$out" | grep -Eq 'running [1-9][0-9]* tests?'; then
+      return 1
+    fi
+    if printf '%s' "$out" | grep -Eq 'test result:.* 0 passed;.*filtered out' \
+       && ! printf '%s' "$out" | grep -Eq 'test result:.* [1-9][0-9]* passed'; then
+      return 1
+    fi
+    return 0
+  fi
+
+  # pytest.
+  if printf '%s' "$cmd" | grep -Eq '(^|[^[:alnum:]])pytest([^[:alnum:]]|$)|python[0-9.]*[[:space:]]+-m[[:space:]]+pytest'; then
+    if printf '%s' "$out" | grep -Eq 'collected 0 items|no tests ran'; then return 1; fi
+    return 0
+  fi
+
+  # go test. The cmd regex allows option tokens between `go` and `test` so the
+  # `-C dir` form (`go -C backend test …`) is covered (Codex). Zero-collection
+  # markers: `[no test files]` (no _test.go in a pkg) or `no tests to run` (a -run
+  # filter matched nothing). A multi-package `./...` run is NOT vacuous if any
+  # sibling package actually ran — so before firing, suppress on genuine
+  # TEST-LEVEL pass evidence in plain or -json form:
+  #   • `--- PASS:`                              (verbose plain)
+  #   • a -json event carrying a pass/run Action AND a "Test" field — a
+  #     package-level `{"Action":"pass","Package":…}` (no "Test") is emitted even
+  #     for an all-filtered run, so it is NOT evidence (Codex).
+  #   • an `ok <pkg>` summary line that does NOT carry a `[no tests…]` note
+  #     (a bare `ok pkg` is a real pass; `ok pkg [no tests to run]` is not).
+  if printf '%s' "$cmd" | grep -Eq '(^|[^[:alnum:]])go[[:space:]]+([^[:space:]]+[[:space:]]+)*test([[:space:]]|$)'; then
+    if printf '%s' "$out" | grep -Eq 'no tests to run|no test files'; then
+      if printf '%s' "$out" | grep -Eq '[-]{3} PASS:'; then return 0; fi
+      if printf '%s' "$out" | grep -Eq '"Action":"(pass|run)"[^}]*"Test":"|"Test":"[^}]*"Action":"(pass|run)"'; then return 0; fi
+      if printf '%s' "$out" | grep -E '^ok[[:space:]]' | grep -vqE '\[no tests'; then return 0; fi
+      return 1
+    fi
+    return 0
+  fi
+
+  # jest — only reaches exit 0 on no-tests via --passWithNoTests (plain exits 1).
+  if printf '%s' "$cmd" | grep -Eq '(^|[^[:alnum:]])jest([^[:alnum:]]|$)|npx[[:space:]]+jest'; then
+    if printf '%s' "$out" | grep -Eq 'No tests found|Tests:[[:space:]]+0 total'; then return 1; fi
+    return 0
+  fi
+
+  # vitest — likewise exit 0 on no-tests only via --passWithNoTests.
+  if printf '%s' "$cmd" | grep -Eq '(^|[^[:alnum:]])vitest([^[:alnum:]]|$)'; then
+    if printf '%s' "$out" | grep -Eq 'No test files found|Test Files[[:space:]]+0([^0-9]|$)'; then return 1; fi
+    return 0
+  fi
+
+  # node --test — the default (spec) reporter prints "ℹ tests 0"; the TAP reporter
+  # (--test-reporter=tap) prints "# tests 0". Cover both summary forms (Codex).
+  if printf '%s' "$cmd" | grep -Eq 'node[[:space:]].*--test'; then
+    if printf '%s' "$out" | grep -Eq '(# tests 0|ℹ tests 0)([^0-9]|$)'; then return 1; fi
+    return 0
+  fi
+
+  # Unrecognized runner → fail-soft, behavior unchanged.
+  return 0
 }
 
 # sd_redgate_assert_red <command> [expected]
@@ -98,7 +203,17 @@ sd_redgate_assert_red() {
         sd_log_error "sd_redgate_assert_red: invalid exit code in expected form: $expected"
         return 2
       fi
-      if [[ "$rc" -eq "$code" ]]; then return 1; fi
+      if [[ "$rc" -eq "$code" ]]; then
+        # #74: a vacuous green (a recognized test runner that exited 0 having
+        # collected ZERO tests) is NOT a genuine pass — for an `exit 0` predicate,
+        # treat it as RED (the desired pre-flight state: the test is missing) so
+        # the implementer proceeds to author it instead of hard-blocking as
+        # "already GREEN". Keeps `exit 0` semantics consistent with the verify gate.
+        if [[ "$code" -eq 0 ]] && ! sd_zero_tests_guard "$cmd" "$output"; then
+          return 0
+        fi
+        return 1
+      fi
       ;;
     "output contains "*)
       local needle="${expected#output contains }"
