@@ -127,6 +127,9 @@ wi_manifest_write() {
   local ai_git_remote_json="null"
   local canonical_git_remote_json="null"
   local default_branch="main"
+  # Optional tooling_repo (#48 Stage 2 marketplace routing). Absent → key omitted.
+  local tooling_root=""
+  local tooling_git_remote_json="null"
 
   # Positional args first (3 required).
   if [[ $# -lt 3 ]]; then
@@ -164,6 +167,22 @@ wi_manifest_write() {
         default_branch="$2"
         shift 2
         ;;
+      --tooling-repo)
+        if [[ -z "${2:-}" ]]; then
+          wi_log_error "wi_manifest_write: --tooling-repo requires PATH"
+          return 1
+        fi
+        tooling_root="$2"
+        shift 2
+        ;;
+      --tooling-repo-remote)
+        if [[ -z "${2:-}" ]]; then
+          wi_log_error "wi_manifest_write: --tooling-repo-remote requires URL"
+          return 1
+        fi
+        tooling_git_remote_json="$(printf '%s' "$2" | jq -R '.')"
+        shift 2
+        ;;
       *)
         wi_log_error "wi_manifest_write: unknown flag: $1"
         return 1
@@ -185,6 +204,8 @@ wi_manifest_write() {
   local ai_name canonical_name
   ai_name="$(basename "$ai_root")"
   canonical_name="$(basename "$canonical_root")"
+  local tooling_name=""
+  [[ -n "$tooling_root" ]] && tooling_name="$(basename "$tooling_root")"
 
   # ISO 8601 UTC timestamp.
   local created_at
@@ -214,6 +235,9 @@ wi_manifest_write() {
       --arg created_by               "workspace-init@0.1.0" \
       --argjson ai_git_remote        "$ai_git_remote_json" \
       --argjson canonical_git_remote "$canonical_git_remote_json" \
+      --arg     tooling_root         "$tooling_root" \
+      --arg     tooling_name         "$tooling_name" \
+      --argjson tooling_git_remote   "$tooling_git_remote_json" \
       '{
          schema_version: $schema_version,
          topology: "dual-repo",
@@ -230,6 +254,11 @@ wi_manifest_write() {
            git_remote: $canonical_git_remote,
            default_branch: $canonical_default_branch
          },
+         tooling_repo: (if $tooling_root != "" then {
+           root: $tooling_root,
+           name: $tooling_name,
+           git_remote: $tooling_git_remote
+         } else null end),
          routing: {
            master_spec:              "ai_workspace",
            executive_summary:        "canonical",
@@ -281,7 +310,8 @@ wi_manifest_write() {
          },
          created_at: $created_at,
          created_by: $created_by
-       }' > "$tmp" 2>/dev/null; then
+       }
+       | (if .tooling_repo == null then del(.tooling_repo) else . end)' > "$tmp" 2>/dev/null; then
     rm -f "$tmp"
     wi_log_error "wi_manifest_write: jq failed building manifest at $manifest"
     return 1
@@ -481,6 +511,9 @@ wi_manifest_validate() {
       (if .canonical.name          != null then empty else "canonical.name" end),
       (if .canonical | has("git_tracked")    then empty else "canonical.git_tracked" end),
       (if .canonical.default_branch != null then empty else "canonical.default_branch" end),
+      # tooling_repo is OPTIONAL (#48 Stage 2); validate its sub-schema only when present.
+      (if has("tooling_repo") then (if .tooling_repo.root != null then empty else "tooling_repo.root" end) else empty end),
+      (if has("tooling_repo") then (if .tooling_repo.name != null then empty else "tooling_repo.name" end) else empty end),
       (if .routing                 != null then empty else "routing" end),
       (if .routing.master_spec              != null then empty else "routing.master_spec" end),
       (if .routing.executive_summary        != null then empty else "routing.executive_summary" end),

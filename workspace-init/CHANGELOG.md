@@ -1,5 +1,13 @@
 # workspace-init changelog
 
+## 0.3.0 (2026-06-20)
+
+### Added
+- **Optional `tooling_repo` manifest field (#48 Stage 2).** `wi_manifest_write` gains `--tooling-repo <root>` and `--tooling-repo-remote <url>` flags; when given, it emits a `tooling_repo` object (`{ root, name, git_remote }`, `name` = basename of root) right after `canonical`, mirroring canonical's sub-schema. Absent by default → the key is omitted **entirely** (not `null`), so existing manifests and behavior are unchanged (additive; schema stays `1.0`). `wi_manifest_validate` validates `tooling_repo.root` + `tooling_repo.name` only when the key is present. The three init/pair skills (`initializing-dual-repo-workspace`, `pairing-canonical-repo`, `pairing-existing-dual`) document the optional flags so they record a tooling repo when the user volunteers one. This is the workspace-init half of marketplace routing — scaffold-dev's `/defer --tooling` resolves `.tooling_repo.root` to file tech-debt there instead of the project repo. 5 new tests (`tests/test-manifest.sh`).
+
+### Notes
+- Design-of-record: `docs/SPEC-lean-index-CDEF.md` §3.5. Pairs with scaffold-dev v0.10.0 (the routing consumer). Part of closing #48.
+
 ## 0.2.0 (2026-06-15)
 
 ### Added

@@ -2,6 +2,8 @@
 # Fake gh for scaffold-dev tests. Records args to $GH_SHIM_LOG; emits canned
 # output controlled by env vars. NO network. Subcommand matched on "$1 $2".
 [[ -n "${GH_SHIM_LOG:-}" ]] && printf '%s\n' "$*" >> "$GH_SHIM_LOG"
+# Record the cwd each call ran from (so tests can assert --repo-root routing).
+[[ -n "${GH_SHIM_CWD_LOG:-}" ]] && printf '%s\n' "$PWD" >> "$GH_SHIM_CWD_LOG"
 case "${1:-} ${2:-}" in
   "auth status") exit "${GH_SHIM_AUTH_RC:-0}" ;;
   "pr list")     echo "${GH_SHIM_PR_LIST_URL:-}"; exit 0 ;;
@@ -25,6 +27,16 @@ case "${1:-} ${2:-}" in
     else
       echo '[]'
     fi
+    exit 0 ;;
+  "label create")
+    # Idempotent-create simulation. Default success; GH_SHIM_LABEL_RC!=0 makes
+    # gh "fail" with GH_SHIM_LABEL_ERR on stderr (e.g. an "already exists"
+    # rejection vs a hard error) so sd_label_ensure's branches can be tested.
+    if [[ -n "${GH_SHIM_LABEL_RC:-}" && "${GH_SHIM_LABEL_RC}" != "0" ]]; then
+      echo "${GH_SHIM_LABEL_ERR:-failed to create label}" >&2
+      exit "$GH_SHIM_LABEL_RC"
+    fi
+    echo "${GH_SHIM_LABEL_OUT:-✓ Created label}"
     exit 0 ;;
   "api "*)
     # gh api … (e.g. pulls/<pr>/comments) — emit canned inline review comments

@@ -259,20 +259,36 @@ sd_pr_merge() {
   (cd "$canonical" && gh pr merge "$pr" "$@")
 }
 
-# sd_issue_create <title> <body-file> [extra gh args...] — wraps gh issue create
-# (run from canonical so gh resolves the repo from origin). Echoes gh's stdout
-# (issue url/number). rc 1 if gh absent or the create fails.
+# sd_issue_create <title> <body-file> [--repo-root DIR] [extra gh args...] —
+# wraps gh issue create (run from the target repo so gh resolves it from origin).
+# Echoes gh's stdout (issue url/number). rc 1 if gh absent or the create fails.
+# --repo-root DIR targets a caller-chosen repo (e.g. /defer --tooling routing to
+# .tooling_repo.root); absent → canonical, byte-compatible with pre-#48 callers.
+# --repo-root is parsed out here, never forwarded to gh.
 sd_issue_create() {
   local title="$1" body_file="$2"; shift 2
-  local canonical out
-  canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_issue_create: no canonical.root"; return 1; }
+  local repo_root="" target out
+  local -a rest=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --repo-root)   repo_root="${2:-}"; shift 2 ;;
+      --repo-root=*) repo_root="${1#*=}"; shift ;;
+      *)             rest+=("$1"); shift ;;
+    esac
+  done
+  if [[ ${#rest[@]} -gt 0 ]]; then set -- "${rest[@]}"; else set --; fi
+  if [[ -n "$repo_root" ]]; then
+    target="$repo_root"
+  else
+    target="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_issue_create: no canonical.root"; return 1; }
+  fi
   body_file="$(sd_abs_path "$body_file")"
   [[ -f "$body_file" ]] || { sd_log_error "sd_issue_create: body file not found: $body_file"; return 1; }
   if ! command -v gh >/dev/null 2>&1; then
     sd_log_error "sd_issue_create: 'gh' not in PATH."
     return 1
   fi
-  if ! out="$(cd "$canonical" && gh issue create --title "$title" --body-file "$body_file" "$@" 2>&1)"; then
+  if ! out="$(cd "$target" && gh issue create --title "$title" --body-file "$body_file" "$@" 2>&1)"; then
     sd_log_error "sd_issue_create: gh issue create failed: $out"
     return 1
   fi
@@ -280,13 +296,28 @@ sd_issue_create() {
   return 0
 }
 
-# sd_issue_list [extra gh args...] — emit open issues as JSON for the agent to
-# reason over (blocker-recall / de-dup). NO interpretation here. rc 1 if gh absent.
-# Defaults to --limit 200 (gh's own default is only 30, which would hide older
-# matching issues from de-dup/recall); a caller-supplied --limit overrides it.
+# sd_issue_list [--repo-root DIR] [extra gh args...] — emit open issues as JSON
+# for the agent to reason over (blocker-recall / de-dup). NO interpretation here.
+# rc 1 if gh absent. Defaults to --limit 200 (gh's own default is only 30, which
+# would hide older matching issues from de-dup/recall); a caller-supplied --limit
+# overrides it. --repo-root DIR targets a caller-chosen repo (default canonical);
+# it is parsed out here, never forwarded to gh.
 sd_issue_list() {
-  local canonical has_limit=0 arg
-  canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_issue_list: no canonical.root"; return 1; }
+  local repo_root="" target has_limit=0 arg
+  local -a rest=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --repo-root)   repo_root="${2:-}"; shift 2 ;;
+      --repo-root=*) repo_root="${1#*=}"; shift ;;
+      *)             rest+=("$1"); shift ;;
+    esac
+  done
+  if [[ ${#rest[@]} -gt 0 ]]; then set -- "${rest[@]}"; else set --; fi
+  if [[ -n "$repo_root" ]]; then
+    target="$repo_root"
+  else
+    target="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_issue_list: no canonical.root"; return 1; }
+  fi
   if ! command -v gh >/dev/null 2>&1; then
     sd_log_error "sd_issue_list: 'gh' not in PATH."
     return 1
@@ -297,5 +328,34 @@ sd_issue_list() {
   if [[ "$has_limit" -eq 0 ]]; then
     set -- --limit 200 "$@"
   fi
-  (cd "$canonical" && gh issue list --state open --json number,title,body,labels "$@")
+  (cd "$target" && gh issue list --state open --json number,title,body,labels "$@")
+}
+
+# sd_label_ensure <label> [repo-root] — idempotent `gh label create <label>` run
+# from the target repo (default canonical). rc 0 if the label exists or was just
+# created; rc 1 + actionable message on a real failure. #48 Stage 2: the
+# deferring-work-item §4 retry path OFFERS this when a repo lacks `tech-debt`; it
+# is NEVER a blocker for recording the debt (label setup is best-effort).
+sd_label_ensure() {
+  local label="${1:-}" repo_root="${2:-}" target out
+  [[ -n "$label" ]] || { sd_log_error "sd_label_ensure: label name required"; return 1; }
+  if [[ -n "$repo_root" ]]; then
+    target="$repo_root"
+  else
+    target="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_label_ensure: no canonical.root"; return 1; }
+  fi
+  if ! command -v gh >/dev/null 2>&1; then
+    sd_log_error "sd_label_ensure: 'gh' not in PATH."
+    return 1
+  fi
+  if out="$(cd "$target" && gh label create "$label" 2>&1)"; then
+    return 0
+  fi
+  # Idempotent: an "already exists" / "already been taken" rejection means the
+  # label is present — which is all we need. Treat it as success, not failure.
+  if printf '%s' "$out" | grep -qiE 'already (exists|been taken)|already_exists'; then
+    return 0
+  fi
+  sd_log_error "sd_label_ensure: gh label create '$label' failed: $out"
+  return 1
 }

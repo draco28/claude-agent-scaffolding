@@ -147,6 +147,12 @@ is passed; `wi_manifest_write` defaults `default_branch` to `"main"` and
 wi manifest_write "$ai_root" "$canonical_root" "$project_type"
 ```
 
+**Optional — tooling repo (#48 Stage 2).** If the user volunteers a separate
+*tooling/marketplace* repo (so `/defer --tooling` can route tech-debt there rather
+than the project repo), append `--tooling-repo "$tooling_root"` (and
+`--tooling-repo-remote "$tooling_remote"` if known). Don't prompt for one in fresh
+mode; omit the flags and the `tooling_repo` key is left out entirely (unchanged).
+
 Expected init-log entry: `file <ai_root>/.workspace/pairing.json`.
 
 ### 5.5 — Task 8.5: Write CLAUDE.md stub

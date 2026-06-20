@@ -2,6 +2,17 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.10.0] — 2026-06-20
+
+SS-6 — #48 Stage 2: lean-index **marketplace routing** (`/defer --tooling`) + `tech-debt` label auto-create. **Closes #48** (Stage 1 = Parts C/D/E in v0.9.0; Part F shipped in v0.4.0).
+
+### Added
+- **#48 Stage 2 — `/defer --tooling` marketplace routing.** `deferring-work-item` parses `--tooling` from `$SCAFFOLD_DEV_ARGS`; when set it resolves the tooling repo via `sd manifest_get '.tooling_repo.root'` and routes the deferral there instead of canonical — degrading with an actionable error (*"no tooling_repo configured; re-run without --tooling …"*) when the field is absent, never silently mis-filing. `sd_issue_create` and `sd_issue_list` gain an optional `--repo-root <dir>` flag (parsed out here, **never forwarded to `gh`**); absent → canonical, byte-compatible with every pre-#48 caller. Consumes workspace-init v0.3.0's optional `tooling_repo` manifest field.
+- **#48 Stage 2 — `sd_label_ensure <label> [repo-root]` (`lib/pr.sh`).** Idempotent `gh label create` run from the target repo (default canonical): rc 0 when the label exists or was just created (an "already exists" / "already been taken" rejection counts as success), rc 1 + actionable message on a real failure. `deferring-work-item` §4 now **offers** it when a repo lacks `tech-debt` — agent-driven and skippable; label setup never blocks recording the debt (the §4 A+B contract stands). The gh test-shim gains a `label create` case. 8 new tests (`tests/test-pr.sh`).
+
+### Notes
+- Design-of-record: `docs/SPEC-lean-index-CDEF.md` §3.5–§3.6. The repo-root parameter shape was chosen as a parsed `--repo-root` flag (not a positional arg) to keep `sd_issue_create`/`sd_issue_list`'s variadic `gh` passthrough byte-compatible (SPEC §7).
+
 ## [0.9.0] — 2026-06-20
 
 SS-6 — #48 Stage 1 (Parts C/D/E): lean-index **deep-reference channels** — memory entries cite lean pointers (`DOC §anchor`, `ADR-NNNN`, claude-mem) and a slice-close check confirms they still resolve. (Part F shipped earlier in v0.4.0; this stage covers the deferred pointer channels.)

@@ -21,6 +21,22 @@ sd remote_check || exit 1   # surfaces the actionable error verbatim; no silent 
 `sd remote_check` verifies canonical has an `origin` remote AND `gh` is authenticated.
 If it fails, surface the message and STOP — do not write anything.
 
+**Routing (`--tooling`).** Parse `--tooling` from `$SCAFFOLD_DEV_ARGS`. Default (no flag) →
+file to the project (canonical) repo, exactly as before. With `--tooling`, file to the
+*tooling* repo instead — resolve its root and refuse fast if none is configured:
+
+```bash
+TOOLING_ROOT="$(sd manifest_get '.tooling_repo.root')" || {
+  echo "no tooling_repo configured; re-run without --tooling to file to canonical, or add tooling_repo via workspace-init" >&2
+  exit 1
+}
+```
+
+When `--tooling` resolves, pass `--repo-root "$TOOLING_ROOT"` to BOTH `sd issue_list` and
+`sd issue_create` below — it routes them to the tooling repo and is stripped before `gh`.
+Without `--tooling`, omit `--repo-root` entirely (canonical). No silent mis-file: a
+`--tooling` with no `tooling_repo` stops here.
+
 ## 2. Gather the deferral (judgment, not a rigid form)
 
 From `$SCAFFOLD_DEV_ARGS` (or the conversation) you have a short description. Elaborate,
@@ -39,6 +55,7 @@ Before filing, check for an existing open issue that already covers this:
 
 ```bash
 sd issue_list   # raw JSON: number,title,body,labels
+# under --tooling: sd issue_list --repo-root "$TOOLING_ROOT"
 ```
 
 Read the JSON and JUDGE whether any open issue already covers this deferral. If one
@@ -51,12 +68,23 @@ Write the composed body to a temp file, then:
 
 ```bash
 sd issue_create "<title>" "<body-file>" --label tech-debt
+# under --tooling: sd issue_create "<title>" "<body-file>" --repo-root "$TOOLING_ROOT" --label tech-debt
 ```
 
-If `gh` rejects the label because the project repo does not have `tech-debt`
-yet, retry once without `--label tech-debt`, surface that the issue was filed
-unlabeled, and continue to the index append. Do NOT make label setup a blocker
-for recording the debt.
+If `gh` rejects the label because the repo does not have `tech-debt` yet, you have two
+agent-driven choices — recording the debt must NOT be blocked either way:
+
+1. **Offer to create the label**, then re-file labeled. Ask the user first; on yes:
+   ```bash
+   sd label_ensure tech-debt   # under --tooling: sd label_ensure tech-debt "$TOOLING_ROOT"
+   ```
+   On rc 0, retry `sd issue_create … --label tech-debt`. `sd label_ensure` is idempotent
+   (an "already exists" race counts as success).
+2. **Skip the label** (user declines, or `sd label_ensure` returns rc 1): retry
+   `sd issue_create` once *without* `--label tech-debt`, surface that the issue was filed
+   unlabeled, and continue.
+
+Never let label setup block recording the debt (the A+B contract stands).
 
 Capture the `#N` from the echoed URL/number.
 

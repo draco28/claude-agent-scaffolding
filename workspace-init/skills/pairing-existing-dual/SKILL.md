@@ -90,6 +90,8 @@ fi
 
 `wi_manifest_write` creates `${ai_root}/.workspace/` if absent and writes `pairing.json` atomically (tmp-then-mv). It derives `ai_workspace.name` and `canonical.name` from the directory basenames, and writes the full routing / during_dev / well_known_paths / git_policy contract per the v1.0 schema (**SPEC §6.2**).
 
+**Optional — tooling repo (#48 Stage 2).** If the user keeps a separate *tooling/marketplace* repo (so `/defer --tooling` can route tech-debt there instead of the project repo), append `--tooling-repo "$tooling_root"` (and `--tooling-repo-remote "$tooling_remote"` if known). Ask only when the user volunteers one; omit otherwise and the `tooling_repo` key is left out entirely (today's behavior, unchanged).
+
 ### 6.2 Install the trace-filter commit-msg hook(s)
 
 The canonical hook is the load-bearing one (it guards the production repo's commits going forward). The AI-workspace hook is installed only when the AI workspace is itself a git repo:
