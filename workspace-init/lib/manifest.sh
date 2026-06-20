@@ -196,6 +196,18 @@ wi_manifest_write() {
     *) wi_log_error "wi_manifest_write: invalid project_type '$project_type' (expected: personal|work)"; return 1 ;;
   esac
 
+  # tooling_repo (optional): a remote without a root would be silently dropped at
+  # emit time (the key is gated on tooling_root); and a relative root breaks the
+  # later `cd "$target"` in scaffold-dev's sd_issue_create. Fail loud on both.
+  if [[ "$tooling_git_remote_json" != "null" && -z "$tooling_root" ]]; then
+    wi_log_error "wi_manifest_write: --tooling-repo-remote requires --tooling-repo"
+    return 1
+  fi
+  if [[ -n "$tooling_root" && "$tooling_root" != /* ]]; then
+    wi_log_error "wi_manifest_write: --tooling-repo must be an absolute path: $tooling_root"
+    return 1
+  fi
+
   if [[ ! -d "$ai_root" ]]; then
     wi_log_error "wi_manifest_write: ai_root not a directory: $ai_root"
     return 1
@@ -512,8 +524,12 @@ wi_manifest_validate() {
       (if .canonical | has("git_tracked")    then empty else "canonical.git_tracked" end),
       (if .canonical.default_branch != null then empty else "canonical.default_branch" end),
       # tooling_repo is OPTIONAL (#48 Stage 2); validate its sub-schema only when present.
-      (if has("tooling_repo") then (if .tooling_repo.root != null then empty else "tooling_repo.root" end) else empty end),
-      (if has("tooling_repo") then (if .tooling_repo.name != null then empty else "tooling_repo.name" end) else empty end),
+      # Guard on object-type FIRST: a non-object value (e.g. a hand-edited string)
+      # would make the .root/.name indexing throw, abort jq, and — with stderr
+      # swallowed — let `missing` come back empty so an invalid manifest passes.
+      (if (has("tooling_repo") and (.tooling_repo | type) != "object") then "tooling_repo (must be an object)" else empty end),
+      (if (has("tooling_repo") and (.tooling_repo | type) == "object") then (if .tooling_repo.root != null then empty else "tooling_repo.root" end) else empty end),
+      (if (has("tooling_repo") and (.tooling_repo | type) == "object") then (if .tooling_repo.name != null then empty else "tooling_repo.name" end) else empty end),
       (if .routing                 != null then empty else "routing" end),
       (if .routing.master_spec              != null then empty else "routing.master_spec" end),
       (if .routing.executive_summary        != null then empty else "routing.executive_summary" end),

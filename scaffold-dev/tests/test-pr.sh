@@ -445,6 +445,36 @@ test_dispatcher_lists_label_ensure() {
   assert_contains "lists label_ensure" "label_ensure" "$listed"
 }
 
+# 35. --repo-root with NO value fails fast (rc 1), never spins the parse loop
+#     forever (regression: `shift 2` on a 1-arg tail leaves $1 unchanged).
+test_issue_create_repo_root_no_value() {
+  echo "test_issue_create_repo_root_no_value:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  local body; body="$(mktemp)"; echo x > "$body"
+  set +e; sd_issue_create "t" "$body" --repo-root 2>/dev/null; local rc=$?; :
+  assert_eq "no-value --repo-root rc=1" "1" "$rc"
+}
+
+# 36. --repo-root= (explicit empty) fails loud, not a silent canonical fallback
+test_issue_create_repo_root_empty() {
+  echo "test_issue_create_repo_root_empty:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  local body; body="$(mktemp)"; echo x > "$body"
+  set +e; sd_issue_create "t" "$body" --repo-root= 2>/dev/null; local rc=$?; :
+  assert_eq "empty --repo-root= rc=1" "1" "$rc"
+}
+
+# 37. same no-value guard on sd_issue_list (rc 1, no infinite loop)
+test_issue_list_repo_root_no_value() {
+  echo "test_issue_list_repo_root_no_value:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_issue_list --repo-root 2>/dev/null; local rc=$?; :
+  assert_eq "no-value --repo-root rc=1" "1" "$rc"
+}
+
 # 24. pr_review_comments fetches inline review comments via gh api (not gh pr view),
 #     accepts a PR URL (normalizes to the numeric id), and returns one flat array.
 test_pr_review_comments() {
@@ -586,5 +616,8 @@ test_issue_create_repo_root
 test_issue_create_default_canonical
 test_issue_list_repo_root
 test_dispatcher_lists_label_ensure
+test_issue_create_repo_root_no_value
+test_issue_create_repo_root_empty
+test_issue_list_repo_root_no_value
 
 sd_test_summary

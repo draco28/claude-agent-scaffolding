@@ -463,10 +463,41 @@ test_I5_validate_rejects_malformed_tooling_repo() {
   assert_exits_with 1 wi_manifest_validate "$ai" 2>/dev/null || return 1
 }
 
+test_I6_tooling_repo_remote_requires_root() {
+  local d="$_WI_TMP/i6"
+  local ai="$d/foo-ai" cn="$d/foo"
+  mkdir -p "$ai/.workspace" "$cn"
+  # --tooling-repo-remote without --tooling-repo would silently drop the URL.
+  assert_exits_with 1 wi_manifest_write "$ai" "$cn" personal \
+    --tooling-repo-remote "git@github.com:me/tools.git" 2>/dev/null || return 1
+}
+
+test_I7_tooling_repo_root_must_be_absolute() {
+  local d="$_WI_TMP/i7"
+  local ai="$d/foo-ai" cn="$d/foo"
+  mkdir -p "$ai/.workspace" "$cn"
+  # A relative root would break the later `cd "$target"` in /defer --tooling.
+  assert_exits_with 1 wi_manifest_write "$ai" "$cn" personal \
+    --tooling-repo "../relative-tools" 2>/dev/null || return 1
+}
+
+test_I8_validate_rejects_nonobject_tooling_repo() {
+  local ai; ai="$(_setup_pair i8)" || return 1
+  local m="$ai/.workspace/pairing.json"
+  # A non-object tooling_repo (hand edit) must fail validation, not slip through
+  # a swallowed jq indexing error.
+  local tmp; tmp="$(mktemp)"
+  jq '.tooling_repo = "not-an-object"' "$m" > "$tmp" && mv "$tmp" "$m"
+  assert_exits_with 1 wi_manifest_validate "$ai" 2>/dev/null || return 1
+}
+
 wi_test_run test_I1_tooling_repo_written_when_flag_present
 wi_test_run test_I2_tooling_repo_remote_recorded
 wi_test_run test_I3_tooling_repo_absent_by_default
 wi_test_run test_I4_validate_accepts_wellformed_tooling_repo
 wi_test_run test_I5_validate_rejects_malformed_tooling_repo
+wi_test_run test_I6_tooling_repo_remote_requires_root
+wi_test_run test_I7_tooling_repo_root_must_be_absolute
+wi_test_run test_I8_validate_rejects_nonobject_tooling_repo
 
 wi_test_summary

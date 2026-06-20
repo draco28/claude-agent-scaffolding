@@ -271,8 +271,16 @@ sd_issue_create() {
   local -a rest=()
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --repo-root)   repo_root="${2:-}"; shift 2 ;;
-      --repo-root=*) repo_root="${1#*=}"; shift ;;
+      --repo-root)
+        # Guard the value: a missing value would make `shift 2` fail (rc 1, no
+        # shift) and spin this loop forever; an empty value would silently fall
+        # back to canonical and mis-route. Fail loud on both.
+        [[ $# -ge 2 && -n "$2" ]] || { sd_log_error "sd_issue_create: --repo-root requires a non-empty DIR"; return 1; }
+        repo_root="$2"; shift 2 ;;
+      --repo-root=*)
+        repo_root="${1#*=}"
+        [[ -n "$repo_root" ]] || { sd_log_error "sd_issue_create: --repo-root requires a non-empty DIR"; return 1; }
+        shift ;;
       *)             rest+=("$1"); shift ;;
     esac
   done
@@ -307,8 +315,15 @@ sd_issue_list() {
   local -a rest=()
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --repo-root)   repo_root="${2:-}"; shift 2 ;;
-      --repo-root=*) repo_root="${1#*=}"; shift ;;
+      --repo-root)
+        # See sd_issue_create: guard against the missing-value infinite loop and
+        # the empty-value silent canonical fallback.
+        [[ $# -ge 2 && -n "$2" ]] || { sd_log_error "sd_issue_list: --repo-root requires a non-empty DIR"; return 1; }
+        repo_root="$2"; shift 2 ;;
+      --repo-root=*)
+        repo_root="${1#*=}"
+        [[ -n "$repo_root" ]] || { sd_log_error "sd_issue_list: --repo-root requires a non-empty DIR"; return 1; }
+        shift ;;
       *)             rest+=("$1"); shift ;;
     esac
   done

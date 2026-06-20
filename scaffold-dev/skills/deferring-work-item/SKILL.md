@@ -12,18 +12,11 @@ YOU compose the issue and decide de-dup — there is no deterministic parser.
 
 ## 1. Pre-flight (refuse fast)
 
-This skill files to GitHub via `gh`. Guard first:
-
-```bash
-sd remote_check || exit 1   # surfaces the actionable error verbatim; no silent fallback
-```
-
-`sd remote_check` verifies canonical has an `origin` remote AND `gh` is authenticated.
-If it fails, surface the message and STOP — do not write anything.
+This skill files to GitHub via `gh`. First decide WHERE it files, then guard THAT repo.
 
 **Routing (`--tooling`).** Parse `--tooling` from `$SCAFFOLD_DEV_ARGS`. Default (no flag) →
-file to the project (canonical) repo, exactly as before. With `--tooling`, file to the
-*tooling* repo instead — resolve its root and refuse fast if none is configured:
+the project (canonical) repo, exactly as before. With `--tooling`, file to the *tooling*
+repo instead — resolve its root and refuse fast if none is configured:
 
 ```bash
 TOOLING_ROOT="$(sd manifest_get '.tooling_repo.root')" || {
@@ -32,10 +25,25 @@ TOOLING_ROOT="$(sd manifest_get '.tooling_repo.root')" || {
 }
 ```
 
+**Guard the target repo** — `sd remote_check` is canonical-specific, so check the repo you
+will actually file to:
+
+```bash
+# default → canonical:
+sd remote_check || exit 1   # canonical has an 'origin' remote AND gh is authenticated
+# under --tooling → the tooling repo (NOT canonical):
+git -C "$TOOLING_ROOT" remote get-url origin >/dev/null 2>&1 || { echo "tooling repo has no 'origin' remote" >&2; exit 1; }
+gh auth status >/dev/null 2>&1 || { echo "gh is not authenticated (run 'gh auth login')" >&2; exit 1; }
+```
+
+Guarding the *target* (not always canonical) avoids both failure modes: a local-only
+canonical wrongly blocking a tooling defer, and a healthy canonical masking a tooling repo
+that can't be filed to. Surface any failure and STOP — do not write anything.
+
 When `--tooling` resolves, pass `--repo-root "$TOOLING_ROOT"` to BOTH `sd issue_list` and
 `sd issue_create` below — it routes them to the tooling repo and is stripped before `gh`.
 Without `--tooling`, omit `--repo-root` entirely (canonical). No silent mis-file: a
-`--tooling` with no `tooling_repo` stops here.
+`--tooling` with no `tooling_repo` stops above.
 
 ## 2. Gather the deferral (judgment, not a rigid form)
 
@@ -86,7 +94,9 @@ agent-driven choices — recording the debt must NOT be blocked either way:
 
 Never let label setup block recording the debt (the A+B contract stands).
 
-Capture the `#N` from the echoed URL/number.
+Capture the issue ref from the echoed URL/number. Default → `#N`. **Under `--tooling`,
+keep the repo identity** — capture `<owner>/<repo>#N` (or the full URL) from the echoed
+URL, since issue numbers are repo-local and a bare `#N` would later read against canonical.
 
 ## 5. Append the lean index line
 
@@ -96,6 +106,7 @@ header from scaffold-onboard's template, then append):
 
 ```
 - [TD] <short desc> → #<N>
+# under --tooling: - [TD] <short desc> → <owner>/<repo>#<N>   (repo-qualified — numbers are repo-local)
 ```
 
 No prose duplication of the issue body — the index is pointers only.
