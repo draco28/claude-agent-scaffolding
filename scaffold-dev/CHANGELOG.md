@@ -11,7 +11,7 @@ SS-6 — Batch A (#76 + #77): scaffold-dev vertical-slice pass. **Closes #76 and
 - **#77 — 500-line SKILL.md cap guard.** New `tests/test-skill-line-cap.sh` asserts every `scaffold-dev/skills/*/SKILL.md` body is ≤ 500 lines (the self-declared cap, superpowers:writing-skills Pass D).
 
 ### Changed
-- **#77 — `closing-vertical-slice` (660 → 497) and `planning-vertical-slice` (729 → 487) brought under the 500-line cap.** Reference-grade prose extracted to `references/*.md` (harvest mechanics, sprint-close cleanup, pr_hierarchical pre-flight + close, backend dispatch, AC-authoring grammar, orchestrate arg-parser); operative steps + seams + load-bearing tokens stay in the body. The §7 review-gate prose is unchanged (seam-pinned by `tests/test-review-gate.sh`). Added the previously-missing 500-line cap anti-pattern to `planning-vertical-slice` §14.
+- **#77 — `closing-vertical-slice` (660 → 490) and `planning-vertical-slice` (729 → 489) brought under the 500-line cap.** Reference-grade prose extracted to `references/*.md` (harvest mechanics, sprint-close cleanup, pr_hierarchical pre-flight + close, backend dispatch, AC-authoring grammar, orchestrate arg-parser); operative steps + seams + load-bearing tokens stay in the body. The §7 review-gate prose is unchanged (seam-pinned by `tests/test-review-gate.sh`). Added the previously-missing 500-line cap anti-pattern to `planning-vertical-slice` §14.
 
 ## [0.10.0] — 2026-06-20
 

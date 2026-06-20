@@ -4,7 +4,6 @@ description: Run the three-layer slice-close ceremony — auto-demo (halt-on-fir
 ---
 
 # closing-vertical-slice
-
 You are the slice-close ceremony for scaffold-dev v0.1's vertical-slice lifecycle. After `planning-vertical-slice` has shepherded all rounds to completion (all work items committed + merged, worktrees + branches still present per §11 M2), this skill runs the three-layer close: auto-demo → manual-demo → architect-critic adversarial review at close depth → retrospective authoring → memory-bank harvest (with handoff sweep) → worktree + branch cleanup.
 
 The ceremony order is binding. The §11 M2 marker — worktrees + branches removed ONLY after harvest completes — is the load-bearing discipline this body enforces. Halt-on-first-auto-demo-failure preserves worktrees for inspection (eval S2). Warn-and-proceed on architect-critic absence keeps the ceremony moving without blocking (eval S3). Source-tagged harvest with literal `[report]` / `[handoff]` brackets and the provenance trailer carries SPEC §15.2's 8-step contract through eval S4.
@@ -16,7 +15,6 @@ This skill is the slice-close terminal step. It does NOT plan slices (that's `pl
 ---
 
 ## 1. Overview
-
 When invoked, you, in order:
 
 1. **Pre-flight (§3):** discover the manifest (refuse fail-fast if absent); resolve the VS-id; field-read `sprint_id` + locate the slice dir; confirm all work items are at complete status.
@@ -26,7 +24,7 @@ When invoked, you, in order:
 5. **Layer 3 — architect-critic (§7):** probe; invoke at close depth if present (sync or opt-in async per the `review_gate`), else warn-and-proceed.
 6. **Retrospective (§8):** render the 7-section `retrospective.md` (BEFORE harvest).
 7. **Harvest (§9):** sweep `report.md` + slice-scoped handoffs; surface `[report]`/`[handoff]` candidates; apply accepted items via `sd harvest_apply`.
-8. **Cleanup (§10, M2):** remove worktrees + branches — ONLY after harvest. Then sprint-close sweep on the final slice (§11), the slice→sprint PR under `pr_hierarchical` (§10a), the §12 active-context reconcile, and the §14 closing message.
+8. **Cleanup + gates (§10, M2):** remove worktrees + branches ONLY after harvest. Then the slice→sprint PR under `pr_hierarchical` (§10a), sprint-close sweep on the final slice (§11), §12 active-context reconcile, and §14 closing message.
 
 Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/closing-vertical-slice.md` — the six scenarios there are the binding spec.
 
@@ -268,7 +266,7 @@ The gate runs the **same** close-depth adversarial review, but requests backgrou
 3. **Build the review bundle (one tested call).** architect-critic's async/CLI path reads exactly ONE artifact file (`critiquing-spec` Step 1a), so the full slice-close context is assembled into a single artifact by the tested helper `sd review_gate_bundle` (`lib/review_gate.sh`) — it writes **under the slice dir** (a trusted git root, never `/tmp`, so the async target-root pre-flight accepts it), includes the slice diff **only when non-empty**, and appends each `HEADING PATH` section (a missing file is noted, not fatal). **Pick the diff base (#76):** in direct mode prefer the slice-start baseline recorded at `planning-vertical-slice` §8.1 — by close the slice is already merged into the default branch, so a live `merge-base(default, HEAD)` equals HEAD → an empty (omitted) diff. Fall back to the mode base when no baseline was recorded (pre-#76 slices) and under `pr_hierarchical` (the slice has not merged yet, so its base already yields a real diff):
    ```bash
    mm="$(cd "$ai_workspace" && sd merge_mode)"
-   if [[ "$mm" == "pr_hierarchical" ]]; then base_branch="$(sd sprint_branch_name "$sprint_id")"; else base_branch="$(sd manifest_get '.canonical.default_branch')" || base_branch="main"; fi
+   if [[ "$mm" == "pr_hierarchical" ]]; then base_branch="$(cd "$ai_workspace" && sd sprint_branch_name "$sprint_id")"; else base_branch="$(cd "$ai_workspace" && sd manifest_get '.canonical.default_branch')" || base_branch="main"; fi
    diff_base="$base_branch"
    if [[ "$mm" == "direct" ]]; then recorded="$(sd slice_baseline_read "$slice_root" 2>/dev/null | jq -r '.recorded_base_sha // empty')" || recorded=""; [[ -n "$recorded" ]] && diff_base="$recorded"; fi
    bundle="$(sd review_gate_bundle --slice-root "$slice_root" \

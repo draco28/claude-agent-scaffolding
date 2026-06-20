@@ -32,6 +32,10 @@ while [[ "$i" -lt "${#scaffold_dev_argv[@]}" ]]; do
       i=$((i + 2))
       ;;
     VS-*)
+      if [[ ! "$arg" =~ ^VS-[^.]+(\.[^.]+){2}$ ]]; then
+        echo "orchestrate: invalid VS-id: $arg" >&2
+        exit 2
+      fi
       vs_id="$arg"
       i=$((i + 1))
       ;;

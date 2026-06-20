@@ -336,10 +336,12 @@ When the user invokes round execution (e.g., "execute round 1", "run round K"), 
 For each work item in the round (`{N}` in `${branch_naming}` = `sprint_id`, field-read in §3.3, NOT split from the slice id):
 
 ```bash
-sd worktree_add "${work_id}" "${vs_id}" "${kebab}" "${sprint_id}"
-# → ${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}; base = canonical default-branch HEAD.
-# Under merge_mode=pr_hierarchical, pass "${slice_branch}" as a 5th arg so the
-# worktree branches off the slice, not the default branch.
+if [[ "${merge_mode:-direct}" == "pr_hierarchical" ]]; then
+  sd worktree_add "${work_id}" "${vs_id}" "${kebab}" "${sprint_id}" "${slice_branch}"
+else
+  sd worktree_add "${work_id}" "${vs_id}" "${kebab}" "${sprint_id}"
+fi
+# → ${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-${kebab}
 ```
 
 Halt if `sd_worktree_add` fails (dirty canonical tree, existing branch, etc.); surface the failure-response menu (SPEC §12.2 "Merge conflict" row adapted for setup conflicts).
@@ -347,7 +349,7 @@ Halt if `sd_worktree_add` fails (dirty canonical tree, existing branch, etc.); s
 Then record the **slice-start baseline** once (#76) — the canonical default-branch HEAD at slice start — so the direct-mode slice-close review bundle can diff `<recorded-base>..HEAD` (`closing-vertical-slice` §7.2a; today direct mode yields an empty diff because the slice is already merged by close). `sd slice_baseline_write` is append-once, so calling it every round is safe (round 2+ re-computes but no-ops, preserving the round-1 value):
 
 ```bash
-default_branch="$(sd manifest_get '.canonical.default_branch')" || default_branch="main"
+default_branch="$(cd "$ai_workspace" && sd manifest_get '.canonical.default_branch')" || default_branch="main"
 base_sha="$(git -C "$canonical" rev-parse "$default_branch")"
 sd slice_baseline_write "$slice_root" "$base_sha" "$default_branch"
 ```

@@ -22,16 +22,29 @@ assert_le_cap() {
   fi
 }
 
+_skill_line_count() {
+  awk 'END { print NR }' "$1"
+}
+
 test_all_skill_bodies_under_cap() {
   echo "test_all_skill_bodies_under_cap:"
   local f n
   for f in "$HERE"/../skills/*/SKILL.md; do
     [ -e "$f" ] || continue
-    n="$(wc -l < "$f")"
+    n="$(_skill_line_count "$f")"
     assert_le_cap "$(basename "$(dirname "$f")")" "$n"
   done
 }
 
+test_count_logical_lines_without_trailing_newline() {
+  echo "test_count_logical_lines_without_trailing_newline:"
+  setup_tmp_repo
+  local f="$TMP_DIR/no-final-newline.SKILL.md"
+  printf 'line one\nline two' > "$f"
+  assert_eq "counts final unterminated line" "2" "$(_skill_line_count "$f")"
+}
+
 test_all_skill_bodies_under_cap
+test_count_logical_lines_without_trailing_newline
 
 sd_test_summary
