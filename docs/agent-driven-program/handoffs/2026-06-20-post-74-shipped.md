@@ -21,11 +21,12 @@ Fixed **#74** (`auto:` AC `exit 0` vacuous-pass / TDD false-green) via inline TD
 4. **#71 — PR #70 review follow-ups** incl. **CI SHA-pinning** (`actions/checkout@v4` → pin to SHA). Chore.
 5. **#37 / #38 / #10** — deferred enhancements; cheap cherry-picks exist (#37 strict ADR threshold, #38 redaction leg). #10 (coordinating-parallel-slices) is demand-gated — park unless a real multi-slice need appears.
 
-**Open backlog (7 issues, all enhancement/chore):**
+**Open backlog (8 issues, all enhancement/chore):**
 
 | # | Title | Flavor |
 |---|---|---|
 | **#48** | #33 lean-index C–F + /defer routing + label auto-create | enhancement (substantive) |
+| **#79** | count-aware `auto:` form `expected: ran ≥N` (#74 Option A) | enhancement (this-session follow-up; MINOR on both plugins) |
 | **#77** | closing/planning SKILL.md > 500-line cap | chore (grew slightly this session) |
 | **#76** | direct-mode async review-bundle diff baseline | enhancement (Phase-B follow-up) |
 | **#71** | PR #70 review follow-ups (incl. CI SHA-pin) | chore |
@@ -35,7 +36,7 @@ Fixed **#74** (`auto:` AC `exit 0` vacuous-pass / TDD false-green) via inline TD
 
 ### ⚠️ Two unfinished threads to action
 
-1. **File the deferred #74 Option A issue.** This session attempted to file the count-aware `auto:` form (`expected: ran ≥N`, for runners outside the zero-tests allowlist / wrapper scripts) but **GitHub issue creation was blocked by the auto-mode classifier** (external write not explicitly requested by the user). The scaffold-dev v0.8.1 CHANGELOG references it as a follow-up but it has **no issue number yet** — file it (draft body is in the friction-log memory node) or confirm it's wanted.
+1. ~~File the deferred #74 Option A issue.~~ **DONE — filed as [#79](https://github.com/draco28/claude-agent-scaffolding/issues/79)** (count-aware `auto:` form `expected: ran ≥N` for runners outside the zero-tests allowlist / wrapper scripts). CHANGELOG updated to cite it.
 2. **Operator real-Codex smoke** of the #39 async path is still open (manual; see the prior handoff §2) — CI uses the shim only; no live Codex.
 
 This is the plugin **source** repo (no `.workspace/pairing.json`) — scaffold-dev slice/handoff skills refuse here; develop with the plain `brainstorm → spec → writing-plans → inline TDD → bot-review → release` flow and **manual** handoffs committed to `main`.
@@ -79,7 +80,7 @@ This is the plugin **source** repo (no `.workspace/pairing.json`) — scaffold-d
 
 1. **#48** mechanical batch (most substantive) — brainstorm → build → scaffold-dev patch/minor.
 2. **#77** clean references/ extraction across the two now-oversized (and slightly-more-over after #74) skills.
-3. **File the deferred #74 Option A issue** (count-aware `expected: ran ≥N` form) — quick, unblocks the CHANGELOG reference.
+3. **#79** (count-aware `expected: ran ≥N` form) — the cleanest companion to this session's #74 guard; MINOR bump on both plugins (grammar parser + runtime).
 4. Else a cheap cherry-pick from #37 (ADR threshold) / #38 (redaction) / #71 (CI SHA-pin).
 
 **Target remains zero open backlog.** No bugs remain — the work is now enhancement/chore burn-down.
