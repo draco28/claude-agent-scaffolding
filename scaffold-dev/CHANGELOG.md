@@ -2,6 +2,17 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.11.0] — 2026-06-20
+
+SS-6 — Batch A (#76 + #77): scaffold-dev vertical-slice pass. **Closes #76 and #77.**
+
+### Added
+- **#76 — slice-start baseline for direct-mode review bundles.** New `lib/slice_meta.sh` with `sd_slice_baseline_write` / `sd_slice_baseline_read`: an append-once JSON block between `<!-- sd:baseline:start/end -->` sentinels in the VS README (mirrors the `lib/state.sh` cursor). `planning-vertical-slice` §8.1 records the canonical default-branch HEAD at slice start; `closing-vertical-slice` §7.2a reads it as the review-bundle `--diff-base` in `direct` mode so the async architect-critic audit gets a real `<recorded-base>..HEAD` diff (previously empty + omitted, since the slice is already merged into the default branch by close). Falls back to the mode base when no baseline was recorded (pre-#76 slices) or under `pr_hierarchical`. `sd_review_gate_bundle` itself is unchanged. 7 new tests (`tests/test-slice-meta.sh`).
+- **#77 — 500-line SKILL.md cap guard.** New `tests/test-skill-line-cap.sh` asserts every `scaffold-dev/skills/*/SKILL.md` body is ≤ 500 lines (the self-declared cap, superpowers:writing-skills Pass D).
+
+### Changed
+- **#77 — `closing-vertical-slice` (660 → 490) and `planning-vertical-slice` (729 → 489) brought under the 500-line cap.** Reference-grade prose extracted to `references/*.md` (harvest mechanics, sprint-close cleanup, pr_hierarchical pre-flight + close, backend dispatch, AC-authoring grammar, orchestrate arg-parser); operative steps + seams + load-bearing tokens stay in the body. The §7 review-gate prose is unchanged (seam-pinned by `tests/test-review-gate.sh`). Added the previously-missing 500-line cap anti-pattern to `planning-vertical-slice` §14.
+
 ## [0.10.0] — 2026-06-20
 
 SS-6 — #48 Stage 2: lean-index **marketplace routing** (`/defer --tooling`) + `tech-debt` label auto-create. **Closes #48** (Stage 1 = Parts C/D/E in v0.9.0; Part F shipped in v0.4.0).

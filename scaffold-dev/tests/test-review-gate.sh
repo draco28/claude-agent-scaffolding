@@ -180,6 +180,7 @@ test_bundle_odd_section_args() {
 
 CLOSING_SKILL="$HERE/../skills/closing-vertical-slice/SKILL.md"
 PLANNING_SKILL="$HERE/../skills/planning-vertical-slice/SKILL.md"
+ORCHESTRATE_ARGS="$HERE/../skills/planning-vertical-slice/references/orchestrate-args.md"
 
 # Both §7 sections must drive architect-critic through its REAL async contract
 # (ARCHITECT_CRITIC_ARGS="… --close --async" — informal params don't set async),
@@ -234,6 +235,13 @@ test_seam_prose_closing_vertical_slice() {
   # the undefined <vs-start-commit> placeholder must not reappear (R4-C); the real
   # diff-base / non-empty logic now lives in the tested helper, not the prose.
   assert_file_not_contains "$CLOSING_SKILL" "vs-start-commit"
+  # PR #83 review fix: every manifest-dependent diff-base lookup must be anchored
+  # to the AI workspace because the close flow may have cd'd into canonical.
+  assert_file_contains "$CLOSING_SKILL" 'cd "\$ai_workspace" && sd sprint_branch_name'
+  assert_file_contains "$CLOSING_SKILL" 'cd "\$ai_workspace" && sd manifest_get'
+  # PR #83 review fix: under pr_hierarchical the slice→sprint PR gate must run
+  # before final-slice sprint cleanup.
+  assert_file_contains "$CLOSING_SKILL" 'Then the slice→sprint PR under `pr_hierarchical` .*sprint-close sweep on the final slice'
 }
 
 test_seam_prose_planning_vertical_slice() {
@@ -241,6 +249,17 @@ test_seam_prose_planning_vertical_slice() {
   _seam_async_contract "$PLANNING_SKILL"
   # spec gate keeps the depth upgrade even when async is unavailable (Codex P2a)
   assert_file_contains "$PLANNING_SKILL" "upgrades the default author-depth"
+  # PR #83 review fix: pr_hierarchical worktrees must actually pass the slice
+  # branch as sd_worktree_add's 5th arg, not merely mention it in prose.
+  assert_file_contains "$PLANNING_SKILL" 'sd worktree_add "\$\{work_id\}" "\$\{vs_id\}" "\$\{kebab\}" "\$\{sprint_id\}" "\$\{slice_branch\}"'
+  # PR #83 hardening: baseline default-branch lookup is manifest-dependent.
+  assert_file_contains "$PLANNING_SKILL" 'cd "\$ai_workspace" && sd manifest_get'
+}
+
+test_orchestrate_args_validates_vs_id() {
+  echo "test_orchestrate_args_validates_vs_id:"
+  assert_file_contains "$ORCHESTRATE_ARGS" "orchestrate: invalid VS-id"
+  assert_file_contains "$ORCHESTRATE_ARGS" '\^VS-\[\^\.\]\+\(\\\.\[\^\.\]\+\)\{2\}\$'
 }
 
 test_resolve_default_when_field_absent
@@ -261,5 +280,6 @@ test_bundle_diff_pair_required
 test_bundle_odd_section_args
 test_seam_prose_closing_vertical_slice
 test_seam_prose_planning_vertical_slice
+test_orchestrate_args_validates_vs_id
 
 sd_test_summary
