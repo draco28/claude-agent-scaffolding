@@ -56,6 +56,32 @@ decisions / advisory patterns → `10-decisions-log`; enforceable patterns → a
 machine-checkable rule in `03` (via `authoring-machine-checkable-rules`). **Never**
 append harvested prose into the spec-derived body of `03` / `04`.
 
+## Lean-index pointer conventions
+
+<!-- pointer-conventions:canonical -->
+
+> The memory bank is a **thin index of pointers** — depth lives in addressable
+> external stores, never re-stored as prose (#33/#48). This section is the single
+> source of truth for the pointer forms; skills point here instead of restating them.
+
+When a memory entry would restate content already tracked elsewhere, cite a **pointer**
+instead of copying the prose:
+
+- **Doc anchor** — `<DOC> §<anchor>` where the anchor is a section number, id, or
+  heading title, e.g. `MASTER-SPEC.md §5.2`, `SRS.md §FR-5`. Resolves via
+  `sd citations_check_anchor "<doc-file>" "<anchor>"` (heading must exist).
+- **ADR** — `ADR-<NNNN>` (the id, never the decision prose), e.g. `ADR-0007`. Resolves
+  via `sd citations_check_adr "ADR-NNNN" "<product-adr-dir>" "<process-adr-dir>"`
+  (independent series → both dirs).
+- **GitHub issue** — `#<N>` (filed via `/defer`; indexed in `tech-debt`).
+- **claude-mem** *(only if the claude-mem plugin is present)* — a topic/corpus query,
+  e.g. `claude-mem: "data-pipeline decisions" corpus <name>`, never a transcript. If
+  claude-mem is absent, do not author a claude-mem pointer.
+
+Slice-close harvest enforces this at write time (`closing-vertical-slice` §9.4): a
+candidate that restates tracked content is surfaced as a pointer (resolution-checked),
+not harvested as prose; an over-long entry is flagged by `sd harvest_lint_length`.
+
 ## When to update governance docs
 
 - **ADRs** — say `record ADR` for each architectural decision.

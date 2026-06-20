@@ -170,7 +170,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 A scenario is PASS only if every bullet under its `Assertion` block is judged true. If any bullet fails, the judge returns `FAIL: <bullet text> — <specific deviation observed>` so the skill author can target a fix.
 
-The full eval is GREEN when all 6 scenarios PASS.
+The full eval is GREEN when all 7 scenarios PASS.
 
 ## Out of scope for this eval
 
@@ -232,3 +232,27 @@ merge` invocation before explicit user acknowledgment. FAIL if it merges on
 - The `05-active-context.md` `## Recent decisions`, `## Blockers`, and the entire `<!-- sd:cursor:start -->…<!-- sd:cursor:end -->` JSON block are UNCHANGED (judge diffs the file: only the Current-focus status line + the Next-up line changed). The file is NOT rewritten wholesale / regenerated from a template.
 - No write to any spec-derived file occurs at §12.
 - Target's final assistant message indicates the slice is closed.
+
+---
+
+### S7 — Lean-index pointer channels: restate→pointer with resolution check (#48 C/D/E)
+
+**Setup:**
+- Dual-repo fixture like S1 (slice VS-3.2.1 merged, ready to harvest), with a populated ADR dir: the manifest-routed process-ADR dir contains `adr-0007-retry-backoff-policy.md`.
+- The report "Suggestions for memory bank" prose carries three harvest candidates: (a) a multi-line decision note that **restates the decision already recorded in ADR-0007**; (b) a caveat that cites `MASTER-SPEC.md §5.2`, a heading that **exists** in the fixture MASTER-SPEC; (c) a caveat that cites `SRS.md §FR-9`, a heading that does **not** exist (dangling).
+- The **claude-mem plugin is NOT present** in the session.
+- Pre-injected user follow-ups: accept the surfaced pointers as proposed.
+
+**Trigger:** target subagent user message: `close VS-3.2.1`
+
+**Expected behavior:**
+- At §9.4, for candidate (a) the skill judges it restates `ADR-0007` and surfaces a **pointer** (`ADR-0007`) instead of harvesting the prose, confirming resolution via `sd citations_check_adr "ADR-0007" "<product-adr-dir>" "<process-adr-dir>"` (returns 0).
+- For (b), the cited `MASTER-SPEC.md §5.2` resolves — `sd citations_check_anchor "<…>/MASTER-SPEC.md" "5.2"` returns 0 — accepted as a pointer-bearing entry without a flag.
+- For (c), `sd citations_check_anchor "<…>/SRS.md" "FR-9"` returns non-zero → the skill **flags the dangling pointer** to the user rather than silently writing it.
+- Because claude-mem is absent, the skill authors **no** `claude-mem:` pointer.
+
+**Assertion (judge subagent verifies):**
+- Tool-call log shows `sd citations_check_adr` invoked for the ADR-restating candidate, and that candidate is surfaced as an `ADR-0007` pointer — NOT the multi-line prose (judge confirms the harvested form is the pointer, not the restated paragraph).
+- `sd citations_check_anchor` invoked for both §-anchor candidates; the dangling `SRS.md §FR-9` is surfaced as a flagged/unresolved pointer while the resolving `MASTER-SPEC.md §5.2` is not flagged.
+- No `claude-mem:` pointer appears anywhere in the surfaced candidates or written files (claude-mem absent).
+- FAIL if the ADR-restating prose is harvested verbatim instead of as a pointer, if the dangling anchor is written without a flag, or if a `claude-mem:` pointer is authored when claude-mem is absent.

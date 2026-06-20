@@ -2,6 +2,18 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.9.0] — 2026-06-20
+
+SS-6 — #48 Stage 1 (Parts C/D/E): lean-index **deep-reference channels** — memory entries cite lean pointers (`DOC §anchor`, `ADR-NNNN`, claude-mem) and a slice-close check confirms they still resolve. (Part F shipped earlier in v0.4.0; this stage covers the deferred pointer channels.)
+
+### Added
+- **#48 C/D — doc-anchor + ADR-id citation resolution legs (`lib/citations.sh`).** Two new mechanical legs extend the `verifying-spec-citations` mechanical/agent split to lean-index memory pointers. `sd_citations_check_anchor <doc-file> <anchor>` returns 0 iff a Markdown heading in the doc contains the anchor token (a section number, id, or title fragment) — **heading-only**, so a prose mention does not resolve. `sd_citations_check_adr <adr-id> <adr-dir>...` returns 0 iff any supplied dir holds `adr-<NNNN>-*.md` for the id's number (zero-pad-tolerant: `ADR-3` → `adr-0003`); **manifest-free** so the caller passes the product + process ADR dirs (independent series → both). Semantic drift — whether the cited target still *denotes* what the entry claims — stays the agent's leg; the mechanical legs only confirm the heading/ADR exists. 11 new tests (`tests/test-citations.sh`, 16 total).
+- **#48 C/D/E — write-time pointer enforcement in `closing-vertical-slice` §9.4.** The lean-index harvest nudge now names the pointer conventions, **resolution-checks** a surfaced/harvested pointer via the new legs (so the bank never stores a dangling reference), and adds a **presence-gated** claude-mem topic-pointer channel (Part E — skipped when claude-mem is absent, never authoring a dead pointer). `verifying-spec-citations` §6.2/§11 document the new legs (the ARCH §-ref existence probe can now be mechanized). New eval scenario S7.
+
+### Notes
+- Design-of-record: `docs/SPEC-lean-index-CDEF.md` (§3.3). Part F (#48-F) shipped in v0.4.0 as the agent-judged harvest check + `sd_harvest_lint_length` — **no deterministic mcrule** (the agent-review-over-deterministic-gates principle). Marketplace routing + `tech-debt` label auto-create are Stage 2.
+- README version table corrected from a pre-existing drift (the scaffold-dev / scaffold-onboard rows lagged ~6 minor versions behind `plugin.json`).
+
 ## [0.8.1] — 2026-06-20
 
 SS-6 — #74: close the `auto:` AC `exit 0` vacuous-pass hole (TDD false-green).
