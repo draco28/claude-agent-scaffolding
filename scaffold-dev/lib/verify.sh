@@ -161,9 +161,10 @@ sd_zero_tests_guard() {
     return 0
   fi
 
-  # node --test (TAP summary line).
+  # node --test — the default (spec) reporter prints "ℹ tests 0"; the TAP reporter
+  # (--test-reporter=tap) prints "# tests 0". Cover both summary forms (Codex).
   if printf '%s' "$cmd" | grep -Eq 'node[[:space:]].*--test'; then
-    if printf '%s' "$out" | grep -Eq '# tests 0([^0-9]|$)'; then return 1; fi
+    if printf '%s' "$out" | grep -Eq '(# tests 0|ℹ tests 0)([^0-9]|$)'; then return 1; fi
     return 0
   fi
 

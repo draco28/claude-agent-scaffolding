@@ -477,14 +477,24 @@ test_ztg_vitest_passwithnotests() {
   assert_eq "vitest passWithNoTests → VACUOUS rc=1" "1" "$rc"
 }
 
-# 41. node --test, zero tests → VACUOUS (TAP summary)
+# 41. node --test, zero tests → VACUOUS (TAP reporter summary: "# tests 0")
 test_ztg_node_test_zero() {
   echo "test_ztg_node_test_zero:"
   set +e
-  sd_zero_tests_guard 'node --test test/feed.test.js' \
+  sd_zero_tests_guard 'node --test --test-reporter=tap test/feed.test.js' \
     "$(printf '# tests 0\n# pass 0\n# fail 0\n')" >/dev/null 2>&1
   local rc=$?; set -e
-  assert_eq "node --test 0 tests → VACUOUS rc=1" "1" "$rc"
+  assert_eq "node --test (tap) 0 tests → VACUOUS rc=1" "1" "$rc"
+}
+
+# 41b. node --test default (spec) reporter, zero tests → VACUOUS ("ℹ tests 0")
+test_ztg_node_test_zero_default() {
+  echo "test_ztg_node_test_zero_default:"
+  set +e
+  sd_zero_tests_guard 'node --test test/feed.test.js' \
+    "$(printf '\xe2\x84\xb9 tests 0\n\xe2\x84\xb9 pass 0\n\xe2\x84\xb9 fail 0\n')" >/dev/null 2>&1
+  local rc=$?; set -e
+  assert_eq "node default reporter 0 tests → VACUOUS rc=1" "1" "$rc"
 }
 
 # 42. cargo test — SOME passed, SOME filtered → NOT vacuous (the headline false-positive trap)
@@ -710,6 +720,7 @@ test_ztg_go_no_tests_to_run
 test_ztg_jest_passwithnotests
 test_ztg_vitest_passwithnotests
 test_ztg_node_test_zero
+test_ztg_node_test_zero_default
 test_ztg_cargo_some_passed_some_filtered
 test_ztg_cargo_multibinary_mixed
 test_ztg_pytest_all_passed
