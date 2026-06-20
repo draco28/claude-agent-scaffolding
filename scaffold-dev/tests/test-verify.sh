@@ -392,6 +392,32 @@ test_redgate_dispatcher_expected_exit_n_invalid() {
   assert_eq "dispatcher: invalid expected exit code is errored" "2" "$rc"
 }
 
+# 32b. redgate + #74 — a vacuous green (recognized runner, exit 0, zero tests) is
+#      RED (missing test), not "already GREEN", so the implementer proceeds.
+#      `cargo` is stubbed + EXPORTED so redgate's `bash -c` subprocess sees it.
+test_redgate_zero_tests_is_red() {
+  echo "test_redgate_zero_tests_is_red:"
+  cargo() { printf 'running 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out\n'; return 0; }
+  export -f cargo
+  set +e
+  sd_redgate_assert_red 'cargo test --lib feed'
+  local rc=$?; set -e
+  unset -f cargo
+  assert_eq "redgate: vacuous cargo exit-0 is RED (0), not GREEN" "0" "$rc"
+}
+
+# 32c. redgate + #74 — a GENUINE pass (>=1 test ran) is still already-GREEN (1).
+test_redgate_real_pass_still_green() {
+  echo "test_redgate_real_pass_still_green:"
+  cargo() { printf 'running 3 tests\n...\ntest result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out\n'; return 0; }
+  export -f cargo
+  set +e
+  sd_redgate_assert_red 'cargo test --lib feed'
+  local rc=$?; set -e
+  unset -f cargo
+  assert_eq "redgate: genuine 3-passed cargo is already GREEN (1)" "1" "$rc"
+}
+
 # ── zero-tests guard (#74) ────────────────────────────────────────────────
 # sd_zero_tests_guard <cmd> <captured_output>: 0 = SAFE, 1 = VACUOUS.
 # Pure(cmd, output) — fed canned runner output, no real runners invoked.
@@ -579,6 +605,27 @@ test_ztg_go_run_multipkg() {
   assert_eq "go -run multi-pkg one ran → SAFE rc=0" "0" "$rc"
 }
 
+# 46e. go -C form: `go -C dir test …` is still a go test run (Codex)
+test_ztg_go_C_form() {
+  echo "test_ztg_go_C_form:"
+  set +e
+  sd_zero_tests_guard 'go -C backend test -run NoMatch ./...' \
+    "$(printf '?   backend/pkg/feed  [no test files]\n')" >/dev/null 2>&1
+  local rc=$?; set -e
+  assert_eq "go -C test, zero collected → VACUOUS rc=1" "1" "$rc"
+}
+
+# 46f. go -json -run NoMatch (pkg HAS tests, none match): only a package-level
+#      pass record (no "Test" field) is emitted → still VACUOUS (Codex)
+test_ztg_go_json_pkg_pass_only() {
+  echo "test_ztg_go_json_pkg_pass_only:"
+  set +e
+  sd_zero_tests_guard 'go test -json -run NoMatch ./pkg/feed' \
+    "$(printf '{"Action":"run","Package":"ex/pkg/feed"}\n{"Action":"output","Package":"ex/pkg/feed","Output":"testing: warning: no tests to run\\n"}\n{"Action":"output","Package":"ex/pkg/feed","Output":"PASS\\n"}\n{"Action":"pass","Package":"ex/pkg/feed","Elapsed":0.002}\n')" >/dev/null 2>&1
+  local rc=$?; set -e
+  assert_eq "go -json package-level pass only → VACUOUS rc=1" "1" "$rc"
+}
+
 # 47. non-runner — `true` → SAFE (no runner token)
 test_ztg_nonrunner_true() {
   echo "test_ztg_nonrunner_true:"
@@ -711,6 +758,8 @@ test_redgate_dispatcher_errored
 test_redgate_dispatcher_expected_exit_n_green
 test_redgate_dispatcher_expected_exit_127_is_error
 test_redgate_dispatcher_expected_exit_n_invalid
+test_redgate_zero_tests_is_red
+test_redgate_real_pass_still_green
 test_ztg_pytest_collected_zero
 test_ztg_pytest_k_no_match
 test_ztg_cargo_filtered_all
@@ -729,6 +778,8 @@ test_ztg_jest_real_run
 test_ztg_cargo_with_options
 test_ztg_go_json_mixed
 test_ztg_go_run_multipkg
+test_ztg_go_C_form
+test_ztg_go_json_pkg_pass_only
 test_ztg_nonrunner_true
 test_ztg_nonrunner_ls
 test_ztg_adversarial_unrelated_output

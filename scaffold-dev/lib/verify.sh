@@ -132,17 +132,22 @@ sd_zero_tests_guard() {
     return 0
   fi
 
-  # go test. Zero-collection markers: `[no test files]` (no _test.go in a pkg) or
-  # `no tests to run` (a -run filter matched nothing). A multi-package `./...` run
-  # is NOT vacuous if any sibling package actually ran — so before firing, suppress
-  # on any genuine-pass evidence in EITHER plain or -json form (Codex #1/#2):
-  #   • `--- PASS:`                  (verbose plain)
-  #   • -json `"Action":"pass"|"run"`(passes are embedded in JSON, not `^ok` lines)
+  # go test. The cmd regex allows option tokens between `go` and `test` so the
+  # `-C dir` form (`go -C backend test …`) is covered (Codex). Zero-collection
+  # markers: `[no test files]` (no _test.go in a pkg) or `no tests to run` (a -run
+  # filter matched nothing). A multi-package `./...` run is NOT vacuous if any
+  # sibling package actually ran — so before firing, suppress on genuine
+  # TEST-LEVEL pass evidence in plain or -json form:
+  #   • `--- PASS:`                              (verbose plain)
+  #   • a -json event carrying a pass/run Action AND a "Test" field — a
+  #     package-level `{"Action":"pass","Package":…}` (no "Test") is emitted even
+  #     for an all-filtered run, so it is NOT evidence (Codex).
   #   • an `ok <pkg>` summary line that does NOT carry a `[no tests…]` note
   #     (a bare `ok pkg` is a real pass; `ok pkg [no tests to run]` is not).
-  if printf '%s' "$cmd" | grep -Eq '(^|[^[:alnum:]])go[[:space:]]+test'; then
+  if printf '%s' "$cmd" | grep -Eq '(^|[^[:alnum:]])go[[:space:]]+([^[:space:]]+[[:space:]]+)*test([[:space:]]|$)'; then
     if printf '%s' "$out" | grep -Eq 'no tests to run|no test files'; then
-      if printf '%s' "$out" | grep -Eq '[-]{3} PASS:|"Action":"(pass|run)"'; then return 0; fi
+      if printf '%s' "$out" | grep -Eq '[-]{3} PASS:'; then return 0; fi
+      if printf '%s' "$out" | grep -Eq '"Action":"(pass|run)"[^}]*"Test":"|"Test":"[^}]*"Action":"(pass|run)"'; then return 0; fi
       if printf '%s' "$out" | grep -E '^ok[[:space:]]' | grep -vqE '\[no tests'; then return 0; fi
       return 1
     fi
@@ -198,7 +203,17 @@ sd_redgate_assert_red() {
         sd_log_error "sd_redgate_assert_red: invalid exit code in expected form: $expected"
         return 2
       fi
-      if [[ "$rc" -eq "$code" ]]; then return 1; fi
+      if [[ "$rc" -eq "$code" ]]; then
+        # #74: a vacuous green (a recognized test runner that exited 0 having
+        # collected ZERO tests) is NOT a genuine pass — for an `exit 0` predicate,
+        # treat it as RED (the desired pre-flight state: the test is missing) so
+        # the implementer proceeds to author it instead of hard-blocking as
+        # "already GREEN". Keeps `exit 0` semantics consistent with the verify gate.
+        if [[ "$code" -eq 0 ]] && ! sd_zero_tests_guard "$cmd" "$output"; then
+          return 0
+        fi
+        return 1
+      fi
       ;;
     "output contains "*)
       local needle="${expected#output contains }"
