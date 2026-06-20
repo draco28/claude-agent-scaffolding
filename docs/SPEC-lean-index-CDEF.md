@@ -59,11 +59,11 @@ The validator lives as **mechanical legs in `scaffold-dev/lib/citations.sh`** (t
 **Leg contracts (mirror the existing `sd_citations_check_file` contract: rc 0 = resolves, rc 1 + `sd_log_warn` on miss, no stdout, manifest-free/pure):**
 
 - **`sd_citations_check_anchor <doc-file> <anchor>`** (Part C, mechanical)
-  - rc 0 iff `<doc-file>` exists **and** it contains a markdown heading (`^#{1,6} …`) resolving to `<anchor>` (the anchor token appears in a heading line — a section number like `5.2` or a title fragment). rc 1 + warn otherwise.
+  - rc 0 iff `<doc-file>` exists **and** it contains a markdown heading (`^#{1,6} …`) resolving to `<anchor>`. Structured section/id tokens like `5.2`, `FR-5`, and `NFR-10` require token boundaries so adjacent headings (`15.20`, `FR-50`) do not false-resolve; title fragments remain literal substring matches, and matching quotes around a title anchor are ignored. rc 1 + warn otherwise.
   - *Semantic drift* (the heading still denotes what the memory entry claims) is the **agent's** leg — judged in the skill, NOT in this file (same boundary as ARCH-§).
 
 - **`sd_citations_check_adr <adr-id> <adr-dir>…`** (Part D, mechanical)
-  - rc 0 iff any supplied `<adr-dir>` contains a file matching the id's numeric portion (`adr-<NNNN>-*.md`, case-insensitive on `ADR-`). rc 1 + warn otherwise.
+  - rc 0 iff any supplied `<adr-dir>` contains a file matching the id's numeric portion (`adr-<NNNN>-*.md` or scaffold-onboard's seeded `<NNNN>-*.md`; case-insensitive on the cited `ADR-`). rc 1 + warn otherwise.
   - The **caller** resolves the product-ADR and process-ADR dirs from the manifest (`recording-architecture-decision` routing — independent series, so pass **both** dirs) and passes them in. Keeping the helper manifest-free preserves the file's purity and testability (fixture dirs).
 
 ### 3.4 Part E — convention-only, presence-gated
@@ -113,7 +113,7 @@ Release mechanics per program SPEC §9: bump both `.claude-plugin/plugin.json` +
 ## 6. Testing
 
 - **Per stage: run the FULL suite for each touched plugin** ([[feedback_full_suite_when_verifying_subagents]]) + repo-root `tests/test-codex-dual-publish.sh` after any version bump ([[reference_codex_dual_publish_test_location]]). scaffold-onboard suites are slow (55–75s) — background + generous timeouts ([[feedback_scaffold_onboard_test_suites_are_slow]]).
-- **Stage 1 (mechanical, bash asserts in `test-citations.sh`):** `sd_citations_check_anchor` — heading present (numeric + title forms) → rc 0; heading absent → rc 1; missing doc-file → rc 1. `sd_citations_check_adr` — id present in product dir → rc 0; present in process dir → rc 0; absent in both → rc 1; multiple dirs scanned.
+- **Stage 1 (mechanical, bash asserts in `test-citations.sh`):** `sd_citations_check_anchor` — heading present (numeric + title forms) → rc 0; structured-token false positives / empty anchors / heading absent / missing doc-file → rc 1. `sd_citations_check_adr` — id present in product dir → rc 0; present in process dir → rc 0; scaffold-onboard seed filename resolves; malformed/absent IDs → rc 1; multiple dirs scanned.
 - **Stage 1 (agent decisions, LLM-judge evals):** the C/D semantic-drift legs (cited anchor/ADR still denotes the claimed thing); the §9.4 pointer nudge surfaces a pointer not prose; the Part-E claude-mem nudge fires **only when** claude-mem is present.
 - **Stage 2 (mechanical, `test-pr.sh` + workspace-init manifest tests):** `tooling_repo` optional/validated/absent; `/defer --tooling` targets the tooling repo while absent-field → canonical fallback + message; `sd_label_ensure` creates-if-missing + idempotent (gh PATH-shim — extend for `label create`).
 - **Stage 2 (evals):** `/defer --tooling` routes correctly; the label-create offer is surfaced (not silent) and skippable.
@@ -121,7 +121,7 @@ Release mechanics per program SPEC §9: bump both `.claude-plugin/plugin.json` +
 ---
 
 ## 7. Open items carried into planning
-- Exact `§anchor` heading-match rule in `sd_citations_check_anchor` (numeric `§5.2` vs title fragment vs optional quoted title) — keep lean; reuse the ARCH-§ matching intent. Settle in Stage 1 writing-plans.
+- Exact `§anchor` heading-match rule in `sd_citations_check_anchor` settled in Stage 1: structured numeric/id anchors are boundary-aware; title fragments remain literal; optional matching quotes around title anchors are ignored.
 - `tooling_repo` sub-schema field set + the exact `pairing.json` validation messages — settle in Stage 2 writing-plans (mirror `canonical`).
 - Whether scaffold-onboard's Stage-1 change is a patch (doc-only template prose) or minor (new convention surface) — decide at implementation.
 - The repo-root parameter shape on `sd_issue_create`/`sd_issue_list` (positional vs `--repo-root`) — pick the least-disruptive at Stage 2 (keep A+B callers byte-compatible).

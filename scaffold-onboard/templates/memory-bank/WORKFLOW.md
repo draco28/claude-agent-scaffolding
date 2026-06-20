@@ -68,10 +68,12 @@ When a memory entry would restate content already tracked elsewhere, cite a **po
 instead of copying the prose:
 
 - **Doc anchor** — `<DOC> §<anchor>` where the anchor is a section number, id, or
-  heading title, e.g. `MASTER-SPEC.md §5.2`, `SRS.md §FR-5`. Resolves via
+  heading title, e.g. `MASTER-SPEC.md §5.2`, `SRS.md §FR-5`. Resolves via the
+  `sd_citations_check_anchor` helper, normally invoked as dispatcher command
   `sd citations_check_anchor "<doc-file>" "<anchor>"` (heading must exist).
 - **ADR** — `ADR-<NNNN>` (the id, never the decision prose), e.g. `ADR-0007`. Resolves
-  via `sd citations_check_adr "ADR-NNNN" "<product-adr-dir>" "<process-adr-dir>"`
+  via the `sd_citations_check_adr` helper, normally invoked as dispatcher command
+  `sd citations_check_adr "ADR-NNNN" "<product-adr-dir>" "<process-adr-dir>"`
   (independent series → both dirs).
 - **GitHub issue** — `#<N>` (filed via `/defer`; indexed in `tech-debt`).
 - **claude-mem** *(only if the claude-mem plugin is present)* — a topic/corpus query,
