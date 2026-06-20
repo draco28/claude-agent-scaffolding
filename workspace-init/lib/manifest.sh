@@ -395,13 +395,15 @@ wi_manifest_read() {
     return 0
   fi
 
-  # Field requested. Use `jq -e` so the exit code reflects truth-vs-presence.
-  # We explicitly treat JSON null OR missing key as failure.
+  # Field requested. Honor the contract above: a present, non-null value (INCLUDING
+  # boolean false / 0) is returned; only a missing key, a non-indexable path, or JSON
+  # null counts as "missing". Do NOT use `// empty` or `jq -e` here — jq's `//` and
+  # `-e` both treat false/0 as falsy, which would mis-read git_tracked:false and the
+  # allow_ai_* booleans (#71/#84, Devin). `try … catch null` swallows path-index
+  # errors (e.g. `.does.not.exist`) the way the old `2>/dev/null` did.
   local result
-  if ! result="$(jq -e -r "${field} // empty" "$manifest" 2>/dev/null)"; then
-    return 1
-  fi
-  if [[ -z "$result" || "$result" == "null" ]]; then
+  result="$(jq -r "try (${field}) catch null | if . == null then empty else . end" "$manifest" 2>/dev/null)"
+  if [[ -z "$result" ]]; then
     return 1
   fi
   echo "$result"

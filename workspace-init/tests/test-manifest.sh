@@ -163,6 +163,31 @@ test_A9_well_known_paths_roadmap_state() {
   assert_eq "${aw}/.workspace/project-roadmap.json" "$resolved" || return 1
 }
 
+# A10 — #84 (Devin): wi_manifest_read must return a present boolean false (not treat
+# it as missing). Its own contract comment says false is present-with-value; `// empty`
+# violated that. Covers the new git_tracked:false AND the pre-existing allow_ai_* falses.
+test_A10_read_returns_present_boolean_false() {
+  local d="$_WI_TMP/a10"; local ai="$d/foo-ai" cn="$d/foo"
+  mkdir -p "$ai/.workspace" "$cn"
+  wi_manifest_write "$ai" "$cn" personal --ai-git-tracked false >/dev/null 2>&1 || return 1
+  # A present false boolean returns "false" with exit 0 …
+  local v; v="$(wi_manifest_read "$ai" '.ai_workspace.git_tracked')" \
+    || { echo "    read returned nonzero for present git_tracked:false"; return 1; }
+  assert_eq "false" "$v" || return 1
+  local p; p="$(wi_manifest_read "$ai" '.git_policy.allow_ai_push')" \
+    || { echo "    read returned nonzero for allow_ai_push:false"; return 1; }
+  assert_eq "false" "$p" || return 1
+  # … a present true boolean too …
+  local e; e="$(wi_manifest_read "$ai" '.git_policy.trace_filter.enforce')" || return 1
+  assert_eq "true" "$e" || return 1
+  # … but JSON null (no remote) and a missing key are still "missing".
+  wi_manifest_read "$ai" '.ai_workspace.git_remote' >/dev/null 2>&1 \
+    && { echo "    read should treat JSON null as missing"; return 1; }
+  wi_manifest_read "$ai" '.does.not.exist' >/dev/null 2>&1 \
+    && { echo "    read should treat a missing path as missing"; return 1; }
+  return 0
+}
+
 # ---------------------------------------------------------------------------
 # B. ${var} resolution (3 tests)
 # ---------------------------------------------------------------------------
@@ -371,6 +396,7 @@ wi_test_run test_A6_during_dev_block_complete
 wi_test_run test_A7_git_policy_blocked_patterns_complete
 wi_test_run test_A8_created_at_and_created_by_present
 wi_test_run test_A9_well_known_paths_roadmap_state
+wi_test_run test_A10_read_returns_present_boolean_false
 
 # B
 wi_test_run test_B1_resolve_ai_workspace_root

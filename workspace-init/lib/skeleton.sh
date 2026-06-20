@@ -35,20 +35,21 @@ _wi_skeleton_log_once() {
 
 # wi_git_is_linked_worktree <dir>
 #
-# True (exit 0) when <dir> is a LINKED git worktree (created via `git worktree add`)
-# rather than a standalone repo: its `.git` is a regular FILE redirecting to the main
-# repo's `.git/worktrees/<name>`, so `<dir>/.git/hooks` does not exist and the
-# trace-filter commit-msg hook would silently fail to install (#71). We reject these
-# at preflight rather than half-supporting them — pair against the main working tree.
-# Returns non-zero for a standalone repo, a non-repo, or a missing/empty arg.
+# True (exit 0) when <dir> is a LINKED git worktree (created via `git worktree add`):
+# its `.git` redirects to the main repo's `.git/worktrees/<name>`, so `<dir>/.git/hooks`
+# does not exist and the trace-filter commit-msg hook would silently fail to install
+# (#71). We reject these at preflight rather than half-supporting them — pair against
+# the main working tree. Returns non-zero for a standalone repo, a non-repo, or an
+# empty arg.
+#
+# A LINKED worktree is the ONLY repo shape where --git-dir (…/.git/worktrees/<name>)
+# differs from --git-common-dir (…/.git). A standalone repo whose `.git` is a FILE — a
+# `--separate-git-dir` checkout or a submodule — keeps the two EQUAL and has a working
+# hooks dir, so matching on `.git`-is-a-file alone would wrongly reject it (#84). Compare
+# the two dirs instead.
 wi_git_is_linked_worktree() {
   local dir="${1:-}"
   [[ -n "$dir" ]] || return 1
-  # Fast path: the main working tree has `.git` as a directory; a linked worktree
-  # (or any gitfile redirect) has it as a regular file.
-  [[ -f "$dir/.git" ]] && return 0
-  # Robust cross-check: in a linked worktree, --git-dir (…/.git/worktrees/<name>)
-  # differs from --git-common-dir (…/.git); in a main working tree they're equal.
   local git_dir common_dir
   git_dir="$(git -C "$dir" rev-parse --git-dir 2>/dev/null)" || return 1
   common_dir="$(git -C "$dir" rev-parse --git-common-dir 2>/dev/null)" || return 1

@@ -29,6 +29,9 @@ jobs:
       - name: Checkout
         # SHA-pinned for supply-chain hardening (#71). Update the SHA + comment together on bump.
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          # No step pushes/fetches with the token, so don't leave it in .git/config (#84).
+          persist-credentials: false
 
       - name: Tool versions
         run: |
