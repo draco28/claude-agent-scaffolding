@@ -44,14 +44,9 @@ Phase 1 RED→GREEN: this body's behavior is contracted by `scaffold-dev/evals/c
 
 All four phrase forms are load-bearing in the description block above — the four eval scenarios trigger via description-match on each, so do not paraphrase any of them in your acknowledgement.
 
-**Do NOT auto-invoke when:**
+**Do NOT auto-invoke when:** any work item is not yet `mode: complete` (route back to `planning-vertical-slice` §8) or verified-but-not-committed/merged (§8.6 hasn't run — route back); the slice dir is missing or has no work-item subdirs (surface the §3.4 error, stop); or the user wants to *plan* a slice (`planning-vertical-slice`) or *execute* a work item (the implementer-agent subagent).
 
-- Any work item in the slice has NOT yet returned `mode: complete` from its implementer-agent — route back to `planning-vertical-slice` §8 to finish the round.
-- Any work item has been verified but NOT committed + merged — `implementation-checking` returned green but the orchestrator's commit + merge step (§8.6) has not run; route back.
-- The slice directory does not exist or contains no work-item subdirs — surface the missing-slice error (§3.4) and stop.
-- The user wants to *plan* a new slice (that's `planning-vertical-slice`) or *execute* a work item (that's the implementer-agent subagent).
-
-If the user types something ambiguous like "we're done with VS-1.1.1", confirm: *"Run the slice-close ceremony for VS-1.1.1 (auto-demo → manual-demo → architect-critic → retrospective + harvest → worktree cleanup)?"*. The ceremony is destructive at the cleanup step — never auto-advance past the user's intent confirmation when the trigger phrase isn't explicit.
+On an ambiguous trigger ("we're done with VS-1.1.1"), confirm before running — *"Run the slice-close ceremony for VS-1.1.1 (auto-demo → manual-demo → architect-critic → retrospective + harvest → worktree cleanup)?"* — the ceremony is destructive at cleanup; never auto-advance past intent confirmation when the trigger phrase isn't explicit.
 
 ---
 
