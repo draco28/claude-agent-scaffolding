@@ -2,6 +2,13 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.9.2] — 2026-06-20
+
+SS-6 — #48 Stage 1 (Part E + C/D conventions): the memory-bank templates document the lean-index pointer conventions.
+
+### Added
+- **Lean-index pointer conventions in the memory-bank templates (#48 C/D/E).** `WORKFLOW.md` gains a single-source **Lean-index pointer conventions** section listing the pointer forms (`DOC §anchor`, `ADR-NNNN`, GitHub `#N`, and a presence-gated `claude-mem` topic query, never a transcript); the `09-known-issues` and `10-decisions-log` headers point to it ("cite a pointer, not prose"). **Documentation-only** — seeded-template prose, no behavioral or derivation change. Resolution of the doc-anchor / ADR pointers is enforced at slice-close harvest by scaffold-dev v0.9.0 helper APIs (`sd_citations_check_anchor` / `sd_citations_check_adr`) invoked through dispatcher commands (`sd citations_check_anchor` / `sd citations_check_adr`). Design-of-record: `docs/SPEC-lean-index-CDEF.md`.
+
 ## [0.9.1] — 2026-06-16
 
 ### Fixed
