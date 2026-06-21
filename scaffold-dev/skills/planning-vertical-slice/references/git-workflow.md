@@ -101,11 +101,14 @@ Before merging ANY PR (slice→sprint or sprint→main), the orchestrator:
      the disposition loop below), a verdict made against an earlier commit is stale; a
      fresh re-review must confirm on the **new head sha**. Detect it from `sd pr_state`:
      a review whose `submittedAt` predates the head `commits[-1].committedDate` is stale.
-     (`sd pr_state` doesn't surface the exact per-review commit id or per-check
-     `description`; the timestamp + comment-body signals above keep the gate within the
-     two `sd` calls — an exact-sha / check-text upgrade would need a dedicated `sd`
-     primitive.) A latest commit with no review yet ⇒ re-review still incoming — note
-     it; don't treat absence as approval.
+     This timestamp proxy can over-count freshness in one edge case — a commit authored
+     before a review but **pushed after** it (the reviewer never saw the new head) — that
+     an exact per-review `commit_id` comparison would catch; `sd pr_state` surfaces
+     neither that commit id nor the per-check `description`, so closing that edge needs a
+     dedicated `sd` primitive (deferred follow-up). When the proxy is ambiguous,
+     **re-trigger the reviewer and confirm on the head** rather than trust the dates. A
+     latest commit with no review yet ⇒ re-review still incoming — note it; don't treat
+     absence as approval.
 3. SURFACES unresolved review comments + CI state + any absent/stale reviewer to the
    user and ASKS. A **P1/blocking finding is NEVER ack-to-merge — it MUST be fixed
    first** (severity bar below); explicit user acknowledgment only ever covers an
