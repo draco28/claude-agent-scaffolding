@@ -283,6 +283,11 @@ test_seam_premerge_gate_contract() {
   assert_file_contains "$GIT_WORKFLOW" "CodeRabbit disables auto-review"
   assert_file_contains "$GIT_WORKFLOW" "Review skipped"
   assert_file_contains "$GIT_WORKFLOW" "new head sha"
+  # Pin the staleness clause by phrases UNIQUE to it — "new head sha" alone also appears
+  # in the disposition-loop Fix bullet, so deleting the whole Staleness paragraph would
+  # otherwise leave this test green (Codex PR #87).
+  assert_file_contains "$GIT_WORKFLOW" "Staleness"
+  assert_file_contains "$GIT_WORKFLOW" "predates the head"
 }
 
 test_resolve_default_when_field_absent

@@ -89,9 +89,11 @@ Before merging ANY PR (slice→sprint or sprint→main), the orchestrator:
      not a bare check `conclusion`: the **review / conversation comment body** —
      returned by `sd pr_state` in `reviews` + `comments` — is where a *skipped /
      disabled / queued / no-verdict* state shows up; treat that as **absent (not
-     green)**, never as approval. Canonical case: **CodeRabbit disables auto-review** on
-     any base branch other than the repo default, so a `slice/* → sprint-N` PR
-     (non-default base) is **never auto-reviewed** — CodeRabbit leaves the comment
+     green)**, never as approval. Canonical case (CodeRabbit's **default** config):
+     **CodeRabbit disables auto-review** on any base branch other than the repo default
+     (a repo can widen this via `reviews.auto_review.base_branches` — confirm from the
+     actual signal), so a `slice/* → sprint-N` PR (non-default base) is normally **not
+     auto-reviewed**; CodeRabbit leaves the comment
      *"Review skipped — auto reviews are disabled on base branches other than the
      default branch."* (The `sprint-N → main` PR has the default base, so it IS
      auto-reviewed.) Remediation: surface for ack and/or trigger the reviewer
@@ -113,9 +115,11 @@ Before merging ANY PR (slice→sprint or sprint→main), the orchestrator:
    user and ASKS. A **P1/blocking finding is NEVER ack-to-merge — it MUST be fixed
    first** (severity bar below). A non-blocking finding the user accepts at merge is
    **deferred, not waved through** — record it `deferred → #N` via the disposition loop
-   below; an **absent/stale reviewer** may be acked. **Never auto-merge over an
-   un-dispositioned finding, an un-acked absent/stale reviewer, or a blocking finding at
-   all.**
+   below. An **absent / skipped reviewer** (never ran) may be acked; a **stale verdict**
+   (a fix commit landed after it) is **NOT** ackable — it needs a fresh re-review on the
+   new head per the loop's Fix step. **Never auto-merge over an un-dispositioned finding,
+   an un-acked absent/skipped reviewer, a stale verdict awaiting re-review, or a blocking
+   finding.**
 4. On the user's decision: `sd pr_merge <pr> [--auto]`, leave open, or wait.
    The gate does NOT busy-wait / poll the conversation on CI.
 
