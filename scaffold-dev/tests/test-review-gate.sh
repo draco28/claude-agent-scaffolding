@@ -181,6 +181,7 @@ test_bundle_odd_section_args() {
 CLOSING_SKILL="$HERE/../skills/closing-vertical-slice/SKILL.md"
 PLANNING_SKILL="$HERE/../skills/planning-vertical-slice/SKILL.md"
 ORCHESTRATE_ARGS="$HERE/../skills/planning-vertical-slice/references/orchestrate-args.md"
+GIT_WORKFLOW="$HERE/../skills/planning-vertical-slice/references/git-workflow.md"
 
 # Both §7 sections must drive architect-critic through its REAL async contract
 # (ARCHITECT_CRITIC_ARGS="… --close --async" — informal params don't set async),
@@ -262,6 +263,28 @@ test_orchestrate_args_validates_vs_id() {
   assert_file_contains "$ORCHESTRATE_ARGS" '\^VS-\[\^\.\]\+\(\\\.\[\^\.\]\+\)\{2\}\$'
 }
 
+# --- #82: pre-merge gate completeness contract -------------------------------
+# git-workflow.md is the SINGLE source of the agent-driven pre-merge gate. The
+# gate is binding agent judgment by design, so these seam lints pin only a small
+# set of load-bearing phrases that uniquely identify the two clauses and the
+# deterministic-check boundary.
+test_seam_premerge_gate_contract() {
+  echo "test_seam_premerge_gate_contract:"
+  # Finding-disposition loop
+  assert_file_contains "$GIT_WORKFLOW" "Finding-disposition loop"
+  assert_file_contains "$GIT_WORKFLOW" "P1/blocking"
+  assert_file_contains "$GIT_WORKFLOW" "deferral, not a silent pass"
+  assert_file_contains "$GIT_WORKFLOW" "not waved through"
+  # Reviewer-completeness
+  assert_file_contains "$GIT_WORKFLOW" "actual review/comment signal"
+  assert_file_contains "$GIT_WORKFLOW" "in-progress reviewer must be waited for"
+  assert_file_contains "$GIT_WORKFLOW" "stale verdict needs re-review"
+  assert_file_contains "$GIT_WORKFLOW" "CodeRabbit's default configuration"
+  assert_file_contains "$GIT_WORKFLOW" "sprint→main targets the"
+  # Agent-judgment boundary
+  assert_file_contains "$GIT_WORKFLOW" "Deterministic checks stay only for"
+}
+
 test_resolve_default_when_field_absent
 test_resolve_field_both
 test_resolve_field_slice_close
@@ -281,5 +304,6 @@ test_bundle_odd_section_args
 test_seam_prose_closing_vertical_slice
 test_seam_prose_planning_vertical_slice
 test_orchestrate_args_validates_vs_id
+test_seam_premerge_gate_contract
 
 sd_test_summary

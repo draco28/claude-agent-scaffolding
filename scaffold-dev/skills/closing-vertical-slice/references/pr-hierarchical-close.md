@@ -32,4 +32,4 @@ Runs AFTER §9 harvest + §10 worktree cleanup (work-item worktree/branch cleanu
    ```bash
    slice_pr="$(sd pr_open "$slice_branch" "$sprint_branch" "${vs_id}: <slice title>" "<body-file>")"
    ```
-4. **Run the agent-driven pre-merge gate** per `git-workflow.md` (`sd pr_state "$slice_pr"` + `sd pr_review_comments "$slice_pr"` → reason over CI **and** inline review comments → surface → ask). Merge via `sd pr_merge` only on explicit user acknowledgment. If the PR is left open for asynchronous CI/review, HALT before §11: report the PR URL/number and do NOT run sprint-close cleanup or tell the user the slice/sprint is closed. Do NOT busy-wait.
+4. **Run the pre-merge gate** (finding-disposition loop + reviewer-completeness) per `git-workflow.md`, then merge via `sd pr_merge` only on explicit user direction. If the PR is left open for asynchronous CI/review, HALT before §11: report the PR URL/number and do NOT run sprint-close cleanup or tell the user the slice/sprint is closed. Do NOT busy-wait.

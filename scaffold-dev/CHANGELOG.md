@@ -2,6 +2,18 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.12.0] — 2026-06-21
+
+SS-6 — #82: complete the multi-reviewer pre-merge gate. **Closes #82.**
+
+### Added
+- **#82 — finding-disposition loop.** The agent-driven pre-merge gate in `planning-vertical-slice/references/git-workflow.md` is now the single source for the per-PR resolution rule: every reviewer finding is fixed or recorded before merge; P1/blocking findings must be fixed first; non-blocking findings accepted at merge become tracked deferrals rather than silent passes.
+- **#82 — reviewer-completeness.** The gate now says a green check is not proof a reviewer ran: the agent reads `sd pr_state` (`statusCheckRollup`, reviews, comments, commits) plus `sd pr_review_comments`, then judges the actual review/comment signal. Skipped reviewers are not approvals, queued/in-progress reviewers are waited for, stale verdicts after a fix require re-review on the new head, and the CodeRabbit non-default-base skip is kept as a brief default-config example while sprint→main remains the normal default-base reviewed path.
+- **#82 — anti-rot seam-lint.** `tests/test-review-gate.sh` gains `test_seam_premerge_gate_contract`, pinning the simplified gate clauses against `git-workflow.md` with a small set of load-bearing assertions.
+
+### Notes
+- **Prose-only enhancement — no new `sd` helper.** Baking semantic reviewer detection into bash was rejected per the agent-review-over-deterministic-gates principle: `git-workflow.md` keeps deterministic checks only for mechanical git/`gh` facts. The `closing-vertical-slice` and `writing-sprint-retrospective` call sites now point back to that single source instead of restating the gate.
+
 ## [0.11.0] — 2026-06-20
 
 SS-6 — Batch A (#76 + #77): scaffold-dev vertical-slice pass. **Closes #76 and #77.**

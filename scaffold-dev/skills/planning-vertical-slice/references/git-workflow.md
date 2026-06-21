@@ -73,23 +73,38 @@ Before merging ANY PR (slice→sprint or sprint→main), the orchestrator:
 1. Calls **both** `sd pr_state <pr>` (CI rollup + review summaries + conversation
    comments) **and** `sd pr_review_comments <pr>` (the INLINE line-level review
    comments). Both are needed — `gh pr view` omits inline comments, so `pr_state`
-   alone would miss exactly the findings bots leave.
-2. Reasons over the FULL state — **not just** `statusCheckRollup` / `mergeStateStatus`:
-   - Review-app and human review **comments** (including the **inline** ones from
-     `sd pr_review_comments`) are usually NOT modeled as required status checks, so
-     `mergeStateStatus == CLEAN` can coexist with an unresolved review finding.
-     Account for review comments from **any review source** (the Codex GitHub app
-     today; generic so it survives any reviewer change).
-   - If the latest commit postdates the newest bot review, a re-review is likely
-     still incoming — note that.
-3. SURFACES unresolved review comments + CI state to the user and ASKS.
-   **Never auto-merge over un-addressed review findings without explicit user
-   acknowledgment.**
-4. On the user's decision: `sd pr_merge <pr> [--auto]`, leave open, or wait.
-   The gate does NOT busy-wait / poll the conversation on CI.
+   alone would miss exactly the findings bots leave. `sd pr_state` already gives
+   `statusCheckRollup`, reviews, comments, and commits; the agent reads those signals
+   and reasons over them.
+2. Resolves every reviewer finding through the loop below before merge. P1/blocking
+   findings are fixed first; non-blocking findings accepted at merge become a tracked
+   deferral, not a silent pass.
+3. Checks reviewer-completeness from the actual review/comment signal. A green check is
+   not proof a reviewer ran, a skipped reviewer is not approval, and a queued or
+   in-progress reviewer must be waited for. If a fix commit lands after a review, that
+   stale verdict needs re-review on the new head; it is not absent or ackable.
+4. Surfaces the disposition ledger, CI state, and reviewer status to the user, then asks
+   whether to merge, wait, or leave the PR open. The gate does NOT busy-wait / poll the
+   conversation on CI.
 
-This is non-enforced guidance to the agent — deterministic checks stay only for the
-mechanical git/`gh` facts above.
+CodeRabbit's default configuration is the common illustration: it may skip auto-review
+on a slice→sprint PR because that base is non-default, while sprint→main targets the
+default branch and receives normal review. Confirm CodeRabbit ran by finding its actual
+review/comment on the PR, not by trusting CI status alone; repositories can configure
+base branches differently.
+
+### Finding-disposition loop (every PR with findings)
+
+Each reviewer finding (inline or summary) gets a recorded disposition before merge:
+
+- A P1/blocking finding (correctness, security, data loss, broken contract) MUST be
+  fixed before merge. It is never ack-to-merge and never eligible for deferral.
+- A non-blocking finding is fixed or deferred. Deferral means a tracked issue or explicit
+  note, recorded as `deferred → #N`; it is not waved through.
+- A fix pushes a new commit and records `fixed in <sha>` only after the reviewer signal
+  is current on that head.
+
+This is binding agent judgment, not a script. Deterministic checks stay only for mechanical git/`gh` facts; do not grow this gate into bash reviewer semantics.
 
 ## Degradation
 

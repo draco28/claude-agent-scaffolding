@@ -307,11 +307,9 @@ topology and the binding pre-merge gate.
    sd pr_open "$sprint_branch" "$(sd manifest_get '.canonical.default_branch' || echo main)" \
      "Sprint ${N}: <summary>" "<body-file>"
    ```
-5. **Run the agent-driven pre-merge gate** per `references/git-workflow.md`
-   (`sd pr_state` + `sd pr_review_comments` → reason over CI **and** inline review
-   comments → surface → ask). This is the protected boundary — be especially
-   explicit about unresolved review findings. Merge via `sd pr_merge` only on
-   explicit user acknowledgment.
+5. **Run the pre-merge gate** (finding-disposition loop + reviewer-completeness) per
+   `references/git-workflow.md`, then merge via `sd pr_merge` only on explicit user
+   direction.
 
 `direct` mode skips this section — there is no sprint branch and no PR.
 
