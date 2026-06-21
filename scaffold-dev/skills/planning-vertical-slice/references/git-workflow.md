@@ -104,9 +104,11 @@ Before merging ANY PR (slice→sprint or sprint→main), the orchestrator:
      fresh re-review must confirm on the **new head sha**. `sd pr_state`'s `reviews`
      omits each review's commit id, so by default compare the review `submittedAt`
      against the head `commits[-1].committedDate` (both in `sd pr_state`); for an exact
-     match read `.commit_id` from `gh api repos/{owner}/{repo}/pulls/<pr>/reviews`. A
-     latest commit with no review yet ⇒ re-review still incoming — note it; don't treat
-     absence as approval.
+     match read `.commit_id` from the List-reviews REST endpoint
+     (`…/pulls/<num>/reviews`) — passing the **numeric** id, since `<pr>` is often the
+     URL `sd pr_open` echoes (strip it with `${pr##*/}`, exactly as
+     `sd pr_review_comments` does for the same REST-path reason). A latest commit with
+     no review yet ⇒ re-review still incoming — note it; don't treat absence as approval.
 3. SURFACES unresolved review comments + CI state + any absent/stale reviewer to the
    user and ASKS. A **P1/blocking finding is NEVER ack-to-merge — it MUST be fixed
    first** (severity bar below); explicit user acknowledgment only ever covers an
