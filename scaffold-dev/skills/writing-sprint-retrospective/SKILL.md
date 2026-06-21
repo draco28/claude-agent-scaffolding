@@ -310,9 +310,10 @@ topology and the binding pre-merge gate.
 5. **Run the agent-driven pre-merge gate** per `references/git-workflow.md`
    (`sd pr_state` + `sd pr_review_comments` → reason over CI **and** inline review
    comments → per-finding disposition + reviewer-completeness → surface → ask). This
-   is the protected boundary — be especially explicit about unresolved review
-   findings, a blocking finding, or an absent/skipped reviewer. Merge via `sd pr_merge`
-   only on explicit user acknowledgment.
+   is the protected boundary — be especially explicit about unresolved review findings
+   and any absent/skipped reviewer. A **P1/blocking finding must be fixed first (never
+   ack-to-merge)**; `sd pr_merge` only on explicit user acknowledgment of the remaining
+   non-blocking findings / absent reviewers.
 
 `direct` mode skips this section — there is no sprint branch and no PR.
 
