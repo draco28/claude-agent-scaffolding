@@ -111,10 +111,11 @@ Before merging ANY PR (slice→sprint or sprint→main), the orchestrator:
      absence as approval.
 3. SURFACES unresolved review comments + CI state + any absent/stale reviewer to the
    user and ASKS. A **P1/blocking finding is NEVER ack-to-merge — it MUST be fixed
-   first** (severity bar below); explicit user acknowledgment only ever covers an
-   **un-addressed non-blocking finding** or an **absent/stale reviewer**. **Never
-   auto-merge over either of those without that acknowledgment, and never over a
-   blocking finding at all.**
+   first** (severity bar below). A non-blocking finding the user accepts at merge is
+   **deferred, not waved through** — record it `deferred → #N` via the disposition loop
+   below; an **absent/stale reviewer** may be acked. **Never auto-merge over an
+   un-dispositioned finding, an un-acked absent/stale reviewer, or a blocking finding at
+   all.**
 4. On the user's decision: `sd pr_merge <pr> [--auto]`, leave open, or wait.
    The gate does NOT busy-wait / poll the conversation on CI.
 
