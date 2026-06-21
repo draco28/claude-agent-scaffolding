@@ -312,8 +312,9 @@ topology and the binding pre-merge gate.
    comments → per-finding disposition + reviewer-completeness → surface → ask). This
    is the protected boundary — be especially explicit about unresolved review findings
    and any absent/skipped reviewer. A **P1/blocking finding must be fixed first (never
-   ack-to-merge)**; `sd pr_merge` only on explicit user acknowledgement of the remaining
-   non-blocking findings / absent reviewers.
+   ack-to-merge)**; `sd pr_merge` only after each remaining non-blocking finding is
+   **recorded `deferred → #N`** (per the disposition loop) and any skipped/absent
+   reviewer is acknowledged.
 
 `direct` mode skips this section — there is no sprint branch and no PR.
 

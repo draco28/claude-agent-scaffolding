@@ -86,10 +86,12 @@ Before merging ANY PR (slice→sprint or sprint→main), the orchestrator:
    - **Reviewer completeness — a `SUCCESS` check is NOT proof a reviewer ran.** A
      configured/expected review app can report green while having **skipped** the
      review. Judge each reviewer by its actual terminal signal on the **head commit**,
-     not a bare check `conclusion`: the **review / conversation comment body** —
-     returned by `sd pr_state` in `reviews` + `comments` — is where a *skipped /
-     disabled / queued / no-verdict* state shows up; treat that as **absent (not
-     green)**, never as approval. Canonical case (CodeRabbit's **default** config):
+     not a bare check `conclusion`: read the **review / conversation comment body**
+     (returned by `sd pr_state` in `reviews` + `comments`). A **terminal** non-verdict —
+     *skipped / disabled* — is **absent (not green)**, never approval. A **transient**
+     one — *queued / pending / in-progress* — is **not yet a verdict**: wait for or
+     re-trigger it and confirm on the head; never treat it as approval *nor* ack it as
+     absent. Canonical case (CodeRabbit's **default** config):
      **CodeRabbit disables auto-review** on any base branch other than the repo default
      (a repo can widen this via `reviews.auto_review.base_branches` — confirm from the
      actual signal), so a `slice/* → sprint-N` PR (non-default base) is normally **not
