@@ -85,21 +85,28 @@ Before merging ANY PR (slice→sprint or sprint→main), the orchestrator:
      today; generic so it survives any reviewer change).
    - **Reviewer completeness — a `SUCCESS` check is NOT proof a reviewer ran.** A
      configured/expected review app can report green while having **skipped** the
-     review. Read each reviewer's actual terminal signal on the **head commit** — the
-     check's `description` / review body, not just its `conclusion` — and treat
-     *skipped / disabled / queued / pending / no-verdict-on-head* as **absent (not
-     green)**, never as approval. Canonical case: **CodeRabbit disables auto-review on
-     any base branch other than the repo default**, so on `pr_hierarchical` PRs (every
-     `slice/* → sprint-N` and `sprint-N → main` has a non-default base) it posts a
-     `SUCCESS` status whose body reads *"Review skipped — auto reviews are disabled on
-     base branches other than the default branch."* — it never reviewed. Remediation:
-     surface it for ack and/or trigger the reviewer (`@coderabbitai review`,
-     `@codex review`) and wait for its terminal verdict on the head commit before merge.
-   - **Staleness — a review counts only on the head sha.** If the head commit postdates
-     the newest review (a fix commit landed after it — see the disposition loop below),
-     that verdict is stale: a fresh re-review must confirm on the **new head sha**
-     before that reviewer counts as green. (A latest commit with no review yet ⇒
-     re-review still incoming — note it, don't treat absence as approval.)
+     review. Judge each reviewer by its actual terminal signal on the **head commit**,
+     not a bare check `conclusion`: the **review / conversation comment body**
+     (`sd pr_state` returns both, in `reviews` + `comments`) is where a *skipped /
+     disabled / queued / no-verdict* state shows up — treat that as **absent (not
+     green)**, never as approval. (The per-check `description` is NOT in `sd pr_state`'s
+     `statusCheckRollup`; if a reviewer's ONLY signal is a green check with no comment,
+     read it via `gh pr checks <pr> --json name,state,description`.) Canonical case:
+     **CodeRabbit disables auto-review** on any base branch other than the repo default,
+     so a `slice/* → sprint-N` PR (non-default base) is **never auto-reviewed** —
+     CodeRabbit leaves the comment *"Review skipped — auto reviews are disabled on base
+     branches other than the default branch."* (The `sprint-N → main` PR has the default
+     base, so it IS auto-reviewed.) Remediation: surface for ack and/or trigger the
+     reviewer (`@coderabbitai review`, `@codex review`) and wait for its terminal
+     verdict on the head commit before merge.
+   - **Staleness — a review counts only on the head sha.** Once a fix commit lands (see
+     the disposition loop below), a verdict made against an earlier commit is stale; a
+     fresh re-review must confirm on the **new head sha**. `sd pr_state`'s `reviews`
+     omits each review's commit id, so by default compare the review `submittedAt`
+     against the head `commits[-1].committedDate` (both in `sd pr_state`); for an exact
+     match read `.commit_id` from `gh api repos/{owner}/{repo}/pulls/<pr>/reviews`. A
+     latest commit with no review yet ⇒ re-review still incoming — note it; don't treat
+     absence as approval.
 3. SURFACES unresolved review comments + CI state + any absent/stale reviewer to the
    user and ASKS. A **P1/blocking finding is NEVER ack-to-merge — it MUST be fixed
    first** (severity bar below); explicit user acknowledgment only ever covers an
