@@ -73,76 +73,38 @@ Before merging ANY PR (slice→sprint or sprint→main), the orchestrator:
 1. Calls **both** `sd pr_state <pr>` (CI rollup + review summaries + conversation
    comments) **and** `sd pr_review_comments <pr>` (the INLINE line-level review
    comments). Both are needed — `gh pr view` omits inline comments, so `pr_state`
-   alone would miss exactly the findings bots leave. Fetch **after every configured
-   reviewer has had time to post** — some apps post minutes after the others settle
-   (the Codex app lands ~minutes late), so a first-glance read taken the moment CI
-   goes green misses a still-incoming review.
-2. Reasons over the FULL state — **not just** `statusCheckRollup` / `mergeStateStatus`:
-   - Review-app and human review **comments** (including the **inline** ones from
-     `sd pr_review_comments`) are usually NOT modeled as required status checks, so
-     `mergeStateStatus == CLEAN` can coexist with an unresolved review finding.
-     Account for review comments from **any review source** (the Codex GitHub app
-     today; generic so it survives any reviewer change).
-   - **Reviewer completeness — a `SUCCESS` check is NOT proof a reviewer ran.** A
-     configured/expected review app can report green while having **skipped** the
-     review. Judge each reviewer by its actual terminal signal on the **head commit**,
-     not a bare check `conclusion`: read the **review / conversation comment body**
-     (returned by `sd pr_state` in `reviews` + `comments`). A **terminal** non-verdict —
-     *skipped / disabled* — is **absent (not green)**, never approval. A **transient**
-     one — *queued / pending / in-progress* — is **not yet a verdict**: wait for or
-     re-trigger it and confirm on the head; never treat it as approval *nor* ack it as
-     absent. Canonical case (CodeRabbit's **default** config):
-     **CodeRabbit disables auto-review** on any base branch other than the repo default
-     (a repo can widen this via `reviews.auto_review.base_branches` — confirm from the
-     actual signal), so a `slice/* → sprint-N` PR (non-default base) is normally **not
-     auto-reviewed**; CodeRabbit leaves the comment
-     *"Review skipped — auto reviews are disabled on base branches other than the
-     default branch."* (The `sprint-N → main` PR has the default base, so it IS
-     auto-reviewed.) Remediation: surface for ack and/or trigger the reviewer
-     (`@coderabbitai review`, `@codex review`) and wait for its terminal verdict on the
-     head commit before merge.
-   - **Staleness — a review counts only on the head sha.** Once a fix commit lands (see
-     the disposition loop below), a verdict made against an earlier commit is stale; a
-     fresh re-review must confirm on the **new head sha**. Detect it from `sd pr_state`:
-     a review whose `submittedAt` predates the head `commits[-1].committedDate` is stale.
-     This timestamp proxy can over-count freshness in one edge case — a commit authored
-     before a review but **pushed after** it (the reviewer never saw the new head) — that
-     an exact per-review `commit_id` comparison would catch; `sd pr_state` surfaces
-     neither that commit id nor the per-check `description`, so closing that edge needs a
-     dedicated `sd` primitive (deferred follow-up). When the proxy is ambiguous,
-     **re-trigger the reviewer and confirm on the head** rather than trust the dates. A
-     latest commit with no review yet ⇒ re-review still incoming — note it; don't treat
-     absence as approval.
-3. SURFACES unresolved review comments + CI state + any absent/stale reviewer to the
-   user and ASKS. A **P1/blocking finding is NEVER ack-to-merge — it MUST be fixed
-   first** (severity bar below). A non-blocking finding the user accepts at merge is
-   **deferred, not waved through** — record it `deferred → #N` via the disposition loop
-   below. An **absent / skipped reviewer** (never ran) may be acked; a **stale verdict**
-   (a fix commit landed after it) is **NOT** ackable — it needs a fresh re-review on the
-   new head per the loop's Fix step. **Never auto-merge over an un-dispositioned finding,
-   an un-acked absent/skipped reviewer, a stale verdict awaiting re-review, or a blocking
-   finding.**
-4. On the user's decision: `sd pr_merge <pr> [--auto]`, leave open, or wait.
-   The gate does NOT busy-wait / poll the conversation on CI.
+   alone would miss exactly the findings bots leave. `sd pr_state` already gives
+   `statusCheckRollup`, reviews, comments, and commits; the agent reads those signals
+   and reasons over them.
+2. Resolves every reviewer finding through the loop below before merge. P1/blocking
+   findings are fixed first; non-blocking findings accepted at merge become a tracked
+   deferral, not a silent pass.
+3. Checks reviewer-completeness from the actual review/comment signal. A green check is
+   not proof a reviewer ran, a skipped reviewer is not approval, and a queued or
+   in-progress reviewer must be waited for. If a fix commit lands after a review, that
+   stale verdict needs re-review on the new head; it is not absent or ackable.
+4. Surfaces the disposition ledger, CI state, and reviewer status to the user, then asks
+   whether to merge, wait, or leave the PR open. The gate does NOT busy-wait / poll the
+   conversation on CI.
+
+CodeRabbit's default configuration is the common illustration: it may skip auto-review
+on a slice→sprint PR because that base is non-default, while sprint→main targets the
+default branch and receives normal review. Confirm CodeRabbit ran by finding its actual
+review/comment on the PR, not by trusting CI status alone; repositories can configure
+base branches differently.
 
 ### Finding-disposition loop (every PR with findings)
 
-Each reviewer finding (inline or summary) gets a **recorded disposition** before merge —
-the merge decision must stay auditable, not a vague "looks green":
+Each reviewer finding (inline or summary) gets a recorded disposition before merge:
 
-- **Severity bar.** Classify each finding P1/blocking vs P2/nit. A **P1/blocking**
-  finding (correctness, security, data-loss, a broken contract) **MUST be fixed before
-  merge** — it is NOT eligible for merge-time deferral. Only **non-blocking (P2/nit)**
-  findings are eligible for fix-or-defer.
-- **Fix** → push a new commit, then trigger a re-review and **confirm it resolves on the
-  new head sha** (a verdict on a prior sha is stale — see step 2). Record `fixed in <sha>`.
-- **Defer** (P2/nit only) → file a tracked issue via **`deferring-work-item`** (it writes
-  the `[TD] … → #N` index line). Record `deferred → #N`.
-- Carry the per-finding dispositions (`fixed in <sha>` / `deferred → #N`) into the
-  step-3 surface so the user acks a complete ledger.
+- A P1/blocking finding (correctness, security, data loss, broken contract) MUST be
+  fixed before merge. It is never ack-to-merge and never eligible for deferral.
+- A non-blocking finding is fixed or deferred. Deferral means a tracked issue or explicit
+  note, recorded as `deferred → #N`; it is not waved through.
+- A fix pushes a new commit and records `fixed in <sha>` only after the reviewer signal
+  is current on that head.
 
-This is non-enforced guidance to the agent — deterministic checks stay only for the
-mechanical git/`gh` facts above.
+This is binding agent judgment, not a script. Deterministic checks stay only for mechanical git/`gh` facts; do not grow this gate into bash reviewer semantics.
 
 ## Degradation
 

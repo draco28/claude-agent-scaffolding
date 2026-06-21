@@ -264,30 +264,25 @@ test_orchestrate_args_validates_vs_id() {
 }
 
 # --- #82: pre-merge gate completeness contract -------------------------------
-# git-workflow.md is the SINGLE source of the agent-driven pre-merge gate (the
-# closing / sprint-retro skills cross-reference it). The gate-reasoning prose is
-# unenforced agent judgment by design, so these seam lints pin only its mechanical
-# presence — the Gap-1 finding-disposition loop + severity bar and the Gap-2
-# reviewer-completeness + head-sha staleness clauses — so the contract can't
-# silently rot. Deterministic check of a mechanical fact (the clauses are present).
+# git-workflow.md is the SINGLE source of the agent-driven pre-merge gate. The
+# gate is binding agent judgment by design, so these seam lints pin only a small
+# set of load-bearing phrases that uniquely identify the two clauses and the
+# deterministic-check boundary.
 test_seam_premerge_gate_contract() {
   echo "test_seam_premerge_gate_contract:"
-  # Gap 1 — finding-disposition loop + severity bar + defer path
+  # Finding-disposition loop
   assert_file_contains "$GIT_WORKFLOW" "Finding-disposition loop"
-  assert_file_contains "$GIT_WORKFLOW" "Severity bar"
   assert_file_contains "$GIT_WORKFLOW" "P1/blocking"
-  assert_file_contains "$GIT_WORKFLOW" "fix-or-defer"
-  assert_file_contains "$GIT_WORKFLOW" "deferring-work-item"
-  # Gap 2 — reviewer-completeness + head-sha staleness
-  assert_file_contains "$GIT_WORKFLOW" "Reviewer completeness"
-  assert_file_contains "$GIT_WORKFLOW" "CodeRabbit disables auto-review"
-  assert_file_contains "$GIT_WORKFLOW" "Review skipped"
-  assert_file_contains "$GIT_WORKFLOW" "new head sha"
-  # Pin the staleness clause by phrases UNIQUE to it — "new head sha" alone also appears
-  # in the disposition-loop Fix bullet, so deleting the whole Staleness paragraph would
-  # otherwise leave this test green (Codex PR #87).
-  assert_file_contains "$GIT_WORKFLOW" "Staleness"
-  assert_file_contains "$GIT_WORKFLOW" "predates the head"
+  assert_file_contains "$GIT_WORKFLOW" "deferral, not a silent pass"
+  assert_file_contains "$GIT_WORKFLOW" "not waved through"
+  # Reviewer-completeness
+  assert_file_contains "$GIT_WORKFLOW" "actual review/comment signal"
+  assert_file_contains "$GIT_WORKFLOW" "in-progress reviewer must be waited for"
+  assert_file_contains "$GIT_WORKFLOW" "stale verdict needs re-review"
+  assert_file_contains "$GIT_WORKFLOW" "CodeRabbit's default configuration"
+  assert_file_contains "$GIT_WORKFLOW" "sprint→main targets the"
+  # Agent-judgment boundary
+  assert_file_contains "$GIT_WORKFLOW" "Deterministic checks stay only for"
 }
 
 test_resolve_default_when_field_absent
