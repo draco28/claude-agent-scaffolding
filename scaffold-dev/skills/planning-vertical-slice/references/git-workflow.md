@@ -73,20 +73,54 @@ Before merging ANY PR (slice→sprint or sprint→main), the orchestrator:
 1. Calls **both** `sd pr_state <pr>` (CI rollup + review summaries + conversation
    comments) **and** `sd pr_review_comments <pr>` (the INLINE line-level review
    comments). Both are needed — `gh pr view` omits inline comments, so `pr_state`
-   alone would miss exactly the findings bots leave.
+   alone would miss exactly the findings bots leave. Fetch **after every configured
+   reviewer has had time to post** — some apps post minutes after the others settle
+   (the Codex app lands ~minutes late), so a first-glance read taken the moment CI
+   goes green misses a still-incoming review.
 2. Reasons over the FULL state — **not just** `statusCheckRollup` / `mergeStateStatus`:
    - Review-app and human review **comments** (including the **inline** ones from
      `sd pr_review_comments`) are usually NOT modeled as required status checks, so
      `mergeStateStatus == CLEAN` can coexist with an unresolved review finding.
      Account for review comments from **any review source** (the Codex GitHub app
      today; generic so it survives any reviewer change).
-   - If the latest commit postdates the newest bot review, a re-review is likely
-     still incoming — note that.
-3. SURFACES unresolved review comments + CI state to the user and ASKS.
-   **Never auto-merge over un-addressed review findings without explicit user
-   acknowledgment.**
+   - **Reviewer completeness — a `SUCCESS` check is NOT proof a reviewer ran.** A
+     configured/expected review app can report green while having **skipped** the
+     review. Read each reviewer's actual terminal signal on the **head commit** — the
+     check's `description` / review body, not just its `conclusion` — and treat
+     *skipped / disabled / queued / pending / no-verdict-on-head* as **absent (not
+     green)**, never as approval. Canonical case: **CodeRabbit disables auto-review on
+     any base branch other than the repo default**, so on `pr_hierarchical` PRs (every
+     `slice/* → sprint-N` and `sprint-N → main` has a non-default base) it posts a
+     `SUCCESS` status whose body reads *"Review skipped — auto reviews are disabled on
+     base branches other than the default branch."* — it never reviewed. Remediation:
+     surface it for ack and/or trigger the reviewer (`@coderabbitai review`,
+     `@codex review`) and wait for its terminal verdict on the head commit before merge.
+   - **Staleness — a review counts only on the head sha.** If the head commit postdates
+     the newest review (a fix commit landed after it — see the disposition loop below),
+     that verdict is stale: a fresh re-review must confirm on the **new head sha**
+     before that reviewer counts as green. (A latest commit with no review yet ⇒
+     re-review still incoming — note it, don't treat absence as approval.)
+3. SURFACES unresolved review comments + CI state + any absent/stale reviewer to the
+   user and ASKS. **Never auto-merge over un-addressed review findings, a blocking
+   finding, or an absent/stale reviewer without explicit user acknowledgment.**
 4. On the user's decision: `sd pr_merge <pr> [--auto]`, leave open, or wait.
    The gate does NOT busy-wait / poll the conversation on CI.
+
+### Finding-disposition loop (every PR with findings)
+
+Each reviewer finding (inline or summary) gets a **recorded disposition** before merge —
+the merge decision must stay auditable, not a vague "looks green":
+
+- **Severity bar.** Classify each finding P1/blocking vs P2/nit. A **P1/blocking**
+  finding (correctness, security, data-loss, a broken contract) **MUST be fixed before
+  merge** — it is NOT eligible for merge-time deferral. Only **non-blocking (P2/nit)**
+  findings are eligible for fix-or-defer.
+- **Fix** → push a new commit, then trigger a re-review and **confirm it resolves on the
+  new head sha** (a verdict on a prior sha is stale — see step 2). Record `fixed in <sha>`.
+- **Defer** (P2/nit only) → file a tracked issue via **`deferring-work-item`** (it writes
+  the `[TD] … → #N` index line). Record `deferred → #N`.
+- Carry the per-finding dispositions (`fixed in <sha>` / `deferred → #N`) into the
+  step-3 surface so the user acks a complete ledger.
 
 This is non-enforced guidance to the agent — deterministic checks stay only for the
 mechanical git/`gh` facts above.

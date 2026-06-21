@@ -181,6 +181,7 @@ test_bundle_odd_section_args() {
 CLOSING_SKILL="$HERE/../skills/closing-vertical-slice/SKILL.md"
 PLANNING_SKILL="$HERE/../skills/planning-vertical-slice/SKILL.md"
 ORCHESTRATE_ARGS="$HERE/../skills/planning-vertical-slice/references/orchestrate-args.md"
+GIT_WORKFLOW="$HERE/../skills/planning-vertical-slice/references/git-workflow.md"
 
 # Both §7 sections must drive architect-critic through its REAL async contract
 # (ARCHITECT_CRITIC_ARGS="… --close --async" — informal params don't set async),
@@ -262,6 +263,28 @@ test_orchestrate_args_validates_vs_id() {
   assert_file_contains "$ORCHESTRATE_ARGS" '\^VS-\[\^\.\]\+\(\\\.\[\^\.\]\+\)\{2\}\$'
 }
 
+# --- #82: pre-merge gate completeness contract -------------------------------
+# git-workflow.md is the SINGLE source of the agent-driven pre-merge gate (the
+# closing / sprint-retro skills cross-reference it). The gate-reasoning prose is
+# unenforced agent judgment by design, so these seam lints pin only its mechanical
+# presence — the Gap-1 finding-disposition loop + severity bar and the Gap-2
+# reviewer-completeness + head-sha staleness clauses — so the contract can't
+# silently rot. Deterministic check of a mechanical fact (the clauses are present).
+test_seam_premerge_gate_contract() {
+  echo "test_seam_premerge_gate_contract:"
+  # Gap 1 — finding-disposition loop + severity bar + defer path
+  assert_file_contains "$GIT_WORKFLOW" "Finding-disposition loop"
+  assert_file_contains "$GIT_WORKFLOW" "Severity bar"
+  assert_file_contains "$GIT_WORKFLOW" "P1/blocking"
+  assert_file_contains "$GIT_WORKFLOW" "fix-or-defer"
+  assert_file_contains "$GIT_WORKFLOW" "deferring-work-item"
+  # Gap 2 — reviewer-completeness + head-sha staleness
+  assert_file_contains "$GIT_WORKFLOW" "Reviewer completeness"
+  assert_file_contains "$GIT_WORKFLOW" "CodeRabbit disables auto-review"
+  assert_file_contains "$GIT_WORKFLOW" "Review skipped"
+  assert_file_contains "$GIT_WORKFLOW" "new head sha"
+}
+
 test_resolve_default_when_field_absent
 test_resolve_field_both
 test_resolve_field_slice_close
@@ -281,5 +304,6 @@ test_bundle_odd_section_args
 test_seam_prose_closing_vertical_slice
 test_seam_prose_planning_vertical_slice
 test_orchestrate_args_validates_vs_id
+test_seam_premerge_gate_contract
 
 sd_test_summary
