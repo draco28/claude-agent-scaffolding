@@ -2,6 +2,13 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.10.0] — 2026-06-25
+
+SS-6 — #79: count-aware `ran ≥N` demo-criteria form.
+
+### Added
+- **`expected: ran ≥N` slice-demo form (#79).** A new **agent-judged** numeric-predicate `auto:` expectation joining `count > 0` in the slice-demo grammar — assert that **at least N tests actually ran**. It is the portable count guard for runners outside scaffold-dev's `exit 0` zero-test allowlist (rspec, mocha, `mvn test`, `dotnet test`, ctest, wrapper scripts): a name/path filter that matches nothing exits 0 and would otherwise demo-verify green having run no test. Evaluated at slice-close by scaffold-dev's `closing-vertical-slice` — **no deterministic count parser**; the judge reads the runner's own summary (agent-review-over-deterministic-gates). Documented in `authoring-vertical-slice-demo` SKILL.md §3.2 + `references/auto-grammar.md` §2.2/§3.10; the form is form-opaque to `sf_demo_parse_line`, which already accepts it (Unicode `ran ≥N` and ASCII `ran >=N`; N defaults to 1). New parser-acceptance test (A15). Design-of-record: `docs/SPEC-slice-demo-agent-eval.md`. Pairs with scaffold-dev v0.13.0.
+
 ## [0.9.2] — 2026-06-20
 
 SS-6 — #48 Stage 1 (Part E + C/D conventions): the memory-bank templates document the lean-index pointer conventions.

@@ -2,6 +2,16 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.13.0] — 2026-06-25
+
+SS-6 — #79: recognize the count-aware `ran ≥N` demo form at slice-close.
+
+### Added
+- **`ran ≥N` recognized as a judged content form (#79).** `closing-vertical-slice` §5 now lists `ran ≥N` among the agent-judged content expectations (alongside `count > 0`, `> 5 rows`, free-form prose): the orchestrator reads the captured runner summary and judges whether **at least N tests executed**, recording a one-line reason — **no deterministic count parser** (agent-review-over-deterministic-gates). It is the opt-in count guard for runners outside the `exit 0` zero-test allowlist (`sd_zero_tests_guard`, #74), which stays the zero-config default. Authored via scaffold-onboard's `authoring-vertical-slice-demo` (v0.10.0). Design-of-record: `docs/SPEC-slice-demo-agent-eval.md`.
+
+### Notes
+- **Work-item ACs are unchanged.** The per-work-item `implementation-checking` gate stays the deterministic `exit 0` / `exit N` / `output contains` mechanical check — `ran ≥N` is a **slice-demo-only** form (agent-judged at close), preserving the deliberate v0.1.7 work-item minimalism (`docs/SPEC-slice-demo-agent-eval.md`).
+
 ## [0.12.0] — 2026-06-21
 
 SS-6 — #82: complete the multi-reviewer pre-merge gate. **Closes #82.**

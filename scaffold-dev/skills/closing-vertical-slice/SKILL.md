@@ -158,7 +158,7 @@ Under `merge_mode=pr_hierarchical` the slice's work lives on the slice branch, n
 Evaluate `expectation` using a **run-then-judge** approach:
 
 - If `expectation` is an **exit-code form** (`exit 0` or `exit <N>`): **deterministic** — pass iff `result_exit == N`. This is a mechanical fact; no agent judgment needed. **For `exit 0` only (#74):** after the exit-code check passes, also run `printf '%s' "$result_stdout" | sd zero_tests_guard "$command"` (the log is piped via **stdin**, not argv, so a verbose run can't exceed `ARG_MAX`); if it returns non-zero, a recognized test runner (pytest/go test/cargo test/nextest/jest/vitest/node --test) exited 0 having collected **zero** tests — a vacuous green. Treat it as a **fail** (the halt-on-first-fail path below) with a "zero tests collected — fix the filter/path" reason. Allowlist-only + fail-soft: an unrecognized command is unaffected, and `exit <N>` (N≠0) negative-test steps are exempt.
-- If `expectation` is any **content form** (`output contains …`, `output matches …`, `count > 0`, `> 5 rows`, or free-form prose): the orchestrator **judges** whether `result_stdout` satisfies the stated expectation and records a one-line reason. No bash substring or arithmetic parsing.
+- If `expectation` is any **content form** (`output contains …`, `output matches …`, `count > 0`, `ran ≥N` — judge confirms ≥N tests executed — `> 5 rows`, or free-form prose): the orchestrator **judges** whether `result_stdout` satisfies the stated expectation and records a one-line reason. No bash substring or arithmetic parsing.
 
 Record each outcome in the VS README's `## Demo verification` section (append if absent), one line per step, including the agent's reason:
 

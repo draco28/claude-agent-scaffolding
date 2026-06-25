@@ -35,7 +35,7 @@ expected: exit <N>     (non-zero permitted for negative-test slices, e.g., expec
 
 **Evaluation: deterministic.** scaffold-dev's closing orchestrator runs the command via `bash -c` (subshell) and asserts `$? == <N>`. Stdout/stderr are captured for the slice-close log but NOT pattern-checked. The exit code is a mechanical fact — pass/fail is an integer comparison, no agent judgment involved. Use exit-code mode when the command's own assertions (pytest, go test, jest, `set -e` scripts) carry the verification weight.
 
-**`exit 0` zero-test guard (scaffold-dev #74).** For `exit 0` specifically, scaffold-dev additionally rejects a *vacuously green* run: a recognized test runner (pytest / go test / cargo test / cargo nextest / jest / vitest / node --test) that exits 0 having collected **zero** tests fails the gate even though the process exited 0. This catches the common trap where a name/path filter matches nothing (e.g. `` `cargo test mymod::feature` `` → `0 passed; N filtered out`, exit 0) and would otherwise demo-verify green having run no test. The exit code stays a mechanical fact; the guard (`scaffold-dev lib/verify.sh::sd_zero_tests_guard`) adds a second mechanical fact — collected ≥1. It is allowlist-only and fail-soft: an unrecognized runner (or a wrapper script) is unaffected, and `exit <N>` (N≠0) negative-test slices are exempt. For runners outside the allowlist, assert the count yourself with a pattern-mode expectation (e.g. `output contains "<N> passed"`).
+**`exit 0` zero-test guard (scaffold-dev #74).** For `exit 0` specifically, scaffold-dev additionally rejects a *vacuously green* run: a recognized test runner (pytest / go test / cargo test / cargo nextest / jest / vitest / node --test) that exits 0 having collected **zero** tests fails the gate even though the process exited 0. This catches the common trap where a name/path filter matches nothing (e.g. `` `cargo test mymod::feature` `` → `0 passed; N filtered out`, exit 0) and would otherwise demo-verify green having run no test. The exit code stays a mechanical fact; the guard (`scaffold-dev lib/verify.sh::sd_zero_tests_guard`) adds a second mechanical fact — collected ≥1. It is allowlist-only and fail-soft: an unrecognized runner (or a wrapper script) is unaffected, and `exit <N>` (N≠0) negative-test slices are exempt. For runners outside the allowlist, assert the count yourself with a pattern-mode expectation — the intent-revealing `ran ≥N` form (§2.2), or a substring like `output contains "<N> passed"`.
 
 ### 2.2 Pattern mode (agent-judged at slice-close)
 
@@ -43,10 +43,11 @@ expected: exit <N>     (non-zero permitted for negative-test slices, e.g., expec
 expected: output contains "<substring>"
 expected: output matches /<regex>/
 expected: count > 0                        (predicate — agent-judged at slice-close)
+expected: ran ≥N                           (≥N tests executed; ASCII `ran >=N` ok; N defaults to 1 — agent-judged)
 expected: stdout contains "<substring>"    (synonym for "output contains")
 ```
 
-**Evaluation: agent-judged.** scaffold-dev's closing orchestrator runs the command, captures stdout/stderr, and then **judges** whether the captured output satisfies the stated expectation — recording a one-line reason alongside the pass/fail verdict. The closing orchestrator judges the captured output against the expectation; no bash grep or arithmetic parsing is applied. The pattern body is preserved byte-for-byte from authoring to execution — quoted substrings, regex anchors, and informal predicates (`count > 0`, `> 5 rows`) are all accepted as the expectation the judge evaluates. This skill only validates that the `expected:` tail is non-empty and follows the arrow; it does not constrain the predicate shape.
+**Evaluation: agent-judged.** scaffold-dev's closing orchestrator runs the command, captures stdout/stderr, and then **judges** whether the captured output satisfies the stated expectation — recording a one-line reason alongside the pass/fail verdict. The closing orchestrator judges the captured output against the expectation; no bash grep or arithmetic parsing is applied. The pattern body is preserved byte-for-byte from authoring to execution — quoted substrings, regex anchors, and informal predicates (`count > 0`, `ran ≥N`, `> 5 rows`) are all accepted as the expectation the judge evaluates. This skill only validates that the `expected:` tail is non-empty and follows the arrow; it does not constrain the predicate shape.
 
 **Pick one, not both.** A line like `expected: exit 0 AND output contains "ok"` validates as a single string (the parser doesn't reject it) but obscures the success criterion. Split into two `auto:` lines if both gates matter.
 
@@ -127,6 +128,14 @@ Builds the image and runs the container with a non-zero-trivial entrypoint (`--v
 ```
 
 The pipeline emits one record per line; `wc -l` counts them. The regex anchors stdout to a non-negative integer. Useful when "did the ETL produce SOME output" is the success criterion.
+
+### 3.10 Unrecognized test runner (pattern mode, executed-test count)
+
+```
+- [ ] auto: `bundle exec rspec spec/insight_spec.rb` → expected: ran ≥3
+```
+
+`rspec` is outside scaffold-dev's `exit 0` zero-test allowlist (§2.1), so a filter that matched nothing would exit 0 and demo-verify green having run no test. `ran ≥N` makes the floor explicit: the slice-close orchestrator reads the runner's own summary (here, rspec's `N examples`) and judges whether at least N tests actually executed. Reach for this with any runner the zero-test guard can't see — `rspec`, `mocha`, `mvn test`, `dotnet test`, `ctest`, or a wrapper script that hides the runner token (e.g. `` `scripts/run-integration.sh` → expected: ran ≥5 ``). ASCII `ran >=3` is equivalent, and `N` defaults to `1` (`ran ≥1` ≡ `ran`). It stays agent-judged like `count > 0` — there is no deterministic count parser; the judge reads the captured summary and reasons.
 
 ---
 
