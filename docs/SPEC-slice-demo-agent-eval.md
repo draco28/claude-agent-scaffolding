@@ -13,7 +13,7 @@
 Two demo/verification grammars drifted apart:
 
 - **Work-item AC grammar** (scaffold-dev, hardened in v0.1.7): `exit 0` / `exit N`, `output contains <unquoted substring>`, **no** `count`. A mechanical per-work-item gate (`implementation-checking`).
-- **Slice-demo grammar** (R3; authored by **scaffold-onboard** `authoring-vertical-slice-demo`, parsed/evaluated by **scaffold-dev** `closing-vertical-slice`): quoted `output contains "<pat>"`, `output matches /<regex>/`, **`count > 0`/numeric predicates** (incl. `ran ≥N` — assert ≥N tests executed, the portable count guard for runners outside scaffold-dev's `exit 0` zero-test allowlist; #79), exit-code form.
+- **Slice-demo grammar** (R3; authored by **scaffold-onboard** `authoring-vertical-slice-demo`, parsed/evaluated by **scaffold-dev** `closing-vertical-slice`): quoted `output contains "<pat>"`, `output matches /<regex>/`, **`count > 0`/numeric predicates** (incl. `ran ≥N` — assert the run passed and ≥N tests executed, the portable count guard for runners outside scaffold-dev's `exit 0` zero-test allowlist; #79), exit-code form.
 
 Divergences: (a) quoting of `output contains`, (b) `count`/predicate support. Full unification is a trap — aligning *down* drops the `count`/predicate capability slice demos legitimately use; aligning *up* reverses the deliberate v0.1.7 work-item minimalism.
 

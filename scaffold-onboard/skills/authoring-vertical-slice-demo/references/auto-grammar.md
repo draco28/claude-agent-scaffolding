@@ -7,7 +7,7 @@ Reference for the `authoring-vertical-slice-demo` skill (scaffold-onboard SPEC �
 ## 1. Grammar
 
 ```
-- [ ] auto: <bash command> → expected: <exit code 0 | pattern in output>
+- [ ] auto: <bash command> → expected: <exit code 0 | pattern in output | ran ≥N>
 ```
 
 Components, in order:
@@ -43,7 +43,7 @@ expected: exit <N>     (non-zero permitted for negative-test slices, e.g., expec
 expected: output contains "<substring>"
 expected: output matches /<regex>/
 expected: count > 0                        (predicate — agent-judged at slice-close)
-expected: ran ≥N                           (≥N tests executed; ASCII `ran >=N` ok; N defaults to 1 — agent-judged)
+expected: ran ≥N                           (run passed AND ≥N tests executed; ASCII `ran >=N` ok — agent-judged)
 expected: stdout contains "<substring>"    (synonym for "output contains")
 ```
 
@@ -135,7 +135,7 @@ The pipeline emits one record per line; `wc -l` counts them. The regex anchors s
 - [ ] auto: `bundle exec rspec spec/insight_spec.rb` → expected: ran ≥3
 ```
 
-`rspec` is outside scaffold-dev's `exit 0` zero-test allowlist (§2.1), so a filter that matched nothing would exit 0 and demo-verify green having run no test. `ran ≥N` makes the floor explicit: the slice-close orchestrator reads the runner's own summary (here, rspec's `N examples`) and judges whether at least N tests actually executed. Reach for this with any runner the zero-test guard can't see — `rspec`, `mocha`, `mvn test`, `dotnet test`, `ctest`, or a wrapper script that hides the runner token (e.g. `` `scripts/run-integration.sh` → expected: ran ≥5 ``). ASCII `ran >=3` is equivalent, and `N` defaults to `1` (`ran ≥1` ≡ `ran`). It stays agent-judged like `count > 0` — there is no deterministic count parser; the judge reads the captured summary and reasons.
+`rspec` is outside scaffold-dev's `exit 0` zero-test allowlist (§2.1), so a filter that matched nothing would exit 0 and demo-verify green having run no test. `ran ≥N` makes the floor explicit and is the **non-vacuous green** guarantee: the slice-close orchestrator reads the runner's own summary (here, rspec's `N examples, M failures`) plus the exit signal and judges whether **the run passed AND at least N tests actually executed**. The `AND passed` half matters — a `3 examples, 1 failure` run (non-zero exit) **fails** the step even though ≥3 ran, so `ran ≥N` never trades the pass/fail check away for the count check. Reach for it with any runner the zero-test guard can't see — `rspec`, `mocha`, `mvn test`, `dotnet test`, `ctest`, or a wrapper script that hides the runner token (e.g. `` `scripts/run-integration.sh` → expected: ran ≥5 ``). ASCII `ran >=3` is equivalent; `N` is required (write `ran ≥1` for "at least one test, passing"). It stays agent-judged like `count > 0` — there is no deterministic count parser; the judge reads the captured summary and reasons.
 
 ---
 
