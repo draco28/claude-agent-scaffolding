@@ -245,4 +245,19 @@ expected="$(printf '%s' "$out" | jq -r '.expected')"
 assert_eq "A14a em-dash preserved in body" "Open page — verify X" "$body"
 assert_eq "A14b em-dash line — expected"   "X visible"             "$expected"
 
+# A15: count-aware `ran ≥N` form (#79) — an agent-judged numeric predicate. The
+# parser is form-opaque on the expected tail, so it accepts both the Unicode ≥
+# spelling and the ASCII >= equivalent, preserving the predicate byte-for-byte.
+ran_unicode="- [ ] auto: \`bundle exec rspec spec/foo_spec.rb\` → expected: ran ≥3"
+out="$(sf_demo_parse_line "$ran_unicode" 2>/dev/null)"
+prefix="$(printf '%s' "$out" | jq -r '.prefix')"
+expected="$(printf '%s' "$out" | jq -r '.expected')"
+assert_eq "A15a ran ≥N accepted — prefix"          "auto"   "$prefix"
+assert_eq "A15b ran ≥N — Unicode predicate preserved" "ran ≥3" "$expected"
+
+ran_ascii="- [ ] auto: \`mvn test\` → expected: ran >=5"
+out="$(sf_demo_parse_line "$ran_ascii" 2>/dev/null)"
+expected="$(printf '%s' "$out" | jq -r '.expected')"
+assert_eq "A15c ran >=N (ASCII) predicate preserved" "ran >=5" "$expected"
+
 report_results

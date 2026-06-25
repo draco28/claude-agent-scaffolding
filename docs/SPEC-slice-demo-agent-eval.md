@@ -13,7 +13,7 @@
 Two demo/verification grammars drifted apart:
 
 - **Work-item AC grammar** (scaffold-dev, hardened in v0.1.7): `exit 0` / `exit N`, `output contains <unquoted substring>`, **no** `count`. A mechanical per-work-item gate (`implementation-checking`).
-- **Slice-demo grammar** (R3; authored by **scaffold-onboard** `authoring-vertical-slice-demo`, parsed/evaluated by **scaffold-dev** `closing-vertical-slice`): quoted `output contains "<pat>"`, `output matches /<regex>/`, **`count > 0`/numeric predicates**, exit-code form.
+- **Slice-demo grammar** (R3; authored by **scaffold-onboard** `authoring-vertical-slice-demo`, parsed/evaluated by **scaffold-dev** `closing-vertical-slice`): quoted `output contains "<pat>"`, `output matches /<regex>/`, **`count > 0`/numeric predicates** (incl. `ran ≥N` — assert the run passed and ≥N tests executed, the portable count guard for runners outside scaffold-dev's `exit 0` zero-test allowlist; #79), exit-code form.
 
 Divergences: (a) quoting of `output contains`, (b) `count`/predicate support. Full unification is a trap — aligning *down* drops the `count`/predicate capability slice demos legitimately use; aligning *up* reverses the deliberate v0.1.7 work-item minimalism.
 
@@ -43,7 +43,7 @@ For each `auto:` demo line `auto: <command> → expected: <expectation>`:
 1. **Run (mechanical, deterministic):** execute `<command>` in canonical (post-merge slice state — on the slice branch under `pr_hierarchical`, per the #40 wiring already on this branch), capturing `(exit_code, stdout/stderr)`. The `cd "$canonical"` discipline is unchanged.
 2. **Judge:**
    - If the expectation is an **exit-code form** (`exit 0` / `exit N`): deterministic fast-path — pass iff `exit_code == N`. (Mechanical fact; stays deterministic.)
-   - Otherwise (any **content expectation** — `output contains …`, `output matches …`, `count > 0`, `> 5 rows`, or free-form prose): the orchestrator **judges** whether the captured output satisfies the stated expectation, and records its verdict **with a one-line reason**. No bash substring/arithmetic parsing.
+   - Otherwise (any **content expectation** — `output contains …`, `output matches …`, `count > 0`, `ran ≥N`, `> 5 rows`, or free-form prose): the orchestrator **judges** whether the captured output satisfies the stated expectation, and records its verdict **with a one-line reason**. No bash substring/arithmetic parsing.
 3. **Record** the outcome in the VS README `## Demo verification` section (one line per step, now including the agent's reason).
 4. **Halt-on-first-fail is preserved** — a judged fail halts exactly as today (no remaining `auto:`, no `user:`, no architect-critic, no retrospective, no harvest, no worktree removal).
 

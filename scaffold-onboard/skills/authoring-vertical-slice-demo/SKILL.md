@@ -57,7 +57,7 @@ Per SPEC §9.1 (verbatim from scaffold-dev SPEC §14.1), every demo criterion is
 ### 3.1 The two forms
 
 ```
-- [ ] auto: <bash command> → expected: <exit code 0 | pattern in output>
+- [ ] auto: <bash command> → expected: <exit code 0 | pattern in output | ran ≥N>
 - [ ] user: <action description> → expected: <observable outcome>
 ```
 
@@ -82,6 +82,8 @@ The `expected:` tail is the literal string `exit 0` (or `exit <N>` for non-zero 
 ```
 
 The `expected:` tail describes a substring or regex pattern that must appear in stdout. Quoted substrings in the pattern body (e.g., `"action_needed"`) are preserved byte-for-byte — do not collapse, normalize, or reformat them. scaffold-dev's execution runs the command and grep-checks stdout against the pattern.
+
+Pattern mode also covers **numeric predicates the slice-close orchestrator judges** (not greps): `count > 0`, `> 5 rows`, and `ran ≥N` — assert that **the run passed and at least N tests actually ran** (the non-vacuous green guarantee; a run that executed ≥N but reported a failure still fails). Reach for `ran ≥N` as the portable count guard for runners scaffold-dev's `exit 0` zero-test check can't see (rspec, mocha, `mvn test`, wrapper scripts); ASCII `ran >=N` is equivalent. See `references/auto-grammar.md` §2.2 / §3.10.
 
 **Example 3 — `user:` line with observable outcome:**
 
