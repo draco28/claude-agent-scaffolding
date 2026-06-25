@@ -53,7 +53,7 @@ no yq, no GNU-isms. Safe on macOS default tooling.
 
 ### Manual (markdown checklists)
 
-The three `.md` files are structured fixture lists. Pick one and:
+The four `.md` files are structured fixture lists. Pick one and:
 
 1. Read the **How to use** section at the top.
 2. Open a fresh Claude Code session in a context that matches the fixture's
