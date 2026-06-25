@@ -5,15 +5,11 @@
 
 ---
 
-## 0. ⚠️ FIRST ACTION — push the pending bookkeeping commit
+## 0. ✅ Repo fully synced — no pending push
 
-`main` will be **1 commit ahead of origin** after this session: the bookkeeping commit (this handoff + the SPEC §6 ledger row for #88) is committed locally but **unpushed** — the auto-mode classifier blocks direct-to-main pushes. The PR merge (`6391ff7`) and all three tags ARE already on origin; only this docs commit is local.
+`main` is **fully synced with origin** (`git rev-list --left-right --count origin/main...main` → `0 0`). The PR merge (`6391ff7`), all three tags, the bookkeeping commit (`8651fdb`: SPEC §6 ledger #88→SHIPPED), and this handoff are all on origin. Nothing pending — start the next task clean.
 
-**Run before starting new work:**
-```
-! git push origin main
-```
-Then `git rev-list --left-right --count origin/main...main` should read `0 0`. (Or add a Bash permission rule to let the agent push ledger/docs commits directly.)
+> Note for next session: direct-to-main pushes (ledger/docs bookkeeping) are still blocked by the auto-mode classifier and need an explicit user `! git push origin main` (or a scoped Bash permission rule). Not blocking now — just expect it at the *next* closeout.
 
 ---
 
@@ -48,7 +44,7 @@ Then `git rev-list --left-right --count origin/main...main` should read `0 0`. (
 
 **Open backlog (5):** **#86** (strategic — `/amend-spec`; brainstorm-first; likely a new sub-spec — arguably the highest-value open item) · #85 (small chore — `--separate-git-dir` canonical hook-path) · #38, #37, #10 (reconsider-first). All enhancement/chore — **zero correctness bugs.**
 
-**Repo state:** `main` is **1 ahead of origin** — bookkeeping commit unpushed (see §0). PR merge `6391ff7` + all three tags ARE on origin. Otherwise clean tree (only `.claude/` + `docs/superpowers/` untracked). 0 open PRs. CI green. #88 CLOSED.
+**Repo state:** `main` **fully synced with origin** (bookkeeping `8651fdb` + this handoff pushed). PR merge `6391ff7` + all three tags on origin. Clean tree (only `.claude/` + `docs/superpowers/` untracked). 0 open PRs. CI green. #88 CLOSED.
 
 ---
 
