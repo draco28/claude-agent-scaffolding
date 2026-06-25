@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-06-25
+
+### Added
+- **Orientation preamble for `grill-me` and `council` (#88).** Both skills now open with a compact, agent-produced **"📍 You are here"** block — Topic / Where-it-sits + strategic weight / Why — so a resumed or context-switched session is globally anchored, not just locally coherent. Derived from available context (a referenced issue/PR, the memory-bank `00-project-brief`/MASTER-SPEC §/SPEC ledger, recent handoffs); if context is thin the agent asks for a one-line reminder rather than fabricating. Re-surfaceable on demand ("where am I?"). Skill-first and fully agent-driven — no deterministic helper, no templating, no hook. Pairs with architect-critic v0.4.0 (adopts the convention in `critiquing-spec`) and scaffold-onboard v0.11.0 (seeds it into derived projects).
+
 ## [2.0.0] — 2026-05-24
 
 **Breaking change.** Scope-cut release: ai-mentor now ships only the surfaces the user actually invokes. See `docs/SPEC-ai-mentor-v2.md` for design rationale and `docs/PLAN-ai-mentor-v2.md` for the 8-phase implementation breakdown.

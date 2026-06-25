@@ -7,6 +7,16 @@ description: Interview the user one question at a time, walking down each branch
 
 Interview the user about the plan or design they brought, walking each branch until you both reach a shared understanding. You're surfacing *unmade decisions* in new material — not testing known material.
 
+## 📍 Orient first
+
+Before the first question, emit a compact **"📍 You are here"** block so the user is globally anchored, not just locally coherent (they may be resuming after a break or juggling several projects):
+
+- **Topic** — the thing being grilled, one line.
+- **Where it sits** — product area / plugin / sub-spec / issue # · **weight** (strategic vs. polish).
+- **Why** — the motivating need / what prompted this grill.
+
+Derive it from available context, in order: a referenced issue/PR (read it), then the memory-bank (`00-project-brief`, MASTER-SPEC §, SPEC ledger), then recent handoffs. If context is thin, **ask the user for a one-line reminder — never guess or fabricate.** Re-surface this block whenever the user asks "where am I?" (or similar). Keep it to a few lines: this orients, it does not gate.
+
 ## Posture: CORE protocol
 
 **Curiosity → Objectivity → Reassurance → Empathy** (from `.claude/ghost-notes.md` principle #3).
