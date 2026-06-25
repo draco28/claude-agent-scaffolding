@@ -2,6 +2,13 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.11.0] — 2026-06-25
+
+SS-6 — #88 (axis-B): seed the dialogue-session orientation convention into derived projects.
+
+### Added
+- **Dialogue-session orientation convention seeded into the `WORKFLOW.md` template (#88, axis-B).** The memory-bank `WORKFLOW.md` now documents a project norm: open any dialogue/cognitive session (`/grill-me`, `/council`, `/critique`, or a `superpowers:brainstorming` divergence) with a **"📍 You are here"** block (Topic / Where-it-sits + weight / Why), derived from context or asked when thin, re-surfaceable on "where am I?". Projects built with the scaffold inherit oriented dialogue/cognitive work — including project-authored cognitive flows and brainstorming, which the installed `ai-mentor`/`architect-critic` skills alone don't cover. Convention-only documentation note — no new Phase-10 gate, no state, no deterministic generator. Pairs with ai-mentor v2.1.0 + architect-critic v0.4.0.
+
 ## [0.10.0] — 2026-06-25
 
 SS-6 — #79: count-aware `ran ≥N` demo-criteria form.

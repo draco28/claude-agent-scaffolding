@@ -95,3 +95,13 @@ not harvested as prose; an over-long entry is flagged by `sd harvest_lint_length
 - `ai-mentor` — cognitive modes (`/council`, `/grill-me`, `/eli10`, `/fool`). Use when decisions matter more than typing speed.
 - `architect-critic` — anti-sycophancy reviews (`/critique`). Auto-fires at Phase 5/7 onboarding recaps and MASTER-SPEC close; can be invoked manually on slice specs and ADRs.
 - `superpowers` — TDD, debugging, parallel agent dispatch, plan/execute discipline.
+
+## Dialogue session orientation
+
+When you open any dialogue/cognitive session in this project — `/grill-me`, `/council`, `/critique`, or a `superpowers:brainstorming` divergence — **lead with a "📍 You are here" block** so you stay globally anchored, not just locally coherent (you may be resuming after a break or juggling several projects):
+
+- **Topic** — what's under discussion, one line.
+- **Where it sits** — product area / sub-spec / issue # · **weight** (strategic vs. polish).
+- **Why** — the motivating need / what prompted it.
+
+Derive it from context (a referenced issue/PR, this memory-bank's `00-project-brief` + `05-active-context.md`, recent handoffs); if context is thin, ask for a one-line reminder rather than guessing. Re-surface on "where am I?". The `ai-mentor` and `architect-critic` skills do this automatically — carry the same habit into any project-authored cognitive flow.

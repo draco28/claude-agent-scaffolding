@@ -10,6 +10,7 @@ regression suite:
 | `test-skill-triggers.md` | Markdown checklist | Natural-language phrases auto-invoke the right skill (grill-me, eli10, fool, council); negative tests cover trigger collisions like "let's grill chicken" |
 | `test-grill-escape-valves.md` | Markdown checklist | During a grill-me session, stuck-state messages (tangled / paralyzed / tactical-framing / no-timescale) fire the correct cognitive-discipline reframe |
 | `test-council-personas.md` | Markdown checklist | Council output has 5 distinguishable persona sections + Chairman synthesis prompt; Historian persona shows codebase-grounding in priors-rich repos and graceful pivot on greenfield |
+| `test-orientation-preamble.md` | Markdown checklist | Dialogue/cognitive sessions open with a "📍 You are here" orientation block before the first question / the personas (grill-me, council); thin context asks rather than fabricating; re-surfaces on demand ("where am I?") — v2.1 (#88) |
 
 ## Why the hybrid (bash + markdown) approach
 
@@ -52,7 +53,7 @@ no yq, no GNU-isms. Safe on macOS default tooling.
 
 ### Manual (markdown checklists)
 
-The three `.md` files are structured fixture lists. Pick one and:
+The four `.md` files are structured fixture lists. Pick one and:
 
 1. Read the **How to use** section at the top.
 2. Open a fresh Claude Code session in a context that matches the fixture's
@@ -75,7 +76,7 @@ Two ways to walk a checklist:
 ## Dependencies
 
 - `test-frontmatter-lint.sh`: `bash` 3.2+, `awk`. Nothing else.
-- `*.md` checklists: a Claude Code session with ai-mentor v2.0 installed.
+- `*.md` checklists: a Claude Code session with ai-mentor v2.0+ installed (v2.1+ for `test-orientation-preamble.md`, which exercises the #88 orientation preamble).
 
 ## When to run
 

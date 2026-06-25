@@ -119,7 +119,19 @@ The close-depth adversary is host-aware:
 
 ---
 
-## Step 4: Surface adversary status to the user BEFORE the audit runs
+## Step 4: Orient the user, then surface adversary status BEFORE the audit runs
+
+### 📍 Orient first
+
+Before surfacing adversary status, emit a compact **"📍 You are here"** block so the user is globally anchored, not just locally coherent (they may be resuming after a break or juggling several projects):
+
+- **Topic** — the artifact under audit (the spec/plan resolved in Step 1), one line.
+- **Where it sits** — product area / plugin / sub-spec / issue # · **weight** (strategic vs. polish).
+- **Why** — what prompted this audit / the decision it informs.
+
+Derive it from available context, in order: the artifact itself and any referenced issue/PR (read it), then the memory-bank (`00-project-brief`, MASTER-SPEC §, SPEC ledger), then recent handoffs. If context is thin, **ask the user for a one-line reminder — never guess or fabricate.** Re-surface this block whenever the user asks "where am I?" (or similar). Keep it to a few lines: this orients, it does not gate the audit. (Async `--close` runs show it once at dispatch; the on-demand "where am I?" covers re-orientation on resume.)
+
+### Adversary status
 
 This is the bug #5 fix. Users in v0.1 had no idea whether an external adversary was being consulted. Tell them, in plain prose, before any audit work starts.
 

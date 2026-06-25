@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.0 — 2026-06-25
+
+**Feature:** `critiquing-spec` now opens with an orientation preamble (#88).
+
+### Added
+- **Orientation preamble in `critiquing-spec` (#88).** Before surfacing adversary status and running the host self-audit (Step 4, after the artifact is resolved in Step 1), the agent emits a compact **"📍 You are here"** block — Topic (the artifact under audit) / Where-it-sits + strategic weight / Why — so the user is globally anchored on resume or context-switch. Derived from the artifact + any referenced issue/PR + memory-bank + recent handoffs; asks for a one-line reminder when context is thin rather than fabricating. One insertion covers both the synchronous and `--async` close-depth paths (they share Steps 1–5; async shows it once at dispatch). Re-surfaceable on demand ("where am I?"). Agent-driven prose — no deterministic helper, no templating, no hook. Adopts the convention owned by ai-mentor v2.1.0.
+
 ## v0.3.0 — 2026-06-18
 
 **Feature:** the close-depth external adversary can now run as a managed **background (async)** job (#39). The existing synchronous path is unchanged and remains the default.

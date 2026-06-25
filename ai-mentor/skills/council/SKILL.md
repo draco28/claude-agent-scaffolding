@@ -7,6 +7,16 @@ description: Convene a 5-persona advisory council (Karpathy LLM Council pattern,
 
 Five advisor personas attack the user's idea from different angles in a **single response**, then the user (as Chairman) synthesizes the verdict. Adapted from Andrej Karpathy's LLM Council pattern; the canonical "Expansionist" is replaced with **The Historian** — a codebase-aware seat that quotes the user's own git history.
 
+## 📍 Orient first
+
+Before convening the personas, emit a compact **"📍 You are here"** block so the user is globally anchored, not just locally coherent (they may be resuming after a break or juggling several projects):
+
+- **Topic** — the idea under council, one line.
+- **Where it sits** — product area / plugin / sub-spec / issue # · **weight** (strategic vs. polish).
+- **Why** — the motivating need / what prompted convening the council.
+
+Derive it from available context, in order: a referenced issue/PR (read it), then the memory-bank (`00-project-brief`, MASTER-SPEC §, SPEC ledger), then recent handoffs. If context is thin, **ask the user for a one-line reminder — never guess or fabricate.** Re-surface this block whenever the user asks "where am I?" (or similar). Keep it to a few lines: this orients, it does not gate.
+
 ## Mechanic
 
 Produce **one response** containing five markdown-headed sections in this exact order: `## The Contrarian`, `## The First Principles Thinker`, `## The Outsider`, `## The Executor`, `## The Historian`. Each section is 2–3 paragraphs of in-character take on the user's idea. After all five, close with:
