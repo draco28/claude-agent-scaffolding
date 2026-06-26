@@ -45,8 +45,11 @@ Through the `sf` dispatcher (`scaffold-onboard/bin/sf`, on `$PATH`; its bash she
 
 1. **Locate** the spec: `master="$(sf resolve_output_path master_spec MASTER-SPEC.md)"`. If the file is missing on disk → surface the §1 routing message and stop.
 2. **Validate** it parses before you touch it: `sf spec_validate "$master"`. If it fails, surface the error and stop — amend a valid spec, not a broken one (point the user at `validating-master-spec` / `/onboard --resume`).
-3. **Lock** so a concurrent onboarding can't race the state write: `sf state_lock_acquire` (release at the end, and on any early exit). The lock is non-reentrant.
-4. **Note the state mode**: `sf state_mode`. If it returns `new` (no onboarding state for this project — a legacy or externally-authored spec), there is no `phase_record` to fold and no re-onboard clobber risk; you'll edit the spec + revision trail (§5) only and **skip the §6 SSoT fold** with a one-line note. Otherwise the §6 SSoT fold applies.
+3. **Lock** so a concurrent onboarding can't race the state write: `sf state_lock_acquire`. If acquisition fails, surface *"Onboarding or amend-spec is already in progress in another session. Close that session or retry after confirming the lock owner is gone."* and stop. Track that this invocation acquired the lock; release it only after a successful acquire, at normal completion and on later early exits. The lock is non-reentrant, and `sf state_lock_release` is unconditional.
+4. **Note the state mode**: `sf state_mode`.
+   - If it returns `project_mismatch`, fetch `sf state_stored_project_root` and `sf project_identity_root`, surface both paths, release the lock, and stop. Do not read or write `phase_records` until the user reconciles the project root via `/onboard`'s project-mismatch protocol.
+   - If it returns `new` (no onboarding state for this project — a legacy or externally-authored spec), there is no `phase_record` to fold and no re-onboard clobber risk; you'll edit the spec + revision trail (§5) only and **skip the §6 SSoT fold** with a one-line note.
+   - Otherwise the §6 SSoT fold applies.
 
 ---
 
@@ -90,7 +93,7 @@ On confirmation, make the **minimal** edit:
 
 1. **Edit the target phase section** of `MASTER-SPEC.md` to incorporate the change — fold the new capability/NFR into the existing prose; don't rewrite the section. Preserve the phase marker (`<!-- master-spec:phase id=N name=... -->`) and the section's other content.
 2. **Revision trail** (the change-management record #86 wants):
-   - Append a dated one-line entry to a `## Revision History` section at the end of the spec (create the section on the first amendment): *"`rev N` (YYYY-MM-DD) — added <what>; affects Phase M; → run `/scaffold-docs` to assign its ID."*
+   - Append a dated one-line entry to a `## Revision History` section outside the phase-marker body (create the section on the first amendment before the first `<!-- master-spec:phase ... -->` marker, not at EOF): *"`rev N` (YYYY-MM-DD) — added <what>; affects Phase M; → run `/scaffold-docs` to assign its ID."*
    - Add/bump a `**Spec revision:**` metadata field in the header block (start at `2` on the first amendment). **Leave `**Spec version:**` untouched** — that field is the *schema/parser* version (`1.0`); bumping it would falsely signal a schema change and trip the validator's warning. Content revisions live in `**Spec revision:**` + the Revision History.
 3. **Re-validate**: `sf spec_validate "$master"`. The extra section/field are non-required and won't fail it; this just confirms you didn't disturb a required anchor.
 
@@ -115,7 +118,7 @@ Skip this section only when §2 found `sf state_mode == new` (no state file → 
 The spec changed, so `EXECUTIVE-SUMMARY.md`'s `cksum:` trailer is now stale. EXEC-SUMMARY has a deliberate **single authoritative producer** (onboarding close) — do **not** turn this skill into a second silent producer. Instead:
 
 - Check: `sf exec_summary_staleness "$master" "$exec"` (resolve `exec="$(sf resolve_output_path executive_summary EXECUTIVE-SUMMARY.md)"`).
-- **Judge** whether the amendment changes what the one-paragraph summary *should say*. If it does, update the `## Executive Summary` section **in MASTER-SPEC** (prose edit — that's within your lane) and offer to refresh `EXECUTIVE-SUMMARY.md` to match; if the user agrees, do it through the existing producer `sf render_executive_summary_from_synthesized` rather than hand-rolling the cksum.
+- **Judge** whether the amendment changes what the one-paragraph summary *should say*. If it does, update the `## Executive Summary` section **in MASTER-SPEC** (prose edit — that's within your lane) and offer to refresh `EXECUTIVE-SUMMARY.md` to match. If the user agrees, first write/re-synthesize a fresh `## Executive Summary` H2 body into the resolved `$exec` file, then call the existing guarded producer with its full signature: `sf render_executive_summary_from_synthesized "$master" "$exec" "$(sf project_name)" "$(sf spec_project_class "$master")"`. Do not invoke it against an already-rendered H1-shaped EXECUTIVE-SUMMARY without a fresh H2 body; the helper rejects that shape by design.
 - If the summary is still accurate, leave it and tell the user plainly: *"EXECUTIVE-SUMMARY.md reads stale (cksum) but its prose is unaffected; it refreshes from MASTER-SPEC at the next onboarding close."* Honest over silent.
 
 ---
@@ -125,7 +128,7 @@ The spec changed, so `EXECUTIVE-SUMMARY.md`'s `cksum:` trailer is now stale. EXE
 Close by naming **exactly** what to run to propagate the amendment — and be honest about the current limitation:
 
 - **`/scaffold-docs`** — to refresh SRS/BACKLOG so the new requirement gets its ID. **Flag plainly** that today this re-derives the whole governance bundle (it does not yet do a targeted, low-churn amendment — that's deferred), so curated edits in those docs will be re-authored. The impact analysis (§4) is the user's guide to what *should* change.
-- **`/plan-roadmap --add-slice <sprint>`** — optional, if the change warrants a new vertical slice. To make the amendment traceable into the work breakdown now, you may log a roadmap mutation stub: `sf roadmap_append_mutation amend-spec "<phase/area>" "<one-line rationale>"`.
+- **`/plan-roadmap --add-slice <sprint>`** — optional, if the change warrants a new vertical slice. To make the amendment traceable into the work breakdown now, you may log a roadmap mutation stub with an existing roadmap mutation mode: `sf roadmap_append_mutation add-slice "<phase/area>" "amend-spec: <one-line rationale>"`.
 
 Then release the lock (`sf state_lock_release`) and give a 3-line summary: what changed, where (phase + rev N), and the next command to run.
 
@@ -137,8 +140,8 @@ You make every judgment; bash does only non-reasoning mechanics, all through `sf
 
 - **Routing** — `sf resolve_output_path <logical> <relpath>` (`master_spec`, `executive_summary`, `srs`, `backlog`, `prd`, `roadmap`).
 - **Validation** — `sf spec_validate "$master"`.
-- **State** — `sf state_mode`, `sf state_read_phase_record`, `sf state_write_phase_record`, `sf state_lock_acquire` / `sf state_lock_release`.
-- **EXEC-SUMMARY** — `sf exec_summary_staleness`, `sf render_executive_summary_from_synthesized` (only on an explicit refresh).
+- **State** — `sf state_mode`, `sf state_stored_project_root`, `sf project_identity_root`, `sf state_read_phase_record`, `sf state_write_phase_record`, `sf state_lock_acquire` / `sf state_lock_release`.
+- **EXEC-SUMMARY** — `sf exec_summary_staleness`, `sf project_name`, `sf spec_project_class`, `sf render_executive_summary_from_synthesized` (only on an explicit refresh).
 - **Roadmap** — `sf roadmap_append_mutation` (optional traceability stub).
 
 No new `lib/*.sh`. Classification, impact analysis, ID reasoning, and every edit are yours — not a script's.

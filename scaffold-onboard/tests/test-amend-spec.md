@@ -26,7 +26,7 @@ For each fixture:
 
 ---
 
-## Fixtures (10 total)
+## Fixtures (12 total)
 
 ### A1 — absent spec routes to /onboard (does not scaffold)
 
@@ -61,8 +61,8 @@ For each fixture:
 |---|---|
 | Setup | A4 follows A3, user confirms |
 | Trigger | (confirm the amendment) |
-| Expected | Folds the change into the **right phase section** (a targeted fold, not a section rewrite, marker preserved); appends a dated `## Revision History` entry; adds/bumps `**Spec revision:**`; **leaves `**Spec version:**` at `1.0`**; re-validates with `sf spec_validate`. |
-| Anti-pattern (FAIL) | Bumping `**Spec version:**`; rewriting the whole phase section; editing SRS/BACKLOG |
+| Expected | Folds the change into the **right phase section** (a targeted fold, not a section rewrite, marker preserved); appends a dated `## Revision History` entry outside phase-marker content (before the first phase marker, not EOF); adds/bumps `**Spec revision:**`; **leaves `**Spec version:**` at `1.0`**; re-validates with `sf spec_validate`. |
+| Anti-pattern (FAIL) | Bumping `**Spec version:**`; rewriting the whole phase section; placing revision history after Phase 10; editing SRS/BACKLOG |
 | Status | GREEN (target) |
 
 ### A5 — SSoT fold-forward into the phase_record
@@ -90,8 +90,8 @@ For each fixture:
 |---|---|
 | Setup | A valid spec + `EXECUTIVE-SUMMARY.md` present |
 | Trigger | amend a small hardening NFR (summary arguably unaffected) |
-| Expected | Checks staleness; if the summary prose is unaffected, **flags it stale-by-design** ("refreshes at the next onboarding close") rather than silently re-rendering. If summary-worthy, updates the `## Executive Summary` section in MASTER-SPEC and refreshes only on explicit user agreement (via the existing producer). |
-| Anti-pattern (FAIL) | Silently re-rendering EXECUTIVE-SUMMARY as a second producer |
+| Expected | Checks staleness; if the summary prose is unaffected, **flags it stale-by-design** ("refreshes at the next onboarding close") rather than silently re-rendering. If summary-worthy, updates the `## Executive Summary` section in MASTER-SPEC and refreshes only on explicit user agreement by writing a fresh H2 summary body and calling `sf render_executive_summary_from_synthesized "$master" "$exec" "$(sf project_name)" "$(sf spec_project_class "$master")"`. |
+| Anti-pattern (FAIL) | Silently re-rendering EXECUTIVE-SUMMARY as a second producer; invoking the helper against an already-rendered H1 EXEC-SUMMARY with no fresh H2 body |
 | Status | GREEN (target) |
 
 ### A8 — propagation handoff is honest about whole-bundle re-derive
@@ -100,7 +100,7 @@ For each fixture:
 |---|---|
 | Setup | amendment completed |
 | Trigger | (end of the flow) |
-| Expected | Names `/scaffold-docs` to propagate + assign the requirement's ID, and **plainly flags** that today this re-derives the whole governance bundle (not a targeted low-churn update — deferred). Optionally offers `/plan-roadmap --add-slice` / a roadmap mutation stub. |
+| Expected | Names `/scaffold-docs` to propagate + assign the requirement's ID, and **plainly flags** that today this re-derives the whole governance bundle (not a targeted low-churn update — deferred). Optionally offers `/plan-roadmap --add-slice` / a roadmap mutation stub using an existing mode such as `add-slice` with an `amend-spec:` note. |
 | Status | GREEN (target) |
 
 ### A9 — orientation preamble + thin-context asks
@@ -123,11 +123,31 @@ For each fixture:
 | Anti-pattern (FAIL) | Claiming to have written `FR-N` into a doc; editing a derived doc |
 | Status | GREEN (target) |
 
+### A11 — lock/state safety on early exits
+
+| Field | Value |
+|---|---|
+| Setup | (a) An active onboarding/amend lock already exists, or (b) `sf state_mode` returns `project_mismatch` after this invocation acquires the lock |
+| Trigger | `/amend-spec add a retry-budget NFR` |
+| Expected | In (a), surfaces lock contention and stops without calling `sf state_lock_release` (does not delete another session's lock). In (b), surfaces stored/current project roots, releases only the lock it acquired, and stops before reading or writing `phase_records`. Pure-maintenance early exits after a successful lock acquisition must release the acquired lock before routing to `/defer`. |
+| Anti-pattern (FAIL) | Releasing a lock after failed acquisition; mutating mismatched onboarding state |
+| Status | GREEN (target) |
+
+### A12 — post-edit validation failure stops with state preserved
+
+| Field | Value |
+|---|---|
+| Setup | A valid spec, then during the confirmed edit introduce a corrupted required marker or metadata line |
+| Trigger | Continue the amendment through the §5 re-validation step |
+| Expected | `sf spec_validate "$master"` rejects the edited spec; the flow surfaces the validation error, stops, and does not proceed to `phase_record` fold, EXEC-SUMMARY refresh, or roadmap mutation. The acquired lock is released. |
+| Anti-pattern (FAIL) | Continuing propagation after validation failure; hiding the failed validation behind a successful summary |
+| Status | GREEN (target) |
+
 ---
 
 ## Aggregate status
 
-Total fixtures: **10.** Target GREEN on this tree: **10 / 10** (the amendment flow is
+Total fixtures: **12.** Target GREEN on this tree: **12 / 12** (the amendment flow is
 embedded in `skills/amending-spec/SKILL.md` as of #86 / SS-8). These are **manual**
 behavioral checks — not automated — consistent with scaffold-onboard's skill-first,
 agent-driven design (classification, impact analysis, and every edit are produced by
