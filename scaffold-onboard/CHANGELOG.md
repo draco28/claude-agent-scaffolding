@@ -2,6 +2,13 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.12.0] — 2026-06-26
+
+SS-8 — #86: `/amend-spec` — incremental, change-driven MASTER-SPEC amendment for the post-MVP / vNext lifecycle.
+
+### Added
+- **`/amend-spec` skill (`amending-spec`) for incremental spec amendment (#86 / SS-8).** A fully **agent-driven** front door for folding **one** change (a new capability, a hardening NFR, a scope tweak) into an existing `MASTER-SPEC.md` — instead of the greenfield whole-bundle re-derive. The flow: emit the `📍 You are here` orientation block → preflight (`sf resolve_output_path` + `sf spec_validate` + `sf state_lock_acquire`) → **classify** (net-new capability / NFR-hardening touch the spec; **pure maintenance routes to `/defer`**) → **impact analysis** against MASTER-SPEC + derived SRS/BACKLOG/ROADMAP, presented for confirmation before any edit → **targeted edit** of the right phase section + a dated `## Revision History` entry + a bumped `**Spec revision:**` (the schema `**Spec version:**` stays pinned at `1.0`) → **SSoT fold-forward** of the rationale into the affected phase's `phase_record` (so `/onboard --regenerate` reconciles the amendment forward instead of clobbering it) → EXEC-SUMMARY staleness judgment (never a silent second producer) → propagation handoff. **No new `lib/*.sh`, no ID-minting engine, no diff-merge engine** — every judgment is the agent's; bash is reused only for path/validation/state mechanics through `sf` (North Star §1). New `commands/amend-spec.md` (`$ARGUMENTS` bridge) and `tests/test-amend-spec.md` (10 manual behavioral fixtures). **Deferred by design** (front-door MVP envelope): diff-aware governance-doc merge and stable/collision-safe ID minting — `MASTER-SPEC.md` is ID-free and `/scaffold-docs` re-mints wholesale, so `/amend-spec` surfaces the prospective requirement but writes no ID and edits no derived doc. Design of record: `docs/agent-driven-program/specs/SS-8-amend-spec.md`.
+
 ## [0.11.0] — 2026-06-25
 
 SS-6 — #88 (axis-B): seed the dialogue-session orientation convention into derived projects.
