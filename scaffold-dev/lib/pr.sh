@@ -198,6 +198,10 @@ sd_remote_check() {
     sd_log_error "sd_remote_check: 'gh' is not authenticated. Run 'gh auth login' — PR operations need it."
     return 1
   fi
+  if ! (cd "$target" && gh repo view >/dev/null 2>&1); then
+    sd_log_error "sd_remote_check: $target is not a GitHub repo that gh can resolve from origin. Use a different repo or pass a different --repo-root."
+    return 1
+  fi
   return 0
 }
 

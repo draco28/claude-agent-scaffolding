@@ -22,7 +22,7 @@ _setup_pr_workspace() {
   export GH_SHIM_LOG="$TMP_DIR/gh-calls.log"
   : > "$GH_SHIM_LOG"
   # Reset shim env to defaults each setup.
-  unset GH_SHIM_AUTH_RC GH_SHIM_MERGE_RC GH_SHIM_PR_VIEW_JSON GH_SHIM_ISSUE_LIST_JSON GH_SHIM_ISSUE_URL GH_SHIM_PR_COMMENTS_JSON GH_SHIM_PR_COMMENTS_PAGED_JSON GH_SHIM_API_RC GH_SHIM_API_ERR GH_SHIM_PR_LIST_URL GH_SHIM_LABEL_RC GH_SHIM_LABEL_ERR GH_SHIM_LABEL_OUT GH_SHIM_CWD_LOG
+  unset GH_SHIM_AUTH_RC GH_SHIM_REPO_VIEW_RC GH_SHIM_REPO_VIEW_ERR GH_SHIM_REPO_VIEW_OUT GH_SHIM_MERGE_RC GH_SHIM_PR_VIEW_JSON GH_SHIM_ISSUE_LIST_JSON GH_SHIM_ISSUE_URL GH_SHIM_PR_COMMENTS_JSON GH_SHIM_PR_COMMENTS_PAGED_JSON GH_SHIM_API_RC GH_SHIM_API_ERR GH_SHIM_PR_LIST_URL GH_SHIM_LABEL_RC GH_SHIM_LABEL_ERR GH_SHIM_LABEL_OUT GH_SHIM_CWD_LOG
   export GH_SHIM_PR_URL="https://github.com/test/repo/pull/123"
 }
 
@@ -150,6 +150,7 @@ test_remote_check_ok() {
   cd "$TMP_AI_WORKSPACE"
   set +e; sd_remote_check 2>/dev/null; local rc=$?; :
   assert_eq "remote_check ok rc=0" "0" "$rc"
+  assert_file_contains "$GH_SHIM_LOG" "repo view"
 }
 
 # 11. remote_check fails with no origin
@@ -724,6 +725,23 @@ test_remote_check_repo_root_ok() {
   assert_eq "target with origin rc=0" "0" "$rc"
 }
 
+# 47. remote_check --repo-root fails early when gh cannot resolve the target repo,
+#     even if it has an origin remote.
+test_remote_check_repo_root_unresolvable() {
+  echo "test_remote_check_repo_root_unresolvable:"
+  _setup_pr_workspace
+  local tooling="$TMP_DIR/tooling-unresolvable"
+  git init -q "$tooling"
+  git -C "$tooling" remote add origin "https://example.com/not-github/repo.git"
+  export GH_SHIM_REPO_VIEW_RC=1
+  export GH_SHIM_REPO_VIEW_ERR="not a GitHub repository"
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_remote_check --repo-root "$tooling" 2>/dev/null; local rc=$?; :
+  unset GH_SHIM_REPO_VIEW_RC GH_SHIM_REPO_VIEW_ERR
+  assert_eq "unresolvable target rc=1" "1" "$rc"
+  assert_file_contains "$GH_SHIM_LOG" "repo view"
+}
+
 test_pr_state_repo_root
 test_pr_state_default_canonical
 test_pr_state_repo_root_no_value
@@ -733,5 +751,6 @@ test_pr_merge_repo_root_explicit_strategy
 test_pr_merge_repo_root_no_value
 test_remote_check_repo_root_no_origin
 test_remote_check_repo_root_ok
+test_remote_check_repo_root_unresolvable
 
 sd_test_summary

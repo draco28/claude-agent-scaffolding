@@ -6,6 +6,13 @@
 [[ -n "${GH_SHIM_CWD_LOG:-}" ]] && printf '%s\n' "$PWD" >> "$GH_SHIM_CWD_LOG"
 case "${1:-} ${2:-}" in
   "auth status") exit "${GH_SHIM_AUTH_RC:-0}" ;;
+  "repo view")
+    if [[ -n "${GH_SHIM_REPO_VIEW_RC:-}" && "${GH_SHIM_REPO_VIEW_RC}" != "0" ]]; then
+      echo "${GH_SHIM_REPO_VIEW_ERR:-failed to resolve repo}" >&2
+      exit "$GH_SHIM_REPO_VIEW_RC"
+    fi
+    echo "${GH_SHIM_REPO_VIEW_OUT:-test/repo}"
+    exit 0 ;;
   "pr list")     echo "${GH_SHIM_PR_LIST_URL:-}"; exit 0 ;;
   "pr create")   echo "${GH_SHIM_PR_URL:-https://github.com/test/repo/pull/123}"; exit 0 ;;
   "pr view")

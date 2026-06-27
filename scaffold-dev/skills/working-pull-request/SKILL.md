@@ -46,9 +46,24 @@ optional `--repo-root DIR`. Resolve the repo to act on — **manifest-free**: th
 are in, unless `--repo-root` overrides.
 
 ```bash
-REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
-  echo "not inside a git repository; cd into the PR's repo or pass --repo-root DIR" >&2; exit 1; }
-# If the user passed --repo-root DIR in $SCAFFOLD_DEV_ARGS, use that instead of the toplevel.
+REPO_ROOT=""
+set -- ${SCAFFOLD_DEV_ARGS:-}
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --repo-root)
+      [[ $# -ge 2 && -n "$2" ]] || { echo "--repo-root requires DIR" >&2; exit 1; }
+      REPO_ROOT="$2"; shift 2 ;;
+    --repo-root=*)
+      REPO_ROOT="${1#*=}"
+      [[ -n "$REPO_ROOT" ]] || { echo "--repo-root requires DIR" >&2; exit 1; }
+      shift ;;
+    *) shift ;;
+  esac
+done
+if [[ -z "$REPO_ROOT" ]]; then
+  REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || {
+    echo "not inside a git repository; cd into the PR's repo or pass --repo-root DIR" >&2; exit 1; }
+fi
 sd remote_check --repo-root "$REPO_ROOT" || exit 1   # target has 'origin' + authed gh (generic, NOT canonical)
 ```
 
@@ -97,19 +112,22 @@ signal on the current head is complete. Do NOT busy-wait/poll a queued reviewer 
 is still running, surface that and let the user decide to wait or stop.
 
 ## 5. Defer the non-blocking leftovers
-For each non-blocking finding the user accepts rather than fixes, file a tracked issue so
-it is never a silent pass:
+For each non-blocking finding the user accepts rather than fixes, record tracked debt so
+it is never a silent pass. Pick exactly ONE owner for issue creation:
+
+- In a paired workspace with a manifest + memory bank, invoke `deferring-work-item`
+  (`/defer`) and let it own both the GitHub issue and the lean `[TD]` index line.
+- In a manifest-less repo, file directly in the target repo:
 
 ```bash
 # write the body to a temp file, then file it in the TARGET repo:
 sd issue_create "<title>" "<body-file>" --repo-root "$REPO_ROOT" --label tech-debt
 ```
 
-Record `deferred → #N` in the ledger. If a workspace-init manifest + memory-bank are
-present (you are inside a paired workspace), additionally add the lean `[TD]` index line
-via `deferring-work-item` (`/defer`). In a manifest-less repo the tracked issue IS the
-record — there is no memory bank to index, so stop at the issue. Never block recording
-the debt on label setup (`sd label_ensure <label> "$REPO_ROOT"` is the offered,
+Record `deferred → #N` in the ledger. Do NOT create an issue directly and then invoke
+`/defer`; that duplicates the issue-filing owner. In a manifest-less repo the tracked
+issue IS the record — there is no memory bank to index, so stop at the issue. Never block
+recording the debt on label setup (`sd label_ensure <label> "$REPO_ROOT"` is the offered,
 idempotent fallback if the repo lacks the label).
 
 ## 6. Terminus — surface, then merge on ack
