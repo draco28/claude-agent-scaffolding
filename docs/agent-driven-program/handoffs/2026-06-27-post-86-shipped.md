@@ -5,9 +5,11 @@
 
 ---
 
-## 0. ⚠️ One local bookkeeping commit needs your push
+## 0. ✅ Repo fully synced — no pending push
 
-The PR merge (`a3c8b9c`) and tag `scaffold-onboard-v0.12.0` are **on origin**. But the **post-merge bookkeeping commit** (this handoff + SPEC §5/§6 SHIPPED flip + memory) is **direct-to-main, which the auto-mode classifier blocks** — it's committed locally, `main` is 1 ahead of origin. **Run `! git push origin main`** to sync. (Same recurring closeout step as #88.)
+`main` is **fully synced with origin** (`git rev-list --left-right --count origin/main...main` → `0 0`). The PR merge (`a3c8b9c`), tag `scaffold-onboard-v0.12.0`, and the bookkeeping commit (`61ab9a1`: SPEC §5/§6 SHIPPED flip + this handoff) are all on origin. **#86 CLOSED. 0 open PRs.** Start the next task clean.
+
+> Note for next session: this session's direct-to-main bookkeeping push went through on explicit user authorization. Expect the auto-mode classifier to require an explicit `! git push origin main` (or a scoped permission rule) again at the next closeout.
 
 ---
 
@@ -35,7 +37,7 @@ The PR merge (`a3c8b9c`) and tag `scaffold-onboard-v0.12.0` are **on origin**. B
 
 **Open backlog (5):** **#92** (NEW — scaffold-dev: expose the #82 pre-merge gate / finding-disposition loop as a standalone slice-decoupled `/work-pr` command; **brainstorm-first**; the manual Codex prompt is re-deriving a contract scaffold-dev already owns) · #85 (small chore — `--separate-git-dir` canonical hook-path) · #38, #37, #10 (reconsider-first). All enhancement/chore — **zero correctness bugs.**
 
-**Repo state:** PR merge `a3c8b9c` + tag `scaffold-onboard-v0.12.0` on origin; #86 CLOSED. **One local bookkeeping commit pending your push (§0).** Clean tree otherwise (only `.claude/` + `docs/superpowers/` untracked).
+**Repo state:** `main` **fully synced with origin** at `0 0` (PR merge `a3c8b9c` + tag `scaffold-onboard-v0.12.0` + bookkeeping `61ab9a1` all on origin); #86 CLOSED; 0 open PRs. Clean tree (only `.claude/` + `docs/superpowers/` untracked).
 
 ---
 
