@@ -620,4 +620,118 @@ test_issue_create_repo_root_no_value
 test_issue_create_repo_root_empty
 test_issue_list_repo_root_no_value
 
+# --- #92: --repo-root targeting on the PR read/merge/preflight helpers (/work-pr) ---
+
+# 38. pr_state --repo-root runs gh from the given repo, not canonical
+test_pr_state_repo_root() {
+  echo "test_pr_state_repo_root:"
+  _setup_pr_workspace
+  local tooling="$TMP_DIR/tooling"; mkdir -p "$tooling"
+  export GH_SHIM_CWD_LOG="$TMP_DIR/gh-cwd.log"; : > "$GH_SHIM_CWD_LOG"
+  cd "$TMP_AI_WORKSPACE"
+  sd_pr_state 123 --repo-root "$tooling" >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_CWD_LOG" "$tooling"
+  assert_file_contains "$GH_SHIM_LOG" "pr view 123 --json"
+}
+
+# 39. pr_state WITHOUT --repo-root still targets canonical (byte-compat)
+test_pr_state_default_canonical() {
+  echo "test_pr_state_default_canonical:"
+  _setup_pr_workspace
+  export GH_SHIM_CWD_LOG="$TMP_DIR/gh-cwd.log"; : > "$GH_SHIM_CWD_LOG"
+  cd "$TMP_AI_WORKSPACE"
+  sd_pr_state 123 >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_CWD_LOG" "$TMP_CANONICAL"
+}
+
+# 40. pr_state --repo-root with no value fails fast (rc 1), never spins the loop
+test_pr_state_repo_root_no_value() {
+  echo "test_pr_state_repo_root_no_value:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_pr_state 123 --repo-root 2>/dev/null; local rc=$?; :
+  assert_eq "no-value --repo-root rc=1" "1" "$rc"
+}
+
+# 41. pr_review_comments --repo-root runs gh api from the given repo
+test_pr_review_comments_repo_root() {
+  echo "test_pr_review_comments_repo_root:"
+  _setup_pr_workspace
+  local tooling="$TMP_DIR/tooling"; mkdir -p "$tooling"
+  export GH_SHIM_PR_COMMENTS_JSON="$HERE/fixtures/pr-review-comments.json"
+  export GH_SHIM_CWD_LOG="$TMP_DIR/gh-cwd.log"; : > "$GH_SHIM_CWD_LOG"
+  cd "$TMP_AI_WORKSPACE"
+  sd_pr_review_comments 7 --repo-root "$tooling" >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_CWD_LOG" "$tooling"
+  assert_file_contains "$GH_SHIM_LOG" "pulls/7/comments"
+}
+
+# 42. pr_merge --repo-root merges in the given repo, strips --repo-root from gh,
+#     and still injects the default --merge strategy
+test_pr_merge_repo_root() {
+  echo "test_pr_merge_repo_root:"
+  _setup_pr_workspace
+  local tooling="$TMP_DIR/tooling"; mkdir -p "$tooling"
+  export GH_SHIM_CWD_LOG="$TMP_DIR/gh-cwd.log"; : > "$GH_SHIM_CWD_LOG"
+  cd "$TMP_AI_WORKSPACE"
+  sd_pr_merge 123 --repo-root "$tooling" >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_CWD_LOG" "$tooling"
+  assert_file_not_contains "$GH_SHIM_LOG" "repo-root"
+  assert_file_contains "$GH_SHIM_LOG" "pr merge 123 --merge"
+}
+
+# 43. pr_merge --repo-root preserves an explicit strategy + flags after the flag
+test_pr_merge_repo_root_explicit_strategy() {
+  echo "test_pr_merge_repo_root_explicit_strategy:"
+  _setup_pr_workspace
+  local tooling="$TMP_DIR/tooling"; mkdir -p "$tooling"
+  cd "$TMP_AI_WORKSPACE"
+  sd_pr_merge 123 --repo-root "$tooling" --squash --auto >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_LOG" "pr merge 123 --squash --auto"
+  assert_file_not_contains "$GH_SHIM_LOG" "repo-root"
+}
+
+# 44. pr_merge --repo-root with no value fails fast (rc 1)
+test_pr_merge_repo_root_no_value() {
+  echo "test_pr_merge_repo_root_no_value:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_pr_merge 123 --repo-root 2>/dev/null; local rc=$?; :
+  assert_eq "no-value --repo-root rc=1" "1" "$rc"
+}
+
+# 45. remote_check --repo-root checks the TARGET repo (rc 1 when it has no origin,
+#     even though canonical DOES — proves the flag is honored, not ignored)
+test_remote_check_repo_root_no_origin() {
+  echo "test_remote_check_repo_root_no_origin:"
+  _setup_pr_workspace
+  local tooling="$TMP_DIR/tooling-noremote"; mkdir -p "$tooling"
+  git init -q "$tooling"
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_remote_check --repo-root "$tooling" 2>/dev/null; local rc=$?; :
+  assert_ne "target without origin rc!=0" "0" "$rc"
+}
+
+# 46. remote_check --repo-root passes when the target repo HAS an origin + authed gh
+test_remote_check_repo_root_ok() {
+  echo "test_remote_check_repo_root_ok:"
+  _setup_pr_workspace
+  local tooling="$TMP_DIR/tooling-withremote"
+  git init -q "$tooling"
+  git -C "$tooling" remote add origin "$BARE_ORIGIN"
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_remote_check --repo-root "$tooling" 2>/dev/null; local rc=$?; :
+  assert_eq "target with origin rc=0" "0" "$rc"
+}
+
+test_pr_state_repo_root
+test_pr_state_default_canonical
+test_pr_state_repo_root_no_value
+test_pr_review_comments_repo_root
+test_pr_merge_repo_root
+test_pr_merge_repo_root_explicit_strategy
+test_pr_merge_repo_root_no_value
+test_remote_check_repo_root_no_origin
+test_remote_check_repo_root_ok
+
 sd_test_summary
