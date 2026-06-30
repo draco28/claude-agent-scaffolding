@@ -81,11 +81,17 @@ if [[ -n "$(git -C "$REPO_ROOT" status --porcelain)" ]]; then
   echo "target repo has local changes; commit/stash/clean before /work-pr so fixes stay isolated" >&2
   exit 1
 fi
-(cd "$REPO_ROOT" && gh pr checkout "<PR>") || { echo "failed to check out PR <PR>" >&2; exit 1; }
+(cd "$REPO_ROOT" && gh pr checkout "<PR>" --force) || { echo "failed to check out PR <PR>" >&2; exit 1; }
 head_branch="$(cd "$REPO_ROOT" && gh pr view "<PR>" --json headRefName --jq .headRefName)"
+head_oid="$(cd "$REPO_ROOT" && gh pr view "<PR>" --json headRefOid --jq .headRefOid)"
 current_branch="$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD)"
+current_oid="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 [[ "$current_branch" == "$head_branch" ]] || {
   echo "checked out $current_branch, expected PR head $head_branch; refusing to edit" >&2
+  exit 1
+}
+[[ "$current_oid" == "$head_oid" ]] || {
+  echo "checked out $current_oid, expected PR head commit $head_oid; refusing to edit" >&2
   exit 1
 }
 ```
