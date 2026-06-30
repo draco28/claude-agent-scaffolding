@@ -134,6 +134,7 @@ merge_mode="$(sd merge_mode)"   # "direct" (default) | "pr_hierarchical"
 - **MASTER-SPEC.md** — read via the manifest-resolved master-spec path. Surfaces project class, constraints, tech stack — feeds decomposition rationale.
 - **Memory bank Tier 0** — auto-loaded by scaffold-dev's SessionStart hook (per SPEC §15.1, §18). If the hook hasn't fired in this session (e.g., started outside the AI workspace), surface a soft warning and continue.
 - **Active-context cursor** — read `<ai-workspace>/.claude/memory-bank/05-active-context.md` for the current active sprint / slice / round position (per SPEC §17). If the cursor names a different active slice and the user is invoking this skill for a NEW slice, surface: *"Cursor shows VS-<X.Y.Z> active. Plan VS-<N.M.K> as a new slice (cursor will update on first commit), or resume VS-<X.Y.Z> instead?"* and wait for choice.
+- **Recommend-by-default (#93)** — having read the spec + memory bank above, attach **one firm recommendation** + a one-line *cited* rationale to every gate below (§4 decomposition, §5 rounds, §7.2 audit-skip, §8.5 fix-up, §8.7 round/slice-close), grounded in MASTER-SPEC/memory-bank (per `references/recommendation-policy.md`); the user may **accept / rebut / defer**. `--neutral` (§13) suppresses all gate recommendations (revert to neutral menus); never auto-advance (§15).
 
 ---
 
@@ -150,7 +151,7 @@ Propose a draft decomposition into 4-5 work items, surfaced to the user as a num
 **Iteration loop:**
 
 1. Surface the draft (numbered list, one-line summaries).
-2. Ask: *"This decomposition: accept as-is, refine (which items?), or restart?"*
+2. **Recommend** (one firm option + one-line rationale cited to MASTER-SPEC, per `references/recommendation-policy.md`), then ask: *"Recommended: accept — <why, cites MASTER-SPEC §…>. This decomposition: accept as-is, refine (which items?), or restart?"* (omit the recommendation under `--neutral`).
 3. On refine: re-draft per user feedback. Loop until the user accepts.
 
 Anti-patterns: **mega-items** (1500 LOC behind one bullet — break it); **microscope items** (rename-one-constant — fold into a sibling); **hidden dependencies** (a shared schema migration that's not its own item — surface it as 1.01); **demoability drift** (an item advancing zero demo criteria — justify or merge).
@@ -173,7 +174,7 @@ Surface the proposed round structure to the user:
 
 Then ask:
 
-> Use the proposed rounds, loosen (move items earlier — must not violate declared deps), or tighten (move items later — always allowed as soft ordering)?
+> Recommended: use the proposed rounds — <one-line, cites the DAG / MASTER-SPEC §… where relevant>. Use the proposed rounds, loosen (move items earlier — must not violate declared deps), or tighten (move items later — always allowed as soft ordering)?
 
 Iterate until accepted. Persist the round assignment in each work item's spec (§6).
 
@@ -459,7 +460,7 @@ macOS-portable patterns (BSD awk, bash 3.2) required for any inline snippet; pre
 
 ## 13. Slash-command interaction (`/orchestrate VS-N.M.K`)
 
-The `/orchestrate VS-N.M.K` slash command (`commands/orchestrate.md`) exports the raw slash-argument string as `$SCAFFOLD_DEV_ARGS` (per `feedback_slash_command_dollar_n_bug` — Claude Code corrupts bash positionals at template-render time). **Parse `$SCAFFOLD_DEV_ARGS` in bash; never reference `$1` / `$2`.** Extract the VS-id (the full 3-part `VS-<phase>.<sprint>.<slice>`) plus the optional `--backend` / `--gate` overrides, then carry `backend_override` through §8.3 (`sd backend_resolve --backend …`) and `gate_override` through §7.0 (`sd review_gate_resolve --gate …`) when set, and proceed to §3 pre-flight. Full arg-parser in `references/orchestrate-args.md`. Unknown or missing VS-id → `> /orchestrate requires a VS-id argument. Example: /orchestrate VS-1.1.1` and stop.
+The `/orchestrate VS-N.M.K` slash command (`commands/orchestrate.md`) exports the raw slash-argument string as `$SCAFFOLD_DEV_ARGS` (per `feedback_slash_command_dollar_n_bug` — Claude Code corrupts bash positionals at template-render time). **Parse `$SCAFFOLD_DEV_ARGS` in bash; never reference `$1` / `$2`.** Extract the VS-id (the full 3-part `VS-<phase>.<sprint>.<slice>`) plus the optional `--backend` / `--gate` / `--neutral` overrides, then carry `backend_override` through §8.3 (`sd backend_resolve --backend …`) and `gate_override` through §7.0 (`sd review_gate_resolve --gate …`) when set, set `neutral_mode=true` when `--neutral` is present (suppresses every gate recommendation per §3.4), and proceed to §3 pre-flight. Full arg-parser in `references/orchestrate-args.md`. Unknown or missing VS-id → `> /orchestrate requires a VS-id argument. Example: /orchestrate VS-1.1.1` and stop.
 
 ---
 
@@ -484,6 +485,6 @@ The `/orchestrate VS-N.M.K` slash command (`commands/orchestrate.md`) exports th
 - **You** make every judgment call: how to decompose, how to read a subagent gap, whether a fail warrants replan vs re-spawn, when round-complete is the right next thing to say.
 - **Bash helpers** (`lib/*.sh`) handle pure I/O: manifest reads, atomic state writes, worktree/merge mechanics, probes, template substitution.
 - **`scaffold-dev:implementer-agent`** (Task-dispatched) owns work-item execution (`executing-work-item` body, TDD + verify); **`implementation-checking`** owns the per-item gate; **`architect-critic:critiquing-spec`** owns the spec audit; **`ai-mentor:grill-me`** owns the three optional gates; **`closing-vertical-slice`** owns slice close (§10).
-- **The user** is the final authority — accepts/refines the decomposition + rounds, opts in/out of each grill-me, picks the failure-response option, gates slice close. Never auto-advance past a decision boundary.
+- **The user** is the final authority — accepts/refines the decomposition + rounds (each gate carries a recommendation per §3.4 unless `--neutral`; a recommendation is a lean, not a decision), opts in/out of each grill-me, picks the failure-response option, gates slice close. Never auto-advance past a decision boundary.
 
 The bookkeeping-vs-judgment line: a user-facing decision (which items, how to recap, whether to escalate) belongs in this body; pure I/O (manifest read, worktree create, render, atomic write) belongs in a lib helper.

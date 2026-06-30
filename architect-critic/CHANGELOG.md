@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.5.0 — 2026-06-30
+
+**Feature:** `critiquing-spec` adopts the recommend-by-default decision policy (#93).
+
+### Changed
+- **Recommended disposition per challenge (#93).** Each surfaced challenge now carries a firm, CORE-toned **recommended disposition** (`accept` / `rebut` / `defer`) plus a one-line rationale grounded in the artifact + principles and cited where possible — the user no longer adjudicates each challenge cold. The rebuttal-cycle disposition triple is reframed `accept | rebut | dismiss` → **`accept | rebut | defer`** (`defer` = challenge valid/unresolved but tracked for later, e.g. filed as an issue; it absorbs the old `dismiss`). The 1–5 concession scorer (`lib/scorer.sh`, T=4 threshold) is unchanged — it still scores rebuttals only. `--neutral` (or "no recommendations") suppresses the recommended-disposition line per invocation. The shared policy is the marketplace convention `docs/conventions/recommendation-policy.md`, shipped as a byte-identical copy at `templates/recommendation-policy.md` and guarded by the repo-root parity test `tests/test-recommendation-policy-parity.sh`. Adopts the convention owned by ai-mentor v2.2.0; pairs with scaffold-dev v0.15.0.
+
 ## v0.4.0 — 2026-06-25
 
 **Feature:** `critiquing-spec` now opens with an orientation preamble (#88).

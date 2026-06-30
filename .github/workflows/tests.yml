@@ -68,3 +68,6 @@ jobs:
 
       - name: dual-publish parity (repo-root)
         run: bash tests/test-codex-dual-publish.sh
+
+      - name: recommendation-policy parity (repo-root)
+        run: bash tests/test-recommendation-policy-parity.sh

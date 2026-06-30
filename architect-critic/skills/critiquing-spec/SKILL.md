@@ -108,6 +108,8 @@ Otherwise `close_depth = false` (shallow = claude-only audit, the default).
 
 **Async detection (#39).** Set `async_mode = true` if `--async` is present in `$ARCHITECT_CRITIC_ARGS`. Async is only meaningful for a **close-depth** audit with `HOST_AGENT=claude` (the Codex companion is the only proven background backend; Codex-host keeps the synchronous path). If `--async` is set but `close_depth=false` or `HOST_AGENT=codex`, ignore it and run synchronously, telling the user why. When `async_mode=true` and applicable, Step 6 takes the **defer-to-resume** path (dispatch now, resume later) instead of the inline invocation.
 
+**Neutral mode (#93).** Set `neutral_mode = true` if `--neutral` is present in `$ARCHITECT_CRITIC_ARGS`, or the user's natural-language invocation matched *"no recommendations"* / *"just list the challenges"* / *"don't recommend"*. When `neutral_mode=true`, Step 8 omits the per-challenge **recommended disposition** and presents challenges neutrally (the pre-#93 behavior). Default is `false` — recommend by default. Opt-out is per-invocation, not sticky.
+
 The close-depth adversary is host-aware:
 
 | HOST_AGENT | close_depth | available check | What runs |
@@ -355,20 +357,33 @@ Final list: 3 challenges, one cross-confirmed at premise level (surface first in
 
 This step is the heart of the user experience. It is also the bug #4 fix: **never use bash `read` to capture user input here.** Bash `read` blocks on stdin, which doesn't exist in non-TTY Claude Code sessions (subagent, hooks, headless), and the rebuttal cycle silently skips. Use Claude's native turn handling instead — you ask, the user replies in the next turn, you process.
 
+**Recommend-by-default (#93).** Per the recommendation policy
+(`${PLUGIN_DIR}/templates/recommendation-policy.md`), each challenge you surface
+carries **one recommended disposition** — your honest, CORE-toned lean on how the
+user should dispose of it (`accept`, `rebut`, or `defer`) plus a one-line
+rationale, grounded in the artifact (Step 1) and principles (Step 2) and cited
+where possible (e.g. *"Recommended: accept — contradicts MASTER-SPEC §4.2's stated
+latency budget"*; a low-stakes `alternative` → *"Recommended: defer — viable but
+not blocking; track as an issue"*). Never fabricate a citation; if the spec
+doesn't ground it, say *"(general best practice)"*. When `neutral_mode=true`
+(Step 3, `--neutral`), omit the recommended-disposition line and present each
+challenge neutrally.
+
 **Sequential mode (default).** For each challenge in the consolidated list, emit:
 
 ```
 Challenge 1 of N (severity: <premise|gap|alternative>)
 <CORE-toned text>
 Rationale: <why this might matter>
+Recommended: <accept|rebut|defer> — <one-line, cited where possible>   (omit when --neutral)
 
-Your response (accept | rebut | dismiss):
+Your response (accept | rebut | defer):
 ```
 
 Then **end your turn** and wait for the user's reply. When they reply:
 
 - If they say *"accept"* → mark as concession; advance to next challenge.
-- If they say *"dismiss"* → mark as dismissed (challenge stands but user does not want to engage); advance.
+- If they say *"defer"* → mark as deferred (challenge is valid/unresolved but the user chooses to handle it later — record it so it can be tracked, e.g. filed as an issue; the challenge stands, it is not silently dropped); advance.
 - If they rebut → score the rebuttal 1–5 via:
   ```bash
   arc scorer_score "$CHALLENGE_TEXT" "$REBUTTAL_TEXT"
@@ -502,6 +517,6 @@ A few invariants to keep clear, since this skill straddles a markdown/bash bound
 - **You** (Claude reading this skill body) make every judgment call: which path to audit when multiple candidates exist, what challenges to surface, how to score a rebuttal, when to escape-hatch out of sequential mode.
 - **Bash helpers** (`lib/*.sh`) handle pure I/O: reading state files, computing similarity scores, appending JSON, file merges. They never decide what is or isn't a challenge.
 - **Codex** is a fresh-frame adversary, not a judge. Its output is one of two input streams to the consolidator. You still mediate the rebuttal cycle.
-- **The user** is the final authority. Your job is to surface candidate concerns; theirs is to accept, rebut, or dismiss. You never auto-promote without consent.
+- **The user** is the final authority. Your job is to surface candidate concerns (each with a recommended disposition per the recommendation policy, unless `--neutral`); theirs is to accept, rebut, or defer. You never auto-promote without consent, and a recommendation never auto-advances past a decision boundary.
 
 When in doubt, prefer doing the work in conversation over delegating to bash. The v0.1.x architecture got this wrong; v0.2 corrects it. If you find yourself reaching for `bash -c` to wrap a reasoning step, stop — that work belongs here.

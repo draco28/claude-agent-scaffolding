@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [2.2.0] — 2026-06-30
+
+### Changed
+- **Recommend-by-default decision policy (#93).** `grill-me` and `council` now attach a firm, vision-grounded **recommendation** to every surfaced decision by default, so the user can **accept / rebut / defer** with guidance rather than adjudicate cold. `grill-me` Rule #3 flips from "recommend only when asked" to a one-line *cited* lean per question; `council` proposes a **Chairman synthesis** by default (the five voices still come first, in full) instead of always handing synthesis to the user. Grounding reuses ai-mentor's existing orientation-derivation chain (issue/PR → memory-bank → handoffs), falling back to labelled general best-practice — **no manifest dependency is added** (ai-mentor stays orthogonal). `--neutral` (or "no recommendations") suppresses recommendations per invocation and restores the prior neutral behavior. The shared policy is the marketplace convention `docs/conventions/recommendation-policy.md`, shipped as a byte-identical copy at `references/recommendation-policy.md` and guarded by the repo-root parity test `tests/test-recommendation-policy-parity.sh`. Pairs with architect-critic v0.5.0 and scaffold-dev v0.15.0, which adopt the same convention.
+
 ## [2.1.0] — 2026-06-25
 
 ### Added
