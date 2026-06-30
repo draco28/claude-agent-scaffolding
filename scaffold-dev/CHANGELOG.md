@@ -2,7 +2,7 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
-## [0.14.0] — 2026-06-27
+## [0.14.0] — 2026-06-30
 
 SS-9 — #92: expose the pre-merge gate as a standalone, slice-decoupled `/work-pr` command. **Closes #92.**
 
@@ -11,6 +11,7 @@ SS-9 — #92: expose the pre-merge gate as a standalone, slice-decoupled `/work-
 - **#92 — `--repo-root DIR` on the PR helpers.** `sd_pr_state` / `sd_pr_review_comments` / `sd_pr_merge` / `sd_remote_check` now accept an optional `--repo-root DIR` target (extracted to the shared `_sd_repo_target` parser, which `sd_issue_create` / `sd_issue_list` are retrofitted onto). This is what lets `/work-pr` run **manifest-free** on the current git repo — no workspace-init pairing required. 9 new tests (`tests/test-pr.sh`).
 
 ### Notes
+- **Review-pass hardening.** The Codex companion's bot-review-fix cycle (PR #94) fixed three real first-draft bugs: full-URL owner/repo resolution in `sd_pr_review_comments` (a bare `{owner}/{repo}` resolved from cwd, not the URL); single-owner deferral routing (the draft double-filed via `sd issue_create` + `/defer`); and fix-loop checkout safety in the skill preflight (dirty-repo refusal + `gh pr checkout` + `headRefName`/`headRefOid` verification, plus a `gh repo view` resolution check in `sd_remote_check`). Seam-lint test pins the new safety prose.
 - **Manifest-free by design.** Unlike every other scaffold-dev skill, `working-pull-request` does NOT call `manifest_require` — it resolves the target repo from `git rev-parse --show-toplevel` (or `--repo-root`), so it works on any gh repo (e.g. the scaffolding repo itself, where PR #91 lived). Slice/sprint-close PR paths are unchanged: with no `--repo-root` the helpers fall back to `.canonical.root` exactly as before (byte-compatible).
 - **Deferred:** remote `--repo owner/repo` (gh `-R`) targeting — current-repo / `--repo-root DIR` covers the motivating cases without touching the test gh-shim.
 

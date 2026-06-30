@@ -1,6 +1,6 @@
 # SS-9 — `/work-pr`: standalone, slice-decoupled PR review-fix-merge gate (closes #92)
 
-**Status:** Design-locked for `scaffold-dev v0.14.0` (sub-spec of `docs/agent-driven-program/SPEC-agent-driven-program.md` → SS-9) · **Date:** 2026-06-27
+**Status:** ✅ SHIPPED in `scaffold-dev v0.14.0` (PR #94, squash `1b0eebb`, tag `scaffold-dev-v0.14.0`; sub-spec of `docs/agent-driven-program/SPEC-agent-driven-program.md` → SS-9) · **Date:** 2026-06-27 (design) / 2026-06-30 (shipped)
 **Closes:** `#92` (the #82 pre-merge gate was reachable only from slice/sprint close). Demand-validated by the hand-maintained Codex "PR-fix prompt" this collapses ([[feedback_codex_runs_pr_fix_cycle]]).
 **Plugins touched:** `scaffold-dev` only (new `working-pull-request` skill + `/work-pr` command + a backward-compatible `lib/pr.sh` extension).
 
@@ -23,10 +23,10 @@ Exploration (2026-06-27) confirmed the gate logic depends on **only**: a PR ref,
 
 ## 4. The flow (`working-pull-request` SKILL.md — all agent reasoning; ⚙️ = mechanical reuse via `sd`)
 
-1. **Preflight** ⚙️ — resolve `REPO_ROOT` from `git rev-parse --show-toplevel` (or `--repo-root`); `sd remote_check --repo-root "$REPO_ROOT"` (origin + authed gh, generic — NOT canonical); `sd pr_state <PR> --repo-root "$REPO_ROOT"` to confirm the PR exists. No `manifest_require`. Fail fast with an actionable message.
+1. **Preflight** ⚙️ — resolve `REPO_ROOT` from an explicit `--repo-root` (parsed from `$SCAFFOLD_DEV_ARGS`) else `git rev-parse --show-toplevel`; `sd remote_check --repo-root "$REPO_ROOT"` (origin + authed gh **+ `gh repo view` resolves** the repo, generic — NOT canonical); `sd pr_state <PR> --repo-root "$REPO_ROOT"` to confirm the PR exists. Then, before any edit, **refuse a dirty target** (`git status --porcelain`), `gh pr checkout <PR> --force`, and **verify the checkout is the PR head** (both `headRefName` and `headRefOid` match) so fixes land on the right, current branch. No `manifest_require`. Fail fast with an actionable message. (Hardened in the Codex review pass — see §10.)
 2. **Fetch** ⚙️ — `sd pr_state` (CI rollup + review summaries + conversation + commits) **and** `sd pr_review_comments` (inline line-level findings) — both, because each alone misses findings the other carries. Build a disposition ledger.
 3. **Disposition + fix loop** — apply `git-workflow.md` §7 verbatim: P1/blocking → must fix (never ack-to-merge, never deferrable); non-blocking → fix or defer (`deferred → #N`, never silent); **the agent drives the fix itself** (edit, commit, push) then re-fetches and re-reviews on the new head (staleness); reviewer-completeness (green check ≠ ran; skipped ≠ approval; pending → wait). Loop until every finding is dispositioned, every P1 fixed, and the reviewer signal current. No busy-wait.
-4. **Defer leftovers** ⚙️ — `sd issue_create --repo-root "$REPO_ROOT" --label tech-debt` files a tracked issue for each accepted non-blocking finding; in a paired workspace, *additionally* add the `[TD]` index line via `deferring-work-item`; in a manifest-less repo the issue IS the record. Label setup never blocks the debt (`sd label_ensure`).
+4. **Defer leftovers** ⚙️ — for each accepted non-blocking finding, record tracked debt with **exactly one** issue-filing owner (no double-file): canonical `REPO_ROOT` → `deferring-work-item` (`/defer`, owns issue + `[TD]` line); the paired tooling repo → `/defer --tooling` (repo-qualified ref); otherwise (manifest-less or an external `--repo-root`) → `sd issue_create --repo-root "$REPO_ROOT" --label tech-debt` directly, where the issue IS the record (no memory-bank pointer for an unrelated repo). Label setup never blocks the debt (`sd label_ensure`).
 5. **Terminus** ⚙️ — surface the ledger + CI/reviewer status + mergeability verdict; ask merge/wait/leave-open; `sd pr_merge <PR> --repo-root "$REPO_ROOT"` **only on explicit ack**. Never auto-merge over an unresolved P1, stale/incomplete reviewer signal, or red gate.
 
 ## 5. Reuse vs. new
@@ -51,3 +51,11 @@ Exploration (2026-06-27) confirmed the gate logic depends on **only**: a PR ref,
 ## 9. Ledger placement
 
 SS-9 is its own sub-spec line (the standalone-command strategic item, parallel to SS-8) and ships as **one PR** → `scaffold-dev v0.14.0`. Closes #92.
+
+## 10. Review-pass hardening (Codex companion, 3 commits)
+
+Per the established division of labor ([[feedback_codex_runs_pr_fix_cycle]]), the user's Codex companion ran the bot-review-fix cycle on PR #94; the host (Claude) reviewed all three commits on the real HEAD and independently re-verified (full suite 23/0, dual-publish 155/0, line-cap 14/0) before squash-merge. The fixes were **real bugs in the first draft**, not churn:
+
+1. **Full-URL owner/repo resolution** (`sd_pr_review_comments`) — the draft always built `repos/{owner}/{repo}/...`, which `gh api` resolves from the *cwd*, so a full PR URL for a different repo than `$target` queried the wrong repo. Now a `https://github.com/<o>/<r>/pull/<n>` ref parses its own owner/repo (with `?`/`#` stripping); a bare number still resolves `{owner}/{repo}` from the target. (CodeRabbit + Codex.)
+2. **Single-owner deferral** (skill §5) — the draft filed via `sd issue_create` **and** then invoked `/defer`, double-filing the issue in a paired workspace (`deferring-work-item` itself files). Now exactly one owner is chosen by repo identity.
+3. **Fix-loop checkout safety** (skill §2 preflight) — added: refuse a dirty target repo; `gh pr checkout <PR> --force`; verify both `headRefName` and `headRefOid` match before editing (so fixes never land on the wrong or a stale branch). Plus `sd_remote_check` now confirms `gh repo view` actually resolves the repo (an `origin` string alone wasn't proof). Seam-lint test `test_work_pr_skill_safety_prose` pins the new safety prose.
