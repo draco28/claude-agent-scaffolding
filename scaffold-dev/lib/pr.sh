@@ -20,6 +20,42 @@ if ! declare -F sd_manifest_get >/dev/null 2>&1; then
   source "$_SD_LIB_DIR/manifest.sh"
 fi
 
+# _sd_repo_target <caller> [args...] — shared `--repo-root` parser + target resolver
+# for the gh-wrapping helpers (sd_pr_state / sd_pr_review_comments / sd_pr_merge /
+# sd_remote_check / sd_issue_create / sd_issue_list). Parses an optional
+# `--repo-root DIR` / `--repo-root=DIR` out of [args...] and resolves the repo to act on:
+#   explicit --repo-root DIR  → that DIR (e.g. /work-pr's current repo, /defer --tooling)
+#   otherwise                 → .canonical.root from the manifest (byte-compatible default)
+# Returns via two globals — command substitution runs in a subshell (can't write back an
+# array) and bash 3.2 has no namerefs, so the caller reads them after the call:
+#   _SD_TARGET — the resolved repo dir
+#   _SD_REST   — the remaining non-`--repo-root` args, to forward to gh (empty array ok)
+# rc 1 + message when `--repo-root` is given with no value (the #48 shift-2 infinite-loop
+# / silent-canonical-fallback guard) or when neither a DIR nor a canonical.root resolves.
+_sd_repo_target() {
+  local caller="$1"; shift
+  local repo_root=""
+  _SD_REST=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --repo-root)
+        [[ $# -ge 2 && -n "$2" ]] || { sd_log_error "$caller: --repo-root requires a non-empty DIR"; return 1; }
+        repo_root="$2"; shift 2 ;;
+      --repo-root=*)
+        repo_root="${1#*=}"
+        [[ -n "$repo_root" ]] || { sd_log_error "$caller: --repo-root requires a non-empty DIR"; return 1; }
+        shift ;;
+      *) _SD_REST+=("$1"); shift ;;
+    esac
+  done
+  if [[ -n "$repo_root" ]]; then
+    _SD_TARGET="$repo_root"
+  else
+    _SD_TARGET="$(sd_manifest_get '.canonical.root')" || { sd_log_error "$caller: no canonical.root"; return 1; }
+  fi
+  return 0
+}
+
 # sd_merge_mode — echo during_dev.merge_mode, defaulting unknown values to "direct".
 sd_merge_mode() {
   local m
@@ -142,21 +178,28 @@ sd_branch_sync() {
   return 0
 }
 
-# sd_remote_check — verify canonical has an 'origin' remote AND gh is present +
-# authenticated. rc 0 on success; rc 1 + actionable message otherwise.
+# sd_remote_check [--repo-root DIR] — verify the target repo has an 'origin' remote
+# AND gh is present + authenticated. Default target: canonical (manifest); --repo-root
+# checks a caller-chosen repo (e.g. /work-pr's current repo). rc 0 on success; rc 1 +
+# actionable message otherwise.
 sd_remote_check() {
-  local canonical
-  canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_remote_check: no canonical.root"; return 1; }
-  if ! git -C "$canonical" remote get-url origin >/dev/null 2>&1; then
-    sd_log_error "sd_remote_check: no 'origin' remote on canonical. Add one (git remote add origin <url>) — pr_hierarchical mode opens PRs against it."
+  local target
+  _sd_repo_target "sd_remote_check" "$@" || return 1
+  target="$_SD_TARGET"
+  if ! git -C "$target" remote get-url origin >/dev/null 2>&1; then
+    sd_log_error "sd_remote_check: no 'origin' remote in $target. Add one (git remote add origin <url>) — PR operations resolve the repo from it."
     return 1
   fi
   if ! command -v gh >/dev/null 2>&1; then
-    sd_log_error "sd_remote_check: 'gh' not in PATH. Install GitHub CLI — pr_hierarchical mode opens PRs via gh."
+    sd_log_error "sd_remote_check: 'gh' not in PATH. Install GitHub CLI — PR operations run via gh."
     return 1
   fi
   if ! gh auth status >/dev/null 2>&1; then
-    sd_log_error "sd_remote_check: 'gh' is not authenticated. Run 'gh auth login' — pr_hierarchical mode needs it to open PRs."
+    sd_log_error "sd_remote_check: 'gh' is not authenticated. Run 'gh auth login' — PR operations need it."
+    return 1
+  fi
+  if ! (cd "$target" && gh repo view >/dev/null 2>&1); then
+    sd_log_error "sd_remote_check: $target is not a GitHub repo that gh can resolve from origin. Use a different repo or pass a different --repo-root."
     return 1
   fi
   return 0
@@ -190,39 +233,77 @@ sd_pr_open() {
   return 0
 }
 
-# sd_pr_state <pr> — emit gh pr view JSON for the agent-driven gate to reason
-# over. NO interpretation here. rc 1 if gh absent.
+# sd_pr_state <pr> [--repo-root DIR] — emit gh pr view JSON for the agent-driven gate
+# to reason over. NO interpretation here. Default target: canonical; --repo-root acts on
+# a caller-chosen repo (e.g. /work-pr's current repo). rc 1 if gh absent.
 sd_pr_state() {
-  local pr="$1" canonical
-  canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_pr_state: no canonical.root"; return 1; }
+  local pr="$1"; shift
+  local target
+  _sd_repo_target "sd_pr_state" "$@" || return 1
+  target="$_SD_TARGET"
   if ! command -v gh >/dev/null 2>&1; then
     sd_log_error "sd_pr_state: 'gh' not in PATH."
     return 1
   fi
-  (cd "$canonical" && gh pr view "$pr" --json mergeStateStatus,statusCheckRollup,reviews,latestReviews,comments,reviewDecision,commits)
+  (cd "$target" && gh pr view "$pr" --json mergeStateStatus,statusCheckRollup,reviews,latestReviews,comments,reviewDecision,commits)
 }
 
-# sd_pr_review_comments <pr> — fetch INLINE (line-level) review comments via the
-# REST API. `gh pr view --json` returns only review summaries (reviews/
+# sd_pr_review_comments <pr> [--repo-root DIR] — fetch INLINE (line-level) review
+# comments via the REST API. Default target: canonical; --repo-root acts on a
+# caller-chosen repo (e.g. /work-pr's current repo).
+# `gh pr view --json` returns only review summaries (reviews/
 # latestReviews) and conversation comments — NOT the line-level comments where a
 # bot (Codex/CodeRabbit) or human leaves inline findings. The pre-merge gate must
 # fetch these so it never merges over unresolved inline feedback while CI is green.
 # Emits one raw JSON array. NO interpretation. rc 1 if gh/jq/api fails.
 sd_pr_review_comments() {
-  local pr="$1" canonical num out
-  canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_pr_review_comments: no canonical.root"; return 1; }
+  local pr="$1"; shift
+  local target num out api_path
+  _sd_repo_target "sd_pr_review_comments" "$@" || return 1
+  target="$_SD_TARGET"
   if ! command -v gh >/dev/null 2>&1; then
     sd_log_error "sd_pr_review_comments: 'gh' not in PATH."
     return 1
   fi
-  # Accept a PR URL (gh pr create echoes one) OR a bare number — the REST path
-  # needs the numeric id. Strip everything up to the last '/'.
-  num="${pr##*/}"
+  # Accept a GitHub PR URL (gh pr create echoes one) OR a bare number. A full URL
+  # must carry its owner/repo into the REST endpoint; gh's {owner}/{repo}
+  # placeholders resolve from the current directory/GH_REPO, not from the URL.
+  case "$pr" in
+    https://github.com/*/pull/*|http://github.com/*/pull/*)
+      local rest owner repo
+      rest="${pr#https://github.com/}"
+      rest="${rest#http://github.com/}"
+      owner="${rest%%/*}"
+      rest="${rest#*/}"
+      repo="${rest%%/*}"
+      rest="${rest#*/}"
+      if [[ "$rest" != pull/* ]]; then
+        sd_log_error "sd_pr_review_comments: unsupported PR URL: $pr"
+        return 1
+      fi
+      num="${rest#pull/}"
+      num="${num%%/*}"
+      num="${num%%\?*}"
+      num="${num%%#*}"
+      if [[ -z "$owner" || -z "$repo" || -z "$num" ]]; then
+        sd_log_error "sd_pr_review_comments: unsupported PR URL: $pr"
+        return 1
+      fi
+      api_path="repos/$owner/$repo/pulls/$num/comments"
+      ;;
+    *)
+      # Bare PR number: resolve owner/repo from the selected target repo.
+      num="${pr##*/}"
+      num="${num%%\?*}"
+      num="${num%%#*}"
+      api_path="repos/{owner}/{repo}/pulls/$num/comments"
+      ;;
+  esac
   # Capture stdout ONLY — folding gh's stderr (warnings / paginate progress) into
   # stdout via 2>&1 would corrupt the JSON and break the jq parse below on the
   # SUCCESS path. Send stderr to a temp file so a real failure stays diagnosable.
   local errf; errf="$(mktemp)"
-  if ! out="$(cd "$canonical" && gh api --paginate --slurp "repos/{owner}/{repo}/pulls/$num/comments" 2>"$errf")"; then
+  if ! out="$(cd "$target" && gh api --paginate --slurp "$api_path" 2>"$errf")"; then
     sd_log_error "sd_pr_review_comments: gh api failed: $(cat "$errf")"
     rm -f "$errf"
     return 1
@@ -236,13 +317,17 @@ sd_pr_review_comments() {
   printf '%s\n' "$out" | jq 'if type == "array" and (.[0] | type) == "array" then add else . end // []'
 }
 
-# sd_pr_merge <pr> [extra gh args...] — wraps gh pr merge. Defaults to --merge
-# when no explicit --merge/--rebase/--squash strategy is supplied. Pass --auto
-# to enable auto-merge once required checks pass.
+# sd_pr_merge <pr> [--repo-root DIR] [extra gh args...] — wraps gh pr merge. Defaults
+# to --merge when no explicit --merge/--rebase/--squash strategy is supplied. Pass
+# --auto to enable auto-merge once required checks pass. Default target: canonical;
+# --repo-root merges a PR in a caller-chosen repo (e.g. /work-pr's current repo) and is
+# parsed out here, never forwarded to gh.
 sd_pr_merge() {
   local pr="$1"; shift
-  local canonical has_strategy arg
-  canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_pr_merge: no canonical.root"; return 1; }
+  local target has_strategy arg
+  _sd_repo_target "sd_pr_merge" "$@" || return 1
+  target="$_SD_TARGET"
+  if [[ ${#_SD_REST[@]} -gt 0 ]]; then set -- "${_SD_REST[@]}"; else set --; fi
   if ! command -v gh >/dev/null 2>&1; then
     sd_log_error "sd_pr_merge: 'gh' not in PATH."
     return 1
@@ -256,7 +341,7 @@ sd_pr_merge() {
   if [[ "$has_strategy" -eq 0 ]]; then
     set -- --merge "$@"
   fi
-  (cd "$canonical" && gh pr merge "$pr" "$@")
+  (cd "$target" && gh pr merge "$pr" "$@")
 }
 
 # sd_issue_create <title> <body-file> [--repo-root DIR] [extra gh args...] —
@@ -267,29 +352,10 @@ sd_pr_merge() {
 # --repo-root is parsed out here, never forwarded to gh.
 sd_issue_create() {
   local title="$1" body_file="$2"; shift 2
-  local repo_root="" target out
-  local -a rest=()
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --repo-root)
-        # Guard the value: a missing value would make `shift 2` fail (rc 1, no
-        # shift) and spin this loop forever; an empty value would silently fall
-        # back to canonical and mis-route. Fail loud on both.
-        [[ $# -ge 2 && -n "$2" ]] || { sd_log_error "sd_issue_create: --repo-root requires a non-empty DIR"; return 1; }
-        repo_root="$2"; shift 2 ;;
-      --repo-root=*)
-        repo_root="${1#*=}"
-        [[ -n "$repo_root" ]] || { sd_log_error "sd_issue_create: --repo-root requires a non-empty DIR"; return 1; }
-        shift ;;
-      *)             rest+=("$1"); shift ;;
-    esac
-  done
-  if [[ ${#rest[@]} -gt 0 ]]; then set -- "${rest[@]}"; else set --; fi
-  if [[ -n "$repo_root" ]]; then
-    target="$repo_root"
-  else
-    target="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_issue_create: no canonical.root"; return 1; }
-  fi
+  local target out
+  _sd_repo_target "sd_issue_create" "$@" || return 1
+  target="$_SD_TARGET"
+  if [[ ${#_SD_REST[@]} -gt 0 ]]; then set -- "${_SD_REST[@]}"; else set --; fi
   body_file="$(sd_abs_path "$body_file")"
   [[ -f "$body_file" ]] || { sd_log_error "sd_issue_create: body file not found: $body_file"; return 1; }
   if ! command -v gh >/dev/null 2>&1; then
@@ -311,28 +377,10 @@ sd_issue_create() {
 # overrides it. --repo-root DIR targets a caller-chosen repo (default canonical);
 # it is parsed out here, never forwarded to gh.
 sd_issue_list() {
-  local repo_root="" target has_limit=0 arg
-  local -a rest=()
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      --repo-root)
-        # See sd_issue_create: guard against the missing-value infinite loop and
-        # the empty-value silent canonical fallback.
-        [[ $# -ge 2 && -n "$2" ]] || { sd_log_error "sd_issue_list: --repo-root requires a non-empty DIR"; return 1; }
-        repo_root="$2"; shift 2 ;;
-      --repo-root=*)
-        repo_root="${1#*=}"
-        [[ -n "$repo_root" ]] || { sd_log_error "sd_issue_list: --repo-root requires a non-empty DIR"; return 1; }
-        shift ;;
-      *)             rest+=("$1"); shift ;;
-    esac
-  done
-  if [[ ${#rest[@]} -gt 0 ]]; then set -- "${rest[@]}"; else set --; fi
-  if [[ -n "$repo_root" ]]; then
-    target="$repo_root"
-  else
-    target="$(sd_manifest_get '.canonical.root')" || { sd_log_error "sd_issue_list: no canonical.root"; return 1; }
-  fi
+  local target has_limit=0 arg
+  _sd_repo_target "sd_issue_list" "$@" || return 1
+  target="$_SD_TARGET"
+  if [[ ${#_SD_REST[@]} -gt 0 ]]; then set -- "${_SD_REST[@]}"; else set --; fi
   if ! command -v gh >/dev/null 2>&1; then
     sd_log_error "sd_issue_list: 'gh' not in PATH."
     return 1

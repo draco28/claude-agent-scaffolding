@@ -2,6 +2,18 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.14.0] — 2026-06-27
+
+SS-9 — #92: expose the pre-merge gate as a standalone, slice-decoupled `/work-pr` command. **Closes #92.**
+
+### Added
+- **#92 — `/work-pr <PR>` + `working-pull-request` skill.** A standalone command that drives an arbitrary PR through the full review-fix-merge loop — fetch findings (`sd pr_state` + `sd pr_review_comments`), disposition each (P1 must-fix / non-blocking fix-or-defer), drive the fixes, re-review on the new head, defer the leftovers, and merge only on explicit ack. The invoking agent (Claude Code **or** Codex) runs the whole loop itself — no cross-agent hand-off; provider-agnostic. **Skill-driven, no determinism in the loop.** It reuses the single source of truth for the disposition contract (`planning-vertical-slice/references/git-workflow.md` §"Agent-driven pre-merge gate") rather than forking a second copy — the same gate `closing-vertical-slice` §10a and `writing-sprint-retrospective` §8a run at slice/sprint close. Design-of-record: `docs/agent-driven-program/specs/SS-9-work-pr.md`.
+- **#92 — `--repo-root DIR` on the PR helpers.** `sd_pr_state` / `sd_pr_review_comments` / `sd_pr_merge` / `sd_remote_check` now accept an optional `--repo-root DIR` target (extracted to the shared `_sd_repo_target` parser, which `sd_issue_create` / `sd_issue_list` are retrofitted onto). This is what lets `/work-pr` run **manifest-free** on the current git repo — no workspace-init pairing required. 9 new tests (`tests/test-pr.sh`).
+
+### Notes
+- **Manifest-free by design.** Unlike every other scaffold-dev skill, `working-pull-request` does NOT call `manifest_require` — it resolves the target repo from `git rev-parse --show-toplevel` (or `--repo-root`), so it works on any gh repo (e.g. the scaffolding repo itself, where PR #91 lived). Slice/sprint-close PR paths are unchanged: with no `--repo-root` the helpers fall back to `.canonical.root` exactly as before (byte-compatible).
+- **Deferred:** remote `--repo owner/repo` (gh `-R`) targeting — current-repo / `--repo-root DIR` covers the motivating cases without touching the test gh-shim.
+
 ## [0.13.0] — 2026-06-25
 
 SS-6 — #79: recognize the count-aware `ran ≥N` demo form at slice-close.

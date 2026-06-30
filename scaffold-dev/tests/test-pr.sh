@@ -22,7 +22,7 @@ _setup_pr_workspace() {
   export GH_SHIM_LOG="$TMP_DIR/gh-calls.log"
   : > "$GH_SHIM_LOG"
   # Reset shim env to defaults each setup.
-  unset GH_SHIM_AUTH_RC GH_SHIM_MERGE_RC GH_SHIM_PR_VIEW_JSON GH_SHIM_ISSUE_LIST_JSON GH_SHIM_ISSUE_URL GH_SHIM_PR_COMMENTS_JSON GH_SHIM_PR_COMMENTS_PAGED_JSON GH_SHIM_API_RC GH_SHIM_API_ERR GH_SHIM_PR_LIST_URL GH_SHIM_LABEL_RC GH_SHIM_LABEL_ERR GH_SHIM_LABEL_OUT GH_SHIM_CWD_LOG
+  unset GH_SHIM_AUTH_RC GH_SHIM_REPO_VIEW_RC GH_SHIM_REPO_VIEW_ERR GH_SHIM_REPO_VIEW_OUT GH_SHIM_MERGE_RC GH_SHIM_PR_VIEW_JSON GH_SHIM_ISSUE_LIST_JSON GH_SHIM_ISSUE_URL GH_SHIM_PR_COMMENTS_JSON GH_SHIM_PR_COMMENTS_PAGED_JSON GH_SHIM_API_RC GH_SHIM_API_ERR GH_SHIM_PR_LIST_URL GH_SHIM_LABEL_RC GH_SHIM_LABEL_ERR GH_SHIM_LABEL_OUT GH_SHIM_CWD_LOG
   export GH_SHIM_PR_URL="https://github.com/test/repo/pull/123"
 }
 
@@ -150,6 +150,7 @@ test_remote_check_ok() {
   cd "$TMP_AI_WORKSPACE"
   set +e; sd_remote_check 2>/dev/null; local rc=$?; :
   assert_eq "remote_check ok rc=0" "0" "$rc"
+  assert_file_contains "$GH_SHIM_LOG" "repo view"
 }
 
 # 11. remote_check fails with no origin
@@ -597,11 +598,37 @@ test_pr_review_comments_paginated() {
   assert_eq "second page entry" "page-two finding" "$(echo "$json" | jq -r '.[1].body')"
 }
 
+# 24c. pr_review_comments uses a full PR URL's owner/repo for the REST path,
+#      rather than gh's {owner}/{repo} placeholders from the target cwd.
+test_pr_review_comments_full_url_repo() {
+  echo "test_pr_review_comments_full_url_repo:"
+  _setup_pr_workspace
+  export GH_SHIM_PR_COMMENTS_JSON="$HERE/fixtures/pr-review-comments.json"
+  cd "$TMP_AI_WORKSPACE" || return 1
+  sd_pr_review_comments "https://github.com/other-owner/other-repo/pull/7" >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_LOG" "repos/other-owner/other-repo/pulls/7/comments"
+}
+
+test_work_pr_skill_safety_prose() {
+  echo "test_work_pr_skill_safety_prose:"
+  local skill="$HERE/../skills/working-pull-request/SKILL.md"
+  assert_file_contains "$skill" 'git -C "\$REPO_ROOT" status --porcelain'
+  assert_file_contains "$skill" 'gh pr checkout "<PR>" --force'
+  assert_file_contains "$skill" 'headRefOid'
+  assert_file_contains "$skill" 'rev-parse --abbrev-ref HEAD'
+  assert_file_contains "$skill" 'rev-parse HEAD'
+  assert_file_contains "$skill" 'deferring-work-item` with `--tooling`'
+  assert_file_contains "$skill" 'explicit `--repo-root` targets outside'
+  assert_file_contains "$skill" 'sd issue_create "<title>" "<body-file>" --repo-root "\$REPO_ROOT" --label tech-debt'
+}
+
 test_pr_open_idempotent
 test_issue_list_default_limit
 test_issue_list_explicit_limit
 test_pr_review_comments
 test_pr_review_comments_paginated
+test_pr_review_comments_full_url_repo
+test_work_pr_skill_safety_prose
 test_pr_review_comments_api_failure
 test_branch_sync
 test_branch_sync_diverged
@@ -619,5 +646,137 @@ test_dispatcher_lists_label_ensure
 test_issue_create_repo_root_no_value
 test_issue_create_repo_root_empty
 test_issue_list_repo_root_no_value
+
+# --- #92: --repo-root targeting on the PR read/merge/preflight helpers (/work-pr) ---
+
+# 38. pr_state --repo-root runs gh from the given repo, not canonical
+test_pr_state_repo_root() {
+  echo "test_pr_state_repo_root:"
+  _setup_pr_workspace
+  local tooling="$TMP_DIR/tooling"; mkdir -p "$tooling"
+  export GH_SHIM_CWD_LOG="$TMP_DIR/gh-cwd.log"; : > "$GH_SHIM_CWD_LOG"
+  cd "$TMP_AI_WORKSPACE"
+  sd_pr_state 123 --repo-root "$tooling" >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_CWD_LOG" "$tooling"
+  assert_file_contains "$GH_SHIM_LOG" "pr view 123 --json"
+}
+
+# 39. pr_state WITHOUT --repo-root still targets canonical (byte-compat)
+test_pr_state_default_canonical() {
+  echo "test_pr_state_default_canonical:"
+  _setup_pr_workspace
+  export GH_SHIM_CWD_LOG="$TMP_DIR/gh-cwd.log"; : > "$GH_SHIM_CWD_LOG"
+  cd "$TMP_AI_WORKSPACE"
+  sd_pr_state 123 >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_CWD_LOG" "$TMP_CANONICAL"
+}
+
+# 40. pr_state --repo-root with no value fails fast (rc 1), never spins the loop
+test_pr_state_repo_root_no_value() {
+  echo "test_pr_state_repo_root_no_value:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_pr_state 123 --repo-root 2>/dev/null; local rc=$?; :
+  assert_eq "no-value --repo-root rc=1" "1" "$rc"
+}
+
+# 41. pr_review_comments --repo-root runs gh api from the given repo
+test_pr_review_comments_repo_root() {
+  echo "test_pr_review_comments_repo_root:"
+  _setup_pr_workspace
+  local tooling="$TMP_DIR/tooling"; mkdir -p "$tooling"
+  export GH_SHIM_PR_COMMENTS_JSON="$HERE/fixtures/pr-review-comments.json"
+  export GH_SHIM_CWD_LOG="$TMP_DIR/gh-cwd.log"; : > "$GH_SHIM_CWD_LOG"
+  cd "$TMP_AI_WORKSPACE"
+  sd_pr_review_comments 7 --repo-root "$tooling" >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_CWD_LOG" "$tooling"
+  assert_file_contains "$GH_SHIM_LOG" "pulls/7/comments"
+}
+
+# 42. pr_merge --repo-root merges in the given repo, strips --repo-root from gh,
+#     and still injects the default --merge strategy
+test_pr_merge_repo_root() {
+  echo "test_pr_merge_repo_root:"
+  _setup_pr_workspace
+  local tooling="$TMP_DIR/tooling"; mkdir -p "$tooling"
+  export GH_SHIM_CWD_LOG="$TMP_DIR/gh-cwd.log"; : > "$GH_SHIM_CWD_LOG"
+  cd "$TMP_AI_WORKSPACE"
+  sd_pr_merge 123 --repo-root "$tooling" >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_CWD_LOG" "$tooling"
+  assert_file_not_contains "$GH_SHIM_LOG" "repo-root"
+  assert_file_contains "$GH_SHIM_LOG" "pr merge 123 --merge"
+}
+
+# 43. pr_merge --repo-root preserves an explicit strategy + flags after the flag
+test_pr_merge_repo_root_explicit_strategy() {
+  echo "test_pr_merge_repo_root_explicit_strategy:"
+  _setup_pr_workspace
+  local tooling="$TMP_DIR/tooling"; mkdir -p "$tooling"
+  cd "$TMP_AI_WORKSPACE"
+  sd_pr_merge 123 --repo-root "$tooling" --squash --auto >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_LOG" "pr merge 123 --squash --auto"
+  assert_file_not_contains "$GH_SHIM_LOG" "repo-root"
+}
+
+# 44. pr_merge --repo-root with no value fails fast (rc 1)
+test_pr_merge_repo_root_no_value() {
+  echo "test_pr_merge_repo_root_no_value:"
+  _setup_pr_workspace
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_pr_merge 123 --repo-root 2>/dev/null; local rc=$?; :
+  assert_eq "no-value --repo-root rc=1" "1" "$rc"
+}
+
+# 45. remote_check --repo-root checks the TARGET repo (rc 1 when it has no origin,
+#     even though canonical DOES — proves the flag is honored, not ignored)
+test_remote_check_repo_root_no_origin() {
+  echo "test_remote_check_repo_root_no_origin:"
+  _setup_pr_workspace
+  local tooling="$TMP_DIR/tooling-noremote"; mkdir -p "$tooling"
+  git init -q "$tooling"
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_remote_check --repo-root "$tooling" 2>/dev/null; local rc=$?; :
+  assert_ne "target without origin rc!=0" "0" "$rc"
+}
+
+# 46. remote_check --repo-root passes when the target repo HAS an origin + authed gh
+test_remote_check_repo_root_ok() {
+  echo "test_remote_check_repo_root_ok:"
+  _setup_pr_workspace
+  local tooling="$TMP_DIR/tooling-withremote"
+  git init -q "$tooling"
+  git -C "$tooling" remote add origin "$BARE_ORIGIN"
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_remote_check --repo-root "$tooling" 2>/dev/null; local rc=$?; :
+  assert_eq "target with origin rc=0" "0" "$rc"
+}
+
+# 47. remote_check --repo-root fails early when gh cannot resolve the target repo,
+#     even if it has an origin remote.
+test_remote_check_repo_root_unresolvable() {
+  echo "test_remote_check_repo_root_unresolvable:"
+  _setup_pr_workspace
+  local tooling="$TMP_DIR/tooling-unresolvable"
+  git init -q "$tooling"
+  git -C "$tooling" remote add origin "https://example.com/not-github/repo.git"
+  export GH_SHIM_REPO_VIEW_RC=1
+  export GH_SHIM_REPO_VIEW_ERR="not a GitHub repository"
+  cd "$TMP_AI_WORKSPACE"
+  set +e; sd_remote_check --repo-root "$tooling" 2>/dev/null; local rc=$?; :
+  unset GH_SHIM_REPO_VIEW_RC GH_SHIM_REPO_VIEW_ERR
+  assert_eq "unresolvable target rc=1" "1" "$rc"
+  assert_file_contains "$GH_SHIM_LOG" "repo view"
+}
+
+test_pr_state_repo_root
+test_pr_state_default_canonical
+test_pr_state_repo_root_no_value
+test_pr_review_comments_repo_root
+test_pr_merge_repo_root
+test_pr_merge_repo_root_explicit_strategy
+test_pr_merge_repo_root_no_value
+test_remote_check_repo_root_no_origin
+test_remote_check_repo_root_ok
+test_remote_check_repo_root_unresolvable
 
 sd_test_summary
