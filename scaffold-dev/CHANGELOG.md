@@ -4,7 +4,7 @@ All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](
 
 ## [0.15.0] — 2026-06-30
 
-#93: adopt the recommend-by-default decision policy at the orchestrate gates.
+Issue #93: adopt the recommend-by-default decision policy at the orchestrate gates.
 
 ### Changed
 - **Recommendation at every orchestrate gate (#93).** `planning-vertical-slice` now attaches one firm, MASTER-SPEC-cited **recommendation** + one-line rationale to each decision gate (§4 decomposition, §5 rounds, §7.2 audit-skip, §8.5 fix-up, §8.7 round/slice-close); the user may **accept / rebut / defer**. Additive — the gates' own options and the §15 "user is the final authority / never auto-advance" stance are unchanged. Grounding is free: §3.4 already loads MASTER-SPEC + memory bank + cursor. `--neutral` (`/orchestrate VS-… --neutral`, parsed in `references/orchestrate-args.md`) suppresses every gate recommendation per invocation and reverts to neutral menus. The shared policy is the marketplace convention `docs/conventions/recommendation-policy.md`, shipped as a byte-identical copy at `skills/planning-vertical-slice/references/recommendation-policy.md` and guarded by the repo-root parity test `tests/test-recommendation-policy-parity.sh`. Adopts the convention owned by ai-mentor v2.2.0; pairs with architect-critic v0.5.0.

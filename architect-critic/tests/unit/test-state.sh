@@ -117,6 +117,10 @@ ch_count="$(jq '.recent_runs[0].challenge_count' "$state_file")"
 assert_eq "recent_runs[0].challenge_count=8" "8" "$ch_count"
 elapsed="$(jq '.recent_runs[0].elapsed_ms' "$state_file")"
 assert_eq "recent_runs[0].elapsed_ms=65000" "65000" "$elapsed"
+deferred_count="$(jq '.recent_runs[0].deferred_count' "$state_file")"
+assert_eq "recent_runs[0].deferred_count defaults to 0" "0" "$deferred_count"
+deferred_len="$(jq '.recent_runs[0].deferred_challenges | length' "$state_file")"
+assert_eq "recent_runs[0].deferred_challenges defaults empty" "0" "$deferred_len"
 
 # concessions field present
 echo "T7b: test_concessions_field_in_recent_runs"
@@ -156,6 +160,24 @@ flag_adv="$(jq -r '.recent_runs[0].adversaries_used | join(",")' "$state_file")"
 assert_eq "CSV adversaries converted to JSON array" "claude,codex" "$flag_adv"
 flag_count="$(jq -r '.recent_runs[0].challenge_count' "$state_file")"
 assert_eq "flag-style challenge_count stored" "13" "$flag_count"
+
+echo "T7e2: ac_state_append_run stores deferred challenge details"
+"$TESTS_DIR/../bin/arc" state_append_run \
+  --request-id "crit-deferred-style" \
+  --depth close \
+  --adversaries "claude,codex" \
+  --challenge-count 5 \
+  --concessions 1 \
+  --deferred-count 2 \
+  --deferred-challenges '[{"index":2,"text":"Track retry cancellation semantics"},{"index":4,"text":"File observability gap"}]' \
+  --skill-invoked critiquing-spec \
+  --elapsed-ms 45000
+deferred_id="$(jq -r '.recent_runs[-1].request_id' "$state_file")"
+assert_eq "deferred request_id stored" "crit-deferred-style" "$deferred_id"
+deferred_count="$(jq '.recent_runs[-1].deferred_count' "$state_file")"
+assert_eq "deferred_count stored" "2" "$deferred_count"
+deferred_first="$(jq -r '.recent_runs[-1].deferred_challenges[0].text' "$state_file")"
+assert_eq "first deferred challenge text stored" "Track retry cancellation semantics" "$deferred_first"
 
 echo "T7f: ac_state_append_run missing flag values fail promptly"
 assert_quick_exit_code 2 "$TESTS_DIR/../bin/arc" state_append_run --request-id

@@ -276,9 +276,9 @@ Call `sd_compose_detect_architect_critic` (lib/compose.sh). It walks `~/.claude/
 
 When routed here by §7.0 (gate `off`, or `slice_close` which gates the *slice-close* moment, not this one) — **synchronous** author-depth review (the default; gate `off` preserves this exactly). With gate `off`, **everything** lands here (including `v0.2`/Codex-host) — that is the default. Only when `review_gate` is `spec_close`/`both` do the `v0.2` and Codex-host cases route through §7.2a instead, whose react-to-return step runs a synchronous **close**-depth review (the gate's depth upgrade is preserved; only background dispatch is lost):
 
-1. Announce: *"Specs authored — invoking architect-critic for a spec-audit on the combined work-item specs. Type `skip` to bypass."*
+1. Announce with a recommendation unless `neutral_mode=true`: *"Specs authored — invoking architect-critic for a spec-audit on the combined work-item specs. Recommended: run the audit — <one-line MASTER-SPEC/memory-bank rationale>. Type `skip` to bypass."* If the spec is trivial or the user explicitly opted out of audit depth, the recommendation may be *"Recommended: skip — <why this is low-value now>."*
 2. End the turn and wait. If the user types `skip` (case-insensitive): log the skip in the slice README and proceed to §8.
-3. Otherwise, invoke `Skill(architect-critic:critiquing-spec)` with:
+3. Otherwise, if `neutral_mode=true`, export `ARCHITECT_CRITIC_ARGS="${ARCHITECT_CRITIC_ARGS:-} --neutral"` before invoking `Skill(architect-critic:critiquing-spec)` with:
    - `target=spec`
    - `depth=author` (per ac v0.2 §5.1 — author-depth is the lighter Claude-self-audit; close-depth at slice-close is a separate moment per §14.3)
    - `spec_paths=<list of all work-N.NN-<kebab>/spec.md absolute paths>`
@@ -292,7 +292,7 @@ When routed here by §7.0 (gate `off`, or `slice_close` which gates the *slice-c
 
 The gate runs a **close-depth** adversarial spec audit (upgraded from the default author-depth — see §7.0), requesting background dispatch so planning is not blocked. **Dispatch-and-defer:** when async is available the audit runs in the background and the rebuttal is consolidated later via resume; otherwise the very same call degrades to a **synchronous** close-depth review (still the upgraded depth, never a phantom job). The gate **reacts to what architect-critic actually returns** rather than predicting host/version.
 
-1. Announce + usage warning: *"review_gate is on — requesting a close-depth architect-critic spec audit, dispatched as a background job when supported (**Claude-host** + architect-critic v0.3) and run synchronously otherwise. This consumes Codex/subscription usage. Type `skip` to bypass."*
+1. Announce + usage warning with a recommendation unless `neutral_mode=true`: *"review_gate is on — requesting a close-depth architect-critic spec audit, dispatched as a background job when supported (**Claude-host** + architect-critic v0.3) and run synchronously otherwise. This consumes Codex/subscription usage. Recommended: run the audit — <one-line MASTER-SPEC/memory-bank rationale>. Type `skip` to bypass."* If cost/latency clearly outweighs value now, say *"Recommended: skip — <why>."*
 2. End the turn and wait. On `skip` (case-insensitive): log the skip in the slice README and proceed to §8.
 3. **Build the combined-spec bundle (one tested call).** architect-critic's async/CLI path reads exactly ONE artifact file (`critiquing-spec` Step 1a), so concatenate all work-item specs into a single artifact via the tested helper `sd review_gate_bundle` (`lib/review_gate.sh`) — it writes **under the slice dir** (a trusted git root, never `/tmp`, so the async target-root pre-flight accepts it) and appends each `HEADING PATH` section. No `--diff-*` here — the spec moment has no slice diff:
    ```bash
@@ -301,7 +301,7 @@ The gate runs a **close-depth** adversarial spec audit (upgraded from the defaul
      "spec: <work-id>" "<work-item spec.md>")"   # repeat the spec pair per work item
    ```
    The helper echoes the bundle path; step 5 removes it after dispatch (a dotfile, kept out of `work-*/spec.md` globs, never committed).
-4. Drive architect-critic through its **real CLI contract** — informal parameters do NOT set async (`async_mode` is read only from `--async` in `$ARCHITECT_CRITIC_ARGS`; see [[feedback_slash_command_dollar_n_bug]]). **Export** the args through the same env-var bridge `/critique` uses — a plain (non-exported) assignment is NOT visible to the `critiquing-spec` bash that reads `$ARCHITECT_CRITIC_ARGS`. Pass the bundle as an explicit, quoted `--spec` path (Step 1a checks `--spec` before any positional, and quoting guards a bundle path that contains spaces): `export ARCHITECT_CRITIC_ARGS="--spec \"$bundle\" --close --async"`. Then invoke `Skill(architect-critic:critiquing-spec)` **EXACTLY ONCE**. (`--close` = the upgraded close depth; `--async` = defer-to-resume, honored only for Claude-host + v0.3 and otherwise ignored, running synchronously.)
+4. Drive architect-critic through its **real CLI contract** — informal parameters do NOT set async (`async_mode` is read only from `--async` in `$ARCHITECT_CRITIC_ARGS`; see [[feedback_slash_command_dollar_n_bug]]). **Export** the args through the same env-var bridge `/critique` uses — a plain (non-exported) assignment is NOT visible to the `critiquing-spec` bash that reads `$ARCHITECT_CRITIC_ARGS`. Pass the bundle as an explicit, quoted `--spec` path (Step 1a checks `--spec` before any positional, and quoting guards a bundle path that contains spaces): `neutral_arg=""; [[ "${neutral_mode:-false}" == true ]] && neutral_arg=" --neutral"; export ARCHITECT_CRITIC_ARGS="--spec \"$bundle\" --close --async${neutral_arg}"`. Then invoke `Skill(architect-critic:critiquing-spec)` **EXACTLY ONCE**. (`--close` = upgraded close depth; `--async` = defer-to-resume; `--neutral` is forwarded from `/orchestrate --neutral`.)
 5. **React to the return — three outcomes** (do NOT assume async happened); `rm -f "$bundle"` once the call returns (the artifact is fully consumed at dispatch):
    - **Async dispatched** — architect-critic returns a background **job handle `<id>`** and STOPS without a rebuttal: record the handle in the slice README (job `<id>`, dispatched async at spec-author, resume command `/critique-jobs resume <id>`), then surface and **PROCEED to §8**:
      > Spec audit running in the background as job `<id>`. Planning proceeds now; resume with `/critique-jobs resume <id>` to fold both adversaries into one rebuttal, then accept-and-revise any standing challenges into the affected `spec.md` via `sd_render`. If it never completes (stalled/capped/failed), `/critique-jobs status <id>` shows the disposition — planning is not blocked either way.
@@ -402,7 +402,7 @@ That skill (per SPEC §12.1) runs each `auto:` AC step in the worktree, cross-ch
 
 **Fix-up grill-me (gate 3):** if the menu choice is "replan" or "re-spawn with fix-up", offer grill-me before re-authoring:
 
-> Fix-up replan triggered. Want to grill-me on the failure before re-authoring the handoff? (yes/no, default no)
+> Fix-up replan triggered. Recommended: grill-me — <one-line rationale from the failure + MASTER-SPEC/memory-bank>. Want to grill-me on the failure before re-authoring the handoff? (yes/no, default no)
 
 Per §4.1, probe ai-mentor first; offer only when detected.
 
@@ -416,7 +416,7 @@ Do **NOT** remove the worktree at round close — per SPEC §11, worktrees + bra
 
 After all work items in the round are committed + merged: (1) set round status → complete in the VS README. (2) **Deferral auto-file (agent-driven, #33):** re-read each `report.md` **"Deferrals"** section (judgment, not parsing — there is no deterministic parser), JUDGE which warrant a tracked issue (de-dup via `sd issue_list`), surface the proposed issues as ONE batch for confirm (never file silently), and file each confirmed one via `Skill(scaffold-dev:deferring-work-item)` (or inline `sd issue_create` + the `[TD] …→#N` line). If `sd remote_check` fails, SKIP filing (deferrals stay in the reports) and proceed without blocking. (3) Surface:
 
-> Round K complete (M items committed + merged). Ready for round K+1, or close VS-<N.M.K>?
+> Round K complete (M items committed + merged). Recommended: proceed to the next round — <one-line rationale from remaining DAG/work status>, or close VS-<N.M.K>?
 
 "next round" → loop §8.1 for K+1; "close slice" → proceed to §10.
 

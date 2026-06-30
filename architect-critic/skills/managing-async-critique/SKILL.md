@@ -7,14 +7,14 @@ description: Manage background (async) close-depth critique jobs — status, res
 
 You have been invoked to manage **background close-depth critique jobs** created by `/critique --close --async` (#39). Those runs dispatch Codex as an external adversary in the background and record themselves in `state.json` under `external_runs[]`. This skill exposes four verbs: **status**, **result**, **cancel**, **resume**.
 
-Parse the verb (+ optional `<run-id>`) from `$ARCHITECT_CRITIC_ARGS` (the `/critique-jobs` wrapper exports it; env-var bridge per [[feedback_slash_command_dollar_n_bug]]). If no `<run-id>` is given, default to the most recent applicable run (see each verb). All state/spine calls go through the `arc` dispatcher.
+Parse the verb (+ optional `<run-id>`) from `$ARCHITECT_CRITIC_ARGS` (the `/critique-jobs` wrapper exports it; env-var bridge per [[feedback_slash_command_dollar_n_bug]]). If no `<run-id>` is given, default to the most recent applicable run (see each verb). If `--neutral` is present on `resume`, force `neutral_mode=true`; otherwise resume inherits `external_runs[].neutral_mode` from the original `/critique --close --async [--neutral]` dispatch. All state/spine calls go through the `arc` dispatcher.
 
 List runs for context with:
 ```bash
 arc state_external_run_list            # all
 arc state_external_run_list --status running
 ```
-Each record carries: `run_id, host_agent, adversary, artifact_path, depth, status, started_at, completed_at, result_path, codex_session_id, resolved_run_request_id`. The `target_root` for spine calls is `arc codex_target_root "<artifact_path>"`.
+Each record carries: `run_id, host_agent, adversary, artifact_path, depth, status, started_at, completed_at, result_path, codex_session_id, neutral_mode, resolved_run_request_id`. The `target_root` for spine calls is `arc codex_target_root "<artifact_path>"`.
 
 ---
 
@@ -65,7 +65,7 @@ Default `run-id`: the most recent `completed` (else `running`) run for the curre
 4. **Load both adversaries.**
    - `claude_audit` = the persisted turn-1 host self-audit at `$(arc data_dir)/async/<run-id>/claude-audit.json`.
    - `codex_audit` = `arc codex_result "$(arc codex_target_root "<artifact_path>")" "<run-id>"`. If this fails, set the external run to `failed`, report that the Codex result is malformed/unparseable, and stop. Do not enter the shared consolidation flow with a missing or invalid Codex audit.
-5. **Enter the shared procedure.** Run the **"Consolidate + Rebuttal + Append"** procedure defined in `critiquing-spec` Steps 7–9 with `{claude_audit, codex_audit, artifact: <artifact_path>, depth: close}`: consolidate (cross-confirmation surfaces first) and run the one unified sequential rebuttal cycle with T=4 concession scoring. When Step 9 would append the run, use the atomic async finalizer below instead of direct `arc state_append_run`.
+5. **Enter the shared procedure.** Run the **"Consolidate + Rebuttal + Append"** procedure defined in `critiquing-spec` Steps 7–9 with `{claude_audit, codex_audit, artifact: <artifact_path>, depth: close, neutral_mode: <record neutral_mode or --neutral override>}`: consolidate (cross-confirmation surfaces first) and run one unified rebuttal cycle with T=4 concession scoring. If `neutral_mode=true`, omit recommended dispositions exactly as `critiquing-spec` Step 3/8 says. Track any deferred challenges as `DEFERRED_COUNT` + `DEFERRED_CHALLENGES_JSON`. When Step 9 would append the run, use the atomic async finalizer below instead of direct `arc state_append_run`.
 6. **Append + mark resolved atomically.** After the rebuttal concludes, mint the run's `request_id` and finalize with one locked state transaction:
    ```bash
    arc state_external_run_finalize_resume \
@@ -73,9 +73,11 @@ Default `run-id`: the most recent `completed` (else `running`) run for the curre
      --request-id "<request_id-from-step-5>" \
      --depth close \
      --adversaries claude,codex \
-     --challenge-count "<challenge_count>" \
-     --concessions "<concessions>" \
-     --skill-invoked critiquing-spec \
+    --challenge-count "<challenge_count>" \
+    --concessions "<concessions>" \
+    --deferred-count "$DEFERRED_COUNT" \
+    --deferred-challenges "$DEFERRED_CHALLENGES_JSON" \
+    --skill-invoked critiquing-spec \
      --elapsed-ms "<elapsed_ms>"
    ```
    This appends `recent_runs[]` and sets `resolved_run_request_id` once under the same lock. If it returns rc1, the run was already resolved — do not append a duplicate; switch to inspect-only output.

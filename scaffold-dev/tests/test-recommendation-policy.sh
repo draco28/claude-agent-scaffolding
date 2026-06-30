@@ -26,6 +26,11 @@ assert_file_contains "$POLICY" "recommend-by-default"
 assert_file_contains "$SKILL" "recommendation-policy"
 assert_file_contains "$SKILL" "Recommend-by-default"
 assert_file_contains "$SKILL" "accept / rebut / defer"
+assert_file_contains "$SKILL" "ARCHITECT_CRITIC_ARGS=.*--neutral"
+assert_file_contains "$SKILL" "Recommended: run the audit"
+assert_file_contains "$SKILL" "Recommended: skip"
+assert_file_contains "$SKILL" "Recommended: grill-me"
+assert_file_contains "$SKILL" "Recommended: proceed to the next round"
 
 # --neutral opt-out: parsed in the arg-parser reference + advertised by the wrapper.
 assert_file_contains "$ARGS" "neutral_mode"

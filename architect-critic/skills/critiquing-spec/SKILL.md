@@ -10,7 +10,7 @@ You are the architect-critic. You have been invoked because the user wants an ad
 This skill body is the centerpiece of architect-critic v0.2. Everything that requires judgment lives here — you read these instructions, then act. Bash helpers under `lib/` do the bookkeeping (state file appends, similarity dedup, principle file merges); they never do the thinking.
 
 You may be invoked two ways:
-- **Slash command:** `/critique [path] [--close] [--model NAME] [--principles PATH] [--scope project|user]`. The wrapper at `commands/critique.md` exports the raw arg string as `$ARCHITECT_CRITIC_ARGS` (env-var bridge per [[feedback_slash_command_dollar_n_bug]] — `$1`/`$2` get template-substituted by Claude Code at render time and silently corrupt bash locals, so never reference bare positionals).
+- **Slash command:** `/critique [path] [--close] [--neutral] [--model NAME] [--principles PATH] [--scope project|user]`. The wrapper at `commands/critique.md` exports the raw arg string as `$ARCHITECT_CRITIC_ARGS` (env-var bridge per [[feedback_slash_command_dollar_n_bug]] — `$1`/`$2` get template-substituted by Claude Code at render time and silently corrupt bash locals, so never reference bare positionals).
 - **Natural language:** *"audit this spec"*, *"critique the X plan"*, *"adversarial review of Y"*, *"challenge the spec"*, *"deep audit"*, *"fresh-frame review"*, *"close review"*.
 
 Walk these ten steps in order. Do not skip steps. Do not bash-orchestrate the judgment work.
@@ -243,7 +243,7 @@ The external adversary is a separate model talking to a separate session — it 
    # ... write the Step-5 self-audit JSON to "$job_dir/claude-audit.json" ...
    # If that write fails, cancel the dispatched job and stop before continuing.
    if ! arc state_external_run_add --run-id "$job" --host claude --adversary codex \
-     --artifact "<artifact-path>" --depth close \
+     --artifact "<artifact-path>" --depth close --neutral-mode "$neutral_mode" \
      --result-path "$job_dir/result.json"; then
      arc codex_cancel "$target_root" "$job" >/dev/null 2>&1 || true
      echo "Failed to persist async job metadata; cancelled job $job." >&2
@@ -380,10 +380,10 @@ Recommended: <accept|rebut|defer> — <one-line, cited where possible>   (omit w
 Your response (accept | rebut | defer):
 ```
 
-Then **end your turn** and wait for the user's reply. When they reply:
+Track deferred items while the cycle runs: initialize `DEFERRED_CHALLENGES_JSON=[]` and `DEFERRED_COUNT=0`; each `defer` appends `{index,text,severity,rationale}` for the current challenge. Then **end your turn** and wait for the user's reply. When they reply:
 
 - If they say *"accept"* → mark as concession; advance to next challenge.
-- If they say *"defer"* → mark as deferred (challenge is valid/unresolved but the user chooses to handle it later — record it so it can be tracked, e.g. filed as an issue; the challenge stands, it is not silently dropped); advance.
+- If they say *"defer"* → append the challenge to `DEFERRED_CHALLENGES_JSON`, increment `DEFERRED_COUNT`, and advance. Defer means valid/unresolved but later: tracked, e.g. filed as an issue, never silently dropped.
 - If they rebut → score the rebuttal 1–5 via:
   ```bash
   arc scorer_score "$CHALLENGE_TEXT" "$REBUTTAL_TEXT"
@@ -430,6 +430,8 @@ arc state_append_run \
   --adversaries "$ADVERSARIES_JSON" \
   --challenge-count "$CHALLENGE_COUNT" \
   --concessions "$CONCESSIONS" \
+  --deferred-count "$DEFERRED_COUNT" \
+  --deferred-challenges "$DEFERRED_CHALLENGES_JSON" \
   --skill-invoked critiquing-spec \
   --elapsed-ms "$ELAPSED_MS"
 ```
@@ -482,6 +484,7 @@ Audit complete for <artifact path>.
   Adversaries used : <claude | claude + codex>
   Challenges       : <N> total (<X> premise, <Y> gap, <Z> alternative)
   Concessions      : <C> of <N>
+  Deferred         : <D> (tracked for later)
   Candidates piled : <K> (challenges that stood after rebuttal)
   Principles       : <P> applied (shipped + user + project)
   Elapsed          : <S> seconds
@@ -493,7 +496,7 @@ This is the structured handoff. Consumer plugins (scaffold-onboard v0.2, scaffol
 
 **Stability contract for downstream consumers.** The following tokens MUST appear verbatim (case-sensitive) for consumers to parse correctly:
 - The literal string `Audit complete for ` followed by the artifact path.
-- Field labels `Adversaries used`, `Challenges`, `Concessions`, `Candidates piled`, `Principles`, `Elapsed` with `:` separator and exactly two spaces of indentation.
+- Field labels `Adversaries used`, `Challenges`, `Concessions`, `Deferred`, `Candidates piled`, `Principles`, `Elapsed` with `:` separator and exactly two spaces of indentation.
 - The integer counts must be bare (no commas, no units inline — the unit goes outside the number, e.g. `seconds` after `Elapsed`).
 
 If you change this format, bump architect-critic minor version and coordinate with scaffold-onboard / scaffold-dev maintainers — their regexes will break otherwise. Per [[feedback_v01_full_over_minimal]], the v0.2 contract is design-locked and ships as-is; consumers parse against it.

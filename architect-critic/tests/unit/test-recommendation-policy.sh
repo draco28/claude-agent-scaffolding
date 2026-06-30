@@ -24,6 +24,8 @@ echo "=== test-recommendation-policy.sh ==="
 
 SKILL="$PLUGIN_ROOT/skills/critiquing-spec/SKILL.md"
 POLICY="$PLUGIN_ROOT/templates/recommendation-policy.md"
+CMD="$PLUGIN_ROOT/commands/critique.md"
+ASYNC_SKILL="$PLUGIN_ROOT/skills/managing-async-critique/SKILL.md"
 
 # Shipped policy copy ships inside the plugin (repo-root docs/ does not install).
 assert_file_exists "$POLICY"
@@ -43,6 +45,18 @@ assert_file_contains "$SKILL" "neutral_mode"
 assert_file_contains "$SKILL" "neutral"
 
 # Command wrapper advertises the flag.
-assert_file_contains "$PLUGIN_ROOT/commands/critique.md" "neutral"
+assert_file_contains "$CMD" "argument-hint:.*--neutral"
+assert_file_contains "$CMD" '`--neutral`'
+
+# Async dispatch/resume preserves the neutral opt-out across turns.
+assert_file_contains "$SKILL" "neutral-mode"
+assert_file_contains "$ASYNC_SKILL" "neutral_mode"
+assert_file_contains "$ASYNC_SKILL" "force `neutral_mode=true`"
+
+# Deferred challenges are tracked rather than silently dropped.
+assert_file_contains "$SKILL" "DEFERRED_CHALLENGES_JSON"
+assert_file_contains "$SKILL" "deferred-count"
+assert_file_contains "$SKILL" "Deferred"
+assert_file_contains "$ASYNC_SKILL" "deferred-count"
 
 report_results

@@ -16,6 +16,7 @@ command is a thin wrapper — the work happens in the skill.
   filename heuristics, or `AskUserQuestion` fallback. Never globs `*.md`.
 - `--close` — request close-depth audit (claude-self-audit + codex fresh-frame). Default is
   shallow (claude-only).
+- `--neutral` — suppress per-challenge recommended dispositions; present challenges neutrally.
 - `--model NAME` — override codex model (respects user's `~/.codex/config.toml` by default).
 - `--principles PATH` — override principles.md path.
 - `--scope project|user` — for principle promotion during the audit run.

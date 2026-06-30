@@ -49,7 +49,15 @@ bash "$ARC" state_external_run_add --run-id r1 --host claude --adversary codex \
   --artifact /tmp/spec.md --depth close --result-path "$CLAUDE_PLUGIN_DATA/async/r1/result.json"
 assert_eq "added run status running" "running" "$(bash "$ARC" state_external_run_get r1 | jq -r '.status')"
 assert_eq "artifact stored" "/tmp/spec.md" "$(bash "$ARC" state_external_run_get r1 | jq -r '.artifact_path')"
+assert_eq "neutral_mode defaults false" "false" "$(bash "$ARC" state_external_run_get r1 | jq -r '.neutral_mode')"
 assert_exit_code 1 bash "$ARC" state_external_run_get nope
+
+echo "-- add supports persisted neutral mode --"
+bash "$ARC" state_external_run_add --run-id r-neutral --host claude --adversary codex \
+  --artifact /tmp/spec-neutral.md --depth close --result-path "$CLAUDE_PLUGIN_DATA/async/r-neutral/result.json" \
+  --neutral-mode true
+assert_eq "neutral_mode persisted true" "true" "$(bash "$ARC" state_external_run_get r-neutral | jq -r '.neutral_mode')"
+bash "$ARC" state_external_run_set_status r-neutral completed >/dev/null
 
 echo "-- set_status terminal stamps completed_at --"
 bash "$ARC" state_external_run_set_status r1 completed
@@ -60,7 +68,7 @@ assert_exit_code 1 bash "$ARC" state_external_run_set_status nope completed
 assert_exit_code 2 bash "$ARC" state_external_run_set_status r1 typo-status
 
 echo "-- list + status filter --"
-assert_eq "one completed in list" "1" "$(bash "$ARC" state_external_run_list --status completed | jq 'length')"
+assert_eq "two completed in list" "2" "$(bash "$ARC" state_external_run_list --status completed | jq 'length')"
 assert_eq "zero running in list" "0" "$(bash "$ARC" state_external_run_list --status running | jq 'length')"
 
 echo "-- missing flag values fail promptly --"
@@ -83,6 +91,8 @@ assert_exit_code 0 bash "$ARC" state_external_run_finalize_resume \
   --adversaries claude,codex \
   --challenge-count 4 \
   --concessions 2 \
+  --deferred-count 1 \
+  --deferred-challenges '[{"index":3,"text":"Track deferred async concern"}]' \
   --skill-invoked critiquing-spec \
   --elapsed-ms 1200
 assert_exit_code 1 bash "$ARC" state_external_run_finalize_resume \
@@ -96,6 +106,8 @@ assert_exit_code 1 bash "$ARC" state_external_run_finalize_resume \
   --elapsed-ms 1200
 assert_eq "finalize appended once" "1" "$(jq '[.recent_runs[] | select(.request_id | startswith("req-final"))] | length' "$state_file")"
 assert_eq "finalize pinned request id" "req-final" "$(bash "$ARC" state_external_run_get r2 | jq -r '.resolved_run_request_id')"
+assert_eq "finalize stores deferred_count" "1" "$(jq -r '.recent_runs[-1].deferred_count' "$state_file")"
+assert_eq "finalize stores deferred challenge" "Track deferred async concern" "$(jq -r '.recent_runs[-1].deferred_challenges[0].text' "$state_file")"
 
 echo "-- external_runs cap preserves all unresolved jobs --"
 printf '%s' '{"schema_version":3,"recent_runs":[],"principle_promotions":[],"candidate_promotions":[],"declined_candidates":[],"auto_promote_suppressions":[],"external_runs":[]}' > "$state_file"
