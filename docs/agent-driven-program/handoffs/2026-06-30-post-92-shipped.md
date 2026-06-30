@@ -5,11 +5,11 @@
 
 ---
 
-## 0. ⚠️ Bookkeeping push pending
+## 0. ✅ Repo fully synced — no pending push
 
-PR #94 (`1b0eebb`) and tag `scaffold-dev-v0.14.0` are **on origin**. The **post-merge bookkeeping commit** (SPEC §5/§6 SHIPPED flip + `SS-9-work-pr.md` §1/§4/§10 accuracy + CHANGELOG date/hardening note + this handoff) is committed **locally on `main` but not yet pushed** — the auto-mode classifier blocks direct-to-main pushes. **Run `! git push origin main`** to sync.
+`main` is **fully synced with origin** (`git rev-list --left-right --count origin/main...main` → `0 0`), tip `4de49af`. PR #94 (`1b0eebb`), tag `scaffold-dev-v0.14.0`, and the post-merge bookkeeping commit (`4de49af`: SPEC §5/§6 SHIPPED flip + `SS-9-work-pr.md` §1/§4/§5/§10 accuracy + CHANGELOG + this handoff) are all on origin. **#92 CLOSED. 0 open PRs.** Start the next task clean.
 
-> This session confirmed the classifier blocks not just `git push origin main` but also **`gh pr merge`** itself — the squash-merge required an explicit user "merge it". Expect to authorize both at each closeout (or add scoped permission rules for `gh pr merge` + `git push origin main`).
+> This session confirmed the auto-mode classifier blocks **both `gh pr merge` AND `git push origin main`** — each required an explicit per-action user authorization ("merge it" / "push it"), and the classifier explicitly noted the "user runs `! git push`" memory convention is **not** consent. Expect to authorize both at every closeout, or add scoped permission rules for `gh pr merge` + `git push origin main`.
 
 ---
 
@@ -38,7 +38,7 @@ PR #94 (`1b0eebb`) and tag `scaffold-dev-v0.14.0` are **on origin**. The **post-
 
 **Open backlog (4):** **#85** (small chore — `wi_trace_filter_install` `.git`-must-be-a-dir check rejects `--separate-git-dir`/submodule canonicals; `git rev-parse --git-path hooks` rewrite) · **#38**, **#37**, **#10** (reconsider-first). All enhancement/chore — **zero correctness bugs.**
 
-**Repo state:** PR #94 (`1b0eebb`) + tag `scaffold-dev-v0.14.0` on origin; #92 CLOSED; 0 open PRs. **Bookkeeping commit local-only on `main` — run `! git push origin main`.** Clean tree (only `.claude/` + `docs/superpowers/` untracked).
+**Repo state:** `main` **fully synced with origin** at `0 0` (tip `4de49af`; PR #94 `1b0eebb` + tag `scaffold-dev-v0.14.0` + bookkeeping `4de49af` all on origin); #92 CLOSED; 0 open PRs. Clean tree (only `.claude/` + `docs/superpowers/` untracked).
 
 ---
 
