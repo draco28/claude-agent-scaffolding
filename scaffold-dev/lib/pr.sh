@@ -258,21 +258,52 @@ sd_pr_state() {
 # Emits one raw JSON array. NO interpretation. rc 1 if gh/jq/api fails.
 sd_pr_review_comments() {
   local pr="$1"; shift
-  local target num out
+  local target num out api_path
   _sd_repo_target "sd_pr_review_comments" "$@" || return 1
   target="$_SD_TARGET"
   if ! command -v gh >/dev/null 2>&1; then
     sd_log_error "sd_pr_review_comments: 'gh' not in PATH."
     return 1
   fi
-  # Accept a PR URL (gh pr create echoes one) OR a bare number — the REST path
-  # needs the numeric id. Strip everything up to the last '/'.
-  num="${pr##*/}"
+  # Accept a GitHub PR URL (gh pr create echoes one) OR a bare number. A full URL
+  # must carry its owner/repo into the REST endpoint; gh's {owner}/{repo}
+  # placeholders resolve from the current directory/GH_REPO, not from the URL.
+  case "$pr" in
+    https://github.com/*/pull/*|http://github.com/*/pull/*)
+      local rest owner repo
+      rest="${pr#https://github.com/}"
+      rest="${rest#http://github.com/}"
+      owner="${rest%%/*}"
+      rest="${rest#*/}"
+      repo="${rest%%/*}"
+      rest="${rest#*/}"
+      if [[ "$rest" != pull/* ]]; then
+        sd_log_error "sd_pr_review_comments: unsupported PR URL: $pr"
+        return 1
+      fi
+      num="${rest#pull/}"
+      num="${num%%/*}"
+      num="${num%%\?*}"
+      num="${num%%#*}"
+      if [[ -z "$owner" || -z "$repo" || -z "$num" ]]; then
+        sd_log_error "sd_pr_review_comments: unsupported PR URL: $pr"
+        return 1
+      fi
+      api_path="repos/$owner/$repo/pulls/$num/comments"
+      ;;
+    *)
+      # Bare PR number: resolve owner/repo from the selected target repo.
+      num="${pr##*/}"
+      num="${num%%\?*}"
+      num="${num%%#*}"
+      api_path="repos/{owner}/{repo}/pulls/$num/comments"
+      ;;
+  esac
   # Capture stdout ONLY — folding gh's stderr (warnings / paginate progress) into
   # stdout via 2>&1 would corrupt the JSON and break the jq parse below on the
   # SUCCESS path. Send stderr to a temp file so a real failure stays diagnosable.
   local errf; errf="$(mktemp)"
-  if ! out="$(cd "$target" && gh api --paginate --slurp "repos/{owner}/{repo}/pulls/$num/comments" 2>"$errf")"; then
+  if ! out="$(cd "$target" && gh api --paginate --slurp "$api_path" 2>"$errf")"; then
     sd_log_error "sd_pr_review_comments: gh api failed: $(cat "$errf")"
     rm -f "$errf"
     return 1

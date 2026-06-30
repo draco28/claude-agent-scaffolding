@@ -73,6 +73,23 @@ Confirm the PR exists before doing anything else:
 sd pr_state "<PR>" --repo-root "$REPO_ROOT" >/dev/null || { echo "PR <PR> not found in $REPO_ROOT" >&2; exit 1; }
 ```
 
+Refuse to start the fix loop from a dirty target repo, then check out and verify the PR
+head branch before any edits:
+
+```bash
+if [[ -n "$(git -C "$REPO_ROOT" status --porcelain)" ]]; then
+  echo "target repo has local changes; commit/stash/clean before /work-pr so fixes stay isolated" >&2
+  exit 1
+fi
+(cd "$REPO_ROOT" && gh pr checkout "<PR>") || { echo "failed to check out PR <PR>" >&2; exit 1; }
+head_branch="$(cd "$REPO_ROOT" && gh pr view "<PR>" --json headRefName --jq .headRefName)"
+current_branch="$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD)"
+[[ "$current_branch" == "$head_branch" ]] || {
+  echo "checked out $current_branch, expected PR head $head_branch; refusing to edit" >&2
+  exit 1
+}
+```
+
 If any check fails, surface the actionable message and STOP. There is **no
 `manifest_require`** here — that is what makes `/work-pr` work on any gh repo.
 
@@ -115,9 +132,12 @@ is still running, surface that and let the user decide to wait or stop.
 For each non-blocking finding the user accepts rather than fixes, record tracked debt so
 it is never a silent pass. Pick exactly ONE owner for issue creation:
 
-- In a paired workspace with a manifest + memory bank, invoke `deferring-work-item`
+- If `REPO_ROOT` is the paired workspace's canonical repo, invoke `deferring-work-item`
   (`/defer`) and let it own both the GitHub issue and the lean `[TD]` index line.
-- In a manifest-less repo, file directly in the target repo:
+- If `REPO_ROOT` is the paired workspace's configured tooling repo, invoke
+  `deferring-work-item` with `--tooling`; it keeps the issue ref repo-qualified.
+- Otherwise, including manifest-less repos and explicit `--repo-root` targets outside
+  the paired workspace, file directly in the target repo:
 
 ```bash
 # write the body to a temp file, then file it in the TARGET repo:
@@ -125,10 +145,11 @@ sd issue_create "<title>" "<body-file>" --repo-root "$REPO_ROOT" --label tech-de
 ```
 
 Record `deferred → #N` in the ledger. Do NOT create an issue directly and then invoke
-`/defer`; that duplicates the issue-filing owner. In a manifest-less repo the tracked
-issue IS the record — there is no memory bank to index, so stop at the issue. Never block
-recording the debt on label setup (`sd label_ensure <label> "$REPO_ROOT"` is the offered,
-idempotent fallback if the repo lacks the label).
+`/defer`; that duplicates the issue-filing owner. For direct target-repo filing, the
+tracked issue IS the record — there is no safe memory-bank pointer to append for an
+unrelated repo, so stop at the issue. Never block recording the debt on label setup
+(`sd label_ensure <label> "$REPO_ROOT"` is the offered, idempotent fallback if the repo
+lacks the label).
 
 ## 6. Terminus — surface, then merge on ack
 Surface to the user, in one place:

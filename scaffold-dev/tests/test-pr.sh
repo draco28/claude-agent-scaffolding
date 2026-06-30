@@ -598,11 +598,35 @@ test_pr_review_comments_paginated() {
   assert_eq "second page entry" "page-two finding" "$(echo "$json" | jq -r '.[1].body')"
 }
 
+# 24c. pr_review_comments uses a full PR URL's owner/repo for the REST path,
+#      rather than gh's {owner}/{repo} placeholders from the target cwd.
+test_pr_review_comments_full_url_repo() {
+  echo "test_pr_review_comments_full_url_repo:"
+  _setup_pr_workspace
+  export GH_SHIM_PR_COMMENTS_JSON="$HERE/fixtures/pr-review-comments.json"
+  cd "$TMP_AI_WORKSPACE"
+  sd_pr_review_comments "https://github.com/other-owner/other-repo/pull/7" >/dev/null 2>&1
+  assert_file_contains "$GH_SHIM_LOG" "repos/other-owner/other-repo/pulls/7/comments"
+}
+
+test_work_pr_skill_safety_prose() {
+  echo "test_work_pr_skill_safety_prose:"
+  local skill="$HERE/../skills/working-pull-request/SKILL.md"
+  assert_file_contains "$skill" 'git -C "\$REPO_ROOT" status --porcelain'
+  assert_file_contains "$skill" 'gh pr checkout "<PR>"'
+  assert_file_contains "$skill" 'rev-parse --abbrev-ref HEAD'
+  assert_file_contains "$skill" 'deferring-work-item` with `--tooling`'
+  assert_file_contains "$skill" 'explicit `--repo-root` targets outside'
+  assert_file_contains "$skill" 'sd issue_create "<title>" "<body-file>" --repo-root "\$REPO_ROOT" --label tech-debt'
+}
+
 test_pr_open_idempotent
 test_issue_list_default_limit
 test_issue_list_explicit_limit
 test_pr_review_comments
 test_pr_review_comments_paginated
+test_pr_review_comments_full_url_repo
+test_work_pr_skill_safety_prose
 test_pr_review_comments_api_failure
 test_branch_sync
 test_branch_sync_diverged
