@@ -1,6 +1,6 @@
 ---
 description: Plan and orchestrate a vertical slice. Usage: /orchestrate VS-N.M.K
-argument-hint: "VS-N.M.K"
+argument-hint: "VS-N.M.K [--backend NAME] [--gate spec_close|both|off] [--neutral]"
 allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep, Task, SlashCommand
 ---
 

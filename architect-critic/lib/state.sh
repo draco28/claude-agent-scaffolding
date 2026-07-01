@@ -107,6 +107,7 @@ ac_state_write_field() {
 #   adversaries_used_json: a JSON array literal, e.g. '["claude"]' or '["claude","codex"]'
 ac_state_append_run() {
   local request_id="" depth="" adversaries_json="" challenge_count="" concessions="" skill_invoked="" elapsed_ms=""
+  local deferred_count="0" deferred_challenges_json="[]"
 
   if [[ "${1:-}" == --* ]]; then
     local adversaries_raw=""
@@ -117,6 +118,8 @@ ac_state_append_run() {
         --adversaries) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --adversaries requires a value"; return 2; }; adversaries_raw="$2"; shift 2 ;;
         --challenge-count) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --challenge-count requires a value"; return 2; }; challenge_count="$2"; shift 2 ;;
         --concessions) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --concessions requires a value"; return 2; }; concessions="$2"; shift 2 ;;
+        --deferred-count) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --deferred-count requires a value"; return 2; }; deferred_count="$2"; shift 2 ;;
+        --deferred-challenges) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --deferred-challenges requires a value"; return 2; }; deferred_challenges_json="$2"; shift 2 ;;
         --skill-invoked) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --skill-invoked requires a value"; return 2; }; skill_invoked="$2"; shift 2 ;;
         --elapsed-ms) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --elapsed-ms requires a value"; return 2; }; elapsed_ms="$2"; shift 2 ;;
         *)
@@ -149,6 +152,10 @@ ac_state_append_run() {
     ac_log_error "ac_state_append_run: adversaries must be a JSON array or CSV list"
     return 2
   fi
+  if ! printf '%s' "$deferred_challenges_json" | jq -e 'type == "array"' >/dev/null 2>&1; then
+    ac_log_error "ac_state_append_run: deferred challenges must be a JSON array"
+    return 2
+  fi
 
   local state_file lock_path completed_at
   state_file="$(ac_state_path)"
@@ -164,6 +171,8 @@ ac_state_append_run() {
     --argjson adv "$adversaries_json" \
     --argjson cc "$challenge_count" \
     --argjson con "$concessions" \
+    --argjson dc "$deferred_count" \
+    --argjson dch "$deferred_challenges_json" \
     --arg skl "$skill_invoked" \
     --argjson elm "$elapsed_ms" \
     '.recent_runs = ((.recent_runs + [{
@@ -173,6 +182,8 @@ ac_state_append_run() {
        "adversaries_used": $adv,
        "challenge_count": $cc,
        "concessions": $con,
+       "deferred_count": $dc,
+       "deferred_challenges": $dch,
        "skill_invoked": $skl,
        "elapsed_ms": $elm
      }]) | if length > 20 then .[-20:] else . end)' \
@@ -313,7 +324,7 @@ ac_state_add_suppression() {
 # Appends a {status:"running"} record (started_at=now). Retains every unresolved
 # record, and caps only resolved history to fit the last 20 when possible.
 ac_state_external_run_add() {
-  local run_id="" host="" adversary="" artifact="" depth="" result_path="" session_id=""
+  local run_id="" host="" adversary="" artifact="" depth="" result_path="" session_id="" neutral_mode="false"
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --run-id) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_add: --run-id requires a value"; return 2; }; run_id="$2"; shift 2 ;;
@@ -323,6 +334,7 @@ ac_state_external_run_add() {
       --depth) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_add: --depth requires a value"; return 2; }; depth="$2"; shift 2 ;;
       --result-path) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_add: --result-path requires a value"; return 2; }; result_path="$2"; shift 2 ;;
       --codex-session-id) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_add: --codex-session-id requires a value"; return 2; }; session_id="$2"; shift 2 ;;
+      --neutral-mode) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_add: --neutral-mode requires a value"; return 2; }; neutral_mode="$2"; shift 2 ;;
       *) ac_log_error "ac_state_external_run_add: unknown flag: $1"; return 2 ;;
     esac
   done
@@ -330,6 +342,10 @@ ac_state_external_run_add() {
     ac_log_error "ac_state_external_run_add: --run-id --host --adversary --artifact --depth --result-path are required"
     return 2
   fi
+  case "$neutral_mode" in
+    true|false) ;;
+    *) ac_log_error "ac_state_external_run_add: --neutral-mode must be true or false"; return 2 ;;
+  esac
   ac_state_init
   local state_file lock_path started_at
   state_file="$(ac_state_path)"
@@ -340,7 +356,7 @@ ac_state_external_run_add() {
   if ac_guarded_jq_write "$state_file" \
     --arg rid "$run_id" --arg host "$host" --arg adv "$adversary" \
     --arg art "$artifact" --arg dep "$depth" --arg rp "$result_path" \
-    --arg sid "$session_id" --arg sa "$started_at" \
+    --arg sid "$session_id" --argjson neutral "$neutral_mode" --arg sa "$started_at" \
     'def unresolved:
        select(.resolved_run_request_id == null);
      def trim_external_runs:
@@ -362,6 +378,7 @@ ac_state_external_run_add() {
        "completed_at": null,
        "result_path": $rp,
        "codex_session_id": (if $sid == "" then null else $sid end),
+       "neutral_mode": $neutral,
        "resolved_run_request_id": null
      }]) | trim_external_runs)' \
     "$state_file"; then
@@ -510,6 +527,7 @@ ac_state_external_run_resolve() {
 ac_state_external_run_finalize_resume() {
   local run_id="" request_id="" depth="" adversaries_raw="" adversaries_json=""
   local challenge_count="" concessions="" skill_invoked="" elapsed_ms=""
+  local deferred_count="0" deferred_challenges_json="[]"
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --run-id) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --run-id requires a value"; return 2; }; run_id="$2"; shift 2 ;;
@@ -518,6 +536,8 @@ ac_state_external_run_finalize_resume() {
       --adversaries) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --adversaries requires a value"; return 2; }; adversaries_raw="$2"; shift 2 ;;
       --challenge-count) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --challenge-count requires a value"; return 2; }; challenge_count="$2"; shift 2 ;;
       --concessions) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --concessions requires a value"; return 2; }; concessions="$2"; shift 2 ;;
+      --deferred-count) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --deferred-count requires a value"; return 2; }; deferred_count="$2"; shift 2 ;;
+      --deferred-challenges) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --deferred-challenges requires a value"; return 2; }; deferred_challenges_json="$2"; shift 2 ;;
       --skill-invoked) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --skill-invoked requires a value"; return 2; }; skill_invoked="$2"; shift 2 ;;
       --elapsed-ms) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --elapsed-ms requires a value"; return 2; }; elapsed_ms="$2"; shift 2 ;;
       *) ac_log_error "ac_state_external_run_finalize_resume: unknown flag: $1"; return 2 ;;
@@ -535,6 +555,10 @@ ac_state_external_run_finalize_resume() {
   fi
   if ! printf '%s' "$adversaries_json" | jq -e 'type == "array"' >/dev/null 2>&1; then
     ac_log_error "ac_state_external_run_finalize_resume: adversaries must be a JSON array or CSV list"
+    return 2
+  fi
+  if ! printf '%s' "$deferred_challenges_json" | jq -e 'type == "array"' >/dev/null 2>&1; then
+    ac_log_error "ac_state_external_run_finalize_resume: deferred challenges must be a JSON array"
     return 2
   fi
 
@@ -565,6 +589,8 @@ ac_state_external_run_finalize_resume() {
     --argjson adv "$adversaries_json" \
     --argjson cc "$challenge_count" \
     --argjson con "$concessions" \
+    --argjson dc "$deferred_count" \
+    --argjson dch "$deferred_challenges_json" \
     --arg skl "$skill_invoked" \
     --argjson elm "$elapsed_ms" \
     '.recent_runs = (((.recent_runs // []) + [{
@@ -574,6 +600,8 @@ ac_state_external_run_finalize_resume() {
        "adversaries_used": $adv,
        "challenge_count": $cc,
        "concessions": $con,
+       "deferred_count": $dc,
+       "deferred_challenges": $dch,
        "skill_invoked": $skl,
        "elapsed_ms": $elm
      }]) | if length > 20 then .[-20:] else . end)

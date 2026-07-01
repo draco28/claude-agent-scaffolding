@@ -19,11 +19,13 @@ Derive it from available context, in order: a referenced issue/PR (read it), the
 
 ## Mechanic
 
-Produce **one response** containing five markdown-headed sections in this exact order: `## The Contrarian`, `## The First Principles Thinker`, `## The Outsider`, `## The Executor`, `## The Historian`. Each section is 2–3 paragraphs of in-character take on the user's idea. After all five, close with:
+Produce **one response** containing five markdown-headed sections in this exact order: `## The Contrarian`, `## The First Principles Thinker`, `## The Outsider`, `## The Executor`, `## The Historian`. Each section is 2–3 paragraphs of in-character take on the user's idea.
 
-> **Chairman, your synthesis?**
+After the five voices, **propose a Chairman synthesis by default (#93)** under a `## Chairman's synthesis (recommended)` heading: one firm recommended verdict + a one-line rationale, grounded in the source-of-truth you derived for the 📍 block and *cited* where available (general best practice otherwise — never fabricate a citation), then invite the user to **accept / rebut / defer**. The five voices still come first and in full; the synthesis rides after them — it does not replace them or pre-empt the debate.
 
-The user either writes their own verdict or asks you to propose one. Do not pre-synthesize. Do not run a peer-review round between personas (deferred to a future version).
+**Opt-out.** Under `--neutral` (or "no recommendations" / "I'll synthesize"), do **not** pre-synthesize — close instead with **"Chairman, your synthesis?"** and let the user write the verdict (the pre-#93 behavior). Note: a request for *you* to synthesize ("you synthesize", "propose a verdict") is the **opposite** of neutral — it wants the recommended synthesis, so honor it (do not treat it as an opt-out).
+
+Do not run a peer-review round between personas (deferred to a future version). Full recommendation policy: `${CLAUDE_PLUGIN_ROOT}/references/recommendation-policy.md`.
 
 Full persona briefs — voice, what they hunt, opening moves, verbal tics — live in `personas.md`. **Read it before authoring the five sections** so each voice stays sharp and distinguishable. One-line summaries here for orientation only:
 

@@ -10,7 +10,7 @@ You are the architect-critic. You have been invoked because the user wants an ad
 This skill body is the centerpiece of architect-critic v0.2. Everything that requires judgment lives here — you read these instructions, then act. Bash helpers under `lib/` do the bookkeeping (state file appends, similarity dedup, principle file merges); they never do the thinking.
 
 You may be invoked two ways:
-- **Slash command:** `/critique [path] [--close] [--model NAME] [--principles PATH] [--scope project|user]`. The wrapper at `commands/critique.md` exports the raw arg string as `$ARCHITECT_CRITIC_ARGS` (env-var bridge per [[feedback_slash_command_dollar_n_bug]] — `$1`/`$2` get template-substituted by Claude Code at render time and silently corrupt bash locals, so never reference bare positionals).
+- **Slash command:** `/critique [path] [--close] [--neutral] [--model NAME] [--principles PATH] [--scope project|user]`. The wrapper at `commands/critique.md` exports the raw arg string as `$ARCHITECT_CRITIC_ARGS` (env-var bridge per [[feedback_slash_command_dollar_n_bug]] — `$1`/`$2` get template-substituted by Claude Code at render time and silently corrupt bash locals, so never reference bare positionals).
 - **Natural language:** *"audit this spec"*, *"critique the X plan"*, *"adversarial review of Y"*, *"challenge the spec"*, *"deep audit"*, *"fresh-frame review"*, *"close review"*.
 
 Walk these ten steps in order. Do not skip steps. Do not bash-orchestrate the judgment work.
@@ -107,6 +107,8 @@ You need four values: `HOST_AGENT`, `codex_available`, `claude_available`, and `
 Otherwise `close_depth = false` (shallow = claude-only audit, the default).
 
 **Async detection (#39).** Set `async_mode = true` if `--async` is present in `$ARCHITECT_CRITIC_ARGS`. Async is only meaningful for a **close-depth** audit with `HOST_AGENT=claude` (the Codex companion is the only proven background backend; Codex-host keeps the synchronous path). If `--async` is set but `close_depth=false` or `HOST_AGENT=codex`, ignore it and run synchronously, telling the user why. When `async_mode=true` and applicable, Step 6 takes the **defer-to-resume** path (dispatch now, resume later) instead of the inline invocation.
+
+**Neutral mode (#93).** Set `neutral_mode = true` if `--neutral` is present in `$ARCHITECT_CRITIC_ARGS`, or the user's natural-language invocation matched *"no recommendations"* / *"just list the challenges"* / *"don't recommend"*. When `neutral_mode=true`, Step 8 omits the per-challenge **recommended disposition** and presents challenges neutrally (the pre-#93 behavior). Default is `false` — recommend by default. Opt-out is per-invocation, not sticky.
 
 The close-depth adversary is host-aware:
 
@@ -241,7 +243,7 @@ The external adversary is a separate model talking to a separate session — it 
    # ... write the Step-5 self-audit JSON to "$job_dir/claude-audit.json" ...
    # If that write fails, cancel the dispatched job and stop before continuing.
    if ! arc state_external_run_add --run-id "$job" --host claude --adversary codex \
-     --artifact "<artifact-path>" --depth close \
+     --artifact "<artifact-path>" --depth close --neutral-mode "$neutral_mode" \
      --result-path "$job_dir/result.json"; then
      arc codex_cancel "$target_root" "$job" >/dev/null 2>&1 || true
      echo "Failed to persist async job metadata; cancelled job $job." >&2
@@ -355,20 +357,33 @@ Final list: 3 challenges, one cross-confirmed at premise level (surface first in
 
 This step is the heart of the user experience. It is also the bug #4 fix: **never use bash `read` to capture user input here.** Bash `read` blocks on stdin, which doesn't exist in non-TTY Claude Code sessions (subagent, hooks, headless), and the rebuttal cycle silently skips. Use Claude's native turn handling instead — you ask, the user replies in the next turn, you process.
 
+**Recommend-by-default (#93).** Per the recommendation policy
+(`${PLUGIN_DIR}/templates/recommendation-policy.md`), each challenge you surface
+carries **one recommended disposition** — your honest, CORE-toned lean on how the
+user should dispose of it (`accept`, `rebut`, or `defer`) plus a one-line
+rationale, grounded in the artifact (Step 1) and principles (Step 2) and cited
+where possible (e.g. *"Recommended: accept — contradicts MASTER-SPEC §4.2's stated
+latency budget"*; a low-stakes `alternative` → *"Recommended: defer — viable but
+not blocking; track as an issue"*). Never fabricate a citation; if the spec
+doesn't ground it, say *"(general best practice)"*. When `neutral_mode=true`
+(Step 3, `--neutral`), omit the recommended-disposition line and present each
+challenge neutrally.
+
 **Sequential mode (default).** For each challenge in the consolidated list, emit:
 
 ```
 Challenge 1 of N (severity: <premise|gap|alternative>)
 <CORE-toned text>
 Rationale: <why this might matter>
+Recommended: <accept|rebut|defer> — <one-line, cited where possible>   (omit when --neutral)
 
-Your response (accept | rebut | dismiss):
+Your response (accept | rebut | defer):
 ```
 
-Then **end your turn** and wait for the user's reply. When they reply:
+Track deferred items while the cycle runs: initialize `DEFERRED_CHALLENGES_JSON=[]` and `DEFERRED_COUNT=0`; each `defer` appends `{index,text,severity,rationale}` for the current challenge. Then **end your turn** and wait for the user's reply. When they reply:
 
 - If they say *"accept"* → mark as concession; advance to next challenge.
-- If they say *"dismiss"* → mark as dismissed (challenge stands but user does not want to engage); advance.
+- If they say *"defer"* → append the challenge to `DEFERRED_CHALLENGES_JSON`, increment `DEFERRED_COUNT`, and advance. Defer means valid/unresolved but later: tracked, e.g. filed as an issue, never silently dropped.
 - If they rebut → score the rebuttal 1–5 via:
   ```bash
   arc scorer_score "$CHALLENGE_TEXT" "$REBUTTAL_TEXT"
@@ -400,13 +415,7 @@ When the helper returns a 3 (the borderline case), default to "stands" but softe
 
 ## Step 9: Bash bookkeeping — append run + check auto-promotion
 
-State updates happen in bash because they are pure I/O. Append the run record:
-
-```bash
-arc state_append_run "$REQUEST_ID" "$DEPTH" "$ADVERSARIES_JSON" "$CHALLENGE_COUNT" "$CONCESSIONS" critiquing-spec "$ELAPSED_MS"
-```
-
-Equivalent flag form is also supported for robustness:
+State updates happen in bash because they are pure I/O. Append the run record with the **flag form** — it is the only form that carries the deferred-challenge fields (`--deferred-count` / `--deferred-challenges`), so use it whenever any challenge was deferred (they default to `0`/`[]` when omitted):
 
 ```bash
 arc state_append_run \
@@ -415,9 +424,13 @@ arc state_append_run \
   --adversaries "$ADVERSARIES_JSON" \
   --challenge-count "$CHALLENGE_COUNT" \
   --concessions "$CONCESSIONS" \
+  --deferred-count "$DEFERRED_COUNT" \
+  --deferred-challenges "$DEFERRED_CHALLENGES_JSON" \
   --skill-invoked critiquing-spec \
   --elapsed-ms "$ELAPSED_MS"
 ```
+
+The legacy positional form (`arc state_append_run "$REQUEST_ID" "$DEPTH" "$ADVERSARIES_JSON" "$CHALLENGE_COUNT" "$CONCESSIONS" critiquing-spec "$ELAPSED_MS"`) is still accepted but has **no deferred slots** — it records `deferred_count=0` and drops any deferred challenges. Use the flag form above whenever `DEFERRED_COUNT > 0`.
 
 `--adversaries` accepts either a JSON array such as `["claude","codex"]` or a CSV string such as `claude,codex`.
 
@@ -467,6 +480,7 @@ Audit complete for <artifact path>.
   Adversaries used : <claude | claude + codex>
   Challenges       : <N> total (<X> premise, <Y> gap, <Z> alternative)
   Concessions      : <C> of <N>
+  Deferred         : <D> (tracked for later)
   Candidates piled : <K> (challenges that stood after rebuttal)
   Principles       : <P> applied (shipped + user + project)
   Elapsed          : <S> seconds
@@ -478,7 +492,7 @@ This is the structured handoff. Consumer plugins (scaffold-onboard v0.2, scaffol
 
 **Stability contract for downstream consumers.** The following tokens MUST appear verbatim (case-sensitive) for consumers to parse correctly:
 - The literal string `Audit complete for ` followed by the artifact path.
-- Field labels `Adversaries used`, `Challenges`, `Concessions`, `Candidates piled`, `Principles`, `Elapsed` with `:` separator and exactly two spaces of indentation.
+- Field labels `Adversaries used`, `Challenges`, `Concessions`, `Deferred`, `Candidates piled`, `Principles`, `Elapsed` with `:` separator and exactly two spaces of indentation.
 - The integer counts must be bare (no commas, no units inline — the unit goes outside the number, e.g. `seconds` after `Elapsed`).
 
 If you change this format, bump architect-critic minor version and coordinate with scaffold-onboard / scaffold-dev maintainers — their regexes will break otherwise. Per [[feedback_v01_full_over_minimal]], the v0.2 contract is design-locked and ships as-is; consumers parse against it.
@@ -502,6 +516,6 @@ A few invariants to keep clear, since this skill straddles a markdown/bash bound
 - **You** (Claude reading this skill body) make every judgment call: which path to audit when multiple candidates exist, what challenges to surface, how to score a rebuttal, when to escape-hatch out of sequential mode.
 - **Bash helpers** (`lib/*.sh`) handle pure I/O: reading state files, computing similarity scores, appending JSON, file merges. They never decide what is or isn't a challenge.
 - **Codex** is a fresh-frame adversary, not a judge. Its output is one of two input streams to the consolidator. You still mediate the rebuttal cycle.
-- **The user** is the final authority. Your job is to surface candidate concerns; theirs is to accept, rebut, or dismiss. You never auto-promote without consent.
+- **The user** is the final authority. Your job is to surface candidate concerns (each with a recommended disposition per the recommendation policy, unless `--neutral`); theirs is to accept, rebut, or defer. You never auto-promote without consent, and a recommendation never auto-advances past a decision boundary.
 
 When in doubt, prefer doing the work in conversation over delegating to bash. The v0.1.x architecture got this wrong; v0.2 corrects it. If you find yourself reaching for `bash -c` to wrap a reasoning step, stop — that work belongs here.
