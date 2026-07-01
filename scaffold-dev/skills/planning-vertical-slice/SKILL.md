@@ -134,7 +134,7 @@ merge_mode="$(sd merge_mode)"   # "direct" (default) | "pr_hierarchical"
 - **MASTER-SPEC.md** — read via the manifest-resolved master-spec path. Surfaces project class, constraints, tech stack — feeds decomposition rationale.
 - **Memory bank Tier 0** — auto-loaded by scaffold-dev's SessionStart hook (per SPEC §15.1, §18). If the hook hasn't fired in this session (e.g., started outside the AI workspace), surface a soft warning and continue.
 - **Active-context cursor** — read `<ai-workspace>/.claude/memory-bank/05-active-context.md` for the current active sprint / slice / round position (per SPEC §17). If the cursor names a different active slice and the user is invoking this skill for a NEW slice, surface: *"Cursor shows VS-<X.Y.Z> active. Plan VS-<N.M.K> as a new slice (cursor will update on first commit), or resume VS-<X.Y.Z> instead?"* and wait for choice.
-- **Recommend-by-default (#93)** — having read the spec + memory bank above, attach **one firm recommendation** + a one-line *cited* rationale to every gate below (§4 decomposition, §5 rounds, §7.2 audit-skip, §8.5 fix-up, §8.7 round/slice-close), grounded in MASTER-SPEC/memory-bank (per `references/recommendation-policy.md`); the user may **accept / rebut / defer**. `--neutral` (§13) suppresses all gate recommendations (revert to neutral menus) **and is forwarded into every nested skill gate** — `architect-critic` (§7.2/§7.2a) and `grill-me` (§§4.1/6.3/8.5) invocations receive `--neutral` too; never auto-advance (§15).
+- **Recommend-by-default (#93)** — having read the spec + memory bank above, attach **one firm recommendation** + a one-line *cited* rationale to every gate below (§4 decomposition, §5 rounds, §7.2 audit-skip, §8.5 fix-up, §8.7 round/slice-close), grounded in MASTER-SPEC/memory-bank (per `references/recommendation-policy.md`); the user may **accept / rebut / defer** — at a gate, **accept** = take the recommended option, **rebut** = pick another option or push back, **defer** = proceed but record the flagged concern as tracked debt via `/defer` (`deferring-work-item`). `--neutral` (§13) suppresses all gate recommendations (revert to neutral menus) **and is forwarded into every nested skill gate** — `architect-critic` (§7.2/§7.2a) and `grill-me` (§§4.1/6.3/8.5) invocations receive `--neutral` too; never auto-advance (§15).
 
 ---
 
@@ -278,7 +278,7 @@ When routed here by §7.0 (gate `off`, or `slice_close` which gates the *slice-c
 
 1. Announce with a recommendation unless `neutral_mode=true`: *"Specs authored — invoking architect-critic for a spec-audit on the combined work-item specs. Recommended: run the audit — <one-line MASTER-SPEC/memory-bank rationale>. Type `skip` to bypass."* If the spec is trivial or the user explicitly opted out of audit depth, the recommendation may be *"Recommended: skip — <why this is low-value now>."*
 2. End the turn and wait. If the user types `skip` (case-insensitive): log the skip in the slice README and proceed to §8.
-3. Otherwise, if `neutral_mode=true`, export `ARCHITECT_CRITIC_ARGS="${ARCHITECT_CRITIC_ARGS:-} --neutral"` before invoking `Skill(architect-critic:critiquing-spec)` with:
+3. Otherwise, set a **fresh** env bridge (never inherit — a stale `--spec`/`--close`/`--async` from a prior call would leak into this sync author-depth audit): if `neutral_mode=true`, `export ARCHITECT_CRITIC_ARGS="--neutral"`, else `unset ARCHITECT_CRITIC_ARGS`. Then invoke `Skill(architect-critic:critiquing-spec)` with:
    - `target=spec`
    - `depth=author` (per ac v0.2 §5.1 — author-depth is the lighter Claude-self-audit; close-depth at slice-close is a separate moment per §14.3)
    - `spec_paths=<list of all work-N.NN-<kebab>/spec.md absolute paths>`
@@ -416,7 +416,7 @@ Do **NOT** remove the worktree at round close — per SPEC §11, worktrees + bra
 
 After all work items in the round are committed + merged: (1) set round status → complete in the VS README. (2) **Deferral auto-file (agent-driven, #33):** re-read each `report.md` **"Deferrals"** section (judgment, not parsing — there is no deterministic parser), JUDGE which warrant a tracked issue (de-dup via `sd issue_list`), surface the proposed issues as ONE batch for confirm (never file silently), and file each confirmed one via `Skill(scaffold-dev:deferring-work-item)` (or inline `sd issue_create` + the `[TD] …→#N` line). If `sd remote_check` fails, SKIP filing (deferrals stay in the reports) and proceed without blocking. (3) Surface:
 
-> Round K complete (M items committed + merged). Recommended: proceed to the next round — <one-line rationale from remaining DAG/work status>, or close VS-<N.M.K>?
+> Round K complete (M items committed + merged). Recommended: <if rounds remain → proceed to round K+1, one-line rationale from the remaining DAG/work status; if this was the final round → close VS-<N.M.K>, all rounds done>. Ready for the next round, or close VS-<N.M.K>?
 
 "next round" → loop §8.1 for K+1; "close slice" → proceed to §10. Under `neutral_mode=true`, omit the `Recommended:` line from the prompt above.
 

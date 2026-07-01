@@ -30,7 +30,7 @@ assert_file_contains "$SKILL" "ARCHITECT_CRITIC_ARGS=.*--neutral"
 assert_file_contains "$SKILL" "Recommended: run the audit"
 assert_file_contains "$SKILL" "Recommended: skip"
 assert_file_contains "$SKILL" "Recommended: grill-me"
-assert_file_contains "$SKILL" "Recommended: proceed to the next round"
+assert_file_contains "$SKILL" "proceed to round K"
 
 # --neutral opt-out: parsed in the arg-parser reference + advertised by the wrapper.
 assert_file_contains "$ARGS" "neutral_mode"

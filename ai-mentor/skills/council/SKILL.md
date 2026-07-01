@@ -23,7 +23,7 @@ Produce **one response** containing five markdown-headed sections in this exact 
 
 After the five voices, **propose a Chairman synthesis by default (#93)** under a `## Chairman's synthesis (recommended)` heading: one firm recommended verdict + a one-line rationale, grounded in the source-of-truth you derived for the 📍 block and *cited* where available (general best practice otherwise — never fabricate a citation), then invite the user to **accept / rebut / defer**. The five voices still come first and in full; the synthesis rides after them — it does not replace them or pre-empt the debate.
 
-**Opt-out.** Under `--neutral` (or "no recommendations" / "you synthesize"), do **not** pre-synthesize — close instead with **"Chairman, your synthesis?"** and let the user write the verdict (the pre-#93 behavior).
+**Opt-out.** Under `--neutral` (or "no recommendations" / "I'll synthesize"), do **not** pre-synthesize — close instead with **"Chairman, your synthesis?"** and let the user write the verdict (the pre-#93 behavior). Note: a request for *you* to synthesize ("you synthesize", "propose a verdict") is the **opposite** of neutral — it wants the recommended synthesis, so honor it (do not treat it as an opt-out).
 
 Do not run a peer-review round between personas (deferred to a future version). Full recommendation policy: `${CLAUDE_PLUGIN_ROOT}/references/recommendation-policy.md`.
 
