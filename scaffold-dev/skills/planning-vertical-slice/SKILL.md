@@ -134,7 +134,7 @@ merge_mode="$(sd merge_mode)"   # "direct" (default) | "pr_hierarchical"
 - **MASTER-SPEC.md** — read via the manifest-resolved master-spec path. Surfaces project class, constraints, tech stack — feeds decomposition rationale.
 - **Memory bank Tier 0** — auto-loaded by scaffold-dev's SessionStart hook (per SPEC §15.1, §18). If the hook hasn't fired in this session (e.g., started outside the AI workspace), surface a soft warning and continue.
 - **Active-context cursor** — read `<ai-workspace>/.claude/memory-bank/05-active-context.md` for the current active sprint / slice / round position (per SPEC §17). If the cursor names a different active slice and the user is invoking this skill for a NEW slice, surface: *"Cursor shows VS-<X.Y.Z> active. Plan VS-<N.M.K> as a new slice (cursor will update on first commit), or resume VS-<X.Y.Z> instead?"* and wait for choice.
-- **Recommend-by-default (#93)** — having read the spec + memory bank above, attach **one firm recommendation** + a one-line *cited* rationale to every gate below (§4 decomposition, §5 rounds, §7.2 audit-skip, §8.5 fix-up, §8.7 round/slice-close), grounded in MASTER-SPEC/memory-bank (per `references/recommendation-policy.md`); the user may **accept / rebut / defer**. `--neutral` (§13) suppresses all gate recommendations (revert to neutral menus); never auto-advance (§15).
+- **Recommend-by-default (#93)** — having read the spec + memory bank above, attach **one firm recommendation** + a one-line *cited* rationale to every gate below (§4 decomposition, §5 rounds, §7.2 audit-skip, §8.5 fix-up, §8.7 round/slice-close), grounded in MASTER-SPEC/memory-bank (per `references/recommendation-policy.md`); the user may **accept / rebut / defer**. `--neutral` (§13) suppresses all gate recommendations (revert to neutral menus) **and is forwarded into every nested skill gate** — `architect-critic` (§7.2/§7.2a) and `grill-me` (§§4.1/6.3/8.5) invocations receive `--neutral` too; never auto-advance (§15).
 
 ---
 
@@ -158,7 +158,7 @@ Anti-patterns: **mega-items** (1500 LOC behind one bullet — break it); **micro
 
 ### 4.1 grill-me offer (gate 1, post-decomposition)
 
-After the user accepts the decomposition, probe ai-mentor via `sd_compose_detect_ai_mentor` (lib/compose.sh); if present, surface an **explicit offer** (not auto-invocation — eval S1 rejects both silent skip and silent invocation): *"Decomposition settled (N items). Want to grill-me on it before locking spec authoring? (yes/no, default no)"*. **yes** → `Skill(ai-mentor:grill-me)` with `target=decomposition` (loop back to §4 on revisions); **no/skip** → record + proceed to §5. If ai-mentor is absent, skip silently (grill-me is enrichment, not a contract).
+After the user accepts the decomposition, probe ai-mentor via `sd_compose_detect_ai_mentor` (lib/compose.sh); if present, surface an **explicit offer** (not auto-invocation — eval S1 rejects both silent skip and silent invocation): *"Decomposition settled (N items). Want to grill-me on it before locking spec authoring? (yes/no, default no)"*. **yes** → `Skill(ai-mentor:grill-me)` with `target=decomposition` (when `neutral_mode=true`, also pass `--neutral` so grill-me stays neutral; loop back to §4 on revisions); **no/skip** → record + proceed to §5. If ai-mentor is absent, skip silently (grill-me is enrichment, not a contract).
 
 ---
 
@@ -174,7 +174,7 @@ Surface the proposed round structure to the user:
 
 Then ask:
 
-> Recommended: use the proposed rounds — <one-line, cites the DAG / MASTER-SPEC §… where relevant>. Use the proposed rounds, loosen (move items earlier — must not violate declared deps), or tighten (move items later — always allowed as soft ordering)?
+> Recommended: use the proposed rounds — <one-line, cites the DAG / MASTER-SPEC §… where relevant> (omit this Recommended line under `--neutral`). Use the proposed rounds, loosen (move items earlier — must not violate declared deps), or tighten (move items later — always allowed as soft ordering)?
 
 Iterate until accepted. Persist the round assignment in each work item's spec (§6).
 
@@ -236,7 +236,7 @@ The worktree path and branch are computed at spec-authoring time (so the spec is
 
 After all specs are written, surface two opt-in offers **before** architect-critic (so undecided items + citation drift surface first), each probed for presence and silent-skipped if absent (enrichment, not a contract):
 
-- **grill-me (gate 2, SPEC §16.4 offer 2):** *"Specs authored (N items). Want to grill-me on the specs before adversarial review? (yes/no, default no)"* → `Skill(ai-mentor:grill-me)` with `target=specs`.
+- **grill-me (gate 2, SPEC §16.4 offer 2):** *"Specs authored (N items). Want to grill-me on the specs before adversarial review? (yes/no, default no)"* → `Skill(ai-mentor:grill-me)` with `target=specs` (pass `--neutral` when `neutral_mode=true`).
 - **spec-citations (§6.4 opt-in):** *"… verify spec citations (file paths, signatures, REQ-IDs, ARCH §-refs) before adversarial review? (yes/no, default no)"* → `Skill(scaffold-dev:verifying-spec-citations)` over each `work-N.NN-*/spec.md`.
 
 Either may produce edits — re-write affected `spec.md` via `sd_render`, then continue to §7. Never block planning on their absence or on a project without a REQ-ID scheme.
@@ -404,7 +404,7 @@ That skill (per SPEC §12.1) runs each `auto:` AC step in the worktree, cross-ch
 
 > Fix-up replan triggered. Recommended: grill-me — <one-line rationale from the failure + MASTER-SPEC/memory-bank>. Want to grill-me on the failure before re-authoring the handoff? (yes/no, default no)
 
-Per §4.1, probe ai-mentor first; offer only when detected.
+Per §4.1, probe ai-mentor first; offer only when detected. When `neutral_mode=true`, drop the `Recommended:` line from the prompt and pass `--neutral` to the grill-me invocation.
 
 ### 8.6 Commit + merge
 
@@ -418,7 +418,7 @@ After all work items in the round are committed + merged: (1) set round status �
 
 > Round K complete (M items committed + merged). Recommended: proceed to the next round — <one-line rationale from remaining DAG/work status>, or close VS-<N.M.K>?
 
-"next round" → loop §8.1 for K+1; "close slice" → proceed to §10.
+"next round" → loop §8.1 for K+1; "close slice" → proceed to §10. Under `neutral_mode=true`, omit the `Recommended:` line from the prompt above.
 
 ---
 

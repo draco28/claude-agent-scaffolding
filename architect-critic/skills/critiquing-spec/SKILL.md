@@ -415,13 +415,7 @@ When the helper returns a 3 (the borderline case), default to "stands" but softe
 
 ## Step 9: Bash bookkeeping — append run + check auto-promotion
 
-State updates happen in bash because they are pure I/O. Append the run record:
-
-```bash
-arc state_append_run "$REQUEST_ID" "$DEPTH" "$ADVERSARIES_JSON" "$CHALLENGE_COUNT" "$CONCESSIONS" critiquing-spec "$ELAPSED_MS"
-```
-
-Equivalent flag form is also supported for robustness:
+State updates happen in bash because they are pure I/O. Append the run record with the **flag form** — it is the only form that carries the deferred-challenge fields (`--deferred-count` / `--deferred-challenges`), so use it whenever any challenge was deferred (they default to `0`/`[]` when omitted):
 
 ```bash
 arc state_append_run \
@@ -435,6 +429,8 @@ arc state_append_run \
   --skill-invoked critiquing-spec \
   --elapsed-ms "$ELAPSED_MS"
 ```
+
+The legacy positional form (`arc state_append_run "$REQUEST_ID" "$DEPTH" "$ADVERSARIES_JSON" "$CHALLENGE_COUNT" "$CONCESSIONS" critiquing-spec "$ELAPSED_MS"`) is still accepted but has **no deferred slots** — it records `deferred_count=0` and drops any deferred challenges. Use the flag form above whenever `DEFERRED_COUNT > 0`.
 
 `--adversaries` accepts either a JSON array such as `["claude","codex"]` or a CSV string such as `claude,codex`.
 

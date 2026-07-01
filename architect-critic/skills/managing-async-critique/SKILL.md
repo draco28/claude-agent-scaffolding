@@ -73,11 +73,11 @@ Default `run-id`: the most recent `completed` (else `running`) run for the curre
      --request-id "<request_id-from-step-5>" \
      --depth close \
      --adversaries claude,codex \
-    --challenge-count "<challenge_count>" \
-    --concessions "<concessions>" \
-    --deferred-count "$DEFERRED_COUNT" \
-    --deferred-challenges "$DEFERRED_CHALLENGES_JSON" \
-    --skill-invoked critiquing-spec \
+     --challenge-count "<challenge_count>" \
+     --concessions "<concessions>" \
+     --deferred-count "$DEFERRED_COUNT" \
+     --deferred-challenges "$DEFERRED_CHALLENGES_JSON" \
+     --skill-invoked critiquing-spec \
      --elapsed-ms "<elapsed_ms>"
    ```
    This appends `recent_runs[]` and sets `resolved_run_request_id` once under the same lock. If it returns rc1, the run was already resolved — do not append a duplicate; switch to inspect-only output.
