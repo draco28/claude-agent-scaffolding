@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [2.3.0] — 2026-07-02
+
+### Added
+- **`grill-me` Rule 5 — "code contradicts the claim → resolve by mode" (#37 leg 2).** When exploring (Rule 4) surfaces a discoverable fact that contradicts the user's stated premise, grill-me now surfaces the contradiction directly rather than accepting the premise, then names the authoritative source *by mode*: in development/implementation the **code** wins (contradicting docs are flagged stale); in vision-aligned planning the **vision/spec** wins (contradicting code is flagged as drift). Ambiguous mode → ask which frame applies first. Legs 1/4/5 of #37 were declined (wontfix); leg 3 lands in scaffold-dev.
+
 ## [2.2.0] — 2026-06-30
 
 ### Changed
