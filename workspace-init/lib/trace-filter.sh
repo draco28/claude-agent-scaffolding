@@ -43,15 +43,29 @@ wi_trace_filter_render() {
 }
 
 # wi_trace_filter_install <ai-workspace-root> <target-repo>
-# Render + write to <target-repo>/.git/hooks/commit-msg + chmod +x + log HOOK_INSTALL.
+# Render + write the commit-msg hook to the repo's resolved hooks dir + chmod +x + log HOOK_INSTALL.
 wi_trace_filter_install() {
   local ai_root="$1"
   local target_repo="$2"
-  if [[ ! -d "${target_repo}/.git" ]]; then
+  # Accept any real git repo. Use rev-parse rather than a hardcoded "$target_repo/.git"
+  # directory check so a --separate-git-dir / submodule canonical (whose .git is a *file*)
+  # is not rejected here. Linked worktrees are still rejected upstream at preflight (#71).
+  if ! git -C "$target_repo" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     wi_log_error "wi_trace_filter_install: not a git repo: $target_repo"
     return 1
   fi
-  local hooks_dir="${target_repo}/.git/hooks"
+  # Resolve the hooks dir via git so it is correct for standard repos, --separate-git-dir,
+  # and submodules. --git-path returns a path relative to target_repo for a standard repo
+  # and an absolute path otherwise; normalize the relative case under target_repo (#85).
+  local hooks_dir
+  hooks_dir="$(git -C "$target_repo" rev-parse --git-path hooks 2>/dev/null)" || {
+    wi_log_error "wi_trace_filter_install: could not resolve hooks dir: $target_repo"
+    return 1
+  }
+  case "$hooks_dir" in
+    /*) : ;;
+    *)  hooks_dir="${target_repo}/${hooks_dir}" ;;
+  esac
   mkdir -p "$hooks_dir" || {
     wi_log_error "wi_trace_filter_install: mkdir failed: $hooks_dir"
     return 1

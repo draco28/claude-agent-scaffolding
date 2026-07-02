@@ -1,5 +1,12 @@
 # workspace-init changelog
 
+## 0.4.1 (2026-07-02)
+
+Trace-filter hook install now works for a `--separate-git-dir` / submodule canonical (#85).
+
+### Fixed
+- **`wi_trace_filter_install` accepts a canonical whose `.git` is a file (#85).** The install gated on `[[ -d "$target_repo/.git" ]]` and hardcoded the hooks dir as `$target_repo/.git/hooks`, so a `--separate-git-dir` checkout or a submodule (where `.git` is a *file* pointing at a separate git dir) passed preflight but then failed hook install with "not a git repo." It now checks `git -C "$target_repo" rev-parse --is-inside-work-tree` and resolves the hooks dir via `git -C "$target_repo" rev-parse --git-path hooks` (relative for a standard repo → normalized under `$target_repo`; absolute otherwise). The #71 linked-worktree reject is unchanged — it stays at the `wi_git_is_linked_worktree` preflight layer in `skeleton.sh`, so a linked worktree is never handed to install. Adds `test-trace-filter.sh` coverage for the `--separate-git-dir`, standard-repo, and non-repo cases (the suite previously never exercised install at all).
+
 ## 0.4.0 (2026-06-21)
 
 PR #70 review follow-ups (#71) — manifest-writer provenance + a non-git AI workspace flag + a linked-worktree preflight guard.

@@ -246,6 +246,68 @@ test_E8_render_substitutes_token() {
 }
 
 # ---------------------------------------------------------------------------
+# Install target-repo shapes (#85) — 3 tests
+# wi_trace_filter_install must resolve the hooks dir via git, so a
+# --separate-git-dir / submodule canonical (whose .git is a FILE) installs
+# instead of erroring "not a git repo", while a non-repo is still rejected.
+# ---------------------------------------------------------------------------
+
+# Build an AI workspace (with manifest) + a canonical repo of a given shape.
+# $1=tempdir  $2="standard"|"separate". Echoes "<ai>|<canonical>|<real-gitdir>".
+_make_install_fixture() {
+  local d="$1"; local shape="$2"
+  local ai="$d/foo-ai"; local cn="$d/foo"
+  mkdir -p "$ai/.workspace" "$cn"
+  if [[ "$shape" == "separate" ]]; then
+    git init -q --separate-git-dir="$d/foo-gitdir" "$cn" 2>/dev/null
+    wi_manifest_write "$ai" "$cn" personal >/dev/null 2>&1
+    echo "$ai|$cn|$d/foo-gitdir"
+  else
+    git init -q "$cn" 2>/dev/null
+    wi_manifest_write "$ai" "$cn" personal >/dev/null 2>&1
+    echo "$ai|$cn|$cn/.git"
+  fi
+}
+
+# #85: a --separate-git-dir canonical (its .git is a FILE) must install the
+# hook into the REAL (separate) gitdir's hooks — not error, not $cn/.git/hooks.
+test_S1_install_separate_git_dir_canonical() {
+  local d; d="$(wi_tmpdir)"
+  local parsed; parsed="$(_make_install_fixture "$d" separate)"
+  local ai="${parsed%%|*}"; local rest="${parsed#*|}"
+  local cn="${rest%%|*}"; local gitdir="${rest##*|}"
+  [[ -f "$cn/.git" ]] || { echo "    fixture invalid: $cn/.git is not a file"; return 1; }
+  wi_trace_filter_install "$ai" "$cn" || { echo "    install failed on --separate-git-dir canonical"; return 1; }
+  assert_file_exists "$gitdir/hooks/commit-msg" || return 1
+  [[ -x "$gitdir/hooks/commit-msg" ]] || { echo "    hook not executable"; return 1; }
+  # It must NOT have tried to treat the .git FILE as a directory.
+  assert_file_absent "$cn/.git/hooks/commit-msg" || return 1
+}
+
+# Regression: a plain standard repo still installs at $repo/.git/hooks.
+test_S2_install_standard_repo_still_works() {
+  local d; d="$(wi_tmpdir)"
+  local parsed; parsed="$(_make_install_fixture "$d" standard)"
+  local ai="${parsed%%|*}"; local rest="${parsed#*|}"
+  local cn="${rest%%|*}"
+  wi_trace_filter_install "$ai" "$cn" || { echo "    install failed on standard repo"; return 1; }
+  assert_file_exists "$cn/.git/hooks/commit-msg" || return 1
+  [[ -x "$cn/.git/hooks/commit-msg" ]] || { echo "    hook not executable"; return 1; }
+}
+
+# A non-repo target is still rejected by the precondition.
+test_S3_install_rejects_non_repo() {
+  local d; d="$(wi_tmpdir)"
+  local ai="$d/foo-ai"; local cn="$d/foo"
+  mkdir -p "$ai/.workspace" "$cn"
+  wi_manifest_write "$ai" "$cn" personal >/dev/null 2>&1
+  if wi_trace_filter_install "$ai" "$cn" 2>/dev/null; then
+    echo "    install unexpectedly succeeded on a non-repo target"; return 1
+  fi
+  assert_file_absent "$cn/.git/hooks/commit-msg" || return 1
+}
+
+# ---------------------------------------------------------------------------
 # Run all
 # ---------------------------------------------------------------------------
 
@@ -274,5 +336,10 @@ wi_test_run test_E5_trailer_at_line_start_in_multiline_blocks
 wi_test_run test_E6_pattern_at_line_start_with_trailing_whitespace_blocks
 wi_test_run test_E7_unicode_robot_at_line_start_blocks
 wi_test_run test_E8_render_substitutes_token
+
+# Install target-repo shapes (#85)
+wi_test_run test_S1_install_separate_git_dir_canonical
+wi_test_run test_S2_install_standard_repo_still_works
+wi_test_run test_S3_install_rejects_non_repo
 
 wi_test_summary
