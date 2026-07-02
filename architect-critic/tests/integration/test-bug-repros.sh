@@ -138,6 +138,32 @@ test_bug_8_project_class_doc() {
   fi
 }
 
+# --- BUG #96: phantom 'arc scorer_score'; rebuttal scoring is now agent-inline ---
+test_bug_96_scorer_agent_inline() {
+  echo "BUG #96 — rebuttal scoring is agent-inline; no phantom 'arc scorer_score' command"
+  local skill_body="$PLUGIN_DIR/skills/critiquing-spec/SKILL.md"
+  local arc_bin="$PLUGIN_DIR/bin/arc"
+  [[ -f "$skill_body" ]] || { assert_fail "skill body missing"; return; }
+  # (a) SKILL.md must not prescribe any 'arc scorer_score...' invocation (the #96 phantom)
+  if grep -qE 'arc[[:space:]]+scorer_score' "$skill_body"; then
+    assert_fail "critiquing-spec/SKILL.md still prescribes 'arc scorer_score' (phantom command)"
+  else
+    assert_pass "critiquing-spec/SKILL.md prescribes no 'arc scorer_score' command"
+  fi
+  # (b) the deterministic scorer lib is gone (scoring is the agent's judgment call now)
+  if [[ -e "$PLUGIN_DIR/lib/scorer.sh" ]]; then
+    assert_fail "lib/scorer.sh still present — deterministic scorer should be removed"
+  else
+    assert_pass "lib/scorer.sh removed (rebuttal scoring is agent-inline)"
+  fi
+  # (c) arc --list must not advertise a scorer_score* suffix
+  if bash "$arc_bin" --list 2>/dev/null | grep -qE '^scorer_score'; then
+    assert_fail "arc --list still advertises a scorer_score* function"
+  else
+    assert_pass "arc --list advertises no scorer_score* function"
+  fi
+}
+
 # --- Run all ---
 test_bug_1_arguments_bridge
 test_bug_2_skill_body_runs_audit
@@ -148,6 +174,7 @@ test_bug_6_cost_field_removed
 test_bug_7_readme_standalone
 test_bug_8_project_class_doc
 test_bug_9_codex_host_claude_adversary
+test_bug_96_scorer_agent_inline
 
 echo ""
 echo "Results: $TESTS_PASSED passed, $TESTS_FAILED failed"

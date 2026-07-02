@@ -384,10 +384,7 @@ Track deferred items while the cycle runs: initialize `DEFERRED_CHALLENGES_JSON=
 
 - If they say *"accept"* → mark as concession; advance to next challenge.
 - If they say *"defer"* → append the challenge to `DEFERRED_CHALLENGES_JSON`, increment `DEFERRED_COUNT`, and advance. Defer means valid/unresolved but later: tracked, e.g. filed as an issue, never silently dropped.
-- If they rebut → score the rebuttal 1–5 via:
-  ```bash
-  arc scorer_score "$CHALLENGE_TEXT" "$REBUTTAL_TEXT"
-  ```
+- If they rebut → **score the rebuttal 1–5 yourself** against the rubric below. This is a semantic judgment — you make every judgment call in this cycle, so there is no deterministic helper to call; read the rebuttal, weigh it against the challenge and the spec, and pick the score.
   - Score ≥4 → concede. The rebuttal materially addresses the challenge. Mark concession.
   - Score ≤3 → challenge stands. Surface to the candidates pile for Step 9's auto-promotion check. Tell the user gently: *"That doesn't quite address the concern — the challenge stands, but I've noted your reasoning."*
 
@@ -400,14 +397,14 @@ Advance to the next challenge.
 
 If the user ignores the prompt and changes topic, gracefully suspend the rebuttal cycle and surface what was completed in Step 10. Do not nag.
 
-**Scoring rubric reference** (what the scorer is checking — useful when interpreting borderline scores):
+**Scoring rubric** (how to score a rebuttal 1–5 — apply your own judgment against these levels):
 - **1 — bare contradiction.** "No it isn't." No substance, no engagement with the rationale.
 - **2 — cite-self.** "The spec already says X" but X doesn't address the gap. Author re-read their own spec, not yours.
 - **3 — partial address.** Engages with the concern, addresses ~half of it. Challenge stands but weakened.
 - **4 — material new info.** Author surfaces context not in the spec that changes the calculus. Concede.
 - **5 — premise invalidated.** Author shows the challenge's underlying assumption was wrong. Concede with thanks.
 
-When the helper returns a 3 (the borderline case), default to "stands" but soften the framing — the author engaged seriously and the spec should likely be updated with their reasoning, even if the challenge isn't fully resolved. Suggest: *"Worth noting your reasoning in the spec itself so future readers don't re-raise this."*
+When you land on a 3 (the borderline case), default to "stands" but soften the framing — the author engaged seriously and the spec should likely be updated with their reasoning, even if the challenge isn't fully resolved. Suggest: *"Worth noting your reasoning in the spec itself so future readers don't re-raise this."*
 
 **On user emotional state.** If the user becomes defensive (terse replies, *"this is obvious"*, *"you don't understand"*), the CORE protocol failed somewhere upstream. Pause the cycle, acknowledge: *"I think I framed that challenge poorly — what I'm actually worried about is X. Does that resonate, or am I off-base?"* and re-engage. Don't bulldoze through.
 
