@@ -87,7 +87,7 @@ Linux and macOS. Windows deferred (matches sibling plugins).
 
 ## Status
 
-v0.8.0 — 2026-06-18. Latest: #39 Phase B opt-in async `review_gate` at slice/spec close (see Configuration). Initial release was v0.1.0 (2026-05-25); the v0.x line has deepened the skill-first structure and cross-plugin composition as usage data accumulated.
+v0.16.0 — 2026-07-02. Latest: #37 leg 3 — strict three-part ADR threshold in `recording-architecture-decision`. Initial release was v0.1.0 (2026-05-25); the v0.x line has deepened the skill-first structure and cross-plugin composition as usage data accumulated.
 
 ## License
 

@@ -41,6 +41,14 @@ When invoked, you:
 
 The first three phrase forms are load-bearing — the three eval scenarios trigger via description-match on `record ADR` (S1), `log this decision` (S2), and `add architecture decision` (S3). Do not paraphrase these in your acknowledgement.
 
+**Record only when the decision clears the bar.** An ADR is for decisions worth a future reader's time — not a log of every choice. Offer or author one only when **all three** hold:
+
+- **Hard to reverse** — a one-way (or expensive-to-undo) door, not a two-way door.
+- **Surprising without context** — a future reader would ask *"why on earth did they do it this way?"* absent the rationale.
+- **A real tradeoff** — a genuine alternative was rejected for stated reasons, not a forced or only-option choice.
+
+If any leg is missing, don't spam an ADR — a code comment, a CHANGELOG line, or a `/defer` note usually fits better. If the user explicitly asks for an ADR on a decision that misses the bar, say so once and offer the lighter option, then honor their call.
+
 **Do NOT auto-invoke when:**
 
 - The user wants to *promote a principle* (that's architect-critic v0.2's `promoting-principle` skill, which may surface a principle as a candidate ADR — that handoff goes the other direction).
