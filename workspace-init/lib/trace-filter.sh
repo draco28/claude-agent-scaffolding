@@ -14,6 +14,10 @@ if ! declare -F wi_log_op >/dev/null 2>&1; then
   # shellcheck disable=SC1091
   source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/_helpers.sh"
 fi
+if ! declare -F wi_git_is_linked_worktree >/dev/null 2>&1; then
+  # shellcheck disable=SC1091
+  source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/skeleton.sh"
+fi
 
 # Locate the hooks/commit-msg.tmpl. Prefer WI_HOOKS_DIR (set by tests/_helpers.sh)
 # with a relative-to-script fallback for production.
@@ -42,26 +46,47 @@ wi_trace_filter_render() {
   sed "s|__AI_WORKSPACE_PATH__|${ai_root}|g" "$tmpl"
 }
 
+# wi_trace_filter_is_installable_repo_root <target-repo>
+# True only for an own git worktree root whose repo-local hooks dir is usable.
+# Rejects non-repos, bare repos, nested subdirs of a parent repo, and linked worktrees.
+wi_trace_filter_is_installable_repo_root() {
+  local target_repo="${1:-}"
+  [[ -n "$target_repo" ]] || return 1
+
+  local inside_work_tree
+  inside_work_tree="$(git -C "$target_repo" rev-parse --is-inside-work-tree 2>/dev/null)" || return 1
+  [[ "$inside_work_tree" == "true" ]] || return 1
+
+  local top_level target_canon top_canon
+  top_level="$(git -C "$target_repo" rev-parse --show-toplevel 2>/dev/null)" || return 1
+  target_canon="$(wi_realpath "$target_repo")"
+  top_canon="$(wi_realpath "$top_level")"
+  [[ "$target_canon" == "$top_canon" ]] || return 1
+
+  if wi_git_is_linked_worktree "$target_repo"; then
+    return 1
+  fi
+  return 0
+}
+
 # wi_trace_filter_install <ai-workspace-root> <target-repo>
 # Render + write the commit-msg hook to the repo's resolved hooks dir + chmod +x + log HOOK_INSTALL.
 wi_trace_filter_install() {
   local ai_root="$1"
   local target_repo="$2"
-  # Accept any real git repo. Use rev-parse rather than a hardcoded "$target_repo/.git"
-  # directory check so a --separate-git-dir / submodule canonical (whose .git is a *file*)
-  # is not rejected here. Linked worktrees are still rejected upstream at preflight (#71).
-  if ! git -C "$target_repo" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    wi_log_error "wi_trace_filter_install: not a git repo: $target_repo"
+  if ! wi_trace_filter_is_installable_repo_root "$target_repo"; then
+    wi_log_error "wi_trace_filter_install: target is not an installable git repo root: $target_repo"
     return 1
   fi
-  # Resolve the hooks dir via git so it is correct for standard repos, --separate-git-dir,
-  # and submodules. --git-path returns a path relative to target_repo for a standard repo
-  # and an absolute path otherwise; normalize the relative case under target_repo (#85).
-  local hooks_dir
-  hooks_dir="$(git -C "$target_repo" rev-parse --git-path hooks 2>/dev/null)" || {
+
+  # Use the repo's real git dir, not `--git-path hooks`: the trace filter is intentionally
+  # installed into the repo-local hooks dir even when core.hooksPath points elsewhere.
+  local git_dir hooks_dir
+  git_dir="$(git -C "$target_repo" rev-parse --git-dir 2>/dev/null)" || {
     wi_log_error "wi_trace_filter_install: could not resolve hooks dir: $target_repo"
     return 1
   }
+  hooks_dir="${git_dir}/hooks"
   case "$hooks_dir" in
     /*) : ;;
     *)  hooks_dir="${target_repo}/${hooks_dir}" ;;

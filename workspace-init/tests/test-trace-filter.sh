@@ -246,10 +246,10 @@ test_E8_render_substitutes_token() {
 }
 
 # ---------------------------------------------------------------------------
-# Install target-repo shapes (#85) — 3 tests
-# wi_trace_filter_install must resolve the hooks dir via git, so a
-# --separate-git-dir / submodule canonical (whose .git is a FILE) installs
-# instead of erroring "not a git repo", while a non-repo is still rejected.
+# Install target-repo shapes (#85) — 7 tests
+# wi_trace_filter_install accepts an own git repo root, including a
+# --separate-git-dir / submodule canonical whose .git is a FILE. It rejects
+# nested subdirs, bare repos, linked worktrees, and non-repos.
 # ---------------------------------------------------------------------------
 
 # Build an AI workspace (with manifest) + a canonical repo of a given shape.
@@ -307,6 +307,60 @@ test_S3_install_rejects_non_repo() {
   assert_file_absent "$cn/.git/hooks/commit-msg" || return 1
 }
 
+# The trace-filter contract is repo-local .git/hooks, not any configured shared
+# core.hooksPath. A future tracked hooksPath variant is a separate design.
+test_S4_install_ignores_custom_hooks_path() {
+  local d; d="$(wi_tmpdir)"
+  local parsed; parsed="$(_make_install_fixture "$d" standard)"
+  local ai="${parsed%%|*}"; local rest="${parsed#*|}"
+  local cn="${rest%%|*}"
+  local custom="$d/shared-hooks"
+  mkdir -p "$custom"
+  git -C "$cn" config core.hooksPath "$custom"
+  wi_trace_filter_install "$ai" "$cn" || { echo "    install failed with custom hooksPath"; return 1; }
+  assert_file_exists "$cn/.git/hooks/commit-msg" || return 1
+  assert_file_absent "$custom/commit-msg" || return 1
+}
+
+test_S5_install_rejects_repo_subdir() {
+  local d; d="$(wi_tmpdir)"
+  local parsed; parsed="$(_make_install_fixture "$d" standard)"
+  local ai="${parsed%%|*}"; local rest="${parsed#*|}"
+  local cn="${rest%%|*}"
+  mkdir -p "$cn/subdir"
+  if wi_trace_filter_install "$ai" "$cn/subdir" 2>/dev/null; then
+    echo "    install unexpectedly succeeded on a repo subdir"; return 1
+  fi
+  assert_file_absent "$cn/.git/hooks/commit-msg" || return 1
+}
+
+test_S6_install_rejects_bare_repo() {
+  local d; d="$(wi_tmpdir)"
+  local ai="$d/foo-ai"; local cn="$d/foo-bare.git"
+  mkdir -p "$ai/.workspace"
+  git init -q --bare "$cn" 2>/dev/null
+  wi_manifest_write "$ai" "$cn" personal >/dev/null 2>&1
+  if wi_trace_filter_install "$ai" "$cn" 2>/dev/null; then
+    echo "    install unexpectedly succeeded on a bare repo"; return 1
+  fi
+  assert_file_absent "$cn/hooks/commit-msg" || return 1
+}
+
+test_S7_install_rejects_linked_worktree() {
+  local d; d="$(wi_tmpdir)"
+  local parsed; parsed="$(_make_install_fixture "$d" standard)"
+  local ai="${parsed%%|*}"; local rest="${parsed#*|}"
+  local cn="${rest%%|*}"
+  git -C "$cn" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+  git -C "$cn" worktree add -q -b linked-test "$d/linked" 2>/dev/null
+  local linked_git_dir
+  linked_git_dir="$(git -C "$d/linked" rev-parse --git-dir)"
+  if wi_trace_filter_install "$ai" "$d/linked" 2>/dev/null; then
+    echo "    install unexpectedly succeeded on a linked worktree"; return 1
+  fi
+  assert_file_absent "$linked_git_dir/hooks/commit-msg" || return 1
+}
+
 # ---------------------------------------------------------------------------
 # Run all
 # ---------------------------------------------------------------------------
@@ -341,5 +395,9 @@ wi_test_run test_E8_render_substitutes_token
 wi_test_run test_S1_install_separate_git_dir_canonical
 wi_test_run test_S2_install_standard_repo_still_works
 wi_test_run test_S3_install_rejects_non_repo
+wi_test_run test_S4_install_ignores_custom_hooks_path
+wi_test_run test_S5_install_rejects_repo_subdir
+wi_test_run test_S6_install_rejects_bare_repo
+wi_test_run test_S7_install_rejects_linked_worktree
 
 wi_test_summary
