@@ -9,7 +9,7 @@
 #
 # Drives the pipeline directly by calling the wi_* lib functions in order.
 #
-# Covered (~14 tests):
+# Covered (~19 tests):
 #   Preflight      (5) : happy, empty-AI fail, missing-AI fail, canonical-not-git
 #                        fail, self-pairing fail
 #   Happy path     (2) : pairing succeeds, AI content preserved (no stub clobber)
@@ -86,13 +86,10 @@ _run_existing_dual_pairing() {
   default_branch="$(wi_git_detect_default_branch "$canonical" </dev/null)"
   [[ -z "$default_branch" ]] && default_branch="main"
 
-  # Mirror SKILL.md §6.1: detect the AI workspace's git status once, record it in
-  # the manifest via --ai-git-tracked, and reuse it for the hook decision below.
-  # `[[ -d .git ]]` (own repo root), NOT `rev-parse --git-dir` (true for a nested
-  # subdir of a parent repo → would record true then fail hook install). Matches
-  # wi_trace_filter_install's own gate. (#84 Codex)
+  # Mirror SKILL.md §6.1: detect whether the AI workspace is an installable own
+  # git repo root, record it in the manifest, and reuse it for the hook decision.
   local ai_git_tracked=false
-  if [[ -d "$ai_root/.git" ]]; then
+  if wi_trace_filter_is_installable_repo_root "$ai_root"; then
     ai_git_tracked=true
   fi
 
@@ -249,6 +246,21 @@ test_C_manifest_ai_git_tracked_false_for_nongit_ai() {
     || { echo "    non-git AI workspace should record git_tracked: false"; return 1; }
 }
 
+# A separate-git-dir AI workspace has `.git` as a file, but it is still an own
+# repo root with its own hooks dir, so Scenario C should track it and install.
+test_C_manifest_ai_git_tracked_true_for_separate_git_dir_ai() {
+  local d="$_WI_TMP/m5"; mkdir -p "$d"
+  local canonical; canonical="$(_make_existing_canonical "$d" "proj")"
+  local ai;        ai="$(_make_existing_ai_workspace "$d" "proj-ws" nogit)"
+  git init -q --separate-git-dir="$d/proj-ws-gitdir" "$ai" 2>/dev/null
+  git -C "$ai" -c user.email=t@t -c user.name=t add .
+  git -C "$ai" -c user.email=t@t -c user.name=t commit -q -m "existing ai workspace"
+  _run_existing_dual_pairing "$ai" "$canonical" personal >/dev/null 2>&1
+  jq -e '.ai_workspace.git_tracked == true' "$ai/.workspace/pairing.json" >/dev/null \
+    || { echo "    separate-git-dir AI workspace should record git_tracked: true"; return 1; }
+  assert_file_exists "$d/proj-ws-gitdir/hooks/commit-msg" || return 1
+}
+
 # ---------------------------------------------------------------------------
 # Hooks — 1 test
 # ---------------------------------------------------------------------------
@@ -350,6 +362,7 @@ wi_test_run test_C_manifest_canonical_root_points_at_existing
 wi_test_run test_C_manifest_default_branch_detected
 wi_test_run test_C_manifest_ai_git_tracked_true_for_git_ai
 wi_test_run test_C_manifest_ai_git_tracked_false_for_nongit_ai
+wi_test_run test_C_manifest_ai_git_tracked_true_for_separate_git_dir_ai
 
 wi_test_run test_C_both_repos_have_hook
 wi_test_run test_C_nested_ai_workspace_records_false_and_skips_hook

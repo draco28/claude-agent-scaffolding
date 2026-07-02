@@ -20,7 +20,6 @@
 #       Examples:
 #         arc state_append_run                  → ac_state_append_run
 #         arc principles_merge                  → ac_principles_merge
-#         arc scorer_score "$CHAL" "$REB"       → ac_scorer_score "$CHAL" "$REB"
 #   arc --list
 #     → prints all ac_-prefixed functions, one per line, sorted.
 #

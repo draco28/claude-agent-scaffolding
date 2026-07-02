@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.5.1 — 2026-07-02
+
+**Fix:** `critiquing-spec` rebuttal scoring is now agent-inline; the deterministic scorer is removed (#96).
+
+### Fixed
+- **Phantom `arc scorer_score` command (#96 F1).** `critiquing-spec` Step 8 prescribed `arc scorer_score "$CHALLENGE_TEXT" "$REBUTTAL_TEXT"`, which resolved to a nonexistent `ac_scorer_score` and failed (`Unknown function`, exit 2) for any user who rebutted a challenge. `bin/arc`'s header advertised the same phantom. The invocation is gone — the agent scores the rebuttal 1–5 inline using the existing rubric.
+
+### Removed
+- **Deterministic rebuttal scorer (`lib/scorer.sh`, #96 F2/F3).** `ac_scorer_score_rebuttal` was a lexical heuristic gate that under-scored genuinely strong rebuttals (it returned `3` for material-new-info in the #93 dogfood) — the exact "deterministic semantic-quality judgment" that promoted principle `pp-e72993dfb626c518` assigns to an agent reviewer. Scoring a rebuttal 1–5 is a semantic call, and Step 8 already states the agent makes every judgment call, so the helper (and the unused `ac_scorer_decide`, whose `restate`/`concede` vocabulary diverged from the SKILL's `stands`/`concede` rubric) is dropped along with its unit tests. A repro guard in `tests/integration/test-bug-repros.sh` now asserts the SKILL prescribes no `arc scorer_score*` command and `arc --list` advertises no such function.
+
 ## v0.5.0 — 2026-06-30
 
 **Feature:** `critiquing-spec` adopts the recommend-by-default decision policy (#93).

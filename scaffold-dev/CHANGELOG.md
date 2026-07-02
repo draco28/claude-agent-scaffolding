@@ -2,6 +2,11 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.16.0] — 2026-07-02
+
+### Added
+- **Strict three-part ADR threshold in `recording-architecture-decision` (#37 leg 3).** §2 now gates ADR authoring on a merit bar: record only when the decision is **hard-to-reverse AND surprising-without-context AND the result of a real tradeoff**. If a leg is missing, the skill steers toward a lighter record (code comment / CHANGELOG line / `/defer`) rather than spamming an ADR; an explicit user request on a below-bar decision is honored after one note. Reduces ADR noise and makes the skill more opinionated.
+
 ## [0.15.0] — 2026-06-30
 
 Issue #93: adopt the recommend-by-default decision policy at the orchestrate gates.
