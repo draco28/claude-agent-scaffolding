@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/test-render.sh — 11 tests for lib/render.sh
+# tests/test-render.sh — unit tests for lib/render.sh (direct + dispatcher/strict-mode paths)
 
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -156,6 +156,42 @@ test_work_item_spec_acs_block_renders_auto() {
   fi
 }
 
+# --- dispatcher (strict-mode) path: the tests above source render.sh directly, so
+# they never run under bin/sd's `set -euo pipefail`. These invoke the REAL dispatcher
+# to guard the regression where a fully-resolved template silently aborted (exit 1,
+# no output) because the "no unresolved placeholders" grep returned 1 under set -e.
+_SD_BIN="$HERE/../bin/sd"
+
+test_dispatcher_fully_resolved_renders() {
+  echo "test_dispatcher_fully_resolved_renders:"
+  local tmpl; tmpl="$(mktemp -t sd-render.XXXXXX)"
+  printf '# {{title}}\n\nbody {{value}} end\n' > "$tmpl"
+  local out rc
+  out="$("$_SD_BIN" render_template "$tmpl" '{"title":"Hi","value":"42"}' 2>/dev/null)"; rc=$?
+  rm -f "$tmpl"
+  assert_eq "fully-resolved via dispatcher exits 0" "0" "$rc"
+  assert_contains "content actually printed" "body 42 end" "$out"
+}
+
+test_dispatcher_handoff_12_sections() {
+  echo "test_dispatcher_handoff_12_sections:"
+  local vars
+  vars='{"handoff_type":"forward","scope":"vs-1.1.1","scope_specifier":"S","purpose_slug":"bugfix-auth","short_id":"a1b2","source_session_metadata":"m","references_forward_handoff":"n/a","purpose_paragraph":"why.","state_pointers_block":"- ptr","not_in_memory_bank_block":"- delta","workflow_deviations":"None.","in_flight_state_block":"- none","must_read_before_doing":"- /x","next_intended_actions":"do X","anti_actions_block":"- do NOT Y","return_template_stub":"stub","next_session_focus":"Land the fix first.","references_block":"- ref","suggested_skills_block":"- scaffold-dev:work-item"}'
+  local out rc
+  out="$("$_SD_BIN" render_template "$HERE/../templates/handoff.md.tmpl" "$vars" 2>/dev/null)"; rc=$?
+  assert_eq "handoff render via dispatcher exits 0" "0" "$rc"
+  local n; n="$(printf '%s\n' "$out" | grep -cE '^## [0-9]+\. ')"
+  assert_eq "12 numbered sections rendered" "12" "$n"
+  assert_contains "focus lead field" "Next-session focus:" "$out"
+  assert_contains "References section (8)" "## 8. References" "$out"
+  assert_contains "Suggested-skills section (10)" "## 10. Suggested skills / plugins" "$out"
+  if printf '%s' "$out" | grep -qE '\{\{'; then
+    FAIL=$((FAIL+1)); echo "  $(_color_fail 'FAIL') leftover placeholder in handoff render"
+  else
+    PASS=$((PASS+1)); echo "  $(_color_pass 'PASS') no leftover placeholders"
+  fi
+}
+
 test_simple_substitution
 test_multi_keys
 test_repeated_key
@@ -169,5 +205,7 @@ test_dotted_key
 test_work_item_template_contains_traceability
 test_handoff_template_contains_traceability
 test_work_item_spec_acs_block_renders_auto
+test_dispatcher_fully_resolved_renders
+test_dispatcher_handoff_12_sections
 
 sd_test_summary

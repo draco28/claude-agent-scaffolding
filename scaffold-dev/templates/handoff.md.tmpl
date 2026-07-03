@@ -14,9 +14,14 @@
   must_read_before_doing      bulleted list of specific files beyond Tier 0 auto-load
   next_intended_actions       single action OR ranked list of options the consuming session should take
   anti_actions_block          bulleted "do NOT do X" warnings
-  return_template_stub        section 10 -- only filled for forward handoffs expecting a return
+  return_template_stub        section 12 -- only filled for forward handoffs expecting a return
+  next_session_focus          #38 leg 4 -- plain-language "what to do first" lead field (separate from purpose_slug)
+  references_block            #38 leg 2 -- bulleted artifact index (specs/ADRs/commits/issues/diffs by path/SHA/URL)
+  suggested_skills_block      #38 leg 1 -- bulleted advisory next-session skills/plugins as plugin:skill (never collapse boundaries)
 -->
 # Handoff — {{scope}}-{{purpose_slug}}
+
+> **Next-session focus:** {{next_session_focus}}
 
 ## 1. Header
 
@@ -51,16 +56,24 @@
 
 {{must_read_before_doing}}
 
-## 8. Next intended action(s)
+## 8. References
+
+{{references_block}}
+
+## 9. Next intended action(s)
 
 {{next_intended_actions}}
 
-## 9. Anti-actions
+## 10. Suggested skills / plugins
+
+{{suggested_skills_block}}
+
+## 11. Anti-actions
 
 > **Banned operator-facing commands.** Do NOT instruct the next session or operator to run `git stash` / `git stash pop` / `git stash apply` for baseline isolation — it collides with the operator's pre-existing stash stack and can be unrecoverable. Use a reversible file move instead (`mkdir -p /tmp/<slice-id>-baseline/ && mv <file> /tmp/<slice-id>-baseline/<file>`, reverse on rollback; `<slice-id>` is a placeholder you fill in), visible in `ls /tmp/`.
 
 {{anti_actions_block}}
 
-## 10. Return-handoff template stub
+## 12. Return-handoff template stub
 
 {{return_template_stub}}

@@ -87,21 +87,24 @@ sd_handoff_cleanup_sprint() {
 }
 
 # sd_handoff_parse_flags <argstring>
-# Extract --scope / --purpose / --return-of / --return values from a single raw
-# argument string. Regex/BASH_REMATCH only — NEVER bare $1/$2: Claude Code
-# freezes those at slash-command render time, which silently emptied the flags
-# (#19; feedback_slash_command_dollar_n_bug). Each flag accepts space- OR
-# =-delimited values (`--scope x` or `--scope=x`). The [[:space:]=]+ separator
+# Extract --scope / --purpose / --return-of / --return / --ephemeral values from a
+# single raw argument string. Regex/BASH_REMATCH only — NEVER bare $1/$2: Claude
+# Code freezes those at slash-command render time, which silently emptied the flags
+# (#19; feedback_slash_command_dollar_n_bug). The value-bearing flags accept space-
+# OR =-delimited values (`--scope x` or `--scope=x`). The [[:space:]=]+ separator
 # makes the --return pattern reject --return-of (the '-of' is neither space nor
 # '='), so the two return flags never collide regardless of match order.
-# Emits exactly four lines, in order: scope, purpose, return_of, return_id
-# (an empty line where a flag is absent), so callers can read them positionally.
+# --ephemeral (#38 leg 5) is a boolean flag (no value): emits `true` when present,
+# empty otherwise; the word-boundary guard keeps `--ephemeralfoo` from matching.
+# Emits exactly FIVE lines, in order: scope, purpose, return_of, return_id,
+# ephemeral (an empty line where a flag is absent), so callers read positionally.
 sd_handoff_parse_flags() {
   local args="${1:-}"
-  local scope="" purpose="" return_of="" return_id=""
+  local scope="" purpose="" return_of="" return_id="" ephemeral=""
   [[ "$args" =~ --scope[[:space:]=]+([^[:space:]]+) ]]     && scope="${BASH_REMATCH[1]}"
   [[ "$args" =~ --purpose[[:space:]=]+([^[:space:]]+) ]]   && purpose="${BASH_REMATCH[1]}"
   [[ "$args" =~ --return-of[[:space:]=]+([^[:space:]]+) ]] && return_of="${BASH_REMATCH[1]}"
   [[ "$args" =~ --return[[:space:]=]+([^[:space:]]+) ]]    && return_id="${BASH_REMATCH[1]}"
-  printf '%s\n%s\n%s\n%s\n' "$scope" "$purpose" "$return_of" "$return_id"
+  [[ "$args" =~ (^|[[:space:]])--ephemeral([[:space:]]|$) ]] && ephemeral="true"
+  printf '%s\n%s\n%s\n%s\n%s\n' "$scope" "$purpose" "$return_of" "$return_id" "$ephemeral"
 }

@@ -47,8 +47,12 @@ sd_render_template() {
   done
 
   # Step 2: warn for any remaining placeholders.
-  local missing
-  missing="$(echo "$content" | grep -oE '\{\{[a-zA-Z0-9_.-]+\}\}' | sort -u)"
+  # STRICT-MODE-SAFE: bin/sd runs `set -euo pipefail`. When the template is FULLY
+  # resolved, this grep matches nothing (exit 1) → without the `|| missing=""` the
+  # function would abort here under set -e and print no output at all — i.e. render
+  # would silently fail in exactly the success case. Guard it.
+  local missing=""
+  missing="$(echo "$content" | grep -oE '\{\{[a-zA-Z0-9_.-]+\}\}' | sort -u)" || missing=""
   if [[ -n "$missing" ]]; then
     local m
     while IFS= read -r m; do

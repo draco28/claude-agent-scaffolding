@@ -29,6 +29,8 @@ Path: `<ai-workspace>/.workspace/handoffs/sprint-3-to-4-handoff-g7h8.md`
 ```markdown
 # Handoff — sprint-3 to sprint-4 carry-forward
 
+> **Next-session focus:** Start sprint-4 planning (default VS-4.1) while watching for the three carry-forward §4 patterns to triangulate — the auth-raises pattern, the `empty_state` prop API, and the per-slice spec-gap rate.
+
 ## 1. Header
 
 - Type: forward (carry-forward variant)
@@ -99,7 +101,13 @@ None. Sprint-3 closed cleanly:
 - `ROADMAP.md` — sprint-4 plan (VS-4.1, VS-4.2 entries)
 - `.claude/memory-bank/06-progress.md` — should now reflect sprint-3 done
 
-## 8. Next intended action(s)
+## 8. References
+
+- `docs/specs/sprint-3/sprint-retrospective.md` — the sprint-3 retro (full context; dispatch a reader, don't paste).
+- `ROADMAP.md` — sprint-4 plan entries (VS-4.1, VS-4.2).
+- Canonical main `d8e9f12` — HEAD at sprint-3 close.
+
+## 9. Next intended action(s)
 
 Primary: start sprint-4 planning.
 
@@ -114,7 +122,13 @@ Recommended sequence:
      and VS-3.3 implementations; the harmonization itself may be its own work item.
    - If VS-4.1's spec audit surfaces 3+ gaps again, log to this carry-forward's "process" entry.
 
-## 9. Anti-actions
+## 10. Suggested skills / plugins
+
+- `scaffold-dev:planning-vertical-slice` (`/orchestrate VS-4.1`) — plan the first sprint-4 slice.
+- `ai-mentor:grill-me` — pressure-test the sprint-4 slice plan at the pre-orchestration gate.
+- (advisory — verify applicability before invoking.)
+
+## 11. Anti-actions
 
 - Do NOT delete sprint-3 retrospective doc — that's a permanent artifact.
 - Do NOT delete this carry-forward handoff at sprint-4 close UNLESS its §4 items have all
@@ -125,7 +139,7 @@ Recommended sequence:
 - Do NOT carry sprint-3 unfinished work into sprint-4 silently — if any slice slipped, it
   should be visible in ROADMAP.md as a sprint-4 entry, not hidden in this handoff.
 
-## 10. Return-handoff template stub
+## 12. Return-handoff template stub
 
 (Not applicable. Carry-forwards don't expect a return — they're a one-way bootstrap from
 sprint N close to sprint N+1 start.)
