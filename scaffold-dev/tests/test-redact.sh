@@ -78,6 +78,28 @@ test_flags_labeled_secret() {
   assert_contains "labeled-secret surfaced" "labeled-secret" "$out"
 }
 
+test_flags_authorization_bearer_header() {
+  echo "test_flags_authorization_bearer_header:"
+  # the P1 case: a copied API trace / curl with a standard bearer header
+  local out; out="$(_cand 'curl -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig" https://api')"
+  assert_contains "bearer-token surfaced from Authorization header" "bearer-token" "$out"
+}
+
+test_flags_standalone_bearer_token() {
+  echo "test_flags_standalone_bearer_token:"
+  # obviously-synthetic token (avoids tripping GitHub push-protection secret scanning
+  # on realistic provider prefixes) — still exercises the bearer-token pattern.
+  local out; out="$(_cand 'Bearer EXAMPLE-not-a-real-token-0123456789abcdef')"
+  assert_contains "standalone Bearer <token> surfaced" "bearer-token" "$out"
+}
+
+test_bearer_prose_not_flagged() {
+  echo "test_bearer_prose_not_flagged:"
+  # "bearer" as a plain word followed by short prose — no long token → no match
+  local out; out="$(_cand 'the bearer of this message should read the spec')"
+  assert_not_contains_str "bearer-token" "$out"
+}
+
 # --- precision: benign prose is not over-flagged ---
 
 test_benign_prose_clean() {
@@ -180,6 +202,9 @@ test_flags_pem_key
 test_flags_url_credentials
 test_flags_email
 test_flags_labeled_secret
+test_flags_authorization_bearer_header
+test_flags_standalone_bearer_token
+test_bearer_prose_not_flagged
 test_benign_prose_clean
 test_labeled_secret_needs_assignment
 test_output_is_tab_tripled

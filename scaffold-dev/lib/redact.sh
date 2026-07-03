@@ -16,7 +16,7 @@
 #       readable source (returns 1 only if a named <file> is not a readable file).
 #
 # Categories: github-token openai-key aws-access-key slack-token pem-private-key
-#             url-credentials email labeled-secret
+#             url-credentials email bearer-token labeled-secret
 
 set -u
 
@@ -72,6 +72,12 @@ sd_redact_candidates() {
     _sd_redact_scan "pem-private-key" 0 '-----BEGIN [A-Z ]*PRIVATE KEY-----'
     _sd_redact_scan "url-credentials" 0 '[a-zA-Z][a-zA-Z0-9+.-]*://[^[:space:]/@:]+:[^[:space:]/@]+@'
     _sd_redact_scan "email"           0 '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}'
+    # bearer-token: the HTTP-header form `Bearer <token>` (as in `Authorization:
+    # Bearer <JWT|service-token>` from a copied curl/API trace). labeled-secret
+    # only catches `bearer:`/`bearer=` ASSIGNMENTS, not the space-separated header
+    # form, so a bearer token would otherwise bypass the pass. The {16,} floor +
+    # token charset (base64url/JWT: [A-Za-z0-9._~+/=-]) keeps English words out.
+    _sd_redact_scan "bearer-token"    1 'bearer[[:space:]]+[A-Za-z0-9._~+/=-]{16,}'
     # labeled-secret: a secret-ish keyword immediately assigned a value. Requires
     # the `:`/`=` so prose like "the auth token is fine" does NOT match (no
     # assignment follows the keyword).
