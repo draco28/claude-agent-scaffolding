@@ -9,6 +9,8 @@ Path: `<ai-workspace>/.workspace/handoffs/vs-3.2-bugfix-auth-a1b2.md`
 ```markdown
 # Handoff — vs-3.2-bugfix-auth
 
+> **Next-session focus:** Land the auth-token-expiry bug-fix on canonical main (401 instead of silent 200-with-empty) so VS-3.2 can resume; the failing repro test is the first thing to write.
+
 ## 1. Header
 
 - Type: forward
@@ -69,7 +71,14 @@ None. Standard mid-slice detour pattern.
 - `.claude/memory-bank/02-system-patterns.md` lines 110-140 — API auth conventions section
 - This handoff file (start here)
 
-## 8. Next intended action(s)
+## 8. References
+
+- `api/auth.py:34` @ `f3a7c81` — `verify_bearer_token`, the defect site (silent None on `ExpiredSignatureError`).
+- `tests/integration/test_auth.py` — existing auth tests to extend (dispatch a reader here, don't paste).
+- `docs/specs/sprint-3/VS-3.2-*/` — the paused slice spec (do NOT edit; §9 anti-actions).
+- Canonical main HEAD `f3a7c81` — branch the bug-fix off this SHA.
+
+## 9. Next intended action(s)
 
 Primary (ranked):
 1. Create worktree at `/Users/draco/projects/insight-platform/.worktrees/bugfix-auth-token-expiry` off `main`.
@@ -78,25 +87,31 @@ Primary (ranked):
 4. Verify all existing auth tests still pass.
 5. Commit + push branch (manual session, NOT subagent — implementer-agent doesn't have commit cap).
 6. Open canonical PR (or merge directly per git_policy) before resuming VS-3.2.
-7. Write the return handoff (see template in §10) so a fresh main session can resume VS-3.2 with confidence the auth path is fixed.
+7. Write the return handoff (see template in §12) so a fresh main session can resume VS-3.2 with confidence the auth path is fixed.
 
-## 9. Anti-actions
+## 10. Suggested skills / plugins
+
+- `scaffold-dev:working-pull-request` (`/work-pr`) — drive the bug-fix PR through review→merge.
+- `GitHub` tools — open/track the canonical PR.
+- (advisory — verify applicability before invoking; this is a manual bug-fix session, NOT slice work, so `scaffold-dev:executing-work-item` does NOT apply.)
+
+## 11. Anti-actions
 
 - Do NOT modify any files inside `docs/specs/sprint-3/VS-3.2-*/` — that's VS-3.2 territory; this detour is canonical-only.
 - Do NOT advance VS-3.2's work-item statuses in the slice README; the main thread owns those updates.
 - Do NOT dispatch implementer-agent subagents in this session — it's a manual bug-fix session, not slice work.
 - Do NOT extend scope to the related "auth-expired vs. empty-data" UX gap (backlog it instead; one detour, one concern).
 
-## 10. Return-handoff template stub
+## 12. Return-handoff template stub
 
 When this bug-fix is done, write the return handoff at the same handoffs/ dir, named:
 `vs-3.2-bugfix-auth-a1b2-return.md`
 
-Use the standard 10-section structure with:
+Use the standard 12-section structure with:
 - §1 type = return; reference back to a1b2 short-id.
 - §4 "What's NOT in memory bank yet" — distill what the bug-fix surfaced that should be promoted to memory-bank/02-system-patterns.md at the next slice-close harvest.
 - §6 "In-flight state" — the merged commit sha for the bug-fix; instruct that VS-3.2 can resume.
-- §8 "Next intended action" — point at: "Open a fresh main session; read THIS forward handoff (a1b2.md) AND this return file; resume VS-3.2 round-2 dispatch."
+- §9 "Next intended action" — point at: "Open a fresh main session; read THIS forward handoff (a1b2.md) AND this return file; resume VS-3.2 round-2 dispatch."
 ```
 
 ## What the source orchestrator session does after writing

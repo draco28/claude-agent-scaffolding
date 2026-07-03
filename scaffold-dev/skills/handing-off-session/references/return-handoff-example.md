@@ -9,6 +9,8 @@ Path: `<ai-workspace>/.workspace/handoffs/vs-3.2-bugfix-auth-a1b2-return.md`
 ```markdown
 # Handoff — vs-3.2-bugfix-auth (return)
 
+> **Next-session focus:** Resume VS-3.2 round-2 dispatch — the auth bug-fix is merged at `9d12e44`, so work-3.2.03 + work-3.2.04 can go out as parallel subagents.
+
 ## 1. Header
 
 - Type: return
@@ -64,7 +66,13 @@ detour completion.
 - `git log f3a7c81..9d12e44 --oneline` — the 3 commits the bug-fix delivered
 - `.claude/memory-bank/05-active-context.md` — current cursor (should still point at VS-3.2 R2)
 
-## 8. Next intended action(s)
+## 8. References
+
+- Forward handoff `vs-3.2-bugfix-auth-a1b2.md` — the original context (path, not pasted).
+- `git log f3a7c81..9d12e44 --oneline` — the 3-commit bug-fix series delivered.
+- Merge commit `9d12e44` on canonical main — the landed fix.
+
+## 9. Next intended action(s)
 
 Single specific action:
 - Resume VS-3.2 round-2 dispatch. The plan was: dispatch work-3.2.03 (dashboard integration) and work-3.2.04 (chatbot intent) as parallel implementer-agent subagents. Pre-requisites are now satisfied (bug-fix merged). The slice's work-3.2.01 AC-3 verification is now genuine (no longer hidden by the bug). Open `planning-vertical-slice` skill body context or use trigger phrase: "continue VS-3.2 round 2".
@@ -73,13 +81,18 @@ Secondary cleanup (do at any safe moment):
 - `git worktree remove /Users/draco/projects/insight-platform/.worktrees/bugfix-auth-token-expiry`
 - `git branch -d bugfix/auth-token-expiry` (the branch was merged; safe delete)
 
-## 9. Anti-actions
+## 10. Suggested skills / plugins
+
+- `scaffold-dev:planning-vertical-slice` (`/orchestrate VS-3.2`) — resume the paused slice's round-2 dispatch.
+- (advisory — verify applicability; the bug-fix detour is closed, so no `/work-pr` needed here.)
+
+## 11. Anti-actions
 
 - Do NOT re-open the auth-token-expiry bug-fix scope in the new main session — it's done. Any new auth findings start a NEW handoff.
 - Do NOT skip reading the forward handoff. The "what's NOT in memory bank yet" items in BOTH handoffs are the value-add; consuming only the return loses the original context (e.g., why we chose to fix this on canonical instead of hot-patching in the work-3.2.01 worktree).
 - Do NOT promote section-4 items immediately — they belong in the slice-close harvest queue. Leave them in this handoff; `closing-vertical-slice` will sweep them.
 
-## 10. Return-handoff template stub
+## 12. Return-handoff template stub
 
 (Not applicable — return handoffs don't expect their own return. The chain ends here unless
 the new main session itself decides to fork another detour, which would be a new handoff with

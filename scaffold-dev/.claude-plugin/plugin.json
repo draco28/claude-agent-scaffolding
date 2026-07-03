@@ -1,6 +1,6 @@
 {
   "name": "scaffold-dev",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "description": "Sprint-driven orchestrator-implementer workflow for dual-repo workspaces. 13 skills, 7 slash commands (incl. standalone /work-pr review-fix-merge gate), custom implementer-agent subagent type via Task tool, handoff escape valve. Composes with workspace-init (manifest), scaffold-onboard (R1/R2/R3 contract), architect-critic (filesystem probe + critiquing-spec + opt-in async review gate), ai-mentor (grill-me at 3 gates). Replaces scaffold v1.0.0.",
   "author": {"name": "Pras"},
   "category": "workflow",

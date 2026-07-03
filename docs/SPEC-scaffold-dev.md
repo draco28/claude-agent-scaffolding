@@ -321,9 +321,9 @@ New main session C
 
 The "thread" is the sequence A → B → C, mediated by markdown files. Not a parent-child tree.
 
-### 6b.5 Doc structure (10 standardized sections)
+### 6b.5 Doc structure (12 standardized sections + focus field)
 
-Every handoff doc — forward or return — uses these sections (parser-friendly + predictable lookup):
+Every handoff doc — forward or return — uses these sections (parser-friendly + predictable lookup). A plain-language **`Next-session focus:`** lead field (#38 leg 4) sits above section 1. (Sections 8 References and 10 Suggested-skills were added by #38; the original design had 10 sections.)
 
 1. **Header** — type (forward / return), scope, source session metadata
 2. **Purpose** — why handing off; one paragraph
@@ -332,11 +332,15 @@ Every handoff doc — forward or return — uses these sections (parser-friendly
 5. **Workflow deviations** — any deviations from standard scaffold-dev workflow active in this session
 6. **In-flight state** — open work items, partial commits, branches needing merge, subagents dispatched but not returned
 7. **Must read before doing anything** — specific files beyond Tier 0 auto-load
-8. **Next intended action(s)** — single specific action OR ranked list of options
-9. **Anti-actions** — explicit "do NOT do X" warnings
-10. **Return-handoff template stub** — only for forward handoffs expecting a return
+8. **References** (#38 leg 2) — dispatchable artifact index: specs/ADRs/commits/issues/diffs by path·URL·SHA, not pasted (may be empty)
+9. **Next intended action(s)** — single specific action OR ranked list of options
+10. **Suggested skills / plugins** (#38 leg 1) — advisory `plugin:skill` capabilities the next session likely needs (may be empty)
+11. **Anti-actions** — explicit "do NOT do X" warnings
+12. **Return-handoff template stub** — only for forward handoffs expecting a return
 
 **Section 4 is the value-add over memory bank.** Memory bank captures *codified* state. Handoff captures slice-specific decisions, conversation deltas, negative-space ("we tried Y and rejected it"), time-sensitive constraints, and tool-call insights that didn't make it to artifacts. Once items in section 4 get promoted (via slice-close harvest per §15.2), they leave the handoff and become memory-bank entries.
+
+**#38 additions (v0.17.0).** Beyond the two new sections + focus field: a **redaction pass** (leg 3) runs before every write/print — a hybrid mechanical candidate-surfacer (`lib/redact.sh`) + agent warn-and-confirm judgment; and an opt-in **`--ephemeral`** mode (leg 5) renders the full doc to stdout (no manifest, no durable file, no gitignore check) for non-dual-repo projects and ad-hoc compaction.
 
 ### 6b.6 Lifecycle + cleanup
 
@@ -373,7 +377,7 @@ Every handoff doc — forward or return — uses these sections (parser-friendly
 | `appending-changelog-entry` | "log changelog" | Keep-a-Changelog 1.1.0 |
 | `authoring-runbook` | "write runbook" | SRE-style runbook template |
 | `writing-sprint-retrospective` | "close sprint N" | Aggregate VS retrospectives; harvest cross-slice patterns |
-| `handing-off-session` | "hand this off", "handoff to next session", "fresh session for X", "context bloated", "/handoff" | Compose a handoff doc per §6b at `<ai-workspace>/.workspace/handoffs/<scope>-<purpose>-<short-id>.md`. Captures ephemeral pre-codification state for out-of-slice transitions. 10 standardized sections per §6b.5. |
+| `handing-off-session` | "hand this off", "handoff to next session", "fresh session for X", "context bloated", "/handoff", "/handoff --ephemeral" | Compose a handoff doc per §6b at `<ai-workspace>/.workspace/handoffs/<scope>-<purpose>-<short-id>.md`. Captures ephemeral pre-codification state for out-of-slice transitions. 12 standardized sections + focus field per §6b.5; redaction pass before write; opt-in `--ephemeral` stdout mode. |
 
 ### 7.2 Implementer-agent (subagent type, not a skill)
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/test-handoff.sh — 16 tests for lib/handoff.sh
+# tests/test-handoff.sh — unit tests for lib/handoff.sh (path/lifecycle + flag parsing)
 
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -219,11 +219,11 @@ test_compose_path_full_naming() {
 }
 
 # --- sd_handoff_parse_flags (#19 — regex parse, immune to $N substitution) ---
-# Emits exactly 4 lines: scope, purpose, return_of, return_id.
+# Emits exactly 5 lines: scope, purpose, return_of, return_id, ephemeral (#38).
 _parse_into() {
-  # _parse_into <argstring> ; sets PF_SCOPE PF_PURPOSE PF_ROF PF_RID
+  # _parse_into <argstring> ; sets PF_SCOPE PF_PURPOSE PF_ROF PF_RID PF_EPH
   local out; out="$(sd_handoff_parse_flags "$1")"
-  { IFS= read -r PF_SCOPE; IFS= read -r PF_PURPOSE; IFS= read -r PF_ROF; IFS= read -r PF_RID; } <<EOF
+  { IFS= read -r PF_SCOPE; IFS= read -r PF_PURPOSE; IFS= read -r PF_ROF; IFS= read -r PF_RID; IFS= read -r PF_EPH; } <<EOF
 $out
 EOF
 }
@@ -270,6 +270,37 @@ test_parse_flags_empty() {
   assert_eq "purpose"   "" "$PF_PURPOSE"
   assert_eq "return_of" "" "$PF_ROF"
   assert_eq "return_id" "" "$PF_RID"
+  assert_eq "ephemeral" "" "$PF_EPH"
+}
+
+# 22. --ephemeral present → 5th line is "true"; other flags still parse (#38 leg 5)
+test_parse_flags_ephemeral_present() {
+  echo "test_parse_flags_ephemeral_present:"
+  _parse_into "--scope sprint-3.2 --purpose context-bloat --ephemeral"
+  assert_eq "scope"     "sprint-3.2"    "$PF_SCOPE"
+  assert_eq "purpose"   "context-bloat" "$PF_PURPOSE"
+  assert_eq "ephemeral" "true"          "$PF_EPH"
+}
+
+# 23. --ephemeral absent → 5th line empty (default durable mode)
+test_parse_flags_ephemeral_absent() {
+  echo "test_parse_flags_ephemeral_absent:"
+  _parse_into "--scope vs-1.1.1 --purpose bugfix-auth"
+  assert_eq "ephemeral empty" "" "$PF_EPH"
+}
+
+# 24. --ephemeral is a whole word — a --ephemeralfoo typo must NOT enable it
+test_parse_flags_ephemeral_word_boundary() {
+  echo "test_parse_flags_ephemeral_word_boundary:"
+  _parse_into "--scope vs-1.1.1 --purpose x --ephemeralfoo"
+  assert_eq "no partial-word match" "" "$PF_EPH"
+}
+
+test_command_wrapper_exports_return_id() {
+  echo "test_command_wrapper_exports_return_id:"
+  local command_doc="$HERE/../commands/handoff.md"
+  assert_file_contains "$command_doc" 'export SCAFFOLD_DEV_RETURN_ID="\$_return_id"'
+  assert_file_contains "$command_doc" 'RETURN_ID=\$\{SCAFFOLD_DEV_RETURN_ID:-<unset>\}'
 }
 
 test_dir_resolution
@@ -293,5 +324,9 @@ test_parse_flags_equals_form
 test_parse_flags_return_of_not_return
 test_parse_flags_return_forward
 test_parse_flags_empty
+test_parse_flags_ephemeral_present
+test_parse_flags_ephemeral_absent
+test_parse_flags_ephemeral_word_boundary
+test_command_wrapper_exports_return_id
 
 sd_test_summary
