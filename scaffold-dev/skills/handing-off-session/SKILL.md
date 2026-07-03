@@ -28,9 +28,9 @@ When invoked, you:
 5. **Detect forward-vs-return.** If `--return <short-id>` or `--return-of <forward-filename>` is present OR the trigger phrase context indicates this session IS a fork session reporting back (per §6b.4 chain model), this is a return handoff: reuse the original short-id, emit a `-return.md` filename, mark Header type=`return`. Otherwise this is a forward handoff: generate a fresh 4-char hex short-id.
 6. **Gather state pointers** via `lib/state.sh::sd_state_read_cursor` (active sprint, active slice, active work-item position, worktree paths) and `lib/manifest.sh::sd_manifest_get` (ai_workspace.root, canonical.root, branch_naming, worktrees_dir).
 7. **Compose the 12 sections** per §6b.5 using `templates/handoff.md.tmpl` + `lib/render.sh` `{{var}}` substitution, plus the `Next-session focus` lead field. Sections 4 (What's NOT in memory bank yet) and 9 (Next intended action(s)) are the two REQUIRED user-prompted sections (see §6 and §7 below); auto-extract candidates from session context first, but refuse to write the file if either is empty. Author the new References (§8) and Suggested-skills (§10) sections and the focus field per §5.4.
-8. **Run the redaction pass, then write.** Before writing (or printing), scan the composed content for secret/PII candidates and resolve them warn-and-confirm (§8.1). Then **write the file atomically** to the resolved path (temp sibling + `mv`) — OR, if `--ephemeral`, **print to stdout** and skip the write, the gitignore check, and step 9.
+8. **Run the redaction pass, then write.** Before writing (or printing), scan the composed content in memory for secret/PII candidates and resolve them warn-and-confirm (§8.1). Then **write the safe content atomically** to the resolved path (temp sibling + `mv`) — OR, if `--ephemeral`, **print to stdout** and skip the write, the gitignore check, and step 9.
 9. **Read `.gitignore`** at `<ai-workspace>/.gitignore` and verify the pattern `.workspace/handoffs/` (or a superset like `.workspace/`) is present (durable mode only; skipped under `--ephemeral`). If missing, surface a warning in the final assistant message naming the pattern AND suggest the user re-run `workspace-init` or append the line manually — do NOT auto-edit `.gitignore` (workspace-init's §8.3 lane).
-10. **Emit the final assistant message** naming the absolute path of the written file AND the opening prompt for the next session: `Read the handoff at <abs-path> and proceed`. On forward handoffs that expect a return, also name the expected return-filename pattern so the fork session knows where to write its return.
+10. **Emit the final assistant message.** Durable mode names the absolute path of the written file AND the opening prompt for the next session: `Read the handoff at <abs-path> and proceed`. `--ephemeral` mode prints only the handoff text; it makes no file-path claim.
 
 ---
 
@@ -61,7 +61,7 @@ If the user types something ambiguous like "save state" or "I'm tired", ask: *"C
 
 ### 3.1 Manifest discovery (refuses fail-fast, unless `--ephemeral`)
 
-**Ephemeral short-circuit (#38 leg 5).** If `--ephemeral` is set (`SCAFFOLD_DEV_EPHEMERAL=true`), SKIP manifest discovery entirely: there is no durable path to anchor, so no manifest is needed. Jump straight to arg parsing (§3.3) and section composition; the state-pointer sections that would read manifest/state fields render with `n/a — ephemeral handoff, no workspace manifest` where a value is unavailable. Ephemeral output goes to stdout (§8), never to disk.
+**Ephemeral short-circuit (#38 leg 5).** If `--ephemeral` is set (`SCAFFOLD_DEV_EPHEMERAL=true`), SKIP manifest discovery entirely: there is no durable path to anchor, so no manifest is needed. Jump straight to arg parsing (§3.3) and section composition; manifest/state-derived fields render as `n/a — ephemeral handoff, no workspace manifest` where unavailable. `--return <short-id>` works normally because it carries the chain id inline. `--return-of <forward-filename>` may read the named forward only when the value is an absolute/readable path; otherwise parse the short-id from the filename, mark forward-derived context unavailable, and stop only if the filename does not contain a 4-char hex handoff id. Ephemeral output goes to stdout (§8), never to disk.
 
 Otherwise (durable mode), call `sd_manifest_discover` (lib/manifest.sh) to walk up from `pwd` for `.workspace/pairing.json`. If discovery returns absent — i.e. `sd_manifest_require` exits non-zero — surface this verbatim refusal and stop:
 
@@ -212,34 +212,29 @@ Render `templates/handoff.md.tmpl` via `lib/render.sh`'s `{{var}}` substitution.
 
 ### 5.3 Template + substitution
 
-The template file is `templates/handoff.md.tmpl` (authored in Phase 2 T2.3 of the PLAN). Substitutable vars:
+The template file is `templates/handoff.md.tmpl` (authored in Phase 2 T2.3 of the PLAN). Substitutable vars, matching that template's `<!-- vars: -->` contract exactly:
 
 ```
-{{handoff_type}}        forward | return
-{{scope}}               vs-1.1.1 | sprint-3 | ...
-{{purpose}}             bugfix-auth | to-4-handoff | ...
-{{short_id}}            a1b2 | c3d4 | ...
-{{composed_date}}       YYYY-MM-DD
-{{source_session}}      free-form label (e.g., "master-session 2026-05-25")
-{{project_name}}        from manifest project field
-{{branch}}              ACTIVE_BRANCH or "main"
-{{ai_workspace_root}}   from manifest
-{{canonical_root}}      from manifest
-{{active_sprint}}       from state cursor
-{{active_slice}}        from state cursor (or "n/a")
-{{active_work_item}}    from state cursor (or "n/a")
-{{active_worktree}}     from state cursor (or "n/a")
-{{section_4_body}}      USER-AUTHORED — see §6
-{{section_8_body}}      USER-AUTHORED — see §7
-{{must_read_list}}      auto-extracted + user-confirmed list of absolute paths
-{{anti_actions_list}}   auto-extracted + user-confirmed list of "do NOT" bullets
-{{return_stub}}         section 12 body (forward: stub template; return: n/a note)
-{{next_session_focus}}  #38 leg 4 — plain-language "do this first" lead field (§5.4)
-{{references_block}}    #38 leg 2 — section 8 dispatchable artifact index (§5.4)
-{{suggested_skills_block}} #38 leg 1 — section 10 advisory plugin:skill list (§5.4)
+{{handoff_type}}               forward | return
+{{scope}}                      sprint | slice | mid-slice | bugfix | techdebt
+{{scope_specifier}}            e.g. "VS-3.2 in sprint-3"
+{{purpose_slug}}               kebab-case filename purpose
+{{short_id}}                   4-char hex; paired forward/return id
+{{source_session_metadata}}    authoring session + context metadata
+{{references_forward_handoff}} paired forward filename, or "n/a"
+{{purpose_paragraph}}          one paragraph explaining why this exists
+{{state_pointers_block}}       workspace paths, sprint/slice IDs, worktrees, branches
+{{not_in_memory_bank_block}}   USER-AUTHORED — see §6
+{{workflow_deviations}}        deviations from standard workflow, or "None."
+{{in_flight_state_block}}      open work, partial commits, dispatched subagents
+{{must_read_before_doing}}     specific files beyond Tier 0 auto-load
+{{next_intended_actions}}      USER-AUTHORED — see §7
+{{anti_actions_block}}         "do NOT" bullets
+{{return_template_stub}}       section 12 body
+{{next_session_focus}}         #38 leg 4 lead field (§5.4)
+{{references_block}}           #38 leg 2 artifact index (§5.4)
+{{suggested_skills_block}}     #38 leg 1 advisory plugin:skill list (§5.4)
 ```
-
-(The authoritative var names are the `<!-- vars: -->` comment at the top of `templates/handoff.md.tmpl`; consult it if a placeholder above and the template disagree — the template wins.)
 
 Use `lib/render.sh`'s `{{var}}` substitution pattern (matches the scaffold-onboard / architect-critic / closing-vertical-slice precedent). Never inline-render with `sed` or `printf`; the helper handles escaping consistently.
 
@@ -317,7 +312,7 @@ For return handoffs (per S3), section 9 names what the consuming main session C 
 
 ## 8. Redaction pass, then write (or print if ephemeral)
 
-Compose the rendered markdown to a temp file via `lib/render.sh::sd_render_template`. **Before it lands anywhere** — durable file OR ephemeral stdout — run the redaction pass (§8.1). Then either write it (§8.2, durable) or print it (§8.3, `--ephemeral`).
+Compose the rendered markdown into a shell variable via `lib/render.sh::sd_render_template`. **Before it lands anywhere** — durable file OR ephemeral stdout — run the redaction pass (§8.1). Then either write the resolved safe content (§8.2, durable) or print it (§8.3, `--ephemeral`).
 
 ```bash
 # Discover scaffold-dev plugin root via the dispatcher on $PATH
@@ -325,30 +320,32 @@ Compose the rendered markdown to a temp file via `lib/render.sh::sd_render_templ
 # runtime does not export to Bash subprocesses per anthropics/claude-code#48230).
 SD_PLUGIN_ROOT="$(dirname "$(dirname "$(command -v sd)")")"
 
-tmp_path="${target_path:-${TMPDIR:-/tmp}/handoff}.tmp.$$"
-sd render_template "${SD_PLUGIN_ROOT}/templates/handoff.md.tmpl" "$vars_json" > "$tmp_path"
+rendered_markdown="$(sd render_template "${SD_PLUGIN_ROOT}/templates/handoff.md.tmpl" "$vars_json")"
+safe_markdown="$rendered_markdown"
 ```
 
 ### 8.1 Redaction pass (#38 leg 3 — runs in BOTH modes, before anything lands)
 
 The pass is **hybrid**: a mechanical bash candidate-surfacer flags likely secrets/PII by pattern; **you (the agent) judge each candidate in context** and drive a warn-and-confirm loop. Redaction judgment is reasoning — it is yours, not the surfacer's (North Star §1).
 
-1. Surface candidates: `sd redact_candidates "$tmp_path"` → emits `<lineno>\t<category>\t<match>` lines (categories: github-token, openai-key, aws-access-key, slack-token, pem-private-key, url-credentials, email, labeled-secret). Empty output ⇒ nothing to review; proceed to the write/print.
+1. Surface candidates: `printf '%s\n' "$safe_markdown" | sd redact_candidates -` → emits `<lineno>\t<category>\t<match>` lines (categories: github-token, openai-key, aws-access-key, slack-token, pem-private-key, url-credentials, email, labeled-secret). Empty output ⇒ nothing to review; proceed to the write/print.
 2. Judge each candidate **in context**. Most are real (a live `ghp_…` token, a `password: …` line). Some are benign — e.g. the author's own email in the Header's source-session metadata, or a placeholder like `sk-EXAMPLE`. Use the surrounding line to decide.
-3. If ANY candidate is a real secret/PII, **halt before the write/print** and surface each finding to the user with a proposed replacement (`[REDACTED-GITHUB-TOKEN]`, `[REDACTED-EMAIL]`, …). Resolve **per-finding**: `redact` (apply the placeholder via Edit on `$tmp_path`), `keep-this-one` (benign / intentional), or `edit` (custom replacement); or the user may `cancel` the whole handoff. **Nothing is written or printed while a real finding is unresolved.**
+3. If ANY candidate is a real secret/PII, **halt before the write/print** and surface each finding to the user with a proposed replacement (`[REDACTED-GITHUB-TOKEN]`, `[REDACTED-EMAIL]`, …). Resolve **per-finding**: `redact` (replace in `safe_markdown`), `keep-this-one` (benign / intentional), or `edit` (custom replacement); or the user may `cancel` the whole handoff. **Nothing is written or printed while a real finding is unresolved.**
 4. There is NO blanket `--no-redact` bypass — the per-finding `keep-this-one` IS the escape hatch, and it requires a deliberate choice, satisfying the "no secret written without user confirmation" contract.
 
 False-positive cost is one keystroke (`keep-this-one`); the residual false-negative risk is whatever the pattern set + your judgment both miss — acceptable for a handoff, not a substitute for real secret hygiene.
 
 ### 8.2 Durable write (atomic mv)
 
-For a normal (non-ephemeral) handoff, after redaction resolves, move the temp file into place:
+For a normal (non-ephemeral) handoff, after redaction resolves, write `safe_markdown` to a sibling temp file and move it into place:
 
 ```bash
+tmp_path="${target_path}.tmp.$$"
+printf '%s\n' "$safe_markdown" > "$tmp_path"
 mv "$tmp_path" "$target_path"
 ```
 
-The atomic-mv pattern matches the scaffold-onboard / closing-vertical-slice precedent — a Ctrl-C between the render and the rename leaves the temp file behind (cleanable) but never a half-written `target_path`. The eval's judge does not directly check for atomicity, but the pattern is defensive against the user aborting mid-compose.
+The atomic-mv pattern matches the scaffold-onboard / closing-vertical-slice precedent. Because the temp file is created only after redaction resolves, a cancel/crash before then leaves no pre-redaction handoff content on disk.
 
 After write, verify the file is on disk and matches the filename invariant (§4.1). If `ls "$target_path"` fails, surface the failure and stop — do NOT proceed to the gitignore exit-check, do NOT emit a success message naming a path that doesn't exist.
 
@@ -356,7 +353,7 @@ After write, verify the file is on disk and matches the filename invariant (§4.
 
 ### 8.3 Ephemeral print (#38 leg 5 — `--ephemeral`, stdout only)
 
-If `SCAFFOLD_DEV_EPHEMERAL=true`, do NOT write a file and do NOT touch `.workspace/handoffs/`. After redaction (§8.1) resolves on the composed content, **print the full doc to the conversation** as a copy-paste fresh-session prompt, then remove the temp file (`rm -f "$tmp_path"`). SKIP §9 (gitignore exit-check) entirely — there is no persisted artifact to gitignore. The content is the SAME 12-section doc as durable mode; only the destination differs. This is the supported path for non-dual-repo projects and ad-hoc compaction where the user wants a prompt but not a durable artifact.
+If `SCAFFOLD_DEV_EPHEMERAL=true`, do NOT write a file and do NOT touch `.workspace/handoffs/`. After redaction (§8.1) resolves on the composed content, **print `safe_markdown` to the conversation** as a copy-paste fresh-session prompt. SKIP §9 (gitignore exit-check) entirely — there is no persisted artifact to gitignore. The content is the SAME 12-section doc as durable mode; only the destination differs. This is the supported path for non-dual-repo projects and ad-hoc compaction where the user wants a prompt but not a durable artifact.
 
 ---
 
@@ -425,7 +422,7 @@ Per-arg validation:
 
 ## 11. Final assistant message
 
-After the file is written + gitignore is checked, emit a final assistant message with three load-bearing components:
+After durable writes, emit a final assistant message with these load-bearing components:
 
 1. **Absolute path of the written file.** Always an absolute path, never a tilde-abbreviated or relative path — the next session may open from a different cwd and needs an unambiguous reference. Render as a code-formatted block: `<abs-path>`.
 2. **The opening prompt for the next session** (copy-paste form): *"Read the handoff at `<abs-path>` and proceed"*. For forward handoffs expecting a return, extend with: *"; on completion, write the return handoff at `<abs-path with -return.md suffix>`"*. The receiving-session prompt is the master-HANDOFF pattern (see `docs/HANDOFF-scaffold-dev-build.md`'s closing block as the worked example).
@@ -436,6 +433,8 @@ After the file is written + gitignore is checked, emit a final assistant message
    - **Mid-slice context bloat (S4):** instruct the user to open the new session by reading the §7 must-read files first, before anything else.
    - **First-invocation `mkdir -p` (S5):** name the newly created `.workspace/handoffs/` directory in the message; second invocation surfaces no mkdir mention (it was a no-op skip).
 4. **Gitignore warning (only if §9 found the pattern missing).** Surface the warning verbatim per §9 outcome 2.
+
+Under `--ephemeral`, skip the durable-path message above: print only the resolved handoff text (`safe_markdown`) and no "written file" path or return-file path claim.
 
 Do NOT close the message with a self-congratulatory boilerplate ("Handoff composed successfully!"). The bar is content, not affirmation — the path + the opening prompt + the framing are sufficient.
 

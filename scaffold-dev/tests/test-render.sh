@@ -183,8 +183,17 @@ test_dispatcher_handoff_12_sections() {
   local n; n="$(printf '%s\n' "$out" | grep -cE '^## [0-9]+\. ')"
   assert_eq "12 numbered sections rendered" "12" "$n"
   assert_contains "focus lead field" "Next-session focus:" "$out"
+  local focus_line header_line
+  focus_line="$(printf '%s\n' "$out" | awk '/Next-session focus:/ { print NR; exit }')"
+  header_line="$(printf '%s\n' "$out" | awk '/^## 1\. Header$/ { print NR; exit }')"
+  if [[ -n "$focus_line" && -n "$header_line" && "$focus_line" -lt "$header_line" ]]; then
+    PASS=$((PASS+1)); echo "  $(_color_pass 'PASS') focus lead appears before section 1"
+  else
+    FAIL=$((FAIL+1)); echo "  $(_color_fail 'FAIL') focus lead not before section 1"
+  fi
   assert_contains "References section (8)" "## 8. References" "$out"
   assert_contains "Suggested-skills section (10)" "## 10. Suggested skills / plugins" "$out"
+  assert_contains "Return stub section (12)" "## 12. Return-handoff template stub" "$out"
   if printf '%s' "$out" | grep -qE '\{\{'; then
     FAIL=$((FAIL+1)); echo "  $(_color_fail 'FAIL') leftover placeholder in handoff render"
   else

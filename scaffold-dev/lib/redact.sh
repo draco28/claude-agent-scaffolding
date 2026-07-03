@@ -65,9 +65,9 @@ sd_redact_candidates() {
 
   local raw=""
   raw="$(
-    _sd_redact_scan "github-token"    0 'gh[posru]_[A-Za-z0-9]{36,}'
+    _sd_redact_scan "github-token"    0 'gh[posru]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,}'
     _sd_redact_scan "openai-key"      0 'sk-[A-Za-z0-9_-]{20,}'
-    _sd_redact_scan "aws-access-key"  0 'AKIA[0-9A-Z]{16}'
+    _sd_redact_scan "aws-access-key"  0 '(AKIA|ASIA)[0-9A-Z]{16}'
     _sd_redact_scan "slack-token"     0 'xox[baprs]-[A-Za-z0-9-]{10,}'
     _sd_redact_scan "pem-private-key" 0 '-----BEGIN [A-Z ]*PRIVATE KEY-----'
     _sd_redact_scan "url-credentials" 0 '[a-zA-Z][a-zA-Z0-9+.-]*://[^[:space:]/@:]+:[^[:space:]/@]+@'
@@ -78,6 +78,6 @@ sd_redact_candidates() {
     _sd_redact_scan "labeled-secret"  1 '(api[_-]?key|secret|token|password|passwd|bearer)[[:space:]]*[:=][[:space:]]*[^[:space:]]{6,}'
   )" || :
   [[ -n "$raw" ]] || return 0
-  printf '%s\n' "$raw" | sort -t"$(printf '\t')" -k1,1n -u
+  printf '%s\n' "$raw" | sort -t"$(printf '\t')" -k1,1n -k2,2 -k3,3 -u
   return 0
 }

@@ -22,6 +22,12 @@ test_flags_github_token() {
   assert_contains "github-token surfaced" "github-token" "$out"
 }
 
+test_flags_github_fine_grained_pat() {
+  echo "test_flags_github_fine_grained_pat:"
+  local out; out="$(_cand 'token here: github_pat_11ABCDEFG0abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcd')"
+  assert_contains "github fine-grained PAT surfaced" "github-token" "$out"
+}
+
 test_flags_openai_key() {
   echo "test_flags_openai_key:"
   local out; out="$(_cand 'export KEY=sk-abcdef0123456789ABCDEFghij')"
@@ -32,6 +38,12 @@ test_flags_aws_key() {
   echo "test_flags_aws_key:"
   local out; out="$(_cand 'aws id AKIAIOSFODNN7EXAMPLE trailing')"
   assert_contains "aws-access-key surfaced" "aws-access-key" "$out"
+}
+
+test_flags_aws_sts_key() {
+  echo "test_flags_aws_sts_key:"
+  local out; out="$(_cand 'aws sts id ASIAIOSFODNN7EXAMPLE trailing')"
+  assert_contains "aws STS access key surfaced" "aws-access-key" "$out"
 }
 
 test_flags_slack_token() {
@@ -140,6 +152,14 @@ test_strict_mode_does_not_drop_later_categories() {
   assert_contains "email survives strict-mode + empty earlier categories" "email" "$out"
 }
 
+test_same_line_candidates_are_preserved() {
+  echo "test_same_line_candidates_are_preserved:"
+  local out
+  out="$(_cand 'contact alice@example.com password: hunter2horse')"
+  assert_contains "same-line email surfaced" $'1\temail\talice@example.com' "$out"
+  assert_contains "same-line labeled secret surfaced" $'1\tlabeled-secret\tpassword: hunter2horse' "$out"
+}
+
 # small local assert used above (not in _helpers)
 assert_not_contains_str() {
   local needle="$1" haystack="$2"
@@ -151,8 +171,10 @@ assert_not_contains_str() {
 }
 
 test_flags_github_token
+test_flags_github_fine_grained_pat
 test_flags_openai_key
 test_flags_aws_key
+test_flags_aws_sts_key
 test_flags_slack_token
 test_flags_pem_key
 test_flags_url_credentials
@@ -165,5 +187,6 @@ test_clean_input_empty
 test_file_arg_mode
 test_unreadable_file_errors
 test_strict_mode_does_not_drop_later_categories
+test_same_line_candidates_are_preserved
 
 sd_test_summary

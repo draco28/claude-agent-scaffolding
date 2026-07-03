@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/test-handoff.sh — 24 tests for lib/handoff.sh (path/lifecycle + flag parsing)
+# tests/test-handoff.sh — unit tests for lib/handoff.sh (path/lifecycle + flag parsing)
 
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -296,6 +296,13 @@ test_parse_flags_ephemeral_word_boundary() {
   assert_eq "no partial-word match" "" "$PF_EPH"
 }
 
+test_command_wrapper_exports_return_id() {
+  echo "test_command_wrapper_exports_return_id:"
+  local command_doc="$HERE/../commands/handoff.md"
+  assert_file_contains "$command_doc" 'export SCAFFOLD_DEV_RETURN_ID="\$_return_id"'
+  assert_file_contains "$command_doc" 'RETURN_ID=\$\{SCAFFOLD_DEV_RETURN_ID:-<unset>\}'
+}
+
 test_dir_resolution
 test_ensure_dir_creates
 test_ensure_dir_idempotent
@@ -320,5 +327,6 @@ test_parse_flags_empty
 test_parse_flags_ephemeral_present
 test_parse_flags_ephemeral_absent
 test_parse_flags_ephemeral_word_boundary
+test_command_wrapper_exports_return_id
 
 sd_test_summary

@@ -1,6 +1,6 @@
 ---
-description: Author a session handoff doc. Usage: /handoff [--scope <s>] [--purpose <p>] [--return-of <id>] [--ephemeral]
-argument-hint: "[--scope <s>] [--purpose <p>] [--return-of <id>] [--ephemeral]"
+description: Author a session handoff doc. Usage: /handoff [--scope <s>] [--purpose <p>] [--return <id>|--return-of <file>] [--ephemeral]
+argument-hint: "[--scope <s>] [--purpose <p>] [--return <id>|--return-of <file>] [--ephemeral]"
 allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep
 ---
 
@@ -9,7 +9,7 @@ allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep
 Wraps the `handing-off-session` skill — authors a handoff document for the
 current session. Bridge `$ARGUMENTS` into an env var the skill body reads
 (per `feedback_slash_command_dollar_n_bug` — never `$1`/`$2`/`$N`). Parses
-`--scope`, `--purpose`, `--return-of`, and `--ephemeral` flags out of
+`--scope`, `--purpose`, `--return`, `--return-of`, and `--ephemeral` flags out of
 `$ARGUMENTS` for the skill body. `--ephemeral` (#38 leg 5) prints the handoff
 to stdout instead of writing a durable file and needs no pairing manifest.
 
@@ -34,12 +34,14 @@ ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
   export SCAFFOLD_DEV_SCOPE="$_scope"
   export SCAFFOLD_DEV_PURPOSE="$_purpose"
   export SCAFFOLD_DEV_RETURN_OF="$_return_of"
+  export SCAFFOLD_DEV_RETURN_ID="$_return_id"
   export SCAFFOLD_DEV_EPHEMERAL="$_ephemeral"
 
   echo "handoff: SCAFFOLD_DEV_ARGS=${SCAFFOLD_DEV_ARGS:-<none>}"
   echo "handoff: SCOPE=${SCAFFOLD_DEV_SCOPE:-<unset>}"
   echo "handoff: PURPOSE=${SCAFFOLD_DEV_PURPOSE:-<unset>}"
   echo "handoff: RETURN_OF=${SCAFFOLD_DEV_RETURN_OF:-<unset>}"
+  echo "handoff: RETURN_ID=${SCAFFOLD_DEV_RETURN_ID:-<unset>}"
   echo "handoff: EPHEMERAL=${SCAFFOLD_DEV_EPHEMERAL:-<unset>}"
 '
 ```
@@ -47,7 +49,7 @@ ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
 Now invoke the skill in-conversation.
 
 **`Skill(scaffold-dev:handing-off-session)`** — pass the parsed `--scope`,
-`--purpose`, `--return-of`, and `--ephemeral` flags. The skill body owns
+`--purpose`, `--return`, `--return-of`, and `--ephemeral` flags. The skill body owns
 handoff-doc authoring (filename convention, frontmatter, scope/purpose/return-of
 sections, References + Suggested-skills sections, next-session-focus field,
 redaction pass, work-item references) per scaffold-dev SPEC §6b. Under
