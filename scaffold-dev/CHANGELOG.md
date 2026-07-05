@@ -2,6 +2,11 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.17.1] — 2026-07-05
+
+### Fixed
+- **#99 — zsh-safe work-item and worktree path resolution.** `implementation-checking` and `closing-vertical-slice` now resolve exact work-item spec directories and worktrees through dispatcher helpers instead of inline bash-only `shopt`/array glob snippets. The helpers fail with match-count diagnostics when resolution is ambiguous or absent, and regression tests cover bash/zsh caller semantics plus the skill seams.
+
 ## [0.16.0] — 2026-07-02
 
 ### Added
