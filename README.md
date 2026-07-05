@@ -117,7 +117,7 @@ Don't run `/grill-me` and `/council` in the same session — different interacti
 ├── .agents/plugins/marketplace.json   # Codex v0 marketplace manifest
 ├── ai-mentor/                         # ai-mentor plugin (v2.3.0)
 ├── scaffold-onboard/                  # scaffold-onboard plugin (v0.12.0)
-├── scaffold-dev/                      # scaffold-dev plugin (v0.17.0)
+├── scaffold-dev/                      # scaffold-dev plugin (v0.17.1)
 ├── scaffold/                          # scaffold plugin (v1.0.0)
 ├── docs/
 │   ├── SPEC-ai-mentor.md              # ai-mentor spec (v1.1 amendments)
