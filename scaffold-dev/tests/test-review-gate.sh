@@ -243,6 +243,8 @@ test_seam_prose_closing_vertical_slice() {
   # PR #83 review fix: under pr_hierarchical the slice→sprint PR gate must run
   # before final-slice sprint cleanup.
   assert_file_contains "$CLOSING_SKILL" 'Then the slice→sprint PR under `pr_hierarchical` .*sprint-close sweep on the final slice'
+  assert_file_contains "$CLOSING_SKILL" "sd worktree_resolve"
+  assert_file_not_contains "$CLOSING_SKILL" "shopt -s nullglob"
 }
 
 test_seam_prose_planning_vertical_slice() {
@@ -285,6 +287,14 @@ test_seam_premerge_gate_contract() {
   assert_file_contains "$GIT_WORKFLOW" "Deterministic checks stay only for"
 }
 
+test_seam_prose_implementation_checking_path_resolution() {
+  echo "test_seam_prose_implementation_checking_path_resolution:"
+  local skill="$HERE/../skills/implementation-checking/SKILL.md"
+  assert_file_contains "$skill" "sd work_item_dir_resolve"
+  assert_file_contains "$skill" "sd worktree_resolve"
+  assert_file_not_contains "$skill" "shopt -s nullglob"
+}
+
 test_resolve_default_when_field_absent
 test_resolve_field_both
 test_resolve_field_slice_close
@@ -305,5 +315,6 @@ test_seam_prose_closing_vertical_slice
 test_seam_prose_planning_vertical_slice
 test_orchestrate_args_validates_vs_id
 test_seam_premerge_gate_contract
+test_seam_prose_implementation_checking_path_resolution
 
 sd_test_summary

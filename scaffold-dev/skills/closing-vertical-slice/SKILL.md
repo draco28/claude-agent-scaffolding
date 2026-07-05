@@ -358,16 +358,11 @@ ONLY AFTER §9 step 8 completes successfully, remove worktrees + delete branches
 For each work item in the slice:
 
 ```bash
-shopt -s nullglob
-worktree_matches=("${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-"*)
-shopt -u nullglob
-if [[ "${#worktree_matches[@]}" -ne 1 ]]; then
-  printf 'Worktree cleanup for %s matched %s paths under %s/sprint-%s/\n' \
-    "$work_id" "${#worktree_matches[@]}" "$worktrees_dir" "$sprint_id"
+if ! worktree="$(sd worktree_resolve "$work_id" "$sprint_id")"; then
   exit 0
 fi
-sd worktree_remove "${worktree_matches[0]}"
-# Runs: git worktree remove "${worktree_matches[0]}"
+sd worktree_remove "$worktree"
+# Runs: git worktree remove "$worktree"
 # Then: git branch -D "${branch_name}"
 ```
 

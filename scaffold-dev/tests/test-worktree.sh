@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/test-worktree.sh — 17 tests for lib/worktree.sh
+# tests/test-worktree.sh — tests for lib/worktree.sh
 #
 # #28 Phase 3: slice ids are 3-part (VS-<phase>.<sprint>.<slice>) and the branch
 # template's {N} sprint segment is the field-read sprint_id (e.g. "3.2" for
@@ -225,6 +225,84 @@ test_add_uses_manifest_worktrees_dir() {
   assert_eq "custom worktrees_dir path" "$TMP_CANONICAL/custom-worktrees/sprint-1.1/work-1.01-custom" "$wt"
 }
 
+test_work_item_dir_resolve_single_match() {
+  echo "test_work_item_dir_resolve_single_match:"
+  setup_tmp_workspace
+  cd "$TMP_AI_WORKSPACE" || return 1
+  local expected="$TMP_AI_WORKSPACE/docs/specs/sprint-1.1/VS-1.1.1-first-slice/work-1.01-init"
+  mkdir -p "$expected"
+  local out
+  out="$(sd_work_item_dir_resolve "1.01" "VS-1.1.1" "1.1")"
+  assert_eq "resolves single work item dir" "$expected" "$out"
+}
+
+test_work_item_dir_resolve_zero_matches_fails() {
+  echo "test_work_item_dir_resolve_zero_matches_fails:"
+  setup_tmp_workspace
+  cd "$TMP_AI_WORKSPACE" || return 1
+  local out rc
+  out="$(sd_work_item_dir_resolve "1.01" "VS-1.1.1" "1.1" 2>&1)" && rc=0 || rc=$?
+  assert_ne "zero work item matches fails" "0" "$rc"
+  assert_contains "reports zero matches" "matched 0 directories" "$out"
+}
+
+test_work_item_dir_resolve_multiple_matches_fails() {
+  echo "test_work_item_dir_resolve_multiple_matches_fails:"
+  setup_tmp_workspace
+  cd "$TMP_AI_WORKSPACE" || return 1
+  mkdir -p \
+    "$TMP_AI_WORKSPACE/docs/specs/sprint-1.1/VS-1.1.1-first/work-1.01-a" \
+    "$TMP_AI_WORKSPACE/docs/specs/sprint-1.1/VS-1.1.1-second/work-1.01-b"
+  local out rc
+  out="$(sd_work_item_dir_resolve "1.01" "VS-1.1.1" "1.1" 2>&1)" && rc=0 || rc=$?
+  assert_ne "multiple work item matches fails" "0" "$rc"
+  assert_contains "reports two matches" "matched 2 directories" "$out"
+}
+
+test_worktree_resolve_single_match() {
+  echo "test_worktree_resolve_single_match:"
+  setup_tmp_workspace
+  cd "$TMP_AI_WORKSPACE" || return 1
+  local wt
+  wt="$(sd_worktree_add "1.01" "VS-1.1.1" "init" "1.1" 2>/dev/null)"
+  local out
+  out="$(sd_worktree_resolve "1.01" "1.1")"
+  assert_eq "resolves single worktree" "$wt" "$out"
+}
+
+test_worktree_resolve_zero_matches_fails() {
+  echo "test_worktree_resolve_zero_matches_fails:"
+  setup_tmp_workspace
+  cd "$TMP_AI_WORKSPACE" || return 1
+  local out rc
+  out="$(sd_worktree_resolve "1.01" "1.1" 2>&1)" && rc=0 || rc=$?
+  assert_ne "zero worktree matches fails" "0" "$rc"
+  assert_contains "reports zero worktree matches" "matched 0 paths" "$out"
+}
+
+test_worktree_resolve_multiple_matches_fails() {
+  echo "test_worktree_resolve_multiple_matches_fails:"
+  setup_tmp_workspace
+  cd "$TMP_AI_WORKSPACE" || return 1
+  sd_worktree_add "1.01" "VS-1.1.1" "init-a" "1.1" >/dev/null 2>&1
+  sd_worktree_add "1.01" "VS-1.1.1" "init-b" "1.1" >/dev/null 2>&1
+  local out rc
+  out="$(sd_worktree_resolve "1.01" "1.1" 2>&1)" && rc=0 || rc=$?
+  assert_ne "multiple worktree matches fails" "0" "$rc"
+  assert_contains "reports two worktree matches" "matched 2 paths" "$out"
+}
+
+test_dispatcher_resolve_works_from_zsh() {
+  echo "test_dispatcher_resolve_works_from_zsh:"
+  setup_tmp_workspace
+  cd "$TMP_AI_WORKSPACE" || return 1
+  local expected="$TMP_AI_WORKSPACE/docs/specs/sprint-1.1/VS-1.1.1-first/work-1.01-init"
+  mkdir -p "$expected"
+  local out
+  out="$(zsh -c 'cd "$1" && "$2" work_item_dir_resolve "1.01" "VS-1.1.1" "1.1"' zsh "$TMP_AI_WORKSPACE" "$HERE/../bin/sd")"
+  assert_eq "dispatcher resolves path when invoked from zsh" "$expected" "$out"
+}
+
 test_add_creates_worktree
 test_add_emits_path
 test_add_branch_name
@@ -242,5 +320,12 @@ test_add_path_namespaced_by_sprint_id
 test_same_work_id_kebab_allowed_across_sprints
 test_add_uses_manifest_worktrees_dir
 test_worktree_add_base_branch
+test_work_item_dir_resolve_single_match
+test_work_item_dir_resolve_zero_matches_fails
+test_work_item_dir_resolve_multiple_matches_fails
+test_worktree_resolve_single_match
+test_worktree_resolve_zero_matches_fails
+test_worktree_resolve_multiple_matches_fails
+test_dispatcher_resolve_works_from_zsh
 
 sd_test_summary
