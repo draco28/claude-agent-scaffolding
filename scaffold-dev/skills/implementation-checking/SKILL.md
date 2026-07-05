@@ -123,7 +123,7 @@ if ! work_dir="$(sd work_item_dir_resolve "$work_id" "$vs_id" "$sprint_id")"; th
 fi
 ```
 
-If `work_dir` is empty or its `spec.md` does not exist, surface:
+If resolver failure exits above, surface the helper's match-count diagnostic and stop. If `work_dir` resolves but its `spec.md` does not exist, surface:
 
 > Work item `<work_id>` not found under `${ai_workspace}/docs/specs/sprint-${sprint_id}/${vs_id}-*/`. Has `planning-vertical-slice` authored this slice yet?
 
