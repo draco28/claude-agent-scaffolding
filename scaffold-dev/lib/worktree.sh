@@ -77,6 +77,54 @@ sd_worktree_add() {
   return 0
 }
 
+# sd_work_item_dir_resolve <work-id> <slice-id> <sprint-id>
+# Echoes the single work-item spec dir matching the authored slice/work naming
+# convention. Fails loud on zero or ambiguous matches so skill bodies do not
+# silently proceed with an empty path under zsh.
+sd_work_item_dir_resolve() {
+  local work_id="$1" slice_id="$2" sprint_id="$3"
+  local ai_workspace
+  ai_workspace="$(sd_manifest_get '.ai_workspace.root')" || { sd_log_error "no ai_workspace.root"; return 1; }
+
+  local matches=()
+  shopt -s nullglob
+  matches=("${ai_workspace}/docs/specs/sprint-${sprint_id}/${slice_id}-"*/"work-${work_id}-"*)
+  shopt -u nullglob
+  if [[ "${#matches[@]}" -ne 1 ]]; then
+    printf 'Work item %s matched %s directories under %s/docs/specs/sprint-%s/%s-*/\n' \
+      "$work_id" "${#matches[@]}" "$ai_workspace" "$sprint_id" "$slice_id" >&2
+    return 1
+  fi
+  echo "${matches[0]}"
+}
+
+# sd_worktree_resolve <work-id> <sprint-id>
+# Echoes the single worktree path for a work item under the manifest-routed
+# worktrees_dir. Fails loud on zero or ambiguous matches.
+sd_worktree_resolve() {
+  local work_id="$1" sprint_id="$2"
+  local ai_workspace raw_worktrees_dir worktrees_dir
+  ai_workspace="$(sd_manifest_get '.ai_workspace.root')" || { sd_log_error "no ai_workspace.root"; return 1; }
+  if raw_worktrees_dir="$(sd_manifest_get '.during_dev.worktrees_dir')"; then
+    worktrees_dir="$(sd_manifest_resolve "$ai_workspace" "$raw_worktrees_dir")" || return 1
+  else
+    local canonical
+    canonical="$(sd_manifest_get '.canonical.root')" || { sd_log_error "no canonical.root"; return 1; }
+    worktrees_dir="${canonical}/.worktrees"
+  fi
+
+  local matches=()
+  shopt -s nullglob
+  matches=("${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-"*)
+  shopt -u nullglob
+  if [[ "${#matches[@]}" -ne 1 ]]; then
+    printf 'Worktree for %s matched %s paths under %s/sprint-%s/\n' \
+      "$work_id" "${#matches[@]}" "$worktrees_dir" "$sprint_id" >&2
+    return 1
+  fi
+  echo "${matches[0]}"
+}
+
 # sd_worktree_remove <wt-path>
 # Removes the worktree and deletes its branch. Returns 1 on any failure.
 sd_worktree_remove() {

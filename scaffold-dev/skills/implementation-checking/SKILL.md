@@ -118,18 +118,12 @@ vs_id="$(sd state_active_slice)"                    # e.g. VS-1.1.1
 sprint_id="$(sd roadmap_slice_sprint_id "$vs_id")"  # e.g. 1.1 (field-read)
 : "${work_id:?work item id was not resolved by section 3.2}"  # e.g. 1.01
 
-shopt -s nullglob
-work_dir_matches=("${ai_workspace}/docs/specs/sprint-${sprint_id}/${vs_id}-"*/"work-${work_id}-"*)
-shopt -u nullglob
-if [[ "${#work_dir_matches[@]}" -ne 1 ]]; then
-  printf 'Work item %s matched %s directories under %s/docs/specs/sprint-%s/%s-*/\n' \
-    "$work_id" "${#work_dir_matches[@]}" "$ai_workspace" "$sprint_id" "$vs_id"
+if ! work_dir="$(sd work_item_dir_resolve "$work_id" "$vs_id" "$sprint_id")"; then
   exit 0
 fi
-work_dir="${work_dir_matches[0]}"
 ```
 
-If `work_dir` is empty or its `spec.md` does not exist, surface:
+If resolver failure exits above, surface the helper's match-count diagnostic and stop. If `work_dir` resolves but its `spec.md` does not exist, surface:
 
 > Work item `<work_id>` not found under `${ai_workspace}/docs/specs/sprint-${sprint_id}/${vs_id}-*/`. Has `planning-vertical-slice` authored this slice yet?
 
@@ -140,15 +134,9 @@ Then stop. Do NOT auto-create the directory; spec authoring is the orchestrator'
 Resolve:
 
 ```bash
-shopt -s nullglob
-worktree_matches=("${worktrees_dir}/sprint-${sprint_id}/work-${work_id}-"*)
-shopt -u nullglob
-if [[ "${#worktree_matches[@]}" -ne 1 ]]; then
-  printf 'Worktree for %s matched %s paths under %s/sprint-%s/\n' \
-    "$work_id" "${#worktree_matches[@]}" "$worktrees_dir" "$sprint_id"
+if ! worktree="$(sd worktree_resolve "$work_id" "$sprint_id")"; then
   exit 0
 fi
-worktree="${worktree_matches[0]}"
 ```
 
 If the worktree does not exist (i.e., `git worktree list` does not include the path), surface:
