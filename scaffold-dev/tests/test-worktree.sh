@@ -298,9 +298,16 @@ test_dispatcher_resolve_works_from_zsh() {
   cd "$TMP_AI_WORKSPACE" || return 1
   local expected="$TMP_AI_WORKSPACE/docs/specs/sprint-1.1/VS-1.1.1-first/work-1.01-init"
   mkdir -p "$expected"
-  local out
-  out="$(zsh -c 'cd "$1" && "$2" work_item_dir_resolve "1.01" "VS-1.1.1" "1.1"' zsh "$TMP_AI_WORKSPACE" "$HERE/../bin/sd")"
-  assert_eq "dispatcher resolves path when invoked from zsh" "$expected" "$out"
+  local out shell_bin shell_label
+  if [[ "${SCAFFOLD_TEST_NO_ZSH:-}" != "1" ]] && command -v zsh >/dev/null 2>&1; then
+    shell_bin="zsh"
+    shell_label="zsh"
+  else
+    shell_bin="sh"
+    shell_label="sh fallback"
+  fi
+  out="$("$shell_bin" -c 'cd "$1" && "$2" work_item_dir_resolve "1.01" "VS-1.1.1" "1.1"' "$shell_label" "$TMP_AI_WORKSPACE" "$HERE/../bin/sd")"
+  assert_eq "dispatcher resolves path when invoked from $shell_label" "$expected" "$out"
 }
 
 test_add_creates_worktree
