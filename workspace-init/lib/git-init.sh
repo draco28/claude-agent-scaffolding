@@ -161,7 +161,10 @@ wi_git_detect_remote() {
 wi_git_stage_ai_workspace() {
   local ai_root="$1"
 
-  if [[ ! -d "$ai_root/.git" ]]; then
+  # Accept both a normal .git directory and a gitfile-backed worktree (for
+  # example `git init --separate-git-dir`). This matches wi_git_init's
+  # idempotence check; git itself remains the authority on whether `add` works.
+  if [[ ! -e "$ai_root/.git" ]]; then
     wi_log_error "wi_git_stage_ai_workspace: not a git repo: $ai_root"
     return 1
   fi

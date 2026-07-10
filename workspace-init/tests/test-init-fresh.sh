@@ -111,7 +111,7 @@ test_H5_manifest_passes_validate() {
 }
 
 # ---------------------------------------------------------------------------
-# Manifest content — 4 tests
+# Manifest content — 6 tests
 # ---------------------------------------------------------------------------
 
 test_M1_routing_complete_all_16_entries() {

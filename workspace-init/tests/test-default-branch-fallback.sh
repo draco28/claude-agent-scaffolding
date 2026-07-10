@@ -2,7 +2,7 @@
 # tests/test-default-branch-fallback.sh — unit tests for the 4-step default
 # branch fallback chain in lib/git-init.sh (SPEC §8.4).
 #
-# Coverage (~9 tests):
+# Coverage (~10 tests):
 #   F1. Step 1 succeeds — origin/HEAD symbolic-ref is set, returns its branch
 #   F2. Step 1 fails, step 2 succeeds — symbolic-ref HEAD returns refs/heads/<branch>
 #   F3. Steps 1+2 fail (detached HEAD), step 3 attempted; documents why
@@ -13,6 +13,7 @@
 #   I1. Fresh init forces `main` even when global git config says `master`
 #   I2. Fresh pair initializes both repos on `main`
 #   I3. Idempotent init preserves an existing repo's branch
+#   I4. Gitfile-backed existing AI repo remains idempotent and stageable
 
 source "$(dirname "$0")/_helpers.sh"
 source "$WI_LIB_DIR/_helpers.sh"
@@ -223,6 +224,26 @@ test_I3_existing_repo_branch_is_preserved() {
 }
 
 # ---------------------------------------------------------------------------
+# I4. Gitfile-backed existing repo is skipped without breaking later staging
+# ---------------------------------------------------------------------------
+test_I4_gitfile_repo_is_preserved_and_stageable() {
+  local repo="$_WI_TMP/i4-repo"
+  local git_dir="$_WI_TMP/i4-git-dir"
+  mkdir -p "$repo/.workspace"
+  git init -q --separate-git-dir="$git_dir" "$repo"
+  git -C "$repo" symbolic-ref HEAD refs/heads/develop
+
+  wi_git_init "$repo" "$repo" >/dev/null 2>&1 || return 1
+  assert_eq "develop" "$(git -C "$repo" symbolic-ref --short HEAD)" \
+    "I4: gitfile-backed branch remains develop" || return 1
+
+  printf 'tracked through gitfile\n' > "$repo/example.txt"
+  wi_git_stage_ai_workspace "$repo" || return 1
+  assert_eq "example.txt" "$(git -C "$repo" diff --cached --name-only -- example.txt)" \
+    "I4: gitfile-backed AI workspace stages successfully" || return 1
+}
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -238,6 +259,7 @@ wi_test_run test_F6_custom_branch_develop_roundtrip
 wi_test_run test_I1_fresh_init_forces_main_over_global_master
 wi_test_run test_I2_fresh_pair_initializes_both_on_main
 wi_test_run test_I3_existing_repo_branch_is_preserved
+wi_test_run test_I4_gitfile_repo_is_preserved_and_stageable
 
 echo ""
 wi_test_summary
