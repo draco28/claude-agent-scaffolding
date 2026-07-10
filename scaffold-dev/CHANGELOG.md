@@ -2,6 +2,11 @@
 
 All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.18.0] — 2026-07-10
+
+### Added
+- **`orchestrate` gates disposition triage (pulse360#15).** Predicate-clean gates auto-advance with a ⚡ Auto-applied digest line, escalated gates (canonical merges, restart-class, vision-touching, slice close) pause; `--walk` flag parsed + forwarded to nested skills; recommendation-policy copy updated.
+
 ## [0.17.1] — 2026-07-05
 
 ### Fixed
