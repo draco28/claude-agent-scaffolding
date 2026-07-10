@@ -15,6 +15,7 @@
 #  8. TMPDIR unset → marker path falls back to /tmp.
 #  9. Hook does NOT overwrite an existing "scaffold-onboard" marker (no spurious
 #     re-writes — atime/mtime preserved).
+# 10. Minimal onboarding hints use the same SessionStart JSON envelope.
 #
 # Conventions:
 #   * Each test uses a fresh CLAUDE_SESSION_ID="test-T4-fixture-$$-<n>" to keep
@@ -29,6 +30,21 @@ source "$HERE/_helpers.sh"
 
 HOOK="$HERE/../hooks-handlers/session-start.sh"
 PLUGIN_ROOT="$(cd "$HERE/.." && pwd)"
+source "$PLUGIN_ROOT/lib/state.sh"
+
+assert_session_start_context() {
+  local label="$1" out="$2" expected_fragment="$3"
+  if printf '%s\n' "$out" | jq -e --arg fragment "$expected_fragment" '
+    (keys == ["hookSpecificOutput"])
+    and (.hookSpecificOutput.hookEventName == "SessionStart")
+    and (.hookSpecificOutput.additionalContext | type == "string")
+    and (.hookSpecificOutput.additionalContext | contains($fragment))
+  ' >/dev/null 2>&1; then
+    PASS=$((PASS+1)); echo "  ✓ $label"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ $label; got: $out"
+  fi
+}
 
 # Build a unique session id per test invocation to avoid cross-test leakage.
 _session_id() {
@@ -83,6 +99,7 @@ test_marker_absent_emits_full_tier0_and_writes_marker() {
   else
     FAIL=$((FAIL+1)); echo "  ✗ stdout missing memory-bank reference; got: $out"
   fi
+  assert_session_start_context "full Tier 0 uses SessionStart envelope" "$out" "memory-bank"
   assert_file_exists "$marker"
   if [[ -f "$marker" ]]; then
     local content; content="$(cat "$marker")"
@@ -220,6 +237,26 @@ test_no_spurious_overwrite_when_owned() {
   assert_eq "marker mtime unchanged (no spurious write)" "$mtime_before" "$mtime_after"
 }
 
+# ---------- Test 10: Minimal hint uses the same SessionStart envelope ----------
+test_minimal_hint_uses_session_start_envelope() {
+  echo "test_minimal_hint_uses_session_start_envelope:"
+  setup_tmp_repo
+  sf_state_init
+  local sid; sid="$(_session_id 10)"
+  local marker="$TMP_DIR/claude-code-tier0-$sid"
+  printf "scaffold-dev" > "$marker"
+  local out; out="$(_run_hook "$TMP_DIR" "$sid")"
+  assert_session_start_context \
+    "minimal onboarding hint uses SessionStart envelope" \
+    "$out" \
+    "onboarding in progress"
+  if echo "$out" | grep -q "memory-bank"; then
+    FAIL=$((FAIL+1)); echo "  ✗ minimal hint unexpectedly contains full Tier 0: $out"
+  else
+    PASS=$((PASS+1)); echo "  ✓ minimal hint excludes full Tier 0"
+  fi
+}
+
 test_marker_absent_emits_full_tier0_and_writes_marker
 test_marker_scaffold_dev_suppresses_full_tier0
 test_marker_scaffold_onboard_emits_full_tier0
@@ -229,5 +266,6 @@ test_marker_decision_within_50ms
 test_custom_tmpdir_honored
 test_tmpdir_unset_falls_back_to_slash_tmp
 test_no_spurious_overwrite_when_owned
+test_minimal_hint_uses_session_start_envelope
 
 report_results

@@ -78,51 +78,94 @@ if ! declare -F sd_manifest_get >/dev/null 2>&1; then
 fi
 
 # sd_harvest_apply <items-json> <slice-id>
-# Appends each item.suggestion (or item.item) to the named target_file with
-# a provenance trailer line. Skips items already present in the file
-# (text-equality match).
+# Validates the complete payload before any filesystem mutation, then appends
+# each item.text to its dev-authored target with a provenance trailer. Legacy
+# item.suggestion and item.item fields remain accepted when item.text is absent.
+# Skips items already present in the file (text-equality match).
 sd_harvest_apply() {
   local items_json="$1" slice_id="$2"
+  local n
+  if ! printf '%s' "$items_json" | jq -e 'type == "array"' >/dev/null 2>&1; then
+    sd_log_error "sd_harvest_apply: items-json must be a valid JSON array"
+    return 1
+  fi
+  n="$(printf '%s' "$items_json" | jq 'length')"
+  [[ "$n" == "0" ]] && return 0
+
+  # Contract validation is deliberately a separate first pass. A bad item must
+  # not leave earlier valid items applied or seed an empty live file.
+  local i=0
+  while (( i < n )); do
+    local item target source content_key content_type text
+    item="$(printf '%s' "$items_json" | jq -c ".[$i]")"
+    if [[ "$(printf '%s' "$item" | jq -r 'type')" != "object" ]]; then
+      sd_log_error "sd_harvest_apply: item $i must be a JSON object"
+      return 1
+    fi
+
+    target="$(printf '%s' "$item" | jq -r '.target_file // empty')"
+    source="$(printf '%s' "$item" | jq -r '.source // empty')"
+    content_key="$(printf '%s' "$item" | jq -r '
+      if .text? != null then "text"
+      elif .suggestion? != null then "suggestion"
+      elif .item? != null then "item"
+      else empty
+      end
+    ')"
+
+    if [[ -z "$content_key" ]]; then
+      sd_log_error "sd_harvest_apply: item $i has no content field (expected text; legacy suggestion/item are accepted)"
+      return 1
+    fi
+    content_type="$(printf '%s' "$item" | jq -r --arg key "$content_key" '.[$key] | type')"
+    text="$(printf '%s' "$item" | jq -r --arg key "$content_key" '.[$key]')"
+    if [[ "$content_type" != "string" || -z "$(printf '%s' "$text" | tr -d '[:space:]')" ]]; then
+      sd_log_error "sd_harvest_apply: item $i content field '$content_key' must be a non-empty string"
+      return 1
+    fi
+    if [[ "$source" != "report" && "$source" != "handoff" ]]; then
+      sd_log_error "sd_harvest_apply: item $i source must be 'report' or 'handoff'"
+      return 1
+    fi
+    case "$target" in
+      09-known-issues.md|10-decisions-log.md) ;;
+      *)
+        if _sd_harvest_is_derived "$target"; then
+          sd_log_error "sd_harvest_apply: item $i targets spec-derived '$target'; choose 09-known-issues.md or 10-decisions-log.md, or use authoring-machine-checkable-rules for enforceable rules"
+        else
+          sd_log_error "sd_harvest_apply: item $i target_file must be 09-known-issues.md or 10-decisions-log.md"
+        fi
+        return 1
+        ;;
+    esac
+    i=$((i+1))
+  done
+
   local ai_root mb
   ai_root="$(sd_manifest_get '.ai_workspace.root')" || { sd_log_error "sd_harvest_apply: no ai_workspace.root"; return 1; }
   mb="$ai_root/.claude/memory-bank"
   mkdir -p "$mb"
 
-  local n
-  n="$(echo "$items_json" | jq 'length')"
-  [[ "$n" == "0" ]] && return 0
-
   local today
   today="$(date -u +%Y-%m-%d)"
 
-  local i=0
+  i=0
   while (( i < n )); do
-    local target source text
-    target="$(echo "$items_json" | jq -r ".[$i].target_file // empty")"
-    source="$(echo "$items_json" | jq -r ".[$i].source // empty")"
-    text="$(echo "$items_json" | jq -r ".[$i].suggestion // .[$i].item // empty")"
+    local item target source content_key text
+    item="$(printf '%s' "$items_json" | jq -c ".[$i]")"
+    target="$(printf '%s' "$item" | jq -r '.target_file')"
+    source="$(printf '%s' "$item" | jq -r '.source')"
+    content_key="$(printf '%s' "$item" | jq -r '
+      if .text? != null then "text"
+      elif .suggestion? != null then "suggestion"
+      else "item"
+      end
+    ')"
+    text="$(printf '%s' "$item" | jq -r --arg key "$content_key" '.[$key]')"
     i=$((i+1))
-    [[ -z "$text" ]] && continue
-    if [[ -z "$target" ]]; then
-      sd_log_warn "sd_harvest_apply: skipping item with no target_file: $text"
-      continue
-    fi
-
-    # SS-1 W4: never append harvested prose into a spec-derived file — reroute to
-    # the dev-authored catch-all (09-known-issues.md) and warn. Enforceable patterns
-    # belong in 03's rules zone via authoring-machine-checkable-rules, not here.
-    if _sd_harvest_is_derived "$target"; then
-      sd_log_warn "sd_harvest_apply: '$target' is spec-derived — rerouting to 09-known-issues.md (cadence policy: memory-bank/WORKFLOW.md)"
-      target="09-known-issues.md"
-    fi
 
     local file="$mb/$target"
-    case "$target" in
-      09-known-issues.md|10-decisions-log.md)
-        _sd_harvest_seed_live_file "$file" "$target" ;;
-      *)
-        [[ -f "$file" ]] || { mkdir -p "$(dirname "$file")"; echo "# $target" > "$file"; } ;;
-    esac
+    _sd_harvest_seed_live_file "$file" "$target"
 
     # Idempotency: skip if line text already present.
     if grep -Fq "$text" "$file"; then

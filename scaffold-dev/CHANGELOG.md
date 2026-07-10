@@ -7,6 +7,11 @@ All notable changes to scaffold-dev documented here. Follows [Keep a Changelog](
 ### Added
 - **`orchestrate` gates disposition triage (pulse360#15).** Predicate-clean gates auto-advance with a ⚡ Auto-applied digest line, escalated gates (canonical merges, restart-class, vision-touching, slice close) pause; `--walk` flag parsed + forwarded to nested skills; recommendation-policy copy updated.
 
+## [0.17.2] — 2026-07-10
+
+### Fixed
+- **#102 — fail-loud, atomic harvest payload validation.** `sd harvest_apply` now validates the complete accepted-items array before filesystem mutation, uses canonical `text` content with backward-compatible `suggestion` / `item` fallbacks, accepts only `report` / `handoff` sources and the two dev-authored memory-bank targets, and rejects spec-derived targets with actionable routing instead of silently skipping or semantically misrouting content.
+
 ## [0.17.1] — 2026-07-05
 
 ### Fixed

@@ -119,7 +119,7 @@ For each sprint in order, walk the user through naming 2-5 vertical slices. For 
 - `summary` — 1-2 sentence summary: what's demoed when this slice closes
 - `demo_criteria` — 1-3 lines authored via `Skill(scaffold-onboard:authoring-vertical-slice-demo)` (§8)
 
-Persist each slice (without demo criteria yet) via `sf_roadmap_write_slice <sprint_id> <id> <name> <summary>`, then immediately invoke the demo-authoring skill per §8 to top-up criteria. After each sprint's slices are all captured, surface Checkpoint 3 (per-sprint boundary):
+Persist each slice (without demo criteria yet) via `sf_roadmap_write_slice <slice_id> <sprint_id> <name> <summary>`, then immediately invoke the demo-authoring skill per §8 to top-up criteria. **`slice_id` comes first and is the unique upsert key; `sprint_id` comes second.** Reversing them makes same-sprint slices collide and silently overwrite. After each sprint's slices are all captured, surface Checkpoint 3 (per-sprint boundary):
 
 > Slices captured for Sprint N.M (K total, each with demo criteria). Continue to next sprint's slices, or pause and resume?
 

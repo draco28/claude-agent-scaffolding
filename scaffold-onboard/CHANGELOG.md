@@ -2,6 +2,12 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.12.1] — 2026-07-10
+
+### Fixed
+- **#101 — Codex-compatible SessionStart context.** The scaffold-onboard hook now emits both full Tier 0 context and minimal onboarding hints through the shared `hookSpecificOutput` / `SessionStart` envelope, with jq-owned escaping and fail-open empty output instead of a top-level `additionalContext` object that Codex rejects.
+- **#105 — vertical-slice roadmap argument order.** The R1.C skill contract now consistently documents `sf_roadmap_write_slice <slice_id> <sprint_id> ...`, matching the implementation and its unique slice-ID upsert key so same-sprint slices are not silently overwritten.
+
 ## [0.12.0] — 2026-06-26
 
 SS-8 — #86: `/amend-spec` — incremental, change-driven MASTER-SPEC amendment for the post-MVP / vNext lifecycle.

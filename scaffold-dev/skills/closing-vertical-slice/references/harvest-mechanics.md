@@ -10,7 +10,7 @@ For each candidate, decide which **dev-authored** memory-bank file it belongs in
 - decisions / advisory patterns → `10-decisions-log.md`
 - an **enforceable** pattern → NOT a raw harvest append — route the user to `Skill(scaffold-onboard:authoring-machine-checkable-rules)` so it lands in `03`'s preserved rules zone.
 
-Spec-derived files (`00,01,02,04,07,08,index`) and `03`'s derived prose are **never** harvest targets; `sd harvest_apply` reroutes any such target to `09-known-issues.md` and warns. (There is no `06-product-context.md` file — `06` is `06-progress`; `01` is product-context.) Surface the proposed target alongside the candidate at step 5.
+Spec-derived files (`00,01,02,04,07,08,index`) and `03`'s derived prose are **never** harvest targets; `sd harvest_apply` rejects the complete payload before writing when any item names one. (There is no `06-product-context.md` file — `06` is `06-progress`; `01` is product-context.) Surface the proposed target alongside the candidate at step 5.
 
 ## Lean-index check (#48-F, write-time prevention) (§9.4)
 
@@ -46,19 +46,23 @@ Per item: accept (apply as-is) / edit (give me the revised text) / reject (drop)
 > Targets are dev-authored files only (`09`/`10`). A strictly **enforceable** rule (not
 > advisory prose) is NOT harvested into `03` as raw text — route it to
 > `Skill(scaffold-onboard:authoring-machine-checkable-rules)`. `sd harvest_apply`
-> reroutes any spec-derived target to `09-known-issues.md` and warns.
+> rejects any spec-derived target before writing.
 ```
 
 ## Apply payload + provenance trailer (§9.7)
 
 Build a JSON array of all accepted / edited candidates — one object per item:
 
-- Report-origin item: `{"source": "report", "target_file": "<filename>.md", "suggestion": "<text>"}`
-- Handoff-origin item: `{"source": "handoff", "target_file": "<filename>.md", "handoff_file": "<vs-N.M.K-*.md basename>", "item": "<text>"}`
+- Report-origin item: `{"source": "report", "target_file": "09-known-issues.md", "text": "<text>"}`
+- Handoff-origin item: `{"source": "handoff", "target_file": "10-decisions-log.md", "handoff_file": "<vs-N.M.K-*.md basename>", "text": "<text>"}`
+
+`text` is the canonical content field for both origins. The helper accepts legacy
+`suggestion` and `item` fields only when `text` is absent, so older callers remain
+compatible while new payloads have one contract.
 
 Then apply in one call: `sd harvest_apply "$accepted_json" "VS-N.M.K"`.
 
-`sd harvest_apply` is the **single mechanical write authority**: it writes each item to `${ai_workspace}/.claude/memory-bank/<file>.md` with the exact provenance trailer, enforces idempotency (skips text already present), and reroutes any spec-derived target to `09-known-issues.md` with a warning. Do **not** hand-author the trailer or append directly. The trailer it produces (documented for eval reference):
+`sd harvest_apply` is the **single mechanical write authority**: it validates the full array before filesystem mutation, accepts only the dev-authored `09-known-issues.md` / `10-decisions-log.md` targets, writes each item with the exact provenance trailer, and enforces idempotency (skips text already present). Do **not** hand-author the trailer or append directly. The trailer it produces (documented for eval reference):
 
 ```
 <!-- Added from VS-N.M.K retrospective, YYYY-MM-DD; source: report -->

@@ -29,6 +29,20 @@ source "$PLUGIN_ROOT/lib/_helpers.sh"
 source "$PLUGIN_ROOT/lib/state.sh"
 source "$PLUGIN_ROOT/lib/compose.sh"
 
+# Emit the shared Claude/Codex SessionStart envelope. jq owns string escaping;
+# if it is unavailable or fails, stay fail-open with no hook output rather than
+# returning malformed JSON that prevents the session from starting.
+_emit_session_start_context() {
+  local context="$1"
+  command -v jq >/dev/null 2>&1 || return 0
+  jq -n --arg context "$context" '{
+    hookSpecificOutput: {
+      hookEventName: "SessionStart",
+      additionalContext: $context
+    }
+  }' 2>/dev/null || true
+}
+
 # Read source field from stdin JSON payload, if present
 SOURCE=""
 if [[ ! -t 0 ]]; then
@@ -65,7 +79,7 @@ if [[ -n "$REPO_ROOT" ]]; then
   fi
 fi
 
-# Emit additionalContext JSON.
+# Emit SessionStart context JSON.
 # - Full Tier 0 (we own it): memory-bank reference + onboarding hint (if any).
 # - Minimal hint (another plugin owns Tier 0): onboarding hint only, if any;
 #   otherwise emit nothing (preserves v0.1.0 quiet behavior).
@@ -74,10 +88,10 @@ if [[ "$TIER0_EMIT_FULL" == "1" ]]; then
   if [[ -n "$ONBOARDING_HINT" ]]; then
     MSG="${MSG} ${ONBOARDING_HINT}"
   fi
-  printf '{\n  "additionalContext": "%s"\n}\n' "$MSG"
+  _emit_session_start_context "$MSG"
 else
   if [[ -n "$ONBOARDING_HINT" ]]; then
-    printf '{\n  "additionalContext": "%s"\n}\n' "$ONBOARDING_HINT"
+    _emit_session_start_context "$ONBOARDING_HINT"
   fi
 fi
 
