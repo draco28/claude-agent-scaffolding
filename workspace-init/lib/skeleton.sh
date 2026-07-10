@@ -61,8 +61,8 @@ wi_git_is_linked_worktree() {
 # Validates the inputs needed to start an init run, per SPEC §8.1:
 #   - <name> matches ^[a-z0-9-]+$ (kebab-case)
 #   - <parent> exists and is writable
-#   - AI workspace target (<parent>/<name>-ai) does NOT already exist
-#   - Fresh mode: canonical target (<parent>/<name>) must NOT exist
+#   - AI workspace target (<parent>/<name>-ai) has no existing filesystem entry
+#   - Fresh mode: canonical target (<parent>/<name>) has no existing entry
 #   - Pair-with mode: --pair-with path must exist + be a git repo
 #
 # Returns 0 on success, non-zero on any failure (with error to stderr).
@@ -103,7 +103,10 @@ wi_skeleton_preflight() {
   local ai_root="${parent}/${name}-ai"
   local canonical_root="${parent}/${name}"
 
-  if [[ -d "$ai_root" ]]; then
+  # Reject every target collision before root creation starts. `-d` misses
+  # regular files and `-e` alone misses dangling symlinks; either shape would
+  # otherwise let create_root_pair make one sibling before failing on the other.
+  if [[ -e "$ai_root" || -L "$ai_root" ]]; then
     wi_log_error "wi_skeleton_preflight: AI workspace target already exists: $ai_root"
     return 1
   fi
@@ -124,7 +127,7 @@ wi_skeleton_preflight() {
       return 1
     fi
   else
-    if [[ -d "$canonical_root" ]]; then
+    if [[ -e "$canonical_root" || -L "$canonical_root" ]]; then
       wi_log_error "wi_skeleton_preflight: canonical target already exists: $canonical_root"
       return 1
     fi

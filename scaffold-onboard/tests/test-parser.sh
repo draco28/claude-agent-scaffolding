@@ -63,6 +63,55 @@ test_phase_extract() {
   fi
 }
 
+test_phase_10_stops_before_post_mvp_appendix() {
+  echo "test_phase_10_stops_before_post_mvp_appendix:"
+  local spec="$FIXTURE_DIR/phase-10-appendix.md"
+  cat > "$spec" <<'EOF'
+# proj — Master Specification
+
+**Spec version:** 1.0
+**Project class:** CLI tool
+
+## Executive Summary
+
+Body.
+EOF
+  local i
+  for i in 1 2 3 4 5 6 7 8 9; do
+    cat >> "$spec" <<EOF
+<!-- master-spec:phase id=$i name=p$i -->
+## Phase $i: Stuff
+
+Phase $i content.
+
+EOF
+  done
+  cat >> "$spec" <<'EOF'
+<!-- master-spec:phase id=10 name=Operations & Support -->
+## Phase 10: Operations & Support
+
+Runbooks and support ownership.
+
+## Appendix: Post-MVP Horizon
+
+Deferred item: multi-region failover.
+EOF
+
+  local content
+  content="$(sf_spec_phase "$spec" 10)"
+  if echo "$content" | grep -q "Runbooks and support ownership"; then
+    PASS=$((PASS+1)); echo "  ✓ phase 10 contains operations content"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ phase 10 missing operations content"
+  fi
+  if echo "$content" | grep -q "multi-region failover"; then
+    FAIL=$((FAIL+1)); echo "  ✗ phase 10 leaks post-MVP appendix content"
+  else
+    PASS=$((PASS+1)); echo "  ✓ phase 10 stops before post-MVP appendix"
+  fi
+  assert_exit_code 0 sf_spec_validate "$spec"
+}
+
 test_kv_parse() {
   echo "test_kv_parse:"
   local spec="$FIXTURE_DIR/min.md"
@@ -197,6 +246,7 @@ EOF
 
 test_phases_present
 test_phase_extract
+test_phase_10_stops_before_post_mvp_appendix
 test_kv_parse
 test_kv_parse_missing
 test_project_class_helper
