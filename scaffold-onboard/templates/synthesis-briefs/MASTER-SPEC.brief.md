@@ -78,7 +78,8 @@ questions, formulas, or future work to make a section look fuller.
   questions, and candidate enhancements explicitly present in the phase
   records. Group those categories when populated. If there are none recorded,
   write `No post-MVP items or open questions were recorded.` Do not derive a
-  roadmap or invent future work in this appendix.
+  roadmap or invent future work in this appendix. Keep the appendix heading
+  exact: `lib/parser.sh` uses it as the Phase-10 extraction boundary.
 
 Do not omit phase markers. If a phase has no answers and no record, still emit
 the marker and a short section noting that the phase was intentionally left

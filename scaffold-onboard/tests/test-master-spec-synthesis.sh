@@ -49,6 +49,7 @@ test_brief_requires_structural_quality_contract() {
   assert_file_contains "$BRIEF" 'Driving Architectural Constraints'
   assert_file_contains "$BRIEF" 'Rejected Alternatives'
   assert_file_contains "$BRIEF" 'Appendix: Post-MVP Horizon'
+  assert_file_contains "$BRIEF" 'lib/parser\.sh.*Phase-10 extraction boundary'
   assert_file_contains "$BRIEF" 'computational rules'
   assert_file_contains "$BRIEF" 'propagation semantics'
   assert_file_contains "$BRIEF" 'type-level constraints'

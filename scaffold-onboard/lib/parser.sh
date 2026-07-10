@@ -32,6 +32,8 @@ sf_spec_phase() {
       if (pid == target) { in_phase = 1; next }
       else if (in_phase) { in_phase = 0 }
     }
+    # Contract anchor: MASTER-SPEC.brief.md requires this exact heading as the
+    # Phase-10 extraction boundary. Keep the heading synchronized there.
     /^## Appendix: Post-MVP Horizon[[:space:]]*$/ {
       if (in_phase) { in_phase = 0 }
     }
