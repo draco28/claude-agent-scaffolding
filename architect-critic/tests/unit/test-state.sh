@@ -179,6 +179,28 @@ assert_eq "deferred_count stored" "2" "$deferred_count"
 deferred_first="$(jq -r '.recent_runs[-1].deferred_challenges[0].text' "$state_file")"
 assert_eq "first deferred challenge text stored" "Track retry cancellation semantics" "$deferred_first"
 
+echo "T7e3: ac_state_append_run stores disposition-triage counts"
+"$TESTS_DIR/../bin/arc" state_append_run \
+  --request-id "crit-triage-style" \
+  --depth close \
+  --adversaries "claude" \
+  --challenge-count 9 \
+  --concessions 7 \
+  --auto-applied-count 6 \
+  --escalated-count 3 \
+  --skill-invoked critiquing-spec \
+  --elapsed-ms 30000
+triage_id="$(jq -r '.recent_runs[-1].request_id' "$state_file")"
+assert_eq "triage request_id stored" "crit-triage-style" "$triage_id"
+aac="$(jq '.recent_runs[-1].auto_applied_count' "$state_file")"
+assert_eq "auto_applied_count stored" "6" "$aac"
+esc="$(jq '.recent_runs[-1].escalated_count' "$state_file")"
+assert_eq "escalated_count stored" "3" "$esc"
+legacy_aac="$(jq '.recent_runs[0].auto_applied_count' "$state_file")"
+assert_eq "auto_applied_count defaults to 0 when omitted" "0" "$legacy_aac"
+legacy_esc="$(jq '.recent_runs[0].escalated_count' "$state_file")"
+assert_eq "escalated_count defaults to 0 when omitted" "0" "$legacy_esc"
+
 echo "T7f: ac_state_append_run missing flag values fail promptly"
 assert_quick_exit_code 2 "$TESTS_DIR/../bin/arc" state_append_run --request-id
 

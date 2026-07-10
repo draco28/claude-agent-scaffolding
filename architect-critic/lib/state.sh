@@ -105,9 +105,11 @@ ac_state_write_field() {
 # Append a completed run to recent_runs (schema v2+), then trim to the last 20 entries.
 # Args: <request_id> <depth> <adversaries_used_json> <challenge_count> <concessions> <skill_invoked> <elapsed_ms>
 #   adversaries_used_json: a JSON array literal, e.g. '["claude"]' or '["claude","codex"]'
+#   Optional flags: --auto-applied-count <int> (default 0), --escalated-count <int> (default 0)
 ac_state_append_run() {
   local request_id="" depth="" adversaries_json="" challenge_count="" concessions="" skill_invoked="" elapsed_ms=""
   local deferred_count="0" deferred_challenges_json="[]"
+  local auto_applied_count="0" escalated_count="0"
 
   if [[ "${1:-}" == --* ]]; then
     local adversaries_raw=""
@@ -120,6 +122,8 @@ ac_state_append_run() {
         --concessions) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --concessions requires a value"; return 2; }; concessions="$2"; shift 2 ;;
         --deferred-count) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --deferred-count requires a value"; return 2; }; deferred_count="$2"; shift 2 ;;
         --deferred-challenges) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --deferred-challenges requires a value"; return 2; }; deferred_challenges_json="$2"; shift 2 ;;
+        --auto-applied-count) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --auto-applied-count requires a value"; return 2; }; auto_applied_count="$2"; shift 2 ;;
+        --escalated-count) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --escalated-count requires a value"; return 2; }; escalated_count="$2"; shift 2 ;;
         --skill-invoked) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --skill-invoked requires a value"; return 2; }; skill_invoked="$2"; shift 2 ;;
         --elapsed-ms) [[ $# -ge 2 ]] || { ac_log_error "ac_state_append_run: --elapsed-ms requires a value"; return 2; }; elapsed_ms="$2"; shift 2 ;;
         *)
@@ -173,6 +177,8 @@ ac_state_append_run() {
     --argjson con "$concessions" \
     --argjson dc "$deferred_count" \
     --argjson dch "$deferred_challenges_json" \
+    --argjson aac "$auto_applied_count" \
+    --argjson esc "$escalated_count" \
     --arg skl "$skill_invoked" \
     --argjson elm "$elapsed_ms" \
     '.recent_runs = ((.recent_runs + [{
@@ -184,6 +190,8 @@ ac_state_append_run() {
        "concessions": $con,
        "deferred_count": $dc,
        "deferred_challenges": $dch,
+       "auto_applied_count": $aac,
+       "escalated_count": $esc,
        "skill_invoked": $skl,
        "elapsed_ms": $elm
      }]) | if length > 20 then .[-20:] else . end)' \
