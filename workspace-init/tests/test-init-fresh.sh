@@ -6,9 +6,9 @@
 # Each test creates its own tempdir and asserts a slice of the resulting
 # filesystem + git + manifest state.
 #
-# Covered (~15 tests):
+# Covered (~18 tests):
 #   Happy path    (5)  : exit, ai dir, canonical dir, manifest present + valid
-#   Manifest body (4)  : routing entries, project_type personal + work, default_branch
+#   Manifest body (6)  : routing entries, project_type personal + work, declared + actual default_branch
 #   Hooks         (2)  : both repos have baked hook; hook is functional (blocks Co-Authored-By)
 #   Staging       (2)  : ai staged but canonical not; no auto-commit anywhere
 #   Gitignore     (1)  : .workspace/handoffs/ literal in .gitignore
@@ -55,7 +55,12 @@ _run_bootstrap() {
   wi_stub_claude_md "$ai_root" "$name" || return 1
   wi_stub_agents_md "$ai_root" "$name" || return 1
   wi_stub_readme "$ai_root" "$name" || return 1
-  wi_git_init_pair "$ai_root" "$canonical_root" || return 1
+  # Reproduce the issue environment: system/global git defaults to `master`.
+  # Fresh workspace-init repos must still land on the manifest-declared `main`.
+  local git_config="$parent/gitconfig"
+  git config --file "$git_config" init.defaultBranch master
+  GIT_CONFIG_GLOBAL="$git_config" GIT_CONFIG_NOSYSTEM=1 \
+    wi_git_init_pair "$ai_root" "$canonical_root" || return 1
   wi_trace_filter_install_pair "$ai_root" "$canonical_root" || return 1
   wi_git_stage_ai_workspace "$ai_root" || return 1
   return 0
@@ -156,6 +161,21 @@ test_M4_canonical_default_branch_present() {
     echo "    canonical.default_branch missing/empty"
     return 1
   fi
+}
+
+test_M5_ai_repo_actual_branch_is_main() {
+  local parent="$_WI_TMP/m5"; mkdir -p "$parent"
+  _run_bootstrap "$parent" "alpha" personal >/dev/null 2>&1 || return 1
+  assert_eq "main" "$(git -C "$parent/alpha-ai" symbolic-ref --short HEAD)" || return 1
+}
+
+test_M6_canonical_actual_branch_matches_manifest() {
+  local parent="$_WI_TMP/m6"; mkdir -p "$parent"
+  _run_bootstrap "$parent" "alpha" personal >/dev/null 2>&1 || return 1
+  local manifest_branch actual_branch
+  manifest_branch="$(jq -r '.canonical.default_branch' "$parent/alpha-ai/.workspace/pairing.json")"
+  actual_branch="$(git -C "$parent/alpha" symbolic-ref --short HEAD)"
+  assert_eq "$manifest_branch" "$actual_branch" || return 1
 }
 
 # ---------------------------------------------------------------------------
@@ -290,7 +310,7 @@ test_F2_invalid_name_aborts_no_dirs() {
 }
 
 # ---------------------------------------------------------------------------
-# Run all (15 tests)
+# Run all (18 tests)
 # ---------------------------------------------------------------------------
 
 wi_test_run test_H1_bootstrap_succeeds_exit_zero
@@ -303,6 +323,8 @@ wi_test_run test_M1_routing_complete_all_16_entries
 wi_test_run test_M2_project_type_personal
 wi_test_run test_M3_project_type_work
 wi_test_run test_M4_canonical_default_branch_present
+wi_test_run test_M5_ai_repo_actual_branch_is_main
+wi_test_run test_M6_canonical_actual_branch_matches_manifest
 
 wi_test_run test_K1_hooks_installed_both_repos_with_baked_path
 wi_test_run test_K2_hook_blocks_co_authored_by_returns_one

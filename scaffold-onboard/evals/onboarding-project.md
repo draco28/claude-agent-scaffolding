@@ -154,6 +154,54 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 ---
 
+### S6 — Phase-10 synthesis preserves reasoning structure without invention
+
+**Setup:**
+- Tmp repo with `git init`; no pre-existing MASTER-SPEC or EXECUTIVE-SUMMARY.
+- Project-scoped `onboarding-state.json` is schema v2, `status=close_pending`,
+  `current_phase=10`, with all ten phases answered and recorded.
+- Phase records contain these judge-visible fixtures:
+  - Phases 1 and 2 both cite the constraint `offline-only operation`.
+  - Phase 3 defines entity `Quote` with a recorded decimal normalization rule,
+    downstream price-change propagation, and a positive-decimal type constraint.
+  - Phase 5 contains critic outcome id `P5-C1`, outcome `conceded`, and explicitly
+    says it changed the storage decision.
+  - Phase 7 contains rejected alternative `global mutable registry` with rationale
+    `breaks deterministic test isolation`.
+  - Phase 10 contains deferred item `multi-region failover` and open question
+    `recovery-point objective`; no other post-MVP candidates are recorded.
+- architect-critic, ai-mentor, and superpowers composition are absent so this
+  scenario isolates the MASTER-SPEC synthesis brief.
+
+**Trigger:** target subagent user message: `/onboard --resume`
+
+**Expected behavior:**
+- The close ceremony synthesizes MASTER-SPEC through `MASTER-SPEC.brief.md`, then
+  validates it with `sf spec_validate` before completing onboarding.
+- Phase 1 includes `Driving Architectural Constraints` and consolidates
+  `offline-only operation` without inventing a second cross-cutting constraint.
+- The Phase 3 `Quote` description covers the recorded computational rule,
+  propagation semantics, and type-level constraint.
+- The changed Phase 5 decision carries a concrete audit tag containing `P5-C1`
+  and `conceded`; no invented critic or grill identifier appears.
+- Phase 7 includes a `Rejected Alternatives` subsection containing the recorded
+  registry alternative and rationale.
+- After Phase 10, `Appendix: Post-MVP Horizon` contains exactly the recorded
+  deferred item and open question; it invents no candidate enhancement.
+
+**Assertion (judge subagent verifies):**
+- The authored MASTER-SPEC passes `sf spec_validate` and still has exactly one
+  marker for each phase id 1 through 10 in order.
+- The five structural expectations above are present in the authored file and
+  remain traceable to the seeded phase-record values.
+- No audit tag contains an identifier other than the seeded `P5-C1`.
+- The post-MVP appendix does not introduce capabilities, deferrals, or questions
+  absent from the fixture.
+- Onboarding reaches `status=complete`; MASTER-SPEC and EXECUTIVE-SUMMARY are both
+  produced through the normal close path.
+
+---
+
 ## Pass / fail criteria
 
 A scenario is PASS only if every bullet under its `Assertion` block is judged true. If any bullet fails, the judge returns `FAIL: <bullet text> — <specific deviation observed>` so the skill author can target a fix.

@@ -2,6 +2,11 @@
 
 All notable changes to scaffold-onboard documented here. Follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 1.1.0.
 
+## [0.13.0] — 2026-07-10
+
+### Changed
+- **#104 — consistent MASTER-SPEC reasoning structure.** The Phase-10 synthesis brief now preserves concrete critic/grill traces only when they changed a decision, emits phase-local rejected alternatives, consolidates genuinely cross-phase architectural constraints, requires recorded computational/propagation/type semantics for Phase-3 entities, and always produces a source-grounded post-MVP horizon appendix. The parser contract remains unchanged; explicit anti-invention rules prevent synthetic audit IDs, alternatives, formulas, and future work. Contract assertions plus a populated Phase-10 behavioral eval pin the new quality bar.
+
 ## [0.12.1] — 2026-07-10
 
 ### Fixed

@@ -26,10 +26,36 @@ This bootstraps two sibling directories:
 
 ```
 foo/                  # canonical repo (skeleton: README, .gitignore, LICENSE stub)
-foo-ai-workspace/     # AI workspace (.workspace/pairing.json, .claude/, docs/, AGENTS.md, CLAUDE.md stub)
+foo-ai/               # AI workspace (.workspace/pairing.json, .claude/, docs/, AGENTS.md, CLAUDE.md stub)
 ```
 
-Both are `git init`'d on `main` (with fallback chain if your `init.defaultBranch` config differs). The `commit-msg` AI-trace hook is installed into `foo/.git/hooks/`. Nothing is auto-committed — files are staged, you commit when ready.
+Both are explicitly `git init`'d on `main`, regardless of the machine's
+`init.defaultBranch` setting. The `commit-msg` AI-trace hook is installed into
+`foo/.git/hooks/`. Nothing is auto-committed — files are staged, you commit when
+ready.
+
+### Fresh project inside an existing wrapper
+
+Use explicit wrapper mode when an outer project directory already contains
+source material and should contain both repositories:
+
+```
+/init-workspace pulsebase --wrapper /Users/example/projects/pulsebase
+```
+
+This creates only the inner pair:
+
+```
+/Users/example/projects/pulsebase/
+├── PULSEBASE_SPEC.md     # existing wrapper content; preserved
+├── pulsebase/            # canonical repo
+└── pulsebase-ai/         # AI workspace
+```
+
+The wrapper must already exist and be writable. Only `pulsebase/` and
+`pulsebase-ai/` are collision-checked and rollback-owned; other wrapper contents
+are never moved, copied, deleted, or added to the pairing manifest. Wrapper mode
+is never inferred from directory names or non-empty parents.
 
 ### Pair with an existing canonical (Scenario A)
 

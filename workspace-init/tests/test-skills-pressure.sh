@@ -54,6 +54,19 @@ test_pair_command_uses_arguments_bridge() {
   ! grep -nE '\$[1-9]' "$cmd" | grep -v '\$ARGUMENTS' | grep -v '^[^:]*:#' >/dev/null
 }
 
+test_init_skill_documents_explicit_wrapper_mode() {
+  grep -qF -- '--wrapper <existing-dir>' "$INIT_SKILL" || return 1
+  grep -qF 'never auto-detect' "$INIT_SKILL" || return 1
+  grep -qF 'wrapper contents' "$INIT_SKILL" || return 1
+}
+
+test_init_command_forwards_wrapper_grammar() {
+  local cmd="$WI_PLUGIN_ROOT/commands/init-workspace.md"
+  grep -qF -- '/init-workspace <name> --wrapper <existing-dir>' "$cmd" || return 1
+  grep -qF 'unknown option' "$cmd" || return 1
+  grep -qF -- '--wrapper requires' "$cmd" || return 1
+}
+
 # --- run all ---
 wi_test_run test_init_skill_file_exists
 wi_test_run test_pair_skill_file_exists
@@ -66,5 +79,7 @@ wi_test_run test_init_skill_body_size_in_range
 wi_test_run test_pair_skill_body_size_in_range
 wi_test_run test_init_command_uses_arguments_bridge
 wi_test_run test_pair_command_uses_arguments_bridge
+wi_test_run test_init_skill_documents_explicit_wrapper_mode
+wi_test_run test_init_command_forwards_wrapper_grammar
 
 wi_test_summary
