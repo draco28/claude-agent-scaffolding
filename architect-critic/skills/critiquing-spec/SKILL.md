@@ -500,7 +500,7 @@ Audit complete for <artifact path>.
   Challenges       : <N> total (<X> premise, <Y> gap, <Z> alternative)
   Concessions      : <C> of <N>
   Auto-applied     : <A> of <N> (disposition triage)
-  Escalated        : <M> walked
+  Escalated        : <M> walked after triage
   Deferred         : <D> (tracked for later)
   Candidates piled : <K> (challenges that stood after rebuttal)
   Principles       : <P> applied (shipped + user + project)
@@ -508,6 +508,8 @@ Audit complete for <artifact path>.
 
 <If promotion candidates surfaced: prompt for promote decision here>
 ```
+
+`<M>` (Escalated) is `ESCALATED_COUNT`: challenges that tripped the escalation predicate and were walked individually in Step 8. Under `--walk`/`--neutral`, Step 8.0 triage does not run, so `<M>` reads `0` even though every one of the `<N>` challenges was walked (sequential mode, not the predicate) — read `Escalated : 0` in those modes as "triage skipped," not "nothing was walked."
 
 This is the structured handoff. Consumer plugins (scaffold-onboard v0.2, scaffold-dev v0.1) parse the summary out of conversation context — there is **no file IPC** for the cross-plugin handoff, only the conversation transcript. Keep the format stable so consumers' regexes work.
 

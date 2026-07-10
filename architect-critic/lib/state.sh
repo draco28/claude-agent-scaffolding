@@ -535,6 +535,7 @@ ac_state_external_run_resolve() {
 # ac_state_external_run_finalize_resume --run-id R --request-id Q --depth D
 #   --adversaries JSON_OR_CSV --challenge-count N --concessions N
 #   --skill-invoked S --elapsed-ms N
+#   Optional flags: --auto-applied-count <int> (default 0), --escalated-count <int> (default 0)
 # Atomically appends the completed critique to recent_runs[] and pins
 # external_runs[].resolved_run_request_id. rc1 if the external run is absent or
 # already resolved; callers then treat resume as inspect-only.
@@ -542,6 +543,7 @@ ac_state_external_run_finalize_resume() {
   local run_id="" request_id="" depth="" adversaries_raw="" adversaries_json=""
   local challenge_count="" concessions="" skill_invoked="" elapsed_ms=""
   local deferred_count="0" deferred_challenges_json="[]"
+  local auto_applied_count="0" escalated_count="0"
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --run-id) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --run-id requires a value"; return 2; }; run_id="$2"; shift 2 ;;
@@ -552,6 +554,8 @@ ac_state_external_run_finalize_resume() {
       --concessions) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --concessions requires a value"; return 2; }; concessions="$2"; shift 2 ;;
       --deferred-count) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --deferred-count requires a value"; return 2; }; deferred_count="$2"; shift 2 ;;
       --deferred-challenges) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --deferred-challenges requires a value"; return 2; }; deferred_challenges_json="$2"; shift 2 ;;
+      --auto-applied-count) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --auto-applied-count requires a value"; return 2; }; auto_applied_count="$2"; shift 2 ;;
+      --escalated-count) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --escalated-count requires a value"; return 2; }; escalated_count="$2"; shift 2 ;;
       --skill-invoked) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --skill-invoked requires a value"; return 2; }; skill_invoked="$2"; shift 2 ;;
       --elapsed-ms) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_finalize_resume: --elapsed-ms requires a value"; return 2; }; elapsed_ms="$2"; shift 2 ;;
       *) ac_log_error "ac_state_external_run_finalize_resume: unknown flag: $1"; return 2 ;;
@@ -605,6 +609,8 @@ ac_state_external_run_finalize_resume() {
     --argjson con "$concessions" \
     --argjson dc "$deferred_count" \
     --argjson dch "$deferred_challenges_json" \
+    --argjson aac "$auto_applied_count" \
+    --argjson esc "$escalated_count" \
     --arg skl "$skill_invoked" \
     --argjson elm "$elapsed_ms" \
     '.recent_runs = (((.recent_runs // []) + [{
@@ -616,6 +622,8 @@ ac_state_external_run_finalize_resume() {
        "concessions": $con,
        "deferred_count": $dc,
        "deferred_challenges": $dch,
+       "auto_applied_count": $aac,
+       "escalated_count": $esc,
        "skill_invoked": $skl,
        "elapsed_ms": $elm
      }]) | if length > 20 then .[-20:] else . end)
