@@ -243,6 +243,21 @@ test_write_slice_preserves_traces_when_legacy_update_omits_them() {
   teardown_roadmap
 }
 
+test_skill_documents_slice_id_first_contract() {
+  echo "test_skill_documents_slice_id_first_contract:"
+  local skill="$HERE/../skills/planning-project-roadmap/SKILL.md"
+  if grep -Fq 'sf_roadmap_write_slice <sprint_id>' "$skill"; then
+    FAIL=$((FAIL+1)); echo "  ✗ stale sprint-id-first signature remains in skill"
+  else
+    PASS=$((PASS+1)); echo "  ✓ no stale sprint-id-first signature"
+  fi
+  if grep -Fq 'sf_roadmap_write_slice <slice_id> <sprint_id>' "$skill"; then
+    PASS=$((PASS+1)); echo "  ✓ skill documents slice-id-first signature"
+  else
+    FAIL=$((FAIL+1)); echo "  ✗ slice-id-first signature missing from skill"
+  fi
+}
+
 test_checkpoint_set_get_roundtrip() {
   echo "test_checkpoint_set_get_roundtrip:"
   setup_roadmap
@@ -872,6 +887,7 @@ test_write_sprint_appends_with_phase_id           # 5
 test_write_slice_appends_with_sprint_id           # 6
 test_write_slice_accepts_trace_arrays
 test_write_slice_preserves_traces_when_legacy_update_omits_them
+test_skill_documents_slice_id_first_contract
 test_checkpoint_set_get_roundtrip                 # 7
 # Render + ID
 test_render_writes_roadmap_md                     # 8
