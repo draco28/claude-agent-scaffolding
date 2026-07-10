@@ -11,6 +11,7 @@ source "$ROOT/lib/synthesis.sh"
 source "$ROOT/lib/routing.sh"
 BRIEF="$ROOT/templates/synthesis-briefs/MASTER-SPEC.brief.md"
 AGENT="$ROOT/agents/synthesis-agent.md"
+ONBOARD_EVAL="$ROOT/evals/onboarding-project.md"
 
 test_brief_exists_and_valid_frontmatter() {
   echo "test_brief_exists_and_valid_frontmatter:"
@@ -56,6 +57,16 @@ test_brief_requires_structural_quality_contract() {
 }
 
 test_brief_requires_structural_quality_contract
+
+test_onboarding_eval_includes_s6_in_green_gate() {
+  echo "test_onboarding_eval_includes_s6_in_green_gate:"
+  local scenarios
+  scenarios="$(grep -cE '^### S[0-9]+ —' "$ONBOARD_EVAL")"
+  assert_eq "behavioral eval declares six scenarios" "6" "$scenarios"
+  assert_file_contains "$ONBOARD_EVAL" 'full eval is GREEN when all 6 scenarios PASS'
+}
+
+test_onboarding_eval_includes_s6_in_green_gate
 
 _seed_min_state() {
   sf_state_init

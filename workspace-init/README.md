@@ -63,7 +63,7 @@ is never inferred from directory names or non-empty parents.
 /pair-workspace /abs/path/to/existing-project
 ```
 
-This creates `existing-project-ai-workspace/` as a sibling, writes the pairing manifest pointing at the existing canonical, and installs the `commit-msg` hook into the canonical's `.git/hooks/`. **The canonical's working tree is not modified.** Refuses to proceed if the canonical already has AI scaffolding (`.claude/memory-bank/`, `MASTER-SPEC.md`, `docs/MASTER-SPEC.md`, or `.claude/.onboarding-state.json`) — that's a Scenario B migration, deferred to v0.2.
+This creates `existing-project-ai/` as a sibling, writes the pairing manifest pointing at the existing canonical, and installs the `commit-msg` hook into the canonical's `.git/hooks/`. **The canonical's working tree is not modified.** Refuses to proceed if the canonical already has AI scaffolding (`.claude/memory-bank/`, `MASTER-SPEC.md`, `docs/MASTER-SPEC.md`, or `.claude/.onboarding-state.json`) — that's a Scenario B migration, deferred to v0.2.
 
 ### Skill auto-invocation
 

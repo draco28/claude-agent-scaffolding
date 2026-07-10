@@ -206,7 +206,7 @@ Each scenario is executed inside a single Claude Code subscription session by an
 
 A scenario is PASS only if every bullet under its `Assertion` block is judged true. If any bullet fails, the judge returns `FAIL: <bullet text> — <specific deviation observed>` so the skill author can target a fix.
 
-The full eval is GREEN when all 5 scenarios PASS.
+The full eval is GREEN when all 6 scenarios PASS.
 
 ## Out of scope for this eval
 

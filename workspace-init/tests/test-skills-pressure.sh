@@ -67,6 +67,13 @@ test_init_command_forwards_wrapper_grammar() {
   grep -qF -- '--wrapper requires' "$cmd" || return 1
 }
 
+test_readme_uses_canonical_ai_suffix_in_both_fresh_modes() {
+  local readme="$WI_PLUGIN_ROOT/README.md"
+  grep -qF 'foo-ai/' "$readme" || return 1
+  grep -qF 'existing-project-ai/' "$readme" || return 1
+  ! grep -qF 'existing-project-ai-workspace/' "$readme"
+}
+
 # --- run all ---
 wi_test_run test_init_skill_file_exists
 wi_test_run test_pair_skill_file_exists
@@ -81,5 +88,6 @@ wi_test_run test_init_command_uses_arguments_bridge
 wi_test_run test_pair_command_uses_arguments_bridge
 wi_test_run test_init_skill_documents_explicit_wrapper_mode
 wi_test_run test_init_command_forwards_wrapper_grammar
+wi_test_run test_readme_uses_canonical_ai_suffix_in_both_fresh_modes
 
 wi_test_summary
