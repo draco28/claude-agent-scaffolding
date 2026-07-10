@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # tests/test-skeleton.sh — unit tests for lib/skeleton.sh
 # Covers (per SPEC §8.1/§8.2/§8.3, ~18 tests):
-#   P. Preflight  (10) — name validation + writable parent + target absence + pair-with/wrapper modes
+#   P. Preflight  (12) — name validation + writable parent + target absence + pair-with/wrapper modes
 #   R. Root pair  (2) — standard + non-empty wrapper preservation
 #   A. AI-only    (1) — wi_skeleton_create_root_ai_only
 #   S. Seed       (4) — subdirs + .gitkeep + .gitignore content + idempotency
@@ -153,6 +153,52 @@ test_P10_nonempty_wrapper_rejects_inner_target_collision() {
 
   if wi_skeleton_preflight "$wrapper" "foo" 2>/dev/null; then
     echo "    expected collision failure for wrapper/foo"
+    return 1
+  fi
+}
+
+test_P11_wrapper_rejects_regular_file_targets_before_writes() {
+  local canonical_wrapper="$_WI_TMP/p11-canonical-file"
+  mkdir -p "$canonical_wrapper"
+  printf 'occupied\n' > "$canonical_wrapper/foo"
+
+  if wi_skeleton_preflight "$canonical_wrapper" "foo" 2>/dev/null; then
+    echo "    expected collision failure for regular file wrapper/foo"
+    return 1
+  fi
+  [[ ! -e "$canonical_wrapper/foo-ai" ]] || {
+    echo "    preflight created the AI sibling before rejecting canonical file"
+    return 1
+  }
+
+  local ai_wrapper="$_WI_TMP/p11-ai-file"
+  mkdir -p "$ai_wrapper"
+  printf 'occupied\n' > "$ai_wrapper/foo-ai"
+
+  if wi_skeleton_preflight "$ai_wrapper" "foo" 2>/dev/null; then
+    echo "    expected collision failure for regular file wrapper/foo-ai"
+    return 1
+  fi
+  [[ ! -e "$ai_wrapper/foo" ]] || {
+    echo "    preflight created the canonical sibling before rejecting AI file"
+    return 1
+  }
+}
+
+test_P12_wrapper_rejects_dangling_symlink_targets() {
+  local canonical_wrapper="$_WI_TMP/p12-canonical-link"
+  mkdir -p "$canonical_wrapper"
+  ln -s "$canonical_wrapper/missing" "$canonical_wrapper/foo"
+  if wi_skeleton_preflight "$canonical_wrapper" "foo" 2>/dev/null; then
+    echo "    expected collision failure for dangling canonical symlink"
+    return 1
+  fi
+
+  local ai_wrapper="$_WI_TMP/p12-ai-link"
+  mkdir -p "$ai_wrapper"
+  ln -s "$ai_wrapper/missing" "$ai_wrapper/foo-ai"
+  if wi_skeleton_preflight "$ai_wrapper" "foo" 2>/dev/null; then
+    echo "    expected collision failure for dangling AI symlink"
     return 1
   fi
 }
@@ -316,6 +362,8 @@ wi_test_run test_W1_is_linked_worktree_discriminates
 wi_test_run test_P8_pair_with_linked_worktree_rejected
 wi_test_run test_P9_nonempty_wrapper_is_valid_when_inner_targets_absent
 wi_test_run test_P10_nonempty_wrapper_rejects_inner_target_collision
+wi_test_run test_P11_wrapper_rejects_regular_file_targets_before_writes
+wi_test_run test_P12_wrapper_rejects_dangling_symlink_targets
 
 wi_test_run test_R1_create_root_pair_creates_both_and_logs
 wi_test_run test_R2_create_root_pair_preserves_wrapper_contents

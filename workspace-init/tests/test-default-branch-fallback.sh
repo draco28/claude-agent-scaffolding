@@ -2,7 +2,7 @@
 # tests/test-default-branch-fallback.sh — unit tests for the 4-step default
 # branch fallback chain in lib/git-init.sh (SPEC §8.4).
 #
-# Coverage (~10 tests):
+# Coverage (~11 tests):
 #   F1. Step 1 succeeds — origin/HEAD symbolic-ref is set, returns its branch
 #   F2. Step 1 fails, step 2 succeeds — symbolic-ref HEAD returns refs/heads/<branch>
 #   F3. Steps 1+2 fail (detached HEAD), step 3 attempted; documents why
@@ -14,6 +14,7 @@
 #   I2. Fresh pair initializes both repos on `main`
 #   I3. Idempotent init preserves an existing repo's branch
 #   I4. Gitfile-backed existing AI repo remains idempotent and stageable
+#   I5. Git 2.27-compatible fallback still initializes fresh repos on main
 
 source "$(dirname "$0")/_helpers.sh"
 source "$WI_LIB_DIR/_helpers.sh"
@@ -244,6 +245,42 @@ test_I4_gitfile_repo_is_preserved_and_stageable() {
 }
 
 # ---------------------------------------------------------------------------
+# I5. Git <=2.27 fallback: no --initial-branch support still yields main
+# ---------------------------------------------------------------------------
+test_I5_old_git_fallback_initializes_main() {
+  local repo="$_WI_TMP/i5-repo"
+  local config="$_WI_TMP/i5-gitconfig"
+  local shim_dir="$_WI_TMP/i5-bin"
+  local real_git
+  real_git="$(command -v git)"
+  mkdir -p "$repo/.workspace" "$shim_dir"
+  git config --file "$config" init.defaultBranch master
+
+  cat > "$shim_dir/git" <<'EOF'
+#!/usr/bin/env bash
+set -u
+for arg in "$@"; do
+  if [[ "$arg" == "--initial-branch=main" ]]; then
+    exit 129
+  fi
+done
+exec "$WI_TEST_REAL_GIT" "$@"
+EOF
+  chmod +x "$shim_dir/git"
+
+  WI_TEST_REAL_GIT="$real_git" PATH="$shim_dir:$PATH" \
+    GIT_CONFIG_GLOBAL="$config" GIT_CONFIG_NOSYSTEM=1 \
+    wi_git_init "$repo" "$repo" || return 1
+
+  assert_eq "main" "$(git -C "$repo" symbolic-ref --short HEAD)" \
+    "I5: fallback ignores configured master" || return 1
+  grep -qE "^GIT_INIT[[:space:]]+${repo}$" "$repo/.workspace/init-log" || {
+    echo "    I5: fallback init was not recorded in init-log"
+    return 1
+  }
+}
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -260,6 +297,7 @@ wi_test_run test_I1_fresh_init_forces_main_over_global_master
 wi_test_run test_I2_fresh_pair_initializes_both_on_main
 wi_test_run test_I3_existing_repo_branch_is_preserved
 wi_test_run test_I4_gitfile_repo_is_preserved_and_stageable
+wi_test_run test_I5_old_git_fallback_initializes_main
 
 echo ""
 wi_test_summary

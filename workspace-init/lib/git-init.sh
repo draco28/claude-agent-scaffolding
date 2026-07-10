@@ -40,12 +40,16 @@ wi_git_init() {
     return 1
   fi
 
-  # Pin the unborn branch explicitly. The pairing manifest declares `main`, so
-  # inheriting a machine-level init.defaultBranch=master would create a silent
-  # manifest/repository mismatch before the first commit (#103).
+  # Pin the unborn branch explicitly. Git 2.28+ supports --initial-branch;
+  # older Git releases need a plain init followed by an explicit HEAD update.
+  # Both paths ignore machine-level init.defaultBranch without imposing a new
+  # minimum Git version (#103).
   if ! git -C "$repo" init -q --initial-branch=main 2>/dev/null; then
-    wi_log_error "wi_git_init: git init failed for $repo"
-    return 1
+    if ! git -C "$repo" init -q 2>/dev/null \
+      || ! git -C "$repo" symbolic-ref HEAD refs/heads/main 2>/dev/null; then
+      wi_log_error "wi_git_init: git init failed for $repo"
+      return 1
+    fi
   fi
 
   local log="${ai_root_for_log}/.workspace/init-log"

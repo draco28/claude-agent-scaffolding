@@ -160,6 +160,8 @@ Each scenario is executed inside a single Claude Code subscription session by an
 - Tmp repo with `git init`; no pre-existing MASTER-SPEC or EXECUTIVE-SUMMARY.
 - Project-scoped `onboarding-state.json` is schema v2, `status=close_pending`,
   `current_phase=10`, with all ten phases answered and recorded.
+- Answer `phase_10.4.include_karpathy` is seeded as `no`, so resume proceeds
+  directly into synthesis instead of pausing for the close opt-in question.
 - Phase records contain these judge-visible fixtures:
   - Phases 1 and 2 both cite the constraint `offline-only operation`.
   - Phase 3 defines entity `Quote` with a recorded decimal normalization rule,

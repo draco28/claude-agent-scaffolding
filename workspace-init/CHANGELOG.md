@@ -6,7 +6,8 @@
 - **#103 — explicit nested-wrapper bootstrap mode.** `/init-workspace <name> --wrapper <existing-dir>` now treats an existing writable outer directory as the resolved parent, creates only `<name>/` and `<name>-ai/` inside it, collision-checks only those inner targets, and preserves all wrapper-level source material. Wrapper mode is never auto-detected and does not add a redundant manifest field; canonical and AI root paths remain the topology source of truth.
 
 ### Fixed
-- **#103 — fresh repositories now always initialize on `main`.** `wi_git_init` passes an explicit initial branch to `git init`, so a machine-level `init.defaultBranch=master` can no longer leave the real repository branch inconsistent with `canonical.default_branch: "main"` in the pairing manifest. Idempotent calls still skip existing repositories without renaming their current branch.
+- **#103 — fresh repositories now always initialize on `main`.** `wi_git_init` passes an explicit initial branch to Git 2.28+ and uses a plain-init plus symbolic-HEAD fallback on older Git, so a machine-level `init.defaultBranch=master` can no longer leave the real repository branch inconsistent with `canonical.default_branch: "main"` in the pairing manifest. Idempotent calls still skip existing repositories without renaming their current branch.
+- **#103 — preflight rejects every inner target collision before writing.** Fresh and wrapper modes now reject files and symlinks as well as directories at `<parent>/<name>` or `<parent>/<name>-ai`, preventing a half-created sibling when one target is a non-directory entry.
 
 ## 0.4.1 (2026-07-02)
 
