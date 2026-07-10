@@ -371,7 +371,7 @@ doesn't ground it, say *"(general best practice)"*. When `neutral_mode=true`
 (Step 3, `--neutral`), omit the recommended-disposition line and present each
 challenge neutrally.
 
-**Step 8.0 — Triage (disposition triage, pulse360#15).** Skip this step when `walk_mode=true` or `neutral_mode=true` — then every challenge is walked below. Otherwise, before walking anything, initialize `AUTO_APPLIED_COUNT=0` and `ESCALATED_COUNT=0`, then classify every challenge in the consolidated list against the escalation predicate in the policy's *Disposition triage* section (`${PLUGIN_DIR}/templates/recommendation-policy.md`): UNGROUNDED / VISION-SCOPE-TOUCHING / ONE-WAY DOOR / TOP SEVERITY (`premise` is this surface's top class) / CONTESTED (recommended disposition is `rebut`, or the two adversaries disagree on the finding).
+**Step 8.0 — Triage (disposition triage, pulse360#15).** Skip this step when `walk_mode=true` or `neutral_mode=true` — then every challenge is walked below. Otherwise, before walking anything, initialize `AUTO_APPLIED_COUNT=0`, `ESCALATED_COUNT=0`, `DEFERRED_CHALLENGES_JSON=[]`, and `DEFERRED_COUNT=0`, then classify every challenge in the consolidated list against the escalation predicate in the policy's *Disposition triage* section (`${PLUGIN_DIR}/templates/recommendation-policy.md`): UNGROUNDED / VISION/SCOPE-TOUCHING / ONE-WAY DOOR / TOP SEVERITY (`premise` is this surface's top class) / CONTESTED (recommended disposition is `rebut`, or the two adversaries disagree on the finding).
 
 - **Clears the predicate** → apply the recommended disposition now, incrementing `AUTO_APPLIED_COUNT`: `accept` → mark as concession; `defer` → append `{index,text,severity,rationale}` to `DEFERRED_CHALLENGES_JSON` and increment `DEFERRED_COUNT`.
 - **Trips the predicate** → add to the escalated list, incrementing `ESCALATED_COUNT`.
@@ -398,7 +398,7 @@ Recommended: <accept|rebut|defer> — <one-line, cited where possible>   (omit w
 Your response (accept | rebut | defer):
 ```
 
-Track deferred items while the cycle runs: initialize `DEFERRED_CHALLENGES_JSON=[]` and `DEFERRED_COUNT=0`; each `defer` appends `{index,text,severity,rationale}` for the current challenge. Then **end your turn** and wait for the user's reply. When they reply:
+Track deferred items while the cycle runs: `DEFERRED_CHALLENGES_JSON` and `DEFERRED_COUNT` were initialized in Step 8.0 (when `walk_mode=true` or `neutral_mode=true` skipped Step 8.0, initialize them to `[]` and `0` here instead — never re-zero them after triage ran, or auto-applied defers would be silently dropped); each `defer` appends `{index,text,severity,rationale}` for the current challenge. Then **end your turn** and wait for the user's reply. When they reply:
 
 - If they say *"accept"* → mark as concession; advance to next challenge.
 - If they say *"defer"* → append the challenge to `DEFERRED_CHALLENGES_JSON`, increment `DEFERRED_COUNT`, and advance. Defer means valid/unresolved but later: tracked, e.g. filed as an issue, never silently dropped.
@@ -411,7 +411,7 @@ Advance to the next challenge.
 **Escape hatches.** The user can short-circuit the per-challenge cycle:
 
 - *"linear from here"* / *"batch the rest"* / *"just list them"* → switch to **bulk-list mode**. Emit all remaining challenges as a single numbered list, ask for a single response (e.g. *"accept 1, 3; rebut 2 with: ..."*), parse, score in batch.
-- `alternative`-severity challenges that **trip** the predicate are still **auto-batched at the end**: collect them, present as a final group with a single ask (most alternatives clear the predicate and were already auto-applied in Step 8.0; the per-challenge ceremony stays overkill for the rest).
+- `alternative`-severity challenges that **trip** the predicate are still **auto-batched at the end**: collect them, present as a final group with a single ask (most alternatives clear the predicate and were already auto-applied in Step 8.0; the per-challenge ceremony stays overkill for the rest). Under `--walk`/`--neutral` (no predicate ran), **all** alternatives are end-batched — the pre-triage behavior.
 
 If the user ignores the prompt and changes topic, gracefully suspend the rebuttal cycle and surface what was completed in Step 10. Do not nag.
 
