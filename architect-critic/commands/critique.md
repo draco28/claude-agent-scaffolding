@@ -1,6 +1,6 @@
 ---
 description: Run an architect-critic audit on a spec or plan
-argument-hint: "[path] [--close] [--neutral] [--model NAME] [--principles PATH] [--scope project|user]"
+argument-hint: "[path] [--close] [--neutral] [--walk] [--model NAME] [--principles PATH] [--scope project|user]"
 ---
 
 # /critique
@@ -17,6 +17,7 @@ command is a thin wrapper — the work happens in the skill.
 - `--close` — request close-depth audit (claude-self-audit + codex fresh-frame). Default is
   shallow (claude-only).
 - `--neutral` — suppress per-challenge recommended dispositions; present challenges neutrally.
+- `--walk` — walk every challenge sequentially; disables disposition triage (no auto-applied dispositions) for this invocation.
 - `--model NAME` — override codex model (respects user's `~/.codex/config.toml` by default).
 - `--principles PATH` — override principles.md path.
 - `--scope project|user` — for principle promotion during the audit run.
