@@ -50,6 +50,7 @@ bash "$ARC" state_external_run_add --run-id r1 --host claude --adversary codex \
 assert_eq "added run status running" "running" "$(bash "$ARC" state_external_run_get r1 | jq -r '.status')"
 assert_eq "artifact stored" "/tmp/spec.md" "$(bash "$ARC" state_external_run_get r1 | jq -r '.artifact_path')"
 assert_eq "neutral_mode defaults false" "false" "$(bash "$ARC" state_external_run_get r1 | jq -r '.neutral_mode')"
+assert_eq "walk_mode defaults false" "false" "$(bash "$ARC" state_external_run_get r1 | jq -r '.walk_mode')"
 assert_exit_code 1 bash "$ARC" state_external_run_get nope
 
 echo "-- add supports persisted neutral mode --"
@@ -58,6 +59,13 @@ bash "$ARC" state_external_run_add --run-id r-neutral --host claude --adversary 
   --neutral-mode true
 assert_eq "neutral_mode persisted true" "true" "$(bash "$ARC" state_external_run_get r-neutral | jq -r '.neutral_mode')"
 bash "$ARC" state_external_run_set_status r-neutral completed >/dev/null
+
+echo "-- add supports persisted walk mode --"
+bash "$ARC" state_external_run_add --run-id r-walk --host claude --adversary codex \
+  --artifact /tmp/spec-walk.md --depth close --result-path "$CLAUDE_PLUGIN_DATA/async/r-walk/result.json" \
+  --walk-mode true
+assert_eq "walk_mode persisted true" "true" "$(bash "$ARC" state_external_run_get r-walk | jq -r '.walk_mode')"
+bash "$ARC" state_external_run_set_status r-walk completed >/dev/null
 
 echo "-- set_status terminal stamps completed_at --"
 bash "$ARC" state_external_run_set_status r1 completed
@@ -68,7 +76,7 @@ assert_exit_code 1 bash "$ARC" state_external_run_set_status nope completed
 assert_exit_code 2 bash "$ARC" state_external_run_set_status r1 typo-status
 
 echo "-- list + status filter --"
-assert_eq "two completed in list" "2" "$(bash "$ARC" state_external_run_list --status completed | jq 'length')"
+assert_eq "three completed in list" "3" "$(bash "$ARC" state_external_run_list --status completed | jq 'length')"
 assert_eq "zero running in list" "0" "$(bash "$ARC" state_external_run_list --status running | jq 'length')"
 
 echo "-- missing flag values fail promptly --"

@@ -115,7 +115,7 @@ For each fixture:
 
 ## Aggregate status
 
-Total fixtures: **7.** Target GREEN on this tree: **5 / 7** (R6–R7 RED — pending live-session validation) (the recommend-by-default
+Total fixtures: **7.** Target GREEN: **7 / 7**. Currently validated: **5 / 7** (R6–R7 RED — pending live-session validation) (the recommend-by-default
 instruction is embedded in `skills/grill-me/SKILL.md` Rule #3 and
 `skills/council/SKILL.md` Mechanic as of #93). These are **manual** behavioral checks
 — not automated — consistent with ai-mentor's skill-first, agent-driven design (the

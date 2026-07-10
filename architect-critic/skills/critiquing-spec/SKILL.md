@@ -110,7 +110,7 @@ Otherwise `close_depth = false` (shallow = claude-only audit, the default).
 
 **Neutral mode (#93).** Set `neutral_mode = true` if `--neutral` is present in `$ARCHITECT_CRITIC_ARGS`, or the user's natural-language invocation matched *"no recommendations"* / *"just list the challenges"* / *"don't recommend"*. When `neutral_mode=true`, Step 8 omits the per-challenge **recommended disposition** and presents challenges neutrally (the pre-#93 behavior). Default is `false` — recommend by default. Opt-out is per-invocation, not sticky.
 
-**Walk mode (pulse360#15).** Set `walk_mode = true` if `--walk` is present in `$ARCHITECT_CRITIC_ARGS`, or the user's natural-language invocation matched *"walk them"* / *"walk them one at a time"* / *"no auto-accept"*. When `walk_mode=true`, Step 8.0 triage is skipped entirely — every challenge is escalated and walked sequentially (the #93 behavior). Default is `false`; per-invocation, not sticky. `--neutral` also disables triage transitively: with no recommendations there is nothing grounded to auto-apply.
+**Walk mode (pulse360#15).** Set `walk_mode = true` if `--walk` is present in `$ARCHITECT_CRITIC_ARGS`, or the user's natural-language invocation matched *"walk them"* / *"walk them one at a time"* / *"no auto-accept"*. When `walk_mode=true`, Step 8.0 triage is skipped entirely — every challenge is walked sequentially (the #93 behavior). Default is `false`; per-invocation, not sticky. `--neutral` also disables triage transitively: with no recommendations there is nothing grounded to auto-apply.
 
 The close-depth adversary is host-aware:
 
@@ -245,7 +245,7 @@ The external adversary is a separate model talking to a separate session — it 
    # ... write the Step-5 self-audit JSON to "$job_dir/claude-audit.json" ...
    # If that write fails, cancel the dispatched job and stop before continuing.
    if ! arc state_external_run_add --run-id "$job" --host claude --adversary codex \
-     --artifact "<artifact-path>" --depth close --neutral-mode "$neutral_mode" \
+     --artifact "<artifact-path>" --depth close --neutral-mode "$neutral_mode" --walk-mode "$walk_mode" \
      --result-path "$job_dir/result.json"; then
      arc codex_cancel "$target_root" "$job" >/dev/null 2>&1 || true
      echo "Failed to persist async job metadata; cancelled job $job." >&2
@@ -398,7 +398,7 @@ Recommended: <accept|rebut|defer> — <one-line, cited where possible>   (omit w
 Your response (accept | rebut | defer):
 ```
 
-Track deferred items while the cycle runs: `DEFERRED_CHALLENGES_JSON` and `DEFERRED_COUNT` were initialized in Step 8.0 (when `walk_mode=true` or `neutral_mode=true` skipped Step 8.0, initialize them to `[]` and `0` here instead — never re-zero them after triage ran, or auto-applied defers would be silently dropped); each `defer` appends `{index,text,severity,rationale}` for the current challenge. Then **end your turn** and wait for the user's reply. When they reply:
+Track deferred items while the cycle runs: `DEFERRED_CHALLENGES_JSON` and `DEFERRED_COUNT` were initialized in Step 8.0 (when `walk_mode=true` or `neutral_mode=true` skipped Step 8.0, initialize them to `[]` and `0` here instead — along with `AUTO_APPLIED_COUNT=0` and `ESCALATED_COUNT=0`, which Step 9 passes unconditionally — never re-zero them after triage ran, or auto-applied defers would be silently dropped); each `defer` appends `{index,text,severity,rationale}` for the current challenge. Then **end your turn** and wait for the user's reply. When they reply:
 
 - If they say *"accept"* → mark as concession; advance to next challenge.
 - If they say *"defer"* → append the challenge to `DEFERRED_CHALLENGES_JSON`, increment `DEFERRED_COUNT`, and advance. Defer means valid/unresolved but later: tracked, e.g. filed as an issue, never silently dropped.
@@ -459,7 +459,7 @@ The schema v3 `recent_runs[]` entry includes:
 - `challenge_count` — total surviving challenges after consolidation
 - `concessions` — count of challenges the user conceded
 - `auto_applied_count` — challenges auto-applied by Step 8.0 triage (0 under `--walk`/`--neutral`)
-- `escalated_count` — challenges that tripped the predicate and were walked
+- `escalated_count` — challenges that tripped the predicate and were walked (0 under `--walk`/`--neutral` — no predicate ran)
 - `skill_invoked` — `"critiquing-spec"`
 - `elapsed_ms` — wall-clock from Step 1 start to Step 10 emit
 

@@ -38,7 +38,7 @@ Keep a running digest of Rule-4 self-answers. Surface accumulated lines at the t
 > ⚡ Auto-applied K of N
 > <id> · <question one-liner> · <adopted answer> · <citation>
 
-`reopen <ids>` re-opens self-answered branch(es) as a live question. `--walk` / *"walk them"* disables self-answering for the invocation — every question is asked (the #93 behavior). `--neutral` disables it transitively (no leans to adopt). Under triage, Rule 1 (one question per turn) governs everything actually **asked**; self-answered items consume no turns.
+`reopen <ids>` re-opens self-answered branch(es) as a live question. `--walk` / *"walk them"* disables self-answering for the invocation — every question is asked (the #93 behavior). `--neutral` disables it transitively (no leans to adopt). Under triage, Rule 1 (one question per turn) governs everything actually **asked**; self-answered items consume no turns. If no question turn remains (exit follows directly), surface the digest at the top of the exit summary instead.
 
 ## What to grill on
 

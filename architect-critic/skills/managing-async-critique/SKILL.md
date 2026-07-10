@@ -7,14 +7,14 @@ description: Manage background (async) close-depth critique jobs — status, res
 
 You have been invoked to manage **background close-depth critique jobs** created by `/critique --close --async` (#39). Those runs dispatch Codex as an external adversary in the background and record themselves in `state.json` under `external_runs[]`. This skill exposes four verbs: **status**, **result**, **cancel**, **resume**.
 
-Parse the verb (+ optional `<run-id>`) from `$ARCHITECT_CRITIC_ARGS` (the `/critique-jobs` wrapper exports it; env-var bridge per [[feedback_slash_command_dollar_n_bug]]). If no `<run-id>` is given, default to the most recent applicable run (see each verb). If `--neutral` is present on `resume`, force `neutral_mode=true`; otherwise resume inherits `external_runs[].neutral_mode` from the original `/critique --close --async [--neutral]` dispatch. All state/spine calls go through the `arc` dispatcher. Likewise re-derive `walk_mode` from the persisted args: when the dispatched `$ARCHITECT_CRITIC_ARGS` carried `--walk`, the resumed unified rebuttal walks every consolidated challenge; otherwise it runs `critiquing-spec` Step 8.0 triage first (auto-apply predicate-clean dispositions, walk the escalated subset).
+Parse the verb (+ optional `<run-id>`) from `$ARCHITECT_CRITIC_ARGS` (the `/critique-jobs` wrapper exports it; env-var bridge per [[feedback_slash_command_dollar_n_bug]]). If no `<run-id>` is given, default to the most recent applicable run (see each verb). If `--neutral` is present on `resume`, force `neutral_mode=true`; otherwise resume inherits `external_runs[].neutral_mode` from the original `/critique --close --async [--neutral]` dispatch. All state/spine calls go through the `arc` dispatcher. Likewise re-derive `walk_mode` from the run record — `external_runs[].walk_mode`, persisted at dispatch: when `true`, the resumed unified rebuttal walks every consolidated challenge; otherwise it runs `critiquing-spec` Step 8.0 triage first (auto-apply predicate-clean dispositions, walk the escalated subset).
 
 List runs for context with:
 ```bash
 arc state_external_run_list            # all
 arc state_external_run_list --status running
 ```
-Each record carries: `run_id, host_agent, adversary, artifact_path, depth, status, started_at, completed_at, result_path, codex_session_id, neutral_mode, resolved_run_request_id`. The `target_root` for spine calls is `arc codex_target_root "<artifact_path>"`.
+Each record carries: `run_id, host_agent, adversary, artifact_path, depth, status, started_at, completed_at, result_path, codex_session_id, neutral_mode, walk_mode, resolved_run_request_id`. The `target_root` for spine calls is `arc codex_target_root "<artifact_path>"`.
 
 ---
 

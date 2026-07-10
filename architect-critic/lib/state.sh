@@ -332,7 +332,7 @@ ac_state_add_suppression() {
 # Appends a {status:"running"} record (started_at=now). Retains every unresolved
 # record, and caps only resolved history to fit the last 20 when possible.
 ac_state_external_run_add() {
-  local run_id="" host="" adversary="" artifact="" depth="" result_path="" session_id="" neutral_mode="false"
+  local run_id="" host="" adversary="" artifact="" depth="" result_path="" session_id="" neutral_mode="false" walk_mode="false"
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --run-id) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_add: --run-id requires a value"; return 2; }; run_id="$2"; shift 2 ;;
@@ -343,6 +343,7 @@ ac_state_external_run_add() {
       --result-path) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_add: --result-path requires a value"; return 2; }; result_path="$2"; shift 2 ;;
       --codex-session-id) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_add: --codex-session-id requires a value"; return 2; }; session_id="$2"; shift 2 ;;
       --neutral-mode) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_add: --neutral-mode requires a value"; return 2; }; neutral_mode="$2"; shift 2 ;;
+      --walk-mode) [[ $# -ge 2 ]] || { ac_log_error "ac_state_external_run_add: --walk-mode requires a value"; return 2; }; walk_mode="$2"; shift 2 ;;
       *) ac_log_error "ac_state_external_run_add: unknown flag: $1"; return 2 ;;
     esac
   done
@@ -354,6 +355,10 @@ ac_state_external_run_add() {
     true|false) ;;
     *) ac_log_error "ac_state_external_run_add: --neutral-mode must be true or false"; return 2 ;;
   esac
+  case "$walk_mode" in
+    true|false) ;;
+    *) ac_log_error "ac_state_external_run_add: --walk-mode must be true or false"; return 2 ;;
+  esac
   ac_state_init
   local state_file lock_path started_at
   state_file="$(ac_state_path)"
@@ -364,7 +369,7 @@ ac_state_external_run_add() {
   if ac_guarded_jq_write "$state_file" \
     --arg rid "$run_id" --arg host "$host" --arg adv "$adversary" \
     --arg art "$artifact" --arg dep "$depth" --arg rp "$result_path" \
-    --arg sid "$session_id" --argjson neutral "$neutral_mode" --arg sa "$started_at" \
+    --arg sid "$session_id" --argjson neutral "$neutral_mode" --argjson walk "$walk_mode" --arg sa "$started_at" \
     'def unresolved:
        select(.resolved_run_request_id == null);
      def trim_external_runs:
@@ -387,6 +392,7 @@ ac_state_external_run_add() {
        "result_path": $rp,
        "codex_session_id": (if $sid == "" then null else $sid end),
        "neutral_mode": $neutral,
+       "walk_mode": $walk,
        "resolved_run_request_id": null
      }]) | trim_external_runs)' \
     "$state_file"; then
