@@ -37,4 +37,15 @@ assert_file_contains "$ARGS" "neutral_mode"
 assert_file_contains "$ARGS" "--neutral"
 assert_file_contains "$CMD" "--neutral"
 
+# Disposition triage (pulse360#15) — gates auto-advance on predicate-clean recommendations.
+assert_file_contains "$POLICY" "Disposition triage"
+assert_file_contains "$POLICY" "⚡ Auto-applied"
+assert_file_contains "$SKILL" "auto-advance"
+assert_file_contains "$SKILL" "escalation predicate"
+assert_file_contains "$SKILL" "⚡ Auto-applied"
+assert_file_contains "$SKILL" "walk_mode"
+assert_file_contains "$ARGS" "walk_mode"
+assert_file_contains "$ARGS" "--walk"
+assert_file_contains "$CMD" "--walk"
+
 sd_test_summary

@@ -50,6 +50,7 @@ bash "$ARC" state_external_run_add --run-id r1 --host claude --adversary codex \
 assert_eq "added run status running" "running" "$(bash "$ARC" state_external_run_get r1 | jq -r '.status')"
 assert_eq "artifact stored" "/tmp/spec.md" "$(bash "$ARC" state_external_run_get r1 | jq -r '.artifact_path')"
 assert_eq "neutral_mode defaults false" "false" "$(bash "$ARC" state_external_run_get r1 | jq -r '.neutral_mode')"
+assert_eq "walk_mode defaults false" "false" "$(bash "$ARC" state_external_run_get r1 | jq -r '.walk_mode')"
 assert_exit_code 1 bash "$ARC" state_external_run_get nope
 
 echo "-- add supports persisted neutral mode --"
@@ -58,6 +59,13 @@ bash "$ARC" state_external_run_add --run-id r-neutral --host claude --adversary 
   --neutral-mode true
 assert_eq "neutral_mode persisted true" "true" "$(bash "$ARC" state_external_run_get r-neutral | jq -r '.neutral_mode')"
 bash "$ARC" state_external_run_set_status r-neutral completed >/dev/null
+
+echo "-- add supports persisted walk mode --"
+bash "$ARC" state_external_run_add --run-id r-walk --host claude --adversary codex \
+  --artifact /tmp/spec-walk.md --depth close --result-path "$CLAUDE_PLUGIN_DATA/async/r-walk/result.json" \
+  --walk-mode true
+assert_eq "walk_mode persisted true" "true" "$(bash "$ARC" state_external_run_get r-walk | jq -r '.walk_mode')"
+bash "$ARC" state_external_run_set_status r-walk completed >/dev/null
 
 echo "-- set_status terminal stamps completed_at --"
 bash "$ARC" state_external_run_set_status r1 completed
@@ -68,7 +76,7 @@ assert_exit_code 1 bash "$ARC" state_external_run_set_status nope completed
 assert_exit_code 2 bash "$ARC" state_external_run_set_status r1 typo-status
 
 echo "-- list + status filter --"
-assert_eq "two completed in list" "2" "$(bash "$ARC" state_external_run_list --status completed | jq 'length')"
+assert_eq "three completed in list" "3" "$(bash "$ARC" state_external_run_list --status completed | jq 'length')"
 assert_eq "zero running in list" "0" "$(bash "$ARC" state_external_run_list --status running | jq 'length')"
 
 echo "-- missing flag values fail promptly --"
@@ -108,6 +116,25 @@ assert_eq "finalize appended once" "1" "$(jq '[.recent_runs[] | select(.request_
 assert_eq "finalize pinned request id" "req-final" "$(bash "$ARC" state_external_run_get r2 | jq -r '.resolved_run_request_id')"
 assert_eq "finalize stores deferred_count" "1" "$(jq -r '.recent_runs[-1].deferred_count' "$state_file")"
 assert_eq "finalize stores deferred challenge" "Track deferred async concern" "$(jq -r '.recent_runs[-1].deferred_challenges[0].text' "$state_file")"
+assert_eq "finalize defaults auto_applied_count to 0 when omitted" "0" "$(jq -r '.recent_runs[-1].auto_applied_count' "$state_file")"
+assert_eq "finalize defaults escalated_count to 0 when omitted" "0" "$(jq -r '.recent_runs[-1].escalated_count' "$state_file")"
+
+echo "-- finalize_resume round-trips triage counts when provided --"
+bash "$ARC" state_external_run_add --run-id r3 --host claude --adversary codex \
+  --artifact /tmp/spec3.md --depth close --result-path "$CLAUDE_PLUGIN_DATA/async/r3/result.json"
+assert_exit_code 0 bash "$ARC" state_external_run_finalize_resume \
+  --run-id r3 \
+  --request-id req-triage-1 \
+  --depth close \
+  --adversaries claude,codex \
+  --challenge-count 5 \
+  --concessions 3 \
+  --auto-applied-count 2 \
+  --escalated-count 3 \
+  --skill-invoked critiquing-spec \
+  --elapsed-ms 900
+assert_eq "finalize round-trips auto_applied_count" "2" "$(jq -r '.recent_runs[-1].auto_applied_count' "$state_file")"
+assert_eq "finalize round-trips escalated_count" "3" "$(jq -r '.recent_runs[-1].escalated_count' "$state_file")"
 
 echo "-- external_runs cap preserves all unresolved jobs --"
 printf '%s' '{"schema_version":3,"recent_runs":[],"principle_promotions":[],"candidate_promotions":[],"declined_candidates":[],"auto_promote_suppressions":[],"external_runs":[]}' > "$state_file"

@@ -110,6 +110,8 @@ Otherwise `close_depth = false` (shallow = claude-only audit, the default).
 
 **Neutral mode (#93).** Set `neutral_mode = true` if `--neutral` is present in `$ARCHITECT_CRITIC_ARGS`, or the user's natural-language invocation matched *"no recommendations"* / *"just list the challenges"* / *"don't recommend"*. When `neutral_mode=true`, Step 8 omits the per-challenge **recommended disposition** and presents challenges neutrally (the pre-#93 behavior). Default is `false` — recommend by default. Opt-out is per-invocation, not sticky.
 
+**Walk mode (pulse360#15).** Set `walk_mode = true` if `--walk` is present in `$ARCHITECT_CRITIC_ARGS`, or the user's natural-language invocation matched *"walk them"* / *"walk them one at a time"* / *"no auto-accept"*. When `walk_mode=true`, Step 8.0 triage is skipped entirely — every challenge is walked sequentially (the #93 behavior). Default is `false`; per-invocation, not sticky. `--neutral` also disables triage transitively: with no recommendations there is nothing grounded to auto-apply.
+
 The close-depth adversary is host-aware:
 
 | HOST_AGENT | close_depth | available check | What runs |
@@ -243,7 +245,7 @@ The external adversary is a separate model talking to a separate session — it 
    # ... write the Step-5 self-audit JSON to "$job_dir/claude-audit.json" ...
    # If that write fails, cancel the dispatched job and stop before continuing.
    if ! arc state_external_run_add --run-id "$job" --host claude --adversary codex \
-     --artifact "<artifact-path>" --depth close --neutral-mode "$neutral_mode" \
+     --artifact "<artifact-path>" --depth close --neutral-mode "$neutral_mode" --walk-mode "$walk_mode" \
      --result-path "$job_dir/result.json"; then
      arc codex_cancel "$target_root" "$job" >/dev/null 2>&1 || true
      echo "Failed to persist async job metadata; cancelled job $job." >&2
@@ -369,7 +371,23 @@ doesn't ground it, say *"(general best practice)"*. When `neutral_mode=true`
 (Step 3, `--neutral`), omit the recommended-disposition line and present each
 challenge neutrally.
 
-**Sequential mode (default).** For each challenge in the consolidated list, emit:
+**Step 8.0 — Triage (disposition triage, pulse360#15).** Skip this step when `walk_mode=true` or `neutral_mode=true` — then every challenge is walked below. Otherwise, before walking anything, initialize `AUTO_APPLIED_COUNT=0`, `ESCALATED_COUNT=0`, `DEFERRED_CHALLENGES_JSON=[]`, and `DEFERRED_COUNT=0`, then classify every challenge in the consolidated list against the escalation predicate in the policy's *Disposition triage* section (`${PLUGIN_DIR}/templates/recommendation-policy.md`): UNGROUNDED / VISION/SCOPE-TOUCHING / ONE-WAY DOOR / TOP SEVERITY (`premise` is this surface's top class) / CONTESTED (recommended disposition is `rebut`, or the two adversaries disagree on the finding).
+
+- **Clears the predicate** → apply the recommended disposition now, incrementing `AUTO_APPLIED_COUNT`: `accept` → mark as concession; `defer` → append `{index,text,severity,rationale}` to `DEFERRED_CHALLENGES_JSON` and increment `DEFERRED_COUNT`.
+- **Trips the predicate** → add to the escalated list, incrementing `ESCALATED_COUNT`.
+
+Then emit the digest — the `⚡ Auto-applied` header is a stability contract (anchor tests + the agent-ops regression watch grep for it):
+
+```
+⚡ Auto-applied K of N
+<index> · <challenge one-liner> · <accept|defer> · <citation>
+...
+Escalated: M challenge(s) — walking them now. (`reopen <ids>` pulls an auto-applied item back into the walk.)
+```
+
+Honor `reopen <ids>` at any point before Step 9's state append: reverse the item's auto-applied disposition (un-mark the concession, or pop the deferred entry and decrement `DEFERRED_COUNT`), decrement `AUTO_APPLIED_COUNT`, increment `ESCALATED_COUNT`, and walk it with the full cycle below.
+
+**Sequential mode (the escalated subset).** For each escalated challenge (every challenge, when `walk_mode=true` or `neutral_mode=true`), emit:
 
 ```
 Challenge 1 of N (severity: <premise|gap|alternative>)
@@ -380,7 +398,7 @@ Recommended: <accept|rebut|defer> — <one-line, cited where possible>   (omit w
 Your response (accept | rebut | defer):
 ```
 
-Track deferred items while the cycle runs: initialize `DEFERRED_CHALLENGES_JSON=[]` and `DEFERRED_COUNT=0`; each `defer` appends `{index,text,severity,rationale}` for the current challenge. Then **end your turn** and wait for the user's reply. When they reply:
+Track deferred items while the cycle runs: `DEFERRED_CHALLENGES_JSON` and `DEFERRED_COUNT` were initialized in Step 8.0 (when `walk_mode=true` or `neutral_mode=true` skipped Step 8.0, initialize them to `[]` and `0` here instead — along with `AUTO_APPLIED_COUNT=0` and `ESCALATED_COUNT=0`, which Step 9 passes unconditionally — never re-zero them after triage ran, or auto-applied defers would be silently dropped); each `defer` appends `{index,text,severity,rationale}` for the current challenge. Then **end your turn** and wait for the user's reply. When they reply:
 
 - If they say *"accept"* → mark as concession; advance to next challenge.
 - If they say *"defer"* → append the challenge to `DEFERRED_CHALLENGES_JSON`, increment `DEFERRED_COUNT`, and advance. Defer means valid/unresolved but later: tracked, e.g. filed as an issue, never silently dropped.
@@ -393,7 +411,7 @@ Advance to the next challenge.
 **Escape hatches.** The user can short-circuit the per-challenge cycle:
 
 - *"linear from here"* / *"batch the rest"* / *"just list them"* → switch to **bulk-list mode**. Emit all remaining challenges as a single numbered list, ask for a single response (e.g. *"accept 1, 3; rebut 2 with: ..."*), parse, score in batch.
-- `alternative`-severity challenges are **auto-batched at the end** by default. Don't walk them one-by-one alongside premise/gap challenges; collect them, present as a final group with a single ask. Alternatives are lower-stakes and the per-challenge ceremony is overkill.
+- `alternative`-severity challenges that **trip** the predicate are still **auto-batched at the end**: collect them, present as a final group with a single ask (most alternatives clear the predicate and were already auto-applied in Step 8.0; the per-challenge ceremony stays overkill for the rest). Under `--walk`/`--neutral` (no predicate ran), **all** alternatives are end-batched — the pre-triage behavior.
 
 If the user ignores the prompt and changes topic, gracefully suspend the rebuttal cycle and surface what was completed in Step 10. Do not nag.
 
@@ -423,11 +441,13 @@ arc state_append_run \
   --concessions "$CONCESSIONS" \
   --deferred-count "$DEFERRED_COUNT" \
   --deferred-challenges "$DEFERRED_CHALLENGES_JSON" \
+  --auto-applied-count "$AUTO_APPLIED_COUNT" \
+  --escalated-count "$ESCALATED_COUNT" \
   --skill-invoked critiquing-spec \
   --elapsed-ms "$ELAPSED_MS"
 ```
 
-The legacy positional form (`arc state_append_run "$REQUEST_ID" "$DEPTH" "$ADVERSARIES_JSON" "$CHALLENGE_COUNT" "$CONCESSIONS" critiquing-spec "$ELAPSED_MS"`) is still accepted but has **no deferred slots** — it records `deferred_count=0` and drops any deferred challenges. Use the flag form above whenever `DEFERRED_COUNT > 0`.
+The legacy positional form (`arc state_append_run "$REQUEST_ID" "$DEPTH" "$ADVERSARIES_JSON" "$CHALLENGE_COUNT" "$CONCESSIONS" critiquing-spec "$ELAPSED_MS"`) is still accepted but has **no deferred slots** — it records `deferred_count=0` and drops any deferred challenges; the positional form records `auto_applied_count=0` / `escalated_count=0` as well. Use the flag form above whenever `DEFERRED_COUNT > 0`.
 
 `--adversaries` accepts either a JSON array such as `["claude","codex"]` or a CSV string such as `claude,codex`.
 
@@ -438,6 +458,8 @@ The schema v3 `recent_runs[]` entry includes:
 - `adversaries_used` — `["claude"]` or `["claude","codex"]`
 - `challenge_count` — total surviving challenges after consolidation
 - `concessions` — count of challenges the user conceded
+- `auto_applied_count` — challenges auto-applied by Step 8.0 triage (0 under `--walk`/`--neutral`)
+- `escalated_count` — challenges that tripped the predicate and were walked (0 under `--walk`/`--neutral` — no predicate ran)
 - `skill_invoked` — `"critiquing-spec"`
 - `elapsed_ms` — wall-clock from Step 1 start to Step 10 emit
 
@@ -477,6 +499,8 @@ Audit complete for <artifact path>.
   Adversaries used : <claude | claude + codex>
   Challenges       : <N> total (<X> premise, <Y> gap, <Z> alternative)
   Concessions      : <C> of <N>
+  Auto-applied     : <A> of <N> (disposition triage)
+  Escalated        : <M> walked after triage
   Deferred         : <D> (tracked for later)
   Candidates piled : <K> (challenges that stood after rebuttal)
   Principles       : <P> applied (shipped + user + project)
@@ -485,11 +509,13 @@ Audit complete for <artifact path>.
 <If promotion candidates surfaced: prompt for promote decision here>
 ```
 
+`<M>` (Escalated) is `ESCALATED_COUNT`: challenges that tripped the escalation predicate and were walked individually in Step 8. Under `--walk`/`--neutral`, Step 8.0 triage does not run, so `<M>` reads `0` even though every one of the `<N>` challenges was walked (sequential mode, not the predicate) — read `Escalated : 0` in those modes as "triage skipped," not "nothing was walked."
+
 This is the structured handoff. Consumer plugins (scaffold-onboard v0.2, scaffold-dev v0.1) parse the summary out of conversation context — there is **no file IPC** for the cross-plugin handoff, only the conversation transcript. Keep the format stable so consumers' regexes work.
 
 **Stability contract for downstream consumers.** The following tokens MUST appear verbatim (case-sensitive) for consumers to parse correctly:
 - The literal string `Audit complete for ` followed by the artifact path.
-- Field labels `Adversaries used`, `Challenges`, `Concessions`, `Deferred`, `Candidates piled`, `Principles`, `Elapsed` with `:` separator and exactly two spaces of indentation.
+- Field labels `Adversaries used`, `Challenges`, `Concessions`, `Auto-applied`, `Escalated`, `Deferred`, `Candidates piled`, `Principles`, `Elapsed` with `:` separator and exactly two spaces of indentation.
 - The integer counts must be bare (no commas, no units inline — the unit goes outside the number, e.g. `seconds` after `Elapsed`).
 
 If you change this format, bump architect-critic minor version and coordinate with scaffold-onboard / scaffold-dev maintainers — their regexes will break otherwise. Per [[feedback_v01_full_over_minimal]], the v0.2 contract is design-locked and ships as-is; consumers parse against it.
@@ -513,6 +539,6 @@ A few invariants to keep clear, since this skill straddles a markdown/bash bound
 - **You** (Claude reading this skill body) make every judgment call: which path to audit when multiple candidates exist, what challenges to surface, how to score a rebuttal, when to escape-hatch out of sequential mode.
 - **Bash helpers** (`lib/*.sh`) handle pure I/O: reading state files, computing similarity scores, appending JSON, file merges. They never decide what is or isn't a challenge.
 - **Codex** is a fresh-frame adversary, not a judge. Its output is one of two input streams to the consolidator. You still mediate the rebuttal cycle.
-- **The user** is the final authority. Your job is to surface candidate concerns (each with a recommended disposition per the recommendation policy, unless `--neutral`); theirs is to accept, rebut, or defer. You never auto-promote without consent, and a recommendation never auto-advances past a decision boundary.
+- **The user** is the final authority — exercised directly on every escalated challenge, and by standing delegation (the policy's *Disposition triage* section) on challenges that clear the escalation predicate; the `⚡` digest keeps every delegated disposition auditable, and `reopen` / `--walk` revoke it. You never auto-promote without consent, and escalated classes never auto-apply.
 
 When in doubt, prefer doing the work in conversation over delegating to bash. The v0.1.x architecture got this wrong; v0.2 corrects it. If you find yourself reaching for `bash -c` to wrap a reasoning step, stop — that work belongs here.

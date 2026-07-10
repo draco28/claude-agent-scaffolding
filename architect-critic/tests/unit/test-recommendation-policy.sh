@@ -59,4 +59,16 @@ assert_file_contains "$SKILL" "deferred-count"
 assert_file_contains "$SKILL" "Deferred"
 assert_file_contains "$ASYNC_SKILL" "deferred-count"
 
+# Disposition triage (pulse360#15) — Step 8.0 triage + digest + walk opt-out wired.
+assert_file_contains "$POLICY" "Disposition triage"
+assert_file_contains "$POLICY" "⚡ Auto-applied"
+assert_file_contains "$SKILL" "Step 8.0"
+assert_file_contains "$SKILL" "walk_mode"
+assert_file_contains "$SKILL" "⚡ Auto-applied"
+assert_file_contains "$SKILL" "reopen"
+assert_file_contains "$SKILL" "auto-applied-count"
+assert_file_contains "$SKILL" "Auto-applied     :"
+assert_file_contains "$CMD" "argument-hint:.*--walk"
+assert_file_contains "$ASYNC_SKILL" "walk_mode"
+
 report_results

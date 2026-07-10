@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.6.0 — 2026-07-10
+
+### Added
+- **`critiquing-spec` Step 8.0 disposition triage (pulse360#15).** Predicate-clean challenges auto-applied with a ⚡ Auto-applied digest, sequential rebuttal now walks the escalated subset; `walk_mode` (`--walk`); Step 10 summary + `state.json` gain `auto_applied_count`/`escalated_count` (`state_append_run` flags); async resume preserves walk mode; recommendation-policy copy updated.
+
 ## v0.5.1 — 2026-07-02
 
 **Fix:** `critiquing-spec` rebuttal scoring is now agent-inline; the deterministic scorer is removed (#96).

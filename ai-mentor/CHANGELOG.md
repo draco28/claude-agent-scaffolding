@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [2.4.0] — 2026-07-10
+
+### Added
+- **`grill-me` disposition triage (pulse360#15).** SoT-answerable, predicate-clean questions are self-answered into a "Self-answered (delegated)" exit-summary section with a ⚡ Auto-applied digest; dependent chains + escalated questions stay one-question-per-turn; new `--walk` opt-out; recommendation-policy copy updated (triage + standing-delegation Rule 5).
+
 ## [2.3.0] — 2026-07-02
 
 ### Added

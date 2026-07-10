@@ -34,7 +34,7 @@ For each fixture:
 
 ---
 
-## Fixtures (5 total)
+## Fixtures (7 total)
 
 ### R1 — grill-me question carries a cited recommendation by default
 
@@ -89,11 +89,33 @@ For each fixture:
 | Expected markers | The recommendation yields to the user's disposition; no auto-advance |
 | Status | GREEN (target on this tree) |
 
+### R6 — grill-me self-answers a SoT-answerable question (disposition triage)
+
+| Fixture field | Value |
+|---|---|
+| Setup | A repo with a MASTER-SPEC/memory-bank whose docs directly answer at least one obvious grill branch |
+| Trigger | `grill me on <plan covered by the spec>` |
+| Expected shape | The doc-answerable, low-stakes branch is never asked; a `⚡ Auto-applied K of N` digest rides at the top of the next question turn (question · adopted answer · citation); the exit summary contains a **Self-answered (delegated)** section listing it |
+| Expected markers | `⚡ Auto-applied` header; citation per self-answered line; escalated/high-stakes questions still asked one per turn |
+| Anti-pattern (FAIL) | Asking a question whose answer is verbatim in the spec, or self-answering a vision-touching / one-way-door / dependent-chain question |
+| Status | RED (target: GREEN on this tree) |
+
+### R7 — `--walk` restores ask-everything
+
+| Fixture field | Value |
+|---|---|
+| Setup | Same repo as R6 |
+| Trigger | `/grill-me <same plan> --walk` (or "grill me … — walk them") |
+| Expected shape | No self-answers, no digest; every question asked one per turn with a recommendation attached (#93 behavior) |
+| Expected markers | Zero `⚡ Auto-applied` occurrences in the session |
+| Anti-pattern (FAIL) | Any auto-applied disposition under `--walk` |
+| Status | RED (target: GREEN on this tree) |
+
 ---
 
 ## Aggregate status
 
-Total fixtures: **5.** Target GREEN on this tree: **5 / 5** (the recommend-by-default
+Total fixtures: **7.** Target GREEN: **7 / 7**. Currently validated: **5 / 7** (R6–R7 RED — pending live-session validation) (the recommend-by-default
 instruction is embedded in `skills/grill-me/SKILL.md` Rule #3 and
 `skills/council/SKILL.md` Mechanic as of #93). These are **manual** behavioral checks
 — not automated — consistent with ai-mentor's skill-first, agent-driven design (the
