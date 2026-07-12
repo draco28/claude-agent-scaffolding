@@ -96,3 +96,33 @@ _oss_state_mutate_body() { # $1=state-file $2=op $3=payload
   fi
   mv "$tmp" "$sf" || { rm -f "$tmp"; return 4; }
 }
+
+# §9.2 replay capability: rebuild state from the base snapshot by re-applying
+# every journaled mutation through the SAME pure transform mutate uses
+# (_oss_apply_op), re-appending each mutation record to .mutations first so a
+# faithful replay reproduces the live state including the journal itself.
+# Read-only against $sf (only $sf.base.json's content is read into memory) -
+# doctor (Task 5) can call this freely without a lock.
+oss_state_replay() { # $1=state-file ; rc 0 = clean, 5 = drift, 1 = no base
+  local sf="$1" base="$1.base.json" rebuilt live n i op payload seq_json
+  [ -f "$base" ] || { echo "oss: no base snapshot ($base)" >&2; return 1; }
+  rebuilt="$(cat "$base")" || return 1
+  n="$(jq '.mutations | length' "$sf" 2>/dev/null)" || { echo "oss: cannot read mutations from $sf" >&2; return 1; }
+  i=0
+  while [ "$i" -lt "$n" ]; do
+    seq_json="$(jq -c ".mutations[$i]" "$sf" 2>/dev/null)" || { echo "oss: mutation $i unreadable" >&2; return 4; }
+    op="$(printf '%s' "$seq_json" | jq -r '.op' 2>/dev/null)" || { echo "oss: mutation $i op unreadable" >&2; return 4; }
+    payload="$(printf '%s' "$seq_json" | jq -c '.payload' 2>/dev/null)" || { echo "oss: mutation $i payload unreadable" >&2; return 4; }
+    rebuilt="$(printf '%s' "$rebuilt" \
+      | jq --argjson m "$seq_json" '.mutations += [$m]' \
+      | _oss_apply_op "$op" "$payload")" || return 4
+    i=$((i+1))
+  done
+  live="$(jq -S . "$sf" 2>/dev/null)" || { echo "oss: cannot read live state $sf" >&2; return 1; }
+  if [ "$(printf '%s' "$rebuilt" | jq -S .)" = "$live" ]; then
+    echo "replay: clean ($n mutations)"
+  else
+    echo "replay: drift detected - live state does not equal base+journal ($n mutations). Run 'oss doctor' and repair from journal." >&2
+    return 5
+  fi
+}
