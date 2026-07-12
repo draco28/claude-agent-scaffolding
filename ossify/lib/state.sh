@@ -126,3 +126,30 @@ oss_state_replay() { # $1=state-file ; rc 0 = clean, 5 = drift, 1 = no base
     return 5
   fi
 }
+
+# §9.2 schema-version guard (no silent upgrades): refuse to operate on a state
+# file whose schema_version is newer than this build supports, and name the
+# gap rather than guess. Migration registry lives HERE: a future v1->v2
+# migration is added as an explicit, journaled `_oss_migrate_1_to_2` case
+# dispatched from this function once a v2 schema exists - never silent.
+oss_state_check_version() { # $1=state-file ; rc 0 ok, 6 missing/invalid/future
+  local v
+  # Guarded with `|| v=""` (deviates from the brief's bare
+  # `v="$(jq ... 2>/dev/null)"`): a bare assignment's exit status IS the
+  # command substitution's exit status, so a missing/unreadable state file
+  # (jq rc!=0) would trip `errexit` in any caller that isn't already
+  # suspending it (e.g. this function called directly, not if-wrapped) -
+  # silently killing the process instead of returning the documented rc 6.
+  # doctor.sh always calls this if-wrapped (which does suspend errexit for
+  # the whole call), but the function's own contract promises rc 6 for
+  # missing/invalid regardless of call site, so guard it here too.
+  v="$(jq -r '.schema_version // empty' "$1" 2>/dev/null)" || v=""
+  [ -n "$v" ] || { echo "state schema missing/invalid" >&2; return 6; }
+  if [ "$v" -gt "$OSS_STATE_SCHEMA_VERSION" ] 2>/dev/null; then
+    echo "state schema v$v requires a newer ossify (this build supports v$OSS_STATE_SCHEMA_VERSION)" >&2
+    return 6
+  fi
+  # Migration registry: when v2 exists, dispatch _oss_migrate_1_to_2 here
+  # (explicit, journaled, never silent - spec §9.2).
+  return 0
+}
