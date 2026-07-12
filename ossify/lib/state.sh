@@ -46,6 +46,16 @@ _oss_apply_op() { # $1=op $2=payload-json
   case "$op" in
     set_posture)
       jq --argjson p "$payload" '.project.posture = $p.posture' ;;
+    add_release)
+      jq --argjson p "$payload" '.releases += [$p]' ;;
+    add_spine)
+      jq --argjson p "$payload" '.spines += [$p]' ;;
+    add_work_item)
+      jq --argjson p "$payload" '.work_items += [$p]' ;;
+    set_spine_class)
+      jq --argjson p "$payload" '
+        (.spines[] | select(.id == $p.spine) | .class) = $p.to
+        | .class_overrides += [{spine:$p.spine,from:$p.from,to:$p.to,reason:$p.reason,at:$p.at}]' ;;
     *)
       echo "oss: unknown op '$op'" >&2; return 4 ;;
   esac
