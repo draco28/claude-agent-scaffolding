@@ -18,9 +18,18 @@ oss_ledger_quarantine "$S" d3 "flaky env, fix by r1 close" >/dev/null
 t_capture oss_demo_run_auto "$S"
 t_assert_rc 0 "quarantined line skipped"; t_assert_contains "$T_OUT" "SKIP" "skip reported"
 
-oss_ledger_add_auto "$S" r0.s1 "vacuous suite" "echo 'collected 0 items'; true" "exit:0" >/dev/null
+oss_ledger_add_auto "$S" r0.s1 "vacuous suite" "echo 'collected 0 items' # pytest" "exit:0" >/dev/null
 t_capture oss_demo_run_auto "$S"
 t_assert_rc 1 "vacuous green caught"; t_assert_contains "$T_OUT" "vacuous-green" "guard named"
+
+# Retire the vacuous line (d4) so the halt-on-first-fail run can reach the next assertion.
+oss_ledger_retire "$S" d4 "test cleanup" >/dev/null
+
+# A legitimate demo line that merely mentions a zero-tests phrase in its output —
+# but is NOT a test runner — must NOT be flagged vacuous-green (AND-gate precision).
+oss_ledger_add_auto "$S" r0.s1 "legit zero-passing mention" "echo '0 passing warnings remain'" "contains:0 passing" >/dev/null
+t_capture oss_demo_run_auto "$S"
+t_assert_rc 0 "non-runner output mentioning a zero-tests phrase is NOT vacuous-green"
 
 rm -rf "$TMP"
 t_summary

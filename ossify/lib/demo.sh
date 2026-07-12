@@ -32,17 +32,13 @@ oss_demo_run_auto() { # $1=state-file
         case "$out" in *"${expected#contains:}"*) ;; *)
           echo "FAIL $id - $text (output missing '${expected#contains:}')"; printf '%s\n' "$out" | tail -5; return 1;; esac ;;
     esac
-    # Deviation from brief: the brief's literal gate was `_oss_demo_is_runner "$cmd" &&
-    # _oss_demo_zero_tests "$out"`, requiring the command text to literally name a known
-    # runner (pytest/cargo test/npm test/go test/bash .*test). Real demo commands are
-    # routinely wrapper scripts ("make test", "./run.sh", CI aliases) whose command text
-    # never names the underlying tool, so that AND-gate under-fires - the brief's own
-    # shipped test ("echo 'collected 0 items'; true") proves it, since neither the command
-    # nor the output contains any of the five runner substrings. The four zero-tests
-    # messages are themselves tool-specific fingerprints (pytest/go-or-cargo/mocha/generic),
-    # so matching output alone is sufficient signal without a redundant command-name check.
-    # _oss_demo_is_runner is kept (unused in the gate) for future stricter-mode reuse.
-    if _oss_demo_zero_tests "$out"; then
+    # Vacuous-green guard (spec §6.1): a RECOGNIZED TEST RUNNER that collected zero
+    # tests FAILs even on exit 0. Both conditions are required - the command must name
+    # a known runner AND the output must show a zero-tests result. Dropping the runner
+    # check would destroy precision: a legitimate demo line like `echo '0 passing ...'`
+    # merely mentions a zero-tests phrase but is not a test suite, and must NOT be
+    # flagged (see the negative regression test in test-demo-runner.sh).
+    if _oss_demo_is_runner "$cmd" && _oss_demo_zero_tests "$out"; then
       echo "FAIL $id - $text (vacuous-green: recognized runner executed zero tests)"; return 1
     fi
     passed=$((passed+1)); i=$((i+1))
