@@ -25,5 +25,15 @@ t_capture oss_ledger_add_patch "$S" abc1234 "bump serde patch version"
 t_assert_rc 0 "patch record added"
 t_capture oss_state_read "$S" '.patch_records | length'; t_assert_eq "1" "$T_OUT" "patch recorded"
 
+# §5.3 floor guard must not be bypassable by leading whitespace: a leading
+# space/tab before inspector phrasing is the same banned phrasing, just padded.
+t_capture oss_ledger_add_user "$S" r0.s1 " Open the file" "file contents visible"
+t_assert_rc 2 "leading-space inspector phrasing banned"
+t_capture oss_ledger_add_user "$S" r0.s1 "$(printf '\tInspect the schema')" "schema visible"
+t_assert_rc 2 "leading-tab inspector phrasing banned"
+# ...but the trim must not over-reject a legitimate leading-space journey line.
+t_capture oss_ledger_add_user "$S" r0.s1 " Type a strategy idea and run a backtest" "results visible"
+t_assert_rc 0 "leading-space legitimate journey line still accepted"
+
 rm -rf "$TMP"
 t_summary

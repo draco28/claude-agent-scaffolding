@@ -16,6 +16,7 @@ oss_ledger_add_auto() { # $1=state $2=spine $3=text $4=command $5=expected
 oss_ledger_add_user() { # $1=state $2=spine $3=text $4=outcome
   local lower
   lower="$(printf '%s' "$3" | tr '[:upper:]' '[:lower:]')"
+  lower="${lower#"${lower%%[![:space:]]*}"}"   # trim leading whitespace (spaces/tabs) so " Open ..." can't evade the ban
   case "$lower" in inspect\ *|view\ *|open\ *)
     echo "oss: inspector phrasing banned in user journey lines (spec §5.3 floor) - phrase as an action the user performs for value" >&2
     return 2;; esac
