@@ -29,20 +29,32 @@ oss_cmd_doctor() { # $1=state-file (optional; default .ossify/project-state.json
     echo "ok: lock - free"
   fi
 
+  # Replay depends on a valid schema, so it's gated on the schema check. But
+  # "gated out" must still emit ONE line (a skip notice) rather than silently
+  # dropping the check - an operator debugging a broken state file needs to
+  # see that replay was intentionally not run, not a missing line. `skip:`
+  # (like `warn:`) never sets rc.
   if [ "$rc" -eq 0 ]; then
     if out="$(oss_state_replay "$sf" 2>&1)"; then
       echo "ok: replay - $out"
     else
       echo "fail: replay - $out"; rc=1
     fi
+  else
+    echo "skip: replay - skipped (schema check failed)"
   fi
 
-  local key
+  # Shape is schema-independent (pure key presence), so it ALWAYS reports:
+  # the detection loop runs unconditionally and the positive summary is
+  # printed whenever no key was actually missing (tracked by a local flag,
+  # NOT by the overall rc - a prior schema/replay failure must not suppress
+  # a legitimately-green shape line).
+  local key shape_ok=1
   for key in releases spines work_items demo_ledger bones mutations; do
     if ! jq -e --arg k "$key" 'has($k)' "$sf" >/dev/null 2>&1; then
-      echo "fail: shape - missing key '$key'"; rc=1
+      echo "fail: shape - missing key '$key'"; rc=1; shape_ok=0
     fi
   done
-  [ "$rc" -eq 0 ] && echo "ok: shape - all required keys present"
+  [ "$shape_ok" -eq 1 ] && echo "ok: shape - all required keys present"
   return "$rc"
 }

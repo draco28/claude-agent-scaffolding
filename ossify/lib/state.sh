@@ -145,6 +145,16 @@ oss_state_check_version() { # $1=state-file ; rc 0 ok, 6 missing/invalid/future
   # missing/invalid regardless of call site, so guard it here too.
   v="$(jq -r '.schema_version // empty' "$1" 2>/dev/null)" || v=""
   [ -n "$v" ] || { echo "state schema missing/invalid" >&2; return 6; }
+  # Reject any non-digit value (e.g. "abc", "1.5", a JSON boolean) BEFORE the
+  # numeric `-gt` comparison. Without this a valid-JSON-but-non-integer
+  # schema_version makes `[ "$v" -gt N ]` error ("integer expression
+  # expected"); inside the `if` that nonzero exit reads as "not newer" and
+  # execution silently falls through to `return 0` - the exact §9.2
+  # silent-acceptance the guard exists to prevent. Digits-only here
+  # guarantees the `-gt` below is always a numeric comparison.
+  case "$v" in
+    ''|*[!0-9]*) echo "state schema invalid: '$v'" >&2; return 6 ;;
+  esac
   if [ "$v" -gt "$OSS_STATE_SCHEMA_VERSION" ] 2>/dev/null; then
     echo "state schema v$v requires a newer ossify (this build supports v$OSS_STATE_SCHEMA_VERSION)" >&2
     return 6
