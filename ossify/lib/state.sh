@@ -56,6 +56,10 @@ _oss_apply_op() { # $1=op $2=payload-json
       jq --argjson p "$payload" '
         (.spines[] | select(.id == $p.spine) | .class) = $p.to
         | .class_overrides += [{spine:$p.spine,from:$p.from,to:$p.to,reason:$p.reason,at:$p.at}]' ;;
+    add_bone)      jq --argjson p "$payload" '.bones += [$p]' ;;
+    add_risk_gate) jq --argjson p "$payload" '.risk_gates += [$p]' ;;
+    add_fake)      jq --argjson p "$payload" '.fakes += [$p]' ;;
+    add_feature)   jq --argjson p "$payload" '.feature_map += [$p]' ;;
     *)
       echo "oss: unknown op '$op'" >&2; return 4 ;;
   esac
