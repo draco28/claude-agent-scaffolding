@@ -21,5 +21,12 @@ t_assert_rc 0 "broker path matches risk gate"; t_assert_contains "$T_OUT" "risk_
 t_capture oss_reg_touch_check "$S" README.md
 t_assert_rc 1 "clean path matches nothing"
 
+# Fix 2: a bone/risk-gate with no touch surface is legitimate — empty CSV must
+# yield an empty [] touch array, not a raw jq --argjson parse failure (rc 4).
+t_capture oss_reg_add_bone "$S" ADR-9 "no-touch bone" "" ""
+t_assert_rc 0 "no-touch bone added"
+t_capture jq -c '.bones[] | select(.adr=="ADR-9") | .touch' "$S"
+t_assert_eq "[]" "$T_OUT" "no-touch bone's touch is []"
+
 rm -rf "$TMP"
 t_summary

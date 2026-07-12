@@ -10,10 +10,21 @@ t_assert_rc 0 "release added"; t_assert_eq "r0" "$T_OUT" "first release is r0"
 
 t_capture oss_entity_add_spine "$S" r0 "walking skeleton" bone canonical
 t_assert_rc 0 "spine added"; t_assert_eq "r0.s1" "$T_OUT" "spine id"
+
+# Fix 5 (test coverage): a rejected oss_entity_add_spine call must not mutate
+# state — capture the spine count before each rejected call and confirm it is
+# unchanged afterward (no phantom spine, no phantom journal entry).
+t_capture oss_state_read "$S" '.spines | length'; SPINES_BEFORE="$T_OUT"
+
 t_capture oss_entity_add_spine "$S" r9 "ghost" flesh canonical
 t_assert_rc 7 "unknown release rejected"
+t_capture oss_state_read "$S" '.spines | length'
+t_assert_eq "$SPINES_BEFORE" "$T_OUT" "spine count unchanged after unknown-release rejection"
+
 t_capture oss_entity_add_spine "$S" r0 "bad" cartilage canonical
 t_assert_rc 2 "invalid class rejected"
+t_capture oss_state_read "$S" '.spines | length'
+t_assert_eq "$SPINES_BEFORE" "$T_OUT" "spine count unchanged after bad-class rejection"
 
 t_capture oss_entity_add_work_item "$S" r0.s1 "wire entry point"
 t_assert_rc 0 "work item added"; t_assert_eq "r0.s1.w1" "$T_OUT" "wi id"

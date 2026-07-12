@@ -50,5 +50,17 @@ t_assert_contains "$T_OUT" "fail: schema" "schema fail line present"
 t_assert_contains "$T_OUT" "skip: replay" "replay skip line present (not silently dropped)"
 rm -rf "$T3"
 
+# --- Fix 4: the shape check must verify ALL 14 required top-level keys, not
+# just 6. A state missing e.g. `counters` (which every ledger add needs) must
+# FAIL shape, not be reported as having "all required keys present". ---
+T4="$(mktemp -d)"; S4="$T4/state.json"
+oss_state_init "$S4" doc-shape >/dev/null
+jq 'del(.counters)' "$S4" > "$S4.x" && mv "$S4.x" "$S4"
+jq 'del(.counters)' "$S4.base.json" > "$S4.bx" && mv "$S4.bx" "$S4.base.json"
+t_capture "$OSS" doctor "$S4"
+t_assert_rc 1 "doctor fails on state missing 'counters'"
+t_assert_contains "$T_OUT" "fail: shape - missing key 'counters'" "missing counters key reported"
+rm -rf "$T4"
+
 rm -rf "$TMP"
 t_summary

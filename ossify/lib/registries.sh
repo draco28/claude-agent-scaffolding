@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Bones / risk gates / fakes / feature map + touch-surface matching.
 
-_oss_csv_to_json() { printf '%s' "$1" | jq -R 'split(",") | map(gsub("^ +| +$";"")) | map(select(length>0))'; }
+_oss_csv_to_json() { printf '%s\n' "$1" | jq -R 'split(",") | map(gsub("^ +| +$";"")) | map(select(length>0))'; }
 
 oss_reg_add_bone() { # $1=state $2=adr-ref $3=title $4=touch-csv $5=revisit(optional)
   oss_state_mutate "$1" add_bone \

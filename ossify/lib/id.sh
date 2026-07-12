@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ossify ID grammar — single owner (spec §9.2 / OQ7). No VS- shapes.
 
-oss_id_valid_release()   { case "$1" in r[0-9]|r[0-9][0-9]|r[0-9][0-9][0-9]) return 0;; *) return 1;; esac; }
+oss_id_valid_release()   { printf '%s' "$1" | { grep -Eq '^r[0-9]+$' || return 1; }; }
 oss_id_valid_spine()     { printf '%s' "$1" | { grep -Eq '^r[0-9]+\.s[0-9]+$' || return 1; }; }
 oss_id_valid_work_item() { printf '%s' "$1" | { grep -Eq '^r[0-9]+\.s[0-9]+\.w[0-9]+$' || return 1; }; }
 

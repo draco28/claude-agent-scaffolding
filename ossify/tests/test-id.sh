@@ -9,6 +9,15 @@ t_capture oss_id_parse r1.s3.w2;  t_assert_rc 0 "work item parses"; t_assert_eq 
 t_capture oss_id_parse VS-1.1.1;  t_assert_rc 1 "old-stack VS- id rejected"
 t_capture oss_id_parse r1.w2;     t_assert_rc 1 "malformed id rejected"
 
+# Fix 1: release validator must be unbounded (^r[0-9]+$), matching spine/work-item
+# grammar and oss_id_next_release's eventual output — not capped at 3 digits.
+t_capture oss_id_valid_release r1000; t_assert_rc 0 "r1000 accepted (unbounded digits)"
+t_capture oss_id_parse r1000;          t_assert_rc 0 "r1000 parses"; t_assert_eq "release 1000" "$T_OUT" "r1000 parse value"
+t_capture oss_id_valid_release r0;    t_assert_rc 0 "r0 still valid"
+t_capture oss_id_valid_release r5;    t_assert_rc 0 "r5 still valid"
+t_capture oss_id_valid_release rX;    t_assert_rc 1 "rX still rejected"
+t_capture oss_id_valid_release 1;     t_assert_rc 1 "bare '1' still rejected"
+
 t_capture oss_id_branch_name r0.s1 walking-skeleton
 t_assert_eq "spine/r0.s1-walking-skeleton" "$T_OUT" "branch name"
 t_capture oss_id_release_dir r2

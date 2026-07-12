@@ -10,7 +10,8 @@ _oss_demo_is_runner() { # $1=command
 
 oss_demo_run_auto() { # $1=state-file
   local sf="$1" n i line id text cmd expected out rc passed=0
-  n="$(jq '[.demo_ledger[] | select(.type=="auto" and (.status=="active" or .status=="quarantined"))] | length' "$sf")"
+  n="$(jq '[.demo_ledger[] | select(.type=="auto" and (.status=="active" or .status=="quarantined"))] | length' "$sf" 2>/dev/null)" \
+    || { echo "oss: cannot read state $sf" >&2; return 1; }
   i=0
   while [ "$i" -lt "$n" ]; do
     line="$(jq -c "[.demo_ledger[] | select(.type==\"auto\" and (.status==\"active\" or .status==\"quarantined\"))][$i]" "$sf")"

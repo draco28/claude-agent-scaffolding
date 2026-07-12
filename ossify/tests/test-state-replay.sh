@@ -16,5 +16,12 @@ t_capture oss_state_replay "$S"
 t_assert_rc 5 "tamper detected as drift"
 t_assert_contains "$T_OUT" "drift" "drift named in output"
 
+# Fix 5 (test coverage): missing base snapshot is the rc-1 path, previously
+# only documented in the function's prose comment.
+rm -f "$S.base.json"
+t_capture oss_state_replay "$S"
+t_assert_rc 1 "missing base snapshot is rc 1"
+t_assert_contains "$T_OUT" "no base snapshot" "missing-base message named"
+
 rm -rf "$TMP"
 t_summary
