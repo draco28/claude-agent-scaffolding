@@ -25,5 +25,37 @@ t_assert_rc 3 "lock contention rc=3"
 rmdir "$S.lock"
 t_capture oss_state_read "$S" '.project.posture';      t_assert_eq "fully-private" "$T_OUT" "state untouched under contention"
 
+# --- Regression: the lock-leak bug CLASS (bare command-sub hard-exit under
+# --- `set -e` skips cleanup, leaking the lock dir -> permanent DoS). These make
+# --- the throwaway probes permanent so Task 4+ cannot silently reintroduce it.
+
+# R1: a forced-failing internal command in the critical section, run under a
+# real `set -euo pipefail` (how bin/oss sources+calls this). Shadow _oss_now to
+# fail; a hard-exit here would leak the lock. Subshell isolates any hard-exit to
+# this check and auto-restores the _oss_now shadow.
+(
+  set -euo pipefail
+  _oss_now() { return 1; }
+  oss_state_mutate "$S" set_posture '{"posture":"should-not-apply"}'
+)
+r1=$?
+if [ "$r1" -ne 0 ]; then T_PASS=$((T_PASS+1)); else T_FAIL=$((T_FAIL+1)); echo "FAIL: forced-fail mutate should rc!=0 (got $r1)"; fi
+[ ! -d "$S.lock" ] && T_PASS=$((T_PASS+1)) || { T_FAIL=$((T_FAIL+1)); echo "FAIL: lock leaked after forced-fail mutate"; }
+if ls "$S".tmp.* >/dev/null 2>&1; then T_FAIL=$((T_FAIL+1)); echo "FAIL: temp orphan after forced-fail mutate"; else T_PASS=$((T_PASS+1)); fi
+t_capture oss_state_read "$S" '.project.posture';      t_assert_eq "fully-private" "$T_OUT" "state untouched after forced-fail mutate"
+
+# R2: corrupt (non-JSON) source file -> mutate must abort rc 4, leave the
+# original byte-unchanged, release the lock, orphan no temp.
+C="$TMP/.ossify/corrupt-state.json"
+printf 'THIS IS NOT VALID JSON\n' > "$C"
+c_before="$(cksum < "$C")"
+( set -euo pipefail; oss_state_mutate "$C" set_posture '{"posture":"x"}' )
+r2=$?
+t_assert_eq "4" "$r2" "corrupt-source mutate aborts rc 4"
+c_after="$(cksum < "$C")"
+t_assert_eq "$c_before" "$c_after" "corrupt source byte-unchanged"
+[ ! -d "$C.lock" ] && T_PASS=$((T_PASS+1)) || { T_FAIL=$((T_FAIL+1)); echo "FAIL: lock leaked after corrupt-source mutate"; }
+if ls "$C".tmp.* >/dev/null 2>&1; then T_FAIL=$((T_FAIL+1)); echo "FAIL: temp orphan after corrupt-source mutate"; else T_PASS=$((T_PASS+1)); fi
+
 rm -rf "$TMP"
 t_summary
