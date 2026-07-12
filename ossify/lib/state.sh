@@ -60,6 +60,14 @@ _oss_apply_op() { # $1=op $2=payload-json
     add_risk_gate) jq --argjson p "$payload" '.risk_gates += [$p]' ;;
     add_fake)      jq --argjson p "$payload" '.fakes += [$p]' ;;
     add_feature)   jq --argjson p "$payload" '.feature_map += [$p]' ;;
+    add_demo_line)
+      jq --argjson p "$payload" '.demo_ledger += [$p] | .counters.demo_line += 1' ;;
+    set_demo_line_status)
+      jq --argjson p "$payload" '
+        (.demo_ledger[] | select(.id == $p.id)) |=
+          (.status = $p.status | .status_reason = $p.reason | .status_by = $p.by)' ;;
+    add_patch_record)
+      jq --argjson p "$payload" '.patch_records += [$p]' ;;
     *)
       echo "oss: unknown op '$op'" >&2; return 4 ;;
   esac
