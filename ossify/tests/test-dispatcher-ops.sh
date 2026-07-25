@@ -2,6 +2,7 @@
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/harness.sh"
 for lib in id state manifest commands entities registries ledger demo doctor; do . "$HERE/../lib/$lib.sh"; done
+OSS="$HERE/../bin/oss"
 TMP="$(mktemp -d)"; export OSS_STATE_FILE="$TMP/state.json"
 
 # init resolves the path from OSS_STATE_FILE (no manifest needed in tests).
@@ -45,6 +46,38 @@ t_assert_eq "d1" "$T_OUT" "auto demo line via wrapper mints d1"
 # (set_composition, set_overlay).
 t_capture oss_state_replay "$OSS_STATE_FILE"
 t_assert_rc 0 "replay clean after wrapper ops incl. set_composition + set_overlay"
+
+# --- Dispatcher-path regression (Plan B task 3 review): every assertion
+# above sources the libs and calls the oss_cmd_* shell functions in-process,
+# which never exercises bin/oss's real `set -euo pipefail`. A masked
+# `local sf="$(_oss_resolve_state)"` (dropping the `|| return $?`) only
+# misbehaves when the resolve call itself fails, and a lost/redirected
+# minted-id stdout would slip past a sourced-only test too. Re-run a
+# representative slice of wrappers through the REAL dispatcher binary, on its
+# own fresh state file so it doesn't perturb the id/counter sequence the
+# assertions above depend on.
+DTMP="$(mktemp -d)"; export OSS_STATE_FILE="$DTMP/state.json"
+
+t_capture "$OSS" init dispatcher-demo
+t_assert_rc 0 "dispatcher: init ok"
+
+t_capture "$OSS" release_add A B
+t_assert_rc 0 "dispatcher: release_add ok"
+t_assert_eq "r0" "$T_OUT" "dispatcher: release_add mints r0 through the real binary"
+
+t_capture "$OSS" spine_add r0 sk bone
+t_assert_rc 0 "dispatcher: spine_add ok"
+t_assert_eq "r0.s1" "$T_OUT" "dispatcher: spine_add mints r0.s1 through the real binary"
+
+t_capture "$OSS" get '.releases[0].id'
+t_assert_rc 0 "dispatcher: get ok"
+t_assert_eq "r0" "$T_OUT" "dispatcher: get reads back r0"
+
+t_capture "$OSS" spine_add r9 ghost flesh
+t_assert_rc 7 "dispatcher: spine_add against unknown release propagates rc 7 (not collapsed) through the real binary"
+
+unset OSS_STATE_FILE
+rm -rf "$DTMP"
 
 unset OSS_STATE_FILE
 rm -rf "$TMP"
