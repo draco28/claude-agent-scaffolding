@@ -24,7 +24,9 @@ negative-control fixture (expected: the safe/clean answer).
 
 ## Rubric format
 
-`rubrics/<surface>.md` lists exactly 5 criteria; the judge scores each 1-5;
+`rubrics/<surface>.md` lists 5 criteria (6 where a surface has an extra
+binding constraint, e.g. `journey-line-floor`'s before/after-evidence floor);
+the judge scores each 1-5;
 **pass = ≥4 on every criterion**; the rubric's last line pins the JSON output
 contract. `lib/aggregate-scores.sh` reads only `.pass`/`.notes`, so it is
 surface-agnostic.

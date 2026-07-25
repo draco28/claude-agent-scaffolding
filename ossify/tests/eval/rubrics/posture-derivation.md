@@ -6,7 +6,7 @@ Score each criterion 1-5. Pass = all ≥4.
    - 5: exact match. 1: wrong posture.
 2. **Intent over facts** — where observable facts and intent conflict (pulse-trader reads source-available by facts but intent is fully-private), the derivation follows the stated intent signal, not the facts alone.
    - 5: intent correctly overrides facts. 1: derived from facts, ignoring intent.
-3. **Channel correct** — the moat channel equals `expected_channel`, one of the companion §3.2 channels (`data-overlay` | `private-package` | `repo-private`) or `none` (the sentinel for a fully-open posture with no moat channel).
+3. **Channel correct** — the moat channel equals `expected_channel`, one of the companion §3 "Moat inventory" channels (`data-overlay` | `private-package` | `repo-private`) or `none` (the sentinel for a fully-open posture with no moat channel).
    - 5: exact. 1: wrong channel.
 4. **Undecided → private** — an undecided/ambiguous posture resolves to fully-private (fail-safe), never to a public posture.
    - 5: resolves private. 1: resolves public.
