@@ -6,6 +6,7 @@ TMP="$(mktemp -d)"; export OSS_STATE_FILE="$TMP/state.json"
 oss_cmd_init "release-planning-demo" >/dev/null
 oss_cmd_release_add "MVP" "usable end to end" >/dev/null
 oss_cmd_spine_add r0 "trade entry" bone >/dev/null
+t_capture oss_cmd_get '.releases[0].created_at'; RELEASE_CREATED_AT="$T_OUT"
 
 # work item carries target_repo (default canonical + explicit override).
 t_capture oss_cmd_work_item_add r0.s1 "wire the entry point"
@@ -24,6 +25,29 @@ t_capture oss_cmd_get '.releases[0].exit_criteria[0]'
 t_assert_eq "at close, a user can place a paper trade" "$T_OUT" "exit criteria stored"
 t_capture oss_cmd_get '.releases[0].real_use_findings[0]'
 t_assert_eq "backtest UI was unreachable" "$T_OUT" "real-use findings stored"
+
+# pre-existing fields survive the merge (regression guard for review Fix 1's
+# Minor: if the merge expression is ever rewritten destructively, this catches
+# it - id/name/goal/status/created_at must be untouched by an allowed-only patch).
+t_capture oss_cmd_get '.releases[0].id';         t_assert_eq "r0" "$T_OUT" "release id survives merge"
+t_capture oss_cmd_get '.releases[0].name';       t_assert_eq "MVP" "$T_OUT" "release name survives merge"
+t_capture oss_cmd_get '.releases[0].goal';       t_assert_eq "usable end to end" "$T_OUT" "release goal survives merge"
+t_capture oss_cmd_get '.releases[0].status';     t_assert_eq "planned" "$T_OUT" "release status survives merge"
+t_capture oss_cmd_get '.releases[0].created_at'; t_assert_eq "$RELEASE_CREATED_AT" "$T_OUT" "release created_at survives merge"
+
+# allowlist: a patch carrying both allowed and disallowed keys lands the
+# allowed field but the disallowed keys (id, status) are silently dropped -
+# NOT spliced onto the record. This is a server-side jq restriction (holds
+# for every caller AND for replay), not an entity-layer check a caller could
+# bypass via oss_state_mutate directly.
+t_capture oss_cmd_release_set_meta r0 '{"exit_criteria":["allowlist check"],"id":"tampered","status":"shipped"}'
+t_assert_rc 0 "release meta with disallowed keys still succeeds (dropped, not rejected)"
+t_capture oss_cmd_get '.releases[0].exit_criteria[0]'
+t_assert_eq "allowlist check" "$T_OUT" "allowed field (exit_criteria) still lands"
+t_capture oss_cmd_get '.releases[0].id'
+t_assert_eq "r0" "$T_OUT" "disallowed key 'id' does not overwrite release id"
+t_capture oss_cmd_get '.releases[0].status'
+t_assert_eq "planned" "$T_OUT" "disallowed key 'status' does not overwrite release status"
 
 # release meta against an unknown release is rc 7 and does not mutate (matches
 # the "worth verifying" note: oss_entity_set_release_meta rc-7's, no phantom write).
@@ -48,6 +72,16 @@ t_capture oss_cmd_veto_add r0.s1 "bad" nonsense "x"
 t_assert_rc 2 "invalid disposition rejected"
 t_capture oss_cmd_get '.veto_dispositions | length'
 t_assert_eq "$VETOS_BEFORE" "$T_OUT" "veto_dispositions count unchanged after invalid-disposition rejection"
+
+# veto against an unknown spine is rc 7 and does not mutate (review Fix 2:
+# oss_entity_add_veto must reject a phantom spine ref BEFORE mutating, same
+# reject-before-mutate shape as the invalid-disposition assertion above -
+# a typo'd spine id must never silently corrupt the fail-closed audit trail).
+t_capture oss_cmd_get '.veto_dispositions | length'; VETOS_BEFORE2="$T_OUT"
+t_capture oss_cmd_veto_add r9.s9 "ghost finding" auto-bone "reason"
+t_assert_rc 7 "veto against unknown spine rejected"
+t_capture oss_cmd_get '.veto_dispositions | length'
+t_assert_eq "$VETOS_BEFORE2" "$T_OUT" "veto_dispositions count unchanged after unknown-spine rejection"
 
 # doctor shape stays green (14 core keys present; veto_dispositions is additive/ungated); replay stays clean.
 t_capture oss_cmd_doctor "$OSS_STATE_FILE"

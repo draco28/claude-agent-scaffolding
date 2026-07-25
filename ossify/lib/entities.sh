@@ -55,6 +55,8 @@ oss_entity_add_veto() { # $1=state $2=spine $3=finding $4=disposition $5=reason
   local sf="$1" spine="$2" disp="$4"
   case "$disp" in auto-bone|override|escalate) ;; *)
     echo "oss: disposition must be auto-bone|override|escalate" >&2; return 2;; esac
+  jq -e --arg s "$spine" '.spines[] | select(.id == $s)' "$sf" >/dev/null 2>&1 \
+    || { echo "oss: unknown spine '$spine'" >&2; return 7; }
   oss_state_mutate "$sf" add_veto_disposition \
     "$(jq -n --arg s "$spine" --arg f "$3" --arg d "$disp" --arg r "$5" --arg ts "$(_oss_now)" \
       '{spine:$s,finding:$f,disposition:$d,reason:$r,at:$ts}')"

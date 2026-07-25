@@ -73,7 +73,18 @@ _oss_apply_op() { # $1=op $2=payload-json
     add_patch_record)
       jq --argjson p "$payload" '.patch_records += [$p]' ;;
     set_release_meta)
-      jq --argjson p "$payload" '(.releases[] | select(.id == $p.release)) |= (. + $p.patch)' ;;
+      # Allowlist the patch to exactly the five fields the plan names
+      # (exit_criteria/spine_dag/ledger_budget/next_sketch/real_use_findings).
+      # An unrestricted `. + $p.patch` would let a caller-controlled object
+      # splice ANY key onto the release record (e.g. id/status), silently
+      # corrupting identity or lifecycle state. Disallowed keys are dropped
+      # (not rejected): this keeps the op total/pure for replay - a
+      # rejecting op would need a new rc through _oss_apply_op, colliding
+      # with the existing rc-4 apply-failure convention that op already
+      # shares with every other case in this function.
+      jq --argjson p "$payload" '
+        ($p.patch | with_entries(select(.key | IN("exit_criteria","spine_dag","ledger_budget","next_sketch","real_use_findings")))) as $allowed
+        | (.releases[] | select(.id == $p.release)) |= (. + $allowed)' ;;
     add_veto_disposition)
       jq --argjson p "$payload" '.veto_dispositions += [$p]' ;;
     *)
