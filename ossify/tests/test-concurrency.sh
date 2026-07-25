@@ -36,5 +36,42 @@ t_assert_eq "2" "$T_OUT" "demo_line counter is 2"
 t_capture oss_state_replay "$S"
 t_assert_rc 0 "replay clean after minted mutations"
 
+# --- Regression: strict-mode lock-leak guard for the mint block (the reason
+# --- this task exists). Everything above runs through harness.sh, which
+# --- never enables `set -e` (tests must observe failures, per harness.sh's
+# --- own header) - so nothing above this point ever runs the mint code under
+# --- a REAL `set -euo pipefail` (how bin/oss actually sources+calls this).
+# --- These two blocks close that gap, following the same pattern as
+# --- test-state-core.sh's R1/R2: force a failure INSIDE the critical section
+# --- (between lock-acquire and lock-release) under real strict mode, in a
+# --- subshell (isolates any hard-exit + auto-restores any function shadow),
+# --- and confirm rc/lock/temp all come back clean.
+
+# M1: force _oss_mint_id to fail mid-mint by shadowing oss_id_next_release,
+# the helper the `release` mint spec dispatches to. Exercises the mint guards
+# in `_oss_state_mutate_body` right where the new code runs inside the lock.
+(
+  set -euo pipefail
+  oss_id_next_release() { return 1; }
+  oss_state_mutate "$S" add_release \
+    '{"name":"boom","goal":"g","status":"planned","created_at":"2026-01-01T00:00:00Z"}' release
+)
+m1=$?
+t_assert_eq "4" "$m1" "forced mint-failure mutate aborts rc 4"
+[ ! -d "$S.lock" ] && T_PASS=$((T_PASS+1)) || { T_FAIL=$((T_FAIL+1)); echo "FAIL: lock leaked after forced mint-failure mutate"; }
+if ls "$S".tmp.* >/dev/null 2>&1; then T_FAIL=$((T_FAIL+1)); echo "FAIL: temp orphan after forced mint-failure mutate"; else T_PASS=$((T_PASS+1)); fi
+
+# M2: unknown mint spec - _oss_mint_id's `*)` case returns 4 directly; must
+# also clean up the lock/tmp under real strict mode.
+(
+  set -euo pipefail
+  oss_state_mutate "$S" add_release \
+    '{"name":"ghost","goal":"g","status":"planned","created_at":"2026-01-01T00:00:00Z"}' bogus
+)
+m2=$?
+t_assert_eq "4" "$m2" "unknown-mint-spec mutate aborts rc 4"
+[ ! -d "$S.lock" ] && T_PASS=$((T_PASS+1)) || { T_FAIL=$((T_FAIL+1)); echo "FAIL: lock leaked after unknown-mint-spec mutate"; }
+if ls "$S".tmp.* >/dev/null 2>&1; then T_FAIL=$((T_FAIL+1)); echo "FAIL: temp orphan after unknown-mint-spec mutate"; else T_PASS=$((T_PASS+1)); fi
+
 rm -rf "$TMP"
 t_summary
