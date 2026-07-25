@@ -47,4 +47,7 @@ oss_demo_run_auto() { # $1=state-file
   echo "PASS $passed lines"
 }
 
-oss_cmd_demo_run() { oss_demo_run_auto "${1:-.ossify/project-state.json}"; }
+oss_cmd_demo_run() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FILE when omitted)
+  local sf; sf="$(_oss_resolve_state "${1:-}")" || return $?
+  oss_demo_run_auto "$sf"
+}

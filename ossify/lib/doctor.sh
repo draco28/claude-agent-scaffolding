@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # oss doctor - state health checks (spec §9.2 + §9.1 doctor entry).
 
-oss_cmd_doctor() { # $1=state-file (optional; default .ossify/project-state.json)
-  local sf="${1:-.ossify/project-state.json}" rc=0 out
+oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FILE when omitted)
+  local sf rc=0 out; sf="$(_oss_resolve_state "${1:-}")" || return $?
   [ -f "$sf" ] || { echo "fail: state - not found at $sf"; return 1; }
 
   # Each check below is called inside an `if ...; then ... else ...; fi` (or
