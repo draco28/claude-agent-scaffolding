@@ -1,0 +1,1 @@
+{"scores": {"posture_correct": 5, "intent_over_facts": 5, "channel_correct": 5, "undecided_private": 5, "moat_mapped": 5}, "pass": true, "notes": "fully-open / none derived by firing C0 on an empty moat inventory and explicitly refusing to invent a channel from injectable ports or doc-routing intent"}

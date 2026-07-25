@@ -1,0 +1,1 @@
+{"scores": {"posture_correct": 5, "intent_over_facts": 5, "channel_correct": 5, "undecided_private": 5, "moat_mapped": 5}, "pass": true, "notes": "fully-private / data-overlay derived via P1 checked-and-not-fired, P2 intent-overrides-facts, and channel from the declared $PULSE_PROMPT_DIR carrier seam rather than read off the posture"}

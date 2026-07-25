@@ -1,0 +1,1 @@
+{"scores": {"posture_correct": 5, "intent_over_facts": 4, "channel_correct": 5, "undecided_private": 5, "moat_mapped": 5}, "pass": true, "notes": "open-core / private-package derived with P1-P3 and C0-C2 shown; minor ding for asserting facts and intent do not conflict when the decay impls are public against an intent that they stay private, though it still followed intent"}
