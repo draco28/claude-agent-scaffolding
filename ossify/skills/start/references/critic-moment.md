@@ -12,14 +12,14 @@ capability-catalog mapping had silently dropped.
 
 ## 1. The moment
 
-| Trigger | `target` | `depth` | `artifact_path` |
+| Trigger | Artifact audited | Depth | How it is passed |
 |---|---|---|---|
-| Spec-core close (lean MASTER-SPEC authored; before `plan-release`) | `master-spec-full` | `close` | the lean MASTER-SPEC path |
+| Spec-core close (lean MASTER-SPEC authored; before `plan-release`) | the lean MASTER-SPEC | close | `ARCHITECT_CRITIC_ARGS="--spec \"<path>\" --close"` |
 
-architect-critic v0.2 detects host-agent and adversary availability **internally**
-(its contract / spec §12.2). The caller passes only `target`, `depth`, and
-`artifact_path`. Do **not** pass an `adversaries` argument — it is not part of
-the invocation contract.
+architect-critic infers host agent and adversary availability **itself**. The
+caller's entire job is to hand it the artifact (via `--spec`) and the depth (via
+`--close`), through the env-var bridge in §3. There is no parameterized
+`Skill(...)` call shape — see §3.1.
 
 `plan-release` owns a *different* critic pass (the class-declaration veto,
 spec §5.2 step 3). That one is not this one, and it is not owned by `start`.
@@ -62,21 +62,58 @@ dropped its entry from that registry in v0.2 (ac settlement #1).
    - `v0.2` → step 4.
    - `absent` → warn once (§4) and continue. Do not stall.
 
-4. **Invoke**, in-conversation:
+4. **Invoke**, in-conversation, via the env-var bridge (§3.1):
+
+   ```bash
+   export ARCHITECT_CRITIC_ARGS="--spec \"<absolute path to the lean MASTER-SPEC>\" --close"
+   ```
 
    ```text
-   Skill(architect-critic:critiquing-spec,
-         target=master-spec-full,
-         depth=close,
-         artifact_path="<lean MASTER-SPEC path>")
+   Skill(architect-critic:critiquing-spec)
    ```
 
    architect-critic runs its own challenge-resolution loop internally
    (sequential rebuttal, concession scoring, auto-promotion checks). You do not
    mediate its internals. Control returns via its structured summary block —
    a message opening *"Audit complete for …"* listing the challenges that stood.
+   React to what it actually returned, not to what you expected.
 
 5. **Disposition-triage** the standing challenges (§5).
+
+---
+
+## 3.1 The invocation contract (the only supported shape)
+
+architect-critic's `critiquing-spec` takes **no parameters**. It reads one
+env var — `$ARCHITECT_CRITIC_ARGS` — holding a CLI-style flag string, exactly as
+its own `/critique` wrapper sets it. Four rules, each load-bearing:
+
+| Rule | Why |
+|---|---|
+| **`export` the var** — a bare `VAR=...` assignment is not enough | The skill reads the *environment*; an unexported shell variable is invisible to it |
+| **`--spec` takes ONE quoted absolute path** | Step 1a extracts `--spec PATH` (else the first positional). A path with spaces unquoted, or a list of paths, breaks the extraction |
+| **`--close` must be in the args string** | Close depth is set *only* by a literal `--close` (or `--deep`) in `$ARCHITECT_CRITIC_ARGS`, or a few exact natural-language triggers. Announcement wording does **not** count |
+| **Keep the invocation plugin-qualified** — `Skill(architect-critic:critiquing-spec)` | The unqualified skill name is ambiguous and may not route to this plugin |
+
+**What goes wrong when you get it wrong** — and it fails *silently*, which is why
+this section exists:
+
+- **No `--spec` reaching the skill** → artifact resolution falls through to the
+  manifest fast-path, then a restricted `SPEC*`/`MASTER-SPEC*`/`PLAN*` glob, then
+  an `AskUserQuestion`. It never sees the lean MASTER-SPEC you meant to hand it,
+  and it may audit the wrong file without saying so.
+- **No `--close`** → `close_depth` resolves false and the audit degrades to a
+  shallow claude-only pass. You lose the external fresh-frame adversary — which
+  is the entire reason spec §4 restored this cadence.
+
+There is **no** `target=` / `depth=` / `artifact_path=` / `adversaries=`
+parameter. If you find that shape anywhere, it is wrong (it is a known
+pre-existing pattern in `scaffold-onboard:onboarding-project` §5; do not copy it).
+
+Other flags exist (`--neutral`, `--walk`, `--async`, `--model`, `--principles`)
+and all travel the same way — in the args string. `start` uses none of them:
+`--async` in particular would turn this advisory moment into a
+dispatch-and-resume job, which is the wrong shape for a synchronous close.
 
 6. Continue to the Release-0-minimums recap and the outputs block.
 
@@ -132,8 +169,15 @@ is recorded and the flow continues. The critic's findings do not gate
 - **Do not fire before the lean MASTER-SPEC exists.** The critic audits a real
   artifact on disk; there is no phase-recap file in ossify's flow.
 - **Do not read `composition.json`** to detect architect-critic (§2).
+- **Do not pass `target=` / `depth=` / `artifact_path=` / `adversaries=` to
+  `Skill(...)`.** Those parameters do not exist; the call takes none. Use the
+  `$ARCHITECT_CRITIC_ARGS` bridge (§3.1).
+- **Do not rely on announcement wording to select close depth.** Only a literal
+  `--close` in the args string does that (§3.1).
+- **Do not assign `ARCHITECT_CRITIC_ARGS` without `export`ing it.**
 - **Do not invoke `Skill(architect-critic:critique)`** — the v0.1.x
-  slash-command name. The v0.2 skill is `critiquing-spec`.
+  slash-command name — and do not drop the `architect-critic:` qualifier. The
+  v0.2 skill is `architect-critic:critiquing-spec`.
 - **Do not use file-IPC** (`inbox/`, `outbox/`) — removed in ac v0.2.
 - **Do not auto-apply a vision-touching challenge.** Auto-accept covers
   spec-aligned mechanics only.

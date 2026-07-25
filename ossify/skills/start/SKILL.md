@@ -7,17 +7,16 @@ description: Drive spec-core onboarding for a new ossify project — author the 
 
 You are the conductor of ossify's **spec-core onboarding** — station 2 of the
 five-station lifecycle. You walk the user through the pre-code decisions, and
-only those, then hand off to `plan-release` for Release 0.
+only those, then hand off to `plan-release` for Release 0. You deliberately do
+**not** produce exhaustive FR/NFR enumeration, PRD/SRS/BACKLOG, a multi-year
+roadmap, or PROJECT_PLAN — those are retired or grown at release closes
+(`references/lean-spec-schema.md` §3).
 
 Bash helpers behind the `oss` dispatcher do the bookkeeping (state CRUD, atomic
 writes, registry entries, filesystem probes). The judgment work — what the
 journey map should say, where the skeleton cut falls, which bones are real,
 which posture the evidence supports — happens **here, in conversation**. Do not
 stuff reasoning steps inside `bash -c '...'` wrappers.
-
-This skill deliberately does **not** produce exhaustive FR/NFR enumeration,
-PRD/SRS/BACKLOG, a multi-year roadmap, or PROJECT_PLAN. Those are retired or
-grown at release closes (`references/lean-spec-schema.md` §3).
 
 ---
 
@@ -27,11 +26,8 @@ The five stations: **pair** (workspace-init) → **spec-core onboarding** (you a
 here) → **feasibility spike** (optional, §9a) → **Release 0, the skeleton** →
 **rolling releases**.
 
-When invoked you run the blocks below in order: pre-flight (§3) → vision
-narrative (§4) → journey map (§5) → skeleton cut (§6) → bones registry (§7) →
-risk gates (§8) → smoke-test pass (§9, optional spike §9a) → posture block
-(§10) → spec-core critic moment (§11) → Release-0 minimums recap (§12) →
-outputs (§13).
+When invoked, work §3 through §13 below in order — each numbered block is one
+step of the conversation.
 
 Everything here is **pre-code decisions**. You create no release, no spine, and
 no work item — `plan-release` owns those.
@@ -360,9 +356,26 @@ Fires **once**, at spec-core close — after the lean MASTER-SPEC is authored an
 3. **Probe:** `oss critic_detect`. If `absent`, warn once — *"architect-critic
    not installed — skipping spec-core audit. Install via `/plugin install
    architect-critic` (v0.2+)."* — and continue. Do not stall.
-4. If `v0.2`, invoke in-conversation:
-   `Skill(architect-critic:critiquing-spec, target=master-spec-full, depth=close, artifact_path="<lean MASTER-SPEC path>")`.
-   Pass no `adversaries` argument — ac v0.2 infers them internally.
+4. If `v0.2`, **export the args string, then invoke the skill bare and
+   plugin-qualified** — that env-var bridge is architect-critic's only
+   invocation contract; there are no `target` / `depth` / `artifact_path`
+   parameters:
+
+   ```bash
+   export ARCHITECT_CRITIC_ARGS="--spec \"<absolute path to the lean MASTER-SPEC>\" --close"
+   ```
+
+   ```text
+   Skill(architect-critic:critiquing-spec)
+   ```
+
+   All three details are load-bearing and fail **silently**: `export` it (a bare
+   assignment is invisible to the skill); `--spec` takes **one** quoted absolute
+   path, never a list; `--close` must be **in the args string** — it is the only
+   thing that selects close depth, announcement wording does not, and without it
+   the audit degrades to a shallow claude-only pass. architect-critic infers host
+   agent and adversary availability itself; you supply only the artifact and the
+   depth.
 5. **On control return, disposition-triage** the standing challenges:
    auto-accept spec-aligned ones (fold into the spec + bones ADRs and say what
    you folded); escalate load-bearing / vision-touching ones to the user;
@@ -372,7 +385,8 @@ Fires **once**, at spec-core close — after the lean MASTER-SPEC is authored an
 **Advisory, never a gate.** A standing challenge the user declines is recorded
 and the flow continues.
 
-Full mechanism in `references/critic-moment.md`.
+Full mechanism — including the §3.1 invocation contract and its silent failure
+modes — in `references/critic-moment.md`.
 
 ---
 
@@ -386,9 +400,8 @@ reach; fake ledger: skeleton shells only; feature map: may be three lines;
 posture: may be "default-private, revisit at MVP"; memory bank: Tier-0 real,
 the rest thin but true.
 
-A close that produced four `not-applicable` bones and a five-line feature map is
-a **successful** close — provided every category was asked. Artifacts grow at
-release closes, like everything else.
+A close with four `not-applicable` bones and a five-line feature map is a
+**successful** close — provided every category was asked.
 
 Full minima in `references/lean-spec-schema.md`.
 
