@@ -1,30 +1,26 @@
 #!/usr/bin/env bash
 # Cumulative product demo ledger (spec §3, §6.1) + patch lane records.
 
-_oss_ledger_next_id() { echo "d$(( $(jq -r '.counters.demo_line' "$1") + 1 ))"; }
-
 oss_ledger_add_auto() { # $1=state $2=spine $3=text $4=command $5=expected
   case "$5" in exit:[0-9]*|contains:?*) ;; *)
     echo "oss: expected must be 'exit:<n>' or 'contains:<str>'" >&2; return 2;; esac
-  local id; id="$(_oss_ledger_next_id "$1")"
   oss_state_mutate "$1" add_demo_line \
-    "$(jq -n --arg id "$id" --arg s "$2" --arg t "$3" --arg c "$4" --arg e "$5" --arg ts "$(_oss_now)" \
-      '{id:$id,type:"auto",text:$t,command:$c,expected:$e,source_spine:$s,status:"active",status_reason:null,status_by:null,at:$ts}')" || return $?
-  echo "$id"
+    "$(jq -n --arg s "$2" --arg t "$3" --arg c "$4" --arg e "$5" --arg ts "$(_oss_now)" \
+      '{type:"auto",text:$t,command:$c,expected:$e,source_spine:$s,status:"active",status_reason:null,status_by:null,at:$ts}')" \
+    demo
 }
 
 oss_ledger_add_user() { # $1=state $2=spine $3=text $4=outcome
   local lower
   lower="$(printf '%s' "$3" | tr '[:upper:]' '[:lower:]')"
-  lower="${lower#"${lower%%[![:space:]]*}"}"   # trim leading whitespace (spaces/tabs) so " Open ..." can't evade the ban
+  lower="${lower#"${lower%%[![:space:]]*}"}"   # trim leading whitespace so " Open ..." can't evade the ban
   case "$lower" in inspect\ *|view\ *|open\ *)
     echo "oss: inspector phrasing banned in user journey lines (spec §5.3 floor) - phrase as an action the user performs for value" >&2
     return 2;; esac
-  local id; id="$(_oss_ledger_next_id "$1")"
   oss_state_mutate "$1" add_demo_line \
-    "$(jq -n --arg id "$id" --arg s "$2" --arg t "$3" --arg o "$4" --arg ts "$(_oss_now)" \
-      '{id:$id,type:"user",text:$t,outcome:$o,source_spine:$s,status:"active",status_reason:null,status_by:null,at:$ts}')" || return $?
-  echo "$id"
+    "$(jq -n --arg s "$2" --arg t "$3" --arg o "$4" --arg ts "$(_oss_now)" \
+      '{type:"user",text:$t,outcome:$o,source_spine:$s,status:"active",status_reason:null,status_by:null,at:$ts}')" \
+    demo
 }
 
 _oss_ledger_set_status() { # $1=state $2=line-id $3=status $4=by $5=reason

@@ -73,50 +73,72 @@ _oss_apply_op() { # $1=op $2=payload-json
   esac
 }
 
-oss_state_mutate() { # $1=state-file $2=op $3=payload-json
-  local sf="$1" op="$2" payload="$3" lock="$1.lock" rc=0
+# Mint a sequential id from the CURRENT (locked) state. Reuses the Plan A
+# derivation helpers verbatim — the only change from Plan A is the call site:
+# these now run INSIDE the mutate lock (state is stable), so two concurrent
+# ceremonies cannot read the same max/counter and mint a duplicate id.
+_oss_mint_id() { # $1=state-file $2=mint-spec (release | spine:<rel> | work_item:<spine> | demo)
+  local sf="$1" spec="$2" kind parent
+  kind="${spec%%:*}"; parent="${spec#*:}"; [ "$parent" = "$spec" ] && parent=""
+  case "$kind" in
+    release)   oss_id_next_release "$sf" ;;
+    spine)     oss_id_next_spine "$sf" "$parent" ;;
+    work_item) oss_id_next_work_item "$sf" "$parent" ;;
+    demo)      echo "d$(( $(jq -r '.counters.demo_line' "$sf" 2>/dev/null || echo 0) + 1 ))" ;;
+    *)         echo "oss: unknown mint spec '$spec'" >&2; return 4 ;;
+  esac
+}
+
+oss_state_mutate() { # $1=state-file $2=op $3=payload-json [$4=mint-spec]
+  local sf="$1" op="$2" payload="$3" mint="${4:-}" lock="$1.lock" rc=0
   if ! mkdir "$lock" 2>/dev/null; then
     echo "oss: state locked ($lock exists) - another ceremony is mutating; retry or run 'oss doctor'" >&2
     return 3
   fi
   # Critical section runs as a body function invoked in `|| rc=$?` context:
-  # errexit is SUSPENDED for the whole body (that is the documented behavior of
-  # a command on the left of `||`), so NO bare command-substitution inside it -
-  # not the ones here today, nor any Task 4 replay work adds later - can
-  # hard-exit the process and leak the lock. The RETURN trap is gone: the
-  # unconditional `rmdir` below releases the lock on EVERY path (success and
-  # every failure rc). rc 3 (contention) returns above, before the lock is
-  # acquired, so we never rmdir a lock we do not own.
-  _oss_state_mutate_body "$sf" "$op" "$payload" || rc=$?
+  # errexit is SUSPENDED for the whole body, so no bare command-substitution
+  # inside it can hard-exit and leak the lock. The body echoes the minted id
+  # (if any) to stdout on success; that stdout flows through this function.
+  _oss_state_mutate_body "$sf" "$op" "$payload" "$mint" || rc=$?
   rmdir "$lock" 2>/dev/null || true
   return "$rc"
 }
 
-# Critical-section body. rc 0 ok, 4 on any failure. NO lock logic lives here -
-# the wrapper owns lock acquire/release. Because the wrapper calls this in
-# `|| rc=$?` context, errexit is off for everything below: even a future
-# UNguarded bare `x="$(cmd)"` cannot hard-exit; worst case it continues with an
-# empty value and the invalid-result guard catches it before the `mv`.
-_oss_state_mutate_body() { # $1=state-file $2=op $3=payload
-  local sf="$1" op="$2" payload="$3" tmp seq ts
+# Critical-section body. rc 0 ok, 4 on any failure. NO lock logic here - the
+# wrapper owns lock acquire/release. Minting happens here (inside the lock);
+# the minted id is injected into the payload BEFORE journaling so the journal
+# format and _oss_apply_op are unchanged (replay stays byte-identical).
+_oss_state_mutate_body() { # $1=state-file $2=op $3=payload $4=mint-spec
+  local sf="$1" op="$2" payload="$3" mint="${4:-}" tmp seq ts minted_id=""
   tmp="$(mktemp "${sf}.tmp.XXXXXX")" || return 4
+  if [ -n "$mint" ]; then
+    minted_id="$(_oss_mint_id "$sf" "$mint")" || { rm -f "$tmp"; return 4; }
+    [ -n "$minted_id" ] || { rm -f "$tmp"; echo "oss: id minting produced empty id" >&2; return 4; }
+    # Inject the minted id, overriding any caller-supplied id (a caller can
+    # never win a race by pre-baking an id).
+    payload="$(printf '%s' "$payload" | jq -c --arg id "$minted_id" '. + {id:$id}')" \
+      || { rm -f "$tmp"; return 4; }
+  fi
   seq="$(jq '.mutations | length' "$sf" 2>/dev/null)" || { rm -f "$tmp"; return 4; }
   ts="$(_oss_now)" || { rm -f "$tmp"; return 4; }
-  # journal append + effect happen in ONE jq pipeline into ONE $tmp, committed
-  # by a single mv - so the mutation and its journal entry commit atomically.
+  # journal append + effect in ONE jq pipeline into ONE $tmp, committed by a
+  # single mv - mutation and journal entry commit atomically.
   if ! jq --arg op "$op" --arg ts "$ts" --argjson seq "$seq" --argjson payload "$payload" \
       '.mutations += [{seq:$seq,op:$op,ts:$ts,payload:$payload}]' "$sf" \
       | _oss_apply_op "$op" "$payload" > "$tmp"; then
     rm -f "$tmp"; return 4
   fi
-  # refuse to install an empty/invalid result (pipeline failure guard) - runs
-  # BEFORE the mv, so the original is left untouched on any failure.
   if ! jq -e '.schema_version' "$tmp" >/dev/null 2>&1; then
     rm -f "$tmp"
     echo "oss: mutation produced invalid state; aborted (original untouched)" >&2
     return 4
   fi
   mv "$tmp" "$sf" || { rm -f "$tmp"; return 4; }
+  # Report the minted id (success only). Explicit `return 0`: a bare
+  # `[ -n "$minted_id" ] && printf ...` as the last line would make the
+  # function return 1 for non-mint ops (empty minted_id) - a false failure.
+  [ -n "$minted_id" ] && printf '%s\n' "$minted_id"
+  return 0
 }
 
 # §9.2 replay capability: rebuild state from the base snapshot by re-applying
