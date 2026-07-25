@@ -46,6 +46,10 @@ _oss_apply_op() { # $1=op $2=payload-json
   case "$op" in
     set_posture)
       jq --argjson p "$payload" '.project.posture = $p.posture' ;;
+    set_composition)
+      jq --argjson p "$payload" '.project.composition_root = $p.composition_root' ;;
+    set_overlay)
+      jq --argjson p "$payload" '.project.overlay_wiring = $p.overlay_wiring' ;;
     add_release)
       jq --argjson p "$payload" '.releases += [$p]' ;;
     add_spine)
