@@ -1,0 +1,212 @@
+# Class declaration (bone / flesh / internal-enabler)
+
+Depth for SKILL.md §7a. **Class is the only classification.** There is no size
+axis, no weight axis, no "small bone" — a spine's class answers one question:
+*does this spine move a bone?*
+
+| Class | Definition | Ceremony |
+|---|---|---|
+| **bone** | Creates or modifies a bone — the skeleton itself, a new boundary, a new cross-cutting contract, a data-ownership change, a stack decision | Full: grill gates at planning, full architect-critic audit with the external adversary at close, full retro, ADR required |
+| **flesh** | Lands entirely on existing bones — features, deepening passes, polish | Core rows only, plus a light host-only critic pass that includes a mandatory bone-touch check |
+| **internal-enabler** | Not a user-facing spine at all: no actor-to-outcome journey. Rare, and admission-gated | See §4 — it is a *verdict*, and admission is a separate judgment |
+
+Core rows (impl-check, cumulative demo, memory-bank harvest, handoff/state,
+worktree cleanup) are **never skippable in either class**. Class controls the
+rows *above* the core, not whether the core runs.
+
+---
+
+## 1. The ladder (run in this order)
+
+Order matters: an earlier rung's verdict is not revisited by a later one.
+
+### Rung 1 — the journey gate
+
+> **Does this spine deliver an actor-to-outcome journey?** A named actor performs
+> an action and reaches an observable outcome they came for.
+
+If **no** — the spine only builds an architectural layer, and its stated evidence
+of completion is that an *artifact exists* ("the migration runs and the tables
+exist", "the module compiles", "the endpoint returns 200") rather than an actor
+reaching an outcome — it is an **`internal-enabler`**. It is **never** accepted as
+a user-facing `flesh` or `bone` spine, no matter how much architecture it moves or
+how obviously it will be needed. Stop the ladder and go to §4.
+
+This is the mechanical anti-foundation-phase rule. "The UI will consume it
+someday" no longer qualifies as product value.
+
+**Do not over-trip this gate.** It fires on *positive evidence of a missing
+journey* — an artifact-existence demo, or a plan that names no actor at all — not
+on the mere presence of architecture. A spine that introduces a load-bearing
+architecture **and** carries the journey that exercises it is a **bone spine**,
+not an enabler. Introducing a bone is not by itself horizontal; §3's contrast
+table is the discriminator.
+
+### Rung 2 — the bone-touch judge (mechanical)
+
+> **Does the spine's plan touch a registered bone or risk-gate surface?**
+
+`oss touch_check <paths…>` — rc 0 means matched. A hit → **`bone`**, regardless of
+the declared class, regardless of the critic. Full usage in
+`references/bone-touch-judge.md`.
+
+### Rung 3 — bone by creation
+
+> **Does the spine create or modify a load-bearing, hard-to-reverse decision?**
+
+The bones vocabulary, verbatim from the forced-enumeration checklist: system
+shape & deployment topology · module boundaries & dependency direction · data
+ownership & migration posture · public contracts & compatibility policy · trust
+boundaries & destructive operations · failure visibility · rollback & evolution
+strategy · stack · cross-cutting constraints.
+
+Yes → **`bone`**, and the spine owes an **ADR** (authored `Proposed`, flipped to
+`Accepted` once the release exercises it) with a declared touch surface — which
+is what makes the *next* spine's rung-2 check work. A new bone with no registered
+surface is how the registry rots.
+
+Rung 3 catches what rung 2 cannot: a spine that creates a bone in files nobody has
+registered yet, because the bone does not exist until this spine lands.
+
+### Rung 4 — otherwise, flesh
+
+Entirely on existing bones. **Do not inflate it.** Bone ceremony on a genuine
+flesh spine is not "being careful" — it is ceremony inflation, it costs real
+hours per spine, and it trains people to skip checklists wholesale. If rungs 1-3
+found nothing, the answer is `flesh` and the reason is *"lands entirely on
+existing bones: <which ones it uses>"*.
+
+Then the critic veto (`references/critic-veto.md`) may push `flesh → bone`. It
+never pushes `bone → flesh`; only an explicit, recorded user override does that.
+
+---
+
+## 2. Stating the rationale
+
+Every declaration carries a one-line reason naming **the rule that decided it**.
+The reason is written into state (`oss class_set`'s 3rd argument, or the spine's
+line in `RELEASE.md`) and read back at close.
+
+| Rule | Reason shape |
+|---|---|
+| Journey gate | `internal-enabler: no actor-to-outcome journey (demo is "<artifact exists>")` |
+| Bone-touch | `bone-touch: ADR-0002 (src/domain/**)` |
+| Bone by creation | `creates a bone: <category> — <decision>; ADR-00NN` |
+| Flesh | `lands entirely on existing bones (<bones used>); no registered surface touched` |
+| Enabler admission | `internal-enabler admitted: consumed by <spine-id> in <release-id>` |
+
+"It felt architectural" is not a rationale. Name the rung.
+
+---
+
+## 3. Worked contrasts
+
+The four archetypes, including the three recorded historical failure modes.
+
+| Spine as proposed | Rung that fires | Class | Why |
+|---|---|---|---|
+| "Build the persistence layer" — schema + repository + migrations, declared as a user-facing flesh spine; its demo is *"the migration runs and the tables exist"* | 1 | **internal-enabler** | Artifact-existence demo, no actor and no outcome. A horizontal build wearing a spine costume — the failure mode the methodology exists to prevent |
+| "Add a second order type", declared `flesh`; plan changes `src/domain/port.rs`, listed in the hexagonal-core bone's touch surface | 2 | **bone** | The declared class is a claim; the touch surface is a fact. Facts win |
+| "Add a CSV export button" — uses the existing report port and UI shell, touches no registered surface, delivers "a user exports a report and opens the file" | 4 | **flesh** | Genuine flesh. Do not inflate it because "export sounds like a contract" — nothing registered says it is |
+| "Introduce the event-sourcing persistence model" — new load-bearing, hard-to-reverse persistence architecture, with an ADR and a declared touch surface | 3 | **bone** | Creates a bone. It carries the journey that exercises it, so rung 1 does **not** fire; the presence of architecture is not the enabler test |
+
+The last two rows are the ones people get wrong in opposite directions: inflating
+flesh out of caution, and demoting a real bone spine to "internal" because it
+sounds infrastructural.
+
+---
+
+## 4. `internal-enabler`: verdict first, admission second
+
+These are **two distinct judgments**, and conflating them is how the
+anti-foundation-phase rule gets defeated. The verdict is reported as
+`internal-enabler` either way — admission decides whether it enters the release,
+not what it is.
+
+**Judgment 1 — the class verdict** (rung 1): the spine has no actor-to-outcome
+journey → it is an `internal-enabler`. Done. This verdict does not depend on
+whether anything consumes it, and it is the answer to "what class is this spine?"
+whatever judgment 2 concludes.
+
+**Judgment 2 — admission** (spec §5.3): an internal-enabler is admitted into the
+release **only if** it names the **committed user-facing spine that consumes it**,
+scheduled in the **current or next release** — the one-release-ahead cap.
+
+- Named consumer, scheduled in range → **admitted**. It must be declared as
+  internal at release planning (not discovered later), it may contribute `auto:`
+  demo lines only — never a `user:` journey line — and it **cannot claim product
+  value** in the release's exit criteria.
+- No named consumer, or the consumer is three releases out, or the consumer is
+  "the UI, eventually" → **not admitted**. **Silence is not a named consumer:**
+  if the plan in front of you does not name one, the answer is not-admitted — do
+  not assume a consumer exists because one plausibly could. It returns to the
+  feature map:
+
+  ```bash
+  oss feature_add "<name>" "<the value it would enable>" bone feature-map-return
+  ```
+
+- If the consuming spine is later **dropped**, the internal spine returns to the
+  feature map too. The dependency runs both ways.
+
+Admission is scored separately from class (the `journey-line-floor` surface owns
+the consumer rule; `plan-spine` enforces the demo-line floors). Do not merge them
+into one verdict.
+
+---
+
+## 5. Recording an admitted enabler
+
+**This section applies only once judgment 2 has *admitted* the enabler.** A
+non-admitted enabler never gets a spine id at all — it goes back to the feature
+map (§4), and the verdict you report is `internal-enabler`, full stop.
+
+`oss spine_add` and `oss class_set` validate their class argument against
+`bone|flesh` and **exit 2** on anything else. `internal-enabler` is a planning
+verdict, not a state value — do not try to write it as a class.
+
+An **admitted** internal-enabler is therefore recorded under its structural class
+— run rungs 2-4 on it to find out which — with its enabler status carried in the
+spine's name and its RELEASE.md line:
+
+```bash
+sid="$(oss spine_add "$rel" "[internal] event-store schema" bone)"
+oss class_set "$sid" bone "internal-enabler admitted: consumed by r1.s4 (MVP); creates a bone (data ownership)"
+```
+
+The `[internal]` marker and the reason string are what `plan-spine` reads to
+enforce "`auto:` lines only". A **non-admitted** enabler is never given a spine id
+at all — it goes back to the feature map (§4).
+
+---
+
+## 6. Release 0
+
+The **skeleton spine** is `bone` by definition: it creates the skeleton, which is
+the first bone. It passes rung 1 trivially (the skeleton cut *is* an
+actor-to-outcome journey — that is what the cut question asks for) and is
+declared `bone` without deliberation.
+
+If Release 0 contains a second spine, run the full ladder on it like any other. A
+Release 0 whose *only* spine is an internal-enabler is a failed skeleton cut, not
+a plan — send it back to `start`'s cut question.
+
+---
+
+## 7. Anti-patterns
+
+- **Accepting a horizontal build as a spine** because it is "obviously needed
+  next". Rung 1 exists for exactly this.
+- **Merging the enabler verdict with the admission decision.** Two judgments.
+- **Admitting an enabler on "the UI will consume it someday".** Name the spine and
+  the release, or it goes back to the map.
+- **Inflating a flesh spine to bone out of caution.** Ceremony inflation trains
+  people to skip checklists.
+- **Demoting a bone spine to `flesh` because it is small.** Class is not size.
+  A one-file change that moves a boundary is a bone spine.
+- **Declaring class from the feature map's `class_guess` without re-running the
+  ladder.** The guess was made before the plan existed; the ladder reads the plan.
+- **A new bone with no touch surface.** Then the next spine's rung 2 cannot see
+  it, and the registry silently stops working.
+- **Passing `internal-enabler` to `oss spine_add` / `oss class_set`.** Exit 2
+  (§5).
