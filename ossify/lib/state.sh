@@ -20,7 +20,7 @@ oss_state_init() { # $1=state-file $2=project-name
     counters:{demo_line:0},
     releases:[],spines:[],work_items:[],
     demo_ledger:[],bones:[],risk_gates:[],fakes:[],
-    feature_map:[],patch_records:[],class_overrides:[],
+    feature_map:[],patch_records:[],class_overrides:[],veto_dispositions:[],
     mutations:[]
   }' > "$tmp"; then
     rm -f "$tmp"; return 1
@@ -72,6 +72,10 @@ _oss_apply_op() { # $1=op $2=payload-json
           (.status = $p.status | .status_reason = $p.reason | .status_by = $p.by)' ;;
     add_patch_record)
       jq --argjson p "$payload" '.patch_records += [$p]' ;;
+    set_release_meta)
+      jq --argjson p "$payload" '(.releases[] | select(.id == $p.release)) |= (. + $p.patch)' ;;
+    add_veto_disposition)
+      jq --argjson p "$payload" '.veto_dispositions += [$p]' ;;
     *)
       echo "oss: unknown op '$op'" >&2; return 4 ;;
   esac

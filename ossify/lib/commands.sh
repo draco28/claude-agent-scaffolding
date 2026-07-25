@@ -67,3 +67,12 @@ oss_cmd_get() { # $1=jq-expr
 oss_cmd_feature_list()      { local sf; sf="$(_oss_resolve_state)" || return $?; oss_state_read "$sf" '[.feature_map[]]'; }
 oss_cmd_spine_list()        { local sf; sf="$(_oss_resolve_state)" || return $?; oss_state_read "$sf" '[.spines[]]'; }
 oss_cmd_ledger_active_auto(){ local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_active_auto "$sf"; }
+oss_cmd_work_item_add() { # $1=spine $2=title [$3=target_repo]
+  local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_add_work_item "$sf" "$1" "$2" "${3:-canonical}"
+}
+oss_cmd_release_set_meta() { # $1=release $2=patch-json
+  local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_release_meta "$sf" "$1" "$2"
+}
+oss_cmd_veto_add() { # $1=spine $2=finding $3=disposition $4=reason
+  local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_add_veto "$sf" "$1" "$2" "$3" "$4"
+}

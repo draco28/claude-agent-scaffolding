@@ -21,14 +21,14 @@ oss_entity_add_spine() { # $1=state $2=release-id $3=name $4=class $5=target_rep
     "spine:$rel"
 }
 
-oss_entity_add_work_item() { # $1=state $2=spine-id $3=title
+oss_entity_add_work_item() { # $1=state $2=spine-id $3=title $4=target_repo
   local sf="$1" spine="$2" ts
   jq -e --arg s "$spine" '.spines[] | select(.id == $s)' "$sf" >/dev/null 2>&1 \
     || { echo "oss: unknown spine '$spine'" >&2; return 7; }
   ts="$(_oss_now)"
   oss_state_mutate "$sf" add_work_item \
-    "$(jq -n --arg s "$spine" --arg t "$3" --arg ts "$ts" \
-      '{spine:$s,title:$t,status:"planned",created_at:$ts}')" \
+    "$(jq -n --arg s "$spine" --arg t "$3" --arg r "${4:-canonical}" --arg ts "$ts" \
+      '{spine:$s,title:$t,target_repo:$r,status:"planned",created_at:$ts}')" \
     "work_item:$spine"
 }
 
@@ -41,4 +41,21 @@ oss_entity_set_spine_class() { # $1=state $2=spine-id $3=new-class $4=reason
   oss_state_mutate "$sf" set_spine_class \
     "$(jq -n --arg s "$spine" --arg f "$from" --arg t2 "$to" --arg r "$4" --arg ts "$ts" \
       '{spine:$s,from:$f,to:$t2,reason:$r,at:$ts}')"
+}
+
+oss_entity_set_release_meta() { # $1=state $2=release-id $3=patch-json
+  local sf="$1" rel="$2" patch="$3"
+  jq -e --arg r "$rel" '.releases[] | select(.id == $r)' "$sf" >/dev/null 2>&1 \
+    || { echo "oss: unknown release '$rel'" >&2; return 7; }
+  oss_state_mutate "$sf" set_release_meta \
+    "$(jq -n --arg r "$rel" --argjson patch "$patch" '{release:$r,patch:$patch}')"
+}
+
+oss_entity_add_veto() { # $1=state $2=spine $3=finding $4=disposition $5=reason
+  local sf="$1" spine="$2" disp="$4"
+  case "$disp" in auto-bone|override|escalate) ;; *)
+    echo "oss: disposition must be auto-bone|override|escalate" >&2; return 2;; esac
+  oss_state_mutate "$sf" add_veto_disposition \
+    "$(jq -n --arg s "$spine" --arg f "$3" --arg d "$disp" --arg r "$5" --arg ts "$(_oss_now)" \
+      '{spine:$s,finding:$f,disposition:$d,reason:$r,at:$ts}')"
 }
