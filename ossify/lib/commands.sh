@@ -76,3 +76,19 @@ oss_cmd_release_set_meta() { # $1=release $2=patch-json
 oss_cmd_veto_add() { # $1=spine $2=finding $3=disposition $4=reason
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_add_veto "$sf" "$1" "$2" "$3" "$4"
 }
+
+# Filesystem probe for architect-critic v0.2 (binary v0.2-or-absent), mirroring
+# scaffold-onboard's sf_compose_detect_architect_critic. Used by start's
+# spec-core critic moment. No composition.json read. Stateless by design: it
+# takes no state path and needs no manifest, so a skill can probe before (or
+# without) an initialized project.
+oss_cmd_critic_detect() {
+  local cache skill_md
+  for cache in "${HOME}/.claude/plugins/cache" "${CLAUDE_PLUGINS_DIR:-}"; do
+    { [ -z "$cache" ] || [ ! -d "$cache" ]; } && continue
+    for skill_md in "$cache"/*/architect-critic/*/skills/critiquing-spec/SKILL.md; do
+      [ -f "$skill_md" ] && { echo "v0.2"; return 0; }
+    done
+  done
+  echo "absent"; return 1
+}

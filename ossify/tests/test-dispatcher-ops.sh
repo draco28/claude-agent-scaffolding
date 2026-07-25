@@ -81,4 +81,19 @@ rm -rf "$DTMP"
 
 unset OSS_STATE_FILE
 rm -rf "$TMP"
+
+# critic_detect is a pure filesystem probe (no state file, no manifest) - it
+# must answer on any machine, installed or not, so the assertion accepts either
+# arm of the binary contract but nothing else (an empty/garbage echo, or a
+# crash, fails here).
+t_capture oss_cmd_critic_detect
+case "$T_OUT" in v0.2|absent) T_PASS=$((T_PASS+1));; *) T_FAIL=$((T_FAIL+1)); echo "FAIL: critic_detect echoes v0.2|absent (got '$T_OUT')";; esac
+
+# ...and through the REAL dispatcher binary, which runs `set -euo pipefail`.
+# The probe's inner `[ -f "$g" ] && { ...; }` on a non-matching glob is exactly
+# the shape that dies under strict mode if written carelessly, and the sourced
+# call above (non-strict) would never catch it.
+t_capture "$OSS" critic_detect
+case "$T_OUT" in v0.2|absent) T_PASS=$((T_PASS+1));; *) T_FAIL=$((T_FAIL+1)); echo "FAIL: dispatcher critic_detect echoes v0.2|absent (got '$T_OUT')";; esac
+
 t_summary

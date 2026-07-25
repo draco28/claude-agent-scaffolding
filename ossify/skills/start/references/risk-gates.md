@@ -1,0 +1,114 @@
+# Risk gates
+
+Depth for SKILL.md §8. A risk gate is a first-class registry entry: a named
+hazard, the **touch surface** that reaches it, and a **control checklist scaled
+to the harm** it can do.
+
+---
+
+## 1. What qualifies as a risk gate
+
+A risk gate is not "code that might have bugs". It is a surface where a defect
+produces harm that a test failure cannot undo. Four families:
+
+| Family | Examples | Why it is irreversible |
+|---|---|---|
+| **Money** | Placing live orders, charging a card, paying out, spending API credits at scale | Money moved is gone |
+| **Destructive** | Deleting user data, dropping/altering tables, overwriting files, force-pushing | Data destroyed is gone |
+| **Identity / trust** | Auth, session issuance, permission checks, secrets handling, sending on the user's behalf | Impersonation and disclosure cannot be recalled |
+| **Ordering / correctness-critical** | Ledger sequencing, idempotency keys, event ordering, financial arithmetic, determinism fingerprints | Silent corruption compounds before it is noticed |
+
+If the harm is bounded and locally reversible, it is not a gate — do not inflate
+the registry.
+
+---
+
+## 2. Controls, scaled to harm
+
+Controls are chosen from this menu; the deeper the harm, the more of them apply.
+Do **not** apply all five to everything — that is ceremony inflation, and it
+trains people to skip the checklist.
+
+| Control | What it means | Applies when |
+|---|---|---|
+| **Paper / sandbox env** | The operation runs against a non-real target by default; real mode is opt-in and explicit | Money, destructive |
+| **Human confirm** | An interactive confirmation that names the concrete effect ("sell 200 shares of X at market") — never a generic "are you sure?" | Money, destructive |
+| **Kill switch** | A single flag/env/endpoint that halts the operation class without a redeploy | Money, ordering |
+| **Audit trail** | Append-only record of who/what/when/inputs/outcome, retained independently of the operation's own state | All four families |
+| **Progressive exposure** | Ship to a narrow blast radius first (one account, one symbol, 1% of traffic), widen on evidence | Money, destructive, ordering |
+
+Two more that recur for identity/trust: **least privilege** (the code path holds
+the narrowest credential that works) and **no-secret-in-log** assertions.
+
+**Rule of thumb:** money or destructive → at least paper env + human confirm +
+audit trail. Identity → audit trail + least privilege. Ordering → audit trail +
+kill switch, and a determinism/property test if one is cheap.
+
+---
+
+## 3. Recording a gate
+
+```bash
+oss risk_gate_add "<name>" "<touch-glob-csv>" "<controls-csv>"
+```
+
+Worked example:
+
+```bash
+oss risk_gate_add "live-order-execution" \
+  "src/exec/**,src/broker/**" \
+  "paper env,human confirm,kill switch,audit trail,progressive exposure"
+
+oss risk_gate_add "user-data-deletion" \
+  "src/admin/purge.rs" \
+  "human confirm,audit trail,soft-delete window"
+```
+
+Touch surfaces use the same `case`-glob semantics as bones — see
+`references/bones-registry.md` §4. Controls are a free-text CSV: use short,
+checkable phrases, because a human reads them back at spine planning.
+
+---
+
+## 4. What a gate does downstream
+
+A risk gate behaves like a bone with an attached checklist:
+
+- A spine whose plan touches a gate's surface **auto-reclassifies to `bone`**
+  (same mechanical check as bones, `oss touch_check`), *and* inherits that
+  gate's control checklist as required work in the spine's plan.
+- The gate's exposure is a **docs trigger** at release close: the first release
+  where a gate's surface becomes reachable requires threat/failure notes plus an
+  audit & recovery plan for that gate (spec §8 trigger table).
+
+So a gate written here is not advisory — it converts, mechanically, into extra
+ceremony the first time someone goes near it. That is the intended cost.
+
+---
+
+## 5. Release-0 minimum
+
+Register only the gates the skeleton can actually reach. A skeleton that
+backtests against historical data touches no money gate — but if the skeleton
+*writes to the user's real filesystem* or *calls a paid API in a loop*, that is
+a gate, register it now.
+
+A gate that Release 0 cannot reach is still worth registering **when you already
+know it is coming and know its surface** — the surface is what makes the later
+reclassification automatic. If you do not yet know the surface, put it in the
+feature map instead and register the gate when the surface exists.
+
+---
+
+## 6. Anti-patterns
+
+- **A gate with no controls.** Then it is a worry, not a gate.
+- **Every control on every gate.** Scale to harm, or the checklist becomes
+  noise and gets skipped wholesale.
+- **"We'll add the kill switch later."** The control belongs in the plan of the
+  spine that first reaches the surface — that is precisely what the touch
+  surface guarantees. Do not pre-emptively defer it here.
+- **Confirming with a generic prompt.** A confirmation that does not name the
+  concrete effect trains the user to hit yes.
+- **Treating a risk gate as a substitute for a bone.** A gate about *safety*
+  often accompanies a bone about *design*. Register both when both apply.
