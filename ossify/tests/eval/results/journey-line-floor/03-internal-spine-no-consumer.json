@@ -4,9 +4,9 @@
     "inspector_caught": 5,
     "verb_outcome": 4,
     "consumer_rule": 5,
-    "no_false_reject": 5,
+    "no_false_reject": 4,
     "before_after_evidence": 5
   },
   "pass": true,
-  "notes": "Output matches expected_verdict (REJECT on F3) and reproduces the internal-spine admission rule precisely \u2014 committed spine id or named candidate (not a capability area) plus scheduling in the current release or its next_sketch, silence-is-not-a-consumer, fail-closed on an empty sketch, separation of Judgment 1 from Judgment 2, no ledger call on REJECT, and the feature_add return path \u2014 while correctly flagging the independent \u00a71 product-value violation and correctly marking F4 n/a (product value \u2260 a performance/reliability/cost claim); F2's n/a is scoped to admitted internal spines per \u00a72 and the \"misclassified at plan-release, don't launder here\" note is consistent with the verb+outcome floor though never stated as verb + observable outcome (hence 4 there, unexercised by this fixture); only blemish is a read-out grammar deviation \u2014 F5 marked \"unproven\" where \u00a72 allows pass|fail \u2014 which is non-deciding and touches no rubric criterion."
+  "notes": "Output rejects on F3 for exactly the fixture's expected reason (no named committed consuming spine, no release in range), reproduces the \u00a72 read-out verbatim in shape, correctly grounds both admission judgments in verifiable state reads (spine_list + next_sketch.candidates, one-release-ahead cap), cites the real \"silence is not a named consumer\" rule and the \u00a74.1 normalization-layer row, and independently catches the second F3 breach (internal spine claiming product value) plus the \u00a74.1 anti-launder point that adding a user: line would not rescue it; F4 is correctly n/a with the perf/reliability/cost trigger named, and no legitimate journey line is rejected. Small deduction on no_false_reject and verb_outcome: F5 is marked \"fail\" from a fixture that is merely silent about command bindings (hedged as \"as presented\" and explicitly not the deciding floor), and the verb+observable-outcome standard is only implied (\"the value belongs to the consuming spine's user: journey line\") rather than articulated \u2014 neither contradicts the rubric, and this fixture exercises neither."
 }

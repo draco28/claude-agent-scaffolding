@@ -134,8 +134,21 @@ gets defeated.
 **Judgment 1 — is it internal?** The spine has no actor-to-outcome journey: its
 evidence of completion is that an artifact exists. **`plan-release` makes this
 call** — its own `references/class-declaration.md` owns the ladder — and declares
-it at release-planning time. A spine discovered to be internal *here* is a
-planning miss: surface it, do not quietly re-label it.
+it at release-planning time by prefixing the spine's name with `[internal]` and
+recording the admission in the `class_set` reason. **Read that, do not recall it**
+(SKILL.md §3 resolves `$name` alongside `$class`):
+
+```bash
+case "$name" in "[internal]"*) echo "internal — auto: lines only" ;; esac
+oss get ".class_overrides[] | select(.spine == \"$spine\") | .reason"   # the admission record
+```
+
+You may be re-entered in a session that never saw the planning conversation. The
+name marker and the reason string are the only durable carriers of this fact —
+`.class` is `bone|flesh` and cannot express it (`spine_add` rejects
+`internal-enabler` with exit 2, so an admitted enabler is stored under its
+structural class). A spine that looks internal *here* but carries neither marker
+nor admission reason is a planning miss: surface it, do not quietly re-label it.
 
 **Judgment 2 — is it admitted?** Admitted **only if** it names:
 

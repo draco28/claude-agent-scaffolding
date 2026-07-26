@@ -104,6 +104,7 @@ the user's intent from a name:
 spine="<spine-id from $ARGUMENTS>"
 class="$(oss get ".spines[] | select(.id == \"$spine\") | .class")"
 rel="$(oss get ".spines[] | select(.id == \"$spine\") | .release")"
+name="$(oss get ".spines[] | select(.id == \"$spine\") | .name")"
 if [ -z "$class" ]; then
   printf '%s\n' "No spine '$spine'. Planned spines:"; oss spine_list; exit 0
 fi
@@ -114,9 +115,9 @@ that matches nothing exits **0** with an empty string, so `oss get … || …` n
 fires on an unknown id and would silently plan against a typo. Only an unreadable
 state file makes `oss get` itself fail — which is what probes 2 and 3 above catch.
 
-`class` is `bone` or `flesh` as `plan-release` recorded it — §7 reads it, and
-nothing here re-derives or second-guesses it. `rel` is the spine's release; §8
-reads its ledger budget from it.
+`class` is `bone`/`flesh` as `plan-release` recorded it — §7 reads it and nothing
+here re-derives it. `rel` is the spine's release (§8 reads its ledger budget).
+`name` carries the `[internal]` marker `.class` cannot express — §8b F3 reads it.
 
 The probes resolve differently, and only the first is manifest-proof:
 `oss state_path` reads the manifest and nothing else, so an exported
