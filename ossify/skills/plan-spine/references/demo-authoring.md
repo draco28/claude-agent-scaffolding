@@ -20,6 +20,7 @@ is a floor and not a guideline.
 | **F3** | An internal spine contributes **`auto:` lines only**, and is admitted only if it **names the committed consuming user-facing spine**, scheduled in the current or next release | internal spines |
 | **F4** | A pass claiming a **measured quality** (performance, reliability, cost) states **before/after evidence** in its demo contribution | deepening passes |
 | **F5** | Every `auto:` line binds to a **runnable command + declared expected** (`exit:<n>` \| `contains:<str>`) at authoring time | every `auto:` line |
+| **F6** | Release 0 contributes **≥1 automated golden-journey `auto:` line** — one command driving the release's exit-criterion journey end to end | spines in Release 0 |
 
 An internal spine **cannot claim product value** — not in its own demo lines, not
 in the release's exit criteria, not in the retro.
@@ -37,6 +38,7 @@ Demo contribution — <spine-id> "<name>"   [user-facing | internal]
   F3  enabler names consumer   pass|fail|n/a   <consumer spine-id> in <release-id>
   F4  measured-quality proof   pass|fail|n/a   before <x> → after <y>, via <command>
   F5  auto: lines bind         pass|fail       <command> → exit:<n>|contains:<str>
+  F6  r0 golden-journey auto:  pass|fail|n/a   <command> drives <actor> → <outcome>
   Verdict: ACCEPT | REJECT — <the floor that decided it>
 ```
 
@@ -46,10 +48,12 @@ Demo contribution — <spine-id> "<name>"   [user-facing | internal]
 - **F3 `n/a`** only for a user-facing spine (which needs no consumer).
 - **F4 `n/a`** only for a spine claiming no measured quality. A spine whose plan
   says "faster", "more reliable", "cheaper" anywhere is claiming one.
+- **F6 `n/a`** only for a spine outside Release 0.
 
 **REJECT ⇒ no ledger call.** The remedy is always to fix the contribution, never
 to record it and plan a follow-up: re-phrase (F2), name a consumer or send the
-spine back to the feature map (F3), measure (F4), state the command (F5).
+spine back to the feature map (F3), measure (F4), state the command (F5), author
+the golden-journey line (F6).
 
 ---
 
@@ -103,6 +107,7 @@ nobody can actually walk.
 | "the search index is queryable" | **REJECT** | Passive; no actor, no action, no observed outcome |
 | "search for a customer by partial name and see matching records ranked by recency" | **ACCEPT** | Verb + observable outcome, both halves present |
 | "resume an interrupted upload and see it finish from where it stopped" | **ACCEPT** | The visible "finish" is the evidence; the action is resuming |
+| "cancel a working order from the order book and see it drop out of the working list" | **ACCEPT** | The action is cancelling; the visible list is the evidence it worked. Rejecting this because "see" and "drop out" occur is the false-reject failure mode |
 
 ### 3.5 The mechanical backstop and its exact scope
 
@@ -255,7 +260,56 @@ its budget silently.
 
 ---
 
-## 7. Anti-patterns
+## 7. F6 — Release 0's golden-journey `auto:` line
+
+Release 0 is judged by the **clean-checkout test** (`start`'s
+`references/skeleton-cut.md` §4): from a clean checkout the named actor enters
+through the real entry point and reaches the observable outcome, with no storage
+editing, no hidden developer operation, no manual repair. F6 is what keeps that
+judgment from being a one-off: **Release 0 owes the cumulative ledger one
+automated `auto:` line that drives that same journey end to end**, so it becomes a
+standing regression test instead of a ceremony someone performed once.
+
+`start` derives the skeleton cut against this bar and explicitly hands the
+authoring here — it is a planning obligation, and a close-time check would fire
+after the authoring window has already shut.
+
+**Who authors it.** The Release 0 spine that owns the journey's **entry point** —
+in practice the skeleton spine. Any other Release 0 spine satisfies F6 by
+finding the line already in the ledger, or by naming the spine that will author
+it; it does not author a second one.
+
+```bash
+oss ledger_active_auto | jq -r '.[] | "\(.id)\t\(.source_spine)\t\(.text)"'
+```
+
+**What counts.** One command, runnable from the composition root against
+canonical post-merge state, that exercises the whole journey — entry point,
+through the layers the journey crosses, to the observable outcome — and exits
+non-zero if any leg breaks:
+
+```bash
+oss ledger_add_auto "$spine" "the golden journey: <actor> <action> → <outcome>" \
+  "bash scripts/golden-journey.sh" "exit:0"
+```
+
+**What does not count**, however green it runs:
+
+| Proposed as the golden line | Verdict |
+|---|---|
+| The whole unit-test suite passing | **REJECT** — it was green before the spine too, and it crosses no journey |
+| An `auto:` line per layer (parser ok, store ok, renderer ok) | **REJECT** — three layer assertions are not one journey; the seams between them are exactly what this line exists to hold |
+| A command that starts at an internal function rather than the real entry point | **REJECT** — same failure the clean-checkout test rejects, wearing an `auto:` label |
+| A command needing a developer's local env var or a manual setup step | **REJECT** — F5's runnability bar applies; if setup is required, the command performs it |
+| One command driving the entry point to the actor's outcome, exiting non-zero on any broken leg | **ACCEPT** |
+
+A `user:` walkthrough of the same journey is **also** required (F2) and does not
+substitute for this. They fail differently: the walkthrough catches what a human
+notices, the `auto:` line catches the regression nobody walks for.
+
+---
+
+## 8. Anti-patterns
 
 - **Citing `ledger_add_user`'s rc 0 as proof a line is a journey line.** Prefix
   check, three words, backstop only (§3.5).
@@ -263,6 +317,9 @@ its budget silently.
 - **Admitting an enabler on an unnamed or out-of-range consumer** (§4).
 - **Letting an internal spine contribute a `user:` line** or claim product value.
 - **A measured-quality claim that closes green on the pre-existing suite** (§5).
+- **Closing Release 0 with its core journey as a human walkthrough only** — or
+  offering the existing test suite, or a per-layer set of `auto:` lines, as the
+  golden-journey line (§7).
 - **Recording a line you intend to fix later.** The ledger is cumulative.
 - **Authoring demo lines at roadmap time** — the reason they moved here is that
   roadmap time has no implementation context.

@@ -37,18 +37,29 @@ oss_reg_add_feature() { # $1=state $2=name $3=value $4=class-guess $5=source
 # `bone <adr>` / `risk_gate <name>` per match, rc 0 if any path matched any
 # glob, rc 1 if clean. Dedup of repeated matches is deliberately not done in
 # v1 (callers act on any-match, not on the match list).
-oss_reg_touch_check() { # $1=state $2..=paths ; rc 0 if any match, 1 if clean
+# rc 2 = "could not check" and is NEVER folded into rc 1 = "clean". Every
+# documented call site is `if oss touch_check …; then HIT; else CLEAN; fi`, so a
+# failure that returned 1 classified an unreadable state as a genuine clean
+# verdict — the mechanical half of class declaration degrading toward `flesh`,
+# the permissive class, with no stdout and no stderr to say so. The blanket
+# `2>/dev/null || true` that used to wrap both jq producers is exactly what
+# erased that difference. A state without `.bones`/`.risk_gates` is malformed
+# (doctor's shape check flags it) and is inconclusive here, not clean; an empty
+# `[]` registry is well-formed and IS clean.
+oss_reg_touch_check() { # $1=state $2..=paths ; rc 0 any match, 1 clean, 2 could-not-check
   local sf="$1"; shift
-  local hit=1 path glob kind name
+  [ "$#" -gt 0 ] || { echo "oss: touch_check needs at least one path" >&2; return 2; }
+  local hit=1 path glob kind name bones_tsv gates_tsv
+  bones_tsv="$(jq -r '.bones[] | . as $b | .touch[] | ["bone", $b.adr, .] | @tsv' "$sf" 2>/dev/null)" \
+    || { echo "oss: cannot read bones from '$sf' - touch check is INCONCLUSIVE, not clean" >&2; return 2; }
+  gates_tsv="$(jq -r '.risk_gates[] | . as $g | .touch[] | ["risk_gate", $g.name, .] | @tsv' "$sf" 2>/dev/null)" \
+    || { echo "oss: cannot read risk_gates from '$sf' - touch check is INCONCLUSIVE, not clean" >&2; return 2; }
   while IFS=$'\t' read -r kind name glob; do
     [ -n "$glob" ] || continue
     for path in "$@"; do
       # shellcheck disable=SC2254
       case "$path" in $glob) echo "$kind $name"; hit=0;; esac
     done
-  done < <(
-    { jq -r '.bones[] | . as $b | .touch[] | ["bone", $b.adr, .] | @tsv' "$sf" 2>/dev/null || true; }
-    { jq -r '.risk_gates[] | . as $g | .touch[] | ["risk_gate", $g.name, .] | @tsv' "$sf" 2>/dev/null || true; }
-  )
+  done < <(printf '%s\n%s\n' "$bones_tsv" "$gates_tsv")
   return "$hit"
 }

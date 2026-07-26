@@ -88,13 +88,17 @@ expected paths:
 if oss touch_check src/ui/book/cancel.rs src/app/orders.rs src/app/positions.rs; then
   : # rc 0 = MATCHED — capture stdout: "bone <adr>" / "risk_gate <name>" per match
 else
-  : # rc 1 = clean
+  : # rc 1 = clean — but rc 2 lands here too, and it is NOT clean (see below)
 fi
 ```
 
-**rc 0 = matched, rc 1 = clean.** The inversion is deliberate and reading it
-backwards inverts the judge. Capture stdout too — the matched surface names are
-what goes into the reclassification reason.
+**rc 0 = matched, rc 1 = clean, rc 2 = could not check.** The 0/1 inversion is
+deliberate and reading it backwards inverts the judge. rc 2 (no paths given, or
+an unreadable state) is the third answer a two-branch `if` cannot see: it falls
+into the `else` and reads as a clean verdict, which quietly leaves the spine in
+the permissive class. It prints the reason on stderr — check the rc explicitly
+when the plan depends on the verdict, and never treat 2 as clean. Capture stdout
+too: the matched surface names are what goes into the reclassification reason.
 
 A hit on a `flesh` spine is **drift**: the class was declared against a plan that
 did not include this path. Do not shrug it off because "the critic was clean at

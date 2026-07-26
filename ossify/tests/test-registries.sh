@@ -28,5 +28,40 @@ t_assert_rc 0 "no-touch bone added"
 t_capture jq -c '.bones[] | select(.adr=="ADR-9") | .touch' "$S"
 t_assert_eq "[]" "$T_OUT" "no-touch bone's touch is []"
 
+# --- Final review finding 3: touch_check must distinguish "clean" from "could
+# not check". Both were rc 1 with no stdout and no stderr — byte-identical — and
+# every documented call site is `if oss touch_check …; then HIT; else CLEAN; fi`,
+# so an unreadable state silently classified the spine as `flesh`, the permissive
+# class. The judge failed OPEN. rc 2 (usage, the established code in these libs)
+# now means inconclusive; rc 0 = matched and rc 1 = clean are unchanged — that
+# inversion is deliberate and every caller depends on it.
+t_capture oss_reg_touch_check "$S"
+t_assert_rc 2 "zero paths is rc 2 (usage), not rc 1 (clean)"
+t_assert_contains "$T_OUT" "at least one path" "zero-path usage error names the problem"
+
+printf 'THIS IS NOT VALID JSON\n' > "$TMP/corrupt.json"
+t_capture oss_reg_touch_check "$TMP/corrupt.json" src/domain/dsl/compile.rs
+t_assert_rc 2 "corrupt state is rc 2 (could not check), not rc 1 (clean)"
+t_assert_contains "$T_OUT" "cannot read" "unreadable state says so instead of answering clean"
+
+t_capture oss_reg_touch_check "$TMP/nonexistent.json" src/domain/dsl/compile.rs
+t_assert_rc 2 "nonexistent state file is rc 2, not rc 1"
+
+jq 'del(.bones)' "$S" > "$TMP/nobones.json"
+t_capture oss_reg_touch_check "$TMP/nobones.json" src/domain/dsl/compile.rs
+t_assert_rc 2 "state missing .bones is rc 2, not rc 1"
+
+jq 'del(.risk_gates)' "$S" > "$TMP/nogates.json"
+t_capture oss_reg_touch_check "$TMP/nogates.json" src/domain/dsl/compile.rs
+t_assert_rc 2 "state missing .risk_gates is rc 2, not rc 1"
+
+# ...and the tightening must NOT turn a legitimately empty registry into
+# "inconclusive": a fresh project with no bones and no gates is genuinely CLEAN.
+T5="$(mktemp -d)"; S5="$T5/state.json"
+oss_state_init "$S5" reg-empty >/dev/null
+t_capture oss_reg_touch_check "$S5" src/domain/dsl/compile.rs
+t_assert_rc 1 "empty-but-valid registries are CLEAN (rc 1), not inconclusive"
+rm -rf "$T5"
+
 rm -rf "$TMP"
 t_summary

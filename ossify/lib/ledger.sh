@@ -2,8 +2,23 @@
 # Cumulative product demo ledger (spec §3, §6.1) + patch lane records.
 
 oss_ledger_add_auto() { # $1=state $2=spine $3=text $4=command $5=expected
-  case "$5" in exit:[0-9]*|contains:?*) ;; *)
-    echo "oss: expected must be 'exit:<n>' or 'contains:<str>'" >&2; return 2;; esac
+  # The `exit:` operand must be digits-only END TO END. The old glob
+  # `exit:[0-9]*` was "exit:" + ONE digit + anything, so plausible authoring
+  # slips ("exit:0 (tests green)", "exit:0abc", "exit:0 # green") were accepted
+  # here — and the runner's `[ "$rc" -ne "${expected#exit:}" ]` then exits 2 on
+  # the non-numeric operand, which the enclosing `if` reads as FALSE: the FAIL
+  # branch is skipped and the line counts as passed. The ledger is append-only,
+  # so one such line re-reports green at every future close. Same
+  # `''|*[!0-9]*` idiom as state.sh's schema-version guard, for the same reason:
+  # a value that is not digits makes the later numeric test error rather than
+  # compare, and an erroring test reads as "condition not met".
+  case "$5" in
+    exit:*)
+      case "${5#exit:}" in ''|*[!0-9]*)
+        echo "oss: expected 'exit:<n>' takes digits only (got '$5')" >&2; return 2;; esac ;;
+    contains:?*) ;;
+    *) echo "oss: expected must be 'exit:<n>' or 'contains:<str>'" >&2; return 2 ;;
+  esac
   oss_state_mutate "$1" add_demo_line \
     "$(jq -n --arg s "$2" --arg t "$3" --arg c "$4" --arg e "$5" --arg ts "$(_oss_now)" \
       '{type:"auto",text:$t,command:$c,expected:$e,source_spine:$s,status:"active",status_reason:null,status_by:null,at:$ts}')" \

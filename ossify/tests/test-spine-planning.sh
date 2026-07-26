@@ -94,7 +94,10 @@ done
 
 # ...and a genuine journey line whose outcome is visible is accepted too - the
 # false-reject guard in demo-authoring.md §3.3 has nothing mechanical fighting it.
-t_capture "$OSS" ledger_add_user r0.s1 "place a paper trade from the order ticket and see it appear in the open-positions list" "fill shows at the right size"
+# Deliberately phrased in a domain no eval fixture uses: this file must never
+# hand the journey-line-floor eval a ready-made answer if the eval's read path
+# ever widens past skills/.
+t_capture "$OSS" ledger_add_user r0.s1 "reschedule a delivery to a later slot and see the tracking page show the new window" "the delivery moves to the chosen slot"
 t_assert_rc 0 "dispatcher: verb + visible-outcome journey line accepted"
 USER1="$T_OUT"
 
@@ -159,6 +162,11 @@ t_capture "$OSS" touch_check README.md docs/notes.md
 t_assert_rc 1 "dispatcher: touch_check rc 1 == CLEAN"
 t_capture "$OSS" touch_check README.md src/domain/order.rs
 t_assert_rc 0 "dispatcher: any match in the path set is rc 0 (decomposition re-check passes the union)"
+# rc 2 = "could not check" is the third arm the two-branch `if` in §4c cannot
+# see: it must never be folded into rc 1, or an inconclusive judge reads as a
+# clean verdict and the spine keeps the permissive class.
+t_capture "$OSS" touch_check
+t_assert_rc 2 "dispatcher: touch_check with zero paths is rc 2 (inconclusive), never rc 1 (clean)"
 
 # --- state stays replayable after every spine-planning mutation above.
 t_capture oss_state_replay "$OSS_STATE_FILE"

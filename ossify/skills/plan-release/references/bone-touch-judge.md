@@ -41,14 +41,32 @@ if oss touch_check src/domain/order.rs src/ui/export.rs docs/guide.md; then
   echo "reclassify"
 else
   # rc 1 — clean. Nothing registered was touched.
+  # rc 2 also lands here, and it does NOT mean clean — see below.
   echo "clean"
 fi
 ```
 
-**rc 0 = matched, rc 1 = clean.** The inversion is deliberate (a hit is the
-"success" of the check) and every caller depends on it. A skill that reads it
-backwards inverts the judge and silently reclassifies exactly the wrong spines —
-this is the single most consequential mistake available in this file.
+**rc 0 = matched, rc 1 = clean, rc 2 = could not check.** The 0/1 inversion is
+deliberate (a hit is the "success" of the check) and every caller depends on it.
+A skill that reads it backwards inverts the judge and silently reclassifies
+exactly the wrong spines — this is the single most consequential mistake
+available in this file.
+
+**rc 2 is the judge saying it could not run**: no paths were passed, or the state
+file was unreadable/malformed. It prints the reason on stderr and matches
+nothing. The two-branch `if` above cannot distinguish it from a clean verdict, so
+a mechanical check would degrade into the permissive `flesh` answer exactly when
+the state is broken — the one situation where degrading is least acceptable. When
+the class declaration turns on this verdict, test the rc explicitly:
+
+```bash
+oss touch_check src/domain/order.rs src/ui/export.rs; tc=$?
+case "$tc" in
+  0) : ;;   # HIT — reclassify to bone
+  1) : ;;   # clean
+  *) : ;;   # inconclusive — fix the state before declaring a class; do not proceed as clean
+esac
+```
 
 Capture stdout as well as the exit code: the `bone <adr>` / `risk_gate <name>`
 lines are what you write into the reclassification reason and what tells you

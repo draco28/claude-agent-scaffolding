@@ -9,7 +9,7 @@ _oss_demo_is_runner() { # $1=command
 }
 
 oss_demo_run_auto() { # $1=state-file
-  local sf="$1" n i line id text cmd expected out rc passed=0
+  local sf="$1" n i line id text cmd expected want out rc passed=0
   n="$(jq '[.demo_ledger[] | select(.type=="auto" and (.status=="active" or .status=="quarantined"))] | length' "$sf" 2>/dev/null)" \
     || { echo "oss: cannot read state $sf" >&2; return 1; }
   i=0
@@ -24,14 +24,25 @@ oss_demo_run_auto() { # $1=state-file
     cmd="$(printf '%s' "$line" | jq -r '.command')"
     expected="$(printf '%s' "$line" | jq -r '.expected')"
     set +e; out="$(bash -c "$cmd" 2>&1)"; rc=$?; set -e 2>/dev/null || true
+    # Every arm FAILS CLOSED. The ledger is append-only: a line written by an
+    # older, looser validator is re-run forever, so the runner cannot assume its
+    # `expected` was ever validated. A `case` with no default arm silently
+    # counted an unrecognized expected as a PASS, and a non-numeric `exit:`
+    # operand made `[ ... -ne ... ]` exit 2 — which the `if` reads as false, so
+    # the FAIL branch never ran. Both now fail the line.
     case "$expected" in
       exit:*)
-        if [ "$rc" -ne "${expected#exit:}" ]; then
-          echo "FAIL $id - $text (rc=$rc, wanted ${expected#exit:})"; printf '%s\n' "$out" | tail -5; return 1
+        want="${expected#exit:}"
+        case "$want" in ''|*[!0-9]*)
+          echo "FAIL $id - $text (malformed expected '$expected': 'exit:' takes digits only)"; return 1;; esac
+        if [ "$rc" -ne "$want" ]; then
+          echo "FAIL $id - $text (rc=$rc, wanted $want)"; printf '%s\n' "$out" | tail -5; return 1
         fi ;;
-      contains:*)
+      contains:?*)
         case "$out" in *"${expected#contains:}"*) ;; *)
           echo "FAIL $id - $text (output missing '${expected#contains:}')"; printf '%s\n' "$out" | tail -5; return 1;; esac ;;
+      *)
+        echo "FAIL $id - $text (unrecognized expected '$expected'; the grammar is exit:<n> | contains:<str>)"; return 1 ;;
     esac
     # Vacuous-green guard (spec §6.1): a RECOGNIZED TEST RUNNER that collected zero
     # tests FAILs even on exit 0. Both conditions are required - the command must name

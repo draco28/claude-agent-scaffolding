@@ -84,9 +84,27 @@ oss_manifest_state_path() {
 
 # Dispatcher glue: resolve the state path for a subcommand.
 # Precedence: explicit $1 > $OSS_STATE_FILE (test/override) > manifest-derived.
+#
+# The env branch names itself on STDERR when it is genuinely overriding a
+# manifest-routed project: a stale OSS_STATE_FILE exported by an unrelated
+# session silently redirects every read and every write, and nothing else in the
+# output says where the path came from.
+#
+# Two boundaries are deliberate. The notice never goes to stdout — this
+# function's stdout IS the state path, and callers consume it as a value. And it
+# stays silent when there is no manifest, or when the manifest agrees: nothing is
+# being overridden in either case, and a notice on every call is noise the reader
+# learns to skip, which is the failure mode this is supposed to prevent.
 _oss_resolve_state() { # [$1=explicit-path]
   if [ -n "${1:-}" ]; then echo "$1"; return 0; fi
-  if [ -n "${OSS_STATE_FILE:-}" ]; then echo "$OSS_STATE_FILE"; return 0; fi
+  if [ -n "${OSS_STATE_FILE:-}" ]; then
+    local _routed
+    _routed="$(oss_manifest_state_path 2>/dev/null)" || _routed=""
+    if [ -n "$_routed" ] && [ "$_routed" != "$OSS_STATE_FILE" ]; then
+      echo "oss: state path came from \$OSS_STATE_FILE ($OSS_STATE_FILE), overriding the manifest-routed $_routed" >&2
+    fi
+    echo "$OSS_STATE_FILE"; return 0
+  fi
   oss_manifest_state_path
 }
 

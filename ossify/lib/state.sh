@@ -110,6 +110,20 @@ _oss_mint_id() { # $1=state-file $2=mint-spec (release | spine:<rel> | work_item
 
 oss_state_mutate() { # $1=state-file $2=op $3=payload-json [$4=mint-spec]
   local sf="$1" op="$2" payload="$3" mint="${4:-}" lock="$1.lock" rc=0
+  # §9.2 schema guard, on the WRITE path. doctor's call is advisory and
+  # read-only and therefore protects nothing; without this line a v1 build
+  # journals v1-semantics ops straight into a state claiming a future schema.
+  #
+  # Placed BEFORE `mkdir "$lock"` on purpose: a `return 6` after the lock is
+  # acquired would jump past the unconditional `rmdir` below and wedge the state
+  # file permanently.
+  #
+  # Gated on the file PARSING first so an unreadable/corrupt state keeps its
+  # established rc 4 (apply-failure, original untouched) owned by
+  # _oss_state_mutate_body, rather than being re-labelled a schema failure.
+  if jq -e . "$sf" >/dev/null 2>&1; then
+    oss_state_check_version "$sf" || return 6
+  fi
   if ! mkdir "$lock" 2>/dev/null; then
     echo "oss: state locked ($lock exists) - another ceremony is mutating; retry or run 'oss doctor'" >&2
     return 3
@@ -185,7 +199,16 @@ oss_state_replay() { # $1=state-file ; rc 0 = clean, 5 = drift, 1 = no base
   if [ "$(printf '%s' "$rebuilt" | jq -S .)" = "$live" ]; then
     echo "replay: clean ($n mutations)"
   else
-    echo "replay: drift detected - live state does not equal base+journal ($n mutations). Run 'oss doctor' and repair from journal." >&2
+    # Say only what is true today. The previous message pointed the operator at
+    # `oss doctor` for repair, but doctor is replay's ONLY caller (so it told an
+    # operator running doctor to run doctor) and no repair/restore verb exists in
+    # this build. Naming a command that cannot repair is worse than naming none:
+    # the operator's next move becomes deleting the state file, which destroys
+    # the journal living inside it. `$rebuilt` is deliberately NOT written from
+    # here — this function is lock-free so doctor can call it freely.
+    echo "replay: drift detected - live state does not equal base+journal ($n mutations)." >&2
+    echo "  Nothing is lost: the base snapshot ($base) and the append-only journal inside $sf are both intact, so the correct state is still derivable from them." >&2
+    echo "  This build has no automated restore verb. Do NOT delete $sf - the journal lives inside it. Recover by re-applying '.mutations' onto '$base' out-of-band, or restore the file from version control." >&2
     return 5
   fi
 }

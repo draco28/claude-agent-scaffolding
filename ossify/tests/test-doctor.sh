@@ -62,5 +62,30 @@ t_assert_rc 1 "doctor fails on state missing 'counters'"
 t_assert_contains "$T_OUT" "fail: shape - missing key 'counters'" "missing counters key reported"
 rm -rf "$T4"
 
+# --- Final review finding 8: every doctor-level replay assertion in this file
+# ran against a CLEAN state, so doctor was never tested against drift. The file's
+# own tamper case sets schema_version = 99, which fails the schema check first
+# and takes the `skip: replay` branch — replay is never reached by it. Two
+# mutations survived the whole suite as a result: making doctor never call replay
+# (the "ok: replay" substring still matched), and flipping its fail:/rc=1 arm to
+# ok:. doctor is §9.1's operator entry for a binding §9.2 guarantee and its gate
+# is `rc -eq 0` rather than "schema ok", so any future check that fails ahead of
+# replay would silently downgrade drift detection to a mis-attributed skip.
+#
+# Tamper the live state OUT OF BAND while leaving base.json intact, so
+# base+journal genuinely no longer rebuild to live, and keep schema_version at 1
+# so the schema gate does not short-circuit replay.
+T5="$(mktemp -d)"; S5="$T5/state.json"
+oss_state_init "$S5" doc-drift >/dev/null
+oss_state_mutate "$S5" set_posture '{"posture":"open-core"}' >/dev/null   # one real journaled mutation
+jq '.project.posture = "tampered-out-of-band"' "$S5" > "$S5.x" && mv "$S5.x" "$S5"
+t_capture "$OSS" doctor "$S5"
+t_assert_rc 1 "doctor fails on a DRIFTED state"
+t_assert_contains "$T_OUT" "ok: schema" "schema is still green — drift is not a schema failure"
+t_assert_contains "$T_OUT" "fail: replay" "drift reported by replay (not skipped, not reported ok)"
+t_assert_contains "$T_OUT" "drift detected" "replay's drift message reaches the operator through doctor"
+t_assert_contains "$T_OUT" "ok: shape" "shape still reports independently of the replay failure"
+rm -rf "$T5"
+
 rm -rf "$TMP"
 t_summary

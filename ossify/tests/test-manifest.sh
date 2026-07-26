@@ -77,5 +77,39 @@ t_assert_rc 0 "oss state_path works through the dispatcher under strict mode"
 t_assert_eq "$TMP/ws/.ossify/project-state.json" "$T_OUT" "dispatcher state_path matches convention default"
 cd "$HERE"
 
+# --- Final review M1: when OSS_STATE_FILE overrides a MANIFEST-ROUTED project,
+# say so. A stale export left by an unrelated session silently redirects every
+# read and write, and nothing in the output named the source. Three properties
+# are asserted because each one is separately load-bearing:
+#   (a) the notice never touches stdout — `_oss_resolve_state`'s stdout IS the
+#       state path, and every `oss get` consumer treats stdout as a value;
+#   (b) it names the env var AND the manifest path being overridden;
+#   (c) it stays silent when nothing is actually being overridden (the env var
+#       agrees with the manifest), so it does not become noise to tune out.
+cd "$TMP/ws"
+export OSS_STATE_FILE="$TMP/elsewhere/state.json"
+t_capture _oss_resolve_state 2>/dev/null
+OUT_ONLY="$(_oss_resolve_state 2>/dev/null)"
+t_assert_eq "$TMP/elsewhere/state.json" "$OUT_ONLY" "override notice stays OFF stdout (stdout is exactly the path)"
+ERR_ONLY="$(_oss_resolve_state 2>&1 >/dev/null)"
+t_assert_contains "$ERR_ONLY" "OSS_STATE_FILE" "override notice names the env var as the source"
+t_assert_contains "$ERR_ONLY" "$TMP/ws/.ossify/project-state.json" "override notice names the manifest-routed path being overridden"
+
+export OSS_STATE_FILE="$TMP/ws/.ossify/project-state.json"
+ERR_AGREE="$(_oss_resolve_state 2>&1 >/dev/null)"
+t_assert_eq "" "$ERR_AGREE" "no notice when the env var agrees with the manifest (nothing is being overridden)"
+unset OSS_STATE_FILE
+cd "$HERE"
+
+# ...and with no manifest anywhere on the walk-up path there is nothing to
+# override, so the env branch stays silent there too (this is also what keeps
+# the rest of the suite, which runs manifest-less, free of the notice).
+cd "$TMP"
+export OSS_STATE_FILE="/env/y.json"
+ERR_NOMANIFEST="$(_oss_resolve_state 2>&1 >/dev/null)"
+t_assert_eq "" "$ERR_NOMANIFEST" "no notice when there is no manifest to override"
+unset OSS_STATE_FILE
+cd "$HERE"
+
 rm -rf "$TMP"
 t_summary

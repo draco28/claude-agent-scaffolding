@@ -71,8 +71,10 @@ the seam is declared here rather than improvised later.
 
 Release 0 also owes the cumulative ledger **one automated golden-journey `auto:`
 line**, so the journey becomes a standing regression test rather than a
-one-off walkthrough. That line is authored at spine planning; the cut just has
-to be the kind of path that *can* carry one.
+one-off walkthrough. That line is authored at spine planning, where it is
+`plan-spine`'s binding floor **F6** (SKILL.md §8a; depth in that skill's
+`references/demo-authoring.md` §7) — the cut just has to be the kind of path that
+*can* carry one.
 
 ---
 

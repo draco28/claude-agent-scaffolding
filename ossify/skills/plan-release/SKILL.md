@@ -197,7 +197,7 @@ release's expected contributions will not fit the budget, decide now, out loud,
 which of the three it is:
 
 - **prune** — retire or supersede lines that no longer earn their runtime
-  (`plan-spine` records the amendment; `close` applies it);
+  (`plan-spine` runs the amendment, and it takes effect the moment it runs);
 - **parallelize** — restructure the runner so lines share setup;
 - **deepen** — raise the budget deliberately, with the reason recorded.
 
@@ -261,15 +261,19 @@ Full rules, the enabler/bone contrast, and worked examples in
 For each spine, collect the paths its plan expects to change and check them:
 
 ```bash
-if oss touch_check src/domain/order.rs src/ui/export.rs; then
-  : # rc 0 = HIT (prints "bone <adr>" / "risk_gate <name>" per match)
-else
-  : # rc 1 = clean
-fi
+oss touch_check src/domain/order.rs src/ui/export.rs; tc=$?
+case "$tc" in
+  0) : ;;   # HIT - prints "bone <adr>" / "risk_gate <name>" per match
+  1) : ;;   # clean
+  *) : ;;   # rc 2 = could NOT check (stderr says why). Never proceed as clean
+esac
 ```
 
 **The rc is inverted on purpose: 0 means a path matched, 1 means clean.** A plan
-that reads it backwards inverts the whole judge.
+that reads it backwards inverts the whole judge. **rc 2 is a third answer** — no
+paths given, or an unreadable state — and a two-branch `if` folds it into
+"clean", which is how a mechanical judge degrades to the permissive class exactly
+when the state is broken. Full rc contract in `references/bone-touch-judge.md`.
 
 On a hit, reclassify and record — regardless of the spine's declared class and
 regardless of what the critic says:
@@ -407,8 +411,8 @@ that cites it.
   everything is as broken as one that passes everything.
 - **Letting the critic clear a bone-touch hit.** Different judges. The touch check
   is mechanical and runs regardless of the critic's verdict.
-- **Reading `oss touch_check`'s exit code backwards.** rc 0 = matched, rc 1 =
-  clean.
+- **Reading `oss touch_check`'s exit code backwards**, or folding its rc 2 into
+  "clean". rc 0 = matched, 1 = clean, 2 = could not check.
 - **Skipping the real-use findings input** because the last release was recent.
   It is mandatory from Release 1 onward; n/a only for Release 0.
 - **Accepting a horizontal build as a spine.** No actor-to-outcome journey →

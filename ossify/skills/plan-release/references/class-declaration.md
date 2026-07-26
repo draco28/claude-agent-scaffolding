@@ -47,8 +47,9 @@ table is the discriminator.
 > **Does the spine's plan touch a registered bone or risk-gate surface?**
 
 `oss touch_check <paths…>` — rc 0 means matched. A hit → **`bone`**, regardless of
-the declared class, regardless of the critic. Full usage in
-`references/bone-touch-judge.md`.
+the declared class, regardless of the critic. rc 2 means the judge could not run
+(no paths, or an unreadable state) and is **not** a clean verdict — fix the state
+before declaring. Full usage in `references/bone-touch-judge.md`.
 
 ### Rung 3 — bone by creation
 

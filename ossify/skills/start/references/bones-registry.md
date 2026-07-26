@@ -97,7 +97,9 @@ Touch surfaces are matched with **bash `case` glob semantics**, evaluated by
   consistent with how plans list changed paths.
 - `oss touch_check` returns **rc 0 when a path matched** (a hit) and **rc 1 when
   clean** — the inversion is deliberate and callers depend on it. It prints
-  `bone <adr>` / `risk_gate <name>` per match.
+  `bone <adr>` / `risk_gate <name>` per match. **rc 2 is a third answer, not a
+  clean one**: no paths were given, or the state could not be read. It says why
+  on stderr; never let a two-branch `if` fold it into "clean".
 
 **Write surfaces that are neither too tight nor too loose.** `src/**` catches
 everything and makes every spine a bone (ceremony inflation). `src/domain/order.rs`

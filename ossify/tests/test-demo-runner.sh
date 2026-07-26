@@ -40,5 +40,29 @@ t_capture "$HERE/../bin/oss" demo_run /nonexistent/state.json
 t_assert_rc 1 "missing state file is rc 1, not rc 2, via dispatcher"
 t_assert_contains "$T_OUT" "cannot read state" "error message names the problem"
 
+# --- Final review finding 1 (runner half). The ledger is APPEND-ONLY, so a line
+# whose `expected` slipped past an older, looser validator is re-run and
+# re-reported at every future close. The runner must therefore FAIL CLOSED on an
+# operand it cannot compare, not fall out of the `case` (or let `[` exit 2, which
+# the `if` reads as false) and count the line as passed. Injected straight into
+# state because the validator now correctly refuses to create such a line.
+T2="$(mktemp -d)"; S2="$T2/state.json"
+oss_state_init "$S2" demo-malformed >/dev/null
+oss_ledger_add_auto "$S2" r0.s1 "legacy line, malformed operand" "exit 1" "exit:0" >/dev/null
+jq '.demo_ledger[0].expected = "exit:0 (tests green)"' "$S2" > "$S2.x" && mv "$S2.x" "$S2"
+t_capture oss_demo_run_auto "$S2"
+t_assert_rc 1 "malformed exit: operand FAILS the line (was: silently counted as PASS)"
+t_assert_contains "$T_OUT" "FAIL d1" "the malformed line is named"
+
+# An `expected` the runner recognizes not at all must also fail closed. The
+# command here exits 0, so a rc 0 can only come from the fall-through — this is
+# the assertion that distinguishes "fails closed" from "the command happened to
+# fail" above.
+jq '.demo_ledger[0].expected = "under 40ms" | .demo_ledger[0].command = "true"' "$S2" > "$S2.x" && mv "$S2.x" "$S2"
+t_capture oss_demo_run_auto "$S2"
+t_assert_rc 1 "unrecognized expected grammar FAILS the line (fail closed, not fall through)"
+t_assert_contains "$T_OUT" "FAIL d1" "the unrecognized-grammar line is named"
+rm -rf "$T2"
+
 rm -rf "$TMP"
 t_summary

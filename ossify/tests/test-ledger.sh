@@ -35,5 +35,20 @@ t_assert_rc 2 "leading-tab inspector phrasing banned"
 t_capture oss_ledger_add_user "$S" r0.s1 " Type a strategy idea and run a backtest" "results visible"
 t_assert_rc 0 "leading-space legitimate journey line still accepted"
 
+# --- Final review finding 1: the `expected` validator was the glob `exit:[0-9]*`
+# = "exit:" + ONE digit + anything. A well-prefixed but malformed operand was
+# accepted here, and the runner's `[ "$rc" -ne "${expected#exit:}" ]` then exits
+# 2 on the non-numeric operand — which the enclosing `if` reads as FALSE, so the
+# FAIL branch never runs and the line counts as passed at every future close.
+# The pre-existing negatives above ("somehow:fine") only probe PREFIX failures;
+# these probe the operand, which is where the silent pass lived.
+for bad in "exit:0 (tests green)" "exit:0abc" "exit:0 # x" "exit:0|contains:x" "exit:" "exit:1 "; do
+  t_capture oss_ledger_add_auto "$S" r0.s1 "malformed operand" "true" "$bad"
+  t_assert_rc 2 "malformed exit: operand rejected: '$bad'"
+done
+# ...and the tightening must not over-reject a well-formed multi-digit code.
+t_capture oss_ledger_add_auto "$S" r0.s1 "multi-digit exit code" "true" "exit:127"
+t_assert_rc 0 "well-formed multi-digit exit: operand still accepted"
+
 rm -rf "$TMP"
 t_summary

@@ -44,7 +44,8 @@ for a line someone removed because it was inconvenient.
 Consequences worth knowing:
 
 - `oss ledger_active_auto` returns only `active` `auto:` lines, so an amended
-  line stops costing runtime immediately at close.
+  line stops costing runtime **the moment the amendment runs** — at planning
+  time, not at this spine's close.
 - The release-close walkthrough uses the **amended** set.
 - Counting `.demo_ledger | length` counts history, not the live suite. Filter on
   `.status == "active"` when you want the live set.
@@ -124,7 +125,14 @@ inconvenient stops being evidence about the product.
 - **Quarantining at planning time** (§4).
 - **A reason that names a feeling instead of a change** (§3).
 - **Retiring a failing line instead of fixing the spine that broke it** (§5).
-- **Assuming an amendment applies immediately.** It applies at *this spine's*
-  close; until then the line is live and the cumulative demo still runs it.
+- **Amending before the replacement is real.** The amendment takes effect the
+  moment it runs — not at this spine's close. A line superseded at planning time
+  stops running straight away, so every sibling spine that closes before this one
+  lands runs a cumulative demo with that coverage already gone. Run the amendment
+  when the flow it retires is actually replaced, not when you plan to replace it.
+  *(Known divergence: spec §5.3 says amendments apply at the spine's close. The
+  lib applies them on the spot and there is no pending state. Which side moves is
+  an explicit Plan C decision, to be made when `close` is built — not settled by
+  whoever edits this file next.)*
 - **Deleting from `demo_ledger` directly.** There is no such operation, and there
   should not be.
