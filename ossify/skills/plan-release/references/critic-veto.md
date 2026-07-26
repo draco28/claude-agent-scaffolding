@@ -172,6 +172,29 @@ escalation. The class declaration for that spine is **held open**: it does not
 proceed to `plan-spine` until the user rules. If the user declines to rule, the
 fail-closed default applies and the spine is planned as `bone`.
 
+### 4.6 Closing an escalation
+
+The `veto_add … escalate` record does not close the escalation, and it does not
+move the class. It records that a finding *was* escalated. Until a `class_set`
+call runs, the spine keeps whatever the ladder declared in §3 — and for a hedged
+boundary finding that is very often `flesh`, the exact opposite of the fail-closed
+default §4.5 just promised. Every escalation therefore ends in one of three calls:
+
+| The user's ruling | Class call | Disposition record |
+|---|---|---|
+| "yes, it is a bone" | `oss class_set "<spine>" bone "escalation resolved: <the ruling>"` | the original `escalate` record stands |
+| "no, it stays flesh" | `oss class_set "<spine>" flesh "<the user's reason>"` | `oss veto_add "<spine>" "<finding>" override "<the user's reason>"` — §5's shape, because the user is reversing a fail-closed default |
+| declines to rule, or the session ends unresolved | `oss class_set "<spine>" bone "escalation unresolved - fail-closed default"` | the original `escalate` record stands |
+
+Issue the class call even when it does not change the value: `class_set` appends
+to `class_overrides`, and that append is the audit trail showing a human was asked
+and what came back.
+
+The class in state — not the disposition log — is what `references/release-md-emission.md`
+renders into RELEASE.md's class table and what `plan-spine` reads to pick a
+ceremony path. Skip the class call and the release ships a class table that
+contradicts its own disposition log.
+
 ---
 
 ## 5. User override — recorded, never silent

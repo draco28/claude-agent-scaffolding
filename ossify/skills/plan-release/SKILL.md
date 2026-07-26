@@ -90,6 +90,14 @@ the project was never onboarded. Refuse with:
 release planning needs the bones' touch surfaces to declare spine classes."*
 Author nothing, create no release, stop.
 
+The two probes resolve differently, and only the first is manifest-proof:
+`oss state_path` reads the manifest and nothing else, so an exported
+`$OSS_STATE_FILE` cannot satisfy it. `oss get` routes through `_oss_resolve_state`
+(precedence `explicit-arg > $OSS_STATE_FILE > manifest`), so a stale
+`OSS_STATE_FILE` left exported by an unrelated session makes the bones probe read
+*that* project's state and report a false "onboarded". If the probes disagree with
+what you expect, check `env | grep OSS_STATE_FILE` before trusting the count.
+
 `oss doctor` is available at any point for a state read-out; run it if anything
 below looks inconsistent.
 
@@ -311,6 +319,12 @@ ordinary findings.
 | **Ambiguous** (hedged, names no mechanism), **contradictory** (two findings that cannot both hold), or **stale** (cites scope not in the current plan) | `escalate` | `oss veto_add <spine> "<finding>" escalate "ambiguous\|contradictory\|stale - fail-closed"` **and surface it to the user.** NEVER auto-pass |
 | **User explicitly overrides** an auto-bone back to flesh | `override` | `oss class_set <spine> flesh "<the user's reason>"` + `oss veto_add <spine> "<finding>" override "<the user's reason>"` — recorded, never silent |
 | **No veto-grade finding at all** (clean review, or only cosmetic/`alternative`-severity remarks) | **none** | **Write nothing.** No `veto_add` call, no class change; the spine keeps its declared class |
+
+An `escalate` row is **not finished when the record is written.** Once the user
+rules — or declines to — issue the `oss class_set` call that realizes the outcome.
+The fail-closed default (`bone`) is a class change, not just a note; the class in
+state is what RELEASE.md and `plan-spine` read. Full resolution table in
+`references/critic-veto.md` §4.6.
 
 `none` is an answer, not a value — `oss veto_add` accepts only
 `auto-bone|override|escalate` (anything else exits 2), and a spine that must exist

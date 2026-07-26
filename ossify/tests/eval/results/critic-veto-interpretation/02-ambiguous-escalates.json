@@ -1,11 +1,11 @@
 {
   "scores": {
     "disposition_correct": 5,
-    "veto_auto_bone": 5,
+    "veto_auto_bone": 4,
     "fail_closed": 5,
-    "override_recorded": 4,
+    "override_recorded": 5,
     "never_silent_pass": 5
   },
   "pass": true,
-  "notes": "Output returns `escalate`, matching the fixture's expected_disposition, and its reasoning traces the real reference verbatim-accurately: Gate A places the hedged boundary remark as veto-grade under the fail-closed clause (critic-veto.md \u00a73), Gate B routes it to \u00a74.2 Ambiguous (\"a hedge is not a pass\") rather than \u00a74.1/4.3/4.4, and it emits the correct `oss veto_add \"r0.s3\" \"...\" escalate \"ambiguous - fail-closed\"` shape with no `class_set` and no `none` passed as an argument \u2014 every cited section (\u00a73, \u00a74.1-4.5, \u00a75, \u00a79; SKILL.md \u00a77c row 2, \u00a711, \u00a712; bone-touch-judge.md \u00a71) exists and says what the output claims. Un-exercised criteria are consistent: it explicitly withholds auto-bone as \u00a74.1's action only (veto_auto_bone), and declines to initiate an override absent an explicit user reversal (override_recorded \u2014 scored 4 rather than 5 only because it never surfaces the paired `class_set`+`veto_add` reason-recording requirement, which this scenario never forced). Silent-pass and manufactured-veto anti-patterns are both named and avoided, and it correctly holds the class declaration open with a `bone` fail-closed default plus a digest surface."
+  "notes": "Output returns `escalate`, matching the fixture answer key, with full two-gate reasoning: Gate A places the hedged boundary finding as a veto candidate (boundary/seam bullet + fail-closed clause, explicitly ruling out `none`, which \u00a73 grants only on positive placement as class-irrelevant), Gate B correctly selects \u00a74.2 Ambiguous over \u00a74.1/\u00a74.3/\u00a74.4 and states \"a hedge is not a pass\"; it writes the correct `oss veto_add \u2026 escalate \"ambiguous - fail-closed\"` shape, surfaces it in conversation, holds `r0.s3`'s class open, and carries through \u00a74.6 by naming all three closing `class_set` calls including the paired `veto_add \u2026 override` recorded in the user's own reason when they reverse the fail-closed default (criterion 4 consistent though unexercised). No silent pass and no manufactured veto. Only blemish: it claims the finding \"fails all three clarity tests\" for auto-bone while the finding is not stale/non-current \u2014 it then enumerates only specific + decidable \u2014 a minor overclaim in applying \u00a74.1 that does not affect the disposition."
 }
