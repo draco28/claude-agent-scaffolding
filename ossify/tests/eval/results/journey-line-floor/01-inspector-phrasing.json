@@ -1,0 +1,12 @@
+{
+  "scores": {
+    "verdict_correct": 5,
+    "inspector_caught": 5,
+    "verb_outcome": 5,
+    "consumer_rule": 5,
+    "no_false_reject": 5,
+    "before_after_evidence": 5
+  },
+  "pass": true,
+  "notes": "REJECT \u2014 F2 matches expected_verdict, with both \u00a73.2 banned shapes named (inspection verb + artifact-existence outcome), an explicit \u00a73.3 false-reject check, the \u00a73.5 backstop correctly demoted to a typo guard rather than the verdict, no-ledger-call on REJECT, specific n/a justifications for F3/F4/F5, and a concrete verb+observable-outcome rewrite plus routing the schema check to a bound auto: line; only blemish is the read-out scoring F1 \"pass\" while the prose later says F1 also fails once the sole line is rejected."
+}

@@ -1,0 +1,12 @@
+{
+  "scores": {
+    "verdict_correct": 5,
+    "inspector_caught": 5,
+    "verb_outcome": 4,
+    "consumer_rule": 5,
+    "no_false_reject": 5,
+    "before_after_evidence": 5
+  },
+  "pass": true,
+  "notes": "Output matches expected_verdict (REJECT on F3) and reproduces the internal-spine admission rule precisely \u2014 committed spine id or named candidate (not a capability area) plus scheduling in the current release or its next_sketch, silence-is-not-a-consumer, fail-closed on an empty sketch, separation of Judgment 1 from Judgment 2, no ledger call on REJECT, and the feature_add return path \u2014 while correctly flagging the independent \u00a71 product-value violation and correctly marking F4 n/a (product value \u2260 a performance/reliability/cost claim); F2's n/a is scoped to admitted internal spines per \u00a72 and the \"misclassified at plan-release, don't launder here\" note is consistent with the verb+outcome floor though never stated as verb + observable outcome (hence 4 there, unexercised by this fixture); only blemish is a read-out grammar deviation \u2014 F5 marked \"unproven\" where \u00a72 allows pass|fail \u2014 which is non-deciding and touches no rubric criterion."
+}

@@ -1,0 +1,12 @@
+{
+  "scores": {
+    "verdict_correct": 5,
+    "inspector_caught": 4,
+    "verb_outcome": 4,
+    "consumer_rule": 4,
+    "no_false_reject": 5,
+    "before_after_evidence": 5
+  },
+  "pass": true,
+  "notes": "Output returns REJECT decided by F4, exactly matching the fixture's expected_verdict and expected_reason, and its reasoning is grounded in verified skill text (demo-authoring.md \u00a75's \"cut cold-start time in half \u2014 closes on the existing smoke test\" worked pair, the three F4 requirements, the no-comparison-form `expected` grammar forcing the threshold inside the command, and SKILL.md \u00a78a/\u00a78b/\u00a711); it correctly scopes F3 to n/a for a non-internal spine and explicitly preserves the F4-fires-on-the-claim boundary (drop the speed claim and F4 becomes legitimately n/a), which guards against false rejects; the inspector-phrasing and verb+outcome criteria are untested by this fixture and the output is consistent with both without demonstrating them, and its only over-reach is inferring \"user-facing\" (hence F1/F2/F5 fails) from a fixture that states only the missing measurement \u2014 harmless since F4 is correctly named as the deciding floor and no ledger call is made."
+}

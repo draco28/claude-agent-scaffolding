@@ -1,0 +1,12 @@
+{
+  "scores": {
+    "verdict_correct": 5,
+    "inspector_caught": 4,
+    "verb_outcome": 4,
+    "consumer_rule": 5,
+    "no_false_reject": 5,
+    "before_after_evidence": 5
+  },
+  "pass": true,
+  "notes": "ACCEPT matches expected_verdict and is decided by F3 with both admission judgments shown separately (class read from plan-release per \u00a74 Judgment 1; consumer named by identity, not capability area, plus the one-release-ahead cap explicitly cited as inclusive of the next release per demo-authoring \u00a74.1 row 3), F2/F4 n/a are justified by the exact \u00a72 and \u00a75 allowances rather than dodged (F4 correctly framed as firing on the claim, not the spine type), and the \u00a74.1 row-5 laundering trap and the reverse feature-map dependency are both flagged; inspector-phrasing and verb+outcome are unexercised by this fixture but the output is fully consistent with them (it demands no user: line and forbids one for an internal spine); minor stretches only: F5 is marked \"pass\" on a conditional since the fixture never states the auto: commands, and the read-out header omits the spine-id."
+}

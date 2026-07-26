@@ -1,0 +1,12 @@
+{
+  "scores": {
+    "verdict_correct": 5,
+    "inspector_caught": 5,
+    "verb_outcome": 5,
+    "consumer_rule": 4,
+    "no_false_reject": 5,
+    "before_after_evidence": 5
+  },
+  "pass": true,
+  "notes": "Output accepts, matching expected_verdict, and grounds it in the \u00a73.1 who-performs-this test (trader places a trade for value) plus an explicit walk of all four \u00a73.2 banned shapes, names the \"see/appear\" false-reject trap from \u00a73.3 and refuses it, and correctly demotes the \u00a73.5 prefix backstop to a non-verdict \u2014 the two unexercised floors are marked n/a with the correct governing rules (F3 n/a because user-facing, F4 n/a because the floor fires on the claim not the spine), though the one-release-ahead cap itself is never articulated, so consumer_rule earns consistency credit rather than demonstration."
+}
