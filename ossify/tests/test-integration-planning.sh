@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # End-to-end onboarding -> release-planning -> spine-planning integration test
-# (Plan B task 9). This is the de-facto full-op replay guard for the whole
-# planning chain: every op minted by start/plan-release/plan-spine (B1-B8) is
-# exercised here, in the order a real project would hit them, with a clean
-# replay at the end.
+# (Plan B task 9). Replay guard for the happy-path onboarding -> release ->
+# spine narrative: every op that chain mints is exercised here, in the order a
+# real project would hit them, with a clean replay at the end.
+#
+# NOT every op in `_oss_apply_op`. Deliberately out of this narrative, covered
+# elsewhere: `set_composition` (test-dispatcher-ops.sh), `add_fake` and
+# `set_demo_line_status` (test-spine-planning.sh, test-ledger.sh,
+# test-demo-runner.sh). Do not read this file as the whole-suite op guard.
 #
 # Prose anchors: spec L§4 (spec-core onboarding: journey map, skeleton-cut,
 # bones, risk gates), L§5.2 (release planning: feature groom, exit-criteria,
@@ -83,6 +87,11 @@ t_assert_rc 2 "sourced: inspector phrasing rejected"
 # --- demo runner over the accumulated auto lines - [GAP 2] arg OMITTED ---
 t_capture oss_cmd_demo_run
 t_assert_rc 0 "sourced: cumulative auto-demo passes (state-file arg omitted -> \$OSS_STATE_FILE)"
+# rc alone is under-discriminating: oss_demo_run_auto prints "PASS 0 lines" and
+# returns 0 for ANY readable state with no active auto lines. Tie the assertion
+# to THIS test's own accumulated content (exactly one active auto line, d1) so a
+# resolver that lands on some other valid-but-empty state cannot pass silently.
+t_assert_contains "$T_OUT" "PASS 1 lines" "sourced: demo_run resolved THIS state's ledger, not merely some state"
 
 # --- doctor green + replay clean over the whole chain - [GAP 2] arg OMITTED ---
 t_capture oss_cmd_doctor
@@ -148,6 +157,7 @@ t_assert_eq "$LEDGER_BEFORE" "$T_OUT" "dispatcher: no phantom demo line after re
 # --- demo runner over the accumulated auto lines - [GAP 2] arg OMITTED ---
 t_capture "$OSS" demo_run
 t_assert_rc 0 "dispatcher: cumulative auto-demo passes (state-file arg omitted -> \$OSS_STATE_FILE)"
+t_assert_contains "$T_OUT" "PASS 1 lines" "dispatcher: demo_run resolved THIS state's ledger, not merely some state"
 
 # --- doctor green + replay clean over the whole chain - [GAP 2] arg OMITTED ---
 t_capture "$OSS" doctor
