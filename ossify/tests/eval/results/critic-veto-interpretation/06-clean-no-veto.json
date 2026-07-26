@@ -1,0 +1,11 @@
+{
+  "scores": {
+    "disposition_correct": 5,
+    "veto_auto_bone": 4,
+    "fail_closed": 5,
+    "override_recorded": 4,
+    "never_silent_pass": 5
+  },
+  "pass": true,
+  "notes": "Output returns `none` matching the fixture key, with accurate, verifiable citations (class-declaration.md \u00a73 row 3 CSV-export archetype, bone-touch-judge.md rc 1 = clean and \u00a75 \"change nothing\", critic-veto.md \u00a73 Gate A not-veto-grade list plus the digest wording), correctly scopes the fail-closed clause to unplaceable findings only so Gate B never runs, writes no class_set/veto_add, and explicitly refuses to manufacture a veto \u2014 auto-bone and override paths are untested by this scenario but nothing in the reasoning contradicts them."
+}

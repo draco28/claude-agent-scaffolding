@@ -1,0 +1,11 @@
+{
+  "scores": {
+    "class_correct": 5,
+    "horizontal_caught": 5,
+    "flesh_bone_reclassified": 5,
+    "no_over_ceremony": 5,
+    "rationale_cited": 5
+  },
+  "pass": true,
+  "notes": "Output declares `flesh`, matching the fixture's `expected_class`, and walks all four ladder rungs with accurate, verifiable citations: rung 1 correctly does not fire because a real actor-to-outcome journey exists (it names the artifact-existence contrast, so it is consistent with catching a horizontal build), rung 2 reads `touch_check` with the correct polarity (rc 0 = matched, rc 1 = clean \u2014 the one inversion trap in `bone-touch-judge.md` \u00a72/\u00a77) and correctly writes nothing on a clean result per \u00a75, rung 3 negates the bones vocabulary explicitly, and rung 4 emits the canonical \u00a72 flesh reason string; it refuses to inflate to bone (naming the \u00a73 row-3 archetype and the \"export sounds like a contract\" trap), resolves the critic gate to `none` per `critic-veto.md` \u00a73 without manufacturing a veto, and correctly notes the \u00a74 admission gate is unreachable for a non-enabler."
+}

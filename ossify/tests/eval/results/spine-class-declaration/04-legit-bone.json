@@ -1,0 +1,11 @@
+{
+  "scores": {
+    "class_correct": 5,
+    "horizontal_caught": 5,
+    "flesh_bone_reclassified": 5,
+    "no_over_ceremony": 5,
+    "rationale_cited": 5
+  },
+  "pass": true,
+  "notes": "Declares `bone` (matches expected_class) via the correct rung \u2014 rung 3 bone-by-creation \u2014 and runs the whole ladder in order with accurate reference grounding: rung 1 correctly does NOT over-trip (cites class-declaration.md \u00a71's \"do not over-trip\" clause and \u00a73's row-4 archetype, and states the discriminator as positive evidence of a missing journey / artifact-existence demo, so a genuine horizontal build would still be caught); rung 2 correctly reads `oss touch_check` as rc 1 = clean with the right reason (the bone this spine creates is not yet registered \u2014 exactly what rung 3 exists to catch) and writes nothing per bone-touch-judge.md \u00a75; \u00a77c disposition `none` per critic-veto.md \u00a73 with no manufactured veto_add/class_set, plus the correct note that the veto only pushes flesh\u2192bone. No ceremony inflation and no ceremony omission: full bone ceremony (grill gates, close-depth external audit, full retro, ADR Proposed\u2192Accepted with declared touch surface) is right for a genuine bone, and it produces the \u00a72 reason-shape string verbatim (`creates a bone: <category> \u2014 <decision>; ADR-00NN`). Only quibble, not disqualifying: the \"Admission: ADMITTED\" header applies \u00a74 vocabulary that \u00a74 reserves for internal-enabler verdicts, though the body immediately and correctly explains admission-gating does not apply to a user-facing bone spine."
+}

@@ -1,0 +1,11 @@
+{
+  "scores": {
+    "disposition_correct": 5,
+    "veto_auto_bone": 5,
+    "fail_closed": 5,
+    "override_recorded": 4,
+    "never_silent_pass": 5
+  },
+  "pass": true,
+  "notes": "Output returns `escalate`, matching the fixture's expected_disposition, and shows the correct chain: Gate A fail-closed clause (cites scope not in the plan \u2192 veto candidate, not `none`), Gate B \u00a74.4 stale (explicitly ruling out clear/ambiguous/contradictory), the \u00a74.5 `veto_add \u2026 escalate \"stale - fail-closed\"` record plus in-conversation surfacing, no `class_set`, class held open, and bone as the fail-closed default if the user declines to rule; it explicitly rejects the \"that file is gone so it's void\" auto-pass and notes `none` requires affirmative class-irrelevant placement, so neither silent-pass nor manufactured-veto is at risk. auto-bone and override are not exercised by this stale-citation fixture, but the output is consistent with both (it reasons about why \u00a74.1 clear does not apply and defers the ruling to the user rather than self-resolving); override semantics are simply never touched, hence 4 rather than 5. Only nit: the \"\u00a712\" citation label is loose (spec \u00a712 is the critic-interface section, not the user-rules rule), which does not affect the disposition."
+}

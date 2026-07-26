@@ -1,0 +1,11 @@
+{
+  "scores": {
+    "disposition_correct": 5,
+    "veto_auto_bone": 5,
+    "fail_closed": 5,
+    "override_recorded": 4,
+    "never_silent_pass": 5
+  },
+  "pass": true,
+  "notes": "Output returns `escalate`, matching the fixture's expected_disposition, and its reasoning traces the real reference verbatim-accurately: Gate A places the hedged boundary remark as veto-grade under the fail-closed clause (critic-veto.md \u00a73), Gate B routes it to \u00a74.2 Ambiguous (\"a hedge is not a pass\") rather than \u00a74.1/4.3/4.4, and it emits the correct `oss veto_add \"r0.s3\" \"...\" escalate \"ambiguous - fail-closed\"` shape with no `class_set` and no `none` passed as an argument \u2014 every cited section (\u00a73, \u00a74.1-4.5, \u00a75, \u00a79; SKILL.md \u00a77c row 2, \u00a711, \u00a712; bone-touch-judge.md \u00a71) exists and says what the output claims. Un-exercised criteria are consistent: it explicitly withholds auto-bone as \u00a74.1's action only (veto_auto_bone), and declines to initiate an override absent an explicit user reversal (override_recorded \u2014 scored 4 rather than 5 only because it never surfaces the paired `class_set`+`veto_add` reason-recording requirement, which this scenario never forced). Silent-pass and manufactured-veto anti-patterns are both named and avoided, and it correctly holds the class declaration open with a `bone` fail-closed default plus a digest surface."
+}

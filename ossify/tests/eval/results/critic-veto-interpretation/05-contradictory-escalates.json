@@ -1,0 +1,11 @@
+{
+  "scores": {
+    "disposition_correct": 5,
+    "veto_auto_bone": 5,
+    "fail_closed": 5,
+    "override_recorded": 5,
+    "never_silent_pass": 5
+  },
+  "pass": true,
+  "notes": "Output returns `escalate`, matching the fixture's expected_disposition, and grounds it in the correct machinery \u2014 Gate A pass on public-contract/compatibility class-bearing (critic-veto.md \u00a73), \u00a74.3 contradictory trigger with explicit rejection of picking the reassuring finding, averaging, or manufacturing an auto-bone from the alarming one, the \u00a74.5 `oss veto_add \u2026 escalate \"contradictory - fail-closed\"` record plus in-conversation surfacing, class held open before `plan-spine`, and the bone fail-closed default if the user declines to rule; all cited sections and the SKILL.md \u00a77c row / \u00a711 anti-pattern verify against the real skill files. Unexercised criteria are handled consistently rather than ignored: it explains why \u00a74.1 clear\u2192auto-bone does not fire (finding set is not decidable) while affirming that a clear veto would reclassify, why `override` (\u00a75) is inapplicable absent an explicit user reversal with their own reason, and why writing `none` here would be auto-passing a veto candidate (and is never a `veto_add` argument) \u2014 plus a correct \u00a77 digest line and the bone-touch-judge independence check."
+}

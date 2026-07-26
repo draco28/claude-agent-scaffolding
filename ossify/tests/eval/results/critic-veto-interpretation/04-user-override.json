@@ -1,0 +1,11 @@
+{
+  "scores": {
+    "disposition_correct": 5,
+    "veto_auto_bone": 5,
+    "fail_closed": 5,
+    "override_recorded": 5,
+    "never_silent_pass": 5
+  },
+  "pass": true,
+  "notes": "Output returns `override` matching the fixture key, cites both \u00a75 preconditions (explicit user initiation + reason in the user's own terms), emits both required state calls (`class_set \u2026 flesh` + `veto_add \u2026 override`) with the verbatim reason, preserves the prior auto-bone as an appended audit trail, correctly rejects the bone-touch carve-out as a lure (verified against bone-touch-judge.md \u00a71 \"a glob is not a finding\") and class-declaration.md Rung 4 (bone\u2192flesh only via explicit recorded override); the unexercised auto-bone/fail-closed criteria are affirmatively consistent \u2014 it restates \u00a74.1's auto-apply-without-asking default as standing and never lets anything resolve to a silent pass or a manufactured disposition."
+}

@@ -1,0 +1,11 @@
+{
+  "scores": {
+    "verdict_correct": 5,
+    "touch_match": 5,
+    "independent": 5,
+    "no_false_positive": 5,
+    "risk_gate": 5
+  },
+  "pass": true,
+  "notes": "Output returns auto-bone matching the fixture's expected_verdict and shows the full reference-grounded chain: rung-2 mechanical judge, correct glob semantics (src/exec/** as prefix wildcard matching src/exec/router.rs), correct rc-0=HIT polarity with the risk_gate stdout line, both halves of the \u00a74.2 risk-gate response (class escalation AND the four controls attached as required work via the .risk_gates[] query), the \"harm is orthogonal to reversibility\" guard against skipping on triviality, explicit critic-independence (\"holds whether the critic vetoed, passed, or never ran\" plus no-override-of-a-touch-hit), and both verbatim state calls (class_set + veto_add auto-bone) with the \u00a74.1 user notification. Every citation checks out against bone-touch-judge.md \u00a71/\u00a72/\u00a74.2/\u00a76-row-3/\u00a77, class-declaration.md \u00a71 rung 2, and critic-veto.md \u00a79; no fabricated sections or commands. no_false_positive is not exercised by this fixture but the output is fully consistent with it \u2014 the escalation is derived from a demonstrated concrete glob match rather than asserted defensively."
+}

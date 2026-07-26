@@ -1,0 +1,11 @@
+{
+  "scores": {
+    "disposition_correct": 5,
+    "veto_auto_bone": 5,
+    "fail_closed": 5,
+    "override_recorded": 5,
+    "never_silent_pass": 5
+  },
+  "pass": true,
+  "notes": "Output returns `auto-bone`, matching the fixture answer key, and shows the full derivation: Gate A placement on the veto-grade list (public contract / compatibility-breaking / hard-to-reverse, critic-veto.md \u00a73), Gate B verified against all three ESCALATE triggers individually (specific / current / decidable \u2014 so the fail-closed path is demonstrably consistent even though this fixture never trips it), auto-application without asking permission per \u00a74.1's spec-aligned safety default, an explicit and correct rejection of `override` on \u00a75's two required conditions (no user reversal, no user reason), an explicit rejection of `none` (review not clean, remark not cosmetic), and correct independence reasoning versus the bone-touch judge (rung-3 bone-by-creation covers unregistered bones); the emitted `class_set` + `veto_add \u2026 auto-bone` pair matches the documented signatures exactly and the digest line satisfies \u00a77, with no silent pass and no manufactured escalation."
+}

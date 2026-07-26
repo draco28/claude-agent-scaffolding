@@ -1,0 +1,11 @@
+{
+  "scores": {
+    "verdict_correct": 5,
+    "touch_match": 5,
+    "independent": 5,
+    "no_false_positive": 5,
+    "risk_gate": 5
+  },
+  "pass": true,
+  "notes": "Verdict `clean` matches the fixture's expected_verdict; the output correctly derives it from real glob semantics (`src/domain/**` as a prefix wildcard, `src/port.rs` exact \u2014 neither matching `src/ui/\u2026` or `docs/\u2026`), states rc 1 = clean without inverting the exit code, writes nothing (no class_set/veto_add/RELEASE.md line) per \u00a75, explicitly asserts independence from the critic in both directions, and correctly reports that no risk-gate control checklist attaches because no `risk_gate` line was printed while still naming the gate's controls \u2014 every cited section (\u00a71-\u00a77, worked-verdicts row 2, class-declaration rung 2\u21924) checks out against the reference files with no fabrication."
+}

@@ -1,0 +1,11 @@
+{
+  "scores": {
+    "verdict_correct": 5,
+    "touch_match": 5,
+    "independent": 5,
+    "no_false_positive": 5,
+    "risk_gate": 5
+  },
+  "pass": true,
+  "notes": "Output returns auto-bone matching the fixture's expected_verdict, derives the hit from real glob semantics (bash `case`, `src/domain/**` as prefix wildcard matching `src/domain/order.rs`) with correct rc-0-means-HIT reading and the `bone ADR-0002` stdout line, explicitly states critic-independence per bone-touch-judge \u00a71 (verdict stands whether the critic vetoed, passed, or never ran; no user override), emits both required calls (`class_set` + `veto_add \u2026 auto-bone`) plus the user notice per \u00a74.1, and correctly declines to attach the risk-gate control checklist while naming the \u00a74.2 parallel and its controls \u2014 showing evidence-gated triggering rather than blanket escalation; all cited sections (SKILL.md \u00a77b, class-declaration.md \u00a71/\u00a72/\u00a73, bone-touch-judge.md \u00a71-\u00a74) verify against the actual skill files."
+}
