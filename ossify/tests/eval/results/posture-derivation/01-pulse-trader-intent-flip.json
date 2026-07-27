@@ -1,1 +1,11 @@
-{"scores": {"posture_correct": 5, "intent_over_facts": 5, "channel_correct": 5, "undecided_private": 5, "moat_mapped": 5}, "pass": true, "notes": "fully-private / data-overlay derived via P1 checked-and-not-fired, P2 intent-overrides-facts, and channel from the declared $PULSE_PROMPT_DIR carrier seam rather than read off the posture"}
+{
+  "scores": {
+    "posture_correct": 5,
+    "intent_over_facts": 5,
+    "channel_mapping": 5,
+    "default_private": 5,
+    "rationale_cited": 5
+  },
+  "pass": true,
+  "notes": "Output derives `fully-private` (matches fixture `expected_posture`) and `data-overlay` (matches `expected_channel`), and it shows the reasoning rather than asserting the answer. Intent-over-facts: explicitly walks P1\u2192P2\u2192P3 in order, states the facts read `source-available` while intent reads `fully-private`, applies P2 to let intent win, and records the gap as a migration note in the private inventory without letting it change the answer \u2014 exactly companion \u00a72 P2. Channel mapping: names a non-empty one-item moat inventory (prompt corpus at `src/agent/prompts/composer.md`), walks C0\u2192C1 and stops at C1 with the correct carrier reasoning (runtime-loaded data + already-declared `$PULSE_PROMPT_DIR` seam documented in `src/agent/config.rs`), and correctly rebuts the C3 temptation by citing the \"reading the channel off the posture\" anti-pattern \u2014 the exact trap this fixture sets. Default-private: not exercised by this fixture (intent is clear and self-consistent), but the output is consistent with it \u2014 it evaluates P1 first, states why it is not triggered, and nowhere resolves ambiguity toward a public value. Rationale citation is dense and checkable: \u00a72/\u00a73/\u00a74/\u00a75/\u00a76/\u00a77/\u00a79/\u00a710 of `references/posture-block.md`, rule labels P1-P3 and C0-C3, the correct `oss posture_set` / `oss overlay_set` / `oss bone_add` commands, revisit trigger seeded from revenue intent `none`, `PUBLIC_BOUNDARY.md` still authored despite `fully-private` (\u00a76 hygiene-independent-of-visibility), moat named only by pattern, and the \u00a79 Plan D / manifest guardrails correctly marked not-applicable. Non-scoring nits only: the bone ADR ref is a placeholder (`ADR-000N`, `<composition root>`), and listing `src/agent/prompts/**` in the working-tree hygiene allowlist is slightly off since that file is currently *tracked* in public source rather than untracked-but-present \u2014 neither touches a rubric criterion."
+}

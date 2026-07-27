@@ -1,1 +1,11 @@
-{"scores": {"posture_correct": 5, "intent_over_facts": 4, "channel_correct": 5, "undecided_private": 5, "moat_mapped": 5}, "pass": true, "notes": "open-core / private-package derived with P1-P3 and C0-C2 shown; minor ding for asserting facts and intent do not conflict when the decay impls are public against an intent that they stay private, though it still followed intent"}
+{
+  "scores": {
+    "posture_correct": 5,
+    "intent_over_facts": 5,
+    "channel_mapping": 5,
+    "default_private": 5,
+    "rationale_cited": 5
+  },
+  "pass": true,
+  "notes": "Output derives `open-core` (matches expected_posture) and headline channel `private-package` (matches expected_channel), walking P1\u2192P2\u2192P3 and C0\u2192C1\u2192C2 in order with explicit first-match-wins reasoning; it inventories both moat items (ranking/decay intelligence + DECAY_SPEC.md) and maps both to private-package via the public port-trait seam, correctly rejecting C3 and explicitly noting \"the channel is read off the carrier, not off the posture\" (\u00a713 anti-pattern). Criterion 2 is not stressed by this fixture (facts and intent align), and the output is consistent with it \u2014 it evaluates P2 explicitly and derives from the stated intent signal rather than facts alone, though its claim that public decay/re-rank implementations \"already read as an open core\" glosses a mild tension with the intent to keep the algorithms private (harmless: the reference's own worked example B also routes this fixture straight to P3). Criterion 4 is likewise unexercised but consistent \u2014 P1 is checked first and correctly declared not-triggered because a clear non-contradictory intent signal exists, with the default-private fail-safe cited by name. Supporting steps are all faithful to references/posture-block.md: `license` \u2192 \"revisit when the first commercial license is negotiated\" (\u00a72), category-9 posture bone with seam files in the touch surface (\u00a75), Rust private-git-dep crate + private composition root and the crates.io arrow constraint (\u00a78), provisioning deferred to Plan D with no `add-private-core` call and no manifest edit (\u00a79), composition_root left unset (\u00a710), and a PUBLIC_BOUNDARY.md that names no moat item and lists the untracked SPEC.md by pattern only (\u00a76/\u00a713). Only nit, not score-affecting: adding `**/DECAY_SPEC.md` to the public never-tracked rules is borderline against \"no moat item is ever named here,\" though it is a pattern and mirrors the reference's own `**/SPEC.md` example."
+}

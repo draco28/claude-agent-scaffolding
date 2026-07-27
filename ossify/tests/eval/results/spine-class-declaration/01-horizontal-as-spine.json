@@ -3,9 +3,9 @@
     "class_correct": 5,
     "horizontal_caught": 5,
     "flesh_bone_reclassified": 5,
-    "no_over_ceremony": 4,
+    "no_over_ceremony": 5,
     "rationale_cited": 5
   },
   "pass": true,
-  "notes": "Output declares internal-enabler (matches expected_class), catches the horizontal build on positive rung-1 evidence (artifact-existence demo, no named actor), correctly stops the ladder, keeps the class verdict and admission as two separate judgments per \u00a74 with the \"silence is not a named consumer\" rule, and cites every governing rule accurately \u2014 including the verbatim \u00a72 rationale line, the \u00a74 feature_add return, and the exit-2/exit-7 tool boundaries, all of which I verified against class-declaration.md and plan-release/SKILL.md \u00a77a/\u00a77b/\u00a77c/\u00a711. Flesh-touching-bone is not exercised by this fixture but the output is affirmatively consistent with it (\"the declared flesh class is a claim, not a fact\"; critic never pushes bone \u2192 flesh); over-ceremony is likewise unexercised and consistent by absence (no ADR/bone ceremony invented, no spine id minted) but the output makes no positive statement about not inflating a genuine flesh spine, hence 4 rather than 5."
+  "notes": "Output declares `internal-enabler` matching the fixture's expected_class, catches the horizontal build at rung 1 on positive evidence (artifact-existence demo, no actor) and explicitly overrules the declared `flesh`, keeps class verdict and admission as two separate \u00a74 judgments, mints no spine id and adds no bone ceremony, and cites the governing rules verbatim (rung-1 journey gate, \u00a72 enabler rationale shape, \"silence is not a named consumer\", \u00a73 row-1 archetype, \u00a75 exit-2 guard); the two unexercised criteria (bone-touch reclassification, flesh non-inflation) are consistently handled \u2014 it correctly states rungs 2-4 are not revisited after rung 1 fires and restates touch_check's rc 0=hit / 1=clean / 2\u2260clean semantics accurately per `/Users/draco/projects/claude-agent-scaffolding/ossify/skills/plan-release/references/bone-touch-judge.md`."
 }

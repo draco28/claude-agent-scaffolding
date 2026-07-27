@@ -2,10 +2,10 @@
   "scores": {
     "class_correct": 5,
     "horizontal_caught": 5,
-    "flesh_bone_reclassified": 5,
+    "flesh_bone_reclassified": 4,
     "no_over_ceremony": 5,
     "rationale_cited": 5
   },
   "pass": true,
-  "notes": "Declares `bone`, matching the fixture's expected_class, via an explicitly traced ladder: rung 1 correctly does NOT fire (cites \u00a71's \"Do not over-trip this gate\" and \u00a73's fourth contrast row \u2014 no artifact-existence demo, so the infrastructural-sounding spine is not demoted to internal-enabler), rung 2 correctly reasoned as clean because the touch surface is declared by this spine and writes nothing per bone-touch-judge.md \u00a75 (while still affirming the touch surface is fact-over-declared-class), rung 3 fires on the verbatim bones-vocabulary category \"data ownership & migration posture\", rung 4 unreached; the veto is correctly noted as flesh\u2192bone-only per critic-veto.md \u00a75, and the \u00a72 reason string is emitted in the exact \"Bone by creation\" shape. Criteria 3 and 4 are not exercised by this fixture but the output is consistent with both (it explicitly rules out ceremony inflation on the grounds that rung 3 genuinely fired, rather than out of caution). Only blemish, non-scoring: it labels the spine \"Admission: ADMITTED\" when \u00a74 reserves admission for internal-enabler verdicts \u2014 though the very next clause correctly explains no admission check is owed, and criterion 2 explicitly scopes admission out of this rubric."
+  "notes": "Declares bone matching expected_class, correctly refuses to over-trip rung 1 (citing the \"positive evidence of a missing journey\" caveat and \u00a73's fourth contrast row), decides on rung 3 with a named bones-vocabulary category, keeps the enabler verdict/admission judgments separate, and emits \u00a72's \"creates a bone\" rationale shape verbatim; every citation (class-declaration \u00a71/\u00a72/\u00a73/\u00a74, bone-touch-judge \u00a71 rc-semantics, SKILL.md \u00a77c veto direction) was verified against the real reference files, the only soft spot being that the reclassify-on-touch-hit consequence is implied (\"rc 0 = hit\", \"not the deciding rung\") rather than stated outright, and the header's \"ADMITTED\" label is unnecessary noise for a non-enabler though it is self-disclaimed."
 }

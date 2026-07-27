@@ -3,10 +3,10 @@
     "verdict_correct": 5,
     "inspector_caught": 5,
     "verb_outcome": 5,
-    "consumer_rule": 5,
+    "consumer_rule": 4,
     "no_false_reject": 5,
-    "before_after_evidence": 5
+    "before_after_evidence": 4
   },
   "pass": true,
-  "notes": "Output returns REJECT \u2014 F2 matching the fixture's expected_verdict and reason, names both banned shapes (inspection verb + artifact-existence outcome) with the \u00a73.1 who-performs-this test, runs the \u00a73.3 false-reject check explicitly and offers a replacement line whose visible outcome it correctly says MEETS the floor, correctly marks F3/F4 as n/a per \u00a72's n/a discipline (user-facing spine; no measured quality claimed), treats the \u00a73.5 prefix check as a backstop rather than the verdict, and draws the correct no-ledger-call consequence."
+  "notes": "Verdict REJECT matches expected_verdict and is decided on F2 with verifiable citations (\u00a73.1 developer-inspects-a-schema test, \u00a73.2 both \"artifact inspection\" and \"artifact existence as the outcome\" banned shapes), it correctly demotes the \u00a73.5 rc-2 prefix backstop to non-evidence and enforces the REJECT-implies-no-ledger-call consequence, it self-clears \u00a73.3 and offers a replacement line whose outcome is visibly observable (so no false-reject tendency), and the untested F3/F4 criteria are marked n/a with exactly the reasons \u00a72 permits."
 }

@@ -1,1 +1,11 @@
-{"scores": {"posture_correct": 5, "intent_over_facts": 5, "channel_correct": 5, "undecided_private": 5, "moat_mapped": 5}, "pass": true, "notes": "fully-open / none derived by firing C0 on an empty moat inventory and explicitly refusing to invent a channel from injectable ports or doc-routing intent"}
+{
+  "scores": {
+    "posture_correct": 5,
+    "intent_over_facts": 5,
+    "channel_mapping": 5,
+    "default_private": 5,
+    "rationale_cited": 5
+  },
+  "pass": true,
+  "notes": "Exact match on both answer-key fields (posture `fully-open`, channel `none`) with the full rule chain shown rather than asserted: P1 evaluated and correctly not triggered (intent present, clear, non-contradictory), P2 evaluated and correctly not triggered (the doc-routing tightening is an artifact-routing delta, not a posture conflict \u2014 matching worked example C, which goes straight to P3), P3 read off the \u00a72 table via revenue intent `none`. Moat inventory declared empty explicitly rather than inventing an item (\u00a73), C0 fires first and wins, and the output pre-empts three anti-patterns by name \u2014 no channel invented for doc routing (\u00a74 C0), C2 explicitly rejected despite `pulsehive-core`'s injectable port traits (\"a port with no private implementation to hide is just architecture, not a moat carrier\"), and channel not read off the posture. Downstream steps are also correct and consistent: bone revisit trigger seeded as \"revisit if a revenue intent appears\" per the \u00a72 `none` mapping, PUBLIC_BOUNDARY.md extended with never-tracked *patterns* only with no item named (\u00a76), private inventory (empty table + doc-routing note) routed to the AI workspace (\u00a77), composition_root left unset (\u00a710), and no `oss overlay_set` / `private_core` / Plan-D note emitted where none applies (\u00a79). Criteria 2 and 4 are not exercised by this fixture; both are scored on consistency and the output's reasoning is affirmatively consistent with each \u2014 it walks P1/P2 and rejects them on stated grounds rather than skipping them. No credit given for anything not shown; nothing in the output contradicts the companion doc."
+}
