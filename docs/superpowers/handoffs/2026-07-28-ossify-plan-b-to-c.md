@@ -3,7 +3,8 @@
 **Next-session focus:** Detail **Plan C** (execution + close) via `superpowers:writing-plans`, then execute it subagent-driven. Plan B is done and green; nothing on this branch is owed. Start by reading §0, then §6 — Plan C's inbox has three items that must be *decided*, not inherited.
 
 **Type:** forward · **Scope:** plan-to-plan (B→C) · **Date:** 2026-07-28
-**Branch:** `feat/ossify-core` @ `7342584` — 40 ahead of `main`, 0 behind, **deliberately unmerged**
+**Branch:** `feat/ossify-core` @ `c270d19` — 43 ahead of `main`, 0 behind, **deliberately unmerged**
+**Last code commit:** `7342584`. Everything after it is docs (`c3e3aa5` this handoff · `b560b07` handoff-v2 spec · `c270d19` §6.1b) — **zero files under `ossify/` or `tests/` touched**, so every gate below still holds. Verify with `git log --name-only 7342584..HEAD`.
 **Repo:** `/Users/draco/projects/claude-agent-scaffolding` (marketplace repo; single-repo, no workspace-init manifest)
 
 > Storage note: this repo's handoffs live **committed** at `docs/superpowers/handoffs/`, not in scaffold-dev's gitignored `.workspace/handoffs/`. That is why the Plan A→B handoff survived to be read this session. `scaffold-dev:handing-off-session` refuses durable mode without a pairing manifest; its *content* contract is followed here, its storage path deliberately is not.
@@ -155,7 +156,15 @@ Retires #113 and #114 for the handoff path by construction — v2 has a minimal 
 
 ## 8. Next intended action(s)
 
-1. **Read §0, then `.superpowers/sdd/progress.md` end-to-end.** Confirm HEAD is `7342584` and the only dirty path is `README.md` (the user's own edit, untouched since 07-11).
+1. **Read §0, then `.superpowers/sdd/progress.md` end-to-end.** Then re-verify this handoff before trusting it:
+   ```bash
+   git -C . log --oneline -1                 # expect c270d19 (or later docs commits)
+   git -C . log --name-only 7342584..HEAD    # expect ZERO files under ossify/ or tests/
+   git -C . status --porcelain               # expect only ' M README.md'
+   bash ossify/tests/run-all.sh              # expect ALL GREEN
+   bash ossify/tests/eval/lib/aggregate-scores.sh   # expect TOTAL 23/23, exit 0
+   ```
+   If any code file appears in the second command, the gate claims in §1 are stale — re-run the suites before believing them.
 2. **Decide §6.1** (amendment timing) — this is a design decision for Plan C's design section, not an implementer's brief.
 3. **Detail Plan C** via `superpowers:writing-plans`, scope spec §6–§8, reusing Plan B's Global Constraints block verbatim and folding in §6.2's owed items. Non-negotiables: complete code in every step, bite-sized TDD steps, Global Constraints at top, series map for D, self-review before executing.
 4. **Adversarially self-review the plan** (2 opposing-bias reviewers via Workflow) before executing — Plan B's caught 1 CRITICAL + 3 IMPORTANT *before* a line was written.
