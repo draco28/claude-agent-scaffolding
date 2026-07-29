@@ -76,6 +76,28 @@ oss_cmd_release_set_meta() { # $1=release $2=patch-json
 oss_cmd_veto_add() { # $1=spine $2=finding $3=disposition $4=reason
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_add_veto "$sf" "$1" "$2" "$3" "$4"
 }
+oss_cmd_spine_status()     { local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_spine_status "$sf" "$1" "$2"; }
+oss_cmd_work_item_status() { local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_work_item_status "$sf" "$1" "$2"; }
+oss_cmd_release_status()   { local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_release_status "$sf" "$1" "$2"; }
+oss_cmd_work_item_exec()   { local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_work_item_exec "$sf" "$1" "$2" "$3" "$4"; }
+
+# §9.2's explicit, never-silent migration. Journals a `migrate_schema` op rather
+# than rewriting the file in place, so `$sf.base.json` stays v1 and replay still
+# rebuilds live from base+journal across the version boundary.
+oss_cmd_migrate() { # [$1=state-file]
+  local sf v; sf="$(_oss_resolve_state "${1:-}")" || return $?
+  v="$(jq -r '.schema_version // empty' "$sf" 2>/dev/null)" || v=""
+  case "$v" in ''|*[!0-9]*) echo "oss: state schema missing/invalid - cannot migrate" >&2; return 6 ;; esac
+  if [ "$v" -eq "$OSS_STATE_SCHEMA_VERSION" ]; then echo "already at v$v"; return 0; fi
+  if [ "$v" -gt "$OSS_STATE_SCHEMA_VERSION" ]; then
+    echo "oss: state schema v$v is newer than this build (v$OSS_STATE_SCHEMA_VERSION) - upgrade ossify, do not migrate" >&2
+    return 6
+  fi
+  [ "$v" -eq 1 ] || { echo "oss: no migration path from v$v to v$OSS_STATE_SCHEMA_VERSION" >&2; return 6; }
+  oss_state_mutate "$sf" migrate_schema \
+    "$(jq -n --argjson to "$OSS_STATE_SCHEMA_VERSION" '{from:1,to:$to}')" || return $?
+  echo "migrated v1 -> v$OSS_STATE_SCHEMA_VERSION"
+}
 
 # Filesystem probe for architect-critic v0.2 (binary v0.2-or-absent), mirroring
 # scaffold-onboard's sf_compose_detect_architect_critic. Used by start's

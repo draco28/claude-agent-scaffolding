@@ -76,5 +76,29 @@ t_assert_rc 7 "dispatcher: class_set against an unknown spine is rc 7 through th
 t_capture oss_state_replay "$S"
 t_assert_rc 0 "replay clean after the class_set accept/reject sequence"
 
+SP=r0.s1; WI=r0.s1.w1   # this file uses literal ids; bind them once for the block below
+# Status transitions: bad enum -> rc 2; unknown id -> rc 7 AND nothing mutated.
+# A jq `select()` assignment is a silent NO-OP on a non-matching id, so without
+# the entity guard a typo'd id would return 0 and change nothing - green, wrong.
+t_capture oss_entity_set_spine_status "$S" "$SP" "shipped"
+t_assert_rc 2 "spine status rejects an unknown enum value"
+t_capture oss_entity_set_spine_status "$S" "r9.s9" "closed"
+t_assert_rc 7 "spine status on an unknown spine is rc 7"
+t_capture oss_state_read "$S" '[.mutations[] | select(.op=="set_spine_status")] | length'
+t_assert_eq "0" "$T_OUT" "a rejected status change journals NOTHING"
+t_capture oss_entity_set_spine_status "$S" "$SP" "closed"
+t_assert_rc 0 "spine status accepts a valid transition"
+t_capture oss_state_read "$S" ".spines[] | select(.id==\"$SP\") | .status"
+t_assert_eq "closed" "$T_OUT" "spine status actually changed"
+t_capture oss_entity_set_work_item_status "$S" "r9.s9.w9" "complete"
+t_assert_rc 7 "work item status on an unknown id is rc 7"
+t_capture oss_entity_set_release_status "$S" "r9" "closed"
+t_assert_rc 7 "release status on an unknown id is rc 7"
+
+t_capture oss_entity_set_work_item_exec "$S" "$WI" "work/r0.s1.w1-x" "/tmp/wt" "abc123"
+t_assert_rc 0 "work item exec fields recorded"
+t_capture oss_state_replay "$S"
+t_assert_rc 0 "replay stays clean across the new status + exec ops"
+
 rm -rf "$TMP"
 t_summary

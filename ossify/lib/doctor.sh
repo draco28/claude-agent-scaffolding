@@ -50,7 +50,7 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
   # NOT by the overall rc - a prior schema/replay failure must not suppress
   # a legitimately-green shape line).
   local key shape_ok=1
-  for key in schema_version project counters releases spines work_items demo_ledger bones risk_gates fakes feature_map patch_records class_overrides mutations; do
+  for key in schema_version project counters releases spines work_items demo_ledger bones risk_gates fakes feature_map patch_records class_overrides veto_dispositions close_records mutations; do
     if ! jq -e --arg k "$key" 'has($k)' "$sf" >/dev/null 2>&1; then
       echo "fail: shape - missing key '$key'"; rc=1; shape_ok=0
     fi

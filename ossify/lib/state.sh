@@ -2,7 +2,7 @@
 # ossify state engine. §9.2 safety commitments: atomic writes, lock file,
 # schema_version+migrations, append-only mutations journal.
 
-OSS_STATE_SCHEMA_VERSION=1
+OSS_STATE_SCHEMA_VERSION=2
 
 _oss_now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
@@ -21,6 +21,7 @@ oss_state_init() { # $1=state-file $2=project-name
     releases:[],spines:[],work_items:[],
     demo_ledger:[],bones:[],risk_gates:[],fakes:[],
     feature_map:[],patch_records:[],class_overrides:[],veto_dispositions:[],
+    close_records:[],
     mutations:[]
   }' > "$tmp"; then
     rm -f "$tmp"; return 1
@@ -87,6 +88,28 @@ _oss_apply_op() { # $1=op $2=payload-json
         | (.releases[] | select(.id == $p.release)) |= (. + $allowed)' ;;
     add_veto_disposition)
       jq --argjson p "$payload" '.veto_dispositions += [$p]' ;;
+    # Status transitions. Each is a pure jq assignment through a select(), which
+    # is a NO-OP on a non-matching id (jq assigns to an empty path expression and
+    # exits 0). That silent no-op is exactly finding 7's `class_set` bug shape, so
+    # the reject-before-mutate guard in entities.sh is load-bearing, not defensive
+    # decoration - it is the ONLY thing that turns a typo'd id into rc 7.
+    set_spine_status)
+      jq --argjson p "$payload" '(.spines[] | select(.id == $p.spine) | .status) = $p.status' ;;
+    set_work_item_status)
+      jq --argjson p "$payload" '(.work_items[] | select(.id == $p.work_item) | .status) = $p.status' ;;
+    set_release_status)
+      jq --argjson p "$payload" '(.releases[] | select(.id == $p.release) | .status) = $p.status' ;;
+    set_work_item_exec)
+      jq --argjson p "$payload" '
+        (.work_items[] | select(.id == $p.work_item)) |=
+          (.branch = $p.branch | .worktree_path = $p.worktree_path | .base_sha = $p.base_sha)' ;;
+    # §9.2's migration registry, realized. Pure and TOTAL: replay re-applies it
+    # from the v1 base snapshot, so base+journal still rebuilds live exactly and
+    # the base is never rewritten. `has(...)` keeps it idempotent under replay.
+    migrate_schema)
+      jq --argjson p "$payload" '
+        (if has("close_records") then . else . + {close_records:[]} end)
+        | .schema_version = $p.to' ;;
     *)
       echo "oss: unknown op '$op'" >&2; return 4 ;;
   esac
@@ -121,7 +144,13 @@ oss_state_mutate() { # $1=state-file $2=op $3=payload-json [$4=mint-spec]
   # Gated on the file PARSING first so an unreadable/corrupt state keeps its
   # established rc 4 (apply-failure, original untouched) owned by
   # _oss_state_mutate_body, rather than being re-labelled a schema failure.
-  if jq -e . "$sf" >/dev/null 2>&1; then
+  #
+  # `migrate_schema` is the ONE op that must run against a state this build's
+  # guard would otherwise refuse - gating it would make the migration
+  # unreachable and wedge every v1 project permanently. Still placed BEFORE
+  # `mkdir "$lock"`: a `return 6` after the lock jumps past the unconditional
+  # `rmdir` below and wedges the state file.
+  if [ "$op" != "migrate_schema" ] && jq -e . "$sf" >/dev/null 2>&1; then
     oss_state_check_version "$sf" || return 6
   fi
   if ! mkdir "$lock" 2>/dev/null; then
@@ -245,7 +274,14 @@ oss_state_check_version() { # $1=state-file ; rc 0 ok, 6 missing/invalid/future
     echo "state schema v$v requires a newer ossify (this build supports v$OSS_STATE_SCHEMA_VERSION)" >&2
     return 6
   fi
-  # Migration registry: when v2 exists, dispatch _oss_migrate_1_to_2 here
-  # (explicit, journaled, never silent - spec §9.2).
+  # A state OLDER than this build is refused too, and told what to run. Silently
+  # operating on a v1 state with v2 semantics is the same class of failure as
+  # operating on a v99 one - §9.2 binds "an explicit migration policy ... never
+  # silent" in both directions. The refusal names the command so the operator's
+  # next move is `oss migrate`, not deleting the state file.
+  if [ "$v" -lt "$OSS_STATE_SCHEMA_VERSION" ]; then
+    echo "state schema v$v predates this build (v$OSS_STATE_SCHEMA_VERSION) - run 'oss migrate' to upgrade it" >&2
+    return 6
+  fi
   return 0
 }
