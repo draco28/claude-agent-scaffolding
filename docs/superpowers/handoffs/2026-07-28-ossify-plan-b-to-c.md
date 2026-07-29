@@ -21,6 +21,7 @@
 | `.superpowers/sdd/FINAL-REVIEW-2026-07-26.md` (85 ln) | Final whole-branch review: 8 Important, systemic patterns, Minor triage |
 | `docs/superpowers/plans/2026-07-17-ossify-plan-b.md` (1670 ln) | Plan B. Its **Series map** section sketches C and D; its Global Constraints block is reusable verbatim |
 | `docs/conventions/evolutionary-architecture-playbook.md` (525 ln) | Doctrine layer for framing |
+| `docs/superpowers/specs/2026-07-29-session-handoff-v2-design.md` (204 ln) | **Approved design Plan C must absorb** — `/handoff` is a redesign, not a port. See §6.1b |
 
 ---
 
@@ -45,6 +46,7 @@ Built: `bin/oss` dispatcher + 9 libs (820 ln) + 16 test files (1361 ln) + 3 entr
 - **Plan A — DONE.** State engine, dispatcher, ID grammar, ledger runner. `a4cf62e..dc8fce8`.
 - **Plan B — DONE.** `start` / `plan-release` / `plan-spine` + substrate + eval harness. `576834f..7342584`.
 - **Plan C — NEXT, detail it now.** Execution + close: `work-item` port, `close` router (work-item → spine bone/flesh → release), cumulative-demo runner, ledger walkthrough + amendments, release close (pin/publish, docs-increment trigger table, fake-expiry as a blocking finding, boundary-audit hook point), memory-bank harvest port, patch lane, utility command ports (`/handoff` `/defer` `/work-pr` `/adr` `/flip-adr` `/amend-spec` `/changelog` `/runbook`), pr_hierarchical port. **Spec §6–§8.**
+  - **`/handoff` is NOT a straight port — it has its own approved design.** See `docs/superpowers/specs/2026-07-29-session-handoff-v2-design.md` (`b560b07`) and issue **#113**. Plan C absorbs it as scoped tasks; do not re-derive it. Headline: no deterministic gates, six-section core, location judged from repo evidence, two modes (compose + resume), chain model dropped, pure skill with no lib code, two new eval surfaces taking the gate 23 → 31.
 - **Plan D — keep sketched.** Boundary + ship gate: workspace-init additive extension, multi-repo worktrees + cross-repo dep overrides, boundary audit, consolidated eval suite (**THE ship gate**), marketplace registration, Forge3D greenfield + pulse-trader adopt-forward pilots.
 
 ---
@@ -113,6 +115,17 @@ All of the A→B handoff §4 list still applies. Carry it forward verbatim; the 
 
 ### 6.1 DECIDE, don't inherit: the demo-amendment timing divergence
 `oss ledger_supersede` / `ledger_retire` apply **immediately**; spec §5.3 says they apply **at the spine's close**. Four prose sites were corrected to describe the lib's real behavior (`a53d034`) and the divergence is recorded inline in `plan-spine/references/demo-amendments.md`. **Plan C must decide which side moves, in its design section, before building `close`** — whoever builds it will find the lib already does the simple thing and may never notice §5.3 said otherwise. Options weighed and recorded in the ledger: add `pending_status` (spec-faithful, but creates state nothing consumes until `close` ships — the built-but-unwired pattern §3.1 names) vs. amend §5.3.
+
+### 6.1b Session handoff v2 — designed, approved, awaiting Plan C
+`docs/superpowers/specs/2026-07-29-session-handoff-v2-design.md` (`b560b07`) · issue **#113** (retitled, scope widened; the original parse-truncation report is preserved verbatim at its bottom).
+
+The v1 skill refuses without a pairing manifest — reproduced live *in this repo*, which is why the handoff you are reading was authored by hand rather than by `/handoff`. The coupling is four layers deep (storage anchor, the `sprint|slice|mid-slice|bugfix|techdebt` scope enum, a template defining state pointers as "sprint/slice IDs, worktrees", and sprint-keyed retention).
+
+**Absorb the design's task set into Plan C; do not re-derive it.** What it settles: no deterministic gates anywhere in the runtime path · six-section core (`Orientation`/`State`/`Uncodified context`/`References`/`Next actions, in sequence`/`Traps`) · location judged from repo evidence and stated in one line · tracked-vs-gitignored as a deliberate decision (v1's gitignored storage is why handoffs die with the machine) · read-out at runtime + eval surfaces at build time · compose **and** resume modes, where §2's claims are written checkable precisely so resume can verify them · forward/return chaining dropped, which removes the short-ids, filename regex and scope prefix that existed only to serve it · pure skill, zero lib code, zero listing cost.
+
+It also forces **two amendments to the main ossify spec**: §8.1's catalog row still reads `handing-off-session → **Unchanged**` (it is not), and §9.1's "references live under their owning entry skill" needs an exception for utilities belonging to no ceremony.
+
+Retires #113 and #114 for the handoff path by construction — v2 has a minimal flag surface and does no template rendering at all. #114 stays independently open (`sd_render_template` also serves specs and retros); #115 is unrelated.
 
 ### 6.2 Owed to Plan C from the final review
 - **`oss state_restore`** — replay detects drift and computes the recovered state, then discards it. The drift message is now honest about this (`a53d034`) but no restore verb exists. §9.2 binds "corruption recovery = replay from last good snapshot"; only the comparator half is built. Take the lock; write through the existing temp+rename path; **do not** write from inside `oss_state_replay` (deliberately lock-free so doctor can call it freely).
