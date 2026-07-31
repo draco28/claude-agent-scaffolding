@@ -746,7 +746,9 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - Produces: `oss_state_restore <state>`; `oss_id_spine_dir <release-id> <spine-id> <slug>`; `oss_id_work_item_branch <wi-id> <slug>`. Dispatcher: `oss state_restore`, `oss get <expr> [state-file]`, `oss manifest_get <jq-expr>`, `oss manifest_require`, `oss spine_dir`, `oss work_item_branch`, and a corrected `oss critic_detect`.
 - Consumes: `oss_state_replay`, `oss_manifest_get`, `_oss_resolve_state`.
 
-- [ ] **Step 1: Write the failing tests** — append to `ossify/tests/test-state-replay.sh`, **inserted before the base-snapshot deletion at the file tail** (§3.5 of the handoff: the hazard is that deletion, not the file):
+- [ ] **Step 1: Write the failing tests** — insert into `ossify/tests/test-state-replay.sh` **between the last drift-message assertion (line 33, `base.json`) and the `# Fix 5 (test coverage)` comment at line 35**.
+
+> **Insertion point corrected 2026-07-31 — the earlier wording ("append … before the base-snapshot deletion at the file tail") was wrong twice and would have broken this block.** The base-snapshot deletion is `rm -f "$S.base.json"` at **line 37, mid-file** — not at the tail; the tail (lines 42-100) holds the G1/G2 hand-built fixtures and ends `rm -rf "$TMP"` / `t_summary`. Insert anywhere at or after line 37 and `$S.base.json` no longer exists, so `oss_state_restore` takes its `[ -f "$base" ] ||` guard and returns **rc 1**, failing `t_assert_rc 0 "state_restore repairs a drifted state"`. At line 34 the preconditions this block needs both hold: `$S` was tampered at line 15 and never repaired (so replay is still rc 5), and `$S.base.json` is still present. Restoring `$S` there is safe for what follows — lines 38-40 assert the **missing-base** rc-1 path after line 37 deletes the base, which holds whether or not `$S` is drifted.
 
 ```bash
 # state_restore: replay detects drift AND can now repair it. The recovered state
@@ -770,7 +772,9 @@ t_assert_rc 0 "restore on a clean state is a no-op"
 t_assert_contains "$T_OUT" "clean" "...and says so"
 ```
 
-Insert into `ossify/tests/test-dispatcher-ops.sh` **before its `unset OSS_STATE_FILE` / `rm -rf "$TMP"` teardown (~line 79-82), never at the tail** — appending puts these assertions after the state file has been deleted and the env var unset, so `get` could never resolve:
+Insert into `ossify/tests/test-dispatcher-ops.sh` **between the replay assertion at line 48 and the `# --- Dispatcher-path regression` comment block at line 50.**
+
+> **Insertion point corrected 2026-07-31 — the earlier wording ("before its `unset OSS_STATE_FILE` / `rm -rf \"$TMP\"` teardown (~line 79-82)") named the wrong teardown and the wrong region.** The file has **three** isolated temp-dir regions, not one: `$TMP` (line 6, project `wrapper-demo`), `$DTMP` (line 59, project `dispatcher-demo`), `$FTMP` (line 89) — and it runs to line 125, so lines 79-83 are mid-file, not a tail. Lines 79-80 tear down **`$DTMP`**; the `$TMP` teardown is lines **82-83**. The block below needs `OSS_STATE_FILE` to still point at `$TMP/state.json`, because it asserts the no-argument `get` resolves to **`wrapper-demo`**. Line 59 re-exports `OSS_STATE_FILE="$DTMP/state.json"`, so inserting anywhere at or after line 59 yields `dispatcher-demo` and fails the assertion; inserting after line 79 leaves the variable **unset**, so `get` falls through to the manifest walk-up and cannot resolve at all. Line 49 is the last point where the `wrapper-demo` state is the live one.
 
 ```bash
 # `oss get` takes an explicit state file, so a pre-flight probe cannot be
@@ -845,7 +849,13 @@ _oss_state_restore_body() { # $1=state-file $2=base
 }
 ```
 
-Update the drift message at `state.sh:211` — it currently says "This build has no automated restore verb". **`ossify/tests/test-state-replay.sh:30` asserts that exact phrase and MUST be updated in the same commit** to `t_assert_contains "$T_OUT" "oss state_restore" "drift message names the verb that can actually repair it"`; leave the `Do NOT delete` and `base.json` assertions at lines 31-32 unchanged. Replacement text:
+Update the drift message at **`state.sh:334`** (inside `oss_state_replay`, which opens at line 306) — it currently says "This build has no automated restore verb". **`ossify/tests/test-state-replay.sh:31` asserts that exact phrase and MUST be updated in the same commit** to `t_assert_contains "$T_OUT" "oss state_restore" "drift message names the verb that can actually repair it"`; leave the `Do NOT delete` and `base.json` assertions at lines **32-33** unchanged.
+
+> **Line numbers corrected 2026-07-31** — the earlier text said `state.sh:211` (that line is inside `_oss_apply_op`, nowhere near the message) and `test-state-replay.sh:30` with "lines 31-32" to leave alone. Line 30 is the `esac` of the `repair from journal` guard; **31** is the assertion to change and **32-33** are the two to leave. Following the old numbers edits the `esac` and leaves the failing assertion in place.
+>
+> The `case` guard at lines 27-30 fails the suite if the message ever contains `repair from journal`; the replacement below does not, and it still satisfies the two retained assertions (`Do NOT delete` literally, and `base.json` because `$base` expands to `<state>.base.json`). Verify all three after the edit rather than assuming.
+
+Replacement text:
 
 ```bash
     echo "  Recover with 'oss state_restore', which rebuilds the state from '$base' plus the journal under the state lock. Do NOT delete $sf - the journal lives inside it." >&2
@@ -949,11 +959,73 @@ rm -rf "$CTMP"
 > state carrying a pending amendment, a quarantined line and a renewed fake, and assert all three
 > `warn:` lines appear. A doctor check that counts zero forever passes every "is doctor green?" test.
 
-- [ ] **Step 5: Run, mutation-test, commit**
+- [ ] **Step 5: Write the doctor-fires test, run, mutation-test, commit**
 
-Run: `bash ossify/tests/run-all.sh` → `ALL GREEN`.
+**5a — the doctor warnings must be proven to FIRE, and this is a committed test, not a manual check.** Append to `ossify/tests/test-doctor.sh`. A doctor check that counts zero forever passes every "is doctor green?" assertion ever written — all three of Step 4's selectors were stale in exactly that silently-green way, and a fixture that seeds none of the three conditions cannot tell a correct selector from a dead one. Seed **all three** conditions on one state and assert **all three** `warn:` lines, then assert doctor's **rc is unchanged** (they are advisory):
 
-Mutation test: replace `mv "$tmp" "$sf"` in `_oss_state_restore_body` with `cp "$tmp" "$sf"` and re-run — the orphaned-temp assertion must go RED. Restore and confirm green.
+**`test-doctor.sh` sources only `state.sh` and `doctor.sh` today** (lines 4-5). This block calls into the ledger, entity and registry layers, so add the three missing source lines in the same commit — a test file that hardcodes its lib source list is the exact breakage the Global Constraints flag for T6:
+
+```bash
+. "$HERE/../lib/entities.sh"
+. "$HERE/../lib/ledger.sh"
+. "$HERE/../lib/registries.sh"
+```
+
+```bash
+# --- Step 4 doctor visibility: each warn: line must be provably reachable.
+# Seed a state carrying all three rot conditions: a pending amendment, a
+# quarantined line, and a RENEWED fake (not merely active - `renewed` is the
+# case the stale selector under-counted, and the one whose deadline already
+# moved once). IDs are captured from the minting calls rather than hardcoded,
+# so a counter change upstream cannot silently point an assertion at nothing.
+WTMP="$(mktemp -d)"; W="$WTMP/state.json"
+oss_state_init "$W" doctor-warn >/dev/null
+REL="$(oss_entity_add_release "$W" "mvp" "ship the core loop")"
+SP="$(oss_entity_add_spine "$W" "$REL" "order flow" flesh canonical)"
+L1="$(oss_ledger_add_auto "$W" "$SP" "line one" "bash -c 'exit 0'" "exit:0")"
+L2="$(oss_ledger_add_auto "$W" "$SP" "line two" "bash -c 'exit 0'" "exit:0")"
+
+# Assert the fixture actually seeded BEFORE asserting on doctor's output. A
+# seeding call that rc's nonzero creates no condition, and the warn: assertion
+# below then fails for a reason that has nothing to do with the selector under
+# test. This is the Task 2 trap verbatim: its scoping fixture amended against a
+# spine the file never created, the call rc-7'd, and the assertion passed while
+# testing nothing.
+if [ -n "$REL" ] && [ -n "$SP" ] && [ -n "$L1" ] && [ -n "$L2" ]; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor-warn fixture did not seed (REL=$REL SP=$SP L1=$L1 L2=$L2)"
+fi
+
+oss_ledger_retire       "$W" "$L1" "$SP" "replaced by the new flow"        # -> pending_amendments[]
+oss_ledger_quarantine   "$W" "$L2" "flaky under load" "$REL"               # -> status quarantined
+oss_reg_add_fake        "$W" "payment-gateway" "http" "no vendor sandbox" "sandbox ships" "$REL" >/dev/null
+oss_reg_set_fake_status "$W" "payment-gateway" renewed "vendor slipped a quarter" "r2"
+
+t_capture oss_cmd_doctor "$W"
+t_assert_contains "$T_OUT" "warn: ledger - 1 demo line(s) carry a pending amendment" "doctor surfaces a pending amendment"
+t_assert_contains "$T_OUT" "warn: ledger - 1 quarantined line(s)" "doctor surfaces a quarantined line"
+t_assert_contains "$T_OUT" "warn: fakes - 1 outstanding fake(s)" "doctor surfaces a RENEWED fake, not just an active one"
+t_assert_rc 0 "the three warn: lines are advisory - they must not change doctor's rc"
+rm -rf "$WTMP"
+```
+
+Signatures above were reconciled against the tree on 2026-07-31 — `oss_reg_add_fake` (`$1=state $2=boundary $3=channel $4=reason $5=trigger $6=expiry-release`) and `oss_reg_set_fake_status` (`$1=state $2=boundary $3=status $4=reason [$5=new-expiry]`) are the real names; an earlier draft of this block invented `oss_registry_fake_add` / `oss_registry_fake_status`, which do not exist. **Re-verify them anyway** rather than trusting this note, and fix the *test* to match the shipped signature if either has moved.
+
+**5b — Run:** `bash ossify/tests/run-all.sh` → `ALL GREEN`.
+
+**5c — Mutation-test every guard this task adds. Four mutations, each must produce a NAMED RED:**
+
+| # | Mutation | Must go RED |
+|---|---|---|
+| 1 | `mv "$tmp" "$sf"` → `cp "$tmp" "$sf"` in `_oss_state_restore_body` | the orphaned-temp assertion |
+| 2 | Step 4's `pend` selector → `select(((.pending_amendments // []) \| length) > 99)` | "doctor surfaces a pending amendment" |
+| 3 | Step 4's `quar` selector → `select(.status == "retired")` | "doctor surfaces a quarantined line" |
+| 4 | Step 4's `fexp` selector → `select(.status == "active")` (the pre-correction form) | "doctor surfaces a RENEWED fake" |
+
+Mutation 4 is the load-bearing one: it reproduces exactly the stale selector this task exists to fix, so if it does **not** go RED, the fixture is not seeding a `renewed` fake and the test is worthless.
+
+**Before believing any mutation result, confirm the mutated code still RUNS on its happy path** — `bash ossify/bin/oss doctor <state>` must still exit cleanly and emit its normal `ok:` lines. A mutation that breaks jq *syntax* fails the op outright and throws unrelated assertions RED, which reads as coverage and is not; that false refutation was published once already in Task 2. Equally, a mutation with **no** RED means the guard is untested — not that it is correct. Restore each mutation and re-confirm `ALL GREEN` before the next.
 
 ```bash
 git add ossify/lib/state.sh ossify/lib/commands.sh ossify/lib/id.sh ossify/lib/doctor.sh ossify/tests/
@@ -982,6 +1054,9 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 4. Does `oss get` with an explicit path bypass `$OSS_STATE_FILE` in **both** directions (explicit wins; omitted still falls back)?
 5. Is the `critic_detect` v0.3 probe correct? Verify the `managing-async-critique` marker against the real installed plugin rather than assuming.
 6. Are the new doctor lines advisory-only? A `warn:` must never change `rc`.
+7. **Can each doctor `warn:` actually FIRE?** Do not accept "doctor is green" or "the suite passes" as evidence. Confirm the Step 5a fixture really creates all three conditions (`jq '.demo_ledger, .fakes'` on the seeded state), then run all four Step 5c mutations yourself — mutation 4 especially, which restores the pre-correction `status == "active"` selector. A selector that counts zero forever satisfies every existing assertion in this suite.
+8. **Was every guard this task adds actually committed as a test?** `grep` the tree for each test the report names — do not take the report's word for it. Task 2's fix report claimed a regression test that did not exist in the tree, and three of its four guards had zero coverage. And when you mutate, confirm the mutated code still runs on its happy path before reading the suite result: a mutation that breaks jq *syntax* throws unrelated assertions RED, which reads as coverage and is not.
+9. **Strict mode on the new doctor lines and `critic_detect`.** All three `warn:` lines use the `[ "$n" -gt 0 ] && echo …` shape, and `critic_detect` uses `{ [ -z … ] || [ ! -d … ]; } && continue`. Both are exempt from `errexit` only because the failing test is not the command following the final `&&` — verify through `bin/oss` under real `set -euo pipefail`, not by sourcing. Also confirm an *empty* `$pend`/`$quar`/`$fexp` (jq emitting nothing) does not abort the dispatcher.
 
 ---
 
