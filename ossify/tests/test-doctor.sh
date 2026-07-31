@@ -73,8 +73,11 @@ rm -rf "$T4"
 # replay would silently downgrade drift detection to a mis-attributed skip.
 #
 # Tamper the live state OUT OF BAND while leaving base.json intact, so
-# base+journal genuinely no longer rebuild to live, and keep schema_version at 1
-# so the schema gate does not short-circuit replay.
+# base+journal genuinely no longer rebuild to live, and leave schema_version at
+# whatever `oss_state_init` writes (v2 since Plan C1 Task 1) so the schema gate
+# does not short-circuit replay. The point is that the schema check must PASS
+# here — never hardcode the version, or this test silently stops reaching replay
+# on the next bump.
 T5="$(mktemp -d)"; S5="$T5/state.json"
 oss_state_init "$S5" doc-drift >/dev/null
 oss_state_mutate "$S5" set_posture '{"posture":"open-core"}' >/dev/null   # one real journaled mutation

@@ -83,7 +83,9 @@ t_assert_rc 7 "veto against unknown spine rejected"
 t_capture oss_cmd_get '.veto_dispositions | length'
 t_assert_eq "$VETOS_BEFORE2" "$T_OUT" "veto_dispositions count unchanged after unknown-spine rejection"
 
-# doctor shape stays green (14 core keys present; veto_dispositions is additive/ungated); replay stays clean.
+# doctor shape stays green (all 16 required keys present — the list grew from 14
+# when Plan C1 Task 1 added close_records and closed doctor's pre-existing
+# omission of veto_dispositions); replay stays clean.
 t_capture oss_cmd_doctor "$OSS_STATE_FILE"
 t_assert_contains "$T_OUT" "ok: shape" "doctor shape green"
 t_capture oss_state_replay "$OSS_STATE_FILE"
