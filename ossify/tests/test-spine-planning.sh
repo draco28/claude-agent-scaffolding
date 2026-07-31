@@ -113,19 +113,25 @@ USER1="$T_OUT"
 t_capture "$OSS" get '.demo_ledger | length'; LEDGER_BEFORE="$T_OUT"
 t_capture "$OSS" ledger_supersede "$AUTO1" r0.s1 "the order ticket replaced the CLI entry point"
 t_assert_rc 0 "dispatcher: supersede by line id ok"
-t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO1\")][0].pending_status"
-t_assert_eq "superseded" "$T_OUT" "supersede records a PENDING status"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO1\")][0].pending_amendments[0].status"
+t_assert_eq "superseded" "$T_OUT" "supersede records a PENDING amendment"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO1\")][0].pending_amendments[0].by"
+t_assert_eq "r0.s1" "$T_OUT" "...keyed to the planning spine"
 t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO1\")][0].status"
 t_assert_eq "active" "$T_OUT" "...and leaves the live status ACTIVE until close"
 t_capture "$OSS" ledger_active_auto
 t_assert_eq "2" "$(printf '%s' "$T_OUT" | jq 'length')" "a pending amendment does NOT drop the line from the live set"
 
 # unplan is the escape hatch immediate semantics never had: a replanned or
-# abandoned spine must not permanently drop coverage.
-t_capture "$OSS" ledger_unplan "$AUTO1"
-t_assert_rc 0 "unplan clears a pending amendment"
-t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO1\")][0].pending_status"
-t_assert_eq "null" "$T_OUT" "pending cleared"
+# abandoned spine must not permanently drop coverage. F1: the spine argument
+# is now required (a line can carry more than one spine's pending amendment),
+# and unplan rejects a spine that holds nothing pending on the line.
+t_capture "$OSS" ledger_unplan "$AUTO1" r0.s2
+t_assert_rc 7 "dispatcher: unplan rejects a spine with no pending amendment on the line"
+t_capture "$OSS" ledger_unplan "$AUTO1" r0.s1
+t_assert_rc 0 "unplan clears THIS spine's pending amendment"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO1\")][0].pending_amendments"
+t_assert_eq "[]" "$T_OUT" "pending cleared"
 
 # re-plan it, then apply at close.
 t_capture "$OSS" ledger_supersede "$AUTO1" r0.s1 "the order ticket replaced the CLI entry point"
@@ -138,8 +144,8 @@ t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO1\")][0].status_by"
 t_assert_eq "r0.s1" "$T_OUT" "superseding spine recorded on apply"
 t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$USER1\")][0].status_reason"
 t_assert_eq "the CSV export flow was removed by this spine" "$T_OUT" "retire reason carried through the pending round trip"
-t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO1\")][0].pending_status"
-t_assert_eq "null" "$T_OUT" "pending is consumed by apply, not left dangling"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO1\")][0].pending_amendments"
+t_assert_eq "[]" "$T_OUT" "pending is consumed by apply, not left dangling"
 t_capture "$OSS" get '.demo_ledger | length'
 t_assert_eq "$LEDGER_BEFORE" "$T_OUT" "amended lines are archived, not deleted"
 t_capture "$OSS" ledger_active_auto
@@ -151,9 +157,61 @@ t_capture "$OSS" ledger_apply_pending r0.s1
 t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO2\")][0].status"
 t_assert_eq "active" "$T_OUT" "apply_pending is scoped to the closing spine only"
 
+# --- F1 (user decision, 2026-07-31): the regression this task exists to
+# prevent. TWO spines plan an amendment on the SAME line. Each spine's close
+# applies and consumes ONLY its own; the sibling's pending amendment survives
+# untouched until its own close runs. Under the old single-pending-slot model
+# the second spine's plan would have silently overwritten the first's, and the
+# first spine's amendment would never apply.
+t_capture "$OSS" ledger_add_auto r0.s1 "shared line both spines amend" "true" "exit:0"
+t_assert_rc 0 "dispatcher: shared line added for the two-spine test"
+SHARED="$T_OUT"
+t_capture "$OSS" ledger_supersede "$SHARED" r0.s1 "r0.s1's reason"
+t_assert_rc 0 "dispatcher: r0.s1 plans an amendment on the shared line"
+t_capture "$OSS" ledger_retire "$SHARED" r0.s2 "r0.s2's reason"
+t_assert_rc 0 "dispatcher: r0.s2 ALSO plans an amendment on the SAME line"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$SHARED\")][0].pending_amendments | length"
+t_assert_eq "2" "$T_OUT" "both spines' pending amendments coexist on one line - a list, not a slot"
+
+# r0.s2 closes FIRST even though it planned its amendment SECOND (so its list
+# entry sits at index 1, not 0) — this ordering is deliberate: it is the case
+# that actually distinguishes correct by-spine scoping from a mutation that
+# just grabs the list's first entry. If the test instead closed spines in
+# planning order, "apply whichever entry is first" and "apply the CALLING
+# spine's entry" would agree by coincidence on this fixture, and a mutation
+# that drops the `.by == $p.spine` match would pass here undetected.
+t_capture "$OSS" ledger_apply_pending r0.s2
+t_assert_rc 0 "dispatcher: r0.s2 closes first (though it is index 1 in the list) and applies its own amendment"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$SHARED\")][0].status"
+t_assert_eq "retired" "$T_OUT" "r0.s2's amendment applied, not r0.s1's list-first entry"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$SHARED\")][0].status_by"
+t_assert_eq "r0.s2" "$T_OUT" "status_by names r0.s2, the ACTUAL closing spine"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$SHARED\")][0].pending_amendments | length"
+t_assert_eq "1" "$T_OUT" "r0.s2's entry is consumed; r0.s1's is still pending, not dropped"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$SHARED\")][0].pending_amendments[0].by"
+t_assert_eq "r0.s1" "$T_OUT" "the surviving pending amendment belongs to r0.s1"
+
+t_capture "$OSS" ledger_apply_pending r0.s1
+t_assert_rc 0 "dispatcher: r0.s1 closes second and applies its own amendment"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$SHARED\")][0].status"
+t_assert_eq "superseded" "$T_OUT" "r0.s1's amendment applied second - last close to run wins on status"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$SHARED\")][0].status_by"
+t_assert_eq "r0.s1" "$T_OUT" "status_by now names r0.s1"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$SHARED\")][0].pending_amendments"
+t_assert_eq "[]" "$T_OUT" "both spines' amendments fully consumed"
+
 # unknown line id is still rc 7 and writes nothing.
 t_capture "$OSS" ledger_supersede d999 r0.s1 "typo'd id"
 t_assert_rc 7 "dispatcher: amendment against unknown line id is rc 7"
+
+# --- F3: ledger_apply_pending had no reject-before-mutate guard - an unknown
+# spine returned rc 0 and journaled a no-op mutation, so a typo'd spine at
+# close time would silently apply nothing while reporting success.
+t_capture "$OSS" get '.mutations | length'; MUT_BEFORE="$T_OUT"
+t_capture "$OSS" ledger_apply_pending r9.s9
+t_assert_rc 7 "dispatcher: apply_pending against an unknown spine is rc 7"
+t_capture "$OSS" get '.mutations | length'
+t_assert_eq "$MUT_BEFORE" "$T_OUT" "no phantom mutation journaled after unknown-spine refusal"
 
 # --- §9 / fake-ledger-discipline.md §1: channel is validated against
 # real|fake|deferred; anything else is rc 2 with no record written.

@@ -379,7 +379,7 @@ pairs in `references/demo-authoring.md`.
 A spine's plan may declare that it **supersedes** or **retires** accumulated lines
 whose flow this spine changes — with a reason. They are **recorded now and
 applied at this spine's close**, so a sibling spine closing first still runs the
-line. `oss ledger_unplan <line-id>` clears one if the spine is replanned:
+line. `oss ledger_unplan <line-id> <spine>` clears this spine's one if replanned:
 
 ```bash
 oss ledger_supersede d3 "$spine" "the order ticket replaced the CLI entry point"
@@ -483,8 +483,9 @@ infer a spine from a name when the id missed (§3).
   golden-journey line really drives the journey, and whether a fake is admissible.
 - **`oss`** (the dispatcher over `lib/*.sh`) handles mechanical state only:
   `work_item_add`, `ledger_add_auto`, `ledger_add_user`, `ledger_active_auto`,
-  `ledger_supersede`, `ledger_retire`, `fake_add`, `feature_add`, `touch_check`,
-  `class_set`, `spine_list`, `get`, `critic_detect`, `state_path`, `doctor`. It
+  `ledger_supersede`, `ledger_retire`, `ledger_unplan`, `fake_add`, `feature_add`,
+  `touch_check`, `class_set`, `spine_list`, `get`, `critic_detect`, `state_path`,
+  `doctor`. It
   holds no judgment — `ledger_add_user`'s prefix check is a typo guard, not the
   journey-line floor.
 - **`ai-mentor:grill-me`** and **`architect-critic:critiquing-spec`** are invoked

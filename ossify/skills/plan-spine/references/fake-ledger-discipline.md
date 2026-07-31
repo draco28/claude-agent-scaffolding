@@ -51,7 +51,26 @@ trigger, and it is the one that will actually fire.
 
 ---
 
-## 3. Triggers feed the feature map
+## 3. Changing a fake's status later
+
+```bash
+oss fake_status <boundary> <active|replaced|renewed> "<reason>" [<new-expiry-release>]
+```
+
+An unknown boundary exits **7**; a status outside `active|replaced|renewed`
+exits **2**. Use `replaced` once the real boundary has landed — the fake entry
+itself is never deleted, same as a demo line.
+
+**`renewed` with no 5th argument is a status annotation only.** It records that
+the fake was re-examined and is still needed — it does **not** move the
+deadline. `expiry_release` stays exactly what it was. This is deliberate: the
+release-close expiry check (Task 11) reads `expiry_release`, not `status`, so a
+`renewed` call with no new expiry changes nothing that check enforces. To
+actually move the deadline, pass the new expiry release as the 5th argument.
+
+---
+
+## 4. Triggers feed the feature map
 
 So the replacement competes for selection like everything else, rather than living
 only inside a fake record nobody re-reads:
@@ -65,7 +84,7 @@ selection; *"implement broker adapter"* does not.
 
 ---
 
-## 4. Banned fakes
+## 5. Banned fakes
 
 Never admissible, whatever the schedule pressure. Each one converts "reduced
 breadth" into "reduced truth", which is the whole thing the ledger exists to
@@ -89,7 +108,7 @@ license** speculative interfaces around unrelated internal algorithms.
 
 ---
 
-## 5. Worked cases
+## 6. Worked cases
 
 | Proposed | Verdict |
 |---|---|
@@ -102,16 +121,18 @@ license** speculative interfaces around unrelated internal algorithms.
 
 ---
 
-## 6. Anti-patterns
+## 7. Anti-patterns
 
 - **An undeclared fake.** Including one inherited from the skeleton and left in
   place (§1).
 - **A date as a replacement trigger** (§2).
 - **A trigger with no expiry**, or an expiry with no trigger. Both (§2).
-- **Renewing an expired fake silently.** Explicit, with a new expiry and a reason.
+- **Renewing an expired fake silently.** Explicit, with a new expiry and a reason
+  (§3) — a `renewed` call with no new expiry is a status annotation, not a
+  renewal; the deadline only moves when the 5th argument does (§3).
 - **A reason that is "no time".** Say what the real one costs and why that cost
   buys nothing yet (§1).
 - **Passing a channel outside `real|fake|deferred`.** Exit 2 (§1).
-- **Speculative interfaces justified by the AI-provider exception** (§4).
+- **Speculative interfaces justified by the AI-provider exception** (§5).
 - **A fake whose semantics differ from its replacement** — the most expensive
-  entry in the banned table, because it looks like the cheapest (§4).
+  entry in the banned table, because it looks like the cheapest (§5).

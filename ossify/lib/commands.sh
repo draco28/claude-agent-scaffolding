@@ -57,7 +57,7 @@ oss_cmd_ledger_retire() { # $1=line $2=by-spine $3=reason
 }
 oss_cmd_ledger_quarantine()    { local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_quarantine "$sf" "$1" "$2" "${3:-}"; }
 oss_cmd_ledger_apply_pending() { local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_apply_pending "$sf" "$1"; }
-oss_cmd_ledger_unplan()        { local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_unplan "$sf" "$1"; }
+oss_cmd_ledger_unplan()        { local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_unplan "$sf" "$1" "$2"; }
 oss_cmd_fake_status()          { local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_set_fake_status "$sf" "$1" "$2" "$3" "${4:-}"; }
 oss_cmd_patch_add() { # $1=commit $2=text
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_add_patch "$sf" "$1" "$2"
@@ -94,10 +94,20 @@ oss_cmd_migrate() { # [$1=state-file]
     echo "oss: state schema v$v is newer than this build (v$OSS_STATE_SCHEMA_VERSION) - upgrade ossify, do not migrate" >&2
     return 6
   fi
-  [ "$v" -eq 1 ] || { echo "oss: no migration path from v$v to v$OSS_STATE_SCHEMA_VERSION" >&2; return 6; }
+  # F1 (2026-07-31): `migrate_schema` is version-agnostic (every clause
+  # `has(...)`-guarded, verified against both a v1 and a v2 fixture) and
+  # single-hop by design - it carries every upgrade the registry knows about
+  # in one journaled op, not one op per version. This allowlist is deliberately
+  # exact (1|2), not "< current": a state at some OTHER stale version is a gap
+  # this build does not know how to close and must say so by name, never
+  # guess-migrate it.
+  case "$v" in
+    1|2) ;;
+    *) echo "oss: no migration path from v$v to v$OSS_STATE_SCHEMA_VERSION" >&2; return 6 ;;
+  esac
   oss_state_mutate "$sf" migrate_schema \
-    "$(jq -n --argjson to "$OSS_STATE_SCHEMA_VERSION" '{from:1,to:$to}')" || return $?
-  echo "migrated v1 -> v$OSS_STATE_SCHEMA_VERSION"
+    "$(jq -n --argjson from "$v" --argjson to "$OSS_STATE_SCHEMA_VERSION" '{from:$from,to:$to}')" || return $?
+  echo "migrated v$v -> v$OSS_STATE_SCHEMA_VERSION"
 }
 
 # Filesystem probe for architect-critic v0.2 (binary v0.2-or-absent), mirroring

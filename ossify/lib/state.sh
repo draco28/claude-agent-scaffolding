@@ -2,7 +2,7 @@
 # ossify state engine. §9.2 safety commitments: atomic writes, lock file,
 # schema_version+migrations, append-only mutations journal.
 
-OSS_STATE_SCHEMA_VERSION=2
+OSS_STATE_SCHEMA_VERSION=3
 
 _oss_now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
@@ -67,37 +67,65 @@ _oss_apply_op() { # $1=op $2=payload-json
     add_feature)   jq --argjson p "$payload" '.feature_map += [$p]' ;;
     add_demo_line)
       jq --argjson p "$payload" '.demo_ledger += [$p] | .counters.demo_line += 1' ;;
+    # Guarded (not `.quarantined_in_release = (if … then $p.release else
+    # .quarantined_in_release end)`): jq's `.a = .a` CREATES `a` as null when
+    # absent, so an unconditional write made replay of any journal entry
+    # written before this guard existed (no `release` key at all) rebuild a
+    # record the original transform never produced -> replay drift, rc 5. The
+    # same unconditional form also ERASED an already-recorded release on a
+    # re-quarantine with no release arg ("r0" -> ""), destroying §6.1's
+    # parking-ticket anchor. One clause fixes both: only ever touch the key
+    # when this call is a quarantine AND actually carries a release.
     set_demo_line_status)
       jq --argjson p "$payload" '
         (.demo_ledger[] | select(.id == $p.id)) |=
           (.status = $p.status | .status_reason = $p.reason | .status_by = $p.by
-           | .quarantined_in_release =
-               (if $p.status == "quarantined" then $p.release else .quarantined_in_release end))' ;;
+           | (if $p.status == "quarantined" and (($p.release // "") != "")
+              then .quarantined_in_release = $p.release
+              else . end))' ;;
+    # F1 (user decision, 2026-07-31): a line carries a LIST of pending
+    # amendments, one per spine - not a single slot. Two spines each planning
+    # an amendment on the same line is real (verified live) and under the old
+    # single-pending-slot model the second spine's plan silently overwrote the
+    # first's; when the first spine closed, its amendment was already gone.
+    # That is exactly the silent-coverage-loss harm D1 exists to prevent, so
+    # the fix is structural, not a bigger guard: upsert-by-spine into a list.
+    # A re-plan by the SAME spine replaces its own prior entry (update, not a
+    # duplicate); a DIFFERENT spine's entry is untouched.
     set_demo_line_pending)
       jq --argjson p "$payload" '
         (.demo_ledger[] | select(.id == $p.id)) |=
-          (.pending_status = $p.status | .pending_by = $p.by
-           | .pending_reason = $p.reason | .pending_at = $p.at)' ;;
-    # Applies every pending amendment BELONGING TO ONE SPINE and consumes it.
-    # Scoped by `pending_by` so a sibling spine's planned amendment is untouched -
-    # that scoping is the whole point of the pending lifecycle. Records lacking
-    # the pending_* fields entirely (every line written before this task) read as
-    # null and are skipped, so no migration of demo_ledger is needed.
+          (.pending_amendments =
+            (((.pending_amendments // []) | map(select(.by != $p.by)))
+             + [{status:$p.status, by:$p.by, reason:$p.reason, at:$p.at}]))' ;;
+    # Applies ONLY the closing spine's own amendment and consumes ONLY that
+    # entry. A sibling spine's pending amendment on the SAME line survives
+    # untouched - that is the whole point of the list. Lines with no
+    # `pending_amendments` key at all (pre-migration/pre-amendment shape) read
+    # as [] via `// []`, `$mine` comes back null, and the `else .` arm changes
+    # nothing - it must NOT assign the key, or replaying a record that never
+    # had one would diverge from a live state that never touched it.
     apply_demo_pending)
       jq --argjson p "$payload" '
         .demo_ledger |= map(
-          if (.pending_by // null) == $p.spine and (.pending_status // null) != null
-          then .status = .pending_status
-             | .status_reason = .pending_reason
-             | .status_by = .pending_by
-             | .pending_status = null | .pending_by = null
-             | .pending_reason = null | .pending_at = null
-          else . end)' ;;
+          (((.pending_amendments // []) | map(select(.by == $p.spine)))[0]) as $mine
+          | if $mine != null
+            then .status = $mine.status
+               | .status_reason = $mine.reason
+               | .status_by = $mine.by
+               | .pending_amendments =
+                   ((.pending_amendments // []) | map(select(.by != $p.spine)))
+            else . end)' ;;
+    # The escape hatch, now spine-scoped: clears only the CALLING spine's
+    # pending amendment on the line. A sibling spine's pending amendment on
+    # the same line is untouched - clearing every spine's entry indiscrimi-
+    # nately would be the same silent-coverage-loss footgun F1 exists to fix,
+    # just moved from set to clear.
     clear_demo_pending)
       jq --argjson p "$payload" '
         (.demo_ledger[] | select(.id == $p.id)) |=
-          (.pending_status = null | .pending_by = null
-           | .pending_reason = null | .pending_at = null)' ;;
+          (.pending_amendments =
+            ((.pending_amendments // []) | map(select(.by != $p.spine))))' ;;
     set_fake_status)
       jq --argjson p "$payload" '
         (.fakes[] | select(.boundary == $p.boundary)) |=
@@ -135,12 +163,35 @@ _oss_apply_op() { # $1=op $2=payload-json
       jq --argjson p "$payload" '
         (.work_items[] | select(.id == $p.work_item)) |=
           (.branch = $p.branch | .worktree_path = $p.worktree_path | .base_sha = $p.base_sha)' ;;
-    # §9.2's migration registry, realized. Pure and TOTAL: replay re-applies it
-    # from the v1 base snapshot, so base+journal still rebuilds live exactly and
-    # the base is never rewritten. `has(...)` keeps it idempotent under replay.
+    # §9.2's migration registry, realized. Pure, TOTAL and VERSION-AGNOSTIC:
+    # replay re-applies it from the base snapshot (v1 or v2, whichever the
+    # project started from) so base+journal still rebuilds live exactly and
+    # the base is never rewritten. Every clause is `has(...)`-guarded, so a
+    # v1 state (no close_records, no pending_* at all) and a v2 state (scalar
+    # pending_* fields) both land on the same v3 shape in one call, and
+    # calling it again on an already-v3 state is a no-op on every clause.
+    #
+    # v2->v3 (F1, 2026-07-31): a demo line's pending amendment moves from four
+    # scalar fields to a `pending_amendments` LIST, because the scalar shape
+    # can hold only one spine's plan at a time and a second spine planning on
+    # the same line silently overwrote the first (the harm F1 exists to fix).
+    # A v2 line with a set `pending_status` becomes a one-element list
+    # carrying that spine's amendment; a v2 line with none becomes `[]`. The
+    # scalar fields are then removed - the list is the only representation
+    # going forward, so nothing reads the old fields once migrated.
     migrate_schema)
       jq --argjson p "$payload" '
         (if has("close_records") then . else . + {close_records:[]} end)
+        | .demo_ledger |= map(
+            if has("pending_amendments") then .
+            else
+              .pending_amendments =
+                (if (.pending_status // null) != null
+                 then [{status: .pending_status, by: .pending_by,
+                        reason: .pending_reason, at: .pending_at}]
+                 else [] end)
+              | del(.pending_status, .pending_by, .pending_reason, .pending_at)
+            end)
         | .schema_version = $p.to' ;;
     *)
       echo "oss: unknown op '$op'" >&2; return 4 ;;

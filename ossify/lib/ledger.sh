@@ -66,15 +66,35 @@ oss_ledger_retire()    { _oss_ledger_plan_amendment "$1" "$2" retired    "$3" "$
 
 # The close-time apply. Runs AFTER merge and BEFORE the cumulative demo, so the
 # demo measures the amended set against a product where the flow really is gone.
+# Same reject-before-mutate shape as _oss_ledger_plan_amendment: this is the
+# only mutator this task added that lacked it (F3) - an unknown or typo'd spine
+# used to return rc 0 and journal a no-op, so `close` (Task 9) would report
+# success while silently applying nothing.
 oss_ledger_apply_pending() { # $1=state $2=spine
+  jq -e --arg s "$2" '.spines[] | select(.id == $s)' "$1" >/dev/null 2>&1 \
+    || { echo "oss: unknown spine '$2' - apply_pending against a spine that does not exist would apply nothing while reporting success" >&2; return 7; }
   oss_state_mutate "$1" apply_demo_pending "$(jq -n --arg s "$2" '{spine:$s}')"
 }
 
-# The escape hatch: clears a planned amendment. There is no `reactivate` for an
-# APPLIED one by design - once close has applied it the ledger records history.
-oss_ledger_unplan() { # $1=state $2=line-id
+# The escape hatch: clears the CALLING spine's planned amendment on a line.
+# There is no `reactivate` for an APPLIED one by design - once close has
+# applied it the ledger records history.
+#
+# F1 (2026-07-31): a line now carries a LIST of pending amendments, one per
+# spine, so "clear the pending amendment on line d1" is ambiguous - clearing
+# every spine's entry indiscriminately is the same silent-coverage-loss
+# footgun F1 exists to remove, just moved from set/apply to unplan. The spine
+# is therefore REQUIRED, not optional, and is validated the same way the two
+# planning verbs validate it: reject-before-mutate, both on an unknown line and
+# on a spine that holds no pending amendment on that line (a typo'd spine here
+# would otherwise silently no-op and look like it worked).
+oss_ledger_unplan() { # $1=state $2=line-id $3=spine
   _oss_ledger_require_line "$1" "$2" || return $?
-  oss_state_mutate "$1" clear_demo_pending "$(jq -n --arg id "$2" '{id:$id}')"
+  jq -e --arg id "$2" --arg s "$3" \
+      '.demo_ledger[] | select(.id == $id) | (.pending_amendments // []) | map(select(.by == $s)) | length > 0' \
+      "$1" >/dev/null 2>&1 \
+    || { echo "oss: spine '$3' holds no pending amendment on line '$2'" >&2; return 7; }
+  oss_state_mutate "$1" clear_demo_pending "$(jq -n --arg id "$2" --arg s "$3" '{id:$id,spine:$s}')"
 }
 
 # Quarantine is NOT a planned amendment: it is raised at close/doctor time when a

@@ -32,9 +32,20 @@ oss get '[.demo_ledger[] | {id, type, status, text, source_spine}]'
 
 ## 2. Archived, never deleted
 
-Neither verb removes anything. Both set the line's `status` (`superseded` /
-`retired`) and record **who** did it (`status_by` = the superseding spine) and
-**why** (`status_reason`). The line stays in `demo_ledger` forever.
+Neither verb removes anything, and neither touches `status` — that is the whole
+D1 distinction. Planning records a **pending amendment**: `status` (`superseded`
+/ `retired`), who (`status_by` = the amending spine), and why (`status_reason`),
+held pending against the line until that spine's own close **applies** it —
+which is when the line's live `status` actually flips. The line stays in
+`demo_ledger` forever, archived, not deleted.
+
+A line carries pending amendments from **more than one spine at once** — a
+list, not a single slot. Two spines can each plan an amendment on the same
+line; each spine's close applies and consumes only its own, and a sibling
+spine's still-pending plan is untouched. If both amend the same line, the
+**last close to run wins** on `status`, and the ledger records which spine via
+`status_by` — the losing spine's amendment was still applied when its close
+ran, it was just superseded again by the one that closed after it.
 
 That is deliberate. The ledger is the product's demo history: it is how a release
 retro can say *"the CLI entry point was the journey until `r2.s1` replaced it with
@@ -132,9 +143,15 @@ inconvenient stops being evidence about the product.
 - **Retiring a failing line instead of fixing the spine that broke it** (§5).
 - **Planning an amendment and never closing the spine.** A pending amendment is
   consumed by `close`. If the spine is replanned or abandoned, clear it with
-  `oss ledger_unplan <line-id>` — otherwise it sits in state waiting for a close
-  that will never come, and `oss doctor` will keep reporting it. There is no
-  `reactivate` for an amendment `close` has already applied: at that point the
-  flow really is gone and the ledger is recording history.
+  `oss ledger_unplan <line-id> <spine>` — the spine argument is required (F1: a
+  line can hold more than one spine's pending amendment, so clearing without
+  saying which one is the same silent-coverage-loss footgun the list exists to
+  prevent) and an unknown line, or a spine with nothing pending on that line, is
+  rejected rc 7. Otherwise the amendment sits in state waiting for a close that
+  will never come — nothing currently surfaces that in the ordinary course of
+  planning; check `oss get '[.demo_ledger[] | select((.pending_amendments // [])
+  | length > 0)]'` if you suspect a stale one. There is no `reactivate` for an
+  amendment `close` has already applied: at that point the flow really is gone
+  and the ledger is recording history.
 - **Deleting from `demo_ledger` directly.** There is no such operation, and there
   should not be.

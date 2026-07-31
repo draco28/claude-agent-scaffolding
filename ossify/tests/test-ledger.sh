@@ -28,15 +28,55 @@ t_capture oss_ledger_supersede "$S" d1 "$SP" "flow redesigned"
 t_assert_rc 0 "supersede ok"
 t_capture oss_state_read "$S" '.demo_ledger[0].status'
 t_assert_eq "active" "$T_OUT" "status stays ACTIVE until close applies the pending amendment (D1)"
-t_capture oss_state_read "$S" '.demo_ledger[0].pending_status'
-t_assert_eq "superseded" "$T_OUT" "supersede records a pending status"
+t_capture oss_state_read "$S" '.demo_ledger[0].pending_amendments[0].status'
+t_assert_eq "superseded" "$T_OUT" "supersede records a pending amendment (F1: a list entry, not a scalar)"
+t_capture oss_state_read "$S" '.demo_ledger[0].pending_amendments[0].by'
+t_assert_eq "$SP" "$T_OUT" "...keyed to the planning spine"
 t_capture oss_ledger_active_auto "$S"
 t_assert_eq "1" "$(printf '%s' "$T_OUT" | jq 'length')" "a pending amendment does not drop the line from the live set"
 t_capture oss_ledger_apply_pending "$S" "$SP"
 t_assert_rc 0 "apply_pending ok"
 t_capture oss_state_read "$S" '.demo_ledger[0].status'; t_assert_eq "superseded" "$T_OUT" "status archived after close applies it"
+t_capture oss_state_read "$S" '.demo_ledger[0].pending_amendments'
+t_assert_eq "[]" "$T_OUT" "pending amendment consumed by apply"
 t_capture oss_ledger_active_auto "$S"
 t_assert_eq "[]" "$(printf '%s' "$T_OUT" | jq -c .)" "superseded line not active after close"
+
+# F3: apply_pending against an unknown spine is a reject-before-mutate rc 7,
+# not a silent rc-0 no-op (which would let a typo'd close report success while
+# applying nothing).
+t_capture oss_state_read "$S" '.mutations | length'; MUT_BEFORE="$T_OUT"
+t_capture oss_ledger_apply_pending "$S" "r9.s9"
+t_assert_rc 7 "apply_pending against an unknown spine is rc 7"
+t_capture oss_state_read "$S" '.mutations | length'
+t_assert_eq "$MUT_BEFORE" "$T_OUT" "no phantom mutation journaled after unknown-spine refusal"
+
+# F1.3: unplan now takes the spine, and rejects a spine with nothing pending
+# on the line (ambiguity a list makes possible that a single slot never had).
+t_capture oss_ledger_supersede "$S" d2 "$SP" "second amendment for the unplan test"
+t_assert_rc 0 "setup: second pending amendment for the unplan test"
+t_capture oss_ledger_unplan "$S" d2 "r9.s9"
+t_assert_rc 7 "unplan rejects a spine with no pending amendment on the line"
+t_capture oss_ledger_unplan "$S" d2 "$SP"
+t_assert_rc 0 "unplan clears the calling spine's own pending amendment"
+t_capture oss_state_read "$S" '.demo_ledger[1].pending_amendments'
+t_assert_eq "[]" "$T_OUT" "pending amendment cleared"
+t_capture oss_ledger_unplan "$S" d999 "$SP"
+t_assert_rc 7 "unplan against an unknown line id is rc 7"
+
+# --- F9 / named risk 3: a demo line written before this task (no
+# `pending_amendments` key AT ALL - not even a migrated empty []) must survive
+# apply_demo_pending BYTE-IDENTICAL when the calling spine has nothing pending
+# on it. Hand-built, not `oss_state_init`-derived: a fresh init writes the
+# CURRENT shape and proves nothing about an upgrade input. Compared with
+# `jq -S -c` (sorted keys) on both sides per the brief's explicit instruction -
+# reading the jq is not proof, only a diff on the actual output is.
+LEGACY_LINE='{"id":"d1","status":"active","status_reason":null,"status_by":null}'
+LEGACY_STATE="$(jq -n --argjson l "$LEGACY_LINE" '{demo_ledger:[$l]}')"
+LEGACY_AFTER="$(printf '%s' "$LEGACY_STATE" | _oss_apply_op apply_demo_pending '{"spine":"r0.s1"}')"
+IN_SORTED="$(printf '%s' "$LEGACY_STATE" | jq -S -c '.demo_ledger[0]')"
+OUT_SORTED="$(printf '%s' "$LEGACY_AFTER" | jq -S -c '.demo_ledger[0]')"
+t_assert_eq "$IN_SORTED" "$OUT_SORTED" "a legacy demo line with no pending_amendments key at all survives apply_demo_pending byte-identical"
 
 t_capture oss_ledger_add_patch "$S" abc1234 "bump serde patch version"
 t_assert_rc 0 "patch record added"
