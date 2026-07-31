@@ -1087,7 +1087,11 @@ TMP="$(mktemp -d)"
 mkdir -p "$TMP/ws/.workspace" "$TMP/canon"
 git -C "$TMP/canon" init -q
 git -C "$TMP/canon" config user.email t@t; git -C "$TMP/canon" config user.name t
-echo seed > "$TMP/canon/f.txt"; git -C "$TMP/canon" add .; git -C "$TMP/canon" commit -qm seed
+echo seed > "$TMP/canon/f.txt"
+# A TRACKED .gitignore, because that is the realistic case and it is what makes
+# the "does not touch the project's own file" assertion below able to fail.
+printf 'node_modules/\n' > "$TMP/canon/.gitignore"
+git -C "$TMP/canon" add .; git -C "$TMP/canon" commit -qm seed
 cat > "$TMP/ws/.workspace/pairing.json" <<EOF
 {"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{}}
 EOF
@@ -1107,6 +1111,20 @@ WT="$T_OUT"
 [ -d "$WT" ] && T_PASS=$((T_PASS+1)) || { T_FAIL=$((T_FAIL+1)); echo "FAIL: worktree dir not created"; }
 t_assert_eq "$TMP/canon/.worktrees/r0.s1.w1" "$WT" "worktree path convention"
 t_assert_eq "work/r0.s1.w1-add-ticket" "$(git -C "$WT" rev-parse --abbrev-ref HEAD)" "work-item branch checked out"
+
+# The worktree root lives inside the repo, so spawning must not leave the repo
+# reporting itself dirty. Assert the OUTCOME - a fully empty status - not merely
+# that an ignore line was written: a line in the wrong file or with the wrong
+# pattern still passes a grep and still leaves `?? .worktrees/` behind. The
+# seeded .gitignore below is TRACKED, which is what makes this assertion
+# meaningful: an implementation that appends to it instead of to
+# .git/info/exclude leaves ` M .gitignore` and fails right here.
+t_assert_eq "" "$(git -C "$TMP/canon" status --porcelain)" "spawning leaves the repo status completely clean"
+t_assert_eq "node_modules/" "$(cat "$TMP/canon/.gitignore")" "spawning does not touch the .gitignore the PROJECT owns"
+t_capture oss_worktree_add canonical r0.s1.w1 "add-ticket" "HEAD"
+t_assert_rc 8 "spawning onto an existing worktree path is refused rc 8"
+# Idempotent: repeated spawns must not append a duplicate ignore entry.
+t_assert_eq "1" "$(grep -cxF '.worktrees/' "$TMP/canon/.git/info/exclude")" "the ignore entry is written exactly once"
 
 # resolve + list
 t_capture oss_worktree_resolve canonical r0.s1.w1
@@ -1177,11 +1195,43 @@ oss_worktree_add() { # $1=repo-key $2=work-item-id $3=slug $4=base-ref ; echoes 
   branch="$(oss_id_work_item_branch "$wi" "$slug")"
   [ -e "$path" ] && { echo "oss: worktree already exists at $path" >&2; return 8; }
   mkdir -p "$dir" || return 8
-  if ! git -C "$root" worktree add -q -b "$branch" "$path" "$base" 2>&1; then
+  _oss_worktree_ignore "$root" || true
+  # NOT `2>&1`: this function's STDOUT IS ITS RETURN VALUE (the abs path), so
+  # merging git's stderr into stdout makes any warning git decides to emit become
+  # part of the path the caller captures. `-q` is silent on success today, which
+  # is exactly what makes this the kind of latent bug that surfaces years later
+  # on someone else's git version or with a chatty hook installed. Let stderr be
+  # stderr.
+  if ! git -C "$root" worktree add -q -b "$branch" "$path" "$base"; then
     echo "oss: git worktree add failed for $wi (branch $branch, base $base)" >&2
     return 8
   fi
   printf '%s\n' "$path"
+}
+
+# The worktree root lives INSIDE the repo, so without this every spawn leaves
+# `?? .worktrees/` in the canonical repo's status - a dirty tree ossify itself
+# created, in the very repo whose cleanliness the close ceremony checks. The
+# leading dot already keeps most test runners out (pytest's default
+# `norecursedirs` includes `.*`; `go test ./...` skips dirs beginning with `.`
+# or `_`), so this closes the reporting half, not a demo-integrity hole.
+#
+# `.git/info/exclude`, NOT `.gitignore` - and this was verified empirically, not
+# reasoned about. `.gitignore` is TRACKED in any real project, so appending to it
+# leaves ` M .gitignore` and produces exactly the dirty tree this exists to
+# prevent (measured: appending to a tracked .gitignore yields ` M .gitignore`;
+# writing to .git/info/exclude yields an EMPTY status). `info/exclude` is
+# repo-local, never tracked, never pushed, and is the idiomatic place for an
+# ignore the tool owns rather than the project. Never edit a file the project
+# owns to make a tool's own artifact disappear.
+_oss_worktree_ignore() { # $1=repo-root ; best-effort, never fatal
+  local ex="$1/.git/info/exclude"
+  # A repo whose `.git` is a FILE is itself a worktree; it has no info/ of its
+  # own and inherits the parent's excludes, so there is nothing to do.
+  [ -d "$1/.git" ] || return 0
+  mkdir -p "$1/.git/info" || return 1
+  [ -f "$ex" ] && grep -qxF '.worktrees/' "$ex" && return 0
+  printf '%s\n' '.worktrees/' >> "$ex" 2>/dev/null || return 1
 }
 
 oss_worktree_resolve() { # $1=repo-key $2=work-item-id
@@ -1212,7 +1262,7 @@ oss_worktree_remove() { # $1=repo-key $2=work-item-id
     return 8
   fi
   branch="$(git -C "$path" rev-parse --abbrev-ref HEAD 2>/dev/null)" || branch=""
-  git -C "$root" worktree remove "$path" 2>&1 || { echo "oss: git worktree remove failed for $path" >&2; return 8; }
+  git -C "$root" worktree remove "$path" || { echo "oss: git worktree remove failed for $path" >&2; return 8; }
   if [ -n "$branch" ] && [ "$branch" != "HEAD" ]; then
     # `-d`, NOT `-D`. -D force-deletes an UNMERGED branch, destroying every
     # commit the implementer made. The close ceremony merges work/<wi> back into
@@ -1239,7 +1289,18 @@ oss_cmd_worktree_list()    { oss_worktree_list "${1:-canonical}"; }
 
 Run: `bash ossify/tests/test-worktree.sh && bash ossify/tests/run-all.sh` → green.
 
-Mutation test: change the dirty guard to `if false; then` and re-run. Expected RED on both the `rc 8` assertion and the `remove DISCARDED uncommitted work` assertion — the second is the one that matters, because it is the assertion that a *behaviour*, not a return code, was preserved. Restore and confirm green.
+Mutation test — **four mutations, each must produce its own named RED**, and line-address every one (a global `sed` that also hits an identical line elsewhere produces a meaningless result):
+
+| # | Mutation | Must go RED |
+|---|---|---|
+| 1 | dirty guard → `if false; then` | `removing a dirty worktree is refused rc 8` **and** `remove DISCARDED uncommitted work` |
+| 2 | `branch -d` → `branch -D` | `work-item branch survived removal` must stay green, so instead assert the refusal: make the branch unmerged (commit in the worktree, then remove) and confirm `-D` silently destroys it while `-d` refuses. If no assertion distinguishes them, the D9 half of this task is untested. |
+| 3 | `_oss_worktree_ignore` → `return 0` immediately | `spawning leaves the repo status completely clean` |
+| 4 | `_oss_worktree_ignore` writes to `$1/.gitignore` instead of `$1/.git/info/exclude` | `spawning does not touch the .gitignore the PROJECT owns` **and** `spawning leaves the repo status completely clean` |
+
+Mutation 1's second assertion is the one that matters — it asserts a *behaviour* (uncommitted work survived), not a return code. Mutation 2 is the one most likely to be skipped and is exactly the D9 defect this task exists to fix.
+
+**Before believing any mutation result, confirm the mutated code still RUNS on its happy path.** A mutation that breaks bash syntax fails the unit outright and throws unrelated assertions RED, which reads as coverage and is not; and no RED at all means the guard is untested, not that it is correct. Restore each and re-confirm green before the next.
 
 ```bash
 git add ossify/lib/worktree.sh ossify/lib/commands.sh ossify/tests/test-worktree.sh
@@ -1269,6 +1330,9 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 4. Is the work-item branch namespace genuinely distinct from the spine branch? Two work items in one spine must not collide.
 5. Strict mode: does every `git` call survive `set -euo pipefail` through `bin/oss`? Note `oss_worktree_list`'s guarded `ls`.
 6. Does rc 8 collide with anything in the existing taxonomy? Grep the libs for `return 8`.
+7. **Does `oss_worktree_add`'s stdout stay clean?** Its stdout *is* its return value — the caller captures the path. Any git chatter merged into stdout corrupts it. Verify no redirection puts stderr on stdout, and check what the function returns when git emits a warning (simulate one with a `post-checkout` hook that echoes).
+8. **Does spawning leave the repo dirty?** `git -C <canonical> status --porcelain` must not report `.worktrees/` after a spawn, and the ignore entry must be written exactly once across repeated spawns. Confirm the entry is appended, never rewriting a `.gitignore` the project already owns.
+9. **Is the D9 refusal actually tested?** `-d` vs `-D` only differ on an **unmerged** branch. A test that removes a worktree whose branch has no new commits passes with either, so it proves nothing. Confirm an unmerged-branch case exists and that `remove` refuses rather than destroying commits.
 
 ---
 
