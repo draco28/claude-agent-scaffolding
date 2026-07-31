@@ -923,13 +923,31 @@ rm -rf "$CTMP"
 ```bash
   # §6.1 operator visibility: the three things that rot silently.
   local pend quar fexp
-  pend="$(jq -r '[.demo_ledger[] | select((.pending_status // null) != null)] | length' "$sf" 2>/dev/null || echo 0)"
-  [ "$pend" -gt 0 ] 2>/dev/null && echo "warn: ledger - $pend demo line(s) carry a pending amendment awaiting a spine close ('oss ledger_unplan <id>' to drop one)"
+  pend="$(jq -r '[.demo_ledger[] | select(((.pending_amendments // []) | length) > 0)] | length' "$sf" 2>/dev/null || echo 0)"
+  [ "$pend" -gt 0 ] 2>/dev/null && echo "warn: ledger - $pend demo line(s) carry a pending amendment awaiting a spine close ('oss ledger_unplan <line-id> <spine>' to drop one)"
   quar="$(jq -r '[.demo_ledger[] | select(.status == "quarantined")] | length' "$sf" 2>/dev/null || echo 0)"
   [ "$quar" -gt 0 ] 2>/dev/null && echo "warn: ledger - $quar quarantined line(s); each must be fixed or retired by the next release close"
-  fexp="$(jq -r '[.fakes[] | select(.status == "active")] | length' "$sf" 2>/dev/null || echo 0)"
-  [ "$fexp" -gt 0 ] 2>/dev/null && echo "warn: fakes - $fexp active fake(s) carrying a replacement trigger and expiry release"
+  fexp="$(jq -r '[.fakes[] | select(.status == "active" or .status == "renewed")] | length' "$sf" 2>/dev/null || echo 0)"
+  [ "$fexp" -gt 0 ] 2>/dev/null && echo "warn: fakes - $fexp outstanding fake(s) carrying a replacement trigger and expiry release"
 ```
+
+> **Corrected 2026-07-31, after Task 2's fix round — do NOT restore the earlier form.** All three
+> selectors above were stale against the shape Task 2 actually shipped, and each failed *silently
+> green* rather than loudly:
+> 1. `select((.pending_status // null) != null)` — the scalar `pending_status` no longer exists.
+>    Task 2's F1 fix round replaced it with the per-spine list `pending_amendments[]` (schema v3).
+>    The old selector matches nothing, so `pend` is always `0` and the warning **can never fire** —
+>    a vacuous check that reads as "no pending amendments" forever.
+> 2. `'oss ledger_unplan <id>'` — `unplan` now requires `<line-id> <spine>`; the one-argument form
+>    the message teaches is rejected rc 7.
+> 3. `select(.status == "active")` — Task 2 gave fakes the `active|replaced|renewed` vocabulary.
+>    A **`renewed`** fake is still outstanding and still carries an expiry (its deadline was pushed,
+>    which is precisely when an operator wants to see it); only `replaced` is resolved. The old
+>    selector silently under-counts exactly the fakes most worth warning about.
+>
+> Task 3's Step 5 mutation test must therefore prove each warning can actually **fire** — seed a
+> state carrying a pending amendment, a quarantined line and a renewed fake, and assert all three
+> `warn:` lines appear. A doctor check that counts zero forever passes every "is doctor green?" test.
 
 - [ ] **Step 5: Run, mutation-test, commit**
 
