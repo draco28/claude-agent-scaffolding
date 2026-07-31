@@ -143,6 +143,29 @@ case "$T_OUT" in v0.2|v0.3|absent) T_PASS=$((T_PASS+1));; *) T_FAIL=$((T_FAIL+1)
 t_capture "$OSS" critic_detect
 case "$T_OUT" in v0.2|v0.3|absent) T_PASS=$((T_PASS+1));; *) T_FAIL=$((T_FAIL+1)); echo "FAIL: dispatcher critic_detect echoes v0.2|v0.3|absent (got '$T_OUT')";; esac
 
+# ...and on a machine with HOME UNSET. Under the dispatcher's `set -u` an
+# unguarded `${HOME}` is a fatal expansion error raised before the loop body
+# runs, so the probe dies with EMPTY stdout rather than echoing `absent` -
+# violating the "must answer on any machine" contract the block above asserts.
+# `env -i` is what makes HOME genuinely unset rather than merely empty; PATH is
+# carried so the interpreter and jq remain findable.
+t_capture env -i PATH="$PATH" bash "$OSS" critic_detect
+t_assert_eq "absent" "$T_OUT" "critic_detect still answers when HOME is unset (set -u safety)"
+
+# The remaining two dispatcher wrappers this task added. Both are pure
+# pass-throughs, which is exactly why they need a dispatcher-path assertion:
+# nothing else in the suite reaches them, so an argument-order slip or a lost
+# stdout would ship silently. The close router (Task 9) routes on id_parse's
+# output, and branch_name is the spine branch T8/T10 cut and merge.
+t_capture "$OSS" branch_name r0.s1 "order-ticket"
+t_assert_eq "spine/r0.s1-order-ticket" "$T_OUT" "dispatcher: branch_name keeps id-then-slug order"
+# id_parse emits the shape AND the numeric components ("work_item 0 1 2"), not
+# the shape alone - assert the whole line so a dropped component is caught too.
+t_capture "$OSS" id_parse r0.s1.w2
+t_assert_eq "work_item 0 1 2" "$T_OUT" "dispatcher: id_parse reports the id SHAPE the close router routes on"
+t_capture "$OSS" id_parse r0.s1
+t_assert_eq "spine 0 1" "$T_OUT" "dispatcher: id_parse distinguishes a spine from a work item"
+
 # Hermetic positive case for v0.3: build both directory shapes under a temporary
 # CLAUDE_PLUGINS_DIR so the assertion does not depend on the developer's own
 # install. HOME=/nonexistent keeps the real ~/.claude/plugins/cache (if any) out

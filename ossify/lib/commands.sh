@@ -135,7 +135,12 @@ oss_cmd_migrate() { # [$1=state-file]
 # stale v0.2 directory won over a newer v0.3 install and v0.3 was unreportable.
 oss_cmd_critic_detect() {
   local cache skill_md found="absent"
-  for cache in "${HOME}/.claude/plugins/cache" "${CLAUDE_PLUGINS_DIR:-}"; do
+  # `${HOME:-}`, not `${HOME}`: under the dispatcher's `set -u` an unset HOME is a
+  # fatal parameter-expansion error raised BEFORE the loop body runs, so none of
+  # the errexit-exemption machinery below applies - the probe dies with empty
+  # stdout instead of echoing `absent`. That breaks the documented contract that
+  # it answers on any machine, installed or not. The sibling was already guarded.
+  for cache in "${HOME:-}/.claude/plugins/cache" "${CLAUDE_PLUGINS_DIR:-}"; do
     { [ -z "$cache" ] || [ ! -d "$cache" ]; } && continue
     for skill_md in "$cache"/*/architect-critic/*/skills/critiquing-spec/SKILL.md; do
       [ -f "$skill_md" ] || continue

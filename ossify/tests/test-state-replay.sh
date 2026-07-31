@@ -41,6 +41,17 @@ t_capture oss_state_restore "$S"
 t_assert_rc 0 "state_restore repairs a drifted state"
 t_capture oss_state_replay "$S"
 t_assert_rc 0 "replay is clean after restore"
+# A clean replay is NOT evidence that restore worked. Replay re-derives its
+# "expected" value from the same `.mutations` array restore just wrote, so a
+# restore that discards the journal produces a state replay calls clean:
+# base+nothing == base, and the agreement is structurally guaranteed rather than
+# earned. Neutering the rebuild loop in _oss_state_restore_body wipes posture,
+# releases and the journal, and every rc/substring assertion above still passes.
+# Only a CONCRETE surviving value separates a real rebuild from a silent reset.
+t_capture oss_state_read "$S" '.project.posture'
+t_assert_eq "fully-private" "$T_OUT" "restore rebuilt the DERIVED state, not merely an internally-consistent one"
+t_capture oss_state_read "$S" '.mutations | length'
+t_assert_eq "2" "$T_OUT" "restore preserved the journal it rebuilt from"
 # -d, NOT -f: the lock is a DIRECTORY (mkdir-based, state.sh:127). `[ -f ]` on it
 # is always false, so an -f assertion passes unconditionally and can never detect
 # the leak it exists to detect.

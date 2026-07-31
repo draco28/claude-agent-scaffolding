@@ -104,9 +104,12 @@ fixed or retired by the next release close**. The `<release>` argument is what
 makes that enforceable — it is the parking ticket's date. Omit it and the next
 release close has no way to tell which quarantines are overdue.
 
-At HEAD, nothing surfaces a quarantined line outside the ledger itself — `oss
-doctor` does not inspect `demo_ledger` or quarantine status. Check for one
-directly: `oss get '[.demo_ledger[] | select(.status == "quarantined")]'`.
+`oss doctor` surfaces outstanding quarantines as an advisory line — `warn: ledger
+- N quarantined line(s); each must be fixed or retired by the next release
+close`. It is a warning, not a failure: it never changes doctor's exit code, so a
+quarantine cannot block a ceremony that is otherwise healthy. For the lines
+themselves, read the ledger: `oss get '[.demo_ledger[] | select(.status ==
+"quarantined")]'`.
 
 It belongs to `close` and `doctor`, at the moment a line actually fails. Do not
 reach for it at planning time to make an inconvenient line go away — that is
@@ -155,9 +158,10 @@ inconvenient stops being evidence about the product.
   saying which one is the same silent-coverage-loss footgun the list exists to
   prevent) and an unknown line, or a spine with nothing pending on that line, is
   rejected rc 7. Otherwise the amendment sits in state waiting for a close that
-  will never come — nothing currently surfaces that in the ordinary course of
-  planning; check `oss get '[.demo_ledger[] | select((.pending_amendments // [])
-  | length > 0)]'` if you suspect a stale one. There is no `reactivate` for an
+  will never come — `oss doctor` surfaces that as `warn: ledger - N demo line(s)
+  carry a pending amendment awaiting a spine close`, advisory only; read the
+  entries with `oss get '[.demo_ledger[] | select((.pending_amendments // [])
+  | length > 0)]'`. There is no `reactivate` for an
   amendment `close` has already applied: at that point the flow really is gone
   and the ledger is recording history.
 - **Deleting from `demo_ledger` directly.** There is no such operation, and there

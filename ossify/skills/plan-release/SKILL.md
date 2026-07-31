@@ -71,11 +71,11 @@ libs break. Use `oss help` for discovery.
 **Two probes, both fail-fast.**
 
 ```bash
-if ! oss state_path >/dev/null 2>&1; then
+if ! sp="$(oss state_path 2>/dev/null)"; then
   printf '%s\n' "ossify requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first."
   exit 0
 fi
-bones="$(oss get '.bones | length' 2>/dev/null)" || bones=""
+bones="$(oss get '.bones | length' "$sp" 2>/dev/null)" || bones=""
 printf 'bones=%s\n' "${bones:-<no state>}"
 ```
 
@@ -90,13 +90,15 @@ the project was never onboarded. Refuse with:
 release planning needs the bones' touch surfaces to declare spine classes."*
 Author nothing, create no release, stop.
 
-The two probes resolve differently, and only the first is manifest-proof:
-`oss state_path` reads the manifest and nothing else, so an exported
+Both probes are manifest-proof, and the second one only because it is written
+this way. `oss state_path` reads the manifest and nothing else, so an exported
 `$OSS_STATE_FILE` cannot satisfy it. `oss get` routes through `_oss_resolve_state`
-(precedence `explicit-arg > $OSS_STATE_FILE > manifest`), so a stale
-`OSS_STATE_FILE` left exported by an unrelated session makes the bones probe read
-*that* project's state and report a false "onboarded". If the probes disagree with
-what you expect, check `env | grep OSS_STATE_FILE` before trusting the count.
+(precedence `explicit-arg > $OSS_STATE_FILE > manifest`) — so calling it bare
+would let a stale `OSS_STATE_FILE` from an unrelated session answer the bones
+probe from *that* project's state and report a false "onboarded". Passing `"$sp"`
+— the path the manifest already resolved — takes the explicit-arg branch and puts
+both probes on the same project by construction. **Keep the argument.** Dropping
+it reintroduces a silent cross-project read that looks exactly like success.
 
 `oss doctor` is available at any point for a state read-out; run it if anything
 below looks inconsistent.
