@@ -3,6 +3,10 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/harness.sh"
 . "$HERE/../lib/state.sh"
 . "$HERE/../lib/doctor.sh"
+. "$HERE/../lib/id.sh"
+. "$HERE/../lib/entities.sh"
+. "$HERE/../lib/ledger.sh"
+. "$HERE/../lib/registries.sh"
 OSS="$HERE/../bin/oss"
 TMP="$(mktemp -d)"; S="$TMP/state.json"
 
@@ -89,6 +93,50 @@ t_assert_contains "$T_OUT" "fail: replay" "drift reported by replay (not skipped
 t_assert_contains "$T_OUT" "drift detected" "replay's drift message reaches the operator through doctor"
 t_assert_contains "$T_OUT" "ok: shape" "shape still reports independently of the replay failure"
 rm -rf "$T5"
+
+# --- Step 4 doctor visibility: each warn: line must be provably reachable.
+# Seed a state carrying all three rot conditions: a pending amendment, a
+# quarantined line, and a RENEWED fake (not merely active - `renewed` is the
+# case the stale selector under-counted, and the one whose deadline already
+# moved once). IDs are captured from the minting calls rather than hardcoded,
+# so a counter change upstream cannot silently point an assertion at nothing.
+WTMP="$(mktemp -d)"; W="$WTMP/state.json"
+oss_state_init "$W" doctor-warn >/dev/null
+REL="$(oss_entity_add_release "$W" "mvp" "ship the core loop")"
+SP="$(oss_entity_add_spine "$W" "$REL" "order flow" flesh canonical)"
+L1="$(oss_ledger_add_auto "$W" "$SP" "line one" "bash -c 'exit 0'" "exit:0")"
+L2="$(oss_ledger_add_auto "$W" "$SP" "line two" "bash -c 'exit 0'" "exit:0")"
+
+# Assert the fixture actually seeded BEFORE asserting on doctor's output. A
+# seeding call that rc's nonzero creates no condition, and the warn: assertion
+# below then fails for a reason that has nothing to do with the selector under
+# test. This is the Task 2 trap verbatim: its scoping fixture amended against a
+# spine the file never created, the call rc-7'd, and the assertion passed while
+# testing nothing.
+if [ -n "$REL" ] && [ -n "$SP" ] && [ -n "$L1" ] && [ -n "$L2" ]; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor-warn fixture did not seed (REL=$REL SP=$SP L1=$L1 L2=$L2)"
+fi
+
+oss_ledger_retire       "$W" "$L1" "$SP" "replaced by the new flow"        # -> pending_amendments[]
+oss_ledger_quarantine   "$W" "$L2" "flaky under load" "$REL"               # -> status quarantined
+# NOTE: channel (3rd arg) must be real|fake|deferred (registries.sh's
+# oss_reg_add_fake enum guard) - "fake" here, not a protocol name like "http".
+oss_reg_add_fake        "$W" "payment-gateway" "fake" "no vendor sandbox" "sandbox ships" "$REL" >/dev/null
+oss_reg_set_fake_status "$W" "payment-gateway" renewed "vendor slipped a quarter" "r2"
+
+# Through the REAL dispatcher binary (set -euo pipefail), not a sourced call:
+# all three new warn: lines use the `[ "$n" -gt 0 ] && echo ...` bare-command
+# shape, which is exactly the form that dies under strict mode if the
+# errexit-exemption reasoning is wrong - a sourced-only call (this test file
+# never enables `set -e`) cannot catch that class of fault.
+t_capture "$OSS" doctor "$W"
+t_assert_contains "$T_OUT" "warn: ledger - 1 demo line(s) carry a pending amendment" "doctor surfaces a pending amendment"
+t_assert_contains "$T_OUT" "warn: ledger - 1 quarantined line(s)" "doctor surfaces a quarantined line"
+t_assert_contains "$T_OUT" "warn: fakes - 1 outstanding fake(s)" "doctor surfaces a RENEWED fake, not just an active one"
+t_assert_rc 0 "the three warn: lines are advisory - they must not change doctor's rc"
+rm -rf "$WTMP"
 
 rm -rf "$TMP"
 t_summary

@@ -62,9 +62,24 @@ oss_cmd_fake_status()          { local sf; sf="$(_oss_resolve_state)" || return 
 oss_cmd_patch_add() { # $1=commit $2=text
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_add_patch "$sf" "$1" "$2"
 }
-oss_cmd_get() { # $1=jq-expr
-  local sf; sf="$(_oss_resolve_state)" || return $?; oss_state_read "$sf" "$1"
+# Explicit state file beats the environment. Without this argument a pre-flight
+# probe in one project silently reads another project's state via a stale
+# exported $OSS_STATE_FILE (final review, Minor 1).
+oss_cmd_get() { # $1=jq-expr [$2=state-file]
+  local sf; sf="$(_oss_resolve_state "${2:-}")" || return $?
+  oss_state_read "$sf" "$1"
 }
+
+oss_cmd_state_restore()  { local sf; sf="$(_oss_resolve_state "${1:-}")" || return $?; oss_state_restore "$sf"; }
+oss_cmd_manifest_get()   { oss_manifest_get "$1"; }
+oss_cmd_manifest_require(){ oss_manifest_require; }
+oss_cmd_work_item_branch(){ oss_id_work_item_branch "$1" "$2"; }
+oss_cmd_spine_dir()      { oss_id_spine_dir "$1" "$2" "$3"; }
+oss_cmd_branch_name()    { oss_id_branch_name "$1" "$2"; }
+# The close router (Task 9) derives its scope from the id SHAPE, so it needs this
+# through the dispatcher - oss_id_parse has no wrapper today, and skill prose
+# cannot reach a bare lib function (bin/oss dispatches only oss_cmd_*).
+oss_cmd_id_parse()       { oss_id_parse "$1"; }
 oss_cmd_feature_list()      { local sf; sf="$(_oss_resolve_state)" || return $?; oss_state_read "$sf" '[.feature_map[]]'; }
 oss_cmd_spine_list()        { local sf; sf="$(_oss_resolve_state)" || return $?; oss_state_read "$sf" '[.spines[]]'; }
 oss_cmd_ledger_active_auto(){ local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_active_auto "$sf"; }
@@ -115,13 +130,23 @@ oss_cmd_migrate() { # [$1=state-file]
 # spec-core critic moment. No composition.json read. Stateless by design: it
 # takes no state path and needs no manifest, so a skill can probe before (or
 # without) an initialized project.
+# Scan EVERY cache before deciding, and report the highest version found. The
+# previous form returned on the first hit and globbed only critiquing-spec, so a
+# stale v0.2 directory won over a newer v0.3 install and v0.3 was unreportable.
 oss_cmd_critic_detect() {
-  local cache skill_md
+  local cache skill_md found="absent"
   for cache in "${HOME}/.claude/plugins/cache" "${CLAUDE_PLUGINS_DIR:-}"; do
     { [ -z "$cache" ] || [ ! -d "$cache" ]; } && continue
     for skill_md in "$cache"/*/architect-critic/*/skills/critiquing-spec/SKILL.md; do
-      [ -f "$skill_md" ] && { echo "v0.2"; return 0; }
+      [ -f "$skill_md" ] || continue
+      if [ -f "${skill_md%/skills/critiquing-spec/SKILL.md}/skills/managing-async-critique/SKILL.md" ]; then
+        found="v0.3"
+      elif [ "$found" = "absent" ]; then
+        found="v0.2"
+      fi
     done
   done
-  echo "absent"; return 1
+  echo "$found"
+  [ "$found" = "absent" ] && return 1
+  return 0
 }

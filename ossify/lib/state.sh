@@ -331,9 +331,55 @@ oss_state_replay() { # $1=state-file ; rc 0 = clean, 5 = drift, 1 = no base
     # here — this function is lock-free so doctor can call it freely.
     echo "replay: drift detected - live state does not equal base+journal ($n mutations)." >&2
     echo "  Nothing is lost: the base snapshot ($base) and the append-only journal inside $sf are both intact, so the correct state is still derivable from them." >&2
-    echo "  This build has no automated restore verb. Do NOT delete $sf - the journal lives inside it. Recover by re-applying '.mutations' onto '$base' out-of-band, or restore the file from version control." >&2
+    echo "  Recover with 'oss state_restore', which rebuilds the state from '$base' plus the journal under the state lock. Do NOT delete $sf - the journal lives inside it." >&2
     return 5
   fi
+}
+
+# §9.2: "corruption recovery = replay from last good snapshot". oss_state_replay
+# is the comparator and is deliberately lock-free (doctor calls it freely), so it
+# must NOT write. This is the writer: it takes the lock, rebuilds from
+# base+journal through the SAME pure transform, and commits via temp+rename.
+oss_state_restore() { # $1=state-file ; rc 0 restored-or-already-clean, 1 no base, 4 apply, 3 lock
+  local sf="$1" base="$1.base.json" lock="$1.lock" rc=0
+  [ -f "$base" ] || { echo "oss: no base snapshot ($base) - nothing to restore from" >&2; return 1; }
+  if oss_state_replay "$sf" >/dev/null 2>&1; then
+    echo "restore: state is already clean - nothing to do"
+    return 0
+  fi
+  if ! mkdir "$lock" 2>/dev/null; then
+    echo "oss: state locked ($lock exists) - another ceremony is mutating; retry or run 'oss doctor'" >&2
+    return 3
+  fi
+  _oss_state_restore_body "$sf" "$base" || rc=$?
+  rmdir "$lock" 2>/dev/null || true
+  [ "$rc" -eq 0 ] && echo "restore: rebuilt from base + $(jq '.mutations | length' "$sf" 2>/dev/null || echo '?') journaled mutations"
+  return "$rc"
+}
+
+# Critical section. Same `|| rc=$?` body-function pattern as oss_state_mutate:
+# errexit is suspended for the whole body, so no bare command substitution in
+# here can hard-exit between lock-acquire and lock-release and leak the lock.
+_oss_state_restore_body() { # $1=state-file $2=base
+  local sf="$1" base="$2" rebuilt n i seq_json op payload tmp
+  rebuilt="$(cat "$base")" || return 4
+  n="$(jq '.mutations | length' "$sf" 2>/dev/null)" || return 4
+  i=0
+  while [ "$i" -lt "$n" ]; do
+    seq_json="$(jq -c ".mutations[$i]" "$sf" 2>/dev/null)" || return 4
+    op="$(printf '%s' "$seq_json" | jq -r '.op' 2>/dev/null)" || return 4
+    payload="$(printf '%s' "$seq_json" | jq -c '.payload' 2>/dev/null)" || return 4
+    rebuilt="$(printf '%s' "$rebuilt" \
+      | jq --argjson m "$seq_json" '.mutations += [$m]' \
+      | _oss_apply_op "$op" "$payload")" || return 4
+    i=$((i+1))
+  done
+  tmp="$(mktemp "${sf}.tmp.XXXXXX")" || return 4
+  printf '%s' "$rebuilt" > "$tmp" || { rm -f "$tmp"; return 4; }
+  if ! jq -e '.schema_version' "$tmp" >/dev/null 2>&1; then
+    rm -f "$tmp"; echo "oss: restore produced invalid state; aborted (original untouched)" >&2; return 4
+  fi
+  mv "$tmp" "$sf" || { rm -f "$tmp"; return 4; }
 }
 
 # §9.2 schema-version guard (no silent upgrades): refuse to operate on a state

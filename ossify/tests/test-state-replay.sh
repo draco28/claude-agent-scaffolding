@@ -28,9 +28,47 @@ case "$T_OUT" in
   *"repair from journal"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: drift message still points at a repair path that does not exist";;
   *) T_PASS=$((T_PASS+1));;
 esac
-t_assert_contains "$T_OUT" "no automated restore verb" "drift message says what this build can actually do"
+t_assert_contains "$T_OUT" "oss state_restore" "drift message names the verb that can actually repair it"
 t_assert_contains "$T_OUT" "Do NOT delete" "drift message guards the journal against the obvious wrong next move"
 t_assert_contains "$T_OUT" "base.json" "drift message names the intact base snapshot the state is still derivable from"
+
+# state_restore: replay detects drift AND can now repair it. The recovered state
+# is written through the same temp+rename path every other write uses, under the
+# lock - NOT from inside oss_state_replay, which is deliberately lock-free so
+# doctor can call it freely.
+t_capture oss_state_replay "$S"; t_assert_rc 5 "replay still reports drift before restore"
+t_capture oss_state_restore "$S"
+t_assert_rc 0 "state_restore repairs a drifted state"
+t_capture oss_state_replay "$S"
+t_assert_rc 0 "replay is clean after restore"
+# -d, NOT -f: the lock is a DIRECTORY (mkdir-based, state.sh:127). `[ -f ]` on it
+# is always false, so an -f assertion passes unconditionally and can never detect
+# the leak it exists to detect.
+[ -d "$S.lock" ] && { T_FAIL=$((T_FAIL+1)); echo "FAIL: state_restore leaked the lock"; } || T_PASS=$((T_PASS+1))
+ls "$S".tmp.* >/dev/null 2>&1 && { T_FAIL=$((T_FAIL+1)); echo "FAIL: state_restore orphaned a temp"; } || T_PASS=$((T_PASS+1))
+
+# Restoring a state that is ALREADY clean is a no-op, not a rewrite.
+t_capture oss_state_restore "$S"
+t_assert_rc 0 "restore on a clean state is a no-op"
+t_assert_contains "$T_OUT" "clean" "...and says so"
+
+# Dispatcher-path: state_restore must survive REAL `set -euo pipefail`, not just
+# a sourced call - _oss_state_restore_body runs several command substitutions
+# between lock-acquire and lock-release (repo lesson: strict-mode-only faults
+# are structurally invisible to a sourced-only test, since this test file never
+# enables `set -e` itself). Independent fixture so it does not disturb `$S`.
+DRTMP="$TMP/drestore"; mkdir -p "$DRTMP"; DRS="$DRTMP/state.json"
+export OSS_STATE_FILE="$DRS"
+"$OSS" init drestore-demo >/dev/null
+"$OSS" posture_set open-core >/dev/null
+jq '.project.posture = "tampered"' "$DRS" > "$DRS.x" && mv "$DRS.x" "$DRS"
+t_capture "$OSS" state_restore
+t_assert_rc 0 "dispatcher: state_restore repairs drift through the real binary"
+t_capture "$OSS" doctor
+t_assert_contains "$T_OUT" "ok: replay" "dispatcher: doctor reports replay clean after dispatcher-driven restore"
+[ -d "$DRS.lock" ] && { T_FAIL=$((T_FAIL+1)); echo "FAIL: dispatcher state_restore leaked the lock"; } || T_PASS=$((T_PASS+1))
+ls "$DRS".tmp.* >/dev/null 2>&1 && { T_FAIL=$((T_FAIL+1)); echo "FAIL: dispatcher state_restore orphaned a temp"; } || T_PASS=$((T_PASS+1))
+unset OSS_STATE_FILE
 
 # Fix 5 (test coverage): missing base snapshot is the rc-1 path, previously
 # only documented in the function's prose comment.

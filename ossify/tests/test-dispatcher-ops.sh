@@ -47,6 +47,25 @@ t_assert_eq "d1" "$T_OUT" "auto demo line via wrapper mints d1"
 t_capture oss_state_replay "$OSS_STATE_FILE"
 t_assert_rc 0 "replay clean after wrapper ops incl. set_composition + set_overlay"
 
+# `oss get` takes an explicit state file, so a pre-flight probe cannot be
+# hijacked by a stale exported $OSS_STATE_FILE.
+OTHER="$TMP/other.json"; OSS_STATE_FILE="$OTHER" "$OSS" init "other-project" >/dev/null 2>&1
+t_capture "$OSS" get '.project.name' "$OTHER"
+t_assert_eq "other-project" "$T_OUT" "get honors an explicit state-file argument over the env"
+t_capture "$OSS" get '.project.name'
+t_assert_eq "wrapper-demo" "$T_OUT" "get with no argument still resolves via the env/manifest"
+
+# manifest verbs are reachable through the dispatcher at all.
+t_capture "$OSS" manifest_require
+t_assert_rc 1 "manifest_require refuses with no manifest on the walk-up path"
+
+# id grammar verbs are reachable, and the work-item branch is DISTINCT from the
+# spine branch (oss_id_branch_name) - a work item must not share its spine's ref.
+t_capture "$OSS" work_item_branch r0.s1.w2 "add-ticket"
+t_assert_eq "work/r0.s1.w2-add-ticket" "$T_OUT" "work-item branch grammar"
+t_capture "$OSS" spine_dir r0 r0.s1 "order-ticket"
+t_assert_eq "docs/specs/r0/r0.s1-order-ticket" "$T_OUT" "spine dir grammar"
+
 # --- Dispatcher-path regression (Plan B task 3 review): every assertion
 # above sources the libs and calls the oss_cmd_* shell functions in-process,
 # which never exercises bin/oss's real `set -euo pipefail`. A masked
@@ -109,17 +128,31 @@ unset OSS_STATE_FILE
 rm -rf "$FTMP"
 
 # critic_detect is a pure filesystem probe (no state file, no manifest) - it
-# must answer on any machine, installed or not, so the assertion accepts either
+# must answer on any machine, installed or not, so the assertion accepts any
 # arm of the binary contract but nothing else (an empty/garbage echo, or a
-# crash, fails here).
+# crash, fails here). v0.3 is included because the rewrite now scans every
+# cache and can report it - on a machine with architect-critic >=0.3 installed
+# the old v0.2-or-absent-only assertion would fail here.
 t_capture oss_cmd_critic_detect
-case "$T_OUT" in v0.2|absent) T_PASS=$((T_PASS+1));; *) T_FAIL=$((T_FAIL+1)); echo "FAIL: critic_detect echoes v0.2|absent (got '$T_OUT')";; esac
+case "$T_OUT" in v0.2|v0.3|absent) T_PASS=$((T_PASS+1));; *) T_FAIL=$((T_FAIL+1)); echo "FAIL: critic_detect echoes v0.2|v0.3|absent (got '$T_OUT')";; esac
 
 # ...and through the REAL dispatcher binary, which runs `set -euo pipefail`.
 # The probe's inner `[ -f "$g" ] && { ...; }` on a non-matching glob is exactly
 # the shape that dies under strict mode if written carelessly, and the sourced
 # call above (non-strict) would never catch it.
 t_capture "$OSS" critic_detect
-case "$T_OUT" in v0.2|absent) T_PASS=$((T_PASS+1));; *) T_FAIL=$((T_FAIL+1)); echo "FAIL: dispatcher critic_detect echoes v0.2|absent (got '$T_OUT')";; esac
+case "$T_OUT" in v0.2|v0.3|absent) T_PASS=$((T_PASS+1));; *) T_FAIL=$((T_FAIL+1)); echo "FAIL: dispatcher critic_detect echoes v0.2|v0.3|absent (got '$T_OUT')";; esac
+
+# Hermetic positive case for v0.3: build both directory shapes under a temporary
+# CLAUDE_PLUGINS_DIR so the assertion does not depend on the developer's own
+# install. HOME=/nonexistent keeps the real ~/.claude/plugins/cache (if any) out
+# of the scan, isolating this to the fixture cache only.
+CTMP="$(mktemp -d)"
+mkdir -p "$CTMP/mk/architect-critic/0.6.0/skills/critiquing-spec" "$CTMP/mk/architect-critic/0.6.0/skills/managing-async-critique"
+: > "$CTMP/mk/architect-critic/0.6.0/skills/critiquing-spec/SKILL.md"
+: > "$CTMP/mk/architect-critic/0.6.0/skills/managing-async-critique/SKILL.md"
+t_capture env HOME=/nonexistent CLAUDE_PLUGINS_DIR="$CTMP" bash "$OSS" critic_detect
+t_assert_eq "v0.3" "$T_OUT" "a cache carrying managing-async-critique reports v0.3"
+rm -rf "$CTMP"
 
 t_summary

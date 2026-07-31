@@ -77,6 +77,17 @@ t_assert_rc 0 "oss state_path works through the dispatcher under strict mode"
 t_assert_eq "$TMP/ws/.ossify/project-state.json" "$T_OUT" "dispatcher state_path matches convention default"
 cd "$HERE"
 
+# `oss manifest_get` (Task 3): a skill reads an arbitrary manifest field
+# without a bespoke wrapper per key. Reachable through the real dispatcher
+# binary, and rc 1 on a missing/null field (oss_manifest_get's own contract).
+cd "$TMP/ws"
+t_capture "$OSS" manifest_get '.ai_workspace.root'
+t_assert_rc 0 "dispatcher: manifest_get ok"
+t_assert_eq "$TMP/ws" "$T_OUT" "dispatcher: manifest_get reads a manifest field through bin/oss"
+t_capture "$OSS" manifest_get '.no_such_key'
+t_assert_rc 1 "dispatcher: manifest_get rc 1 on a missing/null field"
+cd "$HERE"
+
 # --- Final review M1: when OSS_STATE_FILE overrides a MANIFEST-ROUTED project,
 # say so. A stale export left by an unrelated session silently redirects every
 # read and write, and nothing in the output named the source. Three properties

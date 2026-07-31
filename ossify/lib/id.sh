@@ -27,6 +27,11 @@ oss_id_parse() {
 oss_id_branch_name() { echo "spine/$1-$2"; }
 oss_id_release_dir() { echo "docs/specs/$1"; }
 
+# Work items get their OWN branch namespace. Sharing `spine/<id>-<slug>` would
+# make N concurrent work-item worktrees fight over one ref.
+oss_id_work_item_branch() { echo "work/$1-$2"; }
+oss_id_spine_dir()        { echo "docs/specs/$1/$2-$3"; }
+
 _oss_id_max_plus_one() { # $1=jq array path, $2=strip-prefix regex, $3=state file
   { jq -r "$1[].id" "$3" 2>/dev/null || true; } \
     | { grep -E "$2" || true; } \
