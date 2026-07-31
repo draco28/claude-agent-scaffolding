@@ -1900,7 +1900,16 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 1. **All spines closed** — refusal gate, naming any that are not.
 2. **Full cumulative walkthrough** — the human drives **every** accumulated `user:` line (`oss demo_user_lines`, unscoped), grouped by feature, against the **amended** set.
-3. **Blocking finding — fake expiry:** every `fakes[]` entry still `status == "active"` whose `expiry_release` is this release, or whose replacement trigger has fired, is a **blocking close finding**. Resolve by replacing it (`oss fake_status <b> replaced "<reason>"`) or **explicitly renewing** it with a new expiry and a stated reason (`oss fake_status <b> renewed "<reason>" <new-expiry>`). It cannot be ignored — deferred truth never becomes permanent silently.
+3. **Blocking finding — fake expiry:** every **outstanding** `fakes[]` entry — `status == "active"` **or** `status == "renewed"` — whose `expiry_release` is this release, or whose replacement trigger has fired, is a **blocking close finding**. Resolve by replacing it (`oss fake_status <b> replaced "<reason>"`) or **explicitly renewing** it with a new expiry and a stated reason (`oss fake_status <b> renewed "<reason>" <new-expiry>`). It cannot be ignored — deferred truth never becomes permanent silently.
+
+   > **`renewed` MUST be in the selector — corrected 2026-07-31 after Task 2.** Task 2 gave fakes the
+   > `active|replaced|renewed` vocabulary; only **`replaced`** is resolved. Selecting on `active` alone
+   > lets a renewal escape its own deadline: a fake renewed at r1 with a new expiry of r2 arrives at r2's
+   > close carrying `status == "renewed"`, is skipped by the gate, and is never asked about again — which
+   > is precisely the "deferred truth becomes permanent silently" outcome this row exists to prevent, and
+   > it would fail *silently green*. The renewal is the thing most in need of the check, because someone
+   > already pushed that deadline once. T11's test must seed a **renewed** fake at its expiry release and
+   > assert the close is blocked; an `active`-only fixture passes either way and proves nothing.
 4. **Blocking finding — quarantine:** every line quarantined in a release **before** this one must now be fixed or retired. A parking ticket, not a shrug.
 5. **Release retrospective** (aggregates spine retros; refuses if any spine lacks one, naming it).
 6. **Feature-map re-groom + next-release sketch** — the rolling-wave crank.
