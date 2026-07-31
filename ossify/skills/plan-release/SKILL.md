@@ -197,7 +197,7 @@ release's expected contributions will not fit the budget, decide now, out loud,
 which of the three it is:
 
 - **prune** — retire or supersede lines that no longer earn their runtime
-  (`plan-spine` runs the amendment, and it takes effect the moment it runs);
+  (`plan-spine` records the amendment; `close` applies it);
 - **parallelize** — restructure the runner so lines share setup;
 - **deepen** — raise the budget deliberately, with the reason recorded.
 

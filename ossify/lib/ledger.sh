@@ -38,16 +38,56 @@ oss_ledger_add_user() { # $1=state $2=spine $3=text $4=outcome
     demo
 }
 
-_oss_ledger_set_status() { # $1=state $2=line-id $3=status $4=by $5=reason
+_oss_ledger_require_line() { # $1=state $2=line-id
   jq -e --arg id "$2" '.demo_ledger[] | select(.id == $id)' "$1" >/dev/null 2>&1 \
     || { echo "oss: unknown demo line '$2'" >&2; return 7; }
-  oss_state_mutate "$1" set_demo_line_status \
-    "$(jq -n --arg id "$2" --arg st "$3" --arg by "$4" --arg r "$5" \
-      '{id:$id,status:$st,by:$by,reason:$r}')"
 }
-oss_ledger_supersede()  { _oss_ledger_set_status "$1" "$2" superseded "$3" "$4"; }
-oss_ledger_retire()     { _oss_ledger_set_status "$1" "$2" retired "$3" "$4"; }
-oss_ledger_quarantine() { _oss_ledger_set_status "$1" "$2" quarantined "quarantine" "$3"; }
+
+# D1: supersede/retire are PLANNING verbs. They record intent and leave the line
+# live, so a sibling spine closing before this one still runs the flow, and a
+# spine that is replanned or abandoned drops no coverage. `close` applies them.
+_oss_ledger_plan_amendment() { # $1=state $2=line-id $3=status $4=by-spine $5=reason
+  _oss_ledger_require_line "$1" "$2" || return $?
+  # D1 promotes <by-spine> from a provenance STRING into the JOIN KEY that
+  # apply_demo_pending matches on. Under the old immediate semantics a typo'd
+  # spine was a cosmetic blemish in an audit trail; now it means the amendment
+  # is never applied by any close, silently and forever. Validate it like the
+  # line id. (demo-amendments.md §3 currently states the opposite - "not
+  # validated against known spines, a typo records silently" - and is corrected
+  # in Step 6.)
+  jq -e --arg s "$4" '.spines[] | select(.id == $s)' "$1" >/dev/null 2>&1 \
+    || { echo "oss: unknown spine '$4' - an amendment keyed to a spine that does not exist would never be applied" >&2; return 7; }
+  oss_state_mutate "$1" set_demo_line_pending \
+    "$(jq -n --arg id "$2" --arg st "$3" --arg by "$4" --arg r "$5" --arg ts "$(_oss_now)" \
+      '{id:$id,status:$st,by:$by,reason:$r,at:$ts}')"
+}
+oss_ledger_supersede() { _oss_ledger_plan_amendment "$1" "$2" superseded "$3" "$4"; }
+oss_ledger_retire()    { _oss_ledger_plan_amendment "$1" "$2" retired    "$3" "$4"; }
+
+# The close-time apply. Runs AFTER merge and BEFORE the cumulative demo, so the
+# demo measures the amended set against a product where the flow really is gone.
+oss_ledger_apply_pending() { # $1=state $2=spine
+  oss_state_mutate "$1" apply_demo_pending "$(jq -n --arg s "$2" '{spine:$s}')"
+}
+
+# The escape hatch: clears a planned amendment. There is no `reactivate` for an
+# APPLIED one by design - once close has applied it the ledger records history.
+oss_ledger_unplan() { # $1=state $2=line-id
+  _oss_ledger_require_line "$1" "$2" || return $?
+  oss_state_mutate "$1" clear_demo_pending "$(jq -n --arg id "$2" '{id:$id}')"
+}
+
+# Quarantine is NOT a planned amendment: it is raised at close/doctor time when a
+# line actually fails for causes unrelated to any open spine, so it applies at
+# once. The release is recorded because §6.1 makes it a parking ticket that
+# expires - "fixed or retired by the next release close" needs an anchor.
+oss_ledger_quarantine() { # $1=state $2=line-id $3=reason $4=release
+  _oss_ledger_require_line "$1" "$2" || return $?
+  oss_state_mutate "$1" set_demo_line_status \
+    "$(jq -n --arg id "$2" --arg st quarantined --arg by quarantine \
+        --arg r "$3" --arg rel "${4:-}" \
+      '{id:$id,status:$st,by:$by,reason:$r,release:$rel}')"
+}
 
 oss_ledger_active_auto() { jq '[.demo_ledger[] | select(.type == "auto" and .status == "active")]' "$1"; }
 

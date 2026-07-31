@@ -46,6 +46,17 @@ oss_reg_add_feature() { # $1=state $2=name $3=value $4=class-guess $5=source
 # erased that difference. A state without `.bones`/`.risk_gates` is malformed
 # (doctor's shape check flags it) and is inconclusive here, not clean; an empty
 # `[]` registry is well-formed and IS clean.
+oss_reg_set_fake_status() { # $1=state $2=boundary $3=status $4=reason [$5=new-expiry]
+  local sf="$1" b="$2" st="$3"
+  case "$st" in active|replaced|renewed) ;; *)
+    echo "oss: fake status must be active|replaced|renewed" >&2; return 2;; esac
+  jq -e --arg b "$b" '.fakes[] | select(.boundary == $b)' "$sf" >/dev/null 2>&1 \
+    || { echo "oss: unknown fake boundary '$b'" >&2; return 7; }
+  oss_state_mutate "$sf" set_fake_status \
+    "$(jq -n --arg b "$b" --arg st "$st" --arg r "$4" --arg ex "${5:-}" --arg ts "$(_oss_now)" \
+      '{boundary:$b,status:$st,reason:$r,expiry:$ex,at:$ts}')"
+}
+
 oss_reg_touch_check() { # $1=state $2..=paths ; rc 0 any match, 1 clean, 2 could-not-check
   local sf="$1"; shift
   [ "$#" -gt 0 ] || { echo "oss: touch_check needs at least one path" >&2; return 2; }

@@ -14,6 +14,17 @@ t_assert_rc 0 "fake added"
 t_capture oss_reg_add_feature "$S" "paper trading loop" "user places a paper trade and sees P&L move" flesh journey-map
 t_assert_rc 0 "feature added"
 
+# --- D1 fake lifecycle (Task 2, named risk 7): oss_reg_set_fake_status must
+# leave expiry_release ALONE when the 5th arg (new expiry) is omitted.
+# test-ledger.sh only exercises the WITH-a-new-expiry (renew) path, so that
+# half of the contract has no coverage without this.
+t_capture oss_reg_set_fake_status "$S" "coach-llm" replaced "swapped for a real model"
+t_assert_rc 0 "fake status change without a new expiry ok"
+t_capture jq -r '.fakes[] | select(.boundary=="coach-llm") | .status' "$S"
+t_assert_eq "replaced" "$T_OUT" "status actually changed"
+t_capture jq -r '.fakes[] | select(.boundary=="coach-llm") | .expiry_release' "$S"
+t_assert_eq "r1" "$T_OUT" "expiry_release is UNCHANGED when the 5th arg is omitted"
+
 t_capture oss_reg_touch_check "$S" src/domain/dsl/compile.rs
 t_assert_rc 0 "domain path matches a bone"; t_assert_contains "$T_OUT" "bone ADR-0002" "bone named"
 t_capture oss_reg_touch_check "$S" src/adapters/broker/order.rs

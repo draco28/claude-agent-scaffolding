@@ -43,9 +43,10 @@ for a line someone removed because it was inconvenient.
 
 Consequences worth knowing:
 
-- `oss ledger_active_auto` returns only `active` `auto:` lines, so an amended
-  line stops costing runtime **the moment the amendment runs** — at planning
-  time, not at this spine's close.
+- `oss ledger_active_auto` returns only `active` `auto:` lines. A **planned**
+  amendment does not change that — the line keeps running until this spine's
+  close applies it, so a sibling spine closing in between still exercises the
+  flow. Coverage is never dropped for work that has not landed.
 - The release-close walkthrough uses the **amended** set.
 - Counting `.demo_ledger | length` counts history, not the live suite. Filter on
   `.status == "active"` when you want the live set.
@@ -68,22 +69,26 @@ the **change that caused it**, not the feeling:
 contributing nothing in its place is a retire wearing the wrong verb, and it
 quietly shrinks the demo's coverage of the product.
 
-`<by-spine>` is stored as written and is **not validated against known spines** —
-a typo records silently. Paste the id you resolved at pre-flight (§3), do not
-retype it.
+`<by-spine>` **is validated against known spines**: an unknown spine id exits
+**7** and writes nothing. This is not cosmetic — `<by-spine>` is the join key
+`close` matches on to find and apply this spine's pending amendments, so a
+typo'd id here would mean the amendment is never applied by any close, silently
+and forever. Paste the id you resolved at pre-flight (§3), do not retype it.
 
 ---
 
 ## 4. Quarantine is not a planning verb
 
 ```bash
-oss ledger_quarantine <line-id> "<reason>"    # NOT a planning action
+oss ledger_quarantine <line-id> "<reason>" <release>    # NOT a planning action
 ```
 
 Quarantine exists for a line failing for causes **unrelated to any open spine** —
 an upstream outage, a broken CI image. It is a **parking ticket, not a shrug**: a
 quarantined line is state-recorded, visible in `doctor`, skipped by the runner, and
-**must be fixed or retired by the next release close**.
+**must be fixed or retired by the next release close**. The `<release>` argument
+is what makes that enforceable — it is the parking ticket's date. Omit it and the
+next release close has no way to tell which quarantines are overdue.
 
 It belongs to `close` and `doctor`, at the moment a line actually fails. Do not
 reach for it at planning time to make an inconvenient line go away — that is
@@ -125,14 +130,11 @@ inconvenient stops being evidence about the product.
 - **Quarantining at planning time** (§4).
 - **A reason that names a feeling instead of a change** (§3).
 - **Retiring a failing line instead of fixing the spine that broke it** (§5).
-- **Amending before the replacement is real.** The amendment takes effect the
-  moment it runs — not at this spine's close. A line superseded at planning time
-  stops running straight away, so every sibling spine that closes before this one
-  lands runs a cumulative demo with that coverage already gone. Run the amendment
-  when the flow it retires is actually replaced, not when you plan to replace it.
-  *(Known divergence: spec §5.3 says amendments apply at the spine's close. The
-  lib applies them on the spot and there is no pending state. Which side moves is
-  an explicit Plan C decision, to be made when `close` is built — not settled by
-  whoever edits this file next.)*
+- **Planning an amendment and never closing the spine.** A pending amendment is
+  consumed by `close`. If the spine is replanned or abandoned, clear it with
+  `oss ledger_unplan <line-id>` — otherwise it sits in state waiting for a close
+  that will never come, and `oss doctor` will keep reporting it. There is no
+  `reactivate` for an amendment `close` has already applied: at that point the
+  flow really is gone and the ledger is recording history.
 - **Deleting from `demo_ledger` directly.** There is no such operation, and there
   should not be.

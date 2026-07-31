@@ -19,6 +19,14 @@ TMP="$(mktemp -d)"; export OSS_STATE_FILE="$TMP/state.json"
 "$OSS" init spine-planning-demo >/dev/null
 "$OSS" release_add "MVP" "a trader can place a paper trade" >/dev/null
 "$OSS" spine_add r0 "order ticket" flesh >/dev/null
+# D1: a genuine sibling spine, minted r0.s2 - needed so the §8e "apply_pending is
+# scoped to the closing spine only" block below amends AGAINST A REAL SPINE. The
+# by-spine argument is now a validated join key (Step 3); without this second
+# spine, ledger_supersede against "r0.s2" would rc-7 before writing any pending
+# amendment, and the scoping assertion would pass vacuously whether or not the
+# scoping guard in apply_demo_pending actually works - exactly the shape the
+# Step 7 mutation test exists to catch, so it must not be able to hide there.
+"$OSS" spine_add r0 "sibling spine" flesh >/dev/null
 
 # --- §3 pre-flight: `oss get` is `jq -r` WITHOUT `-e`, so a `select` that matches
 # nothing exits 0 with EMPTY output. The skill body resolves the target spine by
@@ -101,30 +109,49 @@ t_capture "$OSS" ledger_add_user r0.s1 "reschedule a delivery to a later slot an
 t_assert_rc 0 "dispatcher: verb + visible-outcome journey line accepted"
 USER1="$T_OUT"
 
-# --- §8e / demo-amendments.md §1-2: amendments are keyed by the printed LINE ID,
-# archive rather than delete, and record by-spine + reason.
+# --- §8e / D1: amendments are RECORDED at planning time and APPLIED at close.
 t_capture "$OSS" get '.demo_ledger | length'; LEDGER_BEFORE="$T_OUT"
 t_capture "$OSS" ledger_supersede "$AUTO1" r0.s1 "the order ticket replaced the CLI entry point"
 t_assert_rc 0 "dispatcher: supersede by line id ok"
-t_capture "$OSS" ledger_retire "$USER1" r0.s1 "the CSV export flow was removed by this spine"
-t_assert_rc 0 "dispatcher: retire by line id ok"
-t_capture "$OSS" get '.demo_ledger | length'
-t_assert_eq "$LEDGER_BEFORE" "$T_OUT" "amended lines are archived, not deleted (ledger length unchanged)"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO1\")][0].pending_status"
+t_assert_eq "superseded" "$T_OUT" "supersede records a PENDING status"
 t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO1\")][0].status"
-t_assert_eq "superseded" "$T_OUT" "superseded status recorded"
-t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO1\")][0].status_by"
-t_assert_eq "r0.s1" "$T_OUT" "superseding spine recorded"
-t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$USER1\")][0].status"
-t_assert_eq "retired" "$T_OUT" "retired status recorded"
-t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$USER1\")][0].status_reason"
-t_assert_eq "the CSV export flow was removed by this spine" "$T_OUT" "retire reason recorded"
-
-# an amended auto: line stops costing runtime; the un-amended one still counts.
+t_assert_eq "active" "$T_OUT" "...and leaves the live status ACTIVE until close"
 t_capture "$OSS" ledger_active_auto
-t_assert_eq "1" "$(printf '%s' "$T_OUT" | jq 'length')" "only the un-amended auto line stays active"
-t_assert_eq "$AUTO2" "$(printf '%s' "$T_OUT" | jq -r '.[0].id')" "the surviving active auto line is the un-amended one"
+t_assert_eq "2" "$(printf '%s' "$T_OUT" | jq 'length')" "a pending amendment does NOT drop the line from the live set"
 
-# an unknown line id is rc 7 and writes nothing.
+# unplan is the escape hatch immediate semantics never had: a replanned or
+# abandoned spine must not permanently drop coverage.
+t_capture "$OSS" ledger_unplan "$AUTO1"
+t_assert_rc 0 "unplan clears a pending amendment"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO1\")][0].pending_status"
+t_assert_eq "null" "$T_OUT" "pending cleared"
+
+# re-plan it, then apply at close.
+t_capture "$OSS" ledger_supersede "$AUTO1" r0.s1 "the order ticket replaced the CLI entry point"
+t_capture "$OSS" ledger_retire "$USER1" r0.s1 "the CSV export flow was removed by this spine"
+t_capture "$OSS" ledger_apply_pending r0.s1
+t_assert_rc 0 "apply_pending ok"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO1\")][0].status"
+t_assert_eq "superseded" "$T_OUT" "close applied the supersede"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO1\")][0].status_by"
+t_assert_eq "r0.s1" "$T_OUT" "superseding spine recorded on apply"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$USER1\")][0].status_reason"
+t_assert_eq "the CSV export flow was removed by this spine" "$T_OUT" "retire reason carried through the pending round trip"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO1\")][0].pending_status"
+t_assert_eq "null" "$T_OUT" "pending is consumed by apply, not left dangling"
+t_capture "$OSS" get '.demo_ledger | length'
+t_assert_eq "$LEDGER_BEFORE" "$T_OUT" "amended lines are archived, not deleted"
+t_capture "$OSS" ledger_active_auto
+t_assert_eq "1" "$(printf '%s' "$T_OUT" | jq 'length')" "only the un-amended auto line stays active after close"
+
+# apply_pending for a DIFFERENT spine must not touch this spine's lines.
+t_capture "$OSS" ledger_supersede "$AUTO2" r0.s2 "reason"
+t_capture "$OSS" ledger_apply_pending r0.s1
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$AUTO2\")][0].status"
+t_assert_eq "active" "$T_OUT" "apply_pending is scoped to the closing spine only"
+
+# unknown line id is still rc 7 and writes nothing.
 t_capture "$OSS" ledger_supersede d999 r0.s1 "typo'd id"
 t_assert_rc 7 "dispatcher: amendment against unknown line id is rc 7"
 

@@ -377,16 +377,16 @@ pairs in `references/demo-authoring.md`.
 ### 8e. Amendments
 
 A spine's plan may declare that it **supersedes** or **retires** accumulated lines
-whose flow this spine changes — with a reason. They apply the moment they run:
+whose flow this spine changes — with a reason. They are **recorded now and
+applied at this spine's close**, so a sibling spine closing first still runs the
+line. `oss ledger_unplan <line-id>` clears one if the spine is replanned:
 
 ```bash
 oss ledger_supersede d3 "$spine" "the order ticket replaced the CLI entry point"
 oss ledger_retire    d5 "$spine" "the CSV export flow was removed by this spine"
 ```
 
-Retired and superseded lines are **archived in state with the superseding spine's
-id, never deleted** — the ledger is the product's history. An unknown line id
-exits **7**. Full rules, and why quarantine is not a planning verb, in
+Full rules, and why quarantine is not a planning verb, in
 `references/demo-amendments.md`.
 
 ---

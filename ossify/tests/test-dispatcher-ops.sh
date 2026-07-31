@@ -82,6 +82,32 @@ rm -rf "$DTMP"
 unset OSS_STATE_FILE
 rm -rf "$TMP"
 
+# --- D1 (Plan C1 Task 2) dispatcher-path regression: ledger_quarantine's new
+# release argument and the new fake_status verb, both added by this task, run
+# through the REAL dispatcher binary under set -euo pipefail - the coverage
+# added elsewhere for this task only exercises them via sourced lib calls.
+FTMP="$(mktemp -d)"; export OSS_STATE_FILE="$FTMP/state.json"
+t_capture "$OSS" init fake-status-demo
+t_assert_rc 0 "dispatcher: init ok (quarantine/fake_status block)"
+t_capture "$OSS" ledger_add_auto r0.s1 "smoke" "true" "exit:0"
+t_assert_rc 0 "dispatcher: ledger_add_auto ok"; DL1="$T_OUT"
+t_capture "$OSS" ledger_quarantine "$DL1" "flaky upstream" "r1"
+t_assert_rc 0 "dispatcher: ledger_quarantine with release arg ok through the real binary"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$DL1\")][0].quarantined_in_release"
+t_assert_eq "r1" "$T_OUT" "dispatcher: quarantine's release argument reaches state through the real binary"
+
+t_capture "$OSS" fake_add "broker" fake "no sandbox" "first live order" r1
+t_assert_rc 0 "dispatcher: fake_add ok"
+t_capture "$OSS" fake_status "broker" renewed "still no sandbox" r2
+t_assert_rc 0 "dispatcher: fake_status ok through the real binary"
+t_capture "$OSS" get '[.fakes[] | select(.boundary=="broker")][0].expiry_release'
+t_assert_eq "r2" "$T_OUT" "dispatcher: fake_status renewal reaches state through the real binary"
+t_capture "$OSS" fake_status "broker" bogus "x"
+t_assert_rc 2 "dispatcher: fake_status rejects a bad enum through the real binary"
+
+unset OSS_STATE_FILE
+rm -rf "$FTMP"
+
 # critic_detect is a pure filesystem probe (no state file, no manifest) - it
 # must answer on any machine, installed or not, so the assertion accepts either
 # arm of the binary contract but nothing else (an empty/garbage echo, or a

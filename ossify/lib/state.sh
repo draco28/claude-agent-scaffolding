@@ -70,7 +70,39 @@ _oss_apply_op() { # $1=op $2=payload-json
     set_demo_line_status)
       jq --argjson p "$payload" '
         (.demo_ledger[] | select(.id == $p.id)) |=
-          (.status = $p.status | .status_reason = $p.reason | .status_by = $p.by)' ;;
+          (.status = $p.status | .status_reason = $p.reason | .status_by = $p.by
+           | .quarantined_in_release =
+               (if $p.status == "quarantined" then $p.release else .quarantined_in_release end))' ;;
+    set_demo_line_pending)
+      jq --argjson p "$payload" '
+        (.demo_ledger[] | select(.id == $p.id)) |=
+          (.pending_status = $p.status | .pending_by = $p.by
+           | .pending_reason = $p.reason | .pending_at = $p.at)' ;;
+    # Applies every pending amendment BELONGING TO ONE SPINE and consumes it.
+    # Scoped by `pending_by` so a sibling spine's planned amendment is untouched -
+    # that scoping is the whole point of the pending lifecycle. Records lacking
+    # the pending_* fields entirely (every line written before this task) read as
+    # null and are skipped, so no migration of demo_ledger is needed.
+    apply_demo_pending)
+      jq --argjson p "$payload" '
+        .demo_ledger |= map(
+          if (.pending_by // null) == $p.spine and (.pending_status // null) != null
+          then .status = .pending_status
+             | .status_reason = .pending_reason
+             | .status_by = .pending_by
+             | .pending_status = null | .pending_by = null
+             | .pending_reason = null | .pending_at = null
+          else . end)' ;;
+    clear_demo_pending)
+      jq --argjson p "$payload" '
+        (.demo_ledger[] | select(.id == $p.id)) |=
+          (.pending_status = null | .pending_by = null
+           | .pending_reason = null | .pending_at = null)' ;;
+    set_fake_status)
+      jq --argjson p "$payload" '
+        (.fakes[] | select(.boundary == $p.boundary)) |=
+          (.status = $p.status | .status_reason = $p.reason | .status_at = $p.at
+           | .expiry_release = (if $p.expiry == "" then .expiry_release else $p.expiry end))' ;;
     add_patch_record)
       jq --argjson p "$payload" '.patch_records += [$p]' ;;
     set_release_meta)

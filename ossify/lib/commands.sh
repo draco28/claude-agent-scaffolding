@@ -55,9 +55,10 @@ oss_cmd_ledger_supersede() { # $1=line $2=by-spine $3=reason
 oss_cmd_ledger_retire() { # $1=line $2=by-spine $3=reason
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_retire "$sf" "$1" "$2" "$3"
 }
-oss_cmd_ledger_quarantine() { # $1=line $2=reason
-  local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_quarantine "$sf" "$1" "$2"
-}
+oss_cmd_ledger_quarantine()    { local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_quarantine "$sf" "$1" "$2" "${3:-}"; }
+oss_cmd_ledger_apply_pending() { local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_apply_pending "$sf" "$1"; }
+oss_cmd_ledger_unplan()        { local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_unplan "$sf" "$1"; }
+oss_cmd_fake_status()          { local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_set_fake_status "$sf" "$1" "$2" "$3" "${4:-}"; }
 oss_cmd_patch_add() { # $1=commit $2=text
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_add_patch "$sf" "$1" "$2"
 }

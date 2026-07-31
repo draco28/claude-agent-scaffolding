@@ -22,8 +22,15 @@ oss_ledger_add_auto "$S" r0.s1 "vacuous suite" "echo 'collected 0 items' # pytes
 t_capture oss_demo_run_auto "$S"
 t_assert_rc 1 "vacuous green caught"; t_assert_contains "$T_OUT" "vacuous-green" "guard named"
 
-# Retire the vacuous line (d4) so the halt-on-first-fail run can reach the next assertion.
-oss_ledger_retire "$S" d4 "test cleanup" >/dev/null
+# Take the vacuous line (d4) out of the active run so the halt-on-first-fail run
+# can reach the next assertion. D1 (Plan C1 Task 2) made retire a PLANNING verb
+# that only records a pending amendment - applied by a spine's close, and now
+# validated against a real spine id - so it no longer clears d4 out of the
+# active set on the spot, and this fixture defines no spine to amend against.
+# Quarantine is the immediate verb (a close/doctor-time action on a line that
+# actually fails, requiring only that the line exist - see d3 above) and is
+# what this fixture actually needs: d4 out of the run immediately, no spine.
+oss_ledger_quarantine "$S" d4 "test cleanup" >/dev/null
 
 # A legitimate demo line that merely mentions a zero-tests phrase in its output —
 # but is NOT a test runner — must NOT be flagged vacuous-green (AND-gate precision).
