@@ -2,6 +2,7 @@
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/harness.sh"
 . "$HERE/../lib/state.sh"
+OSS="$HERE/../bin/oss"
 TMP="$(mktemp -d)"; S="$TMP/state.json"
 
 oss_state_init "$S" replay-demo >/dev/null
@@ -37,6 +38,75 @@ rm -f "$S.base.json"
 t_capture oss_state_replay "$S"
 t_assert_rc 1 "missing base snapshot is rc 1"
 t_assert_contains "$T_OUT" "no base snapshot" "missing-base message named"
+
+# --- G1 (2nd Task-2 fix round): clear_demo_pending's back-compat fallback for
+# a payload with no `spine` key (written by a build before the op gained that
+# argument). CRITICAL: "live" here is hand-built by literal jq assignment, NOT
+# by calling _oss_apply_op - a live state built by calling the same function
+# replay reconstructs with is tautological (it will match replay's output
+# regardless of whether the guard is correct or broken), which is exactly how
+# this guard shipped with zero coverage last round despite the suite being
+# green. Live must independently encode the INTENDED result: falling back to
+# clear-every-entry, matching the pre-spine-argument build's actual behavior.
+G1BASE="$TMP/g1base.json"
+jq -n '{schema_version:3,
+  project:{name:"g1",posture:null,composition_root:null,overlay_wiring:null},
+  counters:{demo_line:1},
+  releases:[],spines:[],work_items:[],
+  demo_ledger:[{id:"d1",type:"auto",status:"active",status_reason:null,status_by:null,
+    pending_amendments:[{status:"superseded",by:"r0.s1",reason:"pre-spine-arg plan",at:"2026-01-01T00:00:00Z"}]}],
+  bones:[],risk_gates:[],fakes:[],
+  feature_map:[],patch_records:[],class_overrides:[],veto_dispositions:[],
+  close_records:[],mutations:[]}' > "$G1BASE"
+cp "$G1BASE" "$G1BASE.base.json"
+G1MUT='{"seq":0,"op":"clear_demo_pending","ts":"2026-02-01T00:00:00Z","payload":{"id":"d1"}}'
+jq --argjson m "$G1MUT" \
+  '.mutations += [$m] | (.demo_ledger[] | select(.id=="d1")) |= (.pending_amendments = [])' \
+  "$G1BASE" > "$G1BASE.tmp" && mv "$G1BASE.tmp" "$G1BASE"
+t_capture oss_state_replay "$G1BASE"
+t_assert_rc 0 "replay reconstructs a spine-less clear_demo_pending payload as clear-everything (G1)"
+# Same fixture through the REAL dispatcher (strict mode), matching how the
+# controller's own reproduction of this bug was phrased: "oss doctor -> fail:
+# replay". Here it must be "ok: replay". No subshell around t_capture - the
+# harness sets T_OUT/T_RC as plain vars, and a subshell would lose them on
+# exit (the same trap the plan's Global Constraints name for `pipeline | { }`).
+export OSS_STATE_FILE="$G1BASE"
+t_capture "$OSS" doctor
+unset OSS_STATE_FILE
+t_assert_contains "$T_OUT" "ok: replay" "dispatcher: oss doctor reports replay clean on the G1 fixture too"
+
+# --- G2 test 1: F2's set_demo_line_status guard (quarantined_in_release only
+# ever written for an actual quarantine call that carries a release) has NO
+# replay coverage anywhere in the suite - every existing fixture builds "live"
+# by calling _oss_apply_op, which is the same tautology trap as G1 above. Live
+# is hand-built here too: exactly what a build predating the guard's very
+# existence produced for a quarantine payload with no `release` key at all -
+# status/status_reason/status_by set, quarantined_in_release never referenced.
+G2BASE="$TMP/g2base.json"
+jq -n '{schema_version:3,
+  project:{name:"g2",posture:null,composition_root:null,overlay_wiring:null},
+  counters:{demo_line:1},
+  releases:[],spines:[],work_items:[],
+  demo_ledger:[{id:"d1",type:"auto",status:"active",status_reason:null,status_by:null,pending_amendments:[]}],
+  bones:[],risk_gates:[],fakes:[],
+  feature_map:[],patch_records:[],class_overrides:[],veto_dispositions:[],
+  close_records:[],mutations:[]}' > "$G2BASE"
+cp "$G2BASE" "$G2BASE.base.json"
+G2MUT='{"seq":0,"op":"set_demo_line_status","ts":"2026-01-01T00:00:00Z",
+  "payload":{"id":"d1","status":"quarantined","reason":"pre-guard shaped payload, no release key","by":"quarantine"}}'
+jq --argjson m "$G2MUT" \
+  '.mutations += [$m]
+   | (.demo_ledger[] | select(.id=="d1")) |=
+       (.status="quarantined" | .status_reason=$m.payload.reason | .status_by="quarantine")' \
+  "$G2BASE" > "$G2BASE.tmp" && mv "$G2BASE.tmp" "$G2BASE"
+t_capture oss_state_replay "$G2BASE"
+t_assert_rc 0 "replay reconstructs a release-less set_demo_line_status payload without manufacturing quarantined_in_release (G2)"
+t_capture oss_state_read "$G2BASE" '.demo_ledger[0] | has("quarantined_in_release")'
+t_assert_eq "false" "$T_OUT" "setup sanity: the hand-built live state never had the key either (G2)"
+export OSS_STATE_FILE="$G2BASE"
+t_capture "$OSS" doctor
+unset OSS_STATE_FILE
+t_assert_contains "$T_OUT" "ok: replay" "dispatcher: oss doctor reports replay clean on the G2 fixture too"
 
 rm -rf "$TMP"
 t_summary

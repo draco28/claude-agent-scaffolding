@@ -121,11 +121,22 @@ _oss_apply_op() { # $1=op $2=payload-json
     # the same line is untouched - clearing every spine's entry indiscrimi-
     # nately would be the same silent-coverage-loss footgun F1 exists to fix,
     # just moved from set to clear.
+    #
+    # Back-compat fallback (G1, second fix round): a journal entry written by
+    # a build before this op gained the `spine` argument carries `{id}` only.
+    # Under an unconditional `.by != $p.spine`, `$p.spine` reads as null for
+    # such a payload and `select(.by != null)` matches every real entry (`.by`
+    # is never null on one that exists) - clearing NOTHING and silently
+    # resurrecting the unplanned amendment on replay. `has("spine")` falls
+    # back to the pre-existing op's actual behavior - clear every entry on the
+    # line - which is exactly what that build's caller intended and produced.
     clear_demo_pending)
       jq --argjson p "$payload" '
         (.demo_ledger[] | select(.id == $p.id)) |=
           (.pending_amendments =
-            ((.pending_amendments // []) | map(select(.by != $p.spine))))' ;;
+            (if ($p | has("spine"))
+             then ((.pending_amendments // []) | map(select(.by != $p.spine)))
+             else [] end))' ;;
     set_fake_status)
       jq --argjson p "$payload" '
         (.fakes[] | select(.boundary == $p.boundary)) |=

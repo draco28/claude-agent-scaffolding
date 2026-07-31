@@ -88,6 +88,23 @@ t_capture "$OSS" migrate
 t_assert_rc 0 "re-migrating the v2-origin state (now v3) is a no-op"
 t_assert_contains "$T_OUT" "already at v3" "no-op migrate says so"
 
+# --- G5: idempotency at the OP level, not the dispatcher's. `oss_cmd_migrate`
+# short-circuits on "already at vN" BEFORE _oss_apply_op ever runs a second
+# time, so calling `oss migrate` twice (above) asserts the DISPATCHER's
+# short-circuit, not migrate_schema's own idempotency - which is what replay
+# actually depends on (replay re-applies migrate_schema from the journal every
+# time, with no dispatcher short-circuit anywhere in that path). Call the op
+# directly, twice, and diff with `jq -S` so the has(...)-guards are provably
+# load-bearing rather than merely read as such.
+G5V1='{"schema_version":1,"demo_ledger":[
+  {"id":"d1","pending_status":"retired","pending_by":"r0.s1","pending_reason":"x","pending_at":"t"},
+  {"id":"d2"}
+]}'
+G5_ONCE="$(printf '%s' "$G5V1" | _oss_apply_op migrate_schema '{"to":3}')"
+G5_TWICE="$(printf '%s' "$G5_ONCE" | _oss_apply_op migrate_schema '{"to":3}')"
+t_assert_eq "$(printf '%s' "$G5_ONCE" | jq -S .)" "$(printf '%s' "$G5_TWICE" | jq -S .)" \
+  "migrate_schema is idempotent at the op level, called directly twice (G5)"
+
 # A FUTURE schema is still refused, and is NOT offered a migration.
 FUT="$TMP/fut.json"; cp "$V1" "$FUT"; cp "$V1.base.json" "$FUT.base.json"
 jq '.schema_version = 99' "$FUT" > "$FUT.x" && mv "$FUT.x" "$FUT"

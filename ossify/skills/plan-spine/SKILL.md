@@ -483,11 +483,10 @@ infer a spine from a name when the id missed (§3).
   golden-journey line really drives the journey, and whether a fake is admissible.
 - **`oss`** (the dispatcher over `lib/*.sh`) handles mechanical state only:
   `work_item_add`, `ledger_add_auto`, `ledger_add_user`, `ledger_active_auto`,
-  `ledger_supersede`, `ledger_retire`, `ledger_unplan`, `fake_add`, `feature_add`,
-  `touch_check`, `class_set`, `spine_list`, `get`, `critic_detect`, `state_path`,
-  `doctor`. It
-  holds no judgment — `ledger_add_user`'s prefix check is a typo guard, not the
-  journey-line floor.
+  `ledger_supersede`, `ledger_retire`, `ledger_unplan`, `fake_add`,
+  `fake_status`, `feature_add`, `touch_check`, `class_set`, `spine_list`, `get`,
+  `critic_detect`, `state_path`, `doctor`. It holds no judgment —
+  `ledger_add_user`'s prefix check is a typo guard, not the journey-line floor.
 - **`ai-mentor:grill-me`** and **`architect-critic:critiquing-spec`** are invoked
   as unmodified peer skills, bare and plugin-qualified. Neither gains a new
   interface here.

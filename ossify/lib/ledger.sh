@@ -48,13 +48,10 @@ _oss_ledger_require_line() { # $1=state $2=line-id
 # spine that is replanned or abandoned drops no coverage. `close` applies them.
 _oss_ledger_plan_amendment() { # $1=state $2=line-id $3=status $4=by-spine $5=reason
   _oss_ledger_require_line "$1" "$2" || return $?
-  # D1 promotes <by-spine> from a provenance STRING into the JOIN KEY that
-  # apply_demo_pending matches on. Under the old immediate semantics a typo'd
-  # spine was a cosmetic blemish in an audit trail; now it means the amendment
-  # is never applied by any close, silently and forever. Validate it like the
-  # line id. (demo-amendments.md §3 currently states the opposite - "not
-  # validated against known spines, a typo records silently" - and is corrected
-  # in Step 6.)
+  # <by-spine> is the JOIN KEY apply_demo_pending matches on, not mere
+  # provenance: a typo'd spine here means the amendment is never applied by
+  # any close, silently and forever. Validate it like the line id
+  # (demo-amendments.md §3 documents the same rule for readers of the prose).
   jq -e --arg s "$4" '.spines[] | select(.id == $s)' "$1" >/dev/null 2>&1 \
     || { echo "oss: unknown spine '$4' - an amendment keyed to a spine that does not exist would never be applied" >&2; return 7; }
   oss_state_mutate "$1" set_demo_line_pending \

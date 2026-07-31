@@ -64,7 +64,7 @@ itself is never deleted, same as a demo line.
 **`renewed` with no 5th argument is a status annotation only.** It records that
 the fake was re-examined and is still needed — it does **not** move the
 deadline. `expiry_release` stays exactly what it was. This is deliberate: the
-release-close expiry check (Task 11) reads `expiry_release`, not `status`, so a
+release-close expiry check reads `expiry_release`, not `status`, so a
 `renewed` call with no new expiry changes nothing that check enforces. To
 actually move the deadline, pass the new expiry release as the 5th argument.
 

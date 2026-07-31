@@ -118,6 +118,14 @@ t_assert_eq "quarantined" "$T_OUT" "quarantine applies immediately"
 t_capture oss_state_read "$S" "[.demo_ledger[] | select(.id==\"$L1\")][0].quarantined_in_release"
 t_assert_eq "r1" "$T_OUT" "quarantine records the release it was raised in"
 
+# --- G2 test 2: anchor preservation. Re-quarantining the SAME line WITHOUT a
+# release must not erase the already-recorded one - the unconditional
+# pre-F2 write ("r0" -> "") destroyed §6.1's parking-ticket anchor.
+t_capture oss_ledger_quarantine "$S" "$L1" "re-examined, still broken"
+t_assert_rc 0 "re-quarantine without a release ok"
+t_capture oss_state_read "$S" "[.demo_ledger[] | select(.id==\"$L1\")][0].quarantined_in_release"
+t_assert_eq "r1" "$T_OUT" "re-quarantining without a release does not erase the original anchor"
+
 # Fake lifecycle: a fake can be replaced or explicitly renewed with a NEW expiry.
 t_capture oss_reg_add_fake "$S" "broker" "fake" "no sandbox yet" "the first live order" "r1"
 t_capture oss_reg_set_fake_status "$S" "broker" "renewed" "sandbox still unavailable" "r2"

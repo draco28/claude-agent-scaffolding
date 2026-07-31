@@ -32,12 +32,15 @@ oss get '[.demo_ledger[] | {id, type, status, text, source_spine}]'
 
 ## 2. Archived, never deleted
 
-Neither verb removes anything, and neither touches `status` — that is the whole
-D1 distinction. Planning records a **pending amendment**: `status` (`superseded`
-/ `retired`), who (`status_by` = the amending spine), and why (`status_reason`),
-held pending against the line until that spine's own close **applies** it —
-which is when the line's live `status` actually flips. The line stays in
-`demo_ledger` forever, archived, not deleted.
+Neither verb removes anything, and neither touches the line's own `status` —
+that is the whole point of splitting planning from apply. Planning records a
+**pending amendment**: a list entry carrying its own `status` (`superseded` /
+`retired`), `by` (the amending spine), and `reason`, held pending against the
+line until that spine's own close **applies** it — which is when the line's
+own `status`, `status_by`, and `status_reason` actually flip. `status_by` /
+`status_reason` are the **line's** fields, not the pending entry's; they stay
+`null` until apply — that is the whole distinction planning verbs preserve.
+The line stays in `demo_ledger` forever, archived, not deleted.
 
 A line carries pending amendments from **more than one spine at once** — a
 list, not a single slot. Two spines can each plan an amendment on the same
@@ -96,10 +99,14 @@ oss ledger_quarantine <line-id> "<reason>" <release>    # NOT a planning action
 
 Quarantine exists for a line failing for causes **unrelated to any open spine** —
 an upstream outage, a broken CI image. It is a **parking ticket, not a shrug**: a
-quarantined line is state-recorded, visible in `doctor`, skipped by the runner, and
-**must be fixed or retired by the next release close**. The `<release>` argument
-is what makes that enforceable — it is the parking ticket's date. Omit it and the
-next release close has no way to tell which quarantines are overdue.
+quarantined line is state-recorded and skipped by the runner, and **must be
+fixed or retired by the next release close**. The `<release>` argument is what
+makes that enforceable — it is the parking ticket's date. Omit it and the next
+release close has no way to tell which quarantines are overdue.
+
+At HEAD, nothing surfaces a quarantined line outside the ledger itself — `oss
+doctor` does not inspect `demo_ledger` or quarantine status. Check for one
+directly: `oss get '[.demo_ledger[] | select(.status == "quarantined")]'`.
 
 It belongs to `close` and `doctor`, at the moment a line actually fails. Do not
 reach for it at planning time to make an inconvenient line go away — that is
@@ -143,7 +150,7 @@ inconvenient stops being evidence about the product.
 - **Retiring a failing line instead of fixing the spine that broke it** (§5).
 - **Planning an amendment and never closing the spine.** A pending amendment is
   consumed by `close`. If the spine is replanned or abandoned, clear it with
-  `oss ledger_unplan <line-id> <spine>` — the spine argument is required (F1: a
+  `oss ledger_unplan <line-id> <spine>` — the spine argument is required (a
   line can hold more than one spine's pending amendment, so clearing without
   saying which one is the same silent-coverage-loss footgun the list exists to
   prevent) and an unknown line, or a spine with nothing pending on that line, is

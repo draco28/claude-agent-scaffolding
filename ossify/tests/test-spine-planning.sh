@@ -200,6 +200,48 @@ t_assert_eq "r0.s1" "$T_OUT" "status_by now names r0.s1"
 t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$SHARED\")][0].pending_amendments"
 t_assert_eq "[]" "$T_OUT" "both spines' amendments fully consumed"
 
+# --- G3: clear_demo_pending's by-spine scoping (ledger_unplan) is the entire
+# reason unplan gained a required <spine> argument, and nothing had asserted
+# it - both prior unplan fixtures amend a line carrying exactly one spine's
+# entry, so the precondition the assertion needs (two entries, unplan one,
+# prove the OTHER survives) never existed. Reuse the same two-entry
+# precondition as the block above, on a fresh line.
+t_capture "$OSS" ledger_add_auto r0.s1 "second shared line for the unplan-scoping test" "true" "exit:0"
+t_assert_rc 0 "dispatcher: shared line added for the unplan-scoping test"
+SHARED2="$T_OUT"
+t_capture "$OSS" ledger_supersede "$SHARED2" r0.s1 "r0.s1's reason"
+t_assert_rc 0 "dispatcher: r0.s1 plans on the second shared line"
+t_capture "$OSS" ledger_retire "$SHARED2" r0.s2 "r0.s2's reason"
+t_assert_rc 0 "dispatcher: r0.s2 ALSO plans on the second shared line"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$SHARED2\")][0].pending_amendments | length"
+t_assert_eq "2" "$T_OUT" "setup: both spines pending on the second shared line"
+t_capture "$OSS" ledger_unplan "$SHARED2" r0.s1
+t_assert_rc 0 "dispatcher: r0.s1 unplans its own entry on the shared line"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$SHARED2\")][0].pending_amendments | length"
+t_assert_eq "1" "$T_OUT" "unplan clears only the calling spine's entry, not the sibling's (G3)"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$SHARED2\")][0].pending_amendments[0].by"
+t_assert_eq "r0.s2" "$T_OUT" "the survivor is the OTHER spine, not the one that unplanned (G3)"
+
+# --- G4: set_demo_line_pending's upsert-by-spine dedupe. The SAME spine
+# amends the SAME line TWICE (supersede, then retire) with no apply in
+# between - an upsert must replace its own prior entry, not append a second
+# one, or a stale amendment survives to be applied alongside the fresh one.
+t_capture "$OSS" ledger_add_auto r0.s1 "line amended twice by the same spine" "true" "exit:0"
+t_assert_rc 0 "dispatcher: line added for the upsert-dedupe test"
+UPSERT="$T_OUT"
+t_capture "$OSS" ledger_supersede "$UPSERT" r0.s1 "first pass: supersede"
+t_assert_rc 0 "dispatcher: r0.s1 supersedes the line"
+t_capture "$OSS" ledger_retire "$UPSERT" r0.s1 "second pass: retire instead"
+t_assert_rc 0 "dispatcher: r0.s1 re-amends the SAME line as retire"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$UPSERT\")][0].pending_amendments | length"
+t_assert_eq "1" "$T_OUT" "re-amending by the same spine upserts, not appends - one entry not two (G4)"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$UPSERT\")][0].pending_amendments[0].status"
+t_assert_eq "retired" "$T_OUT" "the surviving entry is the LATEST plan, not the stale superseded one (G4)"
+t_capture "$OSS" ledger_apply_pending r0.s1
+t_assert_rc 0 "dispatcher: apply_pending ok (G4)"
+t_capture "$OSS" get "[.demo_ledger[] | select(.id==\"$UPSERT\")][0].status"
+t_assert_eq "retired" "$T_OUT" "close applies the LATEST amendment (retired), not a stale superseded one (G4)"
+
 # unknown line id is still rc 7 and writes nothing.
 t_capture "$OSS" ledger_supersede d999 r0.s1 "typo'd id"
 t_assert_rc 7 "dispatcher: amendment against unknown line id is rc 7"
