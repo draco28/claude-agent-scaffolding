@@ -146,5 +146,103 @@ t_capture "$OSS" worktree_remove canonical r0.s2.w1
 t_assert_rc 0 "dispatcher: clean worktree removes"
 [ -d "$WT3" ] && { T_FAIL=$((T_FAIL+1)); echo "FAIL: dispatcher worktree dir survived removal"; } || T_PASS=$((T_PASS+1))
 
+# ---------------------------------------------------------------------------
+# The spine-branch lifecycle the execution lane owns: cut AND CHECK OUT the
+# spine integration branch, spawn each work item off it, merge each back into
+# it. `git branch` without the checkout leaves canonical on its previous
+# branch, and then EVERY consequence is rc 0 - the work-item merge lands on the
+# wrong branch, spine close's merge is "Already up to date", and the cumulative
+# demo measures a tree assembled by accident. So every assertion below is on a
+# concrete sha or a reachability fact; the rc is never the evidence.
+# ---------------------------------------------------------------------------
+BASE_BRANCH="$(git -C "$TMP/canon" rev-parse --abbrev-ref HEAD)"
+SPINE_BRANCH="$(oss_id_branch_name r0.s3 "round-lane")"
+t_assert_eq "spine/r0.s3-round-lane" "$SPINE_BRANCH" "the spine branch name comes from the id grammar"
+git -C "$TMP/canon" checkout -q -b "$SPINE_BRANCH"
+
+# A commit that exists ONLY on the spine branch, made BEFORE any worktree is
+# spawned. Without it the spine tip and the base-branch tip are the same commit,
+# and every reachability assertion below is vacuously true whichever branch the
+# worktree was actually cut from - the fixture would never trip the precondition
+# the guard exists for.
+echo spine-only > "$TMP/canon/spine.txt"
+git -C "$TMP/canon" add spine.txt
+git -C "$TMP/canon" commit -qm "spine-only commit"
+SPINE_TIP="$(git -C "$TMP/canon" rev-parse HEAD)"
+BASE_TIP="$(git -C "$TMP/canon" rev-parse "$BASE_BRANCH")"
+if [ "$SPINE_TIP" != "$BASE_TIP" ]; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: fixture is vacuous - the spine tip and $BASE_BRANCH are the same commit"
+fi
+
+t_capture oss_worktree_add canonical r0.s3.w1 "first-item" "$SPINE_BRANCH"
+t_assert_rc 0 "round-1 item 1 spawns off the spine branch"
+WA="$T_OUT"
+t_capture "$OSS" worktree_add canonical r0.s3.w2 "second-item" "$SPINE_BRANCH"
+t_assert_rc 0 "dispatcher: round-1 item 2 spawns off the spine branch (non-HEAD base under set -euo pipefail)"
+WB="$T_OUT"
+
+# Two work items in ONE spine: distinct branches, distinct worktrees.
+t_assert_eq "work/r0.s3.w1-first-item" "$(git -C "$WA" rev-parse --abbrev-ref HEAD)" "work item 1 gets its own branch"
+t_assert_eq "work/r0.s3.w2-second-item" "$(git -C "$WB" rev-parse --abbrev-ref HEAD)" "work item 2 gets its own branch"
+if [ "$WA" != "$WB" ]; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: two work items in one spine share a worktree path"
+fi
+
+# Spawned off the SPINE branch, not off the base branch - asserted on the sha
+# recorded before the spawn, not re-derived from what the spawn wrote.
+t_assert_eq "$SPINE_TIP" "$(git -C "$WA" rev-parse HEAD)" "work item 1's worktree starts at the spine tip, not at $BASE_BRANCH"
+t_assert_eq "$SPINE_TIP" "$(git -C "$WB" rev-parse HEAD)" "work item 2's worktree starts at the spine tip too"
+t_assert_eq "$SPINE_TIP" "$(git -C "$TMP/canon" merge-base "$SPINE_BRANCH" work/r0.s3.w1-first-item)" "the spine branch is the work-item branch's merge base"
+
+# Unit-level pin on the 4th argument. NOT a lifecycle path - the lane never
+# spawns a work item off the base branch. It exists because during the real
+# lifecycle canonical's HEAD *is* the spine branch, so an implementation that
+# ignored `base` and used HEAD would satisfy every assertion above.
+t_capture oss_worktree_add canonical r0.s3.w9 "base-ref-pin" "$BASE_BRANCH"
+t_assert_rc 0 "worktree_add accepts an explicit non-HEAD base"
+WP="$T_OUT"
+t_assert_eq "$BASE_TIP" "$(git -C "$WP" rev-parse HEAD)" "the base-ref argument decides the start point, not canonical's HEAD"
+
+# The merge back, with canonical still parked on the spine branch.
+echo w1 > "$WA/w1.txt"
+git -C "$WA" add w1.txt
+git -C "$WA" commit -qm "work item 1"
+W1_SHA="$(git -C "$WA" rev-parse HEAD)"
+t_assert_eq "$SPINE_BRANCH" "$(git -C "$TMP/canon" rev-parse --abbrev-ref HEAD)" "canonical is still parked on the spine branch when the merge runs"
+t_capture git -C "$TMP/canon" merge --no-ff -m "merge r0.s3.w1" work/r0.s3.w1-first-item
+t_assert_rc 0 "the work-item branch merges into the checked-out spine branch"
+if git -C "$TMP/canon" merge-base --is-ancestor "$W1_SHA" "$SPINE_BRANCH"; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: the work-item commit is NOT reachable from the spine branch after the merge"
+fi
+t_assert_eq "w1" "$(cat "$TMP/canon/w1.txt" 2>/dev/null)" "the merged work is present in canonical's tree on the spine branch"
+
+# NEGATIVE CONTROL - this is what the checkout buys, stated as an outcome.
+# Park canonical back on the base branch (the pre-correction state, where
+# nothing ever checked the spine branch out) and merge the second work item.
+# The merge still succeeds; the spine branch still never receives the work.
+git -C "$TMP/canon" checkout -q "$BASE_BRANCH"
+echo w2 > "$WB/w2.txt"
+git -C "$WB" add w2.txt
+git -C "$WB" commit -qm "work item 2"
+W2_SHA="$(git -C "$WB" rev-parse HEAD)"
+t_capture git -C "$TMP/canon" merge --no-ff -m "merge r0.s3.w2" work/r0.s3.w2-second-item
+t_assert_rc 0 "merging while parked on $BASE_BRANCH ALSO returns rc 0 - which is why an rc-0 assertion proves nothing"
+if git -C "$TMP/canon" merge-base --is-ancestor "$W2_SHA" "$SPINE_BRANCH"; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: negative control is vacuous - the commit reached the spine branch without the checkout"
+else
+  T_PASS=$((T_PASS+1))
+fi
+if git -C "$TMP/canon" merge-base --is-ancestor "$W2_SHA" "$BASE_BRANCH"; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: negative control did not land the commit on $BASE_BRANCH either"
+fi
+
 cd /; rm -rf "$TMP"
 t_summary

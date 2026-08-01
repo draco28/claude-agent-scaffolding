@@ -35,7 +35,7 @@ deliberate changes — changes, not omissions:
 When invoked, work §3 through §9 below in order — each numbered block is one step
 of the conversation. **This skill plans; it does not execute:** worktree spin-up,
 implementer dispatch, verification, and merge belong to the execution engine
-(`work-item`); the cumulative-demo *run*, the harvest, and the retro belong to
+(`work-item`, whose lane is `skills/work-item/references/round-orchestration.md`); the cumulative-demo *run*, the harvest, and the retro belong to
 `close`. You author the demo *criteria* here; you never run them.
 
 ---
