@@ -126,7 +126,9 @@ Round 5
 ```
 
 **The branch lifecycle, stated once because it spans four tasks and the plan review found it broken end to end:**
-`spine/<spine-id>-<slug>` is cut once by **T8** before round 1. Each work item's `work/<wi-id>-<slug>` is cut from it (T8), committed by **T9** once its gate passes, and merged **back into the spine branch** by T9 — which is what makes the branch delete in `oss_worktree_remove` safe. **T10** merges the spine branch into canonical *before* running the cumulative demo, so the demo measures a tree that actually received the work. Break any one link and the work-item commits are silently destroyed at cleanup while the demo reports green against a tree that never received them.
+`spine/<spine-id>-<slug>` is **cut and checked out** in canonical once by **T8** before round 1, and canonical stays parked on it for the duration of the spine. Each work item's `work/<wi-id>-<slug>` is cut from it (T8, via `oss worktree_add`'s base-ref argument), committed by **T9** once its gate passes, and merged **back into the spine branch** by T9 — which works only because canonical is checked out there, and which is what makes the branch delete in `oss_worktree_remove` safe. **T10** switches canonical back to the base branch T8 recorded and merges the spine branch into it *before* running the cumulative demo, so the demo measures a tree that actually received the work.
+
+**Break any one link and the failure is a green demo measuring the wrong tree.** Precisely: `worktree_remove` uses `git branch -d` and refuses an unmerged branch (rc 8), so commits are *not* destroyed — instead spine close halts at step 10, after the cumulative demo has already reported green. And if the merges land on the wrong branch rather than no branch, `-d` succeeds and even the halt disappears. **The checkout in T8 step 1.1 is the load-bearing link**: `git branch` alone creates the ref without moving HEAD, and every downstream merge then targets whatever canonical happened to be on. Verified empirically 2026-08-01 against the real libs — see the boxed note in Task 8.
 
 ---
 
@@ -1931,48 +1933,93 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 **Context — this task exists because the adversarial plan review found the engine had no producer.** Spec §6 names two halves: the *callee* (handoff doc in → implementer in an isolated worktree → staged-never-committed) and the *orchestrator* (DAG rounds, strict-order verification, merge halt-on-conflict, "orchestrator owns commits"). Task 7 builds the callee. Nothing built the caller, and the consequences compounded:
 
-- `plan-spine/SKILL.md:36-37` says verbatim: *"**This skill plans; it does not execute:** worktree spin-up, implementer dispatch, verification, and merge belong to the execution engine."* **Plan C1 is that execution engine**, and as drafted it never built the lane. (An earlier draft of Task 7 cited "plan-spine §8.3" as the dispatcher — **there is no §8.3**; plan-spine runs §1-§12 with §8 being demo authoring. That phantom citation is the same defect class B6 shipped, caught here before dispatch.)
-- Consequently `oss_worktree_add`, `oss_worktree_resolve`, `oss_worktree_list` and `oss work_item_exec` would have ended C1 with **zero callers** — the exact built-but-unwired pattern the final review named as this branch's systemic weakness.
-- And work-item commits would have landed on `work/<wi-id>-<slug>` branches that **nothing merges**, which spine close then deletes — destroying the commits and running the cumulative demo against a canonical tree that never received the work.
+- `plan-spine/SKILL.md:35-39` says, in one sentence: *"**This skill plans; it does not execute:** worktree spin-up, implementer dispatch, verification, and merge belong to the execution engine (`work-item`); the cumulative-demo run, the harvest, and the retro belong to `close`."* **Plan C1 is that execution engine**, and as drafted it never built the lane. (An earlier draft of Task 7 cited "plan-spine §8.3" as the dispatcher — **there is no §8.3**; plan-spine runs §1-§12 with §8 being demo authoring. That phantom citation is the same defect class B6 shipped, caught here before dispatch.)
+- Consequently `oss_worktree_add` and `oss work_item_exec` would have ended C1 with **zero callers** — the exact built-but-unwired pattern the final review named as this branch's systemic weakness.
+- And work-item commits would have landed on `work/<wi-id>-<slug>` branches that **nothing merges**. `oss_worktree_remove` uses `git branch -d` and *refuses* rc 8 on an unmerged branch (worktree.sh:112-113, asserted at `tests/test-worktree.sh:113-119`), so the commits are not destroyed — but spine close **halts at step 10, after the cumulative demo has already reported green** against a canonical tree that never received the work. The loss is not silent data loss; it is a green demo measuring the wrong tree, then a halt with no clean recovery.
+
+> **Context corrected 2026-08-01 (pre-dispatch sweep).** Three claims above were wrong as first written.
+> (a) The `plan-spine` quote was cited as `:36-37` and closed with a fabricated period; the sentence spans **35-39**, and line 38 **already names `(`work-item`)`** — committed in `a53d034` on 2026-07-26, three days *before* this plan was written. The truncation is what created the false premise that plan-spine does not name its successor. Step 3 is rewritten accordingly.
+> (b) `oss_worktree_resolve` and `oss_worktree_list` were named as gaining their first callers here. **They do not** — no step in this task calls either, and no step in T9-T14 does either (`worktree_list` appears in this task exactly once: in the claim itself). See named risk 1.
+> (c) The "destroying the commits" claim contradicted T4's shipped `-d`-not-`-D` guard and the test that asserts it.
 
 **No new entry skill** — §9.1's six are allocated. The lane lives as a reference under `work-item`, which Task 7 authors with deliberate headroom.
 
 **Files:**
 - Create: `ossify/skills/work-item/references/round-orchestration.md`, `ossify/skills/work-item/references/handoff-contract.md`
-- Modify: `ossify/skills/work-item/SKILL.md` (one §-pointer), `ossify/skills/plan-spine/SKILL.md:36-37` (**line-neutral** replacement — that file is at 499/500 with zero headroom, so this must not add a line), `ossify/tests/test-worktree.sh`
+- Modify: `ossify/skills/work-item/SKILL.md` (**two** §-pointers, one per new reference — see Step 5), `ossify/skills/plan-spine/SKILL.md:38` (**line-neutral** in-place edit — see Step 3), `ossify/tests/test-worktree.sh`
+
+> **Files list corrected 2026-08-01 (pre-dispatch sweep).** It said "one §-pointer" while Steps 1-2 create **two** reference files, and no step instructed the `SKILL.md` edit at all — it existed only in this header and in Step 5's commit set. **Task 13 check 5 (line 2141) fails the suite on any `references/*.md` not pointed at from its own `SKILL.md`**, and all 31 references at HEAD satisfy that invariant today (`work-item/SKILL.md` points at its four at :139, :197/:218, :250, :307). One pointer for two new files orphans `handoff-contract.md` and reds T13's harness. The `plan-spine` target was also wrong — see Step 3.
 
 **Interfaces:**
-- Consumes: `oss worktree_add|worktree_resolve|worktree_remove` (T4), `oss work_item_exec|work_item_status` (T1), `oss spine_dir|work_item_branch|branch_name` (T3), the return contract in `work-item/references/returns.md` (T7).
-- Produces: the spine integration branch `spine/<spine-id>-<slug>`; per-work-item worktrees and `work/<wi-id>-<slug>` branches; a `handoff.md` per work item. Consumed by Task 9's work-item close layer (gate → commit → merge) and Task 10 step 2 (spine branch → canonical).
+- Consumes: `oss worktree_add` (T4), `oss work_item_exec|work_item_status` (T1), `oss repo_root|spine_dir|branch_name` (T3/T4), the return contract in `work-item/references/returns.md` (T7).
+- Produces: the spine integration branch `spine/<spine-id>-<slug>`, **checked out in canonical** (Step 1.1); per-work-item worktrees and `work/<wi-id>-<slug>` branches; the `branch` + `worktree_path` + `base_sha` recorded in state per work item; a `handoff.md` per work item. Consumed by Task 9's work-item close layer (gate → commit → merge) and Task 10's binding-order step 2 (spine branch → canonical).
 
-- [ ] **Step 1: Author `round-orchestration.md`** — the ordered lane, per round of the DAG `plan-spine` already recorded in `releases[].spine_dag`:
+> **Interfaces corrected 2026-08-01.** `worktree_resolve`, `worktree_list` and `worktree_remove` were listed as consumed here; **this task calls none of them** (T10's step 10 calls `worktree_remove`). `work_item_branch` was listed but is not called either — Step 1.2's `oss worktree_add` derives the work-item branch internally (`worktree.sh:35`). `oss repo_root` was **missing** and is the verb that resolves `<canonical>`. The zero-consumer audit at the end of this plan pinned `oss_id_spine_dir` to "T8 step 3 (handoff paths)" — Step 3 is a prose edit with no `oss` call; `spine_dir` belongs to **Step 1.3**, which is where the handoff's directory is now specified.
 
-1. **Create the spine integration branch once, before round 1:** `git -C "<canonical>" branch "$(oss branch_name "$spine" "$slug")" <base>`. Every work-item branch is cut from it, and every merged work item lands on it. This is the ref Task 10 step 2 merges to canonical — without it, spine close has nothing to merge.
-2. **Per work item in the round** (in declared decomposition order, not return order): spawn the worktree off the spine branch — `oss worktree_add "$target_repo" "$wi" "$slug" "$spine_branch"`; record it — `oss work_item_exec "$wi" "$branch" "$path" "$(git -C "$path" rev-parse HEAD)"`; mark it active — `oss work_item_status "$wi" active`.
-3. **Author the work-item `handoff.md`** per `references/handoff-contract.md`, and pre-place an **empty `report.md`** beside it (the callee writes into a placeholder it does not create).
+- [ ] **Step 1: Author `round-orchestration.md`** — the ordered lane, per **work-item** round.
+
+> **Round source corrected 2026-08-01.** This step previously read "per round of the DAG `plan-spine` already recorded in `releases[].spine_dag`". Both halves are wrong, and ossify's own shipped prose forbids the conflation: `releases[].spine_dag` is the **inter-spine** DAG, written by **`plan-release`** (`oss release_set_meta`; `plan-release/SKILL.md:217`), and `plan-spine/references/dag-rounds.md:6-8` says verbatim *"Not to be confused with `plan-release`'s inter-spine DAG… Same idea, finer altitude, different owner"*, with §7 listing "Spine-level edges here" as an anti-pattern. Reading `spine_dag` yields **spine** ids where **work-item** ids are needed.
+>
+> **The work-item round structure is recorded in no state field at all.** `oss_entity_add_work_item` writes `{spine,title,target_repo,status,created_at}` (entities.sh:24-33) — no dependency key, no round key. Per `dag-rounds.md:21` the rounds are *"planning output… what the execution engine walks"*, and §7 forbids re-deriving them at execution time. So the lane **reads the rounds from the spine plan document** `plan-spine` authored under `oss spine_dir "$rel" "$spine" "$slug"`, and says so. Persisting rounds as state is a **Plan C2** item — name the deferral in the prose rather than leaving the read looking machine-backed.
+
+1. **Create AND CHECK OUT the spine integration branch once, before round 1.** Resolve the repo root with `oss repo_root canonical` (never a bare `<canonical>` placeholder — the verb exists, reads `.canonical.root` from the manifest, and hard-fails rc 2 rather than defaulting). Then:
+
+   ```bash
+   canonical="$(oss repo_root canonical)"
+   [ -z "$(git -C "$canonical" status --porcelain)" ] || { echo "canonical is dirty - halt"; exit 1; }
+   base_branch="$(git -C "$canonical" rev-parse --abbrev-ref HEAD)"   # T10 step 2 returns to this
+   git -C "$canonical" checkout -q -b "$(oss branch_name "$spine" "$slug")"
+   ```
+
+   **`checkout -b`, not `branch`.** This is the correction that makes the whole T8→T9→T10 lifecycle work; see the boxed note below. Canonical stays parked on the spine branch for the duration of the spine, which is what makes T9's merge land on the spine branch and T10's step 2 a real merge rather than a no-op. Record `base_branch` in the spine plan doc — T10 step 2 needs it to switch back, and nothing in state holds it.
+
+2. **Per work item in the round** (in declared decomposition order, not return order): spawn the worktree off the spine branch — `oss worktree_add "$target_repo" "$wi" "$slug" "$spine_branch"` (it derives and cuts `work/<wi>-<slug>` internally and echoes the abs path); record it — `oss work_item_exec "$wi" "$branch" "$path" "$(git -C "$path" rev-parse HEAD)"`; mark it active — `oss work_item_status "$wi" active`. **The `work_item_exec` call is load-bearing beyond bookkeeping:** it persists the branch name into state, which is how Task 9 recovers the merge target without re-deriving a slug it does not have.
+3. **Author the work-item `handoff.md`** per `references/handoff-contract.md`, into the work item's own directory under `oss spine_dir "$rel" "$spine" "$slug"` — i.e. beside the `spec.md` that `plan-spine/SKILL.md:210` places at `<ai-workspace>/docs/specs/<release-id>/<spine-id>-<slug>/work-<work-id>/spec.md`. **Do not pre-place a `report.md`.**
+
+> **Pre-placement removed 2026-08-01.** This step said to "pre-place an **empty `report.md`** beside it (the callee writes into a placeholder it does not create)". The already-shipped callee says the opposite in three places: `report-contract.md` declares itself the single copy with **no placeholder to fill**, `work-item/SKILL.md:247` tells the implementer to author `report.md` itself, and `SKILL.md:211` says *"Prefer Edit over Write on a file that already exists. Write is for new files."* — so an orchestrator-created empty file puts the callee in conflict with its own binding prose at the moment it writes the report. Nothing in the callee's pre-flight expects the file to exist.
 4. **Dispatch** `Task(subagent_type="ossify:implementer-agent", …)` with the handoff's absolute path. **Do not use the Task tool's `isolation: "worktree"`** — the worktree already exists, in a different repo, and letting the harness make its own would silently discard the work.
 5. **Handle the return** by its `mode`:
    - `gaps-surfaced` → surface the gaps grouped blocking-first, capture the user's clarifications, append a `## Clarifications` section **to the handoff doc** (the callee re-reads it end-to-end on re-dispatch), and re-dispatch. **3-iteration cap, orchestrator-side and binding (spec §6):** after three total dispatches with no `complete` return, stop, surface the accumulated gap list, and escalate. The callee never counts iterations.
    - `complete` → hand off to the work-item close layer (Task 9), which runs the gate, commits, and merges.
 6. **Round barrier:** every work item in a round reaches `complete` before the next round starts. A work item still `active` at the barrier halts the round — strict-order verification, spec §6.
 
-- [ ] **Step 2: Author `handoff-contract.md`** — the section contract the orchestrator authors against (**no template rendering, D6**). Sections: `## 1. How to use this handoff` · `## 2. Spine context` · `## 3. Work item identifiers` (id, `target_repo`, worktree abs path, declared branch) · `## 4. Pre-flight calibration` · `## 5. What's already merged` · `## 6. Memory bank pointers` · `## 7. Requirement traceability` · `## 8. Acceptance criteria (embedded)` · `## 9. Verification commands` · `## 10. Constraints` · `## 11. When done` · `## 12. Report contract`.
+> ### The `checkout -b` correction — the P0 this sweep found (2026-08-01)
+>
+> Step 1.1 previously read `git -C "<canonical>" branch "$(oss branch_name …)" <base>`. **`git branch` creates a ref without checking it out**, and no step in T8, T9 or T10 ever checked the spine branch out (a `checkout`/`switch` grep across the whole plan returned only a `post-checkout` hook mention at :1333 and a forbidden-command listing at :1884). Reproduced in a sandbox against the real libs: with canonical left on `master`, T9's `git -C "<canonical>" merge --no-ff work/…` returns **rc 0** and lands the commit on **master**, and `git merge-base --is-ancestor "$work_branch" "$spine_branch"` reports **not reachable**.
+>
+> The consequences chain exactly as the plan's own line 129 warns, by a different mechanism than it names:
+> - T9's per-work-item merge lands on canonical's pre-existing branch, not the spine branch.
+> - T10's step 2 `merge --no-ff "$spine_branch"` is then a **no-op** — the spine branch never received anything.
+> - `oss_worktree_remove`'s `git branch -d` *succeeds* (the branch is merged — into the wrong target), so cleanup is silent.
+> - The cumulative demo reports green against a tree assembled by accident rather than by the lifecycle.
+>
+> **There is no single value of canonical's HEAD that makes both T9:2005 and T10:2036 correct as first written**, which is why this is fixed in all three tasks together rather than in T8 alone. Parking canonical on the spine branch (Step 1.1) makes T9 correct; T10 step 2 gains an explicit switch back to `base_branch` before its merge. Both edits are made below and in T9/T10 respectively.
+
+- [ ] **Step 2: Author `handoff-contract.md`** — the section contract the orchestrator authors against (**no template rendering, D6**). Sections: `## 1. How to use this handoff` · `## 2. Spine context` (including the `base_branch` recorded at Step 1.1) · `## 3. Work item identifiers` (id, `target_repo`, worktree abs path, declared branch, **absolute spec path**) · `## 4. Pre-flight calibration` · `## 5. What's already merged` · `## 6. Memory bank pointers` · `## 7. Requirement traceability` · `## 8. Acceptance criteria (reference copy — non-binding)` · `## 9. Verification commands` · `## 10. Constraints` · `## 11. When done` · `## 12. Report contract`.
 
   **§10 MUST carry `git_policy: STAGE-not-commit` and the return JSON shape verbatim** — Task 7's pre-flight treats a handoff missing either as malformed, which is itself a gap. That is a contract between two tasks in this plan: if this file and `returns.md` drift, the engine deadlocks on its own pre-flight.
 
-- [ ] **Step 3: Make `plan-spine` name its successor — line-neutral.** Replace `plan-spine/SKILL.md:36-37` with a same-line-count edit that keeps the disclaimer and adds the destination, e.g. `…belong to the execution engine — `/work-item` and its `references/round-orchestration.md`.` Verify `wc -l ossify/skills/plan-spine/SKILL.md` is **unchanged at 499** before committing; if the replacement runs long, shorten the wording rather than accepting 500.
+  **§3 MUST carry the absolute spec path.** Task 7's shipped `pre-flight.md:22-30` lists **five** fields that must resolve — worktree abs path, declared branch, **spec path**, verification commands, Constraints — and Gate 2 runs `oss verify_acs "<abs spec path>"` against it. §3's field list previously enumerated only four and no other section carried a spec path, so a handoff authored exactly to this contract is **malformed at Gate 1** and every dispatch returns `gaps-surfaced` — the self-deadlock the paragraph above warns about, live in the contract that warns about it.
 
-- [ ] **Step 4: Test the mechanical half.** Extend `tests/test-worktree.sh`: a worktree spawned off a spine branch has the spine branch as its merge base; two work items in one spine get distinct branches and distinct worktrees; after a commit in the worktree, `git -C "$canonical" merge --no-ff "$work_branch"` onto the spine branch succeeds and the commit is reachable from the spine branch. State plainly in the task that the dispatch loop, the 3-iteration cap and the round barrier are **prose contracts with no executable surface** — Task 13's bash-block harness checks that every `oss` verb they name resolves, and the `close-gate-integrity` eval covers the judgment; a bash test asserting agent behaviour would be testing a fixture, not the contract.
+  **§8 is a reference copy and the prose must say so.** The callee never reads ACs from the handoff: it reads the spec end to end and parses the ordered `auto:` ACs out of it with `oss verify_acs`, and *that* TSV order is the binding working order for the RED gate and the TDD loop. Titling §8 as if it were authoritative creates a second source of truth that nothing reads and that silently drifts from the spec. Keep it as an orientation aid, labelled non-binding, or omit it.
 
-- [ ] **Step 5: Run the suite and commit** (`ossify/skills/work-item/references/ ossify/skills/work-item/SKILL.md ossify/skills/plan-spine/SKILL.md ossify/tests/test-worktree.sh`).
+- [ ] **Step 3: Point `plan-spine` at the lane file — line-neutral, line 38 only.** `plan-spine/SKILL.md` lines **35-39 are a single sentence**, and **line 38 already names `` (`work-item`) `` as the execution engine** (since `a53d034`, 2026-07-26). The successor is named; what is missing is the reference file. Edit **line 38 in place** — e.g. `` (`work-item`, lane in `references/round-orchestration.md`); the cumulative-demo *run*, the harvest, and the retro belong to `` — and do **not** replace lines 36-37: a 36-37-only rewrite that terminates in a period orphans line 38's fragment and duplicates the `work-item` mention. Long lines are fine; this file already carries lines over 90 chars and nothing lints width. **Line-neutrality check:** record `wc -l` before and after, require them equal and the result **≤ 500** (do not hard-code 499 — Task 2 also edits this file), then read lines 35-39 back as one intact sentence.
+
+- [ ] **Step 4: Test the mechanical half.** Extend `tests/test-worktree.sh`: a worktree spawned off a spine branch has the spine branch as its merge base; two work items in one spine get distinct branches and distinct worktrees; and — **with canonical checked out on the spine branch per Step 1.1** — after a commit in the worktree, `git -C "$canonical" merge --no-ff "$work_branch"` succeeds **and `git -C "$canonical" merge-base --is-ancestor "$work_branch" "$spine_branch"` passes**. Assert reachability explicitly; a bare rc-0 on the merge is exactly what passed while the commit went to the wrong branch. The fixture's `canon` repo is seeded on `master` (`tests/test-worktree.sh:9-15`), so a test written without the checkout **fails** — that is the regression this assertion locks in.
+
+  State plainly in the task that the dispatch loop, the 3-iteration cap and the round barrier are **prose contracts with no executable surface**: Task 13's bash-block harness checks that every `oss` verb they name resolves, and beyond that they have **no automated coverage in C1**. (The earlier claim that "the `close-gate-integrity` eval covers the judgment" is false — that surface is authored by **Task 14**, not T13, and its five fixtures are all close-ceremony scenarios: demo halt, bone reclassification, fake expiry, quarantine-vs-retire, and a clean-flesh negative control. None exercises dispatch, the cap, or the barrier.) A bash test asserting agent behaviour would be testing a fixture, not the contract — but say the coverage is absent rather than implying it exists.
+
+- [ ] **Step 5: Wire both references, run the suite, commit.** Add **two** pointers to `work-item/SKILL.md` — one per new reference, matching the shipped one-pointer-per-reference convention (:139, :197/:218, :250, :307). `round-orchestration.md` belongs at the Mode B paragraph (:26-27), which currently names the round-orchestration lane **by role**; T7 deliberately left it role-named because this file did not exist yet, and naming it now is the point of this task. `handoff-contract.md` needs its own pointer — a file referenced only from inside `round-orchestration.md` is an orphan under **Task 13 check 5**. Confirm `work-item/SKILL.md` stays ≤~450 lines (382 at HEAD, 68 of headroom reserved for exactly this). Then `bash ossify/tests/run-all.sh` and commit (`ossify/skills/work-item/references/ ossify/skills/work-item/SKILL.md ossify/skills/plan-spine/SKILL.md ossify/tests/test-worktree.sh`).
 
 **Named risks for the task reviewer:**
-1. **Who calls this?** — and the reverse: after this task, do `oss_worktree_add` / `worktree_resolve` / `work_item_exec` have real callers? Name the line.
-2. Is the spine integration branch actually created before any work-item branch is cut from it, and is it the ref Task 10 step 2 merges?
-3. Does `handoff-contract.md` §10 match `returns.md` **exactly**? A drift here deadlocks the engine on its own pre-flight gate.
+1. **Who calls this?** — and the reverse. After this task, `oss_worktree_add`, `work_item_exec` and `work_item_status` must each have a real caller: **name the line**. `worktree_resolve` and `worktree_list` are **expected to still have none** — that is recorded, not discovered, and the C1-close review decides whether `worktree_list` earns its keep. A reviewer who "fixes" this by inventing a call site is adding a caller to satisfy an audit, which is the failure the audit exists to prevent.
+2. **The lifecycle, end to end.** Is canonical actually *checked out* on the spine branch (not merely `git branch`-ed) before any work-item branch is cut? Does the Step 4 test assert **reachability from the spine branch**, not just merge rc 0? Run it against a fixture where canonical starts on `master` — it must fail without the checkout.
+3. Does `handoff-contract.md` §10 match `returns.md` **exactly**, and does §3 carry the **absolute spec path**? Either drift deadlocks the engine on its own pre-flight gate.
 4. Is the 3-iteration cap orchestrator-side only, with the callee explicitly not counting?
-5. Did the `plan-spine` edit stay line-neutral at 499? Check `wc -l`, do not trust the diff's shape.
+5. Did the `plan-spine` edit stay line-neutral and ≤500? Check `wc -l` **and** read lines 35-39 back as one intact sentence — a line-neutral diff can still leave a dangling fragment.
 6. Is `isolation: "worktree"` explicitly forbidden in the dispatch step?
+7. Does the prose name where the **work-item rounds** are read from (the spine plan doc), and does it avoid citing `releases[].spine_dag`? Does it state that persisting rounds to state is deferred to C2?
+8. Is `report.md` left for the callee to author — no orchestrator-side pre-placement?
 
 ---
 
@@ -1998,14 +2045,22 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 1. Read `report.md` off disk (it is deliberately not in the return payload).
 2. **The gate**, per `references/impl-check.md`.
-3. On green: `oss work_item_status <id> complete`, then the orchestrator commits **in the worktree** (the implementer stages; the orchestrator owns the commit boundary), **then merges `work/<wi-id>-<slug>` back into the spine branch Task 8 created**:
+3. On green: `oss work_item_status <id> complete`, then the orchestrator commits **in the worktree** (the implementer stages; the orchestrator owns the commit boundary), **then merges `work/<wi-id>-<slug>` back into the spine branch Task 8 checked out**:
 
    ```bash
+   canonical="$(oss repo_root canonical)"
+   wi_branch="$(oss get ".work_items[] | select(.id==\"$wi\") | .branch")"   # written by T8's work_item_exec
    git -C "<worktree-abs>" commit -m "<message>"
-   git -C "<canonical>" merge --no-ff "$(oss work_item_branch "$wi" "$slug")" -m "merge <wi-id>"
+   git -C "$canonical" rev-parse --abbrev-ref HEAD                          # MUST be the spine branch
+   git -C "$canonical" merge --no-ff "$wi_branch" -m "merge <wi-id>"
+   git -C "$canonical" merge-base --is-ancestor "$wi_branch" HEAD           # verify it landed
    ```
 
-   **This merge is not optional bookkeeping.** Without it the commits live only on a branch that spine close deletes, the cumulative demo runs against a canonical tree that never received the work, and the whole round is silently lost. A merge conflict **halts** — surface the conflicted paths and stop; never auto-resolve.
+   **Read the branch from state; never re-derive it from a slug.** `close` is invoked with an id only and derives its scope "mechanically from the id's shape, never asked" — it has no slug, and no slug is persisted anywhere (`oss_entity_add_spine` stores `name`, `oss_entity_add_work_item` stores `title`). Task 8's `oss work_item_exec` writes the branch it actually created into `work_items[].branch` precisely so this step can read it back. `oss work_item_branch "$wi" "$slug"` was the original instruction here and it cannot be executed as written.
+
+   **Verify the merge target before merging.** `git -C "$canonical" merge` lands on whatever canonical has checked out. Task 8 step 1.1 parks canonical on the spine branch; if `rev-parse --abbrev-ref HEAD` is anything else, **halt** — merging is how the work reaches the spine branch, and a merge onto the wrong branch succeeds silently at rc 0.
+
+   **This merge is not optional bookkeeping.** Without it the commits live only on a branch that spine close then cannot delete (`worktree_remove` refuses an unmerged branch rc 8), so the round halts at cleanup — *after* the cumulative demo has already reported green against a canonical tree that never received the work. A merge conflict **halts** — surface the conflicted paths and stop; never auto-resolve.
 4. On any failure: **halt**, surface the source-tagged errors, present the recovery menu, and **stop — no auto-select**.
 5. Worktree cleanup does **not** happen here. It happens at spine close, **after** harvest — harvest reads `report.md` out of the worktree, so removing it first destroys the harvest source.
 
@@ -2030,11 +2085,16 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 **Binding order** — each step's output is the next one's input, and cleanup is last for a reason:
 
 1. All work items `complete`, else refuse naming the offender.
-2. Merge the spine branch to canonical, **halting on conflict** (spec §6, "merge halt-on-conflict"):
+2. **Switch canonical back to its base branch, then** merge the spine branch to it, **halting on conflict** (spec §6, "merge halt-on-conflict"):
 
    ```bash
-   git -C "<canonical>" merge --no-ff "$(oss branch_name "$spine" "$slug")" -m "merge <spine-id>"
+   canonical="$(oss repo_root canonical)"
+   spine_branch="$(git -C "$canonical" rev-parse --abbrev-ref HEAD)"   # T8 parked us here
+   git -C "$canonical" checkout -q "$base_branch"                      # recorded by T8 step 1.1
+   git -C "$canonical" merge --no-ff "$spine_branch" -m "merge <spine-id>"
    ```
+
+   **The switch-back is what makes this a real merge.** Task 8 step 1.1 checks the spine branch out in canonical and leaves it there for the duration of the spine, which is what makes T9's per-work-item merges land on it. Without switching back first, this step merges the spine branch **into itself** — "Already up to date", rc 0, and the release branch never receives the spine. `base_branch` is the branch canonical was on when T8 cut the spine branch; T8 records it in the spine plan doc's `## 2. Spine context` because no state field holds it. **If `base_branch` cannot be resolved, halt** — guessing the default branch here merges a spine into the wrong line of development. (Persisting it as state is a Plan C2 item, with the round structure.)
 
    A non-zero rc halts the close with rc-8 semantics: surface the conflicted paths verbatim, leave the merge in progress for the human, and run **no** later step. Never `--abort` on the user's behalf and never auto-resolve.
 3. **`oss ledger_apply_pending <spine>`** (D1) — after merge, before the demo, so the demo measures the amended set against a product where the flow really is replaced.
@@ -2184,5 +2244,7 @@ Run before dispatching Task 1.
 
 **Type consistency:** `oss_id_work_item_branch` (T3) is consumed by `oss_worktree_add` (T4) and `oss work_item_branch` (T9's merge) — names match. `oss_verify_zero_tests_guard` (T5) is consumed by `oss_demo_run_auto` (T6) — signature is `(command)` with output on stdin in both. `apply_demo_pending` (T2) is driven by T10 step 3. `oss_id_parse` (T3's new wrapper) is what T9's router calls. The report `## 9. Suggestions for memory bank` heading (T7) is exactly what T12's harvest greps, and T12's payload `target_file` allowlist matches the two files T10 step 9's ceremony proposes. **`demo_record_close`'s scope enum is `work_item|spine|release` (T6) but C1 only ever records `spine` and `release`** — T9's work-item close does not write one. That is deliberate (a per-work-item close record buys nothing the spine record does not carry), and T14's integration assertion is scoped to spine and release closes accordingly.
 
-**Zero-consumer audit — run after the plan review found the engine had no caller.** Every deliverable now has a named consumer inside C1: `oss_worktree_add/_resolve/_list` → T8 step 2 and T10 step 10; `set_work_item_exec` → T8 step 2; `apply_demo_pending` → T10 step 3; `ledger_unplan` → operator verb, surfaced by T3's doctor warning; `demo_record_close` → T10 step 11 and T11 step 7; `oss_id_parse` → T9 step 1 routing; `oss_id_spine_dir` → T8 step 3 (handoff paths); `state_restore` → T9's pre-flight remediation and T3's drift message; `fake_status` + the expiry helper → T11 step 3; `harvest_apply` → T10 step 9. The one deliberate exception is `oss_worktree_dir`, a helper of `_add`/`_resolve` rather than a lane of its own.
+**Zero-consumer audit — run after the plan review found the engine had no caller, and re-run 2026-08-01 during Task 8's pre-dispatch sweep.** Most deliverables have a named consumer inside C1: `oss_worktree_add` → T8 step 1.2; `oss_worktree_remove` → T10 step 10; `set_work_item_exec` → T8 step 1.2 (and read back by T9 step 2.3); `apply_demo_pending` → T10 step 3; `ledger_unplan` → operator verb, surfaced by T3's doctor warning; `demo_record_close` → T10 step 11 and T11 step 7; `oss_id_parse` → T9 step 1 routing; `oss_id_spine_dir` → **T8 step 1.3** (the handoff's directory); `oss_cmd_repo_root` → T8 step 1.1, T9 step 2.3, T10 step 2; `state_restore` → T9's pre-flight remediation and T3's drift message; `fake_status` + the expiry helper → T11 step 3; `harvest_apply` → T10 step 9.
+
+**Three deliberate exceptions, named rather than papered over.** `oss_worktree_dir` is a helper of `_add`/`_resolve`, not a lane of its own. **`oss_worktree_resolve` and `oss_worktree_list` end Plan C1 with no consumer** — the earlier version of this audit pinned both to "T8 step 2" and that was wrong: T8 spawns with `_add` and holds the returned path, T9 reads the worktree path back from state, and T10 cleans up with `_remove`. `_resolve` is a plausible recovery verb for a lost path and `_list` for a doctor row, but **neither is called in C1 and neither should acquire a call site invented to satisfy this audit**. Revisit both at Plan C1 close: either a C2 consumer is named, or they are candidates for removal.
 
