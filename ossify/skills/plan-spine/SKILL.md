@@ -211,7 +211,7 @@ Author a spec per work item into the spine's directory under the release:
 ```
 
 Ids are used **verbatim** — ossify's ID grammar has one owner (spec §9.2), and
-directories, branch names (`spine/<spine-id>-<kebab-slug>`), worktree paths, and
+directories, branch names (`spine/<spine-id>-…`, `work/<work-item-id>-…`), paths, and
 ledger keys all derive from it without transformation.
 
 **Per round, where the DAG allows.** Round 1's specs are authored now; a later
