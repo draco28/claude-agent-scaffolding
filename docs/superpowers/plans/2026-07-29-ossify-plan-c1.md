@@ -1635,21 +1635,36 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 So this task must **add a manifest fixture** to the three affected files, exactly as `test-worktree.sh` builds one:
 
 ```bash
-mkdir -p "$TMP/ws/.workspace" "$TMP/canon"
-cat > "$TMP/ws/.workspace/pairing.json" <<EOF
-{"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{}}
+mkdir -p "$TMP/.workspace" "$TMP/canon"
+cat > "$TMP/.workspace/pairing.json" <<EOF
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{}}
 EOF
-cd "$TMP/ws"
+cd "$TMP"
 ```
+
+> **Fixture corrected 2026-08-01 — the manifest goes at `$TMP/.workspace/`, NOT `$TMP/ws/.workspace/`, and the `cd` must come EARLY.** Measured: `run-all.sh` does not `cd`, so every test inherits the caller's cwd (the repo root), and `oss_manifest_require` there is rc 1 — no manifest on the walk-up path. `oss_manifest_discover` walks **up** from `$PWD`, so a manifest under `$TMP/ws/` is invisible from `$TMP`, which directly contradicts Step 1's own `cd "$TMP"`. Rooting the workspace at `$TMP` makes the manifest discoverable from `$TMP` and everything beneath it, so both work.
+>
+> **The `cd` must happen immediately after `TMP="$(mktemp -d)"`, before the first runner call.** In `test-demo-runner.sh` **all eight** existing `oss_demo_run_auto "$S"` calls (lines 10, 14, 18, 22, 38, 60, 69) omit the workdir argument and run long before Step 1's new block; without an early `cd` into the fixture they resolve no manifest, `_oss_repo_root canonical` refuses rc 2, and all eight go red. `$TMP/canon` must also exist before the first call — the runner refuses a non-existent workdir.
+>
+> End these files with `cd /` before `rm -rf "$TMP"` (the shape `test-worktree.sh` already uses); deleting the cwd out from under the shell is avoidable.
 
 This *preserves* each file's intent — the state-file argument stays omitted, so the `$OSS_STATE_FILE` precedence assertions still prove what they were written to prove; only the **workdir** now resolves through the manifest. Affected: `tests/test-integration-planning.sh` (both sections), `tests/test-integration.sh:19`, `tests/test-demo-runner.sh`. **Add all three to this task's Files list**, and say plainly in the commit message that `oss demo_run` now requires a manifest — that is a behavioural change, not a refactor.
 
-⚠ **Cross-task hazard 2 — the lib source lists.** `demo.sh` gains calls into `verify.sh` (T5) and `worktree.sh` (T4). `bin/oss` globs `lib/*.sh` so the dispatcher is fine, but **five test files hardcode their source list** and will die with `command not found`:
-- `tests/test-demo-runner.sh:4` and `tests/test-integration.sh` source an explicit dotted list — add `verify` and `worktree`.
-- `tests/test-dispatcher-ops.sh:4`, `tests/test-integration-planning.sh:50`, `tests/test-spine-planning.sh:15` use `for lib in id state manifest commands entities registries ledger demo doctor` — add `verify worktree` to each.
-- `tests/test-release-planning.sh:4` does not source `demo` and needs no change.
+⚠ **Cross-task hazard 2 — the lib source lists.** `demo.sh` gains calls into `verify.sh` (T5) and `worktree.sh` (T4). `bin/oss` globs `lib/*.sh` so the dispatcher is fine, but test files hardcode their source lists and will die with `command not found`.
 
-Verify with `grep -rn 'for lib in\|lib/demo.sh' ossify/tests/` **before** editing, not after — this list is the current state, and a sixth caller added between now and execution would fail the same way.
+> **List re-measured 2026-08-01 — the earlier five-file list was both too long and too short, and the criterion was wrong.** It is not "sources `demo.sh`" (eight files do now) but **"CALLS the demo runner"**: shell function bodies are not evaluated at source time, so a file that sources `demo.sh` and never invokes it cannot break. Exactly **three** files call it, and they are the same three that need the manifest fixture above:
+>
+> | File | Runner calls | Needs `verify` + `worktree` |
+> |---|---|---|
+> | `tests/test-demo-runner.sh:4` (explicit dotted list) | 8 | **yes** |
+> | `tests/test-integration-planning.sh:50` (`for lib in …`) | 3 | **yes** |
+> | `tests/test-integration.sh:5` (explicit dotted list) | 1 | **yes** |
+>
+> **No change needed**, despite sourcing `demo.sh`: `test-migration.sh:4` (which the earlier list omitted entirely), `test-dispatcher-ops.sh:4` and `test-spine-planning.sh:15` (both of which it wrongly included), plus `test-worktree.sh:4` and `test-verify.sh:4` — the two files T4 and T5 added after that list was written, which is precisely the drift the note below predicted. `test-release-planning.sh:4` does not source `demo` at all.
+>
+> Leave the five alone rather than adding libs they never use, but **any new test that calls the runner must source `verify` and `worktree`** — say so in a comment beside each of the three lists you do edit, so the next author does not have to rediscover the criterion.
+
+Verify with `grep -rn 'for lib in\|lib/demo.sh' ossify/tests/` **before** editing, not after — and cross-check it against which files actually *call* the runner, because that grep over-reports. A new caller added between now and execution fails the same way.
 
 **Interfaces:**
 - Produces: `oss_demo_workdir <state>`; `oss_demo_run_auto <state>` (now repo-rooted, records); `oss_demo_user_lines <state> [spine]`; `oss_demo_record_close <state> <scope> <id> <passed> <count> <notes>`. Dispatcher: `oss demo_run`, `oss demo_user_lines`, `oss demo_record`.
