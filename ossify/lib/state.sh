@@ -204,6 +204,12 @@ _oss_apply_op() { # $1=op $2=payload-json
               | del(.pending_status, .pending_by, .pending_reason, .pending_at)
             end)
         | .schema_version = $p.to' ;;
+    # A close (work-item, spine, or release) leaves a durable record - the
+    # demo runner previously wrote nothing to state, so there was no way to
+    # prove after the fact that a close's demo actually ran. Pure append, same
+    # shape as every other add_* op; both mutate and replay route through it.
+    add_close_record)
+      jq --argjson p "$payload" '.close_records += [$p]' ;;
     *)
       echo "oss: unknown op '$op'" >&2; return 4 ;;
   esac

@@ -1,8 +1,27 @@
 #!/usr/bin/env bash
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/harness.sh"
-. "$HERE/../lib/id.sh"; . "$HERE/../lib/state.sh"; . "$HERE/../lib/ledger.sh"; . "$HERE/../lib/demo.sh"
+# manifest+verify+worktree added for Task 6: the runner now resolves its
+# workdir via _oss_repo_root (worktree.sh, which itself calls oss_manifest_get
+# from manifest.sh) and checks vacuous-green via oss_verify_zero_tests_guard
+# (verify.sh). ANY new test file that CALLS the demo runner (not merely
+# sources demo.sh) needs this same trio - see the criterion note below.
+. "$HERE/../lib/id.sh"; . "$HERE/../lib/state.sh"; . "$HERE/../lib/manifest.sh"
+. "$HERE/../lib/ledger.sh"; . "$HERE/../lib/verify.sh"; . "$HERE/../lib/worktree.sh"; . "$HERE/../lib/demo.sh"
 TMP="$(mktemp -d)"; S="$TMP/state.json"
+# Task 6: `oss_demo_run_auto` now resolves its working directory via a
+# pairing manifest (composition root when set, canonical root otherwise) -
+# a BEHAVIORAL CHANGE from "runs in the caller's cwd". Every call below that
+# omits the explicit workdir argument needs one on the walk-up path, so the
+# fixture goes in BEFORE the first such call (all eight pre-existing calls
+# in this file included). ai_workspace.root is $TMP itself (not $TMP/ws) so
+# the manifest is discoverable once we `cd "$TMP"` - oss_manifest_discover
+# walks UP from $PWD, never down.
+mkdir -p "$TMP/.workspace" "$TMP/canon"
+cat > "$TMP/.workspace/pairing.json" <<EOF
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{}}
+EOF
+cd "$TMP"
 oss_state_init "$S" demo-run >/dev/null
 
 oss_ledger_add_auto "$S" r0.s1 "always true" "true" "exit:0" >/dev/null
@@ -71,5 +90,83 @@ t_assert_rc 1 "unrecognized expected grammar FAILS the line (fail closed, not fa
 t_assert_contains "$T_OUT" "FAIL d1" "the unrecognized-grammar line is named"
 rm -rf "$T2"
 
+# --- Task 6: composition-root workdir, scoped vacuous-green guard, user-line
+# surfacing, durable close records. ---
+
+# The runner executes in the COMPOSITION ROOT (canonical when unset), not the
+# caller's cwd. A relative-path demo command is the whole point of the ledger.
+mkdir -p "$TMP/canon"; echo marker > "$TMP/canon/marker.txt"
+t_capture oss_ledger_add_auto "$S" r0.s1 "marker present" "test -f marker.txt" "exit:0"
+cd "$TMP"   # deliberately NOT the demo working dir
+# Explicit workdir: this suite has no pairing manifest, so the manifest leg
+# cannot resolve. That is the whole reason oss_demo_workdir takes an explicit
+# argument — see the note on its precedence.
+t_capture oss_demo_run_auto "$S" "$TMP/canon"
+t_assert_rc 0 "a relative-path demo command resolves against the given workdir, not \$PWD"
+# NOT `t_capture` for this check: t_capture wraps the call in `$(...)`, which
+# bash ALWAYS forks a subshell for - so it absorbs an insufficiently-contained
+# internal `cd` regardless of whether demo.sh's own subshell containment is
+# correct, making a t_capture'd assertion here a tautology. Verified: mutating
+# the runner's `cd "$wd" && bash -c ...` (inside its OWN "$(...)") to a bare
+# `cd "$wd"` ahead of it does NOT red a t_capture'd version of this assertion.
+# Calling the function as a plain statement (output redirected, not
+# substituted) runs it directly in THIS shell, so a leaked `cd` shows up here.
+oss_demo_run_auto "$S" "$TMP/canon" >/dev/null 2>&1
+t_assert_eq "$TMP" "$PWD" "the runner's subshell cd did NOT mutate the process cwd"
+
+# oss_demo_workdir's composition_root leg (precedence tier 2, between explicit
+# and bare-canonical), for BOTH a relative and an absolute value - neither had
+# any test coverage anywhere in the suite before this task (the one existing
+# composition_root test, test-dispatcher-ops.sh, only proves the value is
+# STORED, never that the demo runner resolves against it).
+mkdir -p "$TMP/canon/sub"; echo sub-marker > "$TMP/canon/sub/sub-marker.txt"
+oss_state_mutate "$S" set_composition "$(jq -n --arg c sub '{composition_root:$c}')" >/dev/null
+t_capture oss_demo_workdir "$S"
+t_assert_eq "$TMP/canon/sub" "$T_OUT" "a relative composition_root resolves against the canonical root"
+
+mkdir -p "$TMP/elsewhere"
+oss_state_mutate "$S" set_composition "$(jq -n --arg c "$TMP/elsewhere" '{composition_root:$c}')" >/dev/null
+t_capture oss_demo_workdir "$S"
+t_assert_eq "$TMP/elsewhere" "$T_OUT" "an absolute composition_root is used verbatim, not joined onto the canonical root"
+
+# Clear it back to unset so the rest of this file's explicit-workdir calls
+# keep resolving against $TMP/canon as they did before this sub-block.
+oss_state_mutate "$S" set_composition "$(jq -n '{composition_root:null}')" >/dev/null
+
+# The unscoped vacuous-green guard used to fail this: a recognized runner that
+# legitimately exits 1 is NOT vacuous green. `# pytest` is NOT a no-op comment
+# here for the purpose of this test: oss_verify_zero_tests_guard greps the RAW
+# COMMAND STRING (not what actually executes) for a runner name, so without it
+# this command is never recognized as a runner at all and the guard would stay
+# silent regardless of scoping - proving nothing. Verified: mutating the guard
+# back to unscoped does NOT red this assertion unless the command string
+# itself matches a runner pattern AND the output shows a zero-tests phrase.
+t_capture oss_ledger_add_auto "$S" r0.s1 "suite fails as expected" "bash -c 'echo 0 passing; exit 1' # pytest" "exit:1"
+t_capture oss_demo_run_auto "$S" "$TMP/canon"
+t_assert_rc 0 "a recognized runner legitimately expecting exit:1 is not flagged vacuous"
+
+# user: lines are surfaceable, and scopeable to one spine.
+t_capture oss_ledger_add_user "$S" r0.s1 "reschedule a delivery and see the new window" "the slot moves"
+t_capture oss_ledger_add_user "$S" r0.s2 "cancel an order from the ticket" "the order clears"
+t_capture oss_demo_user_lines "$S" r0.s1
+t_assert_eq "1" "$(printf '%s' "$T_OUT" | jq 'length')" "user lines scope to one spine (the §6.1 spine-close set)"
+t_capture oss_demo_user_lines "$S"
+t_assert_eq "2" "$(printf '%s' "$T_OUT" | jq 'length')" "unscoped returns every accumulated user line (the §6.2 walkthrough set)"
+
+# a close leaves a durable record.
+t_capture oss_demo_record_close "$S" spine r0.s1 true 2 "clean"
+t_assert_rc 0 "close record written"
+t_capture oss_state_read "$S" '.close_records[-1].scope'; t_assert_eq "spine" "$T_OUT" "scope recorded"
+t_capture oss_state_read "$S" '.close_records[-1].demo_passed'; t_assert_eq "true" "$T_OUT" "demo outcome recorded"
+
+# add_close_record round-trips through replay like every other op in
+# _oss_apply_op: rebuilt-from-base+journal must equal live, not merely
+# "the write succeeded". The id/timestamp are baked into the payload BEFORE
+# journaling (see oss_demo_record_close), so a replay that reapplies the same
+# journaled payload reproduces the record verbatim.
+t_capture oss_state_replay "$S"
+t_assert_rc 0 "replay stays clean across add_close_record (and this file's other demo-ledger ops)"
+
+cd /
 rm -rf "$TMP"
 t_summary

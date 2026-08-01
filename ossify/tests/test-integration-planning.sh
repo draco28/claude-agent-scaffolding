@@ -47,13 +47,39 @@
 # self-review). All replay coverage here lives in this new file instead.
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/harness.sh"
-for lib in id state manifest commands entities registries ledger demo doctor; do . "$HERE/../lib/$lib.sh"; done
+# verify+worktree added for Task 6: oss_cmd_demo_run / "$OSS" demo_run below
+# (state-file arg omitted, per [GAP 2]) now resolves its working directory
+# via _oss_repo_root (worktree.sh, itself dependent on manifest.sh - already
+# in this list) and checks vacuous-green via oss_verify_zero_tests_guard
+# (verify.sh).
+for lib in id state manifest commands entities registries ledger demo doctor verify worktree; do . "$HERE/../lib/$lib.sh"; done
 OSS="$HERE/../bin/oss"
 
 # ============================================================================
 # Section A - sourced-function coverage (drives oss_cmd_* directly)
 # ============================================================================
 TMP="$(mktemp -d)"; export OSS_STATE_FILE="$TMP/state.json"
+# Task 6: oss_cmd_demo_run (state-file arg omitted, line below) now requires a
+# manifest on the walk-up path for its WORKDIR resolution - a BEHAVIORAL
+# CHANGE, orthogonal to the $OSS_STATE_FILE precedence this section exists to
+# prove (that resolver is unaffected; only the demo runner's workdir now goes
+# through the manifest). ai_workspace.root is $TMP itself so the manifest is
+# discoverable once we `cd "$TMP"`; $TMP/canon is the resolved canonical root
+# and must exist before the first demo_run call. well_known_paths.project_state
+# is pointed at the SAME path as $OSS_STATE_FILE (not the ".ossify/..."
+# convention default): _oss_resolve_state's env branch still wins per
+# precedence either way, but a DIFFERING manifest-routed path makes it print an
+# "overriding the manifest-routed ..." notice on stderr, which t_capture's
+# `2>&1` folds into every T_OUT below and breaks the exact-value assertions
+# ([GAP 2] deliberately has no manifest on disk for exactly this reason - this
+# task adds one only for the demo runner's WORKDIR leg, so it must agree with
+# $OSS_STATE_FILE on the state leg to stay silent, same as when no manifest
+# existed at all).
+mkdir -p "$TMP/.workspace" "$TMP/canon"
+cat > "$TMP/.workspace/pairing.json" <<EOF
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{"project_state":"\${ai_workspace.root}/state.json"}}
+EOF
+cd "$TMP"
 
 # --- start-shaped writes (L§4 spec-core onboarding + B§ posture block) ---
 oss_cmd_init "e2e" >/dev/null
@@ -105,6 +131,7 @@ t_capture oss_state_replay "$OSS_STATE_FILE"
 t_assert_rc 0 "sourced: full-chain replay clean"
 
 unset OSS_STATE_FILE
+cd /
 rm -rf "$TMP"
 
 # ============================================================================
@@ -114,6 +141,16 @@ rm -rf "$TMP"
 # instead of sourced functions - this is the path start/plan-release/plan-spine
 # actually shell out to. [GAP 1] closed here.
 TMP2="$(mktemp -d)"; export OSS_STATE_FILE="$TMP2/state.json"
+# Same Task 6 manifest fixture as Section A, rooted at TMP2 - "$OSS" demo_run
+# (state-file arg omitted, [GAP 2]) resolves its workdir through the manifest
+# exactly like the sourced path does, and must find one on ITS OWN walk-up.
+# well_known_paths.project_state matches $OSS_STATE_FILE for the same reason
+# as Section A - see the comment there.
+mkdir -p "$TMP2/.workspace" "$TMP2/canon"
+cat > "$TMP2/.workspace/pairing.json" <<EOF
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP2"},"canonical":{"root":"$TMP2/canon"},"well_known_paths":{"project_state":"\${ai_workspace.root}/state.json"}}
+EOF
+cd "$TMP2"
 
 # --- start-shaped writes ---
 "$OSS" init "e2e-dispatcher" >/dev/null
@@ -168,6 +205,7 @@ t_capture oss_state_replay "$OSS_STATE_FILE"
 t_assert_rc 0 "dispatcher: full-chain replay clean"
 
 unset OSS_STATE_FILE
+cd /
 rm -rf "$TMP2"
 
 t_summary

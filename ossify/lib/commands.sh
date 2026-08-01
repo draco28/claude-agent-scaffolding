@@ -173,3 +173,13 @@ oss_cmd_worktree_add()     { oss_worktree_add "$1" "$2" "$3" "${4:-HEAD}"; }
 oss_cmd_worktree_resolve() { oss_worktree_resolve "$1" "$2"; }
 oss_cmd_worktree_remove()  { oss_worktree_remove "$1" "$2"; }
 oss_cmd_worktree_list()    { oss_worktree_list "${1:-canonical}"; }
+
+# Cumulative demo runner (spec §6.1 + companion §4.3). Thin dispatcher
+# wrappers, no judgment logic - resolution (workdir, composition root) lives in
+# lib/demo.sh; the vacuous-green guard lives in lib/verify.sh.
+oss_cmd_demo_run() { # [$1=state-file] [$2=workdir]
+  local sf; sf="$(_oss_resolve_state "${1:-}")" || return $?
+  oss_demo_run_auto "$sf" "${2:-}"
+}
+oss_cmd_demo_user_lines() { local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_user_lines "$sf" "${1:-}"; }
+oss_cmd_demo_record()     { local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_record_close "$sf" "$1" "$2" "$3" "$4" "${5:-}"; }
