@@ -155,3 +155,12 @@ oss_cmd_critic_detect() {
   [ "$found" = "absent" ] && return 1
   return 0
 }
+
+# Per-work-item verification gate (Task 5 / spec §6). Thin wrappers, no
+# judgment logic - state-file resolution does not apply here, these take
+# explicit paths/args like the id.sh wrappers above.
+oss_cmd_verify_acs()          { oss_verify_parse_acs "$1"; }
+oss_cmd_verify_step()         { oss_verify_auto_step "$1" "$2" "$3"; }
+oss_cmd_redgate()             { oss_verify_redgate "$1" "$2" "$3"; }
+oss_cmd_zero_tests_guard()    { oss_verify_zero_tests_guard "$1"; }
+oss_cmd_report_cross_check()  { oss_verify_report_cross_check "$1" "$2"; }
