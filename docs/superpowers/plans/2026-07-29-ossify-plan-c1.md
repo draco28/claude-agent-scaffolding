@@ -1860,7 +1860,16 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - Create: `ossify/skills/work-item/SKILL.md` (≤~450 lines — leave headroom, unlike `plan-spine` at 499)
 - Create: `ossify/skills/work-item/references/{pre-flight,tdd-loop,returns,report-contract}.md`
 - Create: `ossify/commands/work-item.md`, `ossify/agents/implementer-agent.md`
-- Modify: `ossify/.claude-plugin/plugin.json` (add the `agents` key)
+- **No manifest change.** `ossify/.claude-plugin/plugin.json` is NOT modified.
+
+> **Files list corrected 2026-08-01 — it contradicted this task's own Step 4.** It previously read
+> "Modify: `ossify/.claude-plugin/plugin.json` (add the `agents` key)", while Step 4 says in bold to
+> do exactly the opposite, and the Step 5 `git add` staged the file. Re-verified against the tree:
+> **no plugin in this repo declares an `agents` key** (`ai-mentor`, `architect-critic`,
+> `claude-security-audit`, `ossify`, `scaffold-dev`, `scaffold-onboard`, `scaffold`,
+> `workspace-init` — all checked), yet `scaffold-dev` and `scaffold-onboard` both ship working
+> `agents/` directories. Registration is by directory convention. Step 4 governs; adding the key
+> invents an unsupported manifest field.
 
 - [ ] **Step 1: Author `SKILL.md`.** Frontmatter `name: work-item`; the description embeds the trigger phrases (`execute work item`, `implement the work item`, `/work-item <handoff-path>`), the tri-mode note, and a negative-scope clause routing planning to `/plan-spine` and closing to `/close`. Body sections:
 
@@ -1895,7 +1904,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - [ ] **Step 5: Verify and commit.** Confirm every `oss <subcommand>` named in the prose exists in the dispatcher (`bash ossify/bin/oss help`); confirm the body is ≤~450 lines; confirm zero eval-fixture wording appears in the prose. Run `bash ossify/tests/run-all.sh`.
 
 ```bash
-git add ossify/skills/work-item ossify/commands/work-item.md ossify/agents ossify/.claude-plugin/plugin.json
+git add ossify/skills/work-item ossify/commands/work-item.md ossify/agents
 git commit -m "feat(ossify): work-item entry skill + implementer-agent registration
 
 Spec §6 first bullet, §9.1's fifth entry skill. Return-contract JSON shapes and
@@ -1914,7 +1923,7 @@ tech-debt.md that /defer writes, and /defer is Plan C2.
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 ```
 
-**Named risks:** (1) **who calls this?** — the caller is **Task 8**, not `plan-spine`. `plan-spine/SKILL.md:36-37` explicitly disclaims dispatch (*"This skill plans; it does not execute"*) and has **no §8.3** — its sections run §1-§12 with §8 being demo authoring. Confirm the skill's mode-B prose names Task 8's lane and cites nothing that does not exist; a phantom section reference is the exact B6 defect class. (2) Are both JSON shapes byte-faithful? (3) Does every `oss` call in the prose exist? (4) Is the `agents` key shape right — check a shipped plugin.json, do not infer. (5) Does the report contract's §9 heading match what T11's harvest will grep for? (6) Is the RED-gate rc semantics stated the right way round (1 blocks, 2 advises)? (7) Any eval-fixture wording leaked into the prose?
+**Named risks:** (1) **who calls this?** — the caller is **Task 8**, not `plan-spine`. `plan-spine/SKILL.md:36-37` explicitly disclaims dispatch (*"This skill plans; it does not execute"*) and has **no §8.3** — its sections run §1-§12 with §8 being demo authoring. Confirm the skill's mode-B prose names Task 8's lane and cites nothing that does not exist; a phantom section reference is the exact B6 defect class. (2) Are both JSON shapes byte-faithful? (3) Does every `oss` call in the prose exist? (4) Was `plugin.json` left **unmodified**? No plugin in this repo declares an `agents` key and two ship working `agents/` directories, so a manifest diff here is a defect, not registration. (Named risk corrected 2026-08-01 — it previously said "check a shipped plugin.json for the key's shape", which is the very instruction Step 4 exists to retract: there is no such key to copy.) (5) Does the report contract's §9 heading match what T11's harvest will grep for? (6) Is the RED-gate rc semantics stated the right way round (1 blocks, 2 advises)? (7) Any eval-fixture wording leaked into the prose?
 
 ---
 
