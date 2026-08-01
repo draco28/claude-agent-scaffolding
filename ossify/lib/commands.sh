@@ -164,3 +164,12 @@ oss_cmd_verify_step()         { oss_verify_auto_step "$1" "$2" "$3"; }
 oss_cmd_redgate()             { oss_verify_redgate "$1" "$2" "$3"; }
 oss_cmd_zero_tests_guard()    { oss_verify_zero_tests_guard "$1"; }
 oss_cmd_report_cross_check()  { oss_verify_report_cross_check "$1" "$2"; }
+
+# Per-work-item worktree layer (Task 4). D4: repo-parameterized - only
+# `canonical` resolves today, Plan D adds `private_core` by extending
+# _oss_repo_root alone. Thin dispatcher wrappers, no judgment logic.
+oss_cmd_repo_root()        { _oss_repo_root "${1:-canonical}"; }
+oss_cmd_worktree_add()     { oss_worktree_add "$1" "$2" "$3" "${4:-HEAD}"; }
+oss_cmd_worktree_resolve() { oss_worktree_resolve "$1" "$2"; }
+oss_cmd_worktree_remove()  { oss_worktree_remove "$1" "$2"; }
+oss_cmd_worktree_list()    { oss_worktree_list "${1:-canonical}"; }
