@@ -173,13 +173,44 @@ recommendation.
 
 ## 5. Spine close
 
-Cumulative demo, bone-touch and risk-gate checks, the architect-critic pass at
-class-scoped depth, the retrospective, the memory-bank harvest, and worktree +
-branch cleanup last. Its binding order and the bone/flesh column from spec §6.1
-land with this section's references.
+The middle scope, and the one the ceremony is named for (spec §6.1). Eleven
+steps, in **binding order**:
 
-**Refuse early** when any of the spine's work items is not `complete` — name the
-offender rather than closing around it.
+1. **Every work item `complete`**, else refuse and **name the offender**. Test
+   the *output* of the `oss get` — a `select` matching nothing exits 0.
+2. **Switch canonical back to its `base_branch`, then merge the spine branch in**,
+   halting on conflict. **Derive the spine branch with `oss branch_name` and
+   assert HEAD matches it — never read it off HEAD**; then assert the switch-back
+   actually moved HEAD, and check reachability after the merge. Each of those
+   guards catches a distinct failure that is otherwise rc 0 all the way to a
+   green close.
+3. **`oss ledger_apply_pending <spine>`** — after the merge, before the demo.
+4. **The cumulative demo**: `oss demo_run` for every active `auto:` line, then
+   walk **this spine's own** `user:` lines (`oss demo_user_lines <spine>`) with
+   the human. **Halt on the first failure** — no later step runs.
+5. **The changed-path list, then `oss touch_check`.** The list is the merge's own
+   diff. **rc 0 = hit, rc 1 = clean, rc 2 = could-not-check, and rc 2 is not
+   clean.** A bone hit reclassifies the spine mid-flight via `oss class_set`
+   (three arguments — the reason is required).
+6. **Risk-gate escalation**, distinguished from a bone hit by the printed prefix,
+   and it escalates regardless of class.
+7. **architect-critic**, class-scoped: `--close` on bone, **absent on flesh**.
+   Guard `oss critic_detect` — it prints `absent` and returns rc 1.
+8. **The retrospective**, against a fixed section contract.
+9. **Memory-bank harvest** — always before cleanup.
+10. **Worktree + branch cleanup**, per work item. Only now.
+11. **State updates**: `oss spine_status <spine> closed` and `oss demo_record`.
+
+Full step detail — the merge block with its four guards, the changed-path
+computation, the class-scoped critic bridge, and the bone/flesh column from spec
+§6.1 as a table — in **`references/spine-close.md`**.
+
+The demo layer — the cumulative `auto:` half, the spine-scoped `user:` half, the
+halt discipline, quarantine as a parking ticket, and the ledger's wall-clock
+budget — is in **`references/cumulative-demo.md`**.
+
+The two retrospective section sets, full for bone and lean for flesh, are pinned
+verbatim in **`references/retrospective.md`**. It is the only copy.
 
 ---
 
@@ -207,6 +238,13 @@ references.
 - **Treating a halt as advisory.** A halt is terminal: no later step runs, no
   status is written, nothing is recorded as closed.
 - **Auto-selecting from the recovery menu** (§4).
+- **Reading the spine branch off HEAD** instead of deriving it and asserting the
+  match, or merging without switching canonical back first (§5). Both failures
+  are rc 0 and green.
+- **Folding `oss touch_check`'s rc 2 into "clean"**, or reading rc 0 as clean
+  (§5).
+- **Carrying `--close` on a flesh spine's critic pass**, or dropping it on a
+  bone's (§5).
 - **Closing a scope whose children are not closed** — a spine with an unfinished
   work item, a release with an open spine (§5, §6).
 - **`cd`-ing mid-ceremony**, or exporting `OSS_STATE_FILE` to compensate (§3).
@@ -227,7 +265,10 @@ references.
   `repo_root`, `spine_dir`, `spine_list`, `branch_name`, `get`, `verify_acs` (AC parsing),
   `verify_step` (the expectation predicate, including the vacuous-green guard),
   `report_cross_check`, `work_item_status`, `worktree_resolve`,
-  `worktree_remove`.
+  `worktree_remove`, `ledger_apply_pending`, `ledger_quarantine`, `demo_run`,
+  `demo_user_lines`, `demo_record`, `touch_check` (glob matching — never the
+  meaning of a match), `class_set`, `veto_add`, `critic_detect` (a filesystem
+  probe), `spine_status`.
 - **`git`** is reached only as `git -C "<absolute path>"` (§3). The commit
   boundary is yours and the implementer's never; the merge target comes from
   state, never from a slug.

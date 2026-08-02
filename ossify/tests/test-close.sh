@@ -302,5 +302,184 @@ echo two > "$WT2/two.txt"; git -C "$WT2" add two.txt; git -C "$WT2" commit -qm "
 t_capture bash "$OSS" worktree_remove canonical "$WI2"
 t_assert_rc 8 "an UNMERGED work-item branch refuses cleanup rc 8 - which is why cleanup runs after the merge, not before"
 
+# ---------------------------------------------------------------------------
+# E. Spine close (Task 10). Every block below is EXTRACTED FROM THE SHIPPED
+#    PROSE and executed under real strict mode, so the subject of each assertion
+#    is the file the ceremony ships rather than a copy retyped here.
+#
+#    NOT COVERED, and not coverable: "apply-pending runs before the demo" and "a
+#    failing demo halts before the critic, the harvest and cleanup" are orderings
+#    of prose steps with no executable surface. A script that calls apply-pending
+#    then demo_run asserts nothing about the ceremony - it tests a fixture
+#    written to pass. Task 13's harness checks that every `oss` verb the prose
+#    names resolves; beyond that those orderings have no coverage in this release.
+# ---------------------------------------------------------------------------
+SPINE_CLOSE="$SKILLS/close/references/spine-close.md"
+_extract_block() { # $1=source-md $2=awk-regex identifying the block $3=out-path
+  awk -v want="$2" '/^```bash$/{inb=1;buf="";next}
+       /^```$/{if(inb && buf ~ want){printf "%s", buf; exit} inb=0; next}
+       inb{buf = buf $0 "\n"}' "$1" > "$3"
+}
+OPEN_BLOCK="$TMP/spine-open.sh";  _extract_block "$SPINE_CLOSE" 'work items that are not complete' "$OPEN_BLOCK"
+MERGE_BLOCK="$TMP/spine-merge.sh"; _extract_block "$SPINE_CLOSE" 'is-ancestor' "$MERGE_BLOCK"
+TOUCH_BLOCK="$TMP/spine-touch.sh"; _extract_block "$SPINE_CLOSE" 'touch_check' "$TOUCH_BLOCK"
+for _pair in "$OPEN_BLOCK:work_items" "$MERGE_BLOCK:merge --no-ff" "$TOUCH_BLOCK:touch_check"; do
+  _bf="${_pair%%:*}"; _bn="${_pair#*:}"
+  if [ -s "$_bf" ] && grep -Fq "$_bn" "$_bf"; then
+    T_PASS=$((T_PASS+1))
+  else
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract '$_bn' from spine-close.md - the assertions below are vacuous"
+  fi
+done
+
+# E1. Step 1 refuses and NAMES the offenders. `oss get` is jq -r without -e: a
+# select matching nothing exits 0, so a block testing the rc instead of the
+# output would close a spine with two unfinished items. Both ids must appear.
+t_capture env "PATH=$SHIM:$PATH" bash -c "set -euo pipefail; spine_id='$SP'; . '$OPEN_BLOCK'"
+t_assert_rc 1 "step 1 halts when a work item is not complete"
+t_assert_contains "$T_OUT" "$WI" "...naming the first offender by id"
+t_assert_contains "$T_OUT" "$WI2" "...and the second - join(\", \") lists every one, not just the first"
+bash "$OSS" work_item_status "$WI" complete >/dev/null
+bash "$OSS" work_item_status "$WI2" complete >/dev/null
+t_capture env "PATH=$SHIM:$PATH" bash -c "set -euo pipefail; spine_id='$SP'; . '$OPEN_BLOCK'"
+t_assert_rc 0 "...and passes once every item is complete (so the refusal above fired for the stated reason)"
+t_assert_eq "" "$T_OUT" "...silently - a passing gate says nothing"
+
+# Move the BASE branch forward, the way a sibling spine closing first would.
+# This is what makes the changed-path assertions in E5 non-vacuous: with the base
+# still at the fork point every candidate computation agrees.
+git -C "$CANON" checkout -q "$BASE_BRANCH"
+echo sibling > "$CANON/sibling.txt"
+git -C "$CANON" add sibling.txt; git -C "$CANON" commit -qm "a sibling spine landed on base"
+git -C "$CANON" checkout -q "$SPINE_BRANCH"
+SPINE_TIP="$(git -C "$CANON" rev-parse "$SPINE_BRANCH")"
+if git -C "$CANON" merge-base --is-ancestor "$SPINE_TIP" "$BASE_BRANCH"; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: fixture is vacuous - the spine tip is already on $BASE_BRANCH before any spine-close merge"
+else
+  T_PASS=$((T_PASS+1))
+fi
+
+_spine_unreached() { # $1=label ; the spine must NOT have landed on base
+  if git -C "$CANON" merge-base --is-ancestor "$SPINE_TIP" "$BASE_BRANCH"; then
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: $1 - the spine reached $BASE_BRANCH anyway"
+  else
+    T_PASS=$((T_PASS+1))
+  fi
+}
+
+# E2. Canonical parked somewhere other than the spine branch. This is the guard
+# the whole step turns on: reading the branch off HEAD instead of deriving it
+# makes the switch-back a no-op, the merge "Already up to date" at rc 0, and
+# every later step green against a tree the spine never reached. The reachability
+# check CANNOT catch it - on a self-merge the tip is trivially its own ancestor.
+git -C "$CANON" checkout -q "$BASE_BRANCH"
+t_assert_eq "$BASE_BRANCH" "$(git -C "$CANON" rev-parse --abbrev-ref HEAD)" "the wrong-branch fixture really is parked off the spine branch (the guard's precondition)"
+t_capture env "PATH=$SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='$SP'; spine_slug='$SPINE_SLUG'; base_branch='$BASE_BRANCH'; . '$MERGE_BLOCK'"
+t_assert_rc 1 "a spine close with canonical parked elsewhere halts BEFORE the merge"
+t_assert_contains "$T_OUT" "canonical is on '$BASE_BRANCH', not '$SPINE_BRANCH'" "...naming both the branch it found and the branch it derived"
+_spine_unreached "wrong-branch halt"
+
+# E3. base_branch unresolvable. The plan doc's spine-context section is the only
+# record of it, so an empty read is reachable. Unguarded, `git checkout -q ""`
+# fails at rc 128 and the ceremony merges the spine branch into ITSELF at rc 0.
+git -C "$CANON" checkout -q "$SPINE_BRANCH"
+t_capture env "PATH=$SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='$SP'; spine_slug='$SPINE_SLUG'; base_branch=''; . '$MERGE_BLOCK'"
+t_assert_rc 1 "an unresolvable base_branch halts"
+t_assert_contains "$T_OUT" "no base_branch recorded for $SP" "...naming the spine whose base branch is missing"
+t_assert_eq "$SPINE_BRANCH" "$(git -C "$CANON" rev-parse --abbrev-ref HEAD)" "...leaving canonical where it was"
+_spine_unreached "empty base_branch halt"
+
+# E3b. base_branch naming a branch that does not exist (a typo in the plan doc's
+# spine-context line). The checkout fails, and its rc must be read.
+t_capture env "PATH=$SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='$SP'; spine_slug='$SPINE_SLUG'; base_branch='no-such-base'; . '$MERGE_BLOCK'"
+t_assert_rc 1 "a base_branch naming no ref halts"
+t_assert_contains "$T_OUT" "cannot check out base branch 'no-such-base'" "...from the checkout's own rc, naming the branch it could not reach"
+_spine_unreached "missing base_branch halt"
+
+# E4. base_branch resolving to a TRACKED FILE rather than a branch. `git checkout
+# -q <tracked-file>` restores that file and exits 0 WITHOUT moving HEAD, so the
+# checkout's rc says nothing - only asserting HEAD actually moved catches it.
+git -C "$CANON" rev-parse --verify --quiet "refs/heads/f.txt" >/dev/null \
+  && { T_FAIL=$((T_FAIL+1)); echo "FAIL: 'f.txt' names a branch here - the tracked-file case is not what this exercises"; }
+t_capture env "PATH=$SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='$SP'; spine_slug='$SPINE_SLUG'; base_branch='f.txt'; . '$MERGE_BLOCK'"
+t_assert_rc 1 "a base_branch naming a tracked file halts even though the checkout exits 0"
+t_assert_contains "$T_OUT" "switch-back left canonical on '$SPINE_BRANCH', not 'f.txt'" "...from the post-checkout HEAD assertion, not from the checkout's rc"
+_spine_unreached "tracked-file base_branch halt"
+
+# E5. The happy path, and the changed-path list the touch check reads. Both
+# blocks run in ONE shell so $merge_sha really crosses the seam from step 2 to
+# step 5 rather than being handed over by this test.
+#
+# Two bones make the path computation observable:
+#   ADR-0101 covers the file only the SPINE changed  -> must HIT
+#   ADR-0102 covers the file only the BASE changed   -> must NOT hit
+# `git diff --name-only $base..$spine` after the merge names sibling.txt and NOT
+# spine.txt - exactly inverted - so this pair fails loudly on that computation.
+bash "$OSS" bone_add ADR-0101 "the surface the spine moved" "spine.txt" >/dev/null
+bash "$OSS" bone_add ADR-0102 "a surface the spine never touched" "sibling.txt" >/dev/null
+git -C "$CANON" checkout -q "$SPINE_BRANCH"
+t_capture env "PATH=$SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='$SP'; spine_slug='$SPINE_SLUG'; base_branch='$BASE_BRANCH'; . '$MERGE_BLOCK'; . '$TOUCH_BLOCK'"
+t_assert_rc 0 "the merge block plus the touch block run clean end to end"
+t_assert_eq "$BASE_BRANCH" "$(git -C "$CANON" rev-parse --abbrev-ref HEAD)" "the switch-back left canonical on the base branch"
+if git -C "$CANON" merge-base --is-ancestor "$SPINE_TIP" "$BASE_BRANCH"; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: the spine tip is NOT reachable from $BASE_BRANCH after the merge"
+fi
+if git -C "$CANON" cat-file -e "$BASE_BRANCH:spine.txt" 2>/dev/null; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: the spine's own file is absent from $BASE_BRANCH - the merge moved a ref but landed no content"
+fi
+t_assert_contains "$T_OUT" "bone ADR-0101" "the changed-path list contains the file the SPINE changed (the merge's own first-parent diff)"
+case "$T_OUT" in
+  *"ADR-0102"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: the changed-path list named a file only the BASE branch changed - this is 'git diff \$base..\$spine', which is inverted after the merge";;
+  *) T_PASS=$((T_PASS+1));;
+esac
+
+# E6. touch_check's four exit codes, read straight off the dispatcher.
+t_capture bash "$OSS" touch_check
+t_assert_rc 2 "touch_check with ZERO paths is rc 2 (could-not-check), NOT rc 1 (clean)"
+t_assert_contains "$T_OUT" "needs at least one path" "...saying why"
+t_capture bash "$OSS" touch_check spine.txt
+t_assert_rc 0 "a path on a registered surface is rc 0 - a HIT, not a failure"
+t_assert_eq "bone ADR-0101" "$T_OUT" "...printing the kind and the ref, which is what the reclassification reason quotes"
+t_capture bash "$OSS" touch_check docs/unrelated.md
+t_assert_rc 1 "a path on no registered surface is rc 1 - clean"
+t_assert_eq "" "$T_OUT" "...with nothing on stdout"
+BROKEN="$TMP/broken-state.json"; printf '%s\n' '{"schema_version":2}' > "$BROKEN"
+t_capture env "OSS_STATE_FILE=$BROKEN" bash "$OSS" touch_check spine.txt
+t_assert_rc 2 "a state whose bones registry is unreadable is rc 2 - INCONCLUSIVE, never clean"
+t_assert_contains "$T_OUT" "INCONCLUSIVE, not clean" "...saying so in the lib's own words"
+
+# E7. The shipped block's rc-2 arm: inconclusive must HALT, not fall through to
+# the clean branch. Driven by pointing the block's touch_check at that same
+# unreadable state.
+MERGE_SHA="$(git -C "$CANON" rev-parse "$BASE_BRANCH")"
+t_capture env "PATH=$SHIM:$PATH" "OSS_STATE_FILE=$BROKEN" bash -c \
+  "set -euo pipefail; canonical='$CANON'; merge_sha='$MERGE_SHA'; . '$TOUCH_BLOCK'"
+t_assert_rc 1 "the shipped block HALTS on touch_check rc 2 rather than treating it as clean"
+t_assert_contains "$T_OUT" "INCONCLUSIVE, not clean - halt" "...with the halt naming the reason"
+
+# E8. A merge that changed no paths. touch_check would answer rc 2 for it, so the
+# block halts BEFORE the call and says which of the two rc-2 causes this is.
+git -C "$CANON" checkout -q -b empty-spine "$BASE_BRANCH"
+echo transient > "$CANON/transient.txt"; git -C "$CANON" add transient.txt
+git -C "$CANON" commit -qm "add a file"
+git -C "$CANON" rm -q transient.txt; git -C "$CANON" commit -qm "and take it away again"
+git -C "$CANON" checkout -q "$BASE_BRANCH"
+git -C "$CANON" merge --no-ff empty-spine -m "a spine that netted no change" >/dev/null
+EMPTY_MERGE="$(git -C "$CANON" rev-parse HEAD)"
+t_assert_eq "" "$(git -C "$CANON" diff --name-only "$EMPTY_MERGE^1" "$EMPTY_MERGE")" "the empty-merge fixture really does change no path (the guard's precondition)"
+t_capture env "PATH=$SHIM:$PATH" bash -c \
+  "set -euo pipefail; canonical='$CANON'; merge_sha='$EMPTY_MERGE'; . '$TOUCH_BLOCK'"
+t_assert_rc 1 "a merge that changed no paths halts"
+t_assert_contains "$T_OUT" "the merge changed no paths" "...distinguishing the empty-input cause from an unreadable registry"
+
 cd /; rm -rf "$TMP"
 t_summary
