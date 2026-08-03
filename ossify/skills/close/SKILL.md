@@ -216,12 +216,56 @@ verbatim in **`references/retrospective.md`**. It is the only copy.
 
 ## 6. Release close
 
-The full cumulative `user:` walkthrough against the amended line set, the blocking
-close findings (fake expiry, outstanding quarantines), the release retrospective,
-and the feature-map re-groom. Its binding order lands with this section's
-references.
+The outermost scope (spec §6.2, plus the two §6.1 contracts that only become
+enforceable at a release boundary). Seven steps, in **binding order**:
 
-**Refuse early** when any spine in the release is not closed — name it.
+1. **Every spine `closed`**, else refuse and **name the offender with its
+   status**. Test the *output* of the `oss get` — a `select` matching nothing
+   exits 0. **`abandoned` is not `closed`**: it neither passes silently nor
+   hard-halts, it is surfaced by name for the user to confirm.
+2. **The full cumulative walkthrough**: `oss demo_run` for every accumulated
+   `auto:` line, then walk **every** active `user:` line with the human —
+   `oss demo_user_lines` with **no argument**. The amendments are already
+   applied; the spines applied them. Grouping by feature is **derived** from
+   `source_spine` and `oss feature_list`, not read off a field.
+3. **Blocking finding — fake expiry.** `oss expired_fakes "$rel"`, plus the
+   judgment pass over each remaining fake's `replacement_trigger` (§6's second
+   reference). The only unblocks are replace or explicitly renew.
+4. **Blocking finding — outstanding quarantines.**
+   `oss expired_quarantines "$rel"` — every line quarantined in a **strictly
+   earlier** release is a parking ticket now due.
+5. **The release retrospective**, aggregating the spine retros. **Refuses,
+   naming the spine, if any lacks `retrospective.md`.**
+6. **Feature-map re-groom + next-release sketch** — the rolling-wave crank, via
+   `oss feature_list` and `oss release_set_meta`.
+7. **State updates**: `oss release_status <rel> closed` and
+   `oss demo_record release <rel> <passed> <line-count> "<notes>"`.
+
+**Both blocking gates are rc 0 = CLEAN / 1 = BLOCKING / 2 = could-not-check —
+the opposite polarity from `oss touch_check`, where rc 0 is a hit.** Copying the
+touch-check branch shape inverts the judge and passes exactly the releases the
+gates exist to block. rc 2 halts in both; it is never folded into clean.
+
+**Three of spec §6.2's steps are deliberately not shipped** and are named as
+such rather than left to read as executed: the **docs increment** (§8's trigger
+table), **handoff cleanup** for the closed release (it depends on the `/handoff`
+redesign — this release ships no handoff authoring at either scope), and the
+**release tag / PR gate** (the spine→release / release→main tier question is
+unsettled).
+
+Full step detail — the two-arm spine gate, the walkthrough's scoping and its
+derived feature grouping, both blocking gates' branch blocks, the retro's
+refusal path and the state writes — in **`references/release-close.md`**.
+
+The fake-expiry finding — its rc contract, why `renewed` is inside the selector,
+why the comparison is at-or-before and numeric, and the **judgment arm** over
+`replacement_trigger` that no selector can decide — is in
+**`references/fake-expiry.md`**.
+
+Out-of-spine work has its own lane and its own routing judgment — the
+three-part test, `oss touch_check` as its mechanical two thirds, and the
+`oss patch_add` record — in **`references/patch-lane.md`**. The verb already
+exists; what that file adds is when to reach for it.
 
 ---
 
@@ -243,6 +287,20 @@ references.
   are rc 0 and green.
 - **Folding `oss touch_check`'s rc 2 into "clean"**, or reading rc 0 as clean
   (§5).
+- **Copying `touch_check`'s branch shape onto `oss expired_fakes` or
+  `oss expired_quarantines`.** rc 0 is a hit there and CLEAN here, so the copy
+  passes precisely the releases the gates exist to block (§6).
+- **Selecting expired fakes on `active` alone**, comparing the expiry for
+  identity, or comparing release ids as strings — `"r2" <= "r10"` is false.
+  Each one lets a fake outlive its own deadline, silently green (§6).
+- **Reporting the fake gate clean after running only its mechanical arm.**
+  `replacement_trigger` is free text and its pass is yours (§6).
+- **Blocking on a quarantine raised during this release.** Strictly earlier
+  (§6).
+- **Passing a spine id to `oss demo_user_lines` at release close**, or implying
+  demo lines carry a feature field to group on (§6).
+- **Routing a change through the patch lane without `oss touch_check`**, or
+  using diff size as the criterion (§6).
 - **Carrying `--close` on a flesh spine's critic pass**, or dropping it on a
   bone's (§5).
 - **Closing a scope whose children are not closed** — a spine with an unfinished
@@ -265,10 +323,14 @@ references.
   `repo_root`, `spine_dir`, `spine_list`, `branch_name`, `get`, `verify_acs` (AC parsing),
   `verify_step` (the expectation predicate, including the vacuous-green guard),
   `report_cross_check`, `work_item_status`, `worktree_resolve`,
-  `worktree_remove`, `ledger_apply_pending`, `ledger_quarantine`, `demo_run`,
-  `demo_user_lines`, `demo_record`, `touch_check` (glob matching — never the
-  meaning of a match), `class_set`, `veto_add`, `critic_detect` (a filesystem
-  probe), `spine_status`.
+  `worktree_remove`, `ledger_apply_pending`, `ledger_quarantine`,
+  `ledger_retire`, `demo_run`, `demo_user_lines`, `demo_record`, `touch_check`
+  (glob matching — never the meaning of a match), `class_set`, `veto_add`,
+  `critic_detect` (a filesystem probe), `spine_status`, `release_status`,
+  `expired_fakes` and `expired_quarantines` (both read-only selectors — they
+  compute *which* records are due, never whether the deferral was reasonable),
+  `fake_status`, `feature_list`, `feature_add`, `release_set_meta`,
+  `patch_add`.
 - **`git`** is reached only as `git -C "<absolute path>"` (§3). The commit
   boundary is yours and the implementer's never; the merge target comes from
   state, never from a slug.

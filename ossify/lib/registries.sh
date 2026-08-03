@@ -64,6 +64,60 @@ oss_reg_touch_check() { # $1=state $2..=paths ; rc 0 any match, 1 clean, 2 could
   return "$hit"
 }
 
+# Release-close blocking gate (spec §6.1 fake ledger, §6.2 step 3). Returns the
+# OUTSTANDING fakes that have reached or passed their expiry release.
+#
+# rc contract, and it is the OPPOSITE POLARITY to oss_reg_touch_check on
+# purpose: 0 = CLEAN (the blocking set is empty), 1 = BLOCKING (non-empty, one
+# TSV line per fake on stdout), 2 = could-not-check. touch_check answers "did
+# anything match" (0 = hit); this answers "may the close proceed" (0 = yes), the
+# same polarity as oss_verify_report_cross_check. A caller that copies the
+# touch_check branch shape inverts the judge and closes exactly the releases it
+# exists to block, so the ceremony's `case` arms are spelled out in
+# skills/close/references/fake-expiry.md §2.
+#
+# Selector, both arms load-bearing:
+#   * STATUS - `active` OR `renewed`. `replaced` is the ONLY resolving status
+#     (the status enum in oss_reg_set_fake_status, below). Selecting on
+#     `active` alone lets a renewal escape its
+#     own deadline: someone already pushed that deadline once, which is what
+#     makes the renewal the entry MOST in need of the check, and it would fail
+#     silently green.
+#   * EXPIRY - AT OR BEFORE this release, compared NUMERICALLY. Identity lets
+#     every fake that outlived its deadline escape forever. A string compare is
+#     wrong from r10 on: jq evaluates `"r2" <= "r10"` as false, so the `r` is
+#     stripped and the remainder compared as a number.
+#
+# A record whose `expiry_release` cannot be parsed as `r<N>` BLOCKS, marked
+# `unparseable-expiry`. It is not skipped: an expiry that never compares is an
+# expiry that never fires, which is precisely "deferred truth becomes permanent
+# silently". `try/catch` keeps the malformed value from aborting the whole
+# selector, so one bad record cannot make every other fake escape with it.
+#
+# The release argument is validated for SHAPE only, never for existence: this is
+# a read-only selector whose release id reaches it from `oss id_parse`, and an
+# existence check would add an rc-7 arm the ceremony has no branch for.
+oss_reg_expired_fakes() { # $1=state $2=release ; rc 0 clean, 1 blocking, 2 could-not-check
+  local sf="$1" rel="$2" out
+  case "${rel#r}" in ''|*[!0-9]*)
+    echo "oss: expired_fakes needs a release id of the form r<N> (got '$rel')" >&2; return 2 ;; esac
+  out="$(jq -r --arg rel "$rel" '
+      ($rel | ltrimstr("r") | tonumber) as $cut
+      | .fakes[]
+      | select(.status == "active" or .status == "renewed")
+      | . as $f
+      | (try (.expiry_release | ltrimstr("r") | tonumber) catch null) as $e
+      | select($e == null or $e <= $cut)
+      | [ $f.boundary,
+          $f.status,
+          (if $e == null then "unparseable-expiry" else $f.expiry_release end),
+          ($f.replacement_trigger // "") ] | @tsv' "$sf" 2>/dev/null)" \
+    || { echo "oss: cannot read fakes from '$sf' - the expiry gate is INCONCLUSIVE, not clean" >&2; return 2; }
+  [ -n "$out" ] || return 0
+  printf '%s\n' "$out"
+  return 1
+}
+
 oss_reg_set_fake_status() { # $1=state $2=boundary $3=status $4=reason [$5=new-expiry]
   local sf="$1" b="$2" st="$3"
   case "$st" in active|replaced|renewed) ;; *)

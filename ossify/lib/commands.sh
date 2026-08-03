@@ -59,6 +59,11 @@ oss_cmd_ledger_quarantine()    { local sf; sf="$(_oss_resolve_state)" || return 
 oss_cmd_ledger_apply_pending() { local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_apply_pending "$sf" "$1"; }
 oss_cmd_ledger_unplan()        { local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_unplan "$sf" "$1" "$2"; }
 oss_cmd_fake_status()          { local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_set_fake_status "$sf" "$1" "$2" "$3" "${4:-}"; }
+# The two release-close blocking gates (§6.2 steps 3 and 4). Both are rc 0 =
+# CLEAN / 1 = BLOCKING / 2 = could-not-check - the OPPOSITE polarity to
+# `touch_check`, which is 0 = hit. Read-only selectors: no mutation, no op.
+oss_cmd_expired_fakes()        { local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_expired_fakes "$sf" "$1"; }
+oss_cmd_expired_quarantines()  { local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_expired_quarantines "$sf" "$1"; }
 oss_cmd_patch_add() { # $1=commit $2=text
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_add_patch "$sf" "$1" "$2"
 }

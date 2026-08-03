@@ -108,6 +108,48 @@ oss_ledger_quarantine() { # $1=state $2=line-id $3=reason $4=release
 
 oss_ledger_active_auto() { jq '[.demo_ledger[] | select(.type == "auto" and .status == "active")]' "$1"; }
 
+# The quarantine gate's twin of oss_reg_expired_fakes (spec §6.1 parking ticket,
+# §6.2 step 4). §6.1 says a quarantined line "must be fixed or retired by the
+# next release close", so the blocking set is every line quarantined in a release
+# STRICTLY EARLIER than this one - `<`, not `<=`. A line quarantined during THIS
+# release is a fresh ticket that comes due at the next close, and folding it in
+# here would make a close unable to quarantine anything without blocking itself.
+#
+# THE FIELD IS `.quarantined_in_release`, NOT `.release`. `oss_ledger_quarantine`
+# builds a payload keyed `release` (line 106), but `_oss_apply_op`'s
+# `set_demo_line_status` writes it onto the line as `.quarantined_in_release`
+# (state.sh:84) - and only when it is non-empty. A selector written from the
+# payload shape reads a key that exists on no line, returns empty, and every
+# quarantine escapes at rc 0 forever. The payload is the wire format; the line is
+# the record.
+#
+# A quarantine with NO release anchor blocks, marked `no-release-anchor`: §6.1's
+# ticket expires against a release, so a ticket carrying none can never come due.
+# `oss ledger_quarantine` takes the release as `${3:-}` and the dispatcher passes
+# `${3:-}` through, so an anchorless quarantine is one omitted argument away.
+#
+# Same rc polarity as the fake gate - 0 = CLEAN, 1 = BLOCKING, 2 =
+# could-not-check - and the same shape-only validation of the release argument.
+oss_ledger_expired_quarantines() { # $1=state $2=release ; rc 0 clean, 1 blocking, 2 could-not-check
+  local sf="$1" rel="$2" out
+  case "${rel#r}" in ''|*[!0-9]*)
+    echo "oss: expired_quarantines needs a release id of the form r<N> (got '$rel')" >&2; return 2 ;; esac
+  out="$(jq -r --arg rel "$rel" '
+      ($rel | ltrimstr("r") | tonumber) as $cut
+      | .demo_ledger[]
+      | select(.status == "quarantined")
+      | . as $l
+      | (try (.quarantined_in_release | ltrimstr("r") | tonumber) catch null) as $q
+      | select($q == null or $q < $cut)
+      | [ $l.id,
+          (if $q == null then "no-release-anchor" else $l.quarantined_in_release end),
+          ($l.status_reason // "") ] | @tsv' "$sf" 2>/dev/null)" \
+    || { echo "oss: cannot read the demo ledger from '$sf' - the quarantine gate is INCONCLUSIVE, not clean" >&2; return 2; }
+  [ -n "$out" ] || return 0
+  printf '%s\n' "$out"
+  return 1
+}
+
 oss_ledger_add_patch() { # $1=state $2=commit $3=one-liner
   oss_state_mutate "$1" add_patch_record \
     "$(jq -n --arg c "$2" --arg t "$3" --arg ts "$(_oss_now)" '{commit:$c,text:$t,at:$ts}')"
