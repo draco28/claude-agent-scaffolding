@@ -13,6 +13,7 @@ fixtures + the local gate; Plan D consolidates them into THE ship gate.
 | `spine-class-declaration` | `plan-release` | bone vs flesh vs internal-enabler vs reject-as-horizontal |
 | `bone-touch-check` | `plan-release` | a plan touching a registered touch surface auto-reclassifies to bone |
 | `critic-veto-interpretation` | `plan-release` | veto→auto-bone; user override recorded; ambiguous/contradictory/stale→ESCALATE (fail-closed) |
+| `close-gate-integrity` | `close` | halt on a failed line; mid-flight reclassification; the fake-expiry blocking finding; quarantine vs retire; and declining to fire any of them on a clean close |
 
 ## Fixture format
 

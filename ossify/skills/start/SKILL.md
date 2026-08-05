@@ -1,6 +1,6 @@
 ---
 name: start
-description: Drive spec-core onboarding for a new ossify project — author the Patton journey map, the skeleton-cut (Release 0), the bones registry (forced-enumeration ADRs with touch surfaces + revisit triggers), risk gates, a smoke-test pass over unverified tech claims, the privacy posture + moat channels + PUBLIC_BOUNDARY.md, and a spec-core architect-critic moment — producing a lean MASTER-SPEC, EXEC-SUMMARY, memory bank + CLAUDE.md, bones ADRs, and a seed feature map. Use this when the user wants to start a new project, onboard a project into ossify, run /start, or kick off a skeleton-first build. Refuses without a workspace-init pairing manifest. Do NOT use for release planning (use /plan-release), spine decomposition (use /plan-spine), or amending an existing spec.
+description: Drive spec-core onboarding for a new ossify project — the Patton journey map, the skeleton-cut (Release 0), the bones registry, risk gates, a smoke-test pass over unverified tech claims, the privacy posture + moat channels, and a spec-core architect-critic moment — producing a lean MASTER-SPEC, memory bank, bones ADRs and a seed feature map. Use this when the user wants to start a new project, onboard a project into ossify, run /start, or kick off a skeleton-first build. Refuses without a workspace-init pairing manifest. Do NOT use for release planning (use /plan-release), spine decomposition (use /plan-spine), or amending an existing spec.
 ---
 
 # start

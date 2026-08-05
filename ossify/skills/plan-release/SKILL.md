@@ -1,6 +1,6 @@
 ---
 name: plan-release
-description: Plan an ossify release — groom the feature map into a set of spines, phrase exit criteria as user journeys, sequence spines by inter-spine DAG, declare each spine's class (bone/flesh) under a fail-closed architect-critic veto (veto → auto-reclassify to bone; ambiguous/contradictory/stale findings → ESCALATE, never pass; user override recorded with a reason) plus an independent bone-touch judge, emit RELEASE.md, and sketch the next release. Use this when the user wants to plan a release, run /plan-release, groom the feature map, pick spines for the next release, or plan Release 0 (the skeleton). Requires a project onboarded via /start. Do NOT use for spec-core onboarding (use /start) or spine decomposition into work items (use /plan-spine).
+description: Plan an ossify release — groom the feature map into spines, phrase exit criteria as user journeys, sequence spines by DAG, declare each spine bone or flesh under a fail-closed architect-critic veto plus an independent bone-touch judge, emit RELEASE.md, and sketch the next release. Use this when the user wants to plan a release, run /plan-release, groom the feature map, pick spines for the next release, or plan Release 0 (the skeleton). Requires a project onboarded via /start. Do NOT use for spec-core onboarding (use /start) or spine decomposition into work items (use /plan-spine).
 ---
 
 # plan-release

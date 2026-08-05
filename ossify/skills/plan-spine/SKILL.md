@@ -1,6 +1,6 @@
 ---
 name: plan-spine
-description: Plan an ossify feature spine — decompose into 1-5 work items (no 4-5 floor), identify rounds via a DAG, author specs per round, offer grill-me for bone spines only, and author the cumulative-demo criteria under the journey-line floor (every spine ≥1 demo line; a user-facing spine ≥1 `user:` journey line phrased as verb + observable outcome, inspector phrasing banned; an internal spine names a consuming user-facing spine scheduled in the current or next release; a measured-quality pass states before/after evidence), with fake-ledger discipline and a mechanical citation fold-in. Work items carry a target_repo. Use this when the user wants to plan a spine, decompose a spine into work items, run /plan-spine, author demo criteria, or start building a spine. Requires a release planned via /plan-release. Do NOT use for release selection (use /plan-release) or spec-core onboarding (use /start).
+description: Plan an ossify feature spine — decompose into 1-5 work items, identify rounds via a DAG, author specs per round, offer grill-me for bone spines only, and author the cumulative-demo criteria under the journey-line floor (inspector phrasing banned), with fake-ledger discipline and a mechanical citation fold-in. Use this when the user wants to plan a spine, decompose a spine into work items, run /plan-spine, author demo criteria, or start building a spine. Requires a release planned via /plan-release. Do NOT use for release selection (use /plan-release) or spec-core onboarding (use /start).
 ---
 
 # plan-spine
