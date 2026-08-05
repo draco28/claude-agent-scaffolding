@@ -1,5 +1,5 @@
 {
   "name": "ossify",
-  "version": "0.1.0-dev",
-  "description": "Skeleton-first lifecycle plugin: Skeleton (Release 0) -> MVP -> v1 releases; bone/flesh feature spines; cumulative product demo; bones registry. Phase-1 build in progress; NOT marketplace-registered until the eval ship gate passes."
+  "version": "0.1.0",
+  "description": "Skeleton-first lifecycle plugin: Skeleton (Release 0) -> MVP -> v1 releases; bone/flesh feature spines; cumulative product demo; bones registry. v0.1.0 ships the state engine, five of six entry skills, the execution engine and all three close ceremonies. KNOWN GAPS: the round-orchestration execution lane has no invoking entry point, and ossify is NOT marketplace-registered and ships no .codex-plugin manifest until Plan D's eval ship gate passes - so it is dogfoodable from the repo, not installable. Roadmap: docs/superpowers/plans/2026-08-06-ossify-release-roadmap.md"
 }
