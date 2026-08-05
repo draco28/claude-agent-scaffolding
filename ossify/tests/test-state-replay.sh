@@ -2,6 +2,12 @@
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/harness.sh"
 . "$HERE/../lib/state.sh"
+# G3/G4 build a REAL project (release + spine + bone) to prove restore does not
+# eat one. Those entity/registry helpers live outside state.sh, so they must be
+# sourced here or the fixture builds nothing and the guard assertions are vacuous.
+. "$HERE/../lib/id.sh"
+. "$HERE/../lib/entities.sh"
+. "$HERE/../lib/registries.sh"
 OSS="$HERE/../bin/oss"
 TMP="$(mktemp -d)"; S="$TMP/state.json"
 
@@ -156,6 +162,73 @@ export OSS_STATE_FILE="$G2BASE"
 t_capture "$OSS" doctor
 unset OSS_STATE_FILE
 t_assert_contains "$T_OUT" "ok: replay" "dispatcher: oss doctor reports replay clean on the G2 fixture too"
+
+# ---------------------------------------------------------------------------
+# G3: a CORRUPT JOURNAL must never be rebuilt into the empty base skeleton.
+#
+# `jq '.mutations | length'` exits 0 and yields the DIGIT 0 for a state whose
+# .mutations key is missing, and yields EMPTY OUTPUT for a 0-byte file. Neither
+# was validated, so the rebuild loop was skipped and `cat "$base"` — the pristine
+# init skeleton — was committed over a live project, at rc 0, with a success
+# message. `doctor` then reported all four checks green, so nothing downstream
+# could see the loss. Assert CONCRETE SURVIVING VALUES, not just rc: an rc-only
+# assertion here passes against a state that has been emptied.
+# ---------------------------------------------------------------------------
+g3_build() { # $1=dest ; a real project: posture + release + spine + bone, 4 ops
+  local d="$1"
+  # NOT silenced on stderr: a builder that fails quietly makes every assertion
+  # below vacuous, which is exactly how a guard test ends up unable to fail.
+  oss_state_init "$d" g3proj >/dev/null
+  oss_state_mutate "$d" set_posture "$(jq -n '{posture:"private"}')" >/dev/null
+  oss_entity_add_release "$d" skeleton "goal" >/dev/null
+  oss_entity_add_spine "$d" r0 s1 bone canonical >/dev/null
+  oss_reg_add_bone "$d" ADR-1 "b" "src/a" >/dev/null
+}
+
+for variant in del-key null-key zero-byte; do
+  G3="$TMP/g3-$variant.json"; g3_build "$G3"
+  # setup sanity: the guard's precondition is real — there IS something to lose
+  t_capture oss_state_read "$G3" '.releases[0].id'
+  t_assert_eq "r0" "$T_OUT" "G3/$variant setup: a real release exists before corruption"
+
+  case "$variant" in
+    del-key)   jq 'del(.mutations)' "$G3" > "$G3.t" && mv "$G3.t" "$G3" ;;
+    null-key)  jq '.mutations = null' "$G3" > "$G3.t" && mv "$G3.t" "$G3" ;;
+    zero-byte) : > "$G3" ;;
+  esac
+
+  t_capture oss_state_restore "$G3"
+  [ "$T_RC" -ne 0 ] && T_PASS=$((T_PASS+1)) \
+    || { T_FAIL=$((T_FAIL+1)); echo "FAIL: G3/$variant: state_restore returned 0 over a corrupt journal (it must refuse)"; }
+  t_assert_contains "$T_OUT" "journal" "G3/$variant: the refusal names the journal as the corrupt thing"
+
+  # THE LOAD-BEARING ASSERTIONS — concrete values must survive the refusal.
+  if [ "$variant" != "zero-byte" ]; then
+    t_capture oss_state_read "$G3" '.releases[0].id'
+    t_assert_eq "r0" "$T_OUT" "G3/$variant: the release SURVIVED - restore did not overwrite with the base skeleton"
+    t_capture oss_state_read "$G3" '.project.posture'
+    t_assert_eq "private" "$T_OUT" "G3/$variant: the posture SURVIVED"
+    t_capture oss_state_read "$G3" '.bones[0].adr'
+    t_assert_eq "ADR-1" "$T_OUT" "G3/$variant: the bone SURVIVED"
+  fi
+done
+
+# G4: replay must not tell the operator "Nothing is lost" and route them to
+# state_restore when the journal itself is what is corrupt — that message sends
+# them at the one command that would complete the loss.
+G4="$TMP/g4.json"; g3_build "$G4"
+jq 'del(.mutations)' "$G4" > "$G4.t" && mv "$G4.t" "$G4"
+t_capture oss_state_replay "$G4"
+[ "$T_RC" -ne 0 ] && T_PASS=$((T_PASS+1)) \
+  || { T_FAIL=$((T_FAIL+1)); echo "FAIL: G4: replay returned 0 on a corrupt journal"; }
+case "$T_OUT" in
+  *"Nothing is lost"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: G4: replay still claims 'Nothing is lost' when the journal is the corrupt thing" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+case "$T_OUT" in
+  *state_restore*) T_FAIL=$((T_FAIL+1)); echo "FAIL: G4: replay routes the operator to state_restore, which would complete the data loss" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
 
 rm -rf "$TMP"
 t_summary

@@ -307,13 +307,34 @@ _oss_state_mutate_body() { # $1=state-file $2=op $3=payload $4=mint-spec
 # every journaled mutation through the SAME pure transform mutate uses
 # (_oss_apply_op), re-appending each mutation record to .mutations first so a
 # faithful replay reproduces the live state including the journal itself.
+# The journal length, validated. `jq '.mutations | length'` EXITS 0 and yields
+# the digit `0` when .mutations is missing or null, and yields EMPTY OUTPUT for a
+# 0-byte file. Both were previously read as "a journal of length 0", which made
+# the rebuild loop a no-op and let `cat "$base"` - the pristine init skeleton -
+# be committed over a live project at rc 0 with a success message. The
+# `type == "array"` test is the load-bearing half: the digits-only guard alone
+# passes the missing-key case, because that case really does produce `0`.
+# Sets $_OSS_JOURNAL_LEN on success. rc 6 = the journal itself is corrupt.
+_OSS_JOURNAL_LEN=""
+_oss_journal_len() { # $1=state-file
+  local sf="$1" n
+  jq -e '.mutations | type == "array"' "$sf" >/dev/null 2>&1 || {
+    echo "oss: the journal in '$sf' is missing or is not an array - base+journal cannot rebuild this state" >&2
+    return 6
+  }
+  n="$(jq '.mutations | length' "$sf" 2>/dev/null)" || return 6
+  case "$n" in ''|*[!0-9]*) echo "oss: unreadable journal length in '$sf'" >&2; return 6 ;; esac
+  _OSS_JOURNAL_LEN="$n"
+}
+
 # Read-only against $sf (only $sf.base.json's content is read into memory) -
 # doctor (Task 5) can call this freely without a lock.
-oss_state_replay() { # $1=state-file ; rc 0 = clean, 5 = drift, 1 = no base
+oss_state_replay() { # $1=state-file ; rc 0 = clean, 5 = drift, 1 = no base, 6 = corrupt journal
   local sf="$1" base="$1.base.json" rebuilt live n i op payload seq_json
   [ -f "$base" ] || { echo "oss: no base snapshot ($base)" >&2; return 1; }
   rebuilt="$(cat "$base")" || return 1
-  n="$(jq '.mutations | length' "$sf" 2>/dev/null)" || { echo "oss: cannot read mutations from $sf" >&2; return 1; }
+  _oss_journal_len "$sf" || return $?
+  n="$_OSS_JOURNAL_LEN"
   i=0
   while [ "$i" -lt "$n" ]; do
     seq_json="$(jq -c ".mutations[$i]" "$sf" 2>/dev/null)" || { echo "oss: mutation $i unreadable" >&2; return 4; }
@@ -335,6 +356,11 @@ oss_state_replay() { # $1=state-file ; rc 0 = clean, 5 = drift, 1 = no base
     # the operator's next move becomes deleting the state file, which destroys
     # the journal living inside it. `$rebuilt` is deliberately NOT written from
     # here — this function is lock-free so doctor can call it freely.
+    # This branch is reached ONLY with an intact journal - a corrupt one returns
+    # rc 6 from _oss_journal_len above and never gets here. That matters: the
+    # "Nothing is lost" promise and the state_restore remedy are both TRUE for
+    # drift and both FALSE when the journal is what is damaged, where restore
+    # would complete the loss rather than repair it.
     echo "replay: drift detected - live state does not equal base+journal ($n mutations)." >&2
     echo "  Nothing is lost: the base snapshot ($base) and the append-only journal inside $sf are both intact, so the correct state is still derivable from them." >&2
     echo "  Recover with 'oss state_restore', which rebuilds the state from '$base' plus the journal under the state lock. Do NOT delete $sf - the journal lives inside it." >&2
@@ -357,9 +383,13 @@ oss_state_restore() { # $1=state-file ; rc 0 restored-or-already-clean, 1 no bas
     echo "oss: state locked ($lock exists) - another ceremony is mutating; retry or run 'oss doctor'" >&2
     return 3
   fi
+  _OSS_RESTORE_APPLIED=""
   _oss_state_restore_body "$sf" "$base" || rc=$?
   rmdir "$lock" 2>/dev/null || true
-  [ "$rc" -eq 0 ] && echo "restore: rebuilt from base + $(jq '.mutations | length' "$sf" 2>/dev/null || echo '?') journaled mutations"
+  # Report what the rebuild ACTUALLY replayed, not a count re-derived by
+  # re-reading the file we just wrote - that form cannot contradict the write,
+  # which is the tautology this suite has been bitten by before.
+  [ "$rc" -eq 0 ] && echo "restore: rebuilt from base + ${_OSS_RESTORE_APPLIED:-?} journaled mutations"
   return "$rc"
 }
 
@@ -369,7 +399,10 @@ oss_state_restore() { # $1=state-file ; rc 0 restored-or-already-clean, 1 no bas
 _oss_state_restore_body() { # $1=state-file $2=base
   local sf="$1" base="$2" rebuilt n i seq_json op payload tmp
   rebuilt="$(cat "$base")" || return 4
-  n="$(jq '.mutations | length' "$sf" 2>/dev/null)" || return 4
+  # Refuse a corrupt journal rather than rebuilding the empty base over a live
+  # project. Without this the loop below is skipped and `cat "$base"` wins.
+  _oss_journal_len "$sf" || return $?
+  n="$_OSS_JOURNAL_LEN"
   i=0
   while [ "$i" -lt "$n" ]; do
     seq_json="$(jq -c ".mutations[$i]" "$sf" 2>/dev/null)" || return 4
@@ -385,7 +418,11 @@ _oss_state_restore_body() { # $1=state-file $2=base
   if ! jq -e '.schema_version' "$tmp" >/dev/null 2>&1; then
     rm -f "$tmp"; echo "oss: restore produced invalid state; aborted (original untouched)" >&2; return 4
   fi
+  # Keep the pre-restore file so a wrong restore is recoverable by hand. Best
+  # effort: a failure to copy must not block a restore that is otherwise sound.
+  cp "$sf" "$sf.pre-restore" 2>/dev/null || true
   mv "$tmp" "$sf" || { rm -f "$tmp"; return 4; }
+  _OSS_RESTORE_APPLIED="$i"
 }
 
 # §9.2 schema-version guard (no silent upgrades): refuse to operate on a state

@@ -121,6 +121,17 @@ oss_verify_redgate() { # $1=workdir $2=command $3=expectation
 # missing ones - "the report is incomplete" is not actionable.
 oss_verify_report_cross_check() { # $1=report-file $2=spec-file
   [ -f "$1" ] || { echo "oss: report not found: $1" >&2; return 2; }
+  # The rows below arrive through a process substitution, whose rc is NOT
+  # visible to this function. So an unreadable spec produced zero rows, the
+  # accumulator kept its clean initial value, and the gate returned 0 = CLEAN
+  # over a spec it never read. Parse once, up front, where the rc is checkable.
+  local rows rc=0
+  rows="$(oss_verify_parse_acs "$2")" || rc=$?
+  [ "$rc" -eq 0 ] || { echo "oss: cannot read the spec '$2' - the cross-check would otherwise pass by reading nothing" >&2; return 2; }
+  # A readable spec with no `auto:` rows is only VACUOUSLY clean. Say so: the
+  # usual cause is a mis-derived path (the handoff, or last round's spec) or AC
+  # grammar drift, and silence there is indistinguishable from a real pass.
+  [ -n "$rows" ] || { echo "oss: the spec '$2' yields zero auto: ACs - nothing to cross-check; verify the spec path and the AC grammar" >&2; return 2; }
   local missing="" label
   while IFS="$(printf '\t')" read -r label _ _; do
     [ -n "$label" ] || continue
@@ -133,7 +144,9 @@ oss_verify_report_cross_check() { # $1=report-file $2=spec-file
     # in the parent - which is exactly why run-all.sh forces `bash`.)
     # The trailing `|| assignment` is an OR-list and therefore errexit-exempt.
     grep -Eq "(^|[^A-Za-z0-9-])${label}([^0-9]|$)" "$1" || missing="$missing $label"
-  done < <(oss_verify_parse_acs "$2")
+  done <<EOF
+$rows
+EOF
   [ -z "$missing" ] || { echo "oss: report does not account for:$missing" >&2; return 1; }
   return 0
 }

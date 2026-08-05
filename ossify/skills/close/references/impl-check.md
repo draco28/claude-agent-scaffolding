@@ -37,16 +37,32 @@ Then, per row, in the order it printed. The fields are tab-separated (commands
 contain spaces), and the rows are consumed by **redirection, never by a pipe**:
 
 ```bash
+rows="$(oss verify_acs "$spec")" \
+  || { echo "[AC] cannot read the spec '$spec' - the gate would otherwise pass by reading nothing"; exit 2; }
+[ -n "$rows" ] \
+  || { echo "[AC] the spec '$spec' yields zero auto: ACs - verify the spec path and the AC grammar"; exit 2; }
+
 rc=0
 while IFS="$(printf '\t')" read -r label cmd exp; do
   [ -n "$label" ] || continue
   oss verify_step "$wt" "$cmd" "$exp" || rc=$?
   [ "$rc" -eq 0 ] || { echo "[AC] $label \`$cmd\` did not satisfy '$exp' (rc $rc)"; break; }
-done < <(oss verify_acs "$spec")     # NOT `oss verify_acs "$spec" | while …`
+done <<EOF
+$rows
+EOF
 [ "$rc" -eq 0 ] || exit "$rc"        # halt: no later layer runs
 ```
 
-Two idioms here, both load-bearing and both silent when wrong.
+Three idioms here, all load-bearing and all silent when wrong.
+
+**Parse the spec ONCE, up front, where the rc is checkable.** The rows used to be
+fed straight in from a process substitution, whose rc the loop cannot see. A spec
+that could not be read — a mis-derived path landing on the handoff or last
+round's spec, or AC lines that drifted from the grammar — produced **zero rows**:
+the loop body never ran, `rc` kept the `0` it was initialised with, and the gate
+reported **green having read nothing**. A gate that passes when it is blind is
+worse than no gate. Capture the rows first, fail closed on an unreadable spec,
+and treat "zero auto ACs" as a defect to surface rather than a vacuous pass.
 
 **`|| rc=$?`, never `if ! oss verify_step …; then rc=$?`.** After a negated test
 `$?` is the *negation's* status — zero — so `rc` records a pass, the halt check
@@ -57,8 +73,11 @@ errexit-exempt.
 **`oss verify_acs … | while …` is the other trap.** The last element of a pipeline runs
 in a **subshell**: `rc` is set in a child and lost, `break` leaves only the
 subshell, and the ceremony sails past the halt into layer 2 with a failing AC
-behind it — at rc 0. The `< <(…)` form keeps the loop in the current shell, which
-is what makes the halt reach the caller.
+behind it — at rc 0. Feeding the loop from the captured `$rows` by heredoc (as
+above) keeps it in the current shell, which is what makes the halt reach the
+caller. A `< <(…)` process substitution does that too and is fine where the
+producer's rc does not matter — but here it does, which is why the parse moved
+out of the redirection entirely.
 
 Both nonzero codes halt, and they mean different things, so say which:
 

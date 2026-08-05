@@ -679,5 +679,87 @@ t_assert_contains "$T_OUT" "the mechanical two thirds pass" "...and lets a path 
 t_capture env "PATH=$SHIM:$PATH" "OSS_STATE_FILE=$BROKEN" bash -c "set -euo pipefail; . '$PATCH_BLOCK' spine.txt"
 t_assert_contains "$T_OUT" "route it as a spine" "...and resolves an INCONCLUSIVE check AGAINST the permissive lane"
 
+# ---------------------------------------------------------------------------
+# W1/W2: the two WRONG-BRANCH guards, which had zero executable coverage.
+#
+# A merge onto the wrong branch succeeds at rc 0. That shape caused three
+# separate P0s in this series, and the guards written to stop it were themselves
+# untested: deleting either left all 24 test files green. Both blocks are
+# EXTRACTED from the shipped prose (never retyped) and run under real
+# `set -euo pipefail`, so the subject is the artifact an agent will execute.
+# ---------------------------------------------------------------------------
+WIC="$SKILLS/close/references/work-item-close.md"
+ROUND="$SKILLS/work-item/references/round-orchestration.md"
+
+W_GUARD="$TMP/wi-guard.sh"; _extract_block "$WIC" 'abbrev-ref' "$W_GUARD"
+W_CUT="$TMP/spine-cut.sh";  _extract_block "$ROUND" 'checkout -q -b' "$W_CUT"
+for _pair in "$W_GUARD:rev-parse --abbrev-ref" "$W_CUT:checkout -q -b"; do
+  _bf="${_pair%%:*}"; _bn="${_pair#*:}"
+  if [ -s "$_bf" ] && grep -Fq "$_bn" "$_bf"; then
+    T_PASS=$((T_PASS+1))
+  else
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract '$_bn' - the W1/W2 assertions below are vacuous"
+  fi
+done
+
+# Both blocks OPEN by self-assigning `canonical` from `oss repo_root`, so a
+# caller-injected value is overwritten. Shim the two resolver verbs to point at
+# the scratch repo and delegate everything else to the real dispatcher.
+_wshim() { # $1=dir-to-return $2=spine-branch $3=wi-branch $4=shim-dir
+  mkdir -p "$4"
+  { printf '#!/usr/bin/env bash\ncase "$1 $2" in\n'
+    printf '  "repo_root canonical") echo %s ;;\n' "$1"
+    printf '  "branch_name "*)       echo %s ;;\n' "$2"
+    printf '  "get "*)               echo %s ;;\n' "$3"
+    printf '  *) exec bash "%s" "$@" ;;\nesac\n' "$OSS"
+  } > "$4/oss"; chmod +x "$4/oss"
+}
+
+# W1 — the work-item merge guard fires when canonical is parked elsewhere.
+W1="$TMP/w1"; mkdir -p "$W1"; git -C "$W1" init -q
+git -C "$W1" config user.email t@t; git -C "$W1" config user.name t
+echo seed > "$W1/f"; git -C "$W1" add .; git -C "$W1" commit -qm seed
+W1_BASE="$(git -C "$W1" rev-parse --abbrev-ref HEAD)"
+git -C "$W1" branch "spine/r0.s1-ledger-export"
+# A REAL work-item worktree with a REAL staged change, so the block can proceed
+# past `git commit` and actually reach the merge. Without this the block dies on
+# the placeholder commit and the rc assertion below passes for the wrong reason —
+# the merge never runs, so removing the guard changes nothing observable.
+W1_WT="$TMP/w1-wt"
+git -C "$W1" worktree add -q -b "work/r0.s1.w1-emit" "$W1_WT" "spine/r0.s1-ledger-export"
+echo emitted > "$W1_WT/export.txt"; git -C "$W1_WT" add export.txt
+t_assert_eq "$W1_BASE" "$(git -C "$W1" rev-parse --abbrev-ref HEAD)" \
+  "W1 setup: canonical is parked on the base branch, not the spine branch (the guard's precondition)"
+t_assert_contains "$(git -C "$W1_WT" diff --cached --name-only)" "export.txt" \
+  "W1 setup: the worktree has a staged change, so the block reaches the merge rather than dying at commit"
+_wshim "$W1" "spine/r0.s1-ledger-export" "work/r0.s1.w1-emit" "$TMP/shim-w1"
+
+t_capture env "PATH=$TMP/shim-w1:$PATH" bash -c \
+  "set -euo pipefail; wi='r0.s1.w1'; wt='$W1_WT'; spine_id='r0.s1'; spine_slug='ledger-export'; . '$W_GUARD'"
+t_assert_rc 1 "W1: the merge block HALTS when canonical is not on the spine branch"
+t_assert_contains "$T_OUT" "not 'spine/r0.s1-ledger-export'" "W1: ...naming the branch it expected"
+# THE LOAD-BEARING ASSERTION. A merge onto the wrong branch succeeds at rc 0, so
+# an rc-only check cannot see it. Assert the base branch tip did not move: with
+# the guard deleted the merge lands here and this is what goes red.
+t_assert_eq "seed" "$(git -C "$W1" show -s --format=%s "$W1_BASE")" \
+  "W1: the base branch tip is UNCHANGED - nothing was merged onto the wrong branch"
+t_assert_eq "" "$(git -C "$W1" log --oneline "$W1_BASE" --grep='merge r0.s1.w1' 2>/dev/null)" \
+  "W1: ...and no work-item merge commit exists on it"
+
+# W2 — the spine cut must CHECK OUT the branch, not merely create it. `git branch`
+# leaves canonical on its previous branch and every downstream step still returns
+# rc 0, which is precisely how the spine silently never receives the work.
+W2="$TMP/w2"; mkdir -p "$W2"; git -C "$W2" init -q
+git -C "$W2" config user.email t@t; git -C "$W2" config user.name t
+echo seed > "$W2/f"; git -C "$W2" add .; git -C "$W2" commit -qm seed
+W2_BASE="$(git -C "$W2" rev-parse --abbrev-ref HEAD)"
+_wshim "$W2" "spine/r0.s9-demo" "unused" "$TMP/shim-w2"
+t_capture env "PATH=$TMP/shim-w2:$PATH" bash -c "set -euo pipefail; . '$W_CUT'"
+t_assert_rc 0 "W2: the shipped spine cut runs clean on a clean canonical"
+t_assert_eq "spine/r0.s9-demo" "$(git -C "$W2" rev-parse --abbrev-ref HEAD)" \
+  "W2: ...and leaves canonical CHECKED OUT on the spine branch - 'git branch' alone would leave it on $W2_BASE"
+t_assert_eq "$(git -C "$W2" rev-parse "$W2_BASE")" "$(git -C "$W2" rev-parse spine/r0.s9-demo)" \
+  "W2: ...cut from the branch canonical was on"
+
 cd /; rm -rf "$TMP"
 t_summary

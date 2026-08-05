@@ -110,4 +110,42 @@ t_assert_rc 1 "dispatcher: already-GREEN is the hard block"
 t_capture bash "$OSSB" redgate "$TMP" "nosuchcommand_xyz" "exit 0"
 t_assert_rc 2 "dispatcher: an uninvocable command is advisory rc 2, not 127"
 
+# ---------------------------------------------------------------------------
+# X1: report_cross_check must NOT report clean when it is BLIND.
+#
+# The AC rows are fed in by `done < <(oss_verify_parse_acs "$2")`, whose rc is
+# discarded. A missing spec, or one whose AC lines drifted from the grammar,
+# yields zero rows: the loop body never runs, the `missing` accumulator keeps its
+# clean initial value, and the gate returns 0 = CLEAN over a spec it never read.
+# The orchestrator-side gate then passes a work item nobody verified.
+# ---------------------------------------------------------------------------
+XR="$TMP/x-report.md"; printf '## 3. ACs\n| AC-1 | pass |\n' > "$XR"
+
+t_capture oss_verify_report_cross_check "$XR" "$TMP/does-not-exist-at-all.md"
+[ "$T_RC" -ne 0 ] && T_PASS=$((T_PASS+1)) \
+  || { T_FAIL=$((T_FAIL+1)); echo "FAIL: X1: cross-check returned CLEAN against a spec that does not exist"; }
+t_assert_contains "$T_OUT" "spec" "X1: the refusal names the spec as the problem"
+
+# A readable file with no `auto:` AC lines at all yields zero rows. This is the
+# realistic mis-derived-path case: the resolver lands on the handoff, the README,
+# or last round's spec, and the gate reads a file that simply has nothing to say.
+# (An ASCII '->' in place of the U+2192 does NOT belong here - that line still
+# parses, into a row whose expectation field is garbage. Different defect,
+# separately tracked; using it here would not reach the zero-row branch.)
+XS="$TMP/x-spec-drifted.md"
+printf '# Handoff\nSome prose. No acceptance criteria live in this file.\n' > "$XS"
+t_capture oss_verify_parse_acs "$XS"
+t_assert_eq "" "$T_OUT" "X1 setup: the drifted AC line really is invisible to the parser"
+t_capture oss_verify_report_cross_check "$XR" "$XS"
+t_assert_contains "$T_OUT" "zero" "X1: a spec yielding zero auto ACs is surfaced, not silently clean"
+
+# The honest-clean control: a spec with real auto ACs, all accounted for, still
+# passes. Without this the guard above could be satisfied by failing everything.
+XS2="$TMP/x-spec-ok.md"
+printf '# Spec\n- [ ] AC-1 auto: `pytest tests/one` → expected: exit 0\n' > "$XS2"
+t_capture oss_verify_parse_acs "$XS2"
+t_assert_contains "$T_OUT" "AC-1" "X1 control setup: the well-formed AC line parses"
+t_capture oss_verify_report_cross_check "$XR" "$XS2"
+t_assert_rc 0 "X1 control: a spec whose every auto AC is accounted for is still CLEAN"
+
 rm -rf "$TMP"; t_summary
