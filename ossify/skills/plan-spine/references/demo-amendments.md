@@ -9,8 +9,8 @@ spine's close**.
 ## 1. The two planning verbs
 
 ```bash
-oss ledger_supersede <line-id> <by-spine> "<reason>"
-oss ledger_retire    <line-id> <by-spine> "<reason>"
+oss ledger_supersede "<line-id>" "<by-spine>" "<reason>"
+oss ledger_retire    "<line-id>" "<by-spine>" "<reason>"
 ```
 
 | Verb | Means | Use when |
@@ -94,7 +94,7 @@ and forever. Paste the id you resolved at pre-flight (§3), do not retype it.
 ## 4. Quarantine is not a planning verb
 
 ```bash
-oss ledger_quarantine <line-id> "<reason>" <release>    # NOT a planning action
+oss ledger_quarantine "<line-id>" "<reason>" "<release>"    # NOT a planning action
 ```
 
 Quarantine exists for a line failing for causes **unrelated to any open spine** —

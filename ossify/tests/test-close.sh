@@ -139,16 +139,11 @@ for f in "$SKILLS/close/references/work-item-close.md" "$SKILLS/work-item/refere
   fi
 done
 
-# Every references/*.md under close/ must be pointed at from close/SKILL.md
-# itself - a pointer from a sibling reference does not make it reachable. This
-# defect has shipped twice on this branch.
-for ref in "$SKILLS/close/references"/*.md; do
-  if grep -Fq "references/$(basename "$ref")" "$SKILLS/close/SKILL.md"; then
-    T_PASS=$((T_PASS+1))
-  else
-    T_FAIL=$((T_FAIL+1)); echo "FAIL: close/SKILL.md does not point at references/$(basename "$ref")"
-  fi
-done
+# The orphan rule - every references/*.md under a skill must be pointed at from
+# that skill's own SKILL.md - is enforced in test-skill-bash-blocks.sh (check 5),
+# across all five skills rather than close/ alone. The loop that lived here
+# covered 10 of the 43 reference files; two enforcers of one rule is one too
+# many, so this one was removed when the harness landed.
 
 # ---------------------------------------------------------------------------
 # C. The spine branch, the worktree, and the gate's two mechanical layers.

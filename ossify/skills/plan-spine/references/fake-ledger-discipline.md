@@ -54,7 +54,7 @@ trigger, and it is the one that will actually fire.
 ## 3. Changing a fake's status later
 
 ```bash
-oss fake_status <boundary> <active|replaced|renewed> "<reason>" [<new-expiry-release>]
+oss fake_status "<boundary>" "<active|replaced|renewed>" "<reason>" ["<new-expiry-release>"]
 ```
 
 An unknown boundary exits **7**; a status outside `active|replaced|renewed`
