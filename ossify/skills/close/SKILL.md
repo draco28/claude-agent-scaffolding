@@ -212,6 +212,11 @@ budget — is in **`references/cumulative-demo.md`**.
 The two retrospective section sets, full for bone and lean for flesh, are pinned
 verbatim in **`references/retrospective.md`**. It is the only copy.
 
+The harvest (step 9) — how the candidates are enumerated from each work item's
+`report.md` and `handoff.md`, the `[report]`/`[handoff]` trust tag, the two-file
+allowlist, the payload shape and the one-call rule for `oss harvest_apply` — is
+in **`references/harvest.md`**. Also the only copy.
+
 ---
 
 ## 6. Release close
@@ -330,7 +335,9 @@ exists; what that file adds is when to reach for it.
   `expired_fakes` and `expired_quarantines` (both read-only selectors — they
   compute *which* records are due, never whether the deferral was reasonable),
   `fake_status`, `feature_list`, `feature_add`, `release_set_meta`,
-  `patch_add`.
+  `patch_add`, `harvest_dir` (manifest-routed path resolution) and
+  `harvest_apply` (the append and its idempotency check — never which
+  suggestion was worth keeping).
 - **`git`** is reached only as `git -C "<absolute path>"` (§3). The commit
   boundary is yours and the implementer's never; the merge target comes from
   state, never from a slug.

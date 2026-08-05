@@ -312,7 +312,24 @@ copy; do not invent a heading per spine.
 
 ## 9. Steps 9-11 — harvest, then cleanup, then the state writes
 
-**Step 9 — memory-bank harvest, always before cleanup.**
+**Step 9 — memory-bank harvest, always before cleanup.** Enumerate this spine's
+work items, read each `report.md`'s `## 9. Suggestions for memory bank` and each
+per-work-item `handoff.md`, surface the candidates for accept/edit/reject, and
+apply the accepted set in **one** call:
+
+```text
+oss harvest_dir                        # where the bank IS - manifest-routed
+oss harvest_apply '<payload-json>'     # the accepted array, in ONE call
+```
+
+Only `09-known-issues.md` and `10-decisions-log.md` are appendable; anything else
+rejects the whole payload at rc 2 before a single write. rc 0 = something was
+written (or the payload was empty), rc 1 = non-empty and nothing written (every
+item already there), and both echo `harvest: wrote <N>, skipped <M>`.
+
+The full ceremony — how the candidates are enumerated, the `[report]`/`[handoff]`
+tagging, the payload shape, the rc contract and where the outcomes are recorded —
+is in **`references/harvest.md`**. It is the only copy.
 
 **Step 10 — worktree + branch cleanup, per work item, and only now:**
 

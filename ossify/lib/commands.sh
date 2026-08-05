@@ -188,3 +188,14 @@ oss_cmd_demo_run() { # [$1=state-file] [$2=workdir]
 }
 oss_cmd_demo_user_lines() { local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_user_lines "$sf" "${1:-}"; }
 oss_cmd_demo_record()     { local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_record_close "$sf" "$1" "$2" "$3" "$4" "${5:-}"; }
+
+# Memory-bank harvest (spec §6.1's core row), driven from spine close step 9.
+# `harvest_dir` takes no state and needs none - it resolves the memory bank from
+# the manifest alone. `harvest_apply` keeps the house state-first shape, and the
+# lib deliberately does not read it: the harvest writes to the memory bank, not
+# to state. `${1:-}` rather than `$1` so a missing payload is the lib's own rc-2
+# usage error instead of a strict-mode unbound-variable abort.
+oss_cmd_harvest_dir()   { oss_harvest_memory_bank_dir; }
+oss_cmd_harvest_apply() { # $1=payload-json
+  local sf; sf="$(_oss_resolve_state)" || return $?; oss_harvest_apply "$sf" "${1:-}"
+}
