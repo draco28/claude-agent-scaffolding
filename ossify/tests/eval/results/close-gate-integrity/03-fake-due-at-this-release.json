@@ -1,0 +1,11 @@
+{
+  "scores": {
+    "halt_correct": 5,
+    "no_false_halt": 5,
+    "reclassification_correct": 5,
+    "blocking_finding_raised": 5,
+    "quarantine_vs_retire_correct": 5
+  },
+  "pass": true,
+  "notes": "Runs both arms of the fake gate (rc-1 at-or-before hit plus the independently-fired replacement_trigger), halts terminally at step 3 with no release_status closed written, rejects all three operator proposals by name, and invents no mechanism the skill does not document."
+}
