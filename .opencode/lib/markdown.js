@@ -3,6 +3,21 @@ function frontmatterError(context, lineNumber, message) {
 }
 
 function parseScalar(key, value, context, lineNumber) {
+  if (key === "allowed-tools") {
+    try {
+      const parsed = JSON.parse(value);
+      if (
+        !Array.isArray(parsed) ||
+        !parsed.every((item) => typeof item === "string")
+      ) {
+        throw new Error();
+      }
+      return parsed;
+    } catch {
+      frontmatterError(context, lineNumber, "invalid string list");
+    }
+  }
+
   if (value.startsWith('"') || value.endsWith('"')) {
     try {
       const parsed = JSON.parse(value);
@@ -33,20 +48,6 @@ function parseScalar(key, value, context, lineNumber) {
     return parsed;
   }
 
-  if (key === "allowed-tools") {
-    try {
-      const parsed = JSON.parse(value);
-      if (
-        !Array.isArray(parsed) ||
-        !parsed.every((item) => typeof item === "string")
-      ) {
-        throw new Error();
-      }
-      return parsed;
-    } catch {
-      frontmatterError(context, lineNumber, "invalid string list");
-    }
-  }
   if (value.startsWith("[") && key !== "argument-hint") {
     frontmatterError(context, lineNumber, "flow sequence");
   }

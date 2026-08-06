@@ -234,6 +234,8 @@ test("markdown parser rejects ambiguous or unsupported frontmatter", async () =>
     ["ambiguous comment", "description: value # comment"],
     ["invalid double-quoted value", 'description: "unterminated'],
     ["invalid single-quoted value", "description: 'can't'"],
+    ["invalid string list", 'allowed-tools: "Read"'],
+    ["invalid string list", "allowed-tools: 'Read'"],
     ["flow mapping", "metadata: {owner: team}"],
     ["flow sequence", "metadata: [owner, team]"],
     ["anchor", "description: &shared value"],
