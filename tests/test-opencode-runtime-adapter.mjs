@@ -942,6 +942,11 @@ test("Ossify implementer sessions reject forbidden Git verbs anywhere in bash lo
     ["absolute executable", "/usr/bin/git commit -m work"],
     ["path executable", "./tools/git fetch origin"],
     ["quoted executable", "\"/usr/local/bin/git\" pull"],
+    ["single-quoted full command", "printf '%s\\n' 'git commit -m work'"],
+    ["double-quoted full command", 'printf "%s\\n" "git fetch --all"'],
+    ["ANSI-C nested commit", "bash -c $'git commit -m nested'"],
+    ["ANSI-C eval push", "eval $'git push origin topic'"],
+    ["quoted executable piece", "/usr/bin/'git' fetch origin"],
     [
       "review repro quoted worktree",
       'git -C "/tmp/ossify worktree" commit -m work',
@@ -965,12 +970,14 @@ test("Ossify implementer sessions reject forbidden Git verbs anywhere in bash lo
       "git --config-env safe.directory=SAFE_DIRECTORY fetch",
     ],
     ["attribute source", 'git --attr-source "topic branch" commit'],
-    ["comment", "git status --short # never run git commit here"],
+    ["comment", 'git status --short # never run "git fetch" here'],
     [
       "heredoc",
-      "cat <<'EOF' > instructions.txt\ngit push origin topic\nEOF",
+      'cat <<\'EOF\' > instructions.txt\nNever run "git pull" here.\nEOF',
     ],
     ["pipeline", "printf ready | git fetch origin"],
+    ["tab whitespace", "git\tcommit -m work"],
+    ["multiline whitespace", "git\nfetch --all"],
   ];
 
   const rejected = [];
@@ -996,34 +1003,28 @@ test("Ossify implementer sessions reject forbidden Git verbs anywhere in bash lo
   );
 });
 
-test("Ossify implementer Git guard leaves allowed bash commands unchanged", async () => {
+test("Ossify Git guard allows only canonical operations in representative literal forms", async () => {
   const hooks = await createRegisteredOssifyHooks();
   const sessionID = "ossify-allowed-git";
   await hooks["chat.message"](
     { sessionID, agent: "ossify-implementer-agent" },
     { message: { role: "user" }, parts: [] },
   );
-  const allowed = [
-    "git status --porcelain",
-    "git -C /tmp/worktree diff --cached",
-    "git --git-dir=/tmp/repo/.git --work-tree=/tmp/repo add -A",
-    "git -c safe.directory=/tmp/repo rev-parse --abbrev-ref HEAD",
-    "/usr/bin/git status --short && ./tools/git diff",
-    'git -C "/tmp/ossify worktree" status --porcelain',
-    'git --git-dir "/tmp/repo data/.git" diff --cached',
-    'git --work-tree="/tmp/work tree" add -A',
-    '"/opt/git tools/bin/git" --exec-path="/opt/git tools/libexec" rev-parse HEAD',
-    'git --namespace "worker namespace" status',
-    'git --super-prefix="worker prefix/" diff',
-    "git --config-env safe.directory=SAFE_DIRECTORY add -A",
-    'git --attr-source="topic branch" rev-parse HEAD',
-    "git -c user.name=worker status --short",
-    "git branch --show-current",
-    "git log -1 --oneline",
-    "git show --stat HEAD",
-    "git worktree list",
+  const operations = [
+    "status --porcelain",
+    "rev-parse --abbrev-ref HEAD",
+    "diff --cached",
+    "add -A",
+  ];
+  const allowed = operations.flatMap((operation) => [
+    `git ${operation}`,
+    `/usr/bin/git ${operation}`,
+    `git -C /tmp/worktree --git-dir=.git -c color.ui=false ${operation}`,
+    `'git ${operation}'`,
+    `bash -c "git ${operation}"`,
+  ]);
+  allowed.push(
     "git --exec-path commit",
-    'git --exec-path "/tmp/git tools" pull',
     "git --html-path commit",
     "git --man-path push",
     "git --info-path pull",
@@ -1031,10 +1032,14 @@ test("Ossify implementer Git guard leaves allowed bash commands unchanged", asyn
     "git -v commit",
     "git --help push",
     "git -h pull",
+    "git --list-cmds commit",
+    "git --list-cmds=builtins commit",
+    "git --config-env safe.directory=SAFE_DIRECTORY status --short",
     "git --version; commit is-a-different-command",
-    "git --git-dir; commit is-a-different-command",
     "npm test",
-  ];
+    "printf '%s\\n' ready",
+    "cat <<'EOF'\nit's ready\nEOF",
+  );
 
   for (const [index, command] of allowed.entries()) {
     const output = { args: { command, description: "unchanged" } };
@@ -1047,7 +1052,7 @@ test("Ossify implementer Git guard leaves allowed bash commands unchanged", asyn
   }
 });
 
-test("Ossify Git guard rejects inline aliases and alias-capable subcommands", async () => {
+test("Ossify Git guard rejects aliases and every non-canonical Git subcommand", async () => {
   const hooks = await createRegisteredOssifyHooks();
   const sessionID = "ossify-git-aliases";
   await hooks["chat.message"](
@@ -1115,6 +1120,46 @@ test("Ossify Git guard rejects inline aliases and alias-capable subcommands", as
       "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.ci GIT_CONFIG_VALUE_0=commit git ci -m work",
       /unknown git subcommand.*ci/i,
     ],
+    [
+      "quoted unknown path-qualified operation",
+      "printf '%s\\n' '/usr/bin/git banana'",
+      /unknown git subcommand.*banana/i,
+    ],
+    ["branch builtin", "git branch --show-current", /git subcommand.*branch/i],
+    ["log builtin", "git log -1 --oneline", /git subcommand.*log/i],
+    ["show builtin", "git show --stat HEAD", /git subcommand.*show/i],
+    ["worktree builtin", "git worktree list", /git subcommand.*worktree/i],
+    [
+      "repository alias using version-dependent repo name",
+      "git -C /tmp/repo repo",
+      /git subcommand.*repo/i,
+    ],
+    [
+      "environment alias using version-dependent backfill name",
+      "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.backfill GIT_CONFIG_VALUE_0=status git backfill",
+      /git subcommand.*backfill/i,
+    ],
+    ["deprecated stage name", "git stage -A", /git subcommand.*stage/i],
+    [
+      "deprecated whatchanged name",
+      "git whatchanged --oneline",
+      /git subcommand.*whatchanged/i,
+    ],
+    [
+      "safe inline config before non-canonical operation",
+      "git -c color.ui=false branch --show-current",
+      /git subcommand.*branch/i,
+    ],
+    [
+      "inline config without a canonical operation",
+      "git -c color.ui=false",
+      /canonical git subcommand/i,
+    ],
+    [
+      "dispatcher builtin",
+      "git for-each-repo --config=maintenance.repo commit",
+      /git subcommand.*for-each-repo/i,
+    ],
   ];
 
   for (const [label, command, error] of forbidden) {
@@ -1129,7 +1174,7 @@ test("Ossify Git guard rejects inline aliases and alias-capable subcommands", as
   }
 });
 
-test("Ossify Git guard recursively scans literal shell command strings", async () => {
+test("Ossify Git guard normalizes shell quote syntax across the full command text", async () => {
   const hooks = await createRegisteredOssifyHooks();
   const sessionID = "ossify-nested-shell";
   await hooks["chat.message"](
@@ -1147,6 +1192,10 @@ test("Ossify Git guard recursively scans literal shell command strings", async (
     ["zsh separator fetch", "zsh -c -- 'git fetch --all'"],
     ["combined bash options", "bash -lc -- 'git pull --ff-only'"],
     ["combined sh options", "sh -xec -- 'git commit -m nested'"],
+    ["single-quoted prose", "printf '%s\\n' 'git commit -m nested'"],
+    ["double-quoted prose", 'printf "%s\\n" "git fetch --all"'],
+    ["ANSI-C shell string", "bash -c $'git push origin topic'"],
+    ["ANSI-C eval string", "eval $'git pull --ff-only'"],
   ];
 
   for (const [label, command] of forbidden) {
@@ -1178,33 +1227,26 @@ test("Ossify Git guard recursively scans literal shell command strings", async (
   }
 });
 
-test("Ossify Git guard bounds recursion and rejects malformed nested strings", async () => {
+test("Ossify Git guard is not a shell validator", async () => {
   const hooks = await createRegisteredOssifyHooks();
-  const sessionID = "ossify-malformed-nested-shell";
+  const sessionID = "ossify-literal-audit-not-shell-validator";
   await hooks["chat.message"](
     { sessionID, agent: "ossify-implementer-agent" },
     { message: { role: "user" }, parts: [] },
   );
-  let tooDeep = "git status --short";
-  for (let depth = 0; depth < 8; depth += 1) {
-    tooDeep = `bash -c ${JSON.stringify(tooDeep)}`;
-  }
-
-  for (const [label, command] of [
-    ["missing command string", "bash -c"],
-    ["missing command after separator", "bash -c --"],
-    ["missing combined command after separator", "sh -xec --"],
-    ["unterminated command string", "bash -c 'git status"],
-    ["recursion limit", tooDeep],
-  ]) {
-    await assert.rejects(
-      hooks["tool.execute.before"](
-        { tool: "bash", sessionID, callID: `malformed-nested-${label}` },
-        { args: { command } },
-      ),
-      /valid nested shell command|nesting depth/i,
-      label,
+  const allowed = [
+    "cat <<'EOF'\nit's ready\nEOF",
+    "printf %s it's",
+    "bash -c",
+    "sh -xec --",
+  ];
+  for (const [index, command] of allowed.entries()) {
+    const output = { args: { command } };
+    await hooks["tool.execute.before"](
+      { tool: "bash", sessionID, callID: `literal-audit-${index}` },
+      output,
     );
+    assert.equal(output.args.command, command);
   }
 });
 

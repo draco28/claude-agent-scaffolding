@@ -9,31 +9,7 @@ const ARGUMENT_EXPORT =
 const SKILL_BASE_DIRECTORY =
   /(?:^|\r?\n)Base directory for this skill: ([^\r\n]+)(?=\r?\n|$)/g;
 const FORBIDDEN_GIT_VERBS = new Set(["commit", "push", "pull", "fetch"]);
-// Git 2.52's compiled builtins, excluding the operations denied above. Git
-// resolves these before aliases, so only these literal subcommands may pass.
-const ALLOWED_GIT_BUILTINS = new Set(
-  `add am annotate apply archive backfill bisect blame branch bugreport bundle
-  cat-file check-attr check-ignore check-mailmap check-ref-format checkout
-  checkout--worker checkout-index cherry cherry-pick clean clone column
-  commit-graph commit-tree config count-objects credential credential-cache
-  credential-cache--daemon credential-store describe diagnose diff diff-files
-  diff-index diff-pairs diff-tree difftool fast-export fast-import fetch-pack
-  fmt-merge-msg for-each-ref for-each-repo format-patch fsck fsck-objects
-  fsmonitor--daemon gc get-tar-commit-id grep hash-object help hook index-pack
-  init init-db interpret-trailers last-modified log ls-files ls-remote ls-tree
-  mailinfo mailsplit maintenance merge merge-base merge-file merge-index
-  merge-ours merge-recursive merge-recursive-ours merge-recursive-theirs
-  merge-subtree merge-tree mktag mktree multi-pack-index mv name-rev notes
-  pack-objects pack-redundant pack-refs patch-id pickaxe prune prune-packed
-  range-diff read-tree rebase receive-pack reflog refs remote remote-ext
-  remote-fd repack replace replay repo rerere reset restore rev-list rev-parse
-  revert rm send-pack shortlog show show-branch show-index show-ref
-  sparse-checkout stage stash status stripspace submodule--helper switch
-  symbolic-ref tag unpack-file unpack-objects update-index update-ref
-  update-server-info upload-archive upload-archive--writer upload-pack var
-  verify-commit verify-pack verify-tag version whatchanged worktree write-tree`
-    .split(/\s+/),
-);
+const ALLOWED_GIT_OPERATIONS = new Set(["status", "rev-parse", "diff", "add"]);
 const GIT_INFORMATION_OPTIONS = new Set([
   "-v",
   "--version",
@@ -43,9 +19,8 @@ const GIT_INFORMATION_OPTIONS = new Set([
   "--html-path",
   "--man-path",
   "--info-path",
+  "--list-cmds",
 ]);
-const NESTED_SHELLS = new Set(["sh", "bash", "zsh"]);
-const MAX_SHELL_SCAN_DEPTH = 4;
 const GIT_OPTIONS_WITH_VALUE = new Set([
   "-C",
   "--git-dir",
@@ -54,6 +29,7 @@ const GIT_OPTIONS_WITH_VALUE = new Set([
   "--super-prefix",
   "--config-env",
   "--attr-source",
+  "--exec-path",
 ]);
 const SHELL_SEPARATORS = new Set([
   ";",
@@ -120,89 +96,57 @@ function exportedArguments(command) {
 }
 
 function isGitExecutable(token) {
-  if (token.mixedQuotes) return false;
   return token.value === "git" || token.value.endsWith("/git");
 }
 
-function executableName(token) {
-  if (token.mixedQuotes) return;
-  return token.value.slice(token.value.lastIndexOf("/") + 1);
-}
-
-function shellTokens(command) {
+function auditTokens(command) {
   const tokens = [];
   let value = "";
   let quote;
-  let sawQuoted = false;
-  let sawUnquoted = false;
-  let malformed = false;
+  let quoteGroup;
+  let nextQuoteGroup = 0;
 
   function flushWord() {
-    if (!value && !sawQuoted) return;
-    tokens.push({
-      type: "word",
-      value,
-      mixedQuotes: sawQuoted && sawUnquoted,
-    });
+    if (!value) return;
+    tokens.push({ type: "word", value, quoteGroup });
     value = "";
-    sawQuoted = false;
-    sawUnquoted = false;
   }
 
-  for (let index = 0; index < command.length; index += 1) {
-    const character = command[index];
-    if (quote) {
-      if (character === quote) {
+  const normalized = command.replace(/\$'/g, "'");
+  for (let index = 0; index < normalized.length; index += 1) {
+    const character = normalized[index];
+    if (character === '"' || character === "'" || character === "`") {
+      flushWord();
+      if (quote === character) {
         quote = undefined;
-      } else if (character === "\\" && quote === '"') {
-        const escaped = command[index + 1];
-        if (escaped !== undefined) {
-          if (escaped !== "\n") value += escaped;
-          index += 1;
-        } else {
-          value += character;
-          malformed = true;
-        }
-      } else {
-        value += character;
+        quoteGroup = undefined;
+      } else if (quote === undefined) {
+        quote = character;
+        quoteGroup = nextQuoteGroup;
+        nextQuoteGroup += 1;
       }
       continue;
     }
-
-    if (character === '"' || character === "'") {
-      quote = character;
-      sawQuoted = true;
-      continue;
-    }
-    if (character === "\\") {
-      sawUnquoted = true;
-      const escaped = command[index + 1];
-      if (escaped !== undefined) {
-        if (escaped !== "\n") value += escaped;
-        index += 1;
-      } else {
-        value += character;
-        malformed = true;
-      }
+    if (character === "\\" && normalized[index + 1] !== undefined) {
+      value += normalized[index + 1];
+      index += 1;
       continue;
     }
     if (/\s/.test(character)) {
       flushWord();
-      if (character === "\n") tokens.push({ type: "separator" });
       continue;
     }
     if (SHELL_SEPARATORS.has(character)) {
       flushWord();
       tokens.push({ type: "separator" });
-      if (command[index + 1] === character) index += 1;
+      if (normalized[index + 1] === character) index += 1;
       continue;
     }
 
-    sawUnquoted = true;
     value += character;
   }
   flushWord();
-  return { tokens, malformed: malformed || quote !== undefined };
+  return tokens;
 }
 
 function isGitAliasConfig(value) {
@@ -211,36 +155,22 @@ function isGitAliasConfig(value) {
   return key.toLowerCase().startsWith("alias.");
 }
 
-function nestedCommandVerb(tokens, index, depth) {
-  const executable = executableName(tokens[index]);
-  if (NESTED_SHELLS.has(executable)) {
-    for (let next = index + 1; next < tokens.length; next += 1) {
-      const token = tokens[next];
-      if (token.type === "separator") break;
-      if (/^-[^-]*c[^-]*$/.test(token.value)) {
-        let commandIndex = next + 1;
-        if (tokens[commandIndex]?.value === "--") commandIndex += 1;
-        const command = tokens[commandIndex];
-        if (command?.type !== "word") {
-          throw new Error(
-            "ossify-implementer-agent requires a valid nested shell command",
-          );
-        }
-        return forbiddenGitVerb(command.value, depth + 1);
-      }
-    }
-    return;
-  }
+function optionValue(tokens, index, inlineValue) {
+  if (inlineValue) return { value: inlineValue, index };
+  const first = tokens[index + 1];
+  if (first?.type !== "word") return;
 
-  if (executable !== "eval") return;
-  const words = [];
-  for (let next = index + 1; next < tokens.length; next += 1) {
-    const token = tokens[next];
-    if (token.type === "separator") break;
-    if (token.value === "--" && words.length === 0) continue;
-    words.push(token.value);
+  let last = index + 1;
+  if (first.quoteGroup !== undefined) {
+    while (tokens[last + 1]?.quoteGroup === first.quoteGroup) last += 1;
   }
-  if (words.length > 0) return forbiddenGitVerb(words.join(" "), depth + 1);
+  return {
+    value: tokens
+      .slice(index + 1, last + 1)
+      .map((token) => token.value)
+      .join(" "),
+    index: last,
+  };
 }
 
 function gitInvocationVerb(tokens, index) {
@@ -249,71 +179,80 @@ function gitInvocationVerb(tokens, index) {
     if (token.type === "separator") break;
     const word = token.value;
 
-    if (GIT_INFORMATION_OPTIONS.has(word)) break;
+    if (
+      GIT_INFORMATION_OPTIONS.has(word) ||
+      word.startsWith("--list-cmds=")
+    ) {
+      return;
+    }
     if (word === "-c") {
-      const value = tokens[next + 1];
-      if (value?.type !== "word") break;
+      const value = optionValue(tokens, next);
+      if (!value) break;
       if (isGitAliasConfig(value.value)) {
         throw new Error(
           "ossify-implementer-agent cannot run inline Git alias configuration",
         );
       }
-      next += 1;
+      next = value.index;
       continue;
     }
     if (word === "--config-env" || word.startsWith("--config-env=")) {
-      const value = word.includes("=")
+      const inlineValue = word.includes("=")
         ? word.slice(word.indexOf("=") + 1)
-        : tokens[next + 1]?.value;
-      if (typeof value !== "string") break;
-      if (isGitAliasConfig(value)) {
+        : undefined;
+      const value = optionValue(tokens, next, inlineValue);
+      if (!value) break;
+      if (isGitAliasConfig(value.value)) {
         throw new Error(
           "ossify-implementer-agent cannot run inline Git alias configuration",
         );
       }
-      if (!word.includes("=")) next += 1;
+      next = value.index;
       continue;
     }
 
     const option = word.split("=", 1)[0];
     if (GIT_OPTIONS_WITH_VALUE.has(option)) {
-      if (!word.includes("=")) {
-        if (tokens[next + 1]?.type !== "word") break;
-        next += 1;
-      }
+      if (option === "--exec-path" && word === option) return;
+      const inlineValue = word.includes("=")
+        ? word.slice(word.indexOf("=") + 1)
+        : undefined;
+      const value = optionValue(tokens, next, inlineValue);
+      if (!value) break;
+      next = value.index;
       continue;
     }
     if (word.startsWith("-")) continue;
     if (FORBIDDEN_GIT_VERBS.has(word)) return word;
-    if (!ALLOWED_GIT_BUILTINS.has(word)) {
+    if (!ALLOWED_GIT_OPERATIONS.has(word)) {
       throw new Error(
         `ossify-implementer-agent cannot run unknown Git subcommand ${word}`,
       );
     }
     return;
   }
+  throw new Error(
+    "ossify-implementer-agent requires a canonical Git subcommand",
+  );
 }
 
-function forbiddenGitVerb(command, depth = 0) {
-  if (depth > MAX_SHELL_SCAN_DEPTH) {
-    throw new Error("ossify-implementer-agent shell nesting depth exceeded");
-  }
-  const { tokens, malformed } = shellTokens(command);
-  if (malformed) {
-    throw new Error(
-      "ossify-implementer-agent requires a valid nested shell command",
-    );
-  }
-
+function forbiddenGitVerb(command) {
+  const tokens = auditTokens(command);
   for (let index = 0; index < tokens.length; index += 1) {
     const token = tokens[index];
     if (token.type !== "word") continue;
     if (isGitExecutable(token)) {
+      const nextToken = tokens[index + 1];
+      if (
+        token.quoteGroup !== undefined &&
+        nextToken?.quoteGroup === token.quoteGroup &&
+        isGitExecutable(nextToken)
+      ) {
+        continue;
+      }
       const verb = gitInvocationVerb(tokens, index);
       if (verb) return verb;
     }
-    const nestedVerb = nestedCommandVerb(tokens, index, depth);
-    if (nestedVerb) return nestedVerb;
   }
 }
 
