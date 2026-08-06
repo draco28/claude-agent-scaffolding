@@ -1328,6 +1328,10 @@ test("Ossify Git guard decodes bounded ANSI-C whitespace escapes", async () => {
   );
   const forbidden = [
     ["hex tab", String.raw`bash -c $'git\x09commit -m nested'`],
+    [
+      "nested outer quote hex tab",
+      String.raw`printf "%s" "bash -c $'git\x09commit -m work'"`,
+    ],
     ["three-digit octal tab", String.raw`bash -c $'git\011push origin topic'`],
     ["two-digit octal tab", String.raw`bash -c $'git\11pull --ff-only'`],
     ["short Unicode tab", String.raw`bash -c $'git\u0009fetch --all'`],
@@ -1640,6 +1644,7 @@ test("Git guard boundary excludes deliberately shell-obfuscated executable names
     "g''it commit -m work",
     "$GIT push origin topic",
     String.raw`bash -c $'\x67it commit -m work'`,
+    String.raw`printf "%s" "bash -c $'\x67it commit -m work'"`,
   ];
 
   for (const command of boundaryExamples) {

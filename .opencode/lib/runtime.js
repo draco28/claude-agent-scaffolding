@@ -187,7 +187,7 @@ function auditTokens(command) {
     if (
       character === "$" &&
       command[index + 1] === "'" &&
-      quoteStack.length === 0 &&
+      quoteStack.length < MAX_AUDIT_QUOTE_DEPTH &&
       hasUnescapedCloser(command, index + 1, "'")
     ) {
       flushWord();
