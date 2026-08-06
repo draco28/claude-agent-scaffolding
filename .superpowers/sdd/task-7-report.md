@@ -101,15 +101,17 @@ present.
   directory. A failing `plutil` shim blocks real macOS managed preferences, and
   exact config/skill/agent assertions plus poison fixtures prove managed
   provider/model/permission/plugin/agent/skill contamination is rejected.
-- Every command runs through Node `spawnSync` with a 60-second timeout and direct
-  file-backed stdout/stderr. A `debug wait` control proves timeout exit 124;
-  failures print both streams with the case and command label.
+- Every command runs through Node `spawnSync` with a 60-second timeout, a hard
+  `SIGKILL` bound, and direct file-backed stdout/stderr. `debug wait` and a
+  SIGTERM-ignoring child both prove timeout exit 124; failures print both streams
+  with the case and command label.
 - Real `debug config`, `debug skill`, and `debug agent` outputs are parsed with
   Node. Assertions cover exact paths/names/alias targets, duplicate rejection,
   excluded plugin absence, Ossify opt-in skills and agent, agent tool/task
   permissions, and default Ossify-agent absence.
-- Resolved config proves only the deliberate wrapper is loaded, so the
-  worktree's `.opencode/plugins/marketplace.js` is never auto-loaded in parallel.
+- Resolved config and plugin origins identify the root package's plain default
+  spec and all-four options tuple directly. The worktree project plugin is never
+  auto-loaded in parallel, and no local wrapper or package-name symlink exists.
 
 ## CI
 
@@ -197,4 +199,24 @@ The final review-fix commit message is
 - Workflow Psych syntax and expected/stale text checks passed.
 - `bash -n tests/test-opencode-live.sh` passed.
 - `npm pack --dry-run --json` passed with 359 package entries.
+- `git diff --check` passed with no output.
+
+## Final Review RED And GREEN
+
+The hard-timeout RED added a temporary child that ignores SIGTERM and self-exits
+after three seconds. The runner still mapped the timeout to 124, but elapsed time
+was 3,531 ms against the required 1,500 ms bound because `spawnSync` used its
+default SIGTERM. After setting `killSignal: "SIGKILL"`, the same control returned
+124 within the bound and the complete live-loader script passed.
+
+A report contract probe failed on the stale phrase `deliberate wrapper`. The
+corrected report now describes the plain native package spec, native all-four
+tuple, direct package origin, and absence of wrapper/symlink indirection.
+
+Final verification after these fixes:
+
+- Native OpenCode 1.18.13 live loader passed, including both timeout controls.
+- Adapter suite: 62 passed, 0 failed, 0 skipped.
+- Bash syntax, workflow YAML, workflow text contract, and report text contract
+  passed.
 - `git diff --check` passed with no output.

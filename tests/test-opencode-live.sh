@@ -156,6 +156,7 @@ try {
     cwd,
     env: process.env,
     timeout: Number(timeout),
+    killSignal: "SIGKILL",
     stdio: ["ignore", stdout, stderr],
   });
 } finally {
@@ -206,6 +207,10 @@ ALL_CASE="$TEST_ROOT/all"
 prepare_case "$DEFAULT_CASE" default
 prepare_case "$ALL_CASE" all
 
+printf '%s\n' '#!/bin/sh' "trap '' TERM" 'exec sleep 3' \
+  > "$TEST_ROOT/ignore-term.sh"
+chmod +x "$TEST_ROOT/ignore-term.sh"
+
 capture_success "default: opencode --version" \
   "$TEST_ROOT/version.txt" "$DEFAULT_CASE" --version
 ACTUAL_VERSION="$(tr -d '[:space:]' < "$TEST_ROOT/version.txt")"
@@ -233,6 +238,32 @@ if [ "$TIMEOUT_RC" -ne 124 ]; then
     "$TIMEOUT_RC" \
     "$TEST_ROOT/timeout.stdout" \
     "$TEST_ROOT/timeout.stderr"
+  exit 1
+fi
+
+HARD_TIMEOUT_START="$("$NODE_BIN" -e 'process.stdout.write(String(Date.now()))')"
+HARD_TIMEOUT_RC=0
+if (
+  OPENCODE_BIN="$TEST_ROOT/ignore-term.sh"
+  run_opencode_with_timeout \
+    "$DEFAULT_CASE" \
+    "$TEST_ROOT/hard-timeout.stdout" \
+    "$TEST_ROOT/hard-timeout.stderr" \
+    500
+); then
+  printf 'FAIL: SIGTERM-ignoring timeout control unexpectedly succeeded\n' >&2
+  exit 1
+else
+  HARD_TIMEOUT_RC=$?
+fi
+HARD_TIMEOUT_END="$("$NODE_BIN" -e 'process.stdout.write(String(Date.now()))')"
+HARD_TIMEOUT_ELAPSED=$((HARD_TIMEOUT_END - HARD_TIMEOUT_START))
+if [ "$HARD_TIMEOUT_RC" -ne 124 ] || [ "$HARD_TIMEOUT_ELAPSED" -ge 1500 ]; then
+  print_command_failure \
+    "SIGTERM-ignoring timeout control (${HARD_TIMEOUT_ELAPSED}ms, expected <1500ms)" \
+    "$HARD_TIMEOUT_RC" \
+    "$TEST_ROOT/hard-timeout.stdout" \
+    "$TEST_ROOT/hard-timeout.stderr"
   exit 1
 fi
 
