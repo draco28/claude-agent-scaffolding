@@ -119,19 +119,36 @@ function ansiWhitespaceEscape(command, index) {
   }
 
   const codePoint = Number.parseInt(match[1], radix);
-  if (
-    codePoint > 0x10ffff ||
-    !/\s/u.test(String.fromCodePoint(codePoint))
-  ) {
-    return;
-  }
+  if (codePoint !== 0x09 && codePoint !== 0x20) return;
   return match[0].length;
 }
 
+function hasUnescapedCloser(command, index, closer) {
+  for (let next = index + 1; next < command.length; next += 1) {
+    if (command[next] === "\\" && command[next + 1] !== undefined) {
+      next += 1;
+      continue;
+    }
+    if (command[next] === closer) return true;
+  }
+  return false;
+}
+
 function opensSingleQuote(command, index, value) {
-  if (!value) return true;
+  if (!hasUnescapedCloser(command, index, "'")) return false;
+  if (
+    !value ||
+    !/[A-Za-z0-9_]$/.test(value) ||
+    !/[A-Za-z0-9_]/.test(command[index + 1] ?? "")
+  ) {
+    return true;
+  }
   for (let next = index + 1; next < command.length; next += 1) {
     const character = command[next];
+    if (character === "\\" && command[next + 1] !== undefined) {
+      next += 1;
+      continue;
+    }
     if (character === "'") return true;
     if (/\s/.test(character) || SHELL_SEPARATORS.has(character)) return false;
   }
@@ -163,7 +180,12 @@ function auditTokens(command) {
 
   for (let index = 0; index < command.length; index += 1) {
     const character = command[index];
-    if (character === "$" && command[index + 1] === "'" && !quote) {
+    if (
+      character === "$" &&
+      command[index + 1] === "'" &&
+      !quote &&
+      hasUnescapedCloser(command, index + 1, "'")
+    ) {
       flushWord();
       quote = "ansi";
       quoteGroup = nextQuoteGroup;
@@ -180,8 +202,9 @@ function auditTokens(command) {
       continue;
     }
     if (
-      character === '"' ||
-      character === "`" ||
+      ((character === '"' || character === "`") &&
+        (quote !== undefined ||
+          hasUnescapedCloser(command, index, character))) ||
       (character === "'" &&
         (quote !== undefined || opensSingleQuote(command, index, value)))
     ) {

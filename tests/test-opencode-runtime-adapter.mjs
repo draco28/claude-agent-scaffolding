@@ -1296,17 +1296,27 @@ test("Ossify Git guard is not a shell validator", async () => {
     "cat <<'EOF'\nit's ready\nEOF",
     "printf %s it's",
     "printf %s it's; git -C /tmp status",
+    `printf 'oops; git -C "/tmp/repo data" status`,
+    `printf "oops; git -c color.ui='auto always' status`,
+    "printf `oops; git -C \"/tmp/repo data\" status",
+    `printf $'oops; git -c color.ui="auto always" status`,
     "bash -c",
     "sh -xec --",
   ];
+  const rejected = [];
   for (const [index, command] of allowed.entries()) {
     const output = { args: { command } };
-    await hooks["tool.execute.before"](
-      { tool: "bash", sessionID, callID: `literal-audit-${index}` },
-      output,
-    );
-    assert.equal(output.args.command, command);
+    try {
+      await hooks["tool.execute.before"](
+        { tool: "bash", sessionID, callID: `literal-audit-${index}` },
+        output,
+      );
+      assert.equal(output.args.command, command);
+    } catch (error) {
+      rejected.push([command, error.message]);
+    }
   }
+  assert.deepEqual(rejected, []);
 });
 
 test("Ossify Git guard decodes bounded ANSI-C whitespace escapes", async () => {
@@ -1340,6 +1350,25 @@ test("Ossify Git guard decodes bounded ANSI-C whitespace escapes", async () => {
     }
   }
   assert.deepEqual(accepted, []);
+
+  const rejectedNonBoundaries = [];
+  for (const [label, command] of [
+    ["vertical tab", String.raw`$'git\x0bcommit -m work'`],
+    ["form feed", String.raw`$'git\014push origin topic'`],
+    ["non-breaking space", String.raw`$'git\u00a0pull --ff-only'`],
+  ]) {
+    const output = { args: { command } };
+    try {
+      await hooks["tool.execute.before"](
+        { tool: "bash", sessionID, callID: `ansi-non-boundary-${label}` },
+        output,
+      );
+      assert.equal(output.args.command, command, label);
+    } catch (error) {
+      rejectedNonBoundaries.push([label, error.message]);
+    }
+  }
+  assert.deepEqual(rejectedNonBoundaries, []);
 });
 
 test("Ossify Git guard preserves shell-concatenated option pieces", async () => {
@@ -1354,6 +1383,9 @@ test("Ossify Git guard preserves shell-concatenated option pieces", async () => 
     'git -calias"."ci=commit status',
     'git -c a"lias".ci=commit status',
     'git --config-env=a"lias".ci=ENV status',
+    "git -ca'lias'.ci=commit status",
+    "git -c a'lias'.ci=commit status",
+    "git --config-env=a'lias'.ci=ENV status",
   ];
   const accepted = [];
   for (const [index, command] of aliases.entries()) {
