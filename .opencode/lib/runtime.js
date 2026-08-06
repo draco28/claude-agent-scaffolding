@@ -100,6 +100,44 @@ function isGitExecutable(token) {
   return token.value === "git" || token.value.endsWith("/git");
 }
 
+function ansiWhitespaceEscape(command, index) {
+  const escaped = command.slice(index + 1);
+  let match;
+  let radix = 16;
+  if (escaped.startsWith("t")) match = ["t", "9"];
+  else if ((match = /^x([0-9a-f]{1,2})/i.exec(escaped))) {
+    match = [match[0], match[1]];
+  } else if ((match = /^([0-7]{1,3})/.exec(escaped))) {
+    match = [match[0], match[1]];
+    radix = 8;
+  } else if ((match = /^u([0-9a-fA-F]{1,4})/.exec(escaped))) {
+    match = [match[0], match[1]];
+  } else if ((match = /^U([0-9a-fA-F]{1,8})/.exec(escaped))) {
+    match = [match[0], match[1]];
+  } else {
+    return;
+  }
+
+  const codePoint = Number.parseInt(match[1], radix);
+  if (
+    codePoint > 0x10ffff ||
+    !/\s/u.test(String.fromCodePoint(codePoint))
+  ) {
+    return;
+  }
+  return match[0].length;
+}
+
+function opensSingleQuote(command, index, value) {
+  if (!value) return true;
+  for (let next = index + 1; next < command.length; next += 1) {
+    const character = command[next];
+    if (character === "'") return true;
+    if (/\s/.test(character) || SHELL_SEPARATORS.has(character)) return false;
+  }
+  return false;
+}
+
 function auditTokens(command) {
   const tokens = [];
   let value = "";
@@ -141,7 +179,12 @@ function auditTokens(command) {
       quoteStart = false;
       continue;
     }
-    if (character === '"' || character === "'" || character === "`") {
+    if (
+      character === '"' ||
+      character === "`" ||
+      (character === "'" &&
+        (quote !== undefined || opensSingleQuote(command, index, value)))
+    ) {
       flushWord();
       if (quote === character) {
         quote = undefined;
@@ -156,13 +199,11 @@ function auditTokens(command) {
       continue;
     }
     if (quote === "ansi" && character === "\\") {
-      const escape = ["U00000020", "u0020", "x20", "040", "t"].find(
-        (candidate) => command.startsWith(candidate, index + 1),
-      );
-      if (escape) {
+      const escapeLength = ansiWhitespaceEscape(command, index);
+      if (escapeLength) {
         flushWord();
         separated = true;
-        index += escape.length;
+        index += escapeLength;
         continue;
       }
     }
@@ -178,6 +219,10 @@ function auditTokens(command) {
     }
     if (SHELL_SEPARATORS.has(character)) {
       flushWord();
+      if (quote !== undefined) {
+        separated = true;
+        continue;
+      }
       tokens.push({ type: "separator" });
       quote = undefined;
       quoteGroup = undefined;
@@ -213,10 +258,13 @@ function optionValue(tokens, index, inlineValue) {
     if (!tokens[last + 1]?.joinedToPrevious) break;
     last += 1;
   }
-  const pieces = tokens.slice(firstIndex, last + 1).map((token) => token.value);
-  if (inlineValue !== undefined) pieces[0] = inlineValue;
+  const pieces = tokens.slice(firstIndex, last + 1);
+  let value = inlineValue === undefined ? pieces[0].value : inlineValue;
+  for (const piece of pieces.slice(1)) {
+    value += `${piece.joinedToPrevious ? "" : " "}${piece.value}`;
+  }
   return {
-    value: pieces.join(" "),
+    value,
     index: last,
   };
 }

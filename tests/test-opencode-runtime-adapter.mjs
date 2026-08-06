@@ -1309,6 +1309,119 @@ test("Ossify Git guard is not a shell validator", async () => {
   }
 });
 
+test("Ossify Git guard decodes bounded ANSI-C whitespace escapes", async () => {
+  const hooks = await createRegisteredOssifyHooks();
+  const sessionID = "ossify-ansi-c-whitespace";
+  await hooks["chat.message"](
+    { sessionID, agent: "ossify-implementer-agent" },
+    { message: { role: "user" }, parts: [] },
+  );
+  const forbidden = [
+    ["hex tab", String.raw`bash -c $'git\x09commit -m nested'`],
+    ["three-digit octal tab", String.raw`bash -c $'git\011push origin topic'`],
+    ["two-digit octal tab", String.raw`bash -c $'git\11pull --ff-only'`],
+    ["short Unicode tab", String.raw`bash -c $'git\u0009fetch --all'`],
+    ["long Unicode tab", String.raw`bash -c $'git\U00000009commit -m nested'`],
+  ];
+  const accepted = [];
+  for (const [label, command] of forbidden) {
+    try {
+      await hooks["tool.execute.before"](
+        { tool: "bash", sessionID, callID: `ansi-whitespace-${label}` },
+        { args: { command } },
+      );
+      accepted.push(label);
+    } catch (error) {
+      assert.match(
+        error.message,
+        /ossify-implementer-agent.*git (?:commit|push|pull|fetch)/i,
+        label,
+      );
+    }
+  }
+  assert.deepEqual(accepted, []);
+});
+
+test("Ossify Git guard preserves shell-concatenated option pieces", async () => {
+  const hooks = await createRegisteredOssifyHooks();
+  const sessionID = "ossify-concatenated-options";
+  await hooks["chat.message"](
+    { sessionID, agent: "ossify-implementer-agent" },
+    { message: { role: "user" }, parts: [] },
+  );
+  const aliases = [
+    'git -ca"lias".ci=commit status',
+    'git -calias"."ci=commit status',
+    'git -c a"lias".ci=commit status',
+    'git --config-env=a"lias".ci=ENV status',
+  ];
+  const accepted = [];
+  for (const [index, command] of aliases.entries()) {
+    try {
+      await hooks["tool.execute.before"](
+        { tool: "bash", sessionID, callID: `concatenated-alias-${index}` },
+        { args: { command } },
+      );
+      accepted.push(command);
+    } catch (error) {
+      assert.match(error.message, /inline git alias/i, command);
+    }
+  }
+  assert.deepEqual(accepted, []);
+
+  for (const [index, command] of [
+    'git -cu"ser".name=worker status',
+    'git -c u"ser".name=worker status',
+    'git --config-env=c"olor".ui=ENV status',
+  ].entries()) {
+    await hooks["tool.execute.before"](
+      { tool: "bash", sessionID, callID: `concatenated-safe-${index}` },
+      { args: { command } },
+    );
+  }
+});
+
+test("Ossify Git guard keeps quoted separators inside option values", async () => {
+  const hooks = await createRegisteredOssifyHooks();
+  const sessionID = "ossify-quoted-option-separators";
+  await hooks["chat.message"](
+    { sessionID, agent: "ossify-implementer-agent" },
+    { message: { role: "user" }, parts: [] },
+  );
+  const allowed = [
+    'git -c user.name="A#B" status',
+    'git -C "/tmp/#repo" status',
+    'git -c core.editor="printf a;b" diff',
+  ];
+  const rejected = [];
+  for (const [index, command] of allowed.entries()) {
+    try {
+      await hooks["tool.execute.before"](
+        { tool: "bash", sessionID, callID: `quoted-separator-${index}` },
+        { args: { command } },
+      );
+    } catch (error) {
+      rejected.push([command, error.message]);
+    }
+  }
+  assert.deepEqual(rejected, []);
+});
+
+test("Ossify Git guard treats contraction apostrophes as plain text", async () => {
+  const hooks = await createRegisteredOssifyHooks();
+  const sessionID = "ossify-contraction-apostrophe";
+  await hooks["chat.message"](
+    { sessionID, agent: "ossify-implementer-agent" },
+    { message: { role: "user" }, parts: [] },
+  );
+  const command = "printf %s it's git -C /tmp status";
+
+  await hooks["tool.execute.before"](
+    { tool: "bash", sessionID, callID: "contraction-apostrophe" },
+    { args: { command } },
+  );
+});
+
 test("Git guard applies only to Ossify implementer bash sessions", async () => {
   const hooks = await createRegisteredOssifyHooks();
   const cases = [
@@ -1445,7 +1558,11 @@ test("Git guard boundary excludes deliberately shell-obfuscated executable names
     { sessionID, agent: "ossify-implementer-agent" },
     { message: { role: "user" }, parts: [] },
   );
-  const boundaryExamples = ["g''it commit -m work", "$GIT push origin topic"];
+  const boundaryExamples = [
+    "g''it commit -m work",
+    "$GIT push origin topic",
+    String.raw`bash -c $'\x67it commit -m work'`,
+  ];
 
   for (const command of boundaryExamples) {
     const output = { args: { command } };
