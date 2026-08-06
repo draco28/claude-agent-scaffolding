@@ -12,14 +12,21 @@ export async function ScaffoldingPlugin(input, options = {}) {
 
   for (const plugin of selected) {
     for (const command of plugin.commands) {
-      const markdown = await readFile(
-        join(plugin.root, "commands", `${command.name}.md`),
-        "utf8",
-      );
-      const { frontmatter, body } = parseMarkdown(markdown);
+      const commandPath = join(plugin.root, "commands", `${command.name}.md`);
+      const markdown = await readFile(commandPath, "utf8");
+      const { frontmatter } = parseMarkdown(markdown, commandPath);
+      const argumentsLine =
+        command.name === "critique-doctor"
+          ? ""
+          : "\n\nArguments: $ARGUMENTS";
       aliases.push([
         command.name,
-        { description: frontmatter.description, template: body },
+        {
+          description: frontmatter.description,
+          template:
+            `Use OpenCode's \`skill\` tool to invoke the unqualified ` +
+            `\`${command.skill}\` skill and follow it exactly.${argumentsLine}`,
+        },
       ]);
     }
   }

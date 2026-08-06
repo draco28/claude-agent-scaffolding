@@ -30,6 +30,18 @@ const excludedPlugins = [
   "claude-security-audit",
 ];
 
+const expectedAliases = {
+  "init-workspace": "initializing-dual-repo-workspace",
+  "pair-workspace": "pairing-canonical-repo",
+  "pair-existing-dual": "pairing-existing-dual",
+  critique: "critiquing-spec",
+  "critique-list": "reviewing-critique-history",
+  "principles-list": "listing-principles",
+  "promote-principle": "promoting-principle",
+  "critique-doctor": "checking-adversary-readiness",
+  "critique-jobs": "managing-async-critique",
+};
+
 test("root package declares the OpenCode bundle contract", async () => {
   const packageJson = JSON.parse(
     await readFile(new URL("package.json", root), "utf8"),
@@ -187,19 +199,55 @@ test("plugin entrypoint applies strict selection before returning hooks", async 
   );
 });
 
-test("markdown parser separates frontmatter from a trimmed body", async () => {
+test("markdown parser accepts the supported flat frontmatter subset", async () => {
   const { parseMarkdown } = await import(markdownUrl);
   const parsed = parseMarkdown(
-    '---\r\nname: sample-skill\r\ndescription: "Value: with colon"\r\n---\r\n\r\nPrompt body\r\n',
+    "---\r\n" +
+      "name: sample-skill\r\n" +
+      "description: Plain value: with colon\r\n" +
+      'quoted: "Double-quoted value"\r\n' +
+      "hint: 'It''s supported'\r\n" +
+      'allowed-tools: ["Read", "Bash"]\r\n' +
+      "---\r\n\r\nPrompt body\r\n",
+    "supported.md",
   );
 
   assert.deepEqual(parsed, {
     frontmatter: {
       name: "sample-skill",
-      description: "Value: with colon",
+      description: "Plain value: with colon",
+      quoted: "Double-quoted value",
+      hint: "It's supported",
+      "allowed-tools": ["Read", "Bash"],
     },
     body: "Prompt body",
   });
+});
+
+test("markdown parser rejects ambiguous or unsupported frontmatter", async () => {
+  const { parseMarkdown } = await import(markdownUrl);
+  const invalid = [
+    ["duplicate key", "name: first\nname: second"],
+    ["indented or nested value", "name: first\n  nested: value"],
+    ["block scalar", "description: |\nname: first"],
+    ["malformed line", "name first"],
+    ["ambiguous comment", "description: value # comment"],
+    ["invalid double-quoted value", 'description: "unterminated'],
+    ["invalid single-quoted value", "description: 'can't'"],
+    ["flow mapping", "metadata: {owner: team}"],
+    ["flow sequence", "metadata: [owner, team]"],
+    ["anchor", "description: &shared value"],
+    ["alias", "description: *shared"],
+    ["unsupported YAML construct", "description: !custom value"],
+    ["unsupported YAML construct", "description: - sequence item"],
+  ];
+
+  for (const [expectedError, frontmatter] of invalid) {
+    assert.throws(
+      () => parseMarkdown(`---\n${frontmatter}\n---\nBody`, "fixture.md"),
+      new RegExp(`fixture\\.md: frontmatter line \\d+: ${expectedError}`),
+    );
+  }
 });
 
 test("selected plugins append only their exact canonical skill paths", async () => {
@@ -218,9 +266,13 @@ test("config registration is idempotent and preserves caller config", async () =
   const { ScaffoldingPlugin } = await import(marketplaceUrl);
   const hooks = await ScaffoldingPlugin({});
   const existingCommand = { template: "Keep this command" };
+  const existingCritique = { template: "Use my critique workflow" };
   const config = {
-    skills: { paths: ["/user/skills"], custom: true },
-    command: { existing: existingCommand },
+    skills: {
+      paths: ["/user/skills"],
+      urls: ["https://example.com/skills/index.json"],
+    },
+    command: { existing: existingCommand, critique: existingCritique },
     permission: { skill: "ask" },
   };
 
@@ -234,9 +286,10 @@ test("config registration is idempotent and preserves caller config", async () =
       fileURLToPath(new URL("ai-mentor/skills", root)),
       fileURLToPath(new URL("architect-critic/skills", root)),
     ],
-    custom: true,
+    urls: ["https://example.com/skills/index.json"],
   });
   assert.strictEqual(config.command.existing, existingCommand);
+  assert.strictEqual(config.command.critique, existingCritique);
   assert.deepEqual(config.permission, { skill: "ask" });
   assert.equal(new Set(config.skills.paths).size, config.skills.paths.length);
 });
@@ -273,38 +326,32 @@ test("canonical skills satisfy OpenCode frontmatter and uniqueness rules", async
 });
 
 test("default config registers exactly the nine canonical command aliases", async () => {
-  const { resolveEnabledPlugins } = await import(catalogUrl);
+  const { PLUGIN_CATALOG } = await import(catalogUrl);
   const { parseMarkdown } = await import(markdownUrl);
-  const selected = resolveEnabledPlugins();
   const config = await applyPluginConfig(undefined, {});
-  const expectedNames = selected.flatMap(({ commands }) =>
-    commands.map(({ name }) => name),
-  );
+  const expectedNames = Object.keys(expectedAliases);
 
   assert.deepEqual(Object.keys(config.command), expectedNames);
   assert.equal(expectedNames.length, 9);
-  assert.equal(new Set(expectedNames).size, 9);
 
-  for (const plugin of selected) {
-    for (const command of plugin.commands) {
-      const source = await readFile(
-        join(plugin.root, "commands", `${command.name}.md`),
-        "utf8",
-      );
-      const { frontmatter, body } = parseMarkdown(source);
+  for (const [alias, skill] of Object.entries(expectedAliases)) {
+    const plugin = PLUGIN_CATALOG.find(({ commands }) =>
+      commands.some(({ name }) => name === alias),
+    );
+    const commandPath = join(plugin.root, "commands", `${alias}.md`);
+    const source = await readFile(commandPath, "utf8");
+    const { frontmatter } = parseMarkdown(source, commandPath);
+    const argumentsLine =
+      alias === "critique-doctor" ? "" : "\n\nArguments: $ARGUMENTS";
 
-      assert.deepEqual(config.command[command.name], {
-        description: frontmatter.description,
-        template: body,
-      });
-    }
+    assert.deepEqual(config.command[alias], {
+      description: frontmatter.description,
+      template:
+        `Use OpenCode's \`skill\` tool to invoke the unqualified ` +
+        `\`${skill}\` skill and follow it exactly.${argumentsLine}`,
+    });
+    assert.ok(!config.command[alias].template.includes("Skill("));
   }
-  assert.equal(
-    Object.values(config.command).filter(({ template }) =>
-      template.includes("$ARGUMENTS"),
-    ).length,
-    8,
-  );
 });
 
 test("same-named AI Mentor and Ossify skills do not get aliases", async () => {
