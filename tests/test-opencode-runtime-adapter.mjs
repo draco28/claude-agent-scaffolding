@@ -927,6 +927,37 @@ test("arc wrapper exports the shared Architect Critic data fallback", async (t) 
   assert.equal(result.stdout, `${join(home, ".claude/architect-critic")}\n`);
 });
 
+test("arc wrapper reaches canonical --list without HOME or plugin data", () => {
+  const env = {
+    PATH: ["/usr/bin", "/bin"].join(delimiter),
+    OPENCODE_SCAFFOLDING_PLUGINS: "architect-critic",
+  };
+  const args = ["--list"];
+  const wrapped = spawnSync(join(wrapperDirectory, "arc"), args, {
+    encoding: "utf8",
+    env,
+  });
+  const canonical = spawnSync(
+    fileURLToPath(new URL("architect-critic/bin/arc", root)),
+    args,
+    { encoding: "utf8", env },
+  );
+
+  assert.deepEqual(
+    {
+      status: wrapped.status,
+      stdout: wrapped.stdout,
+      stderr: wrapped.stderr,
+    },
+    {
+      status: canonical.status,
+      stdout: canonical.stdout,
+      stderr: canonical.stderr,
+    },
+  );
+  assert.equal(wrapped.status, 0);
+});
+
 test("all-four capabilities self-locate wi and arc without changing output", async (t) => {
   const fixture = await mkdtemp(join(tmpdir(), "opencode-wrapper-location-"));
   t.after(() => rm(fixture, { recursive: true, force: true }));
