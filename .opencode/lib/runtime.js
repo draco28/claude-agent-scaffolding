@@ -9,15 +9,15 @@ const ARGUMENT_EXPORT =
 const SKILL_BASE_DIRECTORY =
   /(?:^|\r?\n)Base directory for this skill: ([^\r\n]+)(?=\r?\n|$)/g;
 const FORBIDDEN_GIT_VERBS = new Set(["commit", "push", "pull", "fetch"]);
+const NESTED_SHELLS = new Set(["sh", "bash", "zsh"]);
+const MAX_SHELL_SCAN_DEPTH = 4;
 const GIT_OPTIONS_WITH_VALUE = new Set([
   "-C",
-  "-c",
   "--git-dir",
   "--work-tree",
   "--namespace",
   "--super-prefix",
   "--config-env",
-  "--exec-path",
   "--attr-source",
 ]);
 const SHELL_SEPARATORS = new Set([
@@ -89,12 +89,18 @@ function isGitExecutable(token) {
   return token.value === "git" || token.value.endsWith("/git");
 }
 
+function executableName(token) {
+  if (token.mixedQuotes) return;
+  return token.value.slice(token.value.lastIndexOf("/") + 1);
+}
+
 function shellTokens(command) {
   const tokens = [];
   let value = "";
   let quote;
   let sawQuoted = false;
   let sawUnquoted = false;
+  let malformed = false;
 
   function flushWord() {
     if (!value && !sawQuoted) return;
@@ -120,6 +126,7 @@ function shellTokens(command) {
           index += 1;
         } else {
           value += character;
+          malformed = true;
         }
       } else {
         value += character;
@@ -140,6 +147,7 @@ function shellTokens(command) {
         index += 1;
       } else {
         value += character;
+        malformed = true;
       }
       continue;
     }
@@ -159,32 +167,116 @@ function shellTokens(command) {
     value += character;
   }
   flushWord();
-  return tokens;
+  return { tokens, malformed: malformed || quote !== undefined };
 }
 
-function forbiddenGitVerb(command) {
-  const tokens = shellTokens(command);
-  for (let index = 0; index < tokens.length; index += 1) {
-    if (tokens[index].type !== "word" || !isGitExecutable(tokens[index])) {
-      continue;
-    }
+function aliasDefinition(value, aliases) {
+  const separator = value.indexOf("=");
+  if (separator === -1) return;
+  const key = value.slice(0, separator);
+  if (!key.startsWith("alias.") || key.length === "alias.".length) return;
+  aliases.set(key.slice("alias.".length), value.slice(separator + 1));
+}
 
+function directAliasVerb(value) {
+  const { tokens, malformed } = shellTokens(value);
+  if (malformed) {
+    throw new Error(
+      "ossify-implementer-agent requires a valid nested shell command",
+    );
+  }
+  const first = tokens.find(({ type }) => type === "word");
+  return first && FORBIDDEN_GIT_VERBS.has(first.value)
+    ? first.value
+    : undefined;
+}
+
+function nestedCommandVerb(tokens, index, depth) {
+  const executable = executableName(tokens[index]);
+  if (NESTED_SHELLS.has(executable)) {
     for (let next = index + 1; next < tokens.length; next += 1) {
       const token = tokens[next];
       if (token.type === "separator") break;
-      const word = token.value;
-      const option = word.split("=", 1)[0];
-      if (GIT_OPTIONS_WITH_VALUE.has(option)) {
-        if (!word.includes("=")) {
-          if (tokens[next + 1]?.type !== "word") break;
-          next += 1;
+      if (/^-[^-]*c[^-]*$/.test(token.value)) {
+        const command = tokens[next + 1];
+        if (command?.type !== "word") {
+          throw new Error(
+            "ossify-implementer-agent requires a valid nested shell command",
+          );
         }
-        continue;
+        return forbiddenGitVerb(command.value, depth + 1);
       }
-      if (word.startsWith("-")) continue;
-      if (FORBIDDEN_GIT_VERBS.has(word)) return word;
-      break;
     }
+    return;
+  }
+
+  if (executable !== "eval") return;
+  const words = [];
+  for (let next = index + 1; next < tokens.length; next += 1) {
+    const token = tokens[next];
+    if (token.type === "separator") break;
+    if (token.value === "--" && words.length === 0) continue;
+    words.push(token.value);
+  }
+  if (words.length > 0) return forbiddenGitVerb(words.join(" "), depth + 1);
+}
+
+function gitInvocationVerb(tokens, index, depth) {
+  const aliases = new Map();
+  for (let next = index + 1; next < tokens.length; next += 1) {
+    const token = tokens[next];
+    if (token.type === "separator") break;
+    const word = token.value;
+
+    if (word === "--exec-path") break;
+    if (word === "-c") {
+      const value = tokens[next + 1];
+      if (value?.type !== "word") break;
+      aliasDefinition(value.value, aliases);
+      next += 1;
+      continue;
+    }
+
+    const option = word.split("=", 1)[0];
+    if (GIT_OPTIONS_WITH_VALUE.has(option)) {
+      if (!word.includes("=")) {
+        if (tokens[next + 1]?.type !== "word") break;
+        next += 1;
+      }
+      continue;
+    }
+    if (word.startsWith("-")) continue;
+    if (FORBIDDEN_GIT_VERBS.has(word)) return word;
+
+    const alias = aliases.get(word);
+    if (!alias) return;
+    if (alias.startsWith("!")) {
+      return forbiddenGitVerb(alias.slice(1), depth + 1);
+    }
+    return directAliasVerb(alias);
+  }
+}
+
+function forbiddenGitVerb(command, depth = 0) {
+  if (depth > MAX_SHELL_SCAN_DEPTH) {
+    throw new Error("ossify-implementer-agent shell nesting depth exceeded");
+  }
+  const { tokens, malformed } = shellTokens(command);
+  if (malformed) {
+    throw new Error(
+      "ossify-implementer-agent requires a valid nested shell command",
+    );
+  }
+
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (token.type !== "word") continue;
+    if (isGitExecutable(token)) {
+      const verb = gitInvocationVerb(tokens, index, depth);
+      if (verb) return verb;
+    }
+    const nestedVerb = nestedCommandVerb(tokens, index, depth);
+    if (nestedVerb) return nestedVerb;
   }
 }
 
@@ -201,8 +293,10 @@ export function createRuntime({
 
   return {
     "chat.message": async ({ sessionID, agent }) => {
-      if (registeredAgents.has(agent)) sessionAgents.set(sessionID, agent);
-      else sessionAgents.delete(sessionID);
+      if (typeof agent === "string" && agent.trim()) {
+        if (registeredAgents.has(agent)) sessionAgents.set(sessionID, agent);
+        else sessionAgents.delete(sessionID);
+      }
 
       const state = sessions.get(sessionID);
       if (!state) return;
@@ -238,16 +332,17 @@ export function createRuntime({
 
     "tool.execute.before": async (input, output) => {
       if (input.tool !== "bash") return;
+      if (typeof input.sessionID !== "string" || !input.sessionID.trim()) {
+        throw new Error("bash tool call requires a valid nonempty sessionID");
+      }
       const command = output.args?.command;
+      if (typeof command !== "string") {
+        throw new Error("bash tool call requires a valid bash command");
+      }
       if (
         registeredAgents.has("ossify-implementer-agent") &&
         sessionAgents.get(input.sessionID) === "ossify-implementer-agent"
       ) {
-        if (typeof command !== "string") {
-          throw new Error(
-            "ossify-implementer-agent requires a valid bash command",
-          );
-        }
         const verb = forbiddenGitVerb(command);
         if (verb) {
           throw new Error(

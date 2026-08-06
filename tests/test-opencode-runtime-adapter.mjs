@@ -964,7 +964,6 @@ test("Ossify implementer sessions reject forbidden Git verbs anywhere in bash lo
       "config environment",
       "git --config-env safe.directory=SAFE_DIRECTORY fetch",
     ],
-    ["exec path separate", 'git --exec-path "/tmp/git tools" pull'],
     ["attribute source", 'git --attr-source "topic branch" commit'],
     ["comment", "git status --short # never run git commit here"],
     [
@@ -1018,6 +1017,8 @@ test("Ossify implementer Git guard leaves allowed bash commands unchanged", asyn
     'git --super-prefix="worker prefix/" diff',
     "git --config-env safe.directory=SAFE_DIRECTORY add -A",
     'git --attr-source="topic branch" rev-parse HEAD',
+    "git --exec-path commit",
+    'git --exec-path "/tmp/git tools" pull',
     "git --version; commit is-a-different-command",
     "git --git-dir; commit is-a-different-command",
     "npm test",
@@ -1031,6 +1032,118 @@ test("Ossify implementer Git guard leaves allowed bash commands unchanged", asyn
       output,
     );
     assert.deepEqual(output, before, command);
+  }
+});
+
+test("Ossify Git guard resolves direct and shell Git aliases", async () => {
+  const hooks = await createRegisteredOssifyHooks();
+  const sessionID = "ossify-git-aliases";
+  await hooks["chat.message"](
+    { sessionID, agent: "ossify-implementer-agent" },
+    { message: { role: "user" }, parts: [] },
+  );
+  const forbidden = [
+    ["direct commit", "git -c alias.ci=commit ci -m work"],
+    ["direct pull", "git -c alias.update=pull update --ff-only"],
+    [
+      "shell push",
+      "git -c 'alias.publish=!git push origin topic' publish",
+    ],
+    ["shell fetch", "git -c 'alias.sync=!git fetch --all' sync"],
+  ];
+
+  for (const [label, command] of forbidden) {
+    await assert.rejects(
+      hooks["tool.execute.before"](
+        { tool: "bash", sessionID, callID: `alias-${label}` },
+        { args: { command } },
+      ),
+      /ossify-implementer-agent.*git (?:commit|push|pull|fetch)/i,
+      label,
+    );
+  }
+
+  for (const command of [
+    "git -c alias.st=status st --short",
+    "git -c 'alias.changes=diff --cached' changes",
+    "git -c alias.stage=add stage -A",
+    "git -c 'alias.branch=rev-parse --abbrev-ref' branch HEAD",
+  ]) {
+    const output = { args: { command } };
+    await hooks["tool.execute.before"](
+      { tool: "bash", sessionID, callID: `allowed-alias-${command}` },
+      output,
+    );
+    assert.equal(output.args.command, command);
+  }
+});
+
+test("Ossify Git guard recursively scans literal shell command strings", async () => {
+  const hooks = await createRegisteredOssifyHooks();
+  const sessionID = "ossify-nested-shell";
+  await hooks["chat.message"](
+    { sessionID, agent: "ossify-implementer-agent" },
+    { message: { role: "user" }, parts: [] },
+  );
+  const forbidden = [
+    ["bash commit", "bash -c 'git commit -m nested'"],
+    ["path sh push", '"/bin/sh" -c "git push origin topic"'],
+    ["path zsh pull", "/bin/zsh -c 'git pull --ff-only'"],
+    ["eval fetch", "eval 'git fetch --all'"],
+    ["nested eval", `bash -c "eval 'git commit -m deep'"`],
+  ];
+
+  for (const [label, command] of forbidden) {
+    await assert.rejects(
+      hooks["tool.execute.before"](
+        { tool: "bash", sessionID, callID: `nested-${label}` },
+        { args: { command } },
+      ),
+      /ossify-implementer-agent.*git (?:commit|push|pull|fetch)/i,
+      label,
+    );
+  }
+
+  for (const command of [
+    "sh -c 'git status --short'",
+    'bash -c "git diff --cached"',
+    "zsh -c 'git add -A'",
+    "eval 'git rev-parse HEAD'",
+  ]) {
+    const output = { args: { command } };
+    await hooks["tool.execute.before"](
+      { tool: "bash", sessionID, callID: `allowed-nested-${command}` },
+      output,
+    );
+    assert.equal(output.args.command, command);
+  }
+});
+
+test("Ossify Git guard bounds recursion and rejects malformed nested strings", async () => {
+  const hooks = await createRegisteredOssifyHooks();
+  const sessionID = "ossify-malformed-nested-shell";
+  await hooks["chat.message"](
+    { sessionID, agent: "ossify-implementer-agent" },
+    { message: { role: "user" }, parts: [] },
+  );
+  let tooDeep = "git status --short";
+  for (let depth = 0; depth < 8; depth += 1) {
+    tooDeep = `bash -c ${JSON.stringify(tooDeep)}`;
+  }
+
+  for (const [label, command] of [
+    ["missing command string", "bash -c"],
+    ["unterminated command string", "bash -c 'git status"],
+    ["recursion limit", tooDeep],
+  ]) {
+    await assert.rejects(
+      hooks["tool.execute.before"](
+        { tool: "bash", sessionID, callID: `malformed-nested-${label}` },
+        { args: { command } },
+      ),
+      /valid nested shell command|nesting depth/i,
+      label,
+    );
   }
 });
 
@@ -1070,6 +1183,37 @@ test("Git guard applies only to Ossify implementer bash sessions", async () => {
   );
 });
 
+test("chat messages without a valid agent preserve tracked session identity", async () => {
+  const hooks = await createRegisteredOssifyHooks();
+  const followups = [
+    ["missing", {}],
+    ["undefined", { agent: undefined }],
+    ["empty", { agent: "" }],
+    ["blank", { agent: "   " }],
+  ];
+
+  for (const [label, followup] of followups) {
+    const sessionID = `ossify-agent-preserved-${label}`;
+    await hooks["chat.message"](
+      { sessionID, agent: "ossify-implementer-agent" },
+      { message: { role: "user" }, parts: [] },
+    );
+    await hooks["chat.message"](
+      { sessionID, ...followup },
+      { message: { role: "user" }, parts: [] },
+    );
+
+    await assert.rejects(
+      hooks["tool.execute.before"](
+        { tool: "bash", sessionID, callID: `preserved-${label}` },
+        { args: { command: "git commit -m work" } },
+      ),
+      /ossify-implementer-agent.*git commit/i,
+      label,
+    );
+  }
+});
+
 test("Git guard does not trust reserved-name sessions before agent registration", async () => {
   const hooks = await createPluginHooks({ plugins: ["ossify"] });
   const sessionID = "ossify-unvalidated-agent";
@@ -1098,12 +1242,38 @@ test("Git guard fails closed on malformed Ossify implementer bash calls", async 
   for (const command of [undefined, null, 42]) {
     await assert.rejects(
       hooks["tool.execute.before"](
-        { tool: "bash", sessionID, callID: `malformed-${command}` },
+        {
+          tool: "bash",
+          sessionID: "untracked",
+          callID: `malformed-${command}`,
+        },
         { args: { command } },
       ),
       /valid bash command/i,
     );
   }
+
+  for (const invalidSessionID of [undefined, null, "", "   ", 42]) {
+    await assert.rejects(
+      hooks["tool.execute.before"](
+        {
+          tool: "bash",
+          sessionID: invalidSessionID,
+          callID: `malformed-session-${invalidSessionID}`,
+        },
+        { args: { command: "git status --short" } },
+      ),
+      /valid nonempty sessionID/i,
+    );
+  }
+
+  const nonBashOutput = { args: { command: 42 } };
+  const before = structuredClone(nonBashOutput);
+  await hooks["tool.execute.before"](
+    { tool: "read", callID: "non-bash-malformed" },
+    nonBashOutput,
+  );
+  assert.deepEqual(nonBashOutput, before);
 });
 
 test("Git guard boundary excludes deliberately shell-obfuscated executable names", async () => {
