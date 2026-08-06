@@ -2,7 +2,10 @@
   "name": "claude-agent-scaffolding-opencode",
   "version": "0.1.0",
   "type": "module",
-  "exports": "./.opencode/plugins/marketplace.js",
+  "exports": {
+    ".": "./.opencode/plugins/marketplace.js",
+    "./server": "./.opencode/plugins/marketplace.js"
+  },
   "files": [
     ".opencode",
     "workspace-init",

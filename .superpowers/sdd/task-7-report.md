@@ -2,8 +2,10 @@
 
 ## Status
 
-Implemented hermetic real-loader coverage for OpenCode 1.18.13 and expanded CI
-from shell-only wording/coverage to all deterministic repository test suites.
+Implemented hermetic native package-loader coverage for OpenCode 1.18.13 and
+expanded CI from shell-only wording/coverage to all deterministic repository
+test suites. Review fixes expose the package's native server entrypoint and
+harden managed-policy, timeout, alias, and agent assertions.
 
 ## RED
 
@@ -90,13 +92,18 @@ present.
 - `opencode debug paths` is parsed and checked for both default and all-four
   cases, proving home/config/data/cache/state/tmp resolution remains under the
   corresponding temporary case root.
-- Each temporary config directory contains exactly one local wrapper. It imports
-  `claude-agent-scaffolding-opencode` by package name through a temporary
-  `node_modules` symlink to the git-installable root, exercising the package
-  export resolver rather than directly importing a plugin implementation file.
-- The default wrapper delegates without options. The all-four wrapper delegates
-  with the exact `workspace-init`, `ai-mentor`, `architect-critic`, `ossify`
-  allowlist.
+- Each temporary custom config names the root package directly as a native
+  `file://` package spec. Defaults use the plain spec; all-four uses OpenCode's
+  native `[specifier, options]` tuple with the exact `workspace-init`,
+  `ai-mentor`, `architect-critic`, `ossify` allowlist. No local wrapper or
+  package-name symlink exists.
+- Every process points `OPENCODE_TEST_MANAGED_CONFIG_DIR` at an empty temporary
+  directory. A failing `plutil` shim blocks real macOS managed preferences, and
+  exact config/skill/agent assertions plus poison fixtures prove managed
+  provider/model/permission/plugin/agent/skill contamination is rejected.
+- Every command runs through Node `spawnSync` with a 60-second timeout and direct
+  file-backed stdout/stderr. A `debug wait` control proves timeout exit 124;
+  failures print both streams with the case and command label.
 - Real `debug config`, `debug skill`, and `debug agent` outputs are parsed with
   Node. Assertions cover exact paths/names/alias targets, duplicate rejection,
   excluded plugin absence, Ossify opt-in skills and agent, agent tool/task
@@ -115,6 +122,8 @@ present.
 ## Files
 
 - `tests/test-opencode-live.sh`: portable, fail-fast, offline live-loader test.
+- `package.json`: root and OpenCode `./server` package exports.
+- `tests/test-opencode-runtime-adapter.mjs`: package export contract assertion.
 - `.github/workflows/tests.yml`: pinned OpenCode install and complete suite list.
 - `.superpowers/sdd/task-7-report.md`: TDD and verification evidence.
 
@@ -122,7 +131,70 @@ present.
 
 Commit message: `test(opencode): add real loader integration coverage`.
 
-No blocking concerns. OpenCode 1.18.13 does not expose a flag for disabling
-machine-managed policy files, but the test's exact plugin/config/skill/agent
-assertions fail closed if such policy contaminates a runner. Standard developer
-configuration and credentials remain unreachable.
+No blocking concerns. Standard developer configuration, machine-managed files,
+macOS managed preferences, credentials, model fetching, updates, and package
+network access are isolated or disabled.
+
+## Review Fix RED
+
+Package contract command:
+
+```bash
+node --test --test-name-pattern="root package declares" tests/test-opencode-runtime-adapter.mjs
+```
+
+Result: 1 test, 0 passed and 1 failed. The actual root string export did not
+match the required `.` plus `./server` export map.
+
+Native live-loader command before the package fix:
+
+```bash
+bash tests/test-opencode-live.sh
+```
+
+Result: failed in the all-four `debug agent` command with exit 1 and
+`Agent ossify-implementer-agent not found`. The plain and tuple package specs
+were present in resolved config, but OpenCode skipped the package because no
+native server entrypoint was exported.
+
+The first timeout-runner GREEN attempt then exposed a harness regression:
+OpenCode/Bun flushed only 65,138 bytes of `debug skill` JSON through a captured
+pipe. The structural parser failed on the truncated JSON. Switching the same
+bounded `spawnSync` process to direct file descriptors preserved full output.
+
+## Review Fix GREEN
+
+Focused package contract:
+
+```bash
+node --test --test-name-pattern="root package declares" tests/test-opencode-runtime-adapter.mjs
+```
+
+Result: 1 passed, 0 failed.
+
+Native live loader:
+
+```bash
+bash tests/test-opencode-live.sh
+```
+
+Result: `OpenCode 1.18.13 native package loader integration: PASS`.
+
+The final review-fix commit message is
+`fix(opencode): expose native package loader entry`.
+
+## Review Fix Final Verification
+
+- `bash tests/test-opencode-live.sh`: OpenCode 1.18.13 native package loader
+  integration passed.
+- `node --test tests/test-opencode-runtime-adapter.mjs`: 62 passed, 0 failed,
+  0 skipped.
+- `bash ai-mentor/tests/test-frontmatter-lint.sh`: 36 passed, 0 failed.
+- `bash ossify/tests/run-all.sh`: all 24 test scripts ran and reported
+  `ALL GREEN`.
+- `bash tests/test-codex-dual-publish.sh`: 155 passed, 0 failed.
+- `bash tests/test-recommendation-policy-parity.sh`: 7 passed, 0 failed.
+- Workflow Psych syntax and expected/stale text checks passed.
+- `bash -n tests/test-opencode-live.sh` passed.
+- `npm pack --dry-run --json` passed with 359 package entries.
+- `git diff --check` passed with no output.

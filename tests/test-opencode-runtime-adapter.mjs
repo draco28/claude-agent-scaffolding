@@ -129,7 +129,10 @@ test("root package declares the OpenCode bundle contract", async () => {
   assert.equal(packageJson.name, "claude-agent-scaffolding-opencode");
   assert.equal(packageJson.version, "0.1.0");
   assert.equal(packageJson.type, "module");
-  assert.equal(packageJson.exports, "./.opencode/plugins/marketplace.js");
+  assert.deepEqual(packageJson.exports, {
+    ".": "./.opencode/plugins/marketplace.js",
+    "./server": "./.opencode/plugins/marketplace.js",
+  });
   assert.deepEqual(packageJson.engines, { opencode: ">=1.18.13" });
   assert.deepEqual(packageJson.os, ["darwin", "linux"]);
   assert.deepEqual(packageJson.dependencies, {});
