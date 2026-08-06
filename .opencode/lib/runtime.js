@@ -5,7 +5,7 @@ import { getCommandOwner, getSkillOwner } from "./catalog.js";
 import { translatePrompt, translateToolOutput } from "./translate.js";
 
 const ARGUMENT_EXPORT =
-  /(?:^|\n)[ \t]*export[ \t]+ARCHITECT_CRITIC_ARGS=(?:"((?:\\.|[^"\\])*)"|'([^']*)')[ \t]*(?:\n|$)/;
+  /^[ \t]*export[ \t]+ARCHITECT_CRITIC_ARGS=(?:"((?:\\[^\r\n]|[^"\\\r\n])*)"|'([^'\r\n]*)')[ \t]*(?:\r?\n)?$/;
 
 function commandOwner(command) {
   return getCommandOwner(command) ?? getSkillOwner(command);
@@ -20,7 +20,7 @@ async function resolvedPath(filePath) {
   try {
     return await realpath(filePath);
   } catch {
-    return resolve(filePath);
+    return;
   }
 }
 
@@ -29,7 +29,21 @@ function exportedArguments(command) {
   const match = ARGUMENT_EXPORT.exec(command);
   if (!match) return;
   if (match[2] !== undefined) return match[2];
-  return match[1].replace(/\\(["\\$`])/g, "$1").replace(/\\\n/g, "");
+
+  let value = "";
+  for (let index = 0; index < match[1].length; index += 1) {
+    const character = match[1][index];
+    if (character === "$" || character === "`") return;
+    if (character !== "\\") {
+      value += character;
+      continue;
+    }
+
+    const escaped = match[1][index + 1];
+    index += 1;
+    value += '"\\$`'.includes(escaped) ? escaped : `\\${escaped}`;
+  }
+  return value;
 }
 
 export function createRuntime({
@@ -96,12 +110,13 @@ export function createRuntime({
 
       const requestedPath = resolve(directory, input.args.filePath);
       const filePath = await resolvedPath(requestedPath);
+      if (!filePath) return;
       for (const owner of selected) {
         const root = await resolvedPath(owner.root);
-        if (containsPath(root, filePath)) {
+        if (root && containsPath(root, filePath)) {
           translateToolOutput(
             "read",
-            { ...input.args, filePath: requestedPath },
+            { ...input.args, filePath, owner },
             output,
           );
           return;

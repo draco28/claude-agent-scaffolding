@@ -1,12 +1,7 @@
 import { homedir } from "node:os";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { join } from "node:path";
 
 import { PLUGIN_CATALOG, getSkillOwner } from "./catalog.js";
-
-function containsPath(root, filePath) {
-  const nested = relative(resolve(root), resolve(filePath));
-  return nested === "" || (!nested.startsWith("..") && !isAbsolute(nested));
-}
 
 function contextFor(owner) {
   return {
@@ -34,9 +29,10 @@ export function translatePrompt(text, context) {
   translated = translated.replaceAll("AskUserQuestion", "question");
 
   if (context?.root) {
+    const root = context.root.replace(/\/+$/, "");
     translated = translated.replace(
       /\$(?:\{CLAUDE_PLUGIN_ROOT\}|CLAUDE_PLUGIN_ROOT\b)/g,
-      context.root.replace(/\/+$/, ""),
+      () => root,
     );
   }
   const dataRoot =
@@ -45,7 +41,7 @@ export function translatePrompt(text, context) {
   if (dataRoot) {
     translated = translated.replace(
       /\$(?:\{CLAUDE_PLUGIN_DATA\}|CLAUDE_PLUGIN_DATA\b)/g,
-      dataRoot,
+      () => dataRoot,
     );
   }
 
@@ -58,8 +54,8 @@ export function translateToolOutput(tool, args, output) {
   const owner =
     tool === "skill"
       ? getSkillOwner(args?.name)
-      : tool === "read" && typeof args?.filePath === "string"
-        ? PLUGIN_CATALOG.find(({ root }) => containsPath(root, args.filePath))
+      : tool === "read" && PLUGIN_CATALOG.includes(args?.owner)
+        ? args.owner
         : undefined;
   if (owner) {
     output.output = translatePrompt(output.output, contextFor(owner));

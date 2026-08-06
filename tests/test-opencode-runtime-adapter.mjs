@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -417,6 +418,27 @@ test("prompt translation resolves package placeholders in either shell form", as
   );
 });
 
+test("prompt path substitution preserves replacement tokens literally", async () => {
+  const { translatePrompt } = await import(translateUrl);
+  const rootPath = "/tmp/plugin-$&-$'-$`";
+  const dataPath = "/tmp/data-$&-$'-$`";
+
+  assert.equal(
+    translatePrompt("${CLAUDE_PLUGIN_ROOT}/artifact", {
+      root: rootPath,
+      dataRoot: "/tmp/data",
+    }),
+    `${rootPath}/artifact`,
+  );
+  assert.equal(
+    translatePrompt("$CLAUDE_PLUGIN_DATA/artifact", {
+      root: "/tmp/plugin",
+      dataRoot: dataPath,
+    }),
+    `${dataPath}/artifact`,
+  );
+});
+
 test("command translation is limited to selected canonical skills and aliases", async () => {
   const hooks = await createPluginHooks({ plugins: ["ossify"] });
   const selected = {
@@ -487,41 +509,64 @@ test("skill output translation uses the canonical skill owner", async () => {
   );
 });
 
-test("read translation requires path-safe containment in a selected plugin root", async () => {
+test("read translation uses real targets within selected plugin roots", async (t) => {
   const { getSkillOwner } = await import(catalogUrl);
   const hooks = await createPluginHooks({ plugins: ["ai-mentor"] });
   const owner = getSkillOwner("grill-me");
-  const inside = join(owner.root, "skills", "grill-me", "references", "policy.md");
-  const outside = [
-    join(fileURLToPath(root), "project-notes.md"),
-    join(`${owner.root.slice(0, -1)}-copy`, "references", "policy.md"),
-  ];
-
-  const packageOutput = { output: "Use AskUserQuestion." };
-  await hooks["tool.execute.after"](
-    {
-      tool: "read",
-      sessionID: "read-owner",
-      callID: "call-2",
-      args: { filePath: inside },
-    },
-    packageOutput,
+  const inside = join(owner.root, "skills", "grill-me", "SKILL.md");
+  const outsideDirectory = await mkdtemp(
+    join(tmpdir(), "opencode-runtime-read-"),
   );
-  assert.equal(packageOutput.output, "Use question.");
+  const siblingDirectory = await mkdtemp(`${owner.root.slice(0, -1)}-copy-`);
+  const outsideFile = join(outsideDirectory, "project-notes.md");
+  const outsideToInside = join(outsideDirectory, "package-skill.md");
+  const insideToOutside = join(
+    owner.root,
+    `.opencode-runtime-outside-${process.pid}-${Date.now()}.md`,
+  );
+  const siblingFile = join(siblingDirectory, "reference.md");
+  const nonexistent = join(
+    owner.root,
+    `.opencode-runtime-missing-${process.pid}-${Date.now()}.md`,
+  );
+  t.after(async () => {
+    await rm(insideToOutside, { force: true });
+    await rm(outsideDirectory, { recursive: true, force: true });
+    await rm(siblingDirectory, { recursive: true, force: true });
+  });
+  await writeFile(outsideFile, "project content", "utf8");
+  await writeFile(siblingFile, "sibling content", "utf8");
+  await symlink(inside, outsideToInside);
+  await symlink(outsideFile, insideToOutside);
 
-  for (const filePath of outside) {
-    const projectOutput = { output: "Use AskUserQuestion." };
+  const cases = [
+    ["real package file", inside, true],
+    ["outside symlink to package file", outsideToInside, true],
+    ["package symlink to outside file", insideToOutside, false],
+    ["existing sibling-prefix file", siblingFile, false],
+    ["nonexistent package path", nonexistent, false],
+  ];
+  const source = "${CLAUDE_PLUGIN_ROOT}/marker AskUserQuestion";
+  const translated = `${owner.root.slice(0, -1)}/marker question`;
+
+  const mismatches = {};
+  for (const [label, filePath, shouldTranslate] of cases) {
+    const output = { output: source };
     await hooks["tool.execute.after"](
       {
         tool: "read",
-        sessionID: "read-project",
-        callID: "call-3",
+        sessionID: "read-owner",
+        callID: `read-${label}`,
         args: { filePath },
       },
-      projectOutput,
+      output,
     );
-    assert.equal(projectOutput.output, "Use AskUserQuestion.");
+    const expected = shouldTranslate ? translated : source;
+    if (output.output !== expected) {
+      mismatches[label] = { actual: output.output, expected };
+    }
   }
+  assert.deepEqual(mismatches, {});
 });
 
 test("Architect Critic command arguments survive their message then expire", async () => {
@@ -564,7 +609,7 @@ test("Architect Critic command arguments survive their message then expire", asy
   assert.ok(!Object.hasOwn(expiredEnv.env, "ARCHITECT_CRITIC_ARGS"));
 });
 
-test("cross-skill exports carry arguments only within their session", async () => {
+test("standalone cross-skill literal exports carry arguments by session", async () => {
   const hooks = await createPluginHooks({
     plugins: ["architect-critic", "ossify"],
   });
@@ -588,6 +633,25 @@ test("cross-skill exports carry arguments only within their session", async () =
     '--spec "/tmp/SPINE.md" --close',
   );
 
+  await hooks["tool.execute.before"](
+    { tool: "bash", sessionID: "single-quoted", callID: "call-5" },
+    {
+      args: {
+        command:
+          "export ARCHITECT_CRITIC_ARGS='--spec \"/tmp/SPINE 2.md\" --close'",
+      },
+    },
+  );
+  const singleQuotedEnv = { env: {} };
+  await hooks["shell.env"](
+    { cwd: fileURLToPath(root), sessionID: "single-quoted" },
+    singleQuotedEnv,
+  );
+  assert.equal(
+    singleQuotedEnv.env.ARCHITECT_CRITIC_ARGS,
+    '--spec "/tmp/SPINE 2.md" --close',
+  );
+
   const otherEnv = { env: {} };
   await hooks["shell.env"](
     { cwd: fileURLToPath(root), sessionID: "other-session" },
@@ -608,4 +672,60 @@ test("cross-skill exports carry arguments only within their session", async () =
     clearedEnv,
   );
   assert.ok(!Object.hasOwn(clearedEnv.env, "ARCHITECT_CRITIC_ARGS"));
+});
+
+test("cross-skill export capture rejects non-literal or compound shell", async () => {
+  const hooks = await createPluginHooks({ plugins: ["architect-critic"] });
+  const rejected = [
+    ["variable expansion", 'export ARCHITECT_CRITIC_ARGS="--spec $spec --close"'],
+    [
+      "dollar command substitution",
+      'export ARCHITECT_CRITIC_ARGS="--spec $(pwd)/SPEC.md --close"',
+    ],
+    [
+      "backtick command substitution",
+      'export ARCHITECT_CRITIC_ARGS="--spec `pwd`/SPEC.md --close"',
+    ],
+    ["unquoted value", "export ARCHITECT_CRITIC_ARGS=--close"],
+    ["unterminated quote", 'export ARCHITECT_CRITIC_ARGS="--close'],
+    [
+      "comment",
+      'export ARCHITECT_CRITIC_ARGS="--close" # retain this value',
+    ],
+    ["pipeline", 'export ARCHITECT_CRITIC_ARGS="--close" | cat'],
+    [
+      "following command",
+      'export ARCHITECT_CRITIC_ARGS="--close"; printf done',
+    ],
+    [
+      "preceding command",
+      'printf ready\nexport ARCHITECT_CRITIC_ARGS="--close"',
+    ],
+    [
+      "multiple lines",
+      'export ARCHITECT_CRITIC_ARGS="--close"\nprintf done',
+    ],
+    [
+      "heredoc",
+      'cat <<EOF\nexport ARCHITECT_CRITIC_ARGS="--close"\nEOF',
+    ],
+  ];
+
+  const captured = [];
+  for (const [label, command] of rejected) {
+    const sessionID = `rejected-${label}`;
+    await hooks["tool.execute.before"](
+      { tool: "bash", sessionID, callID: `call-${label}` },
+      { args: { command } },
+    );
+    const output = { env: {} };
+    await hooks["shell.env"](
+      { cwd: fileURLToPath(root), sessionID },
+      output,
+    );
+    if (Object.hasOwn(output.env, "ARCHITECT_CRITIC_ARGS")) {
+      captured.push(label);
+    }
+  }
+  assert.deepEqual(captured, []);
 });
