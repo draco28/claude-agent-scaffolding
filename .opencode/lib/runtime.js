@@ -42,6 +42,7 @@ const SHELL_SEPARATORS = new Set([
   "`",
   "#",
 ]);
+const MAX_AUDIT_QUOTE_DEPTH = 8;
 
 function containsPath(root, filePath) {
   const nested = relative(root, filePath);
@@ -158,18 +159,21 @@ function opensSingleQuote(command, index, value) {
 function auditTokens(command) {
   const tokens = [];
   let value = "";
-  let quote;
-  let quoteGroup;
+  const quoteStack = [];
   let nextQuoteGroup = 0;
   let quoteStart = false;
   let separated = true;
+
+  function activeQuote() {
+    return quoteStack[quoteStack.length - 1];
+  }
 
   function flushWord() {
     if (!value) return;
     tokens.push({
       type: "word",
       value,
-      quoteGroup,
+      quoteGroup: activeQuote()?.group,
       quoteStart,
       joinedToPrevious: !separated,
     });
@@ -183,45 +187,43 @@ function auditTokens(command) {
     if (
       character === "$" &&
       command[index + 1] === "'" &&
-      !quote &&
+      quoteStack.length === 0 &&
       hasUnescapedCloser(command, index + 1, "'")
     ) {
       flushWord();
-      quote = "ansi";
-      quoteGroup = nextQuoteGroup;
+      quoteStack.push({ marker: "ansi", group: nextQuoteGroup });
       nextQuoteGroup += 1;
       quoteStart = true;
       index += 1;
       continue;
     }
-    if (quote === "ansi" && character === "'") {
+    if (activeQuote()?.marker === "ansi" && character === "'") {
       flushWord();
-      quote = undefined;
-      quoteGroup = undefined;
+      quoteStack.pop();
       quoteStart = false;
       continue;
     }
-    if (
-      ((character === '"' || character === "`") &&
-        (quote !== undefined ||
-          hasUnescapedCloser(command, index, character))) ||
-      (character === "'" &&
-        (quote !== undefined || opensSingleQuote(command, index, value)))
-    ) {
+    const quote = activeQuote();
+    const closesQuote = quote?.marker === character;
+    const opensQuote =
+      quoteStack.length < MAX_AUDIT_QUOTE_DEPTH &&
+      (character === "'"
+        ? opensSingleQuote(command, index, value)
+        : (character === '"' || character === "`") &&
+          hasUnescapedCloser(command, index, character));
+    if (closesQuote || opensQuote) {
       flushWord();
-      if (quote === character) {
-        quote = undefined;
-        quoteGroup = undefined;
+      if (closesQuote) {
+        quoteStack.pop();
         quoteStart = false;
-      } else if (quote === undefined) {
-        quote = character;
-        quoteGroup = nextQuoteGroup;
+      } else {
+        quoteStack.push({ marker: character, group: nextQuoteGroup });
         nextQuoteGroup += 1;
         quoteStart = true;
       }
       continue;
     }
-    if (quote === "ansi" && character === "\\") {
+    if (activeQuote()?.marker === "ansi" && character === "\\") {
       const escapeLength = ansiWhitespaceEscape(command, index);
       if (escapeLength) {
         flushWord();
@@ -242,13 +244,11 @@ function auditTokens(command) {
     }
     if (SHELL_SEPARATORS.has(character)) {
       flushWord();
-      if (quote !== undefined) {
+      if (quoteStack.length > 0) {
         separated = true;
         continue;
       }
       tokens.push({ type: "separator" });
-      quote = undefined;
-      quoteGroup = undefined;
       quoteStart = false;
       separated = true;
       if (command[index + 1] === character) index += 1;

@@ -1439,6 +1439,52 @@ test("Ossify Git guard keeps quoted separators inside option values", async () =
   assert.deepEqual(rejected, []);
 });
 
+test("Ossify Git guard groups nested quoted option values", async () => {
+  const hooks = await createRegisteredOssifyHooks();
+  const sessionID = "ossify-nested-quoted-options";
+  await hooks["chat.message"](
+    { sessionID, agent: "ossify-implementer-agent" },
+    { message: { role: "user" }, parts: [] },
+  );
+  const allowed = [
+    `bash -c 'git -C "/tmp/repo data" status'`,
+    `'git -C "/tmp/repo data" rev-parse HEAD'`,
+    `bash -c "git -c color.ui='auto always' diff"`,
+    `bash -c 'git -c user.name="A#B" add -A'`,
+  ];
+  const rejected = [];
+
+  for (const [index, command] of allowed.entries()) {
+    try {
+      await hooks["tool.execute.before"](
+        { tool: "bash", sessionID, callID: `nested-quoted-${index}` },
+        { args: { command } },
+      );
+    } catch (error) {
+      rejected.push([command, error.message]);
+    }
+  }
+
+  assert.deepEqual(rejected, []);
+});
+
+test("Ossify Git guard finds forbidden verbs after nested quoted values", async () => {
+  const hooks = await createRegisteredOssifyHooks();
+  const sessionID = "ossify-nested-quoted-forbidden";
+  await hooks["chat.message"](
+    { sessionID, agent: "ossify-implementer-agent" },
+    { message: { role: "user" }, parts: [] },
+  );
+
+  await assert.rejects(
+    hooks["tool.execute.before"](
+      { tool: "bash", sessionID, callID: "nested-quoted-commit" },
+      { args: { command: `bash -c 'git -C "/tmp/repo data" commit -m work'` } },
+    ),
+    /ossify-implementer-agent.*git commit/i,
+  );
+});
+
 test("Ossify Git guard treats contraction apostrophes as plain text", async () => {
   const hooks = await createRegisteredOssifyHooks();
   const sessionID = "ossify-contraction-apostrophe";
