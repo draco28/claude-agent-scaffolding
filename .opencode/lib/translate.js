@@ -52,11 +52,10 @@ export function translateToolOutput(tool, args, output) {
   if (typeof output?.output !== "string") return;
 
   const owner =
-    tool === "skill"
-      ? getSkillOwner(args?.name)
-      : tool === "read" && PLUGIN_CATALOG.includes(args?.owner)
-        ? args.owner
-        : undefined;
+    (tool === "skill" || tool === "read") &&
+    PLUGIN_CATALOG.includes(args?.owner)
+      ? args.owner
+      : undefined;
   if (owner) {
     output.output = translatePrompt(output.output, contextFor(owner));
   }

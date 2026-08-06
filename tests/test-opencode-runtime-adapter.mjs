@@ -439,16 +439,51 @@ test("prompt path substitution preserves replacement tokens literally", async ()
   );
 });
 
-test("command translation is limited to selected canonical skills and aliases", async () => {
+test("auto-skill command translation requires selected package base metadata", async (t) => {
+  const { getSkillOwner } = await import(catalogUrl);
   const hooks = await createPluginHooks({ plugins: ["ossify"] });
-  const selected = {
-    parts: [{ type: "text", text: "Skill(ai-mentor:grill-me)" }],
-  };
-  await hooks["command.execute.before"](
-    { command: "plan-spine", sessionID: "selected", arguments: "r1.s1" },
-    selected,
+  const owner = getSkillOwner("plan-spine");
+  const canonicalDirectory = join(owner.root, "skills", "plan-spine");
+  const externalDirectory = await mkdtemp(
+    join(tmpdir(), "opencode-colliding-command-"),
   );
-  assert.equal(selected.parts[0].text, 'skill(name="grill-me")');
+  t.after(() => rm(externalDirectory, { recursive: true, force: true }));
+  await writeFile(
+    join(externalDirectory, "SKILL.md"),
+    "---\nname: plan-spine\ndescription: External collision\n---\nExternal",
+    "utf8",
+  );
+  const invocation = "Skill(ai-mentor:grill-me)";
+  const cases = [
+    ["canonical marker", canonicalDirectory, true],
+    ["external collision", externalDirectory, false],
+    ["absent marker", undefined, false],
+    ["malformed marker", "", false],
+    ["unresolvable marker", join(externalDirectory, "missing"), false],
+  ];
+
+  const mismatches = {};
+  for (const [label, baseDirectory, shouldTranslate] of cases) {
+    const marker =
+      baseDirectory === undefined
+        ? ""
+        : `\nBase directory for this skill: ${baseDirectory}`;
+    const output = { parts: [{ type: "text", text: invocation + marker }] };
+    await hooks["command.execute.before"](
+      {
+        command: "plan-spine",
+        sessionID: `auto-${label}`,
+        arguments: "r1.s1",
+      },
+      output,
+    );
+    const expected =
+      (shouldTranslate ? 'skill(name="grill-me")' : invocation) + marker;
+    if (output.parts[0].text !== expected) {
+      mismatches[label] = { actual: output.parts[0].text, expected };
+    }
+  }
+  assert.deepEqual(mismatches, {});
 
   for (const command of ["critique", "project-command"]) {
     const unowned = {
@@ -460,6 +495,21 @@ test("command translation is limited to selected canonical skills and aliases", 
     );
     assert.equal(unowned.parts[0].text, "Skill(ai-mentor:grill-me)");
   }
+});
+
+test("registered package aliases translate without skill base metadata", async () => {
+  const hooks = await createPluginHooks({ plugins: ["architect-critic"] });
+  await hooks.config({});
+  const output = {
+    parts: [{ type: "text", text: "Skill(ai-mentor:grill-me)" }],
+  };
+
+  await hooks["command.execute.before"](
+    { command: "critique", sessionID: "registered-alias", arguments: "" },
+    output,
+  );
+
+  assert.equal(output.parts[0].text, 'skill(name="grill-me")');
 });
 
 test("caller-defined command collisions are not treated as package content", async () => {
@@ -482,31 +532,55 @@ test("caller-defined command collisions are not treated as package content", asy
   assert.equal(output.parts[0].text, "Skill(ai-mentor:grill-me)");
 });
 
-test("skill output translation uses the canonical skill owner", async () => {
+test("skill output translation requires selected package directory evidence", async (t) => {
   const { getSkillOwner } = await import(catalogUrl);
   const hooks = await createPluginHooks({ plugins: ["ai-mentor"] });
   const owner = getSkillOwner("grill-me");
-  const output = {
-    output:
-      "Policy: ${CLAUDE_PLUGIN_ROOT}/references/recommendation-policy.md\n" +
-      "Use AskUserQuestion.",
-  };
-
-  await hooks["tool.execute.after"](
-    {
-      tool: "skill",
-      sessionID: "skill-owner",
-      callID: "call-1",
-      args: { name: "grill-me" },
-    },
-    output,
+  const canonicalDirectory = join(owner.root, "skills", "grill-me");
+  const externalDirectory = await mkdtemp(
+    join(tmpdir(), "opencode-colliding-skill-"),
   );
-
-  assert.equal(
-    output.output,
+  t.after(() => rm(externalDirectory, { recursive: true, force: true }));
+  await writeFile(
+    join(externalDirectory, "SKILL.md"),
+    "---\nname: grill-me\ndescription: External collision\n---\nExternal",
+    "utf8",
+  );
+  const source =
+    "Policy: ${CLAUDE_PLUGIN_ROOT}/references/recommendation-policy.md\n" +
+    "Use AskUserQuestion.";
+  const translated =
     `Policy: ${join(owner.root, "references/recommendation-policy.md")}\n` +
-      "Use question.",
-  );
+    "Use question.";
+  const cases = [
+    ["canonical directory", { dir: canonicalDirectory }, translated],
+    ["external collision", { dir: externalDirectory }, source],
+    ["absent metadata", undefined, source],
+    ["malformed metadata", { dir: 42 }, source],
+    [
+      "unresolvable metadata",
+      { dir: join(externalDirectory, "missing") },
+      source,
+    ],
+  ];
+
+  const mismatches = {};
+  for (const [label, metadata, expected] of cases) {
+    const output = { output: source, metadata };
+    await hooks["tool.execute.after"](
+      {
+        tool: "skill",
+        sessionID: "skill-owner",
+        callID: `skill-${label}`,
+        args: { name: "grill-me" },
+      },
+      output,
+    );
+    if (output.output !== expected) {
+      mismatches[label] = { actual: output.output, expected };
+    }
+  }
+  assert.deepEqual(mismatches, {});
 });
 
 test("read translation uses real targets within selected plugin roots", async (t) => {
@@ -571,6 +645,7 @@ test("read translation uses real targets within selected plugin roots", async (t
 
 test("Architect Critic command arguments survive their message then expire", async () => {
   const hooks = await createPluginHooks({ plugins: ["architect-critic"] });
+  await hooks.config({});
   const commandOutput = {
     parts: [{ type: "text", text: "Run the native skill." }],
   };

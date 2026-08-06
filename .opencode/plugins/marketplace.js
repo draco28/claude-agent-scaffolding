@@ -27,18 +27,14 @@ export async function ScaffoldingPlugin(input, options = {}) {
             `Use OpenCode's \`skill\` tool to invoke the unqualified ` +
             `\`${command.skill}\` skill and follow it exactly.${argumentsLine}`,
         },
+        plugin,
       ]);
     }
   }
-  const canonicalCommands = new Set(
-    selected.flatMap(({ skills, commands }) => [
-      ...skills,
-      ...commands.map(({ name }) => name),
-    ]),
-  );
+  const registeredCommands = new Map();
   const runtime = createRuntime({
     selected,
-    canonicalCommands,
+    registeredCommands,
     directory: input.directory,
   });
 
@@ -53,21 +49,13 @@ export async function ScaffoldingPlugin(input, options = {}) {
       }
 
       config.command ??= {};
-      for (const plugin of selected) {
-        for (const skill of plugin.skills) {
-          if (Object.hasOwn(config.command, skill)) {
-            canonicalCommands.delete(skill);
-          }
-        }
-      }
-      for (const [name, command] of aliases) {
-        if (
-          Object.hasOwn(config.command, name) &&
-          config.command[name] !== command
-        ) {
-          canonicalCommands.delete(name);
-        }
+      for (const [name, command, owner] of aliases) {
         config.command[name] ??= command;
+        if (config.command[name] === command) {
+          registeredCommands.set(name, owner);
+        } else {
+          registeredCommands.delete(name);
+        }
       }
     },
     ...runtime,
