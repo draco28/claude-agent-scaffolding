@@ -1017,8 +1017,20 @@ test("Ossify implementer Git guard leaves allowed bash commands unchanged", asyn
     'git --super-prefix="worker prefix/" diff',
     "git --config-env safe.directory=SAFE_DIRECTORY add -A",
     'git --attr-source="topic branch" rev-parse HEAD',
+    "git -c user.name=worker status --short",
+    "git branch --show-current",
+    "git log -1 --oneline",
+    "git show --stat HEAD",
+    "git worktree list",
     "git --exec-path commit",
     'git --exec-path "/tmp/git tools" pull',
+    "git --html-path commit",
+    "git --man-path push",
+    "git --info-path pull",
+    "git --version fetch",
+    "git -v commit",
+    "git --help push",
+    "git -h pull",
     "git --version; commit is-a-different-command",
     "git --git-dir; commit is-a-different-command",
     "npm test",
@@ -1035,7 +1047,7 @@ test("Ossify implementer Git guard leaves allowed bash commands unchanged", asyn
   }
 });
 
-test("Ossify Git guard resolves direct and shell Git aliases", async () => {
+test("Ossify Git guard rejects inline aliases and alias-capable subcommands", async () => {
   const hooks = await createRegisteredOssifyHooks();
   const sessionID = "ossify-git-aliases";
   await hooks["chat.message"](
@@ -1043,38 +1055,77 @@ test("Ossify Git guard resolves direct and shell Git aliases", async () => {
     { message: { role: "user" }, parts: [] },
   );
   const forbidden = [
-    ["direct commit", "git -c alias.ci=commit ci -m work"],
-    ["direct pull", "git -c alias.update=pull update --ff-only"],
+    [
+      "direct commit",
+      "git -c alias.ci=commit ci -m work",
+      /inline git alias/i,
+    ],
+    [
+      "direct pull",
+      "git -c alias.update=pull update --ff-only",
+      /inline git alias/i,
+    ],
     [
       "shell push",
       "git -c 'alias.publish=!git push origin topic' publish",
+      /inline git alias/i,
     ],
-    ["shell fetch", "git -c 'alias.sync=!git fetch --all' sync"],
+    [
+      "shell fetch",
+      "git -c 'alias.sync=!git fetch --all' sync",
+      /inline git alias/i,
+    ],
+    [
+      "chained aliases",
+      "git -c alias.a=b -c alias.b=commit a",
+      /inline git alias/i,
+    ],
+    [
+      "case-insensitive alias key",
+      "git -c ALIAS.ci=commit ci",
+      /inline git alias/i,
+    ],
+    [
+      "config environment alias",
+      "COMMIT_ALIAS=commit git --config-env=alias.ci=COMMIT_ALIAS ci",
+      /inline git alias/i,
+    ],
+    [
+      "separate config environment alias",
+      "COMMIT_ALIAS=commit git --config-env ALIAS.ci=COMMIT_ALIAS ci",
+      /inline git alias/i,
+    ],
+    [
+      "safe direct alias",
+      "git -c alias.st=status st --short",
+      /inline git alias/i,
+    ],
+    [
+      "safe config environment alias",
+      "SAFE_ALIAS=status git --config-env=alias.st=SAFE_ALIAS st --short",
+      /inline git alias/i,
+    ],
+    [
+      "unknown configured alias",
+      "git ci -m work",
+      /unknown git subcommand.*ci/i,
+    ],
+    [
+      "environment-configured alias",
+      "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.ci GIT_CONFIG_VALUE_0=commit git ci -m work",
+      /unknown git subcommand.*ci/i,
+    ],
   ];
 
-  for (const [label, command] of forbidden) {
+  for (const [label, command, error] of forbidden) {
     await assert.rejects(
       hooks["tool.execute.before"](
         { tool: "bash", sessionID, callID: `alias-${label}` },
         { args: { command } },
       ),
-      /ossify-implementer-agent.*git (?:commit|push|pull|fetch)/i,
+      error,
       label,
     );
-  }
-
-  for (const command of [
-    "git -c alias.st=status st --short",
-    "git -c 'alias.changes=diff --cached' changes",
-    "git -c alias.stage=add stage -A",
-    "git -c 'alias.branch=rev-parse --abbrev-ref' branch HEAD",
-  ]) {
-    const output = { args: { command } };
-    await hooks["tool.execute.before"](
-      { tool: "bash", sessionID, callID: `allowed-alias-${command}` },
-      output,
-    );
-    assert.equal(output.args.command, command);
   }
 });
 
@@ -1091,6 +1142,11 @@ test("Ossify Git guard recursively scans literal shell command strings", async (
     ["path zsh pull", "/bin/zsh -c 'git pull --ff-only'"],
     ["eval fetch", "eval 'git fetch --all'"],
     ["nested eval", `bash -c "eval 'git commit -m deep'"`],
+    ["bash separator commit", 'bash -c -- "git commit -m nested"'],
+    ["sh separator push", "sh -c -- 'git push origin topic'"],
+    ["zsh separator fetch", "zsh -c -- 'git fetch --all'"],
+    ["combined bash options", "bash -lc -- 'git pull --ff-only'"],
+    ["combined sh options", "sh -xec -- 'git commit -m nested'"],
   ];
 
   for (const [label, command] of forbidden) {
@@ -1109,6 +1165,9 @@ test("Ossify Git guard recursively scans literal shell command strings", async (
     'bash -c "git diff --cached"',
     "zsh -c 'git add -A'",
     "eval 'git rev-parse HEAD'",
+    "bash -c -- 'git status --short'",
+    "sh -ec -- 'git diff --cached'",
+    "zsh -fc -- 'git add -A'",
   ]) {
     const output = { args: { command } };
     await hooks["tool.execute.before"](
@@ -1133,6 +1192,8 @@ test("Ossify Git guard bounds recursion and rejects malformed nested strings", a
 
   for (const [label, command] of [
     ["missing command string", "bash -c"],
+    ["missing command after separator", "bash -c --"],
+    ["missing combined command after separator", "sh -xec --"],
     ["unterminated command string", "bash -c 'git status"],
     ["recursion limit", tooDeep],
   ]) {

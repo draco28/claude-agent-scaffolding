@@ -9,6 +9,41 @@ const ARGUMENT_EXPORT =
 const SKILL_BASE_DIRECTORY =
   /(?:^|\r?\n)Base directory for this skill: ([^\r\n]+)(?=\r?\n|$)/g;
 const FORBIDDEN_GIT_VERBS = new Set(["commit", "push", "pull", "fetch"]);
+// Git 2.52's compiled builtins, excluding the operations denied above. Git
+// resolves these before aliases, so only these literal subcommands may pass.
+const ALLOWED_GIT_BUILTINS = new Set(
+  `add am annotate apply archive backfill bisect blame branch bugreport bundle
+  cat-file check-attr check-ignore check-mailmap check-ref-format checkout
+  checkout--worker checkout-index cherry cherry-pick clean clone column
+  commit-graph commit-tree config count-objects credential credential-cache
+  credential-cache--daemon credential-store describe diagnose diff diff-files
+  diff-index diff-pairs diff-tree difftool fast-export fast-import fetch-pack
+  fmt-merge-msg for-each-ref for-each-repo format-patch fsck fsck-objects
+  fsmonitor--daemon gc get-tar-commit-id grep hash-object help hook index-pack
+  init init-db interpret-trailers last-modified log ls-files ls-remote ls-tree
+  mailinfo mailsplit maintenance merge merge-base merge-file merge-index
+  merge-ours merge-recursive merge-recursive-ours merge-recursive-theirs
+  merge-subtree merge-tree mktag mktree multi-pack-index mv name-rev notes
+  pack-objects pack-redundant pack-refs patch-id pickaxe prune prune-packed
+  range-diff read-tree rebase receive-pack reflog refs remote remote-ext
+  remote-fd repack replace replay repo rerere reset restore rev-list rev-parse
+  revert rm send-pack shortlog show show-branch show-index show-ref
+  sparse-checkout stage stash status stripspace submodule--helper switch
+  symbolic-ref tag unpack-file unpack-objects update-index update-ref
+  update-server-info upload-archive upload-archive--writer upload-pack var
+  verify-commit verify-pack verify-tag version whatchanged worktree write-tree`
+    .split(/\s+/),
+);
+const GIT_INFORMATION_OPTIONS = new Set([
+  "-v",
+  "--version",
+  "-h",
+  "--help",
+  "--exec-path",
+  "--html-path",
+  "--man-path",
+  "--info-path",
+]);
 const NESTED_SHELLS = new Set(["sh", "bash", "zsh"]);
 const MAX_SHELL_SCAN_DEPTH = 4;
 const GIT_OPTIONS_WITH_VALUE = new Set([
@@ -170,25 +205,10 @@ function shellTokens(command) {
   return { tokens, malformed: malformed || quote !== undefined };
 }
 
-function aliasDefinition(value, aliases) {
+function isGitAliasConfig(value) {
   const separator = value.indexOf("=");
-  if (separator === -1) return;
-  const key = value.slice(0, separator);
-  if (!key.startsWith("alias.") || key.length === "alias.".length) return;
-  aliases.set(key.slice("alias.".length), value.slice(separator + 1));
-}
-
-function directAliasVerb(value) {
-  const { tokens, malformed } = shellTokens(value);
-  if (malformed) {
-    throw new Error(
-      "ossify-implementer-agent requires a valid nested shell command",
-    );
-  }
-  const first = tokens.find(({ type }) => type === "word");
-  return first && FORBIDDEN_GIT_VERBS.has(first.value)
-    ? first.value
-    : undefined;
+  const key = separator === -1 ? value : value.slice(0, separator);
+  return key.toLowerCase().startsWith("alias.");
 }
 
 function nestedCommandVerb(tokens, index, depth) {
@@ -198,7 +218,9 @@ function nestedCommandVerb(tokens, index, depth) {
       const token = tokens[next];
       if (token.type === "separator") break;
       if (/^-[^-]*c[^-]*$/.test(token.value)) {
-        const command = tokens[next + 1];
+        let commandIndex = next + 1;
+        if (tokens[commandIndex]?.value === "--") commandIndex += 1;
+        const command = tokens[commandIndex];
         if (command?.type !== "word") {
           throw new Error(
             "ossify-implementer-agent requires a valid nested shell command",
@@ -221,19 +243,35 @@ function nestedCommandVerb(tokens, index, depth) {
   if (words.length > 0) return forbiddenGitVerb(words.join(" "), depth + 1);
 }
 
-function gitInvocationVerb(tokens, index, depth) {
-  const aliases = new Map();
+function gitInvocationVerb(tokens, index) {
   for (let next = index + 1; next < tokens.length; next += 1) {
     const token = tokens[next];
     if (token.type === "separator") break;
     const word = token.value;
 
-    if (word === "--exec-path") break;
+    if (GIT_INFORMATION_OPTIONS.has(word)) break;
     if (word === "-c") {
       const value = tokens[next + 1];
       if (value?.type !== "word") break;
-      aliasDefinition(value.value, aliases);
+      if (isGitAliasConfig(value.value)) {
+        throw new Error(
+          "ossify-implementer-agent cannot run inline Git alias configuration",
+        );
+      }
       next += 1;
+      continue;
+    }
+    if (word === "--config-env" || word.startsWith("--config-env=")) {
+      const value = word.includes("=")
+        ? word.slice(word.indexOf("=") + 1)
+        : tokens[next + 1]?.value;
+      if (typeof value !== "string") break;
+      if (isGitAliasConfig(value)) {
+        throw new Error(
+          "ossify-implementer-agent cannot run inline Git alias configuration",
+        );
+      }
+      if (!word.includes("=")) next += 1;
       continue;
     }
 
@@ -247,13 +285,12 @@ function gitInvocationVerb(tokens, index, depth) {
     }
     if (word.startsWith("-")) continue;
     if (FORBIDDEN_GIT_VERBS.has(word)) return word;
-
-    const alias = aliases.get(word);
-    if (!alias) return;
-    if (alias.startsWith("!")) {
-      return forbiddenGitVerb(alias.slice(1), depth + 1);
+    if (!ALLOWED_GIT_BUILTINS.has(word)) {
+      throw new Error(
+        `ossify-implementer-agent cannot run unknown Git subcommand ${word}`,
+      );
     }
-    return directAliasVerb(alias);
+    return;
   }
 }
 
@@ -272,7 +309,7 @@ function forbiddenGitVerb(command, depth = 0) {
     const token = tokens[index];
     if (token.type !== "word") continue;
     if (isGitExecutable(token)) {
-      const verb = gitInvocationVerb(tokens, index, depth);
+      const verb = gitInvocationVerb(tokens, index);
       if (verb) return verb;
     }
     const nestedVerb = nestedCommandVerb(tokens, index, depth);
