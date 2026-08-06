@@ -1,12 +1,11 @@
-name: shell test suites
+name: repository test suites
 
-# CI entry point for the repo's shell-based test suites (SS-6 / #53). Runs every
-# plugin's run-tests.sh plus the repo-root dual-publish parity gate on PRs and on
-# pushes to main. One step per suite so a failure pinpoints the offending plugin.
+# CI entry point for the repository's deterministic test suites (SS-6 / #53).
+# Runs plugin suites, Node adapter tests, the real OpenCode loader, and repo-root
+# parity gates on PRs and pushes to main. One step per suite isolates failures.
 #
-# Tooling: ubuntu-latest ships bash, jq, node, and ruby (with Psych) — the deps the
-# suites need. The codex adapter tests exec `node <mock-shim>` (no network); the
-# dual-publish test uses ruby+Psych to validate SKILL.md frontmatter.
+# Tooling: ubuntu-latest ships bash, jq, node, npm, and ruby (with Psych). OpenCode
+# is installed at the exact supported version before the model-free loader test.
 
 on:
   pull_request:
@@ -21,8 +20,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  shell-suites:
-    name: shell test suites
+  test-suites:
+    name: repository test suites
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -33,11 +32,15 @@ jobs:
           # No step pushes/fetches with the token, so don't leave it in .git/config (#84).
           persist-credentials: false
 
+      - name: Install OpenCode 1.18.13
+        run: npm install --global opencode-ai@1.18.13
+
       - name: Tool versions
         run: |
           bash --version | head -1
           jq --version
           node --version
+          opencode --version
           ruby --version
           ruby -e 'require "psych"; puts "psych ok"'
 
@@ -50,6 +53,9 @@ jobs:
       - name: workspace-init suite
         run: bash workspace-init/run-tests.sh
 
+      - name: ai-mentor suite
+        run: bash ai-mentor/tests/test-frontmatter-lint.sh
+
       - name: scaffold-dev suite
         run: bash scaffold-dev/run-tests.sh
 
@@ -58,6 +64,9 @@ jobs:
 
       - name: architect-critic suite
         run: bash architect-critic/run-tests.sh
+
+      - name: ossify suite
+        run: bash ossify/tests/run-all.sh
 
       - name: claude-security-audit suite
         # Skip the wall-clock perf benchmark on shared runners (flaky vs the homelab
@@ -71,3 +80,9 @@ jobs:
 
       - name: recommendation-policy parity (repo-root)
         run: bash tests/test-recommendation-policy-parity.sh
+
+      - name: OpenCode runtime adapter unit suite
+        run: node --test tests/test-opencode-runtime-adapter.mjs
+
+      - name: OpenCode 1.18.13 live loader integration
+        run: bash tests/test-opencode-live.sh
