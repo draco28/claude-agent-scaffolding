@@ -63,6 +63,21 @@ export const PLUGIN_CATALOG = Object.freeze([
 ]);
 
 export function resolveEnabledPlugins(options = {}) {
+  if (
+    options === null ||
+    typeof options !== "object" ||
+    Array.isArray(options) ||
+    ![Object.prototype, null].includes(Object.getPrototypeOf(options))
+  ) {
+    throw new TypeError("options must be a plain object");
+  }
+
+  for (const key of Reflect.ownKeys(options)) {
+    if (key !== "plugins") {
+      throw new TypeError(`Unknown OpenCode option: ${String(key)}`);
+    }
+  }
+
   const requested =
     options.plugins === undefined
       ? PLUGIN_CATALOG.filter(({ defaultEnabled }) => defaultEnabled).map(

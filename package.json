@@ -14,5 +14,9 @@
   "engines": {
     "opencode": ">=1.18.13"
   },
+  "os": [
+    "darwin",
+    "linux"
+  ],
   "dependencies": {}
 }

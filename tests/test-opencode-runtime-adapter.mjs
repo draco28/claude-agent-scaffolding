@@ -30,6 +30,7 @@ test("root package declares the OpenCode bundle contract", async () => {
   assert.equal(packageJson.type, "module");
   assert.equal(packageJson.exports, "./.opencode/plugins/marketplace.js");
   assert.deepEqual(packageJson.engines, { opencode: ">=1.18.13" });
+  assert.deepEqual(packageJson.os, ["darwin", "linux"]);
   assert.deepEqual(packageJson.dependencies, {});
   assert.deepEqual(packageJson.files, [
     ".opencode",
@@ -74,6 +75,9 @@ test("the explicit allowlist contains exactly four immutable definitions", async
         Object.isFrozen(plugin.commands),
     ),
   );
+  const aliases = PLUGIN_CATALOG.flatMap(({ commands }) => commands);
+  assert.equal(aliases.length, 9);
+  assert.ok(aliases.every(Object.isFrozen));
 });
 
 test("skill and command ownership comes from catalog metadata", async () => {
@@ -100,6 +104,47 @@ test("unknown and malformed plugin selections are rejected", async () => {
   );
 });
 
+test("options accept only undefined or a plain object with optional plugins", async () => {
+  const { resolveEnabledPlugins } = await import(catalogUrl);
+  const defaults = expectedPlugins.slice(0, 3);
+
+  for (const options of [undefined, {}, { plugins: undefined }]) {
+    assert.deepEqual(
+      resolveEnabledPlugins(options).map(({ name }) => name),
+      defaults,
+    );
+  }
+
+  const invalidContainers = [
+    null,
+    [],
+    "workspace-init",
+    1,
+    true,
+    () => {},
+    new Date(),
+  ];
+  for (const options of invalidContainers) {
+    assert.throws(
+      () => resolveEnabledPlugins(options),
+      /options must be a plain object/,
+    );
+  }
+});
+
+test("options reject unknown and misspelled keys", async () => {
+  const { resolveEnabledPlugins } = await import(catalogUrl);
+
+  assert.throws(
+    () => resolveEnabledPlugins({ plugin: ["workspace-init"] }),
+    /Unknown OpenCode option: plugin/,
+  );
+  assert.throws(
+    () => resolveEnabledPlugins({ plugins: [], extra: true }),
+    /Unknown OpenCode option: extra/,
+  );
+});
+
 test("excluded plugins cannot enter the catalog or package payload", async () => {
   const { PLUGIN_CATALOG, resolveEnabledPlugins } = await import(catalogUrl);
   const packageJson = JSON.parse(
@@ -123,5 +168,9 @@ test("plugin entrypoint applies strict selection before returning hooks", async 
   await assert.rejects(
     ScaffoldingPlugin({}, { plugins: ["scaffold"] }),
     /Unknown OpenCode plugin: scaffold/,
+  );
+  await assert.rejects(
+    ScaffoldingPlugin({}, null),
+    /options must be a plain object/,
   );
 });
