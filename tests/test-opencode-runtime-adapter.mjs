@@ -946,6 +946,24 @@ test("Ossify implementer sessions reject forbidden Git verbs anywhere in bash lo
     ["double-quoted full command", 'printf "%s\\n" "git fetch --all"'],
     ["ANSI-C nested commit", "bash -c $'git commit -m nested'"],
     ["ANSI-C eval push", "eval $'git push origin topic'"],
+    [
+      "ANSI-C hex whitespace",
+      String.raw`bash -c $'git\x20commit -m nested'`,
+    ],
+    [
+      "ANSI-C eval hex whitespace",
+      String.raw`eval $'git\x20push origin topic'`,
+    ],
+    ["ANSI-C tab whitespace", String.raw`bash -c $'git\tpull --ff-only'`],
+    ["ANSI-C octal whitespace", String.raw`bash -c $'git\040fetch --all'`],
+    [
+      "ANSI-C short Unicode whitespace",
+      String.raw`bash -c $'git\u0020commit -m nested'`,
+    ],
+    [
+      "ANSI-C long Unicode whitespace",
+      String.raw`bash -c $'git\U00000020push origin topic'`,
+    ],
     ["quoted executable piece", "/usr/bin/'git' fetch origin"],
     [
       "review repro quoted worktree",
@@ -971,9 +989,16 @@ test("Ossify implementer sessions reject forbidden Git verbs anywhere in bash lo
     ],
     ["attribute source", 'git --attr-source "topic branch" commit'],
     ["comment", 'git status --short # never run "git fetch" here'],
+    ["leading hash boundary", "#git commit -m work"],
+    ["inline hash boundary", "echo ok #git fetch --all"],
+    ["quoted hash boundary", `printf '%s\\n' "#git push origin topic"`],
     [
       "heredoc",
       'cat <<\'EOF\' > instructions.txt\nNever run "git pull" here.\nEOF',
+    ],
+    [
+      "heredoc hash boundary",
+      'cat <<\'EOF\' > instructions.txt\n"#git pull"\nEOF',
     ],
     ["pipeline", "printf ready | git fetch origin"],
     ["tab whitespace", "git\tcommit -m work"],
@@ -1035,6 +1060,9 @@ test("Ossify Git guard allows only canonical operations in representative litera
     "git --list-cmds commit",
     "git --list-cmds=builtins commit",
     "git --config-env safe.directory=SAFE_DIRECTORY status --short",
+    "git -ccolor.ui=false status --short",
+    'git -C /tmp/"repo data" status --short',
+    'git -c color.ui="auto always" status --short',
     "git --version; commit is-a-different-command",
     "npm test",
     "printf '%s\\n' ready",
@@ -1091,6 +1119,26 @@ test("Ossify Git guard rejects aliases and every non-canonical Git subcommand", 
       /inline git alias/i,
     ],
     [
+      "attached alias config",
+      "git -calias.ci=commit status",
+      /inline git alias/i,
+    ],
+    [
+      "attached uppercase alias config",
+      "git -cALIAS.ci=commit status",
+      /inline git alias/i,
+    ],
+    [
+      "attached mixed-case alias config",
+      "git -cAlias.CI=commit status",
+      /inline git alias/i,
+    ],
+    [
+      "attached equals alias config",
+      "git -c=alias.ci=commit status",
+      /inline git alias/i,
+    ],
+    [
       "config environment alias",
       "COMMIT_ALIAS=commit git --config-env=alias.ci=COMMIT_ALIAS ci",
       /inline git alias/i,
@@ -1140,6 +1188,16 @@ test("Ossify Git guard rejects aliases and every non-canonical Git subcommand", 
       /git subcommand.*backfill/i,
     ],
     ["deprecated stage name", "git stage -A", /git subcommand.*stage/i],
+    [
+      "allowed occurrence before denied occurrence",
+      `printf '%s\\n' "git status; git branch --show-current"`,
+      /git subcommand.*branch/i,
+    ],
+    [
+      "nested allowed occurrence before forbidden occurrence",
+      "bash -c 'git status; git commit -m nested'",
+      /git commit/i,
+    ],
     [
       "deprecated whatchanged name",
       "git whatchanged --oneline",
@@ -1237,6 +1295,7 @@ test("Ossify Git guard is not a shell validator", async () => {
   const allowed = [
     "cat <<'EOF'\nit's ready\nEOF",
     "printf %s it's",
+    "printf %s it's; git -C /tmp status",
     "bash -c",
     "sh -xec --",
   ];

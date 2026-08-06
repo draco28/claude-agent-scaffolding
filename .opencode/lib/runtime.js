@@ -40,6 +40,7 @@ const SHELL_SEPARATORS = new Set([
   "<",
   ">",
   "`",
+  "#",
 ]);
 
 function containsPath(root, filePath) {
@@ -105,41 +106,84 @@ function auditTokens(command) {
   let quote;
   let quoteGroup;
   let nextQuoteGroup = 0;
+  let quoteStart = false;
+  let separated = true;
 
   function flushWord() {
     if (!value) return;
-    tokens.push({ type: "word", value, quoteGroup });
+    tokens.push({
+      type: "word",
+      value,
+      quoteGroup,
+      quoteStart,
+      joinedToPrevious: !separated,
+    });
     value = "";
+    quoteStart = false;
+    separated = false;
   }
 
-  const normalized = command.replace(/\$'/g, "'");
-  for (let index = 0; index < normalized.length; index += 1) {
-    const character = normalized[index];
+  for (let index = 0; index < command.length; index += 1) {
+    const character = command[index];
+    if (character === "$" && command[index + 1] === "'" && !quote) {
+      flushWord();
+      quote = "ansi";
+      quoteGroup = nextQuoteGroup;
+      nextQuoteGroup += 1;
+      quoteStart = true;
+      index += 1;
+      continue;
+    }
+    if (quote === "ansi" && character === "'") {
+      flushWord();
+      quote = undefined;
+      quoteGroup = undefined;
+      quoteStart = false;
+      continue;
+    }
     if (character === '"' || character === "'" || character === "`") {
       flushWord();
       if (quote === character) {
         quote = undefined;
         quoteGroup = undefined;
+        quoteStart = false;
       } else if (quote === undefined) {
         quote = character;
         quoteGroup = nextQuoteGroup;
         nextQuoteGroup += 1;
+        quoteStart = true;
       }
       continue;
     }
-    if (character === "\\" && normalized[index + 1] !== undefined) {
-      value += normalized[index + 1];
+    if (quote === "ansi" && character === "\\") {
+      const escape = ["U00000020", "u0020", "x20", "040", "t"].find(
+        (candidate) => command.startsWith(candidate, index + 1),
+      );
+      if (escape) {
+        flushWord();
+        separated = true;
+        index += escape.length;
+        continue;
+      }
+    }
+    if (character === "\\" && command[index + 1] !== undefined) {
+      value += command[index + 1];
       index += 1;
       continue;
     }
     if (/\s/.test(character)) {
       flushWord();
+      separated = true;
       continue;
     }
     if (SHELL_SEPARATORS.has(character)) {
       flushWord();
       tokens.push({ type: "separator" });
-      if (normalized[index + 1] === character) index += 1;
+      quote = undefined;
+      quoteGroup = undefined;
+      quoteStart = false;
+      separated = true;
+      if (command[index + 1] === character) index += 1;
       continue;
     }
 
@@ -156,19 +200,23 @@ function isGitAliasConfig(value) {
 }
 
 function optionValue(tokens, index, inlineValue) {
-  if (inlineValue) return { value: inlineValue, index };
-  const first = tokens[index + 1];
+  const firstIndex = inlineValue === undefined ? index + 1 : index;
+  const first = tokens[firstIndex];
   if (first?.type !== "word") return;
 
-  let last = index + 1;
-  if (first.quoteGroup !== undefined) {
-    while (tokens[last + 1]?.quoteGroup === first.quoteGroup) last += 1;
+  let last = firstIndex;
+  while (true) {
+    const current = tokens[last];
+    if (current.quoteStart && current.quoteGroup !== undefined) {
+      while (tokens[last + 1]?.quoteGroup === current.quoteGroup) last += 1;
+    }
+    if (!tokens[last + 1]?.joinedToPrevious) break;
+    last += 1;
   }
+  const pieces = tokens.slice(firstIndex, last + 1).map((token) => token.value);
+  if (inlineValue !== undefined) pieces[0] = inlineValue;
   return {
-    value: tokens
-      .slice(index + 1, last + 1)
-      .map((token) => token.value)
-      .join(" "),
+    value: pieces.join(" "),
     index: last,
   };
 }
@@ -188,6 +236,17 @@ function gitInvocationVerb(tokens, index) {
     if (word === "-c") {
       const value = optionValue(tokens, next);
       if (!value) break;
+      if (isGitAliasConfig(value.value)) {
+        throw new Error(
+          "ossify-implementer-agent cannot run inline Git alias configuration",
+        );
+      }
+      next = value.index;
+      continue;
+    }
+    if (word.startsWith("-c") && word.length > 2) {
+      const inlineValue = word.slice(2).replace(/^=/, "");
+      const value = optionValue(tokens, next, inlineValue);
       if (isGitAliasConfig(value.value)) {
         throw new Error(
           "ossify-implementer-agent cannot run inline Git alias configuration",
