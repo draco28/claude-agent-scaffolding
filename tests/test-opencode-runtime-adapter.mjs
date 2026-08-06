@@ -18,6 +18,7 @@ const root = new URL("../", import.meta.url);
 const marketplaceUrl = new URL(".opencode/plugins/marketplace.js", root);
 const catalogUrl = new URL(".opencode/lib/catalog.js", root);
 const markdownUrl = new URL(".opencode/lib/markdown.js", root);
+const runtimeUrl = new URL(".opencode/lib/runtime.js", root);
 const translateUrl = new URL(".opencode/lib/translate.js", root);
 const ossifyAgentUrl = new URL("ossify/agents/implementer-agent.md", root);
 const wrapperDirectory = fileURLToPath(new URL(".opencode/bin", root));
@@ -39,6 +40,59 @@ async function createRegisteredOssifyHooks() {
   const hooks = await createPluginHooks({ plugins: ["ossify"] });
   await hooks.config({});
   return hooks;
+}
+
+function transformOutput(sessionID, text = "Audit this spec") {
+  const messageID = `message-${sessionID}`;
+  return {
+    messages: [
+      {
+        info: {
+          id: messageID,
+          sessionID,
+          role: "user",
+          time: { created: 1 },
+          agent: "build",
+          model: { providerID: "test", modelID: "test" },
+        },
+        parts: [
+          {
+            id: `part-${sessionID}`,
+            sessionID,
+            messageID,
+            type: "text",
+            text,
+            synthetic: false,
+            metadata: { fixture: true },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+async function createLifecycleRuntime(t, handlerSource, options = {}) {
+  const fixture = await mkdtemp(join(tmpdir(), "opencode-architect-lifecycle-"));
+  t.after(() => rm(fixture, { recursive: true, force: true }));
+  if (handlerSource !== undefined) {
+    const handlers = join(fixture, "hooks-handlers");
+    await mkdir(handlers, { recursive: true });
+    await writeFile(join(handlers, "session-start.sh"), handlerSource, {
+      encoding: "utf8",
+      mode: options.mode ?? 0o755,
+    });
+  }
+
+  const { createRuntime } = await import(runtimeUrl);
+  return {
+    fixture,
+    hooks: createRuntime({
+      selected: [{ name: options.plugin ?? "architect-critic", root: fixture }],
+      registeredCommands: new Map(),
+      registeredAgents: new Set(),
+      directory: fixture,
+    }),
+  };
 }
 
 const expectedPlugins = [
@@ -219,6 +273,7 @@ test("plugin entrypoint applies strict selection before returning hooks", async 
     "tool.execute.before",
     "tool.execute.after",
     "shell.env",
+    "experimental.chat.messages.transform",
   ]);
   assert.equal(typeof hooks.config, "function");
   await assert.rejects(
@@ -756,6 +811,240 @@ test("read translation uses real targets within selected plugin roots", async (t
     }
   }
   assert.deepEqual(mismatches, {});
+});
+
+test("Task 6 lifecycle prepends status to the first user text without changing message shape", async (t) => {
+  const { fixture, hooks } = await createLifecycleRuntime(
+    t,
+    '#!/bin/sh\nprintf "%s|%s\\n" "$CLAUDE_PLUGIN_ROOT" "$HOME"\n',
+  );
+  const output = transformOutput("task-6-shape", "Audit this spec");
+  output.messages.unshift({
+    info: {
+      id: "assistant-message",
+      sessionID: "task-6-shape",
+      role: "assistant",
+      time: { created: 0 },
+    },
+    parts: [
+      {
+        id: "assistant-part",
+        sessionID: "task-6-shape",
+        messageID: "assistant-message",
+        type: "text",
+        text: "Earlier answer",
+      },
+    ],
+  });
+  output.messages[1].parts.unshift({
+    id: "file-part",
+    sessionID: "task-6-shape",
+    messageID: "message-task-6-shape",
+    type: "file",
+    mime: "text/plain",
+    url: "file:///tmp/spec.md",
+  });
+  output.messages.push(transformOutput("task-6-shape", "Later request").messages[0]);
+  const before = structuredClone(output);
+
+  await hooks["experimental.chat.messages.transform"]({}, output);
+
+  const expected = structuredClone(before);
+  expected.messages[1].parts[1].text =
+    `${fixture}|${process.env.HOME}\n` + before.messages[1].parts[1].text;
+  assert.deepEqual(output, expected);
+});
+
+test("Task 6 lifecycle marks repeated and concurrent session transforms attempted once", async (t) => {
+  const { fixture, hooks } = await createLifecycleRuntime(
+    t,
+    '#!/bin/sh\nprintf "call\\n" >> "$CLAUDE_PLUGIN_ROOT/calls"\nsleep 0.1\nprintf "ready\\n"\n',
+  );
+  const first = transformOutput("task-6-dedup", "First");
+  const concurrent = transformOutput("task-6-dedup", "Concurrent");
+
+  await Promise.all([
+    hooks["experimental.chat.messages.transform"]({}, first),
+    hooks["experimental.chat.messages.transform"]({}, concurrent),
+  ]);
+  await hooks["experimental.chat.messages.transform"](
+    {},
+    transformOutput("task-6-dedup", "Repeated"),
+  );
+
+  assert.equal(await readFile(join(fixture, "calls"), "utf8"), "call\n");
+  assert.deepEqual(
+    [first.messages[0].parts[0].text, concurrent.messages[0].parts[0].text].sort(),
+    ["Concurrent", "ready\nFirst"].sort(),
+  );
+});
+
+test("Task 6 lifecycle runs independent session IDs independently", async (t) => {
+  const { fixture, hooks } = await createLifecycleRuntime(
+    t,
+    '#!/bin/sh\nprintf "call\\n" >> "$CLAUDE_PLUGIN_ROOT/calls"\nprintf "status\\n"\n',
+  );
+  const first = transformOutput("task-6-independent-a", "A");
+  const second = transformOutput("task-6-independent-b", "B");
+
+  await hooks["experimental.chat.messages.transform"]({}, first);
+  await hooks["experimental.chat.messages.transform"]({}, second);
+
+  assert.equal(await readFile(join(fixture, "calls"), "utf8"), "call\ncall\n");
+  assert.equal(first.messages[0].parts[0].text, "status\nA");
+  assert.equal(second.messages[0].parts[0].text, "status\nB");
+});
+
+test("Task 6 lifecycle failures, missing handlers, and empty output fail open once", async (t) => {
+  const cases = [
+    ["failure", '#!/bin/sh\nprintf "call\\n" >> "$CLAUDE_PLUGIN_ROOT/calls"\nexit 9\n'],
+    ["empty", '#!/bin/sh\nprintf "call\\n" >> "$CLAUDE_PLUGIN_ROOT/calls"\n'],
+    ["nonexecutable", "#!/bin/sh\nprintf unexpected\n", { mode: 0o644 }],
+    ["missing", undefined],
+  ];
+
+  for (const [label, source, options] of cases) {
+    const { fixture, hooks } = await createLifecycleRuntime(t, source, options);
+    const first = transformOutput(`task-6-${label}`, "Unchanged");
+    const second = transformOutput(`task-6-${label}`, "Also unchanged");
+    const firstBefore = structuredClone(first);
+    const secondBefore = structuredClone(second);
+
+    await hooks["experimental.chat.messages.transform"]({}, first);
+    await hooks["experimental.chat.messages.transform"]({}, second);
+
+    assert.deepEqual(first, firstBefore, label);
+    assert.deepEqual(second, secondBefore, label);
+    if (label === "failure" || label === "empty") {
+      assert.equal(await readFile(join(fixture, "calls"), "utf8"), "call\n");
+    }
+  }
+});
+
+test("Task 6 lifecycle tolerates missing state, missing users, and malformed transforms", async (t) => {
+  const home = await mkdtemp(join(tmpdir(), "opencode-architect-home-"));
+  t.after(() => rm(home, { recursive: true, force: true }));
+  const previousHome = process.env.HOME;
+  process.env.HOME = home;
+  t.after(() => {
+    if (previousHome === undefined) delete process.env.HOME;
+    else process.env.HOME = previousHome;
+  });
+  const hooks = await createPluginHooks({ plugins: ["architect-critic"] });
+  const missingState = transformOutput("task-6-missing-state", "Request");
+
+  await hooks["experimental.chat.messages.transform"]({}, missingState);
+  assert.match(
+    missingState.messages[0].parts[0].text,
+    /^architect-critic v0\.3 installed; principles loaded from \(shipped defaults only\)\nRequest$/,
+  );
+
+  const malformed = [
+    undefined,
+    {},
+    { messages: null },
+    { messages: [] },
+    { messages: [{ info: { role: "assistant", sessionID: "assistant-only" }, parts: [] }] },
+    { messages: [{ info: { role: "user" }, parts: [] }] },
+    { messages: [{ info: { role: "user", sessionID: "no-parts" }, parts: null }] },
+    {
+      messages: [
+        {
+          info: { role: "user", sessionID: "no-text" },
+          parts: [{ type: "file", url: "file:///tmp/spec.md" }],
+        },
+      ],
+    },
+  ];
+  for (const output of malformed) {
+    const before = structuredClone(output);
+    await hooks["experimental.chat.messages.transform"]({}, output);
+    assert.deepEqual(output, before);
+  }
+});
+
+test("Task 6 lifecycle excludes unselected Architect Critic and Workspace Init commit hooks", async (t) => {
+  const { fixture, hooks } = await createLifecycleRuntime(
+    t,
+    '#!/bin/sh\nprintf "executed\\n" > "$CLAUDE_PLUGIN_ROOT/commit-hook-ran"\n',
+    { plugin: "workspace-init" },
+  );
+  const gitHookDirectory = join(fixture, "hooks");
+  await mkdir(gitHookDirectory);
+  await writeFile(
+    join(gitHookDirectory, "commit-msg.tmpl"),
+    '#!/bin/sh\nprintf "executed\\n" > "$CLAUDE_PLUGIN_ROOT/commit-hook-ran"\n',
+    { encoding: "utf8", mode: 0o755 },
+  );
+  const output = transformOutput("task-6-workspace-init", "Initialize workspace");
+  const before = structuredClone(output);
+
+  await hooks["experimental.chat.messages.transform"]({}, output);
+
+  assert.deepEqual(output, before);
+  await assert.rejects(readFile(join(fixture, "commit-hook-ran"), "utf8"), {
+    code: "ENOENT",
+  });
+});
+
+test("Task 6 overlay binds the OpenCode Architect Critic host policy", async () => {
+  const hooks = await createPluginHooks({ plugins: ["architect-critic"] });
+  const skillDirectory = fileURLToPath(
+    new URL("architect-critic/skills/critiquing-spec", root),
+  );
+  const output = {
+    output: await readFile(join(skillDirectory, "SKILL.md"), "utf8"),
+    metadata: { dir: skillDirectory },
+  };
+
+  await hooks["tool.execute.after"](
+    {
+      tool: "skill",
+      sessionID: "task-6-overlay",
+      callID: "task-6-overlay-call",
+      args: { name: "critiquing-spec" },
+    },
+    output,
+  );
+
+  assert.match(output.output, /OpenCode host policy \(binding\)/);
+  assert.match(output.output, /`HOST_AGENT=opencode`/);
+  assert.match(output.output, /active OpenCode model.*in-conversation host self-audit/i);
+  assert.match(output.output, /Codex.*foreground close-depth fresh-frame adversary/i);
+  assert.match(output.output, /Claude-host Codex companion\/state spine.*live compatibility smoke test/i);
+  assert.match(output.output, /explicit async requests.*fail clearly.*never silently degrade to foreground/i);
+});
+
+test("Task 6 overlay is restricted to the selected canonical critique workflow", async () => {
+  const cases = [
+    ["unselected", ["workspace-init"], "critiquing-spec"],
+    ["other Architect Critic skill", ["architect-critic"], "listing-principles"],
+  ];
+
+  for (const [label, plugins, skill] of cases) {
+    const hooks = await createPluginHooks({ plugins });
+    const skillDirectory = fileURLToPath(
+      new URL(`architect-critic/skills/${skill}`, root),
+    );
+    const output = {
+      output: await readFile(join(skillDirectory, "SKILL.md"), "utf8"),
+      metadata: { dir: skillDirectory },
+    };
+    const before = output.output;
+
+    await hooks["tool.execute.after"](
+      {
+        tool: "skill",
+        sessionID: `task-6-overlay-${label}`,
+        callID: `task-6-overlay-${label}-call`,
+        args: { name: skill },
+      },
+      output,
+    );
+
+    assert.ok(!output.output.includes("OpenCode host policy (binding)"), label);
+    if (label === "unselected") assert.equal(output.output, before);
+  }
 });
 
 test("Architect Critic command arguments survive their message then expire", async () => {

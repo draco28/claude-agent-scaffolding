@@ -3,6 +3,14 @@ import { join } from "node:path";
 
 import { PLUGIN_CATALOG, getSkillOwner } from "./catalog.js";
 
+const ARCHITECT_CRITIC_OPENCODE_OVERLAY = `## OpenCode host policy (binding)
+
+Under OpenCode, this package-owned policy overrides the canonical host branches:
+- Set \`HOST_AGENT=opencode\`; the active OpenCode model performs the in-conversation host self-audit.
+- Codex remains the foreground close-depth fresh-frame adversary.
+- Reuse the Claude-host Codex companion/state spine for async only after a live compatibility smoke test.
+- Explicit async requests must fail clearly and never silently degrade to foreground.`;
+
 function contextFor(owner) {
   return {
     root: owner.root,
@@ -58,5 +66,12 @@ export function translateToolOutput(tool, args, output) {
       : undefined;
   if (owner) {
     output.output = translatePrompt(output.output, contextFor(owner));
+    if (
+      tool === "skill" &&
+      owner.name === "architect-critic" &&
+      args?.name === "critiquing-spec"
+    ) {
+      output.output += `\n\n${ARCHITECT_CRITIC_OPENCODE_OVERLAY}`;
+    }
   }
 }

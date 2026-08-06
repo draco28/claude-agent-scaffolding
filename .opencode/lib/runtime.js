@@ -1,5 +1,7 @@
+import { execFile } from "node:child_process";
 import { realpath } from "node:fs/promises";
-import { isAbsolute, relative, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
+import { promisify } from "node:util";
 
 import { getSkillOwner } from "./catalog.js";
 import { translatePrompt, translateToolOutput } from "./translate.js";
@@ -43,6 +45,7 @@ const SHELL_SEPARATORS = new Set([
   "#",
 ]);
 const MAX_AUDIT_QUOTE_DEPTH = 8;
+const execFileAsync = promisify(execFile);
 
 function containsPath(root, filePath) {
   const nested = relative(root, filePath);
@@ -393,9 +396,13 @@ export function createRuntime({
   directory = process.cwd(),
 }) {
   const selectedNames = new Set(selected.map(({ name }) => name));
-  const architectCriticSelected = selectedNames.has("architect-critic");
+  const architectCritic = selected.find(
+    ({ name }) => name === "architect-critic",
+  );
+  const architectCriticSelected = Boolean(architectCritic);
   const sessions = new Map();
   const sessionAgents = new Map();
+  const sessionStartAttempts = new Set();
 
   return {
     "chat.message": async ({ sessionID, agent }) => {
@@ -505,6 +512,42 @@ export function createRuntime({
       const state = sessions.get(input.sessionID);
       if (state) {
         output.env.ARCHITECT_CRITIC_ARGS = state.arguments;
+      }
+    },
+
+    "experimental.chat.messages.transform": async (_input, output) => {
+      if (!architectCritic) return;
+      if (!Array.isArray(output?.messages)) return;
+      const firstUser = output.messages.find(
+        (message) => message?.info?.role === "user",
+      );
+      const sessionID = firstUser?.info?.sessionID;
+      if (typeof sessionID !== "string" || !sessionID.trim()) return;
+      if (!Array.isArray(firstUser.parts)) return;
+      const firstText = firstUser.parts.find(
+        (part) => part?.type === "text" && typeof part.text === "string",
+      );
+      if (!firstText || sessionStartAttempts.has(sessionID)) return;
+
+      sessionStartAttempts.add(sessionID);
+      try {
+        const { stdout } = await execFileAsync(
+          join(architectCritic.root, "hooks-handlers", "session-start.sh"),
+          [],
+          {
+            cwd: directory,
+            env: {
+              ...process.env,
+              PLUGIN_ROOT: architectCritic.root,
+              CLAUDE_PLUGIN_ROOT: architectCritic.root,
+            },
+          },
+        );
+        if (typeof stdout === "string" && stdout.trim()) {
+          firstText.text = stdout + firstText.text;
+        }
+      } catch {
+        // Session status is advisory and must never block the conversation.
       }
     },
   };
