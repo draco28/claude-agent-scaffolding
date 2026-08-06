@@ -19,6 +19,7 @@ const marketplaceUrl = new URL(".opencode/plugins/marketplace.js", root);
 const catalogUrl = new URL(".opencode/lib/catalog.js", root);
 const markdownUrl = new URL(".opencode/lib/markdown.js", root);
 const translateUrl = new URL(".opencode/lib/translate.js", root);
+const ossifyAgentUrl = new URL("ossify/agents/implementer-agent.md", root);
 const wrapperDirectory = fileURLToPath(new URL(".opencode/bin", root));
 const selectedPluginsEnvironment = "OPENCODE_SCAFFOLDING_PLUGINS";
 
@@ -388,6 +389,69 @@ test("same-named AI Mentor and Ossify skills do not get aliases", async () => {
   );
 
   assert.deepEqual(config.command, {});
+});
+
+test("Ossify selection registers the translated canonical implementer agent", async () => {
+  const config = await applyPluginConfig({ plugins: ["ossify"] }, {});
+  const agent = config.agent["ossify-implementer-agent"];
+  const canonical = await readFile(ossifyAgentUrl, "utf8");
+  const { parseMarkdown } = await import(markdownUrl);
+  const { frontmatter, body } = parseMarkdown(
+    canonical,
+    fileURLToPath(ossifyAgentUrl),
+  );
+  const ossifyRoot = fileURLToPath(new URL("ossify", root)).replace(/\/$/, "");
+
+  assert.equal(agent.description, frontmatter.description);
+  assert.equal(agent.mode, "subagent");
+  assert.ok(!Object.hasOwn(agent, "model"));
+  assert.equal(
+    agent.prompt,
+    body.replaceAll("${CLAUDE_PLUGIN_ROOT}", ossifyRoot),
+  );
+  assert.ok(!agent.prompt.includes("CLAUDE_PLUGIN_ROOT"));
+  assert.ok(
+    agent.prompt.includes(
+      '{"mode": "complete", "report_path": "<abs path to report.md>", "summary": "<one-line>", "stage_status": "all_staged | partial | none"}',
+    ),
+  );
+  assert.ok(
+    agent.prompt.includes(
+      '{"mode": "gaps-surfaced", "gaps": [{"section": "<ref>", "question": "<concrete question>", "severity": "blocking | nice-to-have"}, ...]}',
+    ),
+  );
+  assert.match(agent.prompt, /You never commit\./);
+  assert.deepEqual(Object.keys(agent.permission), [
+    "*",
+    "read",
+    "edit",
+    "glob",
+    "grep",
+    "bash",
+    "task",
+    "external_directory",
+  ]);
+  assert.deepEqual(agent.permission, {
+    "*": "deny",
+    read: "allow",
+    edit: "allow",
+    glob: "allow",
+    grep: "allow",
+    bash: "allow",
+    task: "deny",
+    external_directory: "ask",
+  });
+});
+
+test("the Ossify implementer agent is absent unless Ossify is selected", async () => {
+  const defaultConfig = await applyPluginConfig(undefined, {});
+  const withoutOssify = await applyPluginConfig(
+    { plugins: ["workspace-init", "ai-mentor"] },
+    {},
+  );
+
+  assert.ok(!defaultConfig.agent?.["ossify-implementer-agent"]);
+  assert.ok(!withoutOssify.agent?.["ossify-implementer-agent"]);
 });
 
 test("prompt translation maps qualified invocations and questions", async () => {
@@ -814,6 +878,160 @@ test("cross-skill export capture rejects non-literal or compound shell", async (
     }
   }
   assert.deepEqual(captured, []);
+});
+
+test("Ossify implementer sessions reject forbidden Git verbs anywhere in bash logs", async () => {
+  const hooks = await createPluginHooks({ plugins: ["ossify"] });
+  const forbidden = [
+    ["ordinary commit", "git commit -m work"],
+    ["ordinary push", "git push origin topic"],
+    ["ordinary pull", "git pull --ff-only"],
+    ["ordinary fetch", "git fetch --all"],
+    ["worktree option", "git -C /tmp/worktree commit -m work"],
+    ["git directory option", "git --git-dir /tmp/repo/.git push"],
+    ["equals git directory", "git --git-dir=/tmp/repo/.git pull"],
+    [
+      "work tree option",
+      "git --git-dir=/tmp/repo/.git --work-tree /tmp/repo fetch",
+    ],
+    ["config option", "git -c user.name=worker commit -m work"],
+    [
+      "combined global options",
+      "git -C /tmp/repo -c user.email=worker@example.test push",
+    ],
+    ["absolute executable", "/usr/bin/git commit -m work"],
+    ["path executable", "./tools/git fetch origin"],
+    ["quoted executable", "\"/usr/local/bin/git\" pull"],
+    ["comment", "git status --short # never run git commit here"],
+    [
+      "heredoc",
+      "cat <<'EOF' > instructions.txt\ngit push origin topic\nEOF",
+    ],
+    ["pipeline", "printf ready | git fetch origin"],
+  ];
+
+  const rejected = [];
+  for (const [label, command] of forbidden) {
+    const sessionID = `ossify-forbidden-${label}`;
+    await hooks["chat.message"](
+      { sessionID, agent: "ossify-implementer-agent" },
+      { message: { role: "user" }, parts: [] },
+    );
+    await assert.rejects(
+      hooks["tool.execute.before"](
+        { tool: "bash", sessionID, callID: `call-${label}` },
+        { args: { command } },
+      ),
+      /ossify-implementer-agent.*git (?:commit|push|pull|fetch)/i,
+    );
+    rejected.push(label);
+  }
+
+  assert.deepEqual(
+    rejected,
+    forbidden.map(([label]) => label),
+  );
+});
+
+test("Ossify implementer Git guard leaves allowed bash commands unchanged", async () => {
+  const hooks = await createPluginHooks({ plugins: ["ossify"] });
+  const sessionID = "ossify-allowed-git";
+  await hooks["chat.message"](
+    { sessionID, agent: "ossify-implementer-agent" },
+    { message: { role: "user" }, parts: [] },
+  );
+  const allowed = [
+    "git status --porcelain",
+    "git -C /tmp/worktree diff --cached",
+    "git --git-dir=/tmp/repo/.git --work-tree=/tmp/repo add -A",
+    "git -c safe.directory=/tmp/repo rev-parse --abbrev-ref HEAD",
+    "/usr/bin/git status --short && ./tools/git diff",
+    "npm test",
+  ];
+
+  for (const [index, command] of allowed.entries()) {
+    const output = { args: { command, description: "unchanged" } };
+    const before = structuredClone(output);
+    await hooks["tool.execute.before"](
+      { tool: "bash", sessionID, callID: `allowed-${index}` },
+      output,
+    );
+    assert.deepEqual(output, before, command);
+  }
+});
+
+test("Git guard applies only to Ossify implementer bash sessions", async () => {
+  const hooks = await createPluginHooks({ plugins: ["ossify"] });
+  const cases = [
+    ["untracked session", "bash", "untracked"],
+    ["other agent", "bash", "other-agent"],
+    ["non-bash tool", "read", "ossify-read"],
+  ];
+  await hooks["chat.message"](
+    { sessionID: "other-agent", agent: "build" },
+    { message: { role: "user" }, parts: [] },
+  );
+  await hooks["chat.message"](
+    { sessionID: "ossify-read", agent: "ossify-implementer-agent" },
+    { message: { role: "user" }, parts: [] },
+  );
+
+  for (const [label, tool, sessionID] of cases) {
+    const output = { args: { command: "git commit -m work" } };
+    const before = structuredClone(output);
+    await hooks["tool.execute.before"](
+      { tool, sessionID, callID: label },
+      output,
+    );
+    assert.deepEqual(output, before, label);
+  }
+
+  await hooks["chat.message"](
+    { sessionID: "ossify-read", agent: "build" },
+    { message: { role: "user" }, parts: [] },
+  );
+  await hooks["tool.execute.before"](
+    { tool: "bash", sessionID: "ossify-read", callID: "agent-changed" },
+    { args: { command: "git push" } },
+  );
+});
+
+test("Git guard fails closed on malformed Ossify implementer bash calls", async () => {
+  const hooks = await createPluginHooks({ plugins: ["ossify"] });
+  const sessionID = "ossify-malformed-bash";
+  await hooks["chat.message"](
+    { sessionID, agent: "ossify-implementer-agent" },
+    { message: { role: "user" }, parts: [] },
+  );
+
+  for (const command of [undefined, null, 42]) {
+    await assert.rejects(
+      hooks["tool.execute.before"](
+        { tool: "bash", sessionID, callID: `malformed-${command}` },
+        { args: { command } },
+      ),
+      /valid bash command/i,
+    );
+  }
+});
+
+test("Git guard boundary excludes deliberately shell-obfuscated executable names", async () => {
+  const hooks = await createPluginHooks({ plugins: ["ossify"] });
+  const sessionID = "ossify-obfuscated-git";
+  await hooks["chat.message"](
+    { sessionID, agent: "ossify-implementer-agent" },
+    { message: { role: "user" }, parts: [] },
+  );
+  const boundaryExamples = ["g''it commit -m work", "$GIT push origin topic"];
+
+  for (const command of boundaryExamples) {
+    const output = { args: { command } };
+    await hooks["tool.execute.before"](
+      { tool: "bash", sessionID, callID: `boundary-${command}` },
+      output,
+    );
+    assert.equal(output.args.command, command);
+  }
 });
 
 test("shell environment exposes capabilities and prepends wrappers idempotently", async () => {

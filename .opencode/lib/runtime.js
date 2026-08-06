@@ -8,6 +8,17 @@ const ARGUMENT_EXPORT =
   /^[ \t]*export[ \t]+ARCHITECT_CRITIC_ARGS=(?:"((?:\\[^\r\n]|[^"\\\r\n])*)"|'([^'\r\n]*)')[ \t]*(?:\r?\n)?$/;
 const SKILL_BASE_DIRECTORY =
   /(?:^|\r?\n)Base directory for this skill: ([^\r\n]+)(?=\r?\n|$)/g;
+const SHELL_WORD = /[^\s;&|()<>]+/g;
+const FORBIDDEN_GIT_VERBS = new Set(["commit", "push", "pull", "fetch"]);
+const GIT_OPTIONS_WITH_VALUE = new Set([
+  "-C",
+  "-c",
+  "--git-dir",
+  "--work-tree",
+  "--namespace",
+  "--super-prefix",
+  "--config-env",
+]);
 
 function containsPath(root, filePath) {
   const nested = relative(root, filePath);
@@ -62,6 +73,34 @@ function exportedArguments(command) {
   return value;
 }
 
+function shellWord(token) {
+  return token.replace(/^["'`]+|["'`]+$/g, "");
+}
+
+function isGitExecutable(token) {
+  const executable = shellWord(token);
+  return executable === "git" || executable.endsWith("/git");
+}
+
+function forbiddenGitVerb(command) {
+  const words = command.match(SHELL_WORD) ?? [];
+  for (let index = 0; index < words.length; index += 1) {
+    if (!isGitExecutable(words[index])) continue;
+
+    for (let next = index + 1; next < words.length; next += 1) {
+      const word = shellWord(words[next]);
+      const option = word.split("=", 1)[0];
+      if (GIT_OPTIONS_WITH_VALUE.has(option)) {
+        if (!word.includes("=")) next += 1;
+        continue;
+      }
+      if (word.startsWith("-")) continue;
+      if (FORBIDDEN_GIT_VERBS.has(word)) return word;
+      break;
+    }
+  }
+}
+
 export function createRuntime({
   selected,
   registeredCommands,
@@ -69,10 +108,15 @@ export function createRuntime({
 }) {
   const selectedNames = new Set(selected.map(({ name }) => name));
   const architectCriticSelected = selectedNames.has("architect-critic");
+  const ossifySelected = selectedNames.has("ossify");
   const sessions = new Map();
+  const sessionAgents = new Map();
 
   return {
-    "chat.message": async ({ sessionID }) => {
+    "chat.message": async ({ sessionID, agent }) => {
+      if (typeof agent === "string") sessionAgents.set(sessionID, agent);
+      else sessionAgents.delete(sessionID);
+
       const state = sessions.get(sessionID);
       if (!state) return;
       if (state.preserveCommandMessage) {
@@ -106,8 +150,27 @@ export function createRuntime({
     },
 
     "tool.execute.before": async (input, output) => {
-      if (!architectCriticSelected || input.tool !== "bash") return;
-      const args = exportedArguments(output.args?.command);
+      if (input.tool !== "bash") return;
+      const command = output.args?.command;
+      if (
+        ossifySelected &&
+        sessionAgents.get(input.sessionID) === "ossify-implementer-agent"
+      ) {
+        if (typeof command !== "string") {
+          throw new Error(
+            "ossify-implementer-agent requires a valid bash command",
+          );
+        }
+        const verb = forbiddenGitVerb(command);
+        if (verb) {
+          throw new Error(
+            `ossify-implementer-agent cannot run git ${verb}`,
+          );
+        }
+      }
+
+      if (!architectCriticSelected) return;
+      const args = exportedArguments(command);
       if (args !== undefined) {
         sessions.set(input.sessionID, {
           arguments: args,

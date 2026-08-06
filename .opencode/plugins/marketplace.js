@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { resolveEnabledPlugins } from "../lib/catalog.js";
 import { parseMarkdown } from "../lib/markdown.js";
 import { createRuntime } from "../lib/runtime.js";
+import { translatePrompt } from "../lib/translate.js";
 
 const wrapperDirectory = fileURLToPath(new URL("../bin", import.meta.url));
 
@@ -12,6 +13,44 @@ export async function ScaffoldingPlugin(input, options = {}) {
   const selected = resolveEnabledPlugins(options);
   const skillPaths = selected.map(({ root }) => join(root, "skills"));
   const aliases = [];
+  const ossify = selected.find(({ name }) => name === "ossify");
+  let implementerAgent;
+
+  if (ossify) {
+    const agentPath = join(ossify.root, "agents", "implementer-agent.md");
+    const markdown = await readFile(agentPath, "utf8");
+    const { frontmatter, body } = parseMarkdown(markdown, agentPath);
+    const canonicalTools = ["Bash", "Read", "Write", "Edit", "Glob", "Grep"];
+    const tools =
+      typeof frontmatter.tools === "string"
+        ? frontmatter.tools.split(",").map((tool) => tool.trim())
+        : [];
+    if (
+      frontmatter.name !== "implementer-agent" ||
+      typeof frontmatter.description !== "string" ||
+      frontmatter.model !== "inherit" ||
+      tools.length !== canonicalTools.length ||
+      canonicalTools.some((tool) => !tools.includes(tool))
+    ) {
+      throw new Error(`${agentPath}: unsupported canonical agent contract`);
+    }
+
+    implementerAgent = {
+      description: translatePrompt(frontmatter.description, ossify),
+      mode: "subagent",
+      prompt: translatePrompt(body, ossify),
+      permission: {
+        "*": "deny",
+        read: "allow",
+        edit: "allow",
+        glob: "allow",
+        grep: "allow",
+        bash: "allow",
+        task: "deny",
+        external_directory: "ask",
+      },
+    };
+  }
 
   for (const plugin of selected) {
     for (const command of plugin.commands) {
@@ -50,6 +89,11 @@ export async function ScaffoldingPlugin(input, options = {}) {
         if (!config.skills.paths.includes(skillPath)) {
           config.skills.paths.push(skillPath);
         }
+      }
+
+      if (implementerAgent) {
+        config.agent ??= {};
+        config.agent["ossify-implementer-agent"] ??= implementerAgent;
       }
 
       config.command ??= {};
