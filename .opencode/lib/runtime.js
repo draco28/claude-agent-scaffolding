@@ -8,7 +8,6 @@ const ARGUMENT_EXPORT =
   /^[ \t]*export[ \t]+ARCHITECT_CRITIC_ARGS=(?:"((?:\\[^\r\n]|[^"\\\r\n])*)"|'([^'\r\n]*)')[ \t]*(?:\r?\n)?$/;
 const SKILL_BASE_DIRECTORY =
   /(?:^|\r?\n)Base directory for this skill: ([^\r\n]+)(?=\r?\n|$)/g;
-const SHELL_WORD = /[^\s;&|()<>]+/g;
 const FORBIDDEN_GIT_VERBS = new Set(["commit", "push", "pull", "fetch"]);
 const GIT_OPTIONS_WITH_VALUE = new Set([
   "-C",
@@ -18,6 +17,18 @@ const GIT_OPTIONS_WITH_VALUE = new Set([
   "--namespace",
   "--super-prefix",
   "--config-env",
+  "--exec-path",
+  "--attr-source",
+]);
+const SHELL_SEPARATORS = new Set([
+  ";",
+  "&",
+  "|",
+  "(",
+  ")",
+  "<",
+  ">",
+  "`",
 ]);
 
 function containsPath(root, filePath) {
@@ -73,25 +84,101 @@ function exportedArguments(command) {
   return value;
 }
 
-function shellWord(token) {
-  return token.replace(/^["'`]+|["'`]+$/g, "");
+function isGitExecutable(token) {
+  if (token.mixedQuotes) return false;
+  return token.value === "git" || token.value.endsWith("/git");
 }
 
-function isGitExecutable(token) {
-  const executable = shellWord(token);
-  return executable === "git" || executable.endsWith("/git");
+function shellTokens(command) {
+  const tokens = [];
+  let value = "";
+  let quote;
+  let sawQuoted = false;
+  let sawUnquoted = false;
+
+  function flushWord() {
+    if (!value && !sawQuoted) return;
+    tokens.push({
+      type: "word",
+      value,
+      mixedQuotes: sawQuoted && sawUnquoted,
+    });
+    value = "";
+    sawQuoted = false;
+    sawUnquoted = false;
+  }
+
+  for (let index = 0; index < command.length; index += 1) {
+    const character = command[index];
+    if (quote) {
+      if (character === quote) {
+        quote = undefined;
+      } else if (character === "\\" && quote === '"') {
+        const escaped = command[index + 1];
+        if (escaped !== undefined) {
+          if (escaped !== "\n") value += escaped;
+          index += 1;
+        } else {
+          value += character;
+        }
+      } else {
+        value += character;
+      }
+      continue;
+    }
+
+    if (character === '"' || character === "'") {
+      quote = character;
+      sawQuoted = true;
+      continue;
+    }
+    if (character === "\\") {
+      sawUnquoted = true;
+      const escaped = command[index + 1];
+      if (escaped !== undefined) {
+        if (escaped !== "\n") value += escaped;
+        index += 1;
+      } else {
+        value += character;
+      }
+      continue;
+    }
+    if (/\s/.test(character)) {
+      flushWord();
+      if (character === "\n") tokens.push({ type: "separator" });
+      continue;
+    }
+    if (SHELL_SEPARATORS.has(character)) {
+      flushWord();
+      tokens.push({ type: "separator" });
+      if (command[index + 1] === character) index += 1;
+      continue;
+    }
+
+    sawUnquoted = true;
+    value += character;
+  }
+  flushWord();
+  return tokens;
 }
 
 function forbiddenGitVerb(command) {
-  const words = command.match(SHELL_WORD) ?? [];
-  for (let index = 0; index < words.length; index += 1) {
-    if (!isGitExecutable(words[index])) continue;
+  const tokens = shellTokens(command);
+  for (let index = 0; index < tokens.length; index += 1) {
+    if (tokens[index].type !== "word" || !isGitExecutable(tokens[index])) {
+      continue;
+    }
 
-    for (let next = index + 1; next < words.length; next += 1) {
-      const word = shellWord(words[next]);
+    for (let next = index + 1; next < tokens.length; next += 1) {
+      const token = tokens[next];
+      if (token.type === "separator") break;
+      const word = token.value;
       const option = word.split("=", 1)[0];
       if (GIT_OPTIONS_WITH_VALUE.has(option)) {
-        if (!word.includes("=")) next += 1;
+        if (!word.includes("=")) {
+          if (tokens[next + 1]?.type !== "word") break;
+          next += 1;
+        }
         continue;
       }
       if (word.startsWith("-")) continue;
@@ -104,17 +191,17 @@ function forbiddenGitVerb(command) {
 export function createRuntime({
   selected,
   registeredCommands,
+  registeredAgents,
   directory = process.cwd(),
 }) {
   const selectedNames = new Set(selected.map(({ name }) => name));
   const architectCriticSelected = selectedNames.has("architect-critic");
-  const ossifySelected = selectedNames.has("ossify");
   const sessions = new Map();
   const sessionAgents = new Map();
 
   return {
     "chat.message": async ({ sessionID, agent }) => {
-      if (typeof agent === "string") sessionAgents.set(sessionID, agent);
+      if (registeredAgents.has(agent)) sessionAgents.set(sessionID, agent);
       else sessionAgents.delete(sessionID);
 
       const state = sessions.get(sessionID);
@@ -153,7 +240,7 @@ export function createRuntime({
       if (input.tool !== "bash") return;
       const command = output.args?.command;
       if (
-        ossifySelected &&
+        registeredAgents.has("ossify-implementer-agent") &&
         sessionAgents.get(input.sessionID) === "ossify-implementer-agent"
       ) {
         if (typeof command !== "string") {

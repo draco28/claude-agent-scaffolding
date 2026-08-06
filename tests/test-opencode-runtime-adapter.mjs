@@ -35,6 +35,12 @@ async function createPluginHooks(options) {
   return ScaffoldingPlugin({ directory: fileURLToPath(root) }, options);
 }
 
+async function createRegisteredOssifyHooks() {
+  const hooks = await createPluginHooks({ plugins: ["ossify"] });
+  await hooks.config({});
+  return hooks;
+}
+
 const expectedPlugins = [
   "workspace-init",
   "ai-mentor",
@@ -452,6 +458,40 @@ test("the Ossify implementer agent is absent unless Ossify is selected", async (
 
   assert.ok(!defaultConfig.agent?.["ossify-implementer-agent"]);
   assert.ok(!withoutOssify.agent?.["ossify-implementer-agent"]);
+});
+
+test("Ossify rejects caller config that collides with its reserved agent", async () => {
+  const callerAgent = {
+    description: "Caller-owned agent",
+    mode: "subagent",
+  };
+  for (const existing of [callerAgent, undefined]) {
+    const hooks = await createPluginHooks({ plugins: ["ossify"] });
+    const config = {
+      agent: { "ossify-implementer-agent": existing },
+    };
+
+    await assert.rejects(
+      hooks.config(config),
+      /ossify-implementer-agent.*reserved.*collision/i,
+    );
+    assert.ok(Object.hasOwn(config.agent, "ossify-implementer-agent"));
+    assert.strictEqual(config.agent["ossify-implementer-agent"], existing);
+  }
+});
+
+test("non-Ossify config preserves the same caller-defined agent name", async () => {
+  const callerAgent = {
+    description: "Caller-owned agent",
+    mode: "subagent",
+  };
+  const config = {
+    agent: { "ossify-implementer-agent": callerAgent },
+  };
+
+  await applyPluginConfig({ plugins: ["workspace-init"] }, config);
+
+  assert.strictEqual(config.agent["ossify-implementer-agent"], callerAgent);
 });
 
 test("prompt translation maps qualified invocations and questions", async () => {
@@ -881,7 +921,7 @@ test("cross-skill export capture rejects non-literal or compound shell", async (
 });
 
 test("Ossify implementer sessions reject forbidden Git verbs anywhere in bash logs", async () => {
-  const hooks = await createPluginHooks({ plugins: ["ossify"] });
+  const hooks = await createRegisteredOssifyHooks();
   const forbidden = [
     ["ordinary commit", "git commit -m work"],
     ["ordinary push", "git push origin topic"],
@@ -902,6 +942,30 @@ test("Ossify implementer sessions reject forbidden Git verbs anywhere in bash lo
     ["absolute executable", "/usr/bin/git commit -m work"],
     ["path executable", "./tools/git fetch origin"],
     ["quoted executable", "\"/usr/local/bin/git\" pull"],
+    [
+      "review repro quoted worktree",
+      'git -C "/tmp/ossify worktree" commit -m work',
+    ],
+    [
+      "review repro quoted git directories",
+      'git --git-dir "/tmp/repo data/.git" --work-tree "/tmp/work tree" push',
+    ],
+    [
+      "review repro quoted executable and exec path",
+      '"/opt/git tools/bin/git" --exec-path="/opt/git tools/libexec" fetch',
+    ],
+    [
+      "escaped worktree whitespace",
+      String.raw`git -C /tmp/ossify\ worktree pull`,
+    ],
+    ["namespace equals", 'git --namespace="worker namespace" commit'],
+    ["super prefix", 'git --super-prefix "worker prefix/" push'],
+    [
+      "config environment",
+      "git --config-env safe.directory=SAFE_DIRECTORY fetch",
+    ],
+    ["exec path separate", 'git --exec-path "/tmp/git tools" pull'],
+    ["attribute source", 'git --attr-source "topic branch" commit'],
     ["comment", "git status --short # never run git commit here"],
     [
       "heredoc",
@@ -934,7 +998,7 @@ test("Ossify implementer sessions reject forbidden Git verbs anywhere in bash lo
 });
 
 test("Ossify implementer Git guard leaves allowed bash commands unchanged", async () => {
-  const hooks = await createPluginHooks({ plugins: ["ossify"] });
+  const hooks = await createRegisteredOssifyHooks();
   const sessionID = "ossify-allowed-git";
   await hooks["chat.message"](
     { sessionID, agent: "ossify-implementer-agent" },
@@ -946,6 +1010,16 @@ test("Ossify implementer Git guard leaves allowed bash commands unchanged", asyn
     "git --git-dir=/tmp/repo/.git --work-tree=/tmp/repo add -A",
     "git -c safe.directory=/tmp/repo rev-parse --abbrev-ref HEAD",
     "/usr/bin/git status --short && ./tools/git diff",
+    'git -C "/tmp/ossify worktree" status --porcelain',
+    'git --git-dir "/tmp/repo data/.git" diff --cached',
+    'git --work-tree="/tmp/work tree" add -A',
+    '"/opt/git tools/bin/git" --exec-path="/opt/git tools/libexec" rev-parse HEAD',
+    'git --namespace "worker namespace" status',
+    'git --super-prefix="worker prefix/" diff',
+    "git --config-env safe.directory=SAFE_DIRECTORY add -A",
+    'git --attr-source="topic branch" rev-parse HEAD',
+    "git --version; commit is-a-different-command",
+    "git --git-dir; commit is-a-different-command",
     "npm test",
   ];
 
@@ -961,7 +1035,7 @@ test("Ossify implementer Git guard leaves allowed bash commands unchanged", asyn
 });
 
 test("Git guard applies only to Ossify implementer bash sessions", async () => {
-  const hooks = await createPluginHooks({ plugins: ["ossify"] });
+  const hooks = await createRegisteredOssifyHooks();
   const cases = [
     ["untracked session", "bash", "untracked"],
     ["other agent", "bash", "other-agent"],
@@ -996,8 +1070,25 @@ test("Git guard applies only to Ossify implementer bash sessions", async () => {
   );
 });
 
-test("Git guard fails closed on malformed Ossify implementer bash calls", async () => {
+test("Git guard does not trust reserved-name sessions before agent registration", async () => {
   const hooks = await createPluginHooks({ plugins: ["ossify"] });
+  const sessionID = "ossify-unvalidated-agent";
+  await hooks["chat.message"](
+    { sessionID, agent: "ossify-implementer-agent" },
+    { message: { role: "user" }, parts: [] },
+  );
+  const output = { args: { command: "git commit -m work" } };
+
+  await hooks["tool.execute.before"](
+    { tool: "bash", sessionID, callID: "unvalidated-agent" },
+    output,
+  );
+
+  assert.equal(output.args.command, "git commit -m work");
+});
+
+test("Git guard fails closed on malformed Ossify implementer bash calls", async () => {
+  const hooks = await createRegisteredOssifyHooks();
   const sessionID = "ossify-malformed-bash";
   await hooks["chat.message"](
     { sessionID, agent: "ossify-implementer-agent" },
@@ -1016,7 +1107,7 @@ test("Git guard fails closed on malformed Ossify implementer bash calls", async 
 });
 
 test("Git guard boundary excludes deliberately shell-obfuscated executable names", async () => {
-  const hooks = await createPluginHooks({ plugins: ["ossify"] });
+  const hooks = await createRegisteredOssifyHooks();
   const sessionID = "ossify-obfuscated-git";
   await hooks["chat.message"](
     { sessionID, agent: "ossify-implementer-agent" },

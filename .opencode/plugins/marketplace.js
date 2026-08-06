@@ -74,15 +74,29 @@ export async function ScaffoldingPlugin(input, options = {}) {
     }
   }
   const registeredCommands = new Map();
+  const registeredAgents = new Set();
   const runtime = createRuntime({
     selected,
     registeredCommands,
+    registeredAgents,
     directory: input.directory,
   });
   const runtimeShellEnv = runtime["shell.env"];
 
   return {
     config: async (config) => {
+      if (
+        implementerAgent &&
+        config.agent &&
+        Object.hasOwn(config.agent, "ossify-implementer-agent") &&
+        config.agent["ossify-implementer-agent"] !== implementerAgent
+      ) {
+        registeredAgents.delete("ossify-implementer-agent");
+        throw new Error(
+          "ossify-implementer-agent is reserved by Ossify; config collision",
+        );
+      }
+
       config.skills ??= {};
       config.skills.paths ??= [];
       for (const skillPath of skillPaths) {
@@ -94,6 +108,7 @@ export async function ScaffoldingPlugin(input, options = {}) {
       if (implementerAgent) {
         config.agent ??= {};
         config.agent["ossify-implementer-agent"] ??= implementerAgent;
+        registeredAgents.add("ossify-implementer-agent");
       }
 
       config.command ??= {};
