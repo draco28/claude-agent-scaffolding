@@ -17,11 +17,13 @@ remaining bucket to a **version target** rather than only to a plan letter.
 | **Close ceremonies** | all three — work item → spine → release |
 | **Tests** | 24 files, 975 assertions, ALL GREEN |
 | **Evals** | 6 surfaces, 28 fixtures, 28/28 |
-| **plugin.json** | `0.1.0-dev`, deliberately **not** marketplace-registered |
+| **plugin.json** | `0.1.0`, deliberately **not** stable-marketplace registered |
 
 **The gating fact for v1:** ossify is absent from `.claude-plugin/marketplace.json` and ships no
-`.codex-plugin` manifest. That is Plan D's ship gate working as designed — but it means **nobody can
-install ossify today**. A v1 tag before Plan D would label something unconsumable.
+`.codex-plugin` manifest. It is experimentally installable in OpenCode only through the root bundle's
+explicit four-plugin allowlist after an immutable bundle tag is published. That narrow v0.x path does
+not make Ossify stable or put it in the Claude/Codex marketplaces. A v1 tag before Plan D's
+consolidated eval and two-pilot gate would claim evidence the project does not yet have.
 
 **The second blocker of the same shape:** the round-orchestration execution lane has **no invoking
 entry point**. No skill description matches "run the rounds" / "execute the spine". The engine is
@@ -31,8 +33,9 @@ built and wired at every seam and a user cannot reach it. That is v0.2 blocking,
 
 ## v0.1.0 — the honest label for what exists (on merge of `feat/ossify-core`)
 
-No new work. Tag what is there: a complete, tested engine that is **dogfoodable from the repo and not
-yet installable**. `plugin.json` moves `0.1.0-dev` → `0.1.0`.
+No new engine work. The complete, tested engine is dogfoodable from the repo and experimentally
+installable through OpenCode's explicit allowlist after a root bundle release. `plugin.json` is
+`0.1.0`; stable Claude/Codex marketplace installation remains gated on Plan D.
 
 Ships with a known-issues note naming the two blockers above, so the gap is recorded rather than
 discovered.
@@ -99,9 +102,11 @@ The version where ossify stops needing scaffold-dev alongside it.
 
 ---
 
-## v1.0.0 — Plan D: boundary + ship gate (companion §4–§6; main §10, §13.4)
+## v1.0.0 — Plan D: stable boundary + ship gate (companion §4–§6; main §10, §13.4)
 
-v1 means **installable and proven on a real project**. The pilots earn the number, not the feature count.
+v1 means **stable-marketplace installable and proven on real projects**. Experimental OpenCode v0.x
+availability does not satisfy this gate; the consolidated eval and pilots earn the number, not the
+feature count.
 
 - **workspace-init additive extension** — visibility fields, `private_core`, all three resolvers,
   `add-private-core`.

@@ -21,8 +21,19 @@ const markdownUrl = new URL(".opencode/lib/markdown.js", root);
 const runtimeUrl = new URL(".opencode/lib/runtime.js", root);
 const translateUrl = new URL(".opencode/lib/translate.js", root);
 const ossifyAgentUrl = new URL("ossify/agents/implementer-agent.md", root);
+const installGuideUrl = new URL(".opencode/INSTALL.md", root);
+const readmeUrl = new URL("README.md", root);
+const ossifyReadmeUrl = new URL("ossify/README.md", root);
+const ossifyManifestUrl = new URL("ossify/.claude-plugin/plugin.json", root);
+const ossifyRoadmapUrl = new URL(
+  "docs/superpowers/plans/2026-08-06-ossify-release-roadmap.md",
+  root,
+);
+const gitignoreUrl = new URL(".gitignore", root);
 const wrapperDirectory = fileURLToPath(new URL(".opencode/bin", root));
 const selectedPluginsEnvironment = "OPENCODE_SCAFFOLDING_PLUGINS";
+const exampleBundleSpec =
+  "github:draco28/claude-agent-scaffolding#bundle-v0.1.0";
 
 async function applyPluginConfig(options, config = {}) {
   const { ScaffoldingPlugin } = await import(marketplaceUrl);
@@ -121,6 +132,12 @@ const expectedAliases = {
   "critique-jobs": "managing-async-critique",
 };
 
+function parseJsonFences(source) {
+  return [...source.matchAll(/```json\n([\s\S]*?)\n```/g)].map((match) =>
+    JSON.parse(match[1]),
+  );
+}
+
 test("root package declares the OpenCode bundle contract", async () => {
   const packageJson = JSON.parse(
     await readFile(new URL("package.json", root), "utf8"),
@@ -144,6 +161,128 @@ test("root package declares the OpenCode bundle contract", async () => {
     "ossify",
     "LICENSE",
   ]);
+});
+
+test("Task 8 documents pinned native OpenCode installation shapes", async () => {
+  const guide = await readFile(installGuideUrl, "utf8");
+  const configs = parseJsonFences(guide);
+  const allPlugins = [
+    "workspace-init",
+    "ai-mentor",
+    "architect-critic",
+    "ossify",
+  ];
+
+  assert.ok(
+    configs.some(
+      (config) =>
+        JSON.stringify(config.plugin) === JSON.stringify([exampleBundleSpec]),
+    ),
+    "default install must be a plain pinned GitHub package spec",
+  );
+  assert.ok(
+    configs.some(
+      (config) =>
+        JSON.stringify(config.plugin) ===
+        JSON.stringify([[exampleBundleSpec, { plugins: allPlugins }]]),
+    ),
+    "Ossify install must use the native [specifier, options] tuple",
+  );
+  assert.match(guide, /example release tag.*not.*published/is);
+  assert.match(guide, /installation starts.*after.*immutable tag.*published/is);
+  assert.doesNotMatch(
+    guide,
+    /github:draco28\/claude-agent-scaffolding#(?:main|master|head|latest)\b/i,
+  );
+});
+
+test("Task 8 documents operation, diagnostics, and the implemented trust boundary", async () => {
+  const guide = await readFile(installGuideUrl, "utf8");
+
+  for (const requirement of [
+    /OpenCode\s*>=\s*1\.18\.13/,
+    /macOS.*Linux/i,
+    /Windows.*unsupported/i,
+    /\bBash\b/,
+    /\bGit\b/,
+    /\bjq\b/,
+    /\bNode\.js\b/,
+  ]) {
+    assert.match(guide, requirement);
+  }
+  assert.match(guide, /config.*plugin tag.*options.*restart OpenCode/is);
+  assert.match(
+    guide,
+    /review.*new immutable `bundle-v<semver>` tag.*change.*pinned spec.*restart/is,
+  );
+  assert.match(guide, /same-name skills.*native.*commands.*not.*aliases/is);
+  assert.match(guide, /ossify-implementer-agent/);
+  for (const command of [
+    "opencode debug config",
+    "opencode debug skill",
+    "opencode debug agent",
+  ]) {
+    assert.ok(guide.includes(command));
+  }
+  assert.match(guide, /duplicate|collision/i);
+  assert.match(guide, /~\/\.cache\/opencode/);
+  assert.match(guide, /~\/\.config\/opencode/);
+  assert.doesNotMatch(guide, /rm\s+-rf/);
+
+  for (const boundary of [
+    /trusted startup JavaScript/i,
+    /mutates.*resolved config/i,
+    /injects.*shell environment.*wrappers/is,
+    /Architect Critic.*session.*handler/is,
+    /guards?.*Ossify.*Bash/is,
+    /security audit.*model-free gates.*before tagging/is,
+  ]) {
+    assert.match(guide, boundary);
+  }
+  assert.match(
+    guide,
+    /do not independently read credentials or invoke a model at\s+startup/i,
+  );
+});
+
+test("Task 8 reconciles experimental Ossify availability without claiming stability", async () => {
+  const [rootReadme, ossifyReadme, roadmap, manifestSource] = await Promise.all([
+    readFile(readmeUrl, "utf8"),
+    readFile(ossifyReadmeUrl, "utf8"),
+    readFile(ossifyRoadmapUrl, "utf8"),
+    readFile(ossifyManifestUrl, "utf8"),
+  ]);
+  const manifest = JSON.parse(manifestSource);
+
+  assert.match(rootReadme, /OpenCode/);
+  assert.match(rootReadme, /\.opencode\/INSTALL\.md/);
+  for (const source of [ossifyReadme, roadmap, manifest.description]) {
+    assert.match(source, /experimental/i);
+    assert.match(source, /OpenCode/i);
+    assert.match(source, /Plan D/i);
+    assert.doesNotMatch(source, /(?:ossify is|now) stable|ready for v1 now/i);
+  }
+  assert.match(ossifyReadme, /explicit.*allowlist/is);
+  assert.match(ossifyReadme, /not.*(?:Claude|Codex).*marketplace/is);
+  assert.match(roadmap, /consolidated eval.*pilot.*gate/is);
+  assert.match(manifest.version, /^0\./);
+  assert.ok(manifest.description.length <= 600);
+  assert.doesNotMatch(manifest.description, /not installable/i);
+});
+
+test("Task 8 ignores only observed OpenCode project runtime artifacts", async () => {
+  const lines = (await readFile(gitignoreUrl, "utf8"))
+    .split("\n")
+    .filter((line) => line.startsWith(".opencode/"));
+
+  assert.deepEqual(lines, [
+    ".opencode/.gitignore",
+    ".opencode/node_modules/",
+    ".opencode/package.json",
+    ".opencode/package-lock.json",
+    ".opencode/bun.lock",
+  ]);
+  assert.ok(!lines.includes(".opencode/"));
 });
 
 test("default selection contains only the three stable plugins", async () => {

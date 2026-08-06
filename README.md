@@ -49,6 +49,14 @@ Deprecated and not ported: `scaffold`.
 codex plugin marketplace add github:draco28/claude-agent-scaffolding
 ```
 
+### OpenCode
+
+OpenCode >=1.18.13 can load a pinned git-backed bundle containing
+`workspace-init`, `ai-mentor`, and `architect-critic` by default. Ossify v0.x
+is available only as an explicit experimental opt-in and is not part of the
+stable Claude or Codex marketplaces. See [the OpenCode installation, trust,
+update, and troubleshooting guide](./.opencode/INSTALL.md).
+
 For local development:
 
 ```
