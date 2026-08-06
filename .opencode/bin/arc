@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+case ":${OPENCODE_SCAFFOLDING_PLUGINS:-}:" in
+  *:architect-critic:*) ;;
+  *)
+    echo "arc: OpenCode plugin 'architect-critic' is not selected (OPENCODE_SCAFFOLDING_PLUGINS)" >&2
+    exit 2
+    ;;
+esac
+
+_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_PACKAGE_ROOT="$(cd "$_BIN_DIR/../.." && pwd)"
+PLUGIN_ROOT="$_PACKAGE_ROOT/architect-critic"
+CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
+CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA:-${HOME:?arc: HOME is required}/.claude/architect-critic}"
+export PLUGIN_ROOT CLAUDE_PLUGIN_ROOT CLAUDE_PLUGIN_DATA
+
+exec "$PLUGIN_ROOT/bin/arc" "$@"

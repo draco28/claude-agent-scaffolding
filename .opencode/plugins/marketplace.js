@@ -1,9 +1,12 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { resolveEnabledPlugins } from "../lib/catalog.js";
 import { parseMarkdown } from "../lib/markdown.js";
 import { createRuntime } from "../lib/runtime.js";
+
+const wrapperDirectory = fileURLToPath(new URL("../bin", import.meta.url));
 
 export async function ScaffoldingPlugin(input, options = {}) {
   const selected = resolveEnabledPlugins(options);
@@ -37,6 +40,7 @@ export async function ScaffoldingPlugin(input, options = {}) {
     registeredCommands,
     directory: input.directory,
   });
+  const runtimeShellEnv = runtime["shell.env"];
 
   return {
     config: async (config) => {
@@ -59,5 +63,18 @@ export async function ScaffoldingPlugin(input, options = {}) {
       }
     },
     ...runtime,
+    "shell.env": async (input, output) => {
+      await runtimeShellEnv(input, output);
+      const callerPath = output.env.PATH ?? process.env.PATH ?? "";
+      const pathEntries = callerPath
+        ? callerPath
+            .split(delimiter)
+            .filter((entry) => entry !== wrapperDirectory)
+        : [];
+      output.env.PATH = [wrapperDirectory, ...pathEntries].join(delimiter);
+      output.env.OPENCODE_SCAFFOLDING_PLUGINS = selected
+        .map(({ name }) => name)
+        .join(":");
+    },
   };
 }

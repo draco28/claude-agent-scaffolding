@@ -1,7 +1,16 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  realpath,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
+import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
@@ -10,6 +19,8 @@ const marketplaceUrl = new URL(".opencode/plugins/marketplace.js", root);
 const catalogUrl = new URL(".opencode/lib/catalog.js", root);
 const markdownUrl = new URL(".opencode/lib/markdown.js", root);
 const translateUrl = new URL(".opencode/lib/translate.js", root);
+const wrapperDirectory = fileURLToPath(new URL(".opencode/bin", root));
+const selectedPluginsEnvironment = "OPENCODE_SCAFFOLDING_PLUGINS";
 
 async function applyPluginConfig(options, config = {}) {
   const { ScaffoldingPlugin } = await import(marketplaceUrl);
@@ -803,4 +814,216 @@ test("cross-skill export capture rejects non-literal or compound shell", async (
     }
   }
   assert.deepEqual(captured, []);
+});
+
+test("shell environment exposes capabilities and prepends wrappers idempotently", async () => {
+  const hooks = await createPluginHooks();
+  const callerPath = ["/caller/bin", wrapperDirectory, "/caller/tools"].join(
+    delimiter,
+  );
+  const output = { env: { PATH: callerPath } };
+
+  await hooks["shell.env"](
+    { cwd: fileURLToPath(root), sessionID: "wrapper-path" },
+    output,
+  );
+  await hooks["shell.env"](
+    { cwd: fileURLToPath(root), sessionID: "wrapper-path" },
+    output,
+  );
+
+  assert.deepEqual(output.env.PATH.split(delimiter), [
+    wrapperDirectory,
+    "/caller/bin",
+    "/caller/tools",
+  ]);
+  assert.equal(
+    output.env[selectedPluginsEnvironment],
+    expectedPlugins.slice(0, 3).join(":"),
+  );
+});
+
+test("default capabilities reject the experimental oss wrapper", async (t) => {
+  const fixture = await mkdtemp(join(tmpdir(), "opencode-wrapper-default-"));
+  t.after(() => rm(fixture, { recursive: true, force: true }));
+  const hooks = await createPluginHooks();
+  const output = { env: { PATH: process.env.PATH ?? "" } };
+  await hooks["shell.env"](
+    { cwd: fixture, sessionID: "default-wrapper" },
+    output,
+  );
+
+  const result = spawnSync("oss", ["--help"], {
+    cwd: fixture,
+    encoding: "utf8",
+    env: { ...process.env, ...output.env },
+  });
+
+  assert.equal(result.status, 2);
+  assert.equal(result.stdout, "");
+  assert.match(result.stderr, /ossify.*not selected/i);
+});
+
+test("each wrapper rejects execution when its owning plugin is not selected", async (t) => {
+  const fixture = await mkdtemp(join(tmpdir(), "opencode-wrapper-rejection-"));
+  t.after(() => rm(fixture, { recursive: true, force: true }));
+  const hooks = await createPluginHooks({ plugins: ["ai-mentor"] });
+  const output = { env: { PATH: process.env.PATH ?? "" } };
+  await hooks["shell.env"](
+    { cwd: fixture, sessionID: "unselected-wrappers" },
+    output,
+  );
+
+  for (const [command, owner] of [
+    ["wi", "workspace-init"],
+    ["arc", "architect-critic"],
+    ["oss", "ossify"],
+  ]) {
+    const result = spawnSync(command, ["--list"], {
+      cwd: fixture,
+      encoding: "utf8",
+      env: { ...process.env, ...output.env },
+    });
+    assert.equal(result.status, 2, command);
+    assert.equal(result.stdout, "", command);
+    assert.match(result.stderr, new RegExp(`${owner}.*not selected`, "i"));
+  }
+});
+
+test("arc wrapper exports the shared Architect Critic data fallback", async (t) => {
+  const fixture = await mkdtemp(join(tmpdir(), "opencode-wrapper-arc-data-"));
+  t.after(() => rm(fixture, { recursive: true, force: true }));
+  const adapterBin = join(fixture, ".opencode", "bin");
+  const canonicalBin = join(fixture, "architect-critic", "bin");
+  const home = join(fixture, "home");
+  await mkdir(adapterBin, { recursive: true });
+  await mkdir(canonicalBin, { recursive: true });
+  await mkdir(home);
+  await writeFile(
+    join(adapterBin, "arc"),
+    await readFile(join(wrapperDirectory, "arc"), "utf8"),
+    { encoding: "utf8", mode: 0o755 },
+  );
+  await writeFile(
+    join(canonicalBin, "arc"),
+    '#!/bin/sh\nprintf "%s\\n" "${CLAUDE_PLUGIN_DATA-}"\n',
+    { encoding: "utf8", mode: 0o755 },
+  );
+  const env = {
+    ...process.env,
+    HOME: home,
+    OPENCODE_SCAFFOLDING_PLUGINS: "architect-critic",
+  };
+  delete env.CLAUDE_PLUGIN_DATA;
+
+  const result = spawnSync(join(adapterBin, "arc"), [], {
+    cwd: await realpath(fixture),
+    encoding: "utf8",
+    env,
+  });
+
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, "");
+  assert.equal(result.stdout, `${join(home, ".claude/architect-critic")}\n`);
+});
+
+test("all-four capabilities self-locate wi and arc without changing output", async (t) => {
+  const fixture = await mkdtemp(join(tmpdir(), "opencode-wrapper-location-"));
+  t.after(() => rm(fixture, { recursive: true, force: true }));
+  const hooks = await createPluginHooks({ plugins: expectedPlugins });
+  const output = { env: { PATH: process.env.PATH ?? "" } };
+  await hooks["shell.env"](
+    { cwd: fixture, sessionID: "all-wrapper-location" },
+    output,
+  );
+  const env = {
+    ...process.env,
+    ...output.env,
+    CLAUDE_PLUGIN_ROOT: "/stale/plugin/root",
+    PLUGIN_ROOT: "/stale/plugin/root",
+  };
+
+  assert.equal(
+    env[selectedPluginsEnvironment],
+    expectedPlugins.join(":"),
+  );
+  for (const [command, canonical] of [
+    ["wi", fileURLToPath(new URL("workspace-init/bin/wi", root))],
+    ["arc", fileURLToPath(new URL("architect-critic/bin/arc", root))],
+  ]) {
+    const wrapped = spawnSync(command, ["--list"], {
+      cwd: fixture,
+      encoding: "utf8",
+      env,
+    });
+    const direct = spawnSync(canonical, ["--list"], {
+      cwd: fixture,
+      encoding: "utf8",
+      env,
+    });
+    assert.deepEqual(
+      {
+        status: wrapped.status,
+        stdout: wrapped.stdout,
+        stderr: wrapped.stderr,
+      },
+      { status: direct.status, stdout: direct.stdout, stderr: direct.stderr },
+      `${command} wrapper must preserve its canonical dispatcher result`,
+    );
+    assert.equal(wrapped.status, 0);
+    assert.notEqual(wrapped.stdout, "");
+  }
+});
+
+test("oss wrapper preserves verify_step and redgate dispositions", async (t) => {
+  const fixture = await mkdtemp(join(tmpdir(), "opencode-wrapper-gates-"));
+  t.after(() => rm(fixture, { recursive: true, force: true }));
+  await writeFile(join(fixture, "passes"), "#!/bin/sh\nexit 0\n", {
+    encoding: "utf8",
+    mode: 0o755,
+  });
+  await writeFile(join(fixture, "fails"), "#!/bin/sh\nexit 1\n", {
+    encoding: "utf8",
+    mode: 0o755,
+  });
+
+  const hooks = await createPluginHooks({ plugins: expectedPlugins });
+  const output = { env: { PATH: process.env.PATH ?? "" } };
+  await hooks["shell.env"](
+    { cwd: fixture, sessionID: "all-wrapper-gates" },
+    output,
+  );
+  const env = { ...process.env, ...output.env, OSS_ROOT: "/stale/ossify" };
+  const canonical = fileURLToPath(new URL("ossify/bin/oss", root));
+  const cases = [
+    ["verify_step pass", ["verify_step", fixture, "./fails", "exit 1"], 0],
+    ["verify_step failure", ["verify_step", fixture, "./fails", "exit 0"], 1],
+    ["verify_step malformed", ["verify_step", fixture, "./passes", "invalid"], 2],
+    ["redgate RED", ["redgate", fixture, "./fails", "exit 0"], 0],
+    ["redgate already GREEN", ["redgate", fixture, "./passes", "exit 0"], 1],
+    ["redgate error", ["redgate", fixture, "./missing", "exit 0"], 2],
+  ];
+
+  for (const [label, args, status] of cases) {
+    const wrapped = spawnSync("oss", args, {
+      cwd: fixture,
+      encoding: "utf8",
+      env,
+    });
+    const direct = spawnSync(canonical, args, {
+      cwd: fixture,
+      encoding: "utf8",
+      env,
+    });
+    assert.deepEqual(
+      {
+        status: wrapped.status,
+        stdout: wrapped.stdout,
+        stderr: wrapped.stderr,
+      },
+      { status: direct.status, stdout: direct.stdout, stderr: direct.stderr },
+      `${label} must pass through unchanged`,
+    );
+    assert.equal(wrapped.status, status, label);
+  }
 });
