@@ -3,9 +3,9 @@ import { join } from "node:path";
 
 import { resolveEnabledPlugins } from "../lib/catalog.js";
 import { parseMarkdown } from "../lib/markdown.js";
+import { createRuntime } from "../lib/runtime.js";
 
 export async function ScaffoldingPlugin(input, options = {}) {
-  void input;
   const selected = resolveEnabledPlugins(options);
   const skillPaths = selected.map(({ root }) => join(root, "skills"));
   const aliases = [];
@@ -30,6 +30,17 @@ export async function ScaffoldingPlugin(input, options = {}) {
       ]);
     }
   }
+  const canonicalCommands = new Set(
+    selected.flatMap(({ skills, commands }) => [
+      ...skills,
+      ...commands.map(({ name }) => name),
+    ]),
+  );
+  const runtime = createRuntime({
+    selected,
+    canonicalCommands,
+    directory: input.directory,
+  });
 
   return {
     config: async (config) => {
@@ -42,9 +53,23 @@ export async function ScaffoldingPlugin(input, options = {}) {
       }
 
       config.command ??= {};
+      for (const plugin of selected) {
+        for (const skill of plugin.skills) {
+          if (Object.hasOwn(config.command, skill)) {
+            canonicalCommands.delete(skill);
+          }
+        }
+      }
       for (const [name, command] of aliases) {
+        if (
+          Object.hasOwn(config.command, name) &&
+          config.command[name] !== command
+        ) {
+          canonicalCommands.delete(name);
+        }
         config.command[name] ??= command;
       }
     },
+    ...runtime,
   };
 }

@@ -8,12 +8,18 @@ const root = new URL("../", import.meta.url);
 const marketplaceUrl = new URL(".opencode/plugins/marketplace.js", root);
 const catalogUrl = new URL(".opencode/lib/catalog.js", root);
 const markdownUrl = new URL(".opencode/lib/markdown.js", root);
+const translateUrl = new URL(".opencode/lib/translate.js", root);
 
 async function applyPluginConfig(options, config = {}) {
   const { ScaffoldingPlugin } = await import(marketplaceUrl);
   const hooks = await ScaffoldingPlugin({}, options);
   await hooks.config(config);
   return config;
+}
+
+async function createPluginHooks(options) {
+  const { ScaffoldingPlugin } = await import(marketplaceUrl);
+  return ScaffoldingPlugin({ directory: fileURLToPath(root) }, options);
 }
 
 const expectedPlugins = [
@@ -187,7 +193,14 @@ test("plugin entrypoint applies strict selection before returning hooks", async 
   const { ScaffoldingPlugin } = await import(marketplaceUrl);
 
   const hooks = await ScaffoldingPlugin({}, { plugins: ["ossify"] });
-  assert.deepEqual(Object.keys(hooks), ["config"]);
+  assert.deepEqual(Object.keys(hooks), [
+    "config",
+    "chat.message",
+    "command.execute.before",
+    "tool.execute.before",
+    "tool.execute.after",
+    "shell.env",
+  ]);
   assert.equal(typeof hooks.config, "function");
   await assert.rejects(
     ScaffoldingPlugin({}, { plugins: ["scaffold"] }),
@@ -363,4 +376,236 @@ test("same-named AI Mentor and Ossify skills do not get aliases", async () => {
   );
 
   assert.deepEqual(config.command, {});
+});
+
+test("prompt translation maps qualified invocations and questions", async () => {
+  const { translatePrompt } = await import(translateUrl);
+  const translated = translatePrompt(
+    'Skill(ai-mentor:grill-me)\n' +
+      'Task(subagent_type="ossify:implementer-agent", prompt=<brief>)\n' +
+      "Use AskUserQuestion if needed.",
+    { root: "/opt/plugins/ossify" },
+  );
+
+  assert.equal(
+    translated,
+    'skill(name="grill-me")\n' +
+      'task(subagent_type="ossify-implementer-agent", prompt=<brief>)\n' +
+      "Use question if needed.",
+  );
+});
+
+test("prompt translation resolves package placeholders in either shell form", async () => {
+  const { translatePrompt } = await import(translateUrl);
+  const translated = translatePrompt(
+    "${CLAUDE_PLUGIN_ROOT}/references/policy.md\n" +
+      "${CLAUDE_PLUGIN_DATA}/run.json\n" +
+      "$CLAUDE_PLUGIN_ROOT/templates/default.md\n" +
+      "$CLAUDE_PLUGIN_DATA/cache.json",
+    {
+      root: "/opt/plugins/ai-mentor",
+      dataRoot: "/var/data/ai-mentor",
+    },
+  );
+
+  assert.equal(
+    translated,
+    "/opt/plugins/ai-mentor/references/policy.md\n" +
+      "/var/data/ai-mentor/run.json\n" +
+      "/opt/plugins/ai-mentor/templates/default.md\n" +
+      "/var/data/ai-mentor/cache.json",
+  );
+});
+
+test("command translation is limited to selected canonical skills and aliases", async () => {
+  const hooks = await createPluginHooks({ plugins: ["ossify"] });
+  const selected = {
+    parts: [{ type: "text", text: "Skill(ai-mentor:grill-me)" }],
+  };
+  await hooks["command.execute.before"](
+    { command: "plan-spine", sessionID: "selected", arguments: "r1.s1" },
+    selected,
+  );
+  assert.equal(selected.parts[0].text, 'skill(name="grill-me")');
+
+  for (const command of ["critique", "project-command"]) {
+    const unowned = {
+      parts: [{ type: "text", text: "Skill(ai-mentor:grill-me)" }],
+    };
+    await hooks["command.execute.before"](
+      { command, sessionID: "unowned", arguments: "" },
+      unowned,
+    );
+    assert.equal(unowned.parts[0].text, "Skill(ai-mentor:grill-me)");
+  }
+});
+
+test("caller-defined command collisions are not treated as package content", async () => {
+  const hooks = await createPluginHooks({ plugins: ["architect-critic"] });
+  const config = {
+    command: {
+      critique: { template: "Skill(ai-mentor:grill-me)" },
+    },
+  };
+  await hooks.config(config);
+  const output = {
+    parts: [{ type: "text", text: config.command.critique.template }],
+  };
+
+  await hooks["command.execute.before"](
+    { command: "critique", sessionID: "custom-command", arguments: "" },
+    output,
+  );
+
+  assert.equal(output.parts[0].text, "Skill(ai-mentor:grill-me)");
+});
+
+test("skill output translation uses the canonical skill owner", async () => {
+  const { getSkillOwner } = await import(catalogUrl);
+  const hooks = await createPluginHooks({ plugins: ["ai-mentor"] });
+  const owner = getSkillOwner("grill-me");
+  const output = {
+    output:
+      "Policy: ${CLAUDE_PLUGIN_ROOT}/references/recommendation-policy.md\n" +
+      "Use AskUserQuestion.",
+  };
+
+  await hooks["tool.execute.after"](
+    {
+      tool: "skill",
+      sessionID: "skill-owner",
+      callID: "call-1",
+      args: { name: "grill-me" },
+    },
+    output,
+  );
+
+  assert.equal(
+    output.output,
+    `Policy: ${join(owner.root, "references/recommendation-policy.md")}\n` +
+      "Use question.",
+  );
+});
+
+test("read translation requires path-safe containment in a selected plugin root", async () => {
+  const { getSkillOwner } = await import(catalogUrl);
+  const hooks = await createPluginHooks({ plugins: ["ai-mentor"] });
+  const owner = getSkillOwner("grill-me");
+  const inside = join(owner.root, "skills", "grill-me", "references", "policy.md");
+  const outside = [
+    join(fileURLToPath(root), "project-notes.md"),
+    join(`${owner.root.slice(0, -1)}-copy`, "references", "policy.md"),
+  ];
+
+  const packageOutput = { output: "Use AskUserQuestion." };
+  await hooks["tool.execute.after"](
+    {
+      tool: "read",
+      sessionID: "read-owner",
+      callID: "call-2",
+      args: { filePath: inside },
+    },
+    packageOutput,
+  );
+  assert.equal(packageOutput.output, "Use question.");
+
+  for (const filePath of outside) {
+    const projectOutput = { output: "Use AskUserQuestion." };
+    await hooks["tool.execute.after"](
+      {
+        tool: "read",
+        sessionID: "read-project",
+        callID: "call-3",
+        args: { filePath },
+      },
+      projectOutput,
+    );
+    assert.equal(projectOutput.output, "Use AskUserQuestion.");
+  }
+});
+
+test("Architect Critic command arguments survive their message then expire", async () => {
+  const hooks = await createPluginHooks({ plugins: ["architect-critic"] });
+  const commandOutput = {
+    parts: [{ type: "text", text: "Run the native skill." }],
+  };
+  await hooks["command.execute.before"](
+    {
+      command: "critique",
+      sessionID: "command-session",
+      arguments: 'SPEC.md --close',
+    },
+    commandOutput,
+  );
+
+  await hooks["chat.message"](
+    { sessionID: "command-session" },
+    { message: { role: "user" }, parts: commandOutput.parts },
+  );
+  const commandEnv = { env: {} };
+  await hooks["shell.env"](
+    { cwd: fileURLToPath(root), sessionID: "command-session" },
+    commandEnv,
+  );
+  assert.equal(commandEnv.env.ARCHITECT_CRITIC_ARGS, "SPEC.md --close");
+
+  await hooks["chat.message"](
+    { sessionID: "command-session" },
+    {
+      message: { role: "user" },
+      parts: [{ type: "text", text: "Now do something unrelated" }],
+    },
+  );
+  const expiredEnv = { env: {} };
+  await hooks["shell.env"](
+    { cwd: fileURLToPath(root), sessionID: "command-session" },
+    expiredEnv,
+  );
+  assert.ok(!Object.hasOwn(expiredEnv.env, "ARCHITECT_CRITIC_ARGS"));
+});
+
+test("cross-skill exports carry arguments only within their session", async () => {
+  const hooks = await createPluginHooks({
+    plugins: ["architect-critic", "ossify"],
+  });
+  await hooks["tool.execute.before"](
+    { tool: "bash", sessionID: "cross-skill", callID: "call-4" },
+    {
+      args: {
+        command:
+          'export ARCHITECT_CRITIC_ARGS="--spec \\"/tmp/SPINE.md\\" --close"',
+      },
+    },
+  );
+
+  const capturedEnv = { env: {} };
+  await hooks["shell.env"](
+    { cwd: fileURLToPath(root), sessionID: "cross-skill" },
+    capturedEnv,
+  );
+  assert.equal(
+    capturedEnv.env.ARCHITECT_CRITIC_ARGS,
+    '--spec "/tmp/SPINE.md" --close',
+  );
+
+  const otherEnv = { env: {} };
+  await hooks["shell.env"](
+    { cwd: fileURLToPath(root), sessionID: "other-session" },
+    otherEnv,
+  );
+  assert.ok(!Object.hasOwn(otherEnv.env, "ARCHITECT_CRITIC_ARGS"));
+
+  await hooks["chat.message"](
+    { sessionID: "cross-skill" },
+    {
+      message: { role: "user" },
+      parts: [{ type: "text", text: "New request" }],
+    },
+  );
+  const clearedEnv = { env: {} };
+  await hooks["shell.env"](
+    { cwd: fileURLToPath(root), sessionID: "cross-skill" },
+    clearedEnv,
+  );
+  assert.ok(!Object.hasOwn(clearedEnv.env, "ARCHITECT_CRITIC_ARGS"));
 });
