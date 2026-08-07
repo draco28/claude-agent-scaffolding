@@ -98,7 +98,7 @@ _csa_target_matches_aspect() {
       return 1
       ;;
     hooks)
-      [[ "$target" == *.sh ]] && return 0
+      [[ "$target" == *.sh || "$target" == */.opencode/bin/* ]] && return 0
       return 1
       ;;
     marketplace)
@@ -120,7 +120,8 @@ _csa_target_matches_aspect() {
     secrets)
       # Secrets rules scan all text-like files.
       [[ "$target" == *.md || "$target" == *.json || "$target" == *.sh \
-         || "$target" == *.py || "$target" == *.js || "$target" == *.ts ]] && return 0
+         || "$target" == *.py || "$target" == *.js || "$target" == *.ts \
+         || "$target" == */.opencode/bin/* ]] && return 0
       return 1
       ;;
     test)
