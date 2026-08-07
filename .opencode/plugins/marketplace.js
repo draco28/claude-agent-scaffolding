@@ -47,7 +47,11 @@ export async function ScaffoldingPlugin(input, options = {}) {
         grep: "allow",
         bash: "allow",
         task: "deny",
-        external_directory: "ask",
+        external_directory: {
+          "*": "ask",
+          [join(ossify.root, ".")]: "allow",
+          [join(ossify.root, "**")]: "allow",
+        },
       },
     };
   }

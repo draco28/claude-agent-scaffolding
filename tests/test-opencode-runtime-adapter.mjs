@@ -965,6 +965,11 @@ test("Ossify selection registers the translated canonical implementer agent", as
     fileURLToPath(ossifyAgentUrl),
   );
   const ossifyRoot = fileURLToPath(new URL("ossify", root)).replace(/\/$/, "");
+  const externalDirectory = {
+    "*": "ask",
+    [ossifyRoot]: "allow",
+    [join(ossifyRoot, "**")]: "allow",
+  };
 
   assert.equal(agent.description, frontmatter.description);
   assert.equal(agent.mode, "subagent");
@@ -1003,8 +1008,13 @@ test("Ossify selection registers the translated canonical implementer agent", as
     grep: "allow",
     bash: "allow",
     task: "deny",
-    external_directory: "ask",
+    external_directory: externalDirectory,
   });
+  assert.deepEqual(Object.keys(agent.permission.external_directory), [
+    "*",
+    ossifyRoot,
+    join(ossifyRoot, "**"),
+  ]);
 });
 
 test("the Ossify implementer agent is absent unless Ossify is selected", async () => {

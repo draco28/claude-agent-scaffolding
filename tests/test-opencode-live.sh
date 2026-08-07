@@ -424,6 +424,12 @@ const expectedCommands = {
   ),
 };
 
+const ossifyRoot = path.join(root, "ossify");
+const expectedExternalDirectory = {
+  "*": "ask",
+  [ossifyRoot]: "allow",
+  [path.join(ossifyRoot, "**")]: "allow",
+};
 const expectedAgentPermission = {
   "*": "deny",
   read: "allow",
@@ -432,7 +438,7 @@ const expectedAgentPermission = {
   grep: "allow",
   bash: "allow",
   task: "deny",
-  external_directory: "ask",
+  external_directory: expectedExternalDirectory,
 };
 
 const expectedResolvedPermissionRules = [
@@ -443,7 +449,13 @@ const expectedResolvedPermissionRules = [
   { permission: "grep", action: "allow", pattern: "*" },
   { permission: "bash", action: "allow", pattern: "*" },
   { permission: "task", action: "deny", pattern: "*" },
-  { permission: "external_directory", action: "ask", pattern: "*" },
+  { permission: "external_directory", pattern: "*", action: "ask" },
+  { permission: "external_directory", pattern: ossifyRoot, action: "allow" },
+  {
+    permission: "external_directory",
+    pattern: path.join(ossifyRoot, "**"),
+    action: "allow",
+  },
 ];
 
 const expectedTools = {
@@ -630,7 +642,38 @@ function assertResolvedAgent(agent, configuredAgent) {
       sequenceCount += 1;
     }
   }
-  assert.equal(sequenceCount, 1, "resolved permissions must contain the exact package rule sequence once");
+  assert.equal(
+    sequenceCount,
+    1,
+    `resolved permissions must contain the exact package rule sequence once:\n${JSON.stringify(agent.permission, null, 2)}`,
+  );
+
+  const wildcardMatch = (input, pattern) => {
+    const normalized = input.replaceAll("\\", "/");
+    const escaped = pattern
+      .replaceAll("\\", "/")
+      .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+      .replace(/\*/g, ".*")
+      .replace(/\?/g, ".");
+    return new RegExp(`^${escaped}$`, process.platform === "win32" ? "si" : "s").test(normalized);
+  };
+  const externalAction = (pattern) =>
+    agent.permission.findLast(
+      (rule) =>
+        wildcardMatch("external_directory", rule.permission) &&
+        wildcardMatch(pattern, rule.pattern),
+    )?.action ?? "ask";
+
+  assert.equal(externalAction(path.join(ossifyRoot, "*")), "allow");
+  assert.equal(
+    externalAction(path.join(ossifyRoot, "skills", "work-item", "*")),
+    "allow",
+  );
+  assert.equal(
+    externalAction(path.join(path.dirname(ossifyRoot), "ai-mentor", "*")),
+    "ask",
+  );
+  assert.equal(externalAction(path.join(allCase, "outside", "*")), "ask");
 }
 
 assertIsolatedPaths(defaultPathsFile, defaultCase);
@@ -679,6 +722,11 @@ assert.deepEqual(Object.keys(configuredAgent.permission), [
   "external_directory",
 ]);
 assert.deepEqual(configuredAgent.permission, expectedAgentPermission);
+assert.deepEqual(Object.keys(configuredAgent.permission.external_directory), [
+  "*",
+  ossifyRoot,
+  path.join(ossifyRoot, "**"),
+]);
 assert.match(configuredAgent.prompt, /You are ossify's work-item executor/);
 assert.ok(
   configuredAgent.prompt.includes(
