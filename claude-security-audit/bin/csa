@@ -32,6 +32,11 @@ _BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "$_BIN_DIR/.." && pwd)"
 export PLUGIN_ROOT
 _LIB_DIR="$PLUGIN_ROOT/lib"
+CSA_PLUGIN_ROOT="${CSA_PLUGIN_ROOT:-$PLUGIN_ROOT}"
+CSA_LIB_DIR="${CSA_LIB_DIR:-$_LIB_DIR}"
+CSA_RULES_DIR="${CSA_RULES_DIR:-$CSA_LIB_DIR/rules}"
+CSA_FIXTURES_DIR="${CSA_FIXTURES_DIR:-$PLUGIN_ROOT/fixtures}"
+export CSA_PLUGIN_ROOT CSA_LIB_DIR CSA_RULES_DIR CSA_FIXTURES_DIR
 
 # Source the conventional helpers first, then everything else in glob order.
 # claude-security-audit names its helpers file `helpers.sh` (no underscore prefix).

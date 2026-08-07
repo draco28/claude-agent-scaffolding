@@ -5,7 +5,9 @@
 # csa_rule_run_one <rule_file> <target_file>
 # Sources rule in a subshell, calls detect, emits findings JSONL on stdout.
 # On source failure: emits SCANNER-001 (High).
-# On detect non-zero exit: emits SCANNER-002 (High).
+# Empty output with exit 1 means no match (grep-compatible detector contract).
+# Any other non-zero result emits SCANNER-002 (High), including exit 1 with
+# output because a detector must not mix findings with a no-match status.
 csa_rule_run_one() {
   local rule_file="$1"; local target_file="$2"
   local rule_id; rule_id="$(basename "$rule_file" .sh)"
@@ -23,6 +25,9 @@ csa_rule_run_one() {
     fi
     local out ec=0
     out="$(detect "$target_file" 2>/dev/null)" || ec=$?
+    if [[ "$ec" -eq 1 && -z "$out" ]]; then
+      return 0
+    fi
     if [[ "$ec" -ne 0 ]]; then
       jq -nc --arg rid "SCANNER-002" --arg f "$target_file" --arg r "$rule_file" \
         '{rule_id: $rid, file: $f, line: 0, offset: 0, preview: "detect() failed", severity: "high", context: {failed_rule: $r, exit_code: '"$ec"'}}'
@@ -54,7 +59,9 @@ csa_rule_run_many() {
       local target="${target_line##*$'\t'}"
       local out ec=0
       out="$(detect "$target" 2>/dev/null)" || ec=$?
-      if [[ "$ec" -ne 0 ]]; then
+      if [[ "$ec" -eq 1 && -z "$out" ]]; then
+        continue
+      elif [[ "$ec" -ne 0 ]]; then
         jq -nc --arg rid "SCANNER-002" --arg f "$target" --arg r "$rule_file" \
           '{rule_id: $rid, file: $f, line: 0, offset: 0, preview: "detect() failed", severity: "high", context: {failed_rule: $r, exit_code: '"$ec"'}}'
       else
@@ -163,7 +170,7 @@ csa_rule_engine_scan_all() {
     rm -f "$rule_targets_file"
   done < <(find "$rules_glob" -name '*.sh' -type f 2>/dev/null)
   cat "$findings_out"
-  scanner_002_count="$(grep -c 'SCANNER-002' "$findings_out" 2>/dev/null || echo 0)"
+  scanner_002_count="$(grep -c 'SCANNER-002' "$findings_out" 2>/dev/null || true)"
   if [[ "$scanner_002_count" -ge 3 ]]; then
     printf '⚠ %d rule(s) failed during scan; results incomplete. See SCANNER-002 findings.\n' "$scanner_002_count" >&2
   fi
