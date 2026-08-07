@@ -970,6 +970,11 @@ test("Ossify selection registers the translated canonical implementer agent", as
     [ossifyRoot]: "allow",
     [join(ossifyRoot, "**")]: "allow",
   };
+  const edit = {
+    "*": "allow",
+    [ossifyRoot]: "deny",
+    [join(ossifyRoot, "**")]: "deny",
+  };
 
   assert.equal(agent.description, frontmatter.description);
   assert.equal(agent.mode, "subagent");
@@ -1003,7 +1008,7 @@ test("Ossify selection registers the translated canonical implementer agent", as
   assert.deepEqual(agent.permission, {
     "*": "deny",
     read: "allow",
-    edit: "allow",
+    edit,
     glob: "allow",
     grep: "allow",
     bash: "allow",
@@ -1015,6 +1020,51 @@ test("Ossify selection registers the translated canonical implementer agent", as
     ossifyRoot,
     join(ossifyRoot, "**"),
   ]);
+  assert.deepEqual(Object.keys(agent.permission.edit), [
+    "*",
+    ossifyRoot,
+    join(ossifyRoot, "**"),
+  ]);
+
+  const wildcardMatch = (input, pattern) => {
+    const escaped = pattern
+      .replaceAll("\\", "/")
+      .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+      .replace(/\*/g, ".*")
+      .replace(/\?/g, ".");
+    return new RegExp(`^${escaped}$`, process.platform === "win32" ? "si" : "s").test(
+      input.replaceAll("\\", "/"),
+    );
+  };
+  const permissionAction = (permission, path) => {
+    const configured = agent.permission[permission === "write" ? "edit" : permission];
+    if (typeof configured === "string") return configured;
+    return (
+      Object.entries(configured).findLast(([pattern]) =>
+        wildcardMatch(path, pattern),
+      )?.[1] ?? "ask"
+    );
+  };
+  const fileAction = (tool, path, external) => {
+    const toolAction = permissionAction(tool, path);
+    if (toolAction !== "allow" || !external) return toolAction;
+    return permissionAction("external_directory", path);
+  };
+  const packageFile = join(ossifyRoot, "skills", "work-item", "SKILL.md");
+  const siblingFile = join(ossifyRoot, "..", "ai-mentor", "README.md");
+  const outsideFile = join(tmpdir(), "outside-opencode-project.txt");
+  const projectFile = fileURLToPath(new URL("src/project-file.js", root));
+
+  assert.equal(fileAction("read", ossifyRoot, true), "allow");
+  assert.equal(fileAction("read", packageFile, true), "allow");
+  assert.equal(fileAction("edit", ossifyRoot, true), "deny");
+  assert.equal(fileAction("edit", packageFile, true), "deny");
+  assert.equal(fileAction("write", ossifyRoot, true), "deny");
+  assert.equal(fileAction("write", packageFile, true), "deny");
+  assert.equal(fileAction("read", siblingFile, true), "ask");
+  assert.equal(fileAction("read", outsideFile, true), "ask");
+  assert.equal(fileAction("edit", projectFile, false), "allow");
+  assert.equal(fileAction("write", projectFile, false), "allow");
 });
 
 test("the Ossify implementer agent is absent unless Ossify is selected", async () => {
@@ -2800,23 +2850,16 @@ test("all-four capabilities self-locate wi and arc without changing output", asy
   }
 });
 
-test("oss critic detection uses the selected bundle before ambient caches", async (t) => {
+test("oss critic detection delegates every result to the canonical dispatcher", async (t) => {
   const path = ["/usr/bin", "/bin"].join(delimiter);
-  const bundled = spawnSync(join(wrapperDirectory, "oss"), ["critic_detect"], {
-    encoding: "utf8",
-    env: {
-      PATH: path,
-      OPENCODE_SCAFFOLDING_PLUGINS: "ossify:architect-critic",
-    },
-  });
-
-  assert.deepEqual(
-    { status: bundled.status, stdout: bundled.stdout, stderr: bundled.stderr },
-    { status: 0, stdout: "v0.3\n", stderr: "" },
-  );
-
   const home = await mkdtemp(join(tmpdir(), "opencode-oss-cache-"));
   t.after(() => rm(home, { recursive: true, force: true }));
+  const canonical = fileURLToPath(new URL("ossify/bin/oss", root));
+  const bundledRoot = fileURLToPath(new URL("architect-critic", root)).replace(
+    /\/$/,
+    "",
+  );
+  const missingRoot = join(home, "missing-architect-critic");
   await mkdir(
     join(
       home,
@@ -2832,33 +2875,70 @@ test("oss critic detection uses the selected bundle before ambient caches", asyn
     "canonical fixture\n",
     "utf8",
   );
-  const ambientEnv = {
-    PATH: path,
-    HOME: home,
-    OPENCODE_SCAFFOLDING_PLUGINS: "ossify",
-  };
-  const wrapped = spawnSync(join(wrapperDirectory, "oss"), ["critic_detect"], {
-    encoding: "utf8",
-    env: ambientEnv,
-  });
-  const canonical = spawnSync(
-    fileURLToPath(new URL("ossify/bin/oss", root)),
-    ["critic_detect"],
-    { encoding: "utf8", env: ambientEnv },
-  );
-
-  assert.deepEqual(
-    { status: wrapped.status, stdout: wrapped.stdout, stderr: wrapped.stderr },
+  const cases = [
     {
-      status: canonical.status,
-      stdout: canonical.stdout,
-      stderr: canonical.stderr,
+      label: "bundled override",
+      env: {
+        HOME: home,
+        OSS_ARCHITECT_CRITIC_ROOT: bundledRoot,
+        OPENCODE_SCAFFOLDING_PLUGINS: "ossify:architect-critic",
+      },
+      expected: { status: 0, stdout: "v0.3\n", stderr: "" },
     },
-  );
-  assert.deepEqual(
-    { status: wrapped.status, stdout: wrapped.stdout },
-    { status: 0, stdout: "v0.2\n" },
-  );
+    {
+      label: "empty HOME with selected capability",
+      env: {
+        HOME: "",
+        OSS_ARCHITECT_CRITIC_ROOT: bundledRoot,
+        OPENCODE_SCAFFOLDING_PLUGINS: "ossify:architect-critic",
+      },
+      expected: { status: 0, stdout: "v0.3\n", stderr: "" },
+    },
+    {
+      label: "missing override falls through to ambient cache",
+      env: {
+        HOME: home,
+        CLAUDE_PLUGINS_DIR: join(home, ".claude/plugins/cache"),
+        OSS_ARCHITECT_CRITIC_ROOT: missingRoot,
+        OPENCODE_SCAFFOLDING_PLUGINS: "ossify",
+      },
+      expected: { status: 0, stdout: "v0.2\n", stderr: "" },
+    },
+    {
+      label: "no architect-critic capability leaves override unset",
+      env: { HOME: "", OPENCODE_SCAFFOLDING_PLUGINS: "ossify" },
+      expected: { status: 1, stdout: "absent\n", stderr: "" },
+    },
+  ];
+
+  for (const { label, env, expected } of cases) {
+    const wrapped = spawnSync(join(wrapperDirectory, "oss"), ["critic_detect"], {
+      encoding: "utf8",
+      env: { PATH: path, ...env },
+    });
+    const direct = spawnSync(canonical, ["critic_detect"], {
+      encoding: "utf8",
+      env: { PATH: path, ...env },
+    });
+    const wrappedResult = {
+      status: wrapped.status,
+      stdout: wrapped.stdout,
+      stderr: wrapped.stderr,
+    };
+    const canonicalResult = {
+      status: direct.status,
+      stdout: direct.stdout,
+      stderr: direct.stderr,
+    };
+
+    assert.deepEqual(wrappedResult, canonicalResult, label);
+    assert.deepEqual(canonicalResult, expected, label);
+  }
+
+  const wrapperSource = await readFile(new URL(".opencode/bin/oss", root), "utf8");
+  assert.ok(!wrapperSource.includes("critic_detect"));
+  assert.doesNotMatch(wrapperSource, /echo\s+["']v0\.[23]/);
+  assert.match(wrapperSource, /unset OSS_ARCHITECT_CRITIC_ROOT/);
 });
 
 test("oss wrapper preserves verify_step and redgate dispositions", async (t) => {

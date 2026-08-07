@@ -152,6 +152,28 @@ case "$T_OUT" in v0.2|v0.3|absent) T_PASS=$((T_PASS+1));; *) T_FAIL=$((T_FAIL+1)
 t_capture env -i PATH="$PATH" bash "$OSS" critic_detect
 t_assert_eq "absent" "$T_OUT" "critic_detect still answers when HOME is unset (set -u safety)"
 
+# A trusted direct root is the canonical host-neutral seam used by adapters.
+# Valid roots classify exactly like cache roots; invalid roots fall through.
+ORTMP="$(mktemp -d)"
+mkdir -p "$ORTMP/v02/skills/critiquing-spec" \
+  "$ORTMP/v03/skills/critiquing-spec" \
+  "$ORTMP/v03/skills/managing-async-critique" \
+  "$ORTMP/cache/mk/architect-critic/0.2.0/skills/critiquing-spec"
+: > "$ORTMP/v02/skills/critiquing-spec/SKILL.md"
+: > "$ORTMP/v03/skills/critiquing-spec/SKILL.md"
+: > "$ORTMP/v03/skills/managing-async-critique/SKILL.md"
+: > "$ORTMP/cache/mk/architect-critic/0.2.0/skills/critiquing-spec/SKILL.md"
+t_capture env -i PATH="$PATH" HOME= OSS_ARCHITECT_CRITIC_ROOT="$ORTMP/v02" bash "$OSS" critic_detect
+t_assert_eq "v0.2" "$T_OUT" "trusted direct critic root classifies v0.2 with empty HOME"
+t_assert_rc 0 "trusted direct v0.2 root is present"
+t_capture env -i PATH="$PATH" HOME= OSS_ARCHITECT_CRITIC_ROOT="$ORTMP/v03" bash "$OSS" critic_detect
+t_assert_eq "v0.3" "$T_OUT" "trusted direct critic root classifies v0.3 with empty HOME"
+t_assert_rc 0 "trusted direct v0.3 root is present"
+t_capture env -i PATH="$PATH" HOME=/nonexistent CLAUDE_PLUGINS_DIR="$ORTMP/cache" OSS_ARCHITECT_CRITIC_ROOT="$ORTMP/missing" bash "$OSS" critic_detect
+t_assert_eq "v0.2" "$T_OUT" "missing direct critic root falls through to ambient caches"
+t_assert_rc 0 "ambient cache remains present after missing direct override"
+rm -rf "$ORTMP"
+
 # The remaining two dispatcher wrappers this task added. Both are pure
 # pass-throughs, which is exactly why they need a dispatcher-path assertion:
 # nothing else in the suite reaches them, so an argument-order slip or a lost

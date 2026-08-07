@@ -430,10 +430,15 @@ const expectedExternalDirectory = {
   [ossifyRoot]: "allow",
   [path.join(ossifyRoot, "**")]: "allow",
 };
+const expectedEdit = {
+  "*": "allow",
+  [ossifyRoot]: "deny",
+  [path.join(ossifyRoot, "**")]: "deny",
+};
 const expectedAgentPermission = {
   "*": "deny",
   read: "allow",
-  edit: "allow",
+  edit: expectedEdit,
   glob: "allow",
   grep: "allow",
   bash: "allow",
@@ -444,7 +449,13 @@ const expectedAgentPermission = {
 const expectedResolvedPermissionRules = [
   { permission: "*", action: "deny", pattern: "*" },
   { permission: "read", action: "allow", pattern: "*" },
-  { permission: "edit", action: "allow", pattern: "*" },
+  { permission: "edit", pattern: "*", action: "allow" },
+  { permission: "edit", pattern: ossifyRoot, action: "deny" },
+  {
+    permission: "edit",
+    pattern: path.join(ossifyRoot, "**"),
+    action: "deny",
+  },
   { permission: "glob", action: "allow", pattern: "*" },
   { permission: "grep", action: "allow", pattern: "*" },
   { permission: "bash", action: "allow", pattern: "*" },
@@ -657,23 +668,44 @@ function assertResolvedAgent(agent, configuredAgent) {
       .replace(/\?/g, ".");
     return new RegExp(`^${escaped}$`, process.platform === "win32" ? "si" : "s").test(normalized);
   };
-  const externalAction = (pattern) =>
+  const permissionAction = (permission, pattern) =>
     agent.permission.findLast(
       (rule) =>
-        wildcardMatch("external_directory", rule.permission) &&
+        wildcardMatch(permission === "write" ? "edit" : permission, rule.permission) &&
         wildcardMatch(pattern, rule.pattern),
     )?.action ?? "ask";
+  const fileAction = (tool, pattern, external) => {
+    const toolAction = permissionAction(tool, pattern);
+    if (toolAction !== "allow" || !external) return toolAction;
+    return permissionAction("external_directory", pattern);
+  };
+  const packageRoot = ossifyRoot;
+  const packageFile = path.join(ossifyRoot, "skills", "work-item", "SKILL.md");
+  const siblingFile = path.join(path.dirname(ossifyRoot), "ai-mentor", "README.md");
+  const outsideFile = path.join(allCase, "outside", "file.txt");
+  const projectFile = path.join(allCase, "project", "src", "file.js");
 
-  assert.equal(externalAction(path.join(ossifyRoot, "*")), "allow");
+  assert.equal(fileAction("read", packageRoot, true), "allow");
+  assert.equal(fileAction("read", packageFile, true), "allow");
+  assert.equal(fileAction("edit", packageRoot, true), "deny");
+  assert.equal(fileAction("edit", packageFile, true), "deny");
+  assert.equal(fileAction("write", packageRoot, true), "deny");
+  assert.equal(fileAction("write", packageFile, true), "deny");
+  assert.equal(fileAction("read", siblingFile, true), "ask");
+  assert.equal(fileAction("read", outsideFile, true), "ask");
+  assert.equal(fileAction("edit", projectFile, false), "allow");
+  assert.equal(fileAction("write", projectFile, false), "allow");
+
+  assert.equal(permissionAction("external_directory", path.join(ossifyRoot, "*")), "allow");
   assert.equal(
-    externalAction(path.join(ossifyRoot, "skills", "work-item", "*")),
+    permissionAction("external_directory", path.join(ossifyRoot, "skills", "work-item", "*")),
     "allow",
   );
   assert.equal(
-    externalAction(path.join(path.dirname(ossifyRoot), "ai-mentor", "*")),
+    permissionAction("external_directory", path.join(path.dirname(ossifyRoot), "ai-mentor", "*")),
     "ask",
   );
-  assert.equal(externalAction(path.join(allCase, "outside", "*")), "ask");
+  assert.equal(permissionAction("external_directory", path.join(allCase, "outside", "*")), "ask");
 }
 
 assertIsolatedPaths(defaultPathsFile, defaultCase);
@@ -722,6 +754,11 @@ assert.deepEqual(Object.keys(configuredAgent.permission), [
   "external_directory",
 ]);
 assert.deepEqual(configuredAgent.permission, expectedAgentPermission);
+assert.deepEqual(Object.keys(configuredAgent.permission.edit), [
+  "*",
+  ossifyRoot,
+  path.join(ossifyRoot, "**"),
+]);
 assert.deepEqual(Object.keys(configuredAgent.permission.external_directory), [
   "*",
   ossifyRoot,

@@ -135,11 +135,21 @@ oss_cmd_migrate() { # [$1=state-file]
 # spec-core critic moment. No composition.json read. Stateless by design: it
 # takes no state path and needs no manifest, so a skill can probe before (or
 # without) an initialized project.
+# A trusted host may provide a direct plugin root before ambient cache scanning.
 # Scan EVERY cache before deciding, and report the highest version found. The
 # previous form returned on the first hit and globbed only critiquing-spec, so a
 # stale v0.2 directory won over a newer v0.3 install and v0.3 was unreportable.
 oss_cmd_critic_detect() {
-  local cache skill_md found="absent"
+  local cache critic_root skill_md found="absent"
+  critic_root="${OSS_ARCHITECT_CRITIC_ROOT:-}"
+  if [ -n "$critic_root" ] && [ -f "$critic_root/skills/critiquing-spec/SKILL.md" ]; then
+    if [ -f "$critic_root/skills/managing-async-critique/SKILL.md" ]; then
+      echo "v0.3"
+    else
+      echo "v0.2"
+    fi
+    return 0
+  fi
   # `${HOME:-}`, not `${HOME}`: under the dispatcher's `set -u` an unset HOME is a
   # fatal parameter-expansion error raised BEFORE the loop body runs, so none of
   # the errexit-exemption machinery below applies - the probe dies with empty

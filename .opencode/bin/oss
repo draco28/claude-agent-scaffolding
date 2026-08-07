@@ -15,20 +15,12 @@ OSS_ROOT="$_PACKAGE_ROOT/ossify"
 CLAUDE_PLUGIN_ROOT="$OSS_ROOT"
 export OSS_ROOT CLAUDE_PLUGIN_ROOT
 
-if [[ "${1:-}" == "critic_detect" ]]; then
-  case ":${OPENCODE_SCAFFOLDING_PLUGINS}:" in
-    *:architect-critic:*)
-      _CRITIC_ROOT="$_PACKAGE_ROOT/architect-critic"
-      if [[ -f "$_CRITIC_ROOT/skills/critiquing-spec/SKILL.md" ]]; then
-        if [[ -f "$_CRITIC_ROOT/skills/managing-async-critique/SKILL.md" ]]; then
-          echo "v0.3"
-        else
-          echo "v0.2"
-        fi
-        exit 0
-      fi
-      ;;
-  esac
-fi
+unset OSS_ARCHITECT_CRITIC_ROOT
+case ":${OPENCODE_SCAFFOLDING_PLUGINS}:" in
+  *:architect-critic:*)
+    OSS_ARCHITECT_CRITIC_ROOT="$_PACKAGE_ROOT/architect-critic"
+    export OSS_ARCHITECT_CRITIC_ROOT
+    ;;
+esac
 
 exec "$OSS_ROOT/bin/oss" "$@"
