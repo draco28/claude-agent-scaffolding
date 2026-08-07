@@ -156,9 +156,14 @@ opencode debug agent ossify-implementer-agent
   guess the sanitized cache-entry name or search unrelated cache directories.
 - If multiple immutable tags are cached, inspect each matching cache entry
   root's package metadata and dependency spec, then compare its recorded
-  dependency with the configured pinned GitHub spec. The cache entry root is
-  the directory directly below `<cache>/packages`; its package metadata records
-  the dependency spec used for that entry.
+  dependency with the configured pinned GitHub spec. For each matched
+  package.json path, apply `dirname` three times: the first parent is the
+  installed package directory, the second is `node_modules`, and the third is
+  the cache entry root immediately before `node_modules`. Inspect
+  `<entry-root>/package.json` and compare its recorded dependency spec with the
+  configured pinned GitHub spec. This path-derived rule remains valid when a
+  GitHub spec creates nested cache directories; do not count segments below
+  `<cache>/packages`.
 - Inspect only the matched cache entry's
   `node_modules/claude-agent-scaffolding-opencode` subtree. The `config` value
   from `debug paths` is likewise authoritative rather than an assumed
