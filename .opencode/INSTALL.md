@@ -13,7 +13,8 @@ reviewed.
 
 - OpenCode >=1.18.13 on macOS or Linux. Windows is unsupported.
 - Bash 3.2 or newer, Git, `jq`, Node.js, and the standard `awk`, `sed`,
-  `mktemp`, and `shasum` command-line tools used by the canonical plugins.
+  `mktemp`, `shasum`, and `find` command-line tools used by the canonical
+  plugins and diagnostics below.
 - Codex CLI >=0.125 for Architect Critic's adversary paths. It must be installed
   and authenticated for fresh-frame close-depth and async use; the default
   shallow path does not require it.
@@ -140,21 +141,32 @@ resolved state and startup logs without destructive cache cleanup:
 
 ```sh
 opencode debug paths
+find "<cache>/packages" -type f -path "*/node_modules/claude-agent-scaffolding-opencode/package.json" -print
 opencode --print-logs --log-level WARN debug skill
 opencode --print-logs --log-level ERROR debug config
 opencode --print-logs --log-level DEBUG debug config
 opencode debug agent ossify-implementer-agent
 ```
 
-- Start with `opencode debug paths`; its `config` and `cache` values are the
-  source of truth rather than assumed `~/.config/opencode` and
-  `~/.cache/opencode` locations. Architect Critic state remains under
+- Start with `opencode debug paths`. Use the `cache` value from
+  `opencode debug paths` as `<cache>`. Do not assume `~/.cache/opencode`.
+  Replace the placeholder in the `find` command above, which searches only
+  `<cache>/packages` for the exact
+  `*/node_modules/claude-agent-scaffolding-opencode/package.json` path. Do not
+  guess the sanitized cache-entry name or search unrelated cache directories.
+- If multiple immutable tags are cached, inspect each matching cache entry
+  root's package metadata and dependency spec, then compare its recorded
+  dependency with the configured pinned GitHub spec. The cache entry root is
+  the directory directly below `<cache>/packages`; its package metadata records
+  the dependency spec used for that entry.
+- Inspect only the matched cache entry's
+  `node_modules/claude-agent-scaffolding-opencode` subtree. The `config` value
+  from `debug paths` is likewise authoritative rather than an assumed
+  `~/.config/opencode` location. Architect Critic state remains under
   `~/.claude/architect-critic`.
-- OpenCode stores installed packages under
-  `<cache>/packages/<sanitized-spec>/node_modules/<package>`. Do not guess
-  `<sanitized-spec>` or search unrelated cache entries. Use the DEBUG log's
-  resolved target to inspect only the identified package subtree and the config
-  reported by `debug paths`.
+- DEBUG logs remain useful for load failures and collisions, but OpenCode 1.18.13
+  does not log successful resolved plugin targets. Use logs as failure evidence,
+  not as the successful cache-entry locator.
 - OpenCode 1.18.13 warns and overwrites duplicate skills; it does not fail
   loading for that collision. `debug skill` shows only the winning definition,
   while the WARN log names the duplicate. Use that path evidence to decide

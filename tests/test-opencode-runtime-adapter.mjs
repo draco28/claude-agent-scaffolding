@@ -322,6 +322,7 @@ test("Task 8 documents actual OpenCode collision and cache diagnostics", async (
 
   assert.deepEqual(shellCommands(diagnostics), [
     "opencode debug paths",
+    'find "<cache>/packages" -type f -path "*/node_modules/claude-agent-scaffolding-opencode/package.json" -print',
     "opencode --print-logs --log-level WARN debug skill",
     "opencode --print-logs --log-level ERROR debug config",
     "opencode --print-logs --log-level DEBUG debug config",
@@ -350,16 +351,44 @@ test("Task 8 documents actual OpenCode collision and cache diagnostics", async (
     diagnostics,
     /Caller-defined command collisions remain caller-preserved/,
   );
-  assert.match(
-    diagnostics,
-    /`<cache>\/packages\/<sanitized-spec>\/node_modules\/<package>`/,
-  );
-  assert.match(
-    normalized,
-    /Do not guess `<sanitized-spec>`.*DEBUG log.*resolved target.*identified package subtree/i,
-  );
   assert.doesNotMatch(diagnostics, /~\/\.cache\/opencode\/node_modules/);
   assert.doesNotMatch(diagnostics, /delete the whole OpenCode cache/i);
+});
+
+test("Task 8 documents verifiable targeted package cache discovery", async () => {
+  const guide = await readFile(installGuideUrl, "utf8");
+  const requirements = markdownSection(guide, "Requirements");
+  const diagnostics = markdownSection(guide, "Diagnostics");
+  const normalized = normalizeWhitespace(diagnostics);
+  const discoveryCommand =
+    'find "<cache>/packages" -type f -path "*/node_modules/claude-agent-scaffolding-opencode/package.json" -print';
+
+  assert.doesNotMatch(
+    normalized,
+    /Use (?:the )?DEBUG log(?:'s)? resolved target|DEBUG logs? (?:identify|show|provide).*resolved plugin target/i,
+  );
+  assert.match(requirements, /`find`/);
+  assert.ok(shellCommands(diagnostics).includes(discoveryCommand));
+  assert.ok(
+    normalized.includes(
+      "Use the `cache` value from `opencode debug paths` as `<cache>`.",
+    ),
+  );
+  assert.ok(
+    normalized.includes(
+      "If multiple immutable tags are cached, inspect each matching cache entry root's package metadata and dependency spec, then compare its recorded dependency with the configured pinned GitHub spec.",
+    ),
+  );
+  assert.ok(
+    normalized.includes(
+      "Inspect only the matched cache entry's `node_modules/claude-agent-scaffolding-opencode` subtree.",
+    ),
+  );
+  assert.ok(
+    normalized.includes(
+      "DEBUG logs remain useful for load failures and collisions, but OpenCode 1.18.13 does not log successful resolved plugin targets.",
+    ),
+  );
 });
 
 test("Task 8 documents update policy and the implemented trust boundary", async () => {
