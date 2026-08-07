@@ -23,6 +23,14 @@ const translateUrl = new URL(".opencode/lib/translate.js", root);
 const ossifyAgentUrl = new URL("ossify/agents/implementer-agent.md", root);
 const installGuideUrl = new URL(".opencode/INSTALL.md", root);
 const readmeUrl = new URL("README.md", root);
+const aiMentorManifestUrl = new URL(
+  "ai-mentor/.claude-plugin/plugin.json",
+  root,
+);
+const architectCriticManifestUrl = new URL(
+  "architect-critic/.claude-plugin/plugin.json",
+  root,
+);
 const ossifyReadmeUrl = new URL("ossify/README.md", root);
 const ossifyManifestUrl = new URL("ossify/.claude-plugin/plugin.json", root);
 const ossifyRoadmapUrl = new URL(
@@ -280,7 +288,7 @@ test("Task 8 documents exact native skills, aliases, and runtime requirements", 
     /\bGit\b/,
     /\bjq\b/,
     /\bNode\.js\b/,
-    /Codex CLI\s*>=\s*0\.125.*adversary paths/i,
+    /synchronous close-depth foreground[\s\S]*Codex CLI\s*>=\s*0\.125/i,
   ]) {
     assert.match(guide, requirement);
   }
@@ -314,6 +322,109 @@ test("Task 8 documents exact native skills, aliases, and runtime requirements", 
     ),
   );
   assert.equal(aliases.length, 9);
+});
+
+test("Task 9 documents the bounded Ossify Git guard and OpenCode async prerequisites", async () => {
+  const guide = await readFile(installGuideUrl, "utf8");
+  const requirements = normalizeWhitespace(
+    markdownSection(guide, "Requirements"),
+  );
+  const invocation = normalizeWhitespace(
+    markdownSection(guide, "Differing Aliases"),
+  );
+
+  assert.doesNotMatch(
+    guide,
+    /(?:subagent|implementer)[^.]*cannot run Git commit, push,\s*pull, or fetch through Bash/i,
+  );
+  assert.doesNotMatch(
+    invocation,
+    /pre-hook[^.]*\b(?:guarantees?|ensures?|prevents?|blocks?)\b[^.]*\bGit (?:commit|push|pull|fetch)\b/i,
+  );
+  assert.doesNotMatch(
+    invocation,
+    /\b(?:absolute|complete) (?:mechanical )?guarantee\b|\bmechanically (?:blocks?|prevents?|guarantees?)\b/i,
+  );
+  assert.match(
+    invocation,
+    /canonical.*(?:worker prompt|contract).*(?:forbids|prohibits).*Git commit.*push.*pull.*fetch.*anywhere.*Bash (?:tool-call )?log/i,
+  );
+  assert.match(
+    invocation,
+    /pre-hook.*(?:audits|scans).*full literal command text.*(?:direct|normalized).*literal Git forms.*unknown.*alias-capable.*subcommands/i,
+  );
+  assert.match(invocation, /not an OS\/process sandbox/i);
+  assert.match(
+    invocation,
+    /dynamically substituted executable names.*indirect helper programs.*outside.*mechanical boundary/i,
+  );
+  assert.match(
+    invocation,
+    /pin.*review.*trusted package.*prompt\/transcript audit.*residual boundary/i,
+  );
+
+  assert.match(
+    requirements,
+    /synchronous.*close-depth.*foreground.*requires.*authenticated Codex CLI >=0\.125/i,
+  );
+  assert.match(
+    requirements,
+    /OpenCode async.*compatible `codex-companion\.mjs`/i,
+  );
+  assert.match(
+    requirements,
+    /`ARCHITECT_CRITIC_CODEX_COMPANION`.*absolute path.*canonical OpenAI Codex Claude-plugin cache/i,
+  );
+  assert.match(
+    requirements,
+    /root bundle does not ship.*compatible live companion.*packaged test shim.*not supported.*live use/i,
+  );
+  assert.match(requirements, /`\/critique-doctor`.*live compatibility smoke/i);
+  assert.match(
+    requirements,
+    /explicit async.*stops.*remediation.*never falls back.*foreground/i,
+  );
+  assert.match(
+    requirements,
+    /synchronous `\/critique --close`.*(?:remains|is).*option.*companion.*unavailable/i,
+  );
+});
+
+test("Task 9 keeps root README versions aligned with parsed plugin manifests", async () => {
+  const [rootReadme, aiMentorManifestSource, architectCriticManifestSource] =
+    await Promise.all([
+      readFile(readmeUrl, "utf8"),
+      readFile(aiMentorManifestUrl, "utf8"),
+      readFile(architectCriticManifestUrl, "utf8"),
+    ]);
+  const manifests = [
+    JSON.parse(aiMentorManifestSource),
+    JSON.parse(architectCriticManifestSource),
+  ];
+  const pluginRows = parseMarkdownTable(markdownSection(rootReadme, "Plugins"));
+  const layout = markdownSection(rootReadme, "Layout");
+
+  assert.doesNotMatch(rootReadme, /ai-mentor[^\n]*v2\.3\.0/i);
+  assert.doesNotMatch(rootReadme, /architect-critic[^\n]*v0\.5\.1/i);
+
+  for (const manifest of manifests) {
+    const row = pluginRows.find(
+      (candidate) => inlineCodeValues(candidate.Plugin)[0] === manifest.name,
+    );
+    assert.ok(row, `root inventory must include ${manifest.name}`);
+    assert.equal(
+      row.Version,
+      `v${manifest.version}`,
+      `${manifest.name} table version must match its manifest`,
+    );
+    assert.match(
+      layout,
+      new RegExp(
+        `(?:├──|└──) ${manifest.name.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\/.*\\(v${manifest.version.replace(/\\./g, "\\.")}\\)`,
+      ),
+      `${manifest.name} layout version must match its manifest`,
+    );
+  }
 });
 
 test("Task 8 documents actual OpenCode collision and cache diagnostics", async () => {

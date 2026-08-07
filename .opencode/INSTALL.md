@@ -15,9 +15,17 @@ reviewed.
 - Bash 3.2 or newer, Git, `jq`, Node.js, and the standard `awk`, `sed`,
   `mktemp`, `shasum`, and `find` command-line tools used by the canonical
   plugins and diagnostics below.
-- Codex CLI >=0.125 for Architect Critic's adversary paths. It must be installed
-  and authenticated for fresh-frame close-depth and async use; the default
-  shallow path does not require it.
+- Architect Critic's synchronous close-depth foreground path requires an
+  installed and authenticated Codex CLI >=0.125. The default shallow path does
+  not require it.
+- OpenCode async additionally requires a compatible `codex-companion.mjs`.
+  Resolve it with `ARCHITECT_CRITIC_CODEX_COMPANION` set to an absolute path or
+  from the canonical OpenAI Codex Claude-plugin cache. The root bundle does not
+  ship a compatible live companion; its packaged test shim is not supported for
+  live use. `/critique-doctor` and a live compatibility smoke are required
+  before async use. An explicit async request that fails preflight stops with
+  remediation and never falls back to foreground. Synchronous
+  `/critique --close` remains an option when the companion is unavailable.
 
 ## Default Installation
 
@@ -97,8 +105,17 @@ these nine aliases, where the existing command name differs from its skill:
 Ossify's native skills drive its lifecycle. Work-item execution can dispatch
 the registered `ossify-implementer-agent` subagent through OpenCode's `task`
 tool or an explicit `@ossify-implementer-agent` mention. The subagent inherits
-the invoking model, cannot nest another task, and cannot run Git commit, push,
-pull, or fetch through Bash.
+the invoking model and cannot nest another task.
+
+The canonical worker prompt/transcript contract forbids Git commit, push, pull,
+and fetch anywhere in its Bash tool-call log; that prohibition is unchanged.
+The package pre-hook audits the full literal command text and rejects direct or
+normalized literal Git forms, unknown or alias-capable subcommands, and other
+literal forms covered by the adapter tests. It is not an OS/process sandbox.
+Deliberately constructed or dynamically substituted executable names and
+indirect helper programs are outside its explicit mechanical boundary. Pin and
+review the trusted package and rely on prompt/transcript audit for that residual
+boundary.
 
 ## Updating And Restarting
 
