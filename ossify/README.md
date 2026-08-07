@@ -4,8 +4,9 @@ Skeleton-first lifecycle plugin. Specs of record:
 - docs/superpowers/specs/2026-07-11-poc-first-lifecycle-design.md
 - docs/superpowers/specs/2026-07-12-public-private-boundary-design.md
 
-Ossify is experimentally installable through the root OpenCode bundle only
-with the explicit four-plugin allowlist documented in
+Ossify's experimental installability begins only after an immutable bundle tag
+is published. At that point it requires the root OpenCode bundle's explicit
+four-plugin allowlist documented in
 [`../.opencode/INSTALL.md`](../.opencode/INSTALL.md). It is not in the stable
 Claude or Codex marketplaces and is not stable or ready for v1 until Plan D's
 consolidated eval suite and two real-project pilots pass.

@@ -14,9 +14,9 @@ reviewed.
 - OpenCode >=1.18.13 on macOS or Linux. Windows is unsupported.
 - Bash 3.2 or newer, Git, `jq`, Node.js, and the standard `awk`, `sed`,
   `mktemp`, and `shasum` command-line tools used by the canonical plugins.
-- An installed and authenticated Codex CLI for Architect Critic's fresh-frame
-  close-depth and async adversary paths. The default shallow path does not
-  require it.
+- Codex CLI >=0.125 for Architect Critic's adversary paths. It must be installed
+  and authenticated for fresh-frame close-depth and async use; the default
+  shallow path does not require it.
 
 ## Default Installation
 
@@ -64,15 +64,22 @@ Restart OpenCode after changing the options. Ossify remains absent from the
 stable Claude and Codex marketplaces and is not ready for v1 until Plan D's
 consolidated eval and two-pilot gate passes.
 
-## Commands And Dispatch
+## Native Skills And Commands
 
-OpenCode discovers the package's canonical skills lazily. Same-name skills are
-native slash commands, not extra aliases. Examples include `/grill-me`,
-`/council`, `/critiquing-spec`, and, when Ossify is enabled, `/plan-release`,
-`/plan-spine`, `/work-item`, and `/close`.
+OpenCode discovers the package's canonical skills lazily and exposes every
+selected skill as a same-name native slash command. The complete inventory is:
 
-The package adds aliases only where an existing command name differs from its
-skill:
+| Plugin | Availability | Native commands |
+|---|---|---|
+| `workspace-init` | Default | `/initializing-dual-repo-workspace`, `/pairing-canonical-repo`, `/pairing-existing-dual` |
+| `ai-mentor` | Default | `/grill-me`, `/council`, `/eli10`, `/fool` |
+| `architect-critic` | Default | `/critiquing-spec`, `/reviewing-critique-history`, `/listing-principles`, `/promoting-principle`, `/checking-adversary-readiness`, `/managing-async-critique` |
+| `ossify` | Experimental opt-in | `/start`, `/plan-spine`, `/work-item`, `/close`, `/plan-release` |
+
+## Differing Aliases
+
+Same-name native commands do not receive extra aliases. The package adds only
+these nine aliases, where the existing command name differs from its skill:
 
 | Alias | Native skill |
 |---|---|
@@ -106,6 +113,10 @@ live loader checks, and package checks. Credentialed model-backed smoke checks
 remain a separate release gate; documentation never treats an unpublished tag
 as an available release.
 
+Task 7 validates the native package export and options shapes with a direct
+`file://` package spec. It does not validate GitHub transport; that transport
+waits for the first gated immutable bundle tag to be published.
+
 ## Trust Boundary
 
 This package is trusted startup JavaScript. Before pinning a tag, review the
@@ -125,29 +136,39 @@ security boundary.
 ## Diagnostics
 
 Restart first if the config, plugin tag, or options changed. Then inspect the
-resolved state without deleting caches:
+resolved state and startup logs without destructive cache cleanup:
 
 ```sh
-opencode debug config
-opencode debug skill
-opencode debug agent ossify-implementer-agent
 opencode debug paths
+opencode --print-logs --log-level WARN debug skill
+opencode --print-logs --log-level ERROR debug config
+opencode --print-logs --log-level DEBUG debug config
+opencode debug agent ossify-implementer-agent
 ```
 
-- Confirm `debug config` shows one pinned package entry. The default is a
-  string; the Ossify opt-in is one tuple with the exact allowlist above.
-- Confirm `debug skill` reports one location per skill. Duplicate skill errors
-  mean another configured skill path defines the same name; identify that path
-  before changing either config.
-- The name `ossify-implementer-agent` is reserved when Ossify is selected. A
-  caller-defined agent with that name produces a collision error and must be
-  renamed; caller commands that collide with aliases are preserved rather than
-  overwritten.
-- `opencode debug paths` is the source of truth for this installation. Typical
-  user config is under `~/.config/opencode`, package cache data is under
-  `~/.cache/opencode`, and Architect Critic state remains under
+- Start with `opencode debug paths`; its `config` and `cache` values are the
+  source of truth rather than assumed `~/.config/opencode` and
+  `~/.cache/opencode` locations. Architect Critic state remains under
   `~/.claude/architect-critic`.
-- For a package-load failure, inspect only the pinned package's entry beneath
-  `~/.cache/opencode/node_modules` and the relevant config file. Do not delete
-  the whole OpenCode cache. Change or repair a targeted path only after the
-  diagnostics identify it, then restart.
+- OpenCode stores installed packages under
+  `<cache>/packages/<sanitized-spec>/node_modules/<package>`. Do not guess
+  `<sanitized-spec>` or search unrelated cache entries. Use the DEBUG log's
+  resolved target to inspect only the identified package subtree and the config
+  reported by `debug paths`.
+- OpenCode 1.18.13 warns and overwrites duplicate skills; it does not fail
+  loading for that collision. `debug skill` shows only the winning definition,
+  while the WARN log names the duplicate. Use that path evidence to decide
+  which config or skill source should change.
+- OpenCode catches adapter config-hook errors, so `opencode debug config` can
+  still exit 0. With a reserved `ossify-implementer-agent` collision, the
+  selected package skill paths, aliases, and Ossify agent can all be absent
+  from resolved config. The ERROR log exposes the reserved-name collision;
+  rename the caller agent, restart, and inspect resolved config again.
+- Caller-defined command collisions remain caller-preserved rather than being
+  replaced by package aliases. Compare the command entry in resolved config
+  with the differing-alias table before changing it.
+- Confirm resolved `plugin` contains one pinned package entry. The default is a
+  string; the Ossify opt-in is one tuple with the exact allowlist above. Never
+  clear OpenCode's entire cache as a first response; change a targeted config or
+  resolved package subtree only after the diagnostics identify it, then
+  restart.

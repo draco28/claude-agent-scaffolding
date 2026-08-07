@@ -138,6 +138,58 @@ function parseJsonFences(source) {
   );
 }
 
+function markdownSection(source, heading, level = 2) {
+  const marker = `${"#".repeat(level)} ${heading}`;
+  const start = source.indexOf(`${marker}\n`);
+  assert.notEqual(start, -1, `missing Markdown section: ${marker}`);
+  const bodyStart = start + marker.length + 1;
+  const boundary = new RegExp(`^#{1,${level}}\\s+`, "m").exec(
+    source.slice(bodyStart),
+  );
+  return source.slice(
+    bodyStart,
+    boundary ? bodyStart + boundary.index : source.length,
+  );
+}
+
+function parseMarkdownTable(section) {
+  const lines = section
+    .split("\n")
+    .filter((line) => /^\|.*\|$/.test(line.trim()));
+  assert.ok(lines.length >= 2, "Markdown section must contain a table");
+  const cells = (line) =>
+    line
+      .trim()
+      .slice(1, -1)
+      .split("|")
+      .map((cell) => cell.trim());
+  const headers = cells(lines[0]);
+  assert.ok(
+    cells(lines[1]).every((cell) => /^:?-+:?$/.test(cell)),
+    "Markdown table must have a separator row",
+  );
+  return lines.slice(2).map((line) =>
+    Object.fromEntries(headers.map((header, index) => [header, cells(line)[index]])),
+  );
+}
+
+function inlineCodeValues(source) {
+  return [...source.matchAll(/`([^`]+)`/g)].map((match) => match[1]);
+}
+
+function shellCommands(source) {
+  return [...source.matchAll(/```sh\n([\s\S]*?)\n```/g)].flatMap((match) =>
+    match[1]
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean),
+  );
+}
+
+function normalizeWhitespace(source) {
+  return source.replace(/\s+/g, " ").trim();
+}
+
 test("root package declares the OpenCode bundle contract", async () => {
   const packageJson = JSON.parse(
     await readFile(new URL("package.json", root), "utf8"),
@@ -196,8 +248,28 @@ test("Task 8 documents pinned native OpenCode installation shapes", async () => 
   );
 });
 
-test("Task 8 documents operation, diagnostics, and the implemented trust boundary", async () => {
+test("Task 8 documents exact native skills, aliases, and runtime requirements", async () => {
   const guide = await readFile(installGuideUrl, "utf8");
+  const inventory = parseMarkdownTable(
+    markdownSection(guide, "Native Skills And Commands"),
+  );
+  const expectedInventory = {
+    "workspace-init": [
+      "/initializing-dual-repo-workspace",
+      "/pairing-canonical-repo",
+      "/pairing-existing-dual",
+    ],
+    "ai-mentor": ["/grill-me", "/council", "/eli10", "/fool"],
+    "architect-critic": [
+      "/critiquing-spec",
+      "/reviewing-critique-history",
+      "/listing-principles",
+      "/promoting-principle",
+      "/checking-adversary-readiness",
+      "/managing-async-critique",
+    ],
+    ossify: ["/start", "/plan-spine", "/work-item", "/close", "/plan-release"],
+  };
 
   for (const requirement of [
     /OpenCode\s*>=\s*1\.18\.13/,
@@ -207,25 +279,98 @@ test("Task 8 documents operation, diagnostics, and the implemented trust boundar
     /\bGit\b/,
     /\bjq\b/,
     /\bNode\.js\b/,
+    /Codex CLI\s*>=\s*0\.125.*adversary paths/i,
   ]) {
     assert.match(guide, requirement);
   }
+  assert.deepEqual(
+    Object.fromEntries(
+      inventory.map((row) => [
+        inlineCodeValues(row.Plugin)[0],
+        inlineCodeValues(row["Native commands"]),
+      ]),
+    ),
+    expectedInventory,
+  );
+  assert.deepEqual(
+    inventory.map((row) => row.Availability),
+    ["Default", "Default", "Default", "Experimental opt-in"],
+  );
+
+  const aliases = parseMarkdownTable(markdownSection(guide, "Differing Aliases"));
+  assert.deepEqual(
+    Object.fromEntries(
+      aliases.map((row) => [
+        inlineCodeValues(row.Alias)[0],
+        inlineCodeValues(row["Native skill"])[0],
+      ]),
+    ),
+    Object.fromEntries(
+      Object.entries(expectedAliases).map(([alias, skill]) => [
+        `/${alias}`,
+        skill,
+      ]),
+    ),
+  );
+  assert.equal(aliases.length, 9);
+});
+
+test("Task 8 documents actual OpenCode collision and cache diagnostics", async () => {
+  const guide = await readFile(installGuideUrl, "utf8");
+  const diagnostics = markdownSection(guide, "Diagnostics");
+  const normalized = normalizeWhitespace(diagnostics);
+
+  assert.deepEqual(shellCommands(diagnostics), [
+    "opencode debug paths",
+    "opencode --print-logs --log-level WARN debug skill",
+    "opencode --print-logs --log-level ERROR debug config",
+    "opencode --print-logs --log-level DEBUG debug config",
+    "opencode debug agent ossify-implementer-agent",
+  ]);
+  assert.ok(
+    normalized.includes(
+      "OpenCode 1.18.13 warns and overwrites duplicate skills; it does not fail loading for that collision.",
+    ),
+  );
+  assert.ok(
+    normalized.includes(
+      "`debug skill` shows only the winning definition, while the WARN log names the duplicate.",
+    ),
+  );
+  assert.ok(
+    normalized.includes(
+      "OpenCode catches adapter config-hook errors, so `opencode debug config` can still exit 0.",
+    ),
+  );
+  assert.match(
+    diagnostics,
+    /reserved `ossify-implementer-agent` collision.*selected package skill paths, aliases, and Ossify agent.*absent/is,
+  );
+  assert.match(
+    diagnostics,
+    /Caller-defined command collisions remain caller-preserved/,
+  );
+  assert.match(
+    diagnostics,
+    /`<cache>\/packages\/<sanitized-spec>\/node_modules\/<package>`/,
+  );
+  assert.match(
+    normalized,
+    /Do not guess `<sanitized-spec>`.*DEBUG log.*resolved target.*identified package subtree/i,
+  );
+  assert.doesNotMatch(diagnostics, /~\/\.cache\/opencode\/node_modules/);
+  assert.doesNotMatch(diagnostics, /delete the whole OpenCode cache/i);
+});
+
+test("Task 8 documents update policy and the implemented trust boundary", async () => {
+  const guide = await readFile(installGuideUrl, "utf8");
+
   assert.match(guide, /config.*plugin tag.*options.*restart OpenCode/is);
   assert.match(
     guide,
     /review.*new immutable `bundle-v<semver>` tag.*change.*pinned spec.*restart/is,
   );
-  assert.match(guide, /same-name skills.*native.*commands.*not.*aliases/is);
   assert.match(guide, /ossify-implementer-agent/);
-  for (const command of [
-    "opencode debug config",
-    "opencode debug skill",
-    "opencode debug agent",
-  ]) {
-    assert.ok(guide.includes(command));
-  }
-  assert.match(guide, /duplicate|collision/i);
-  assert.match(guide, /~\/\.cache\/opencode/);
   assert.match(guide, /~\/\.config\/opencode/);
   assert.doesNotMatch(guide, /rm\s+-rf/);
 
@@ -253,9 +398,70 @@ test("Task 8 reconciles experimental Ossify availability without claiming stabil
     readFile(ossifyManifestUrl, "utf8"),
   ]);
   const manifest = JSON.parse(manifestSource);
+  const intro = rootReadme.slice(0, rootReadme.indexOf("## Plugins"));
+  const pluginRows = parseMarkdownTable(markdownSection(rootReadme, "Plugins"));
+  const ossifyRow = pluginRows.find(
+    (row) => inlineCodeValues(row.Plugin)[0] === "ossify",
+  );
+  const openCode = markdownSection(rootReadme, "OpenCode", 3);
+  const localClaude = markdownSection(
+    rootReadme,
+    "Local Claude Code Development",
+    3,
+  );
+  const localCodex = markdownSection(rootReadme, "Local Codex Development", 3);
+  const layout = markdownSection(rootReadme, "Layout");
 
-  assert.match(rootReadme, /OpenCode/);
-  assert.match(rootReadme, /\.opencode\/INSTALL\.md/);
+  assert.match(intro, /Claude Code and Codex plugin marketplace.*OpenCode adapter/is);
+  assert.ok(ossifyRow, "root inventory must include Ossify");
+  assert.match(ossifyRow.Scope, /Experimental OpenCode opt-in/);
+  assert.match(ossifyRow.Purpose, /not.*Claude or Codex marketplace/i);
+  assert.match(
+    markdownSection(rootReadme, "Plugins"),
+    /Ossify is an alternate replacement lifecycle.*`scaffold-onboard`.*`scaffold-dev`/is,
+  );
+  assert.doesNotMatch(
+    markdownSection(rootReadme, "Plugins"),
+    /eight plugins.*compose without overlap/i,
+  );
+  assert.match(openCode, /\.opencode\/INSTALL\.md/);
+  assert.ok(
+    normalizeWhitespace(openCode).includes(
+      "Task 7 validates the native export and options shapes with a direct `file://` package spec.",
+    ),
+  );
+  assert.ok(
+    normalizeWhitespace(openCode).includes(
+      "GitHub transport begins only after the first gated immutable `bundle-v<semver>` tag is published.",
+    ),
+  );
+  assert.doesNotMatch(openCode, /For local (?:Claude|Codex) development/);
+  assert.match(localClaude, /\/plugin marketplace add \/home\/pras/);
+  assert.match(localCodex, /codex plugin marketplace add \/home\/pras/);
+  for (const entry of [
+    "package.json",
+    ".opencode/",
+    "workspace-init/",
+    "ai-mentor/",
+    "scaffold-onboard/",
+    "scaffold-dev/",
+    "scaffold/",
+    "architect-critic/",
+    "claude-security-audit/",
+    "ossify/",
+    "docs/",
+  ]) {
+    assert.ok(layout.includes(entry), `root layout must include ${entry}`);
+  }
+  for (const source of [rootReadme, ossifyReadme]) {
+    assert.ok(
+      normalizeWhitespace(source)
+        .toLowerCase()
+        .includes(
+          "experimental installability begins only after an immutable bundle tag is published",
+        ),
+    );
+  }
   for (const source of [ossifyReadme, roadmap, manifest.description]) {
     assert.match(source, /experimental/i);
     assert.match(source, /OpenCode/i);
