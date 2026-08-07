@@ -13,12 +13,10 @@ _BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _PACKAGE_ROOT="$(cd "$_BIN_DIR/../.." && pwd)"
 PLUGIN_ROOT="$_PACKAGE_ROOT/architect-critic"
 CLAUDE_PLUGIN_ROOT="$PLUGIN_ROOT"
-if [[ -z "${CLAUDE_PLUGIN_DATA:-}" ]]; then
-  if [[ -n "${HOME:-}" ]]; then
-    export CLAUDE_PLUGIN_DATA="$HOME/.claude/architect-critic"
-  else
-    unset CLAUDE_PLUGIN_DATA
-  fi
+if [[ -n "${HOME:-}" ]]; then
+  export CLAUDE_PLUGIN_DATA="$HOME/.claude/architect-critic"
+else
+  unset CLAUDE_PLUGIN_DATA
 fi
 export PLUGIN_ROOT CLAUDE_PLUGIN_ROOT
 

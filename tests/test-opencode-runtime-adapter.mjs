@@ -102,6 +102,7 @@ async function createLifecycleRuntime(t, handlerSource, options = {}) {
       registeredCommands: new Map(),
       registeredAgents: new Set(),
       directory: fixture,
+      sessionStartTimeoutMs: options.sessionStartTimeoutMs,
     }),
   };
 }
@@ -940,11 +941,13 @@ test("non-Ossify config preserves the same caller-defined agent name", async () 
   assert.strictEqual(config.agent["ossify-implementer-agent"], callerAgent);
 });
 
-test("prompt translation maps qualified invocations and questions", async () => {
+test("prompt translation emits the complete OpenCode 1.18.13 task schema", async () => {
   const { translatePrompt } = await import(translateUrl);
   const translated = translatePrompt(
     'Skill(ai-mentor:grill-me)\n' +
       'Task(subagent_type="ossify:implementer-agent", prompt=<brief>)\n' +
+      'task(description="Existing task", subagent_type="general", prompt="Keep me")\n' +
+      'Task(subagent_type="other:agent", prompt=<other>)\n' +
       "Use AskUserQuestion if needed.",
     { root: "/opt/plugins/ossify" },
   );
@@ -952,7 +955,9 @@ test("prompt translation maps qualified invocations and questions", async () => 
   assert.equal(
     translated,
     'skill(name="grill-me")\n' +
-      'task(subagent_type="ossify-implementer-agent", prompt=<brief>)\n' +
+      'task(description="Implement Ossify work item", subagent_type="ossify-implementer-agent", prompt=<brief>)\n' +
+      'task(description="Existing task", subagent_type="general", prompt="Keep me")\n' +
+      'Task(subagent_type="other:agent", prompt=<other>)\n' +
       "Use question if needed.",
   );
 });
@@ -1312,6 +1317,33 @@ test("Task 6 lifecycle failures, missing handlers, and empty output fail open on
   }
 });
 
+test("Task 6 lifecycle hard-kills a hanging handler and fails open once", async (t) => {
+  const { hooks } = await createLifecycleRuntime(
+    t,
+    '#!/bin/sh\nexec node -e \'process.on("SIGTERM", () => {}); setTimeout(() => {}, 500)\'\n',
+    { sessionStartTimeoutMs: 150 },
+  );
+  const first = transformOutput("task-6-timeout", "Unchanged");
+  const second = transformOutput("task-6-timeout", "Also unchanged");
+  const firstBefore = structuredClone(first);
+  const secondBefore = structuredClone(second);
+  const started = Date.now();
+
+  await hooks["experimental.chat.messages.transform"]({}, first);
+  const elapsedMs = Date.now() - started;
+  const repeatedStarted = Date.now();
+  await hooks["experimental.chat.messages.transform"]({}, second);
+  const repeatedElapsedMs = Date.now() - repeatedStarted;
+
+  assert.ok(elapsedMs < 400, `hanging handler returned after ${elapsedMs}ms`);
+  assert.ok(
+    repeatedElapsedMs < 100,
+    `repeated transform returned after ${repeatedElapsedMs}ms`,
+  );
+  assert.deepEqual(first, firstBefore);
+  assert.deepEqual(second, secondBefore);
+});
+
 test("Task 6 lifecycle tolerates missing state, missing users, and malformed transforms", async (t) => {
   const home = await mkdtemp(join(tmpdir(), "opencode-architect-home-"));
   t.after(() => rm(home, { recursive: true, force: true }));
@@ -1378,6 +1410,84 @@ test("Task 6 lifecycle excludes unselected Architect Critic and Workspace Init c
   });
 });
 
+test("Task 6 overlay reaches owned critique commands and skill output exactly once", async (t) => {
+  const hooks = await createPluginHooks({ plugins: ["architect-critic"] });
+  const skillDirectory = fileURLToPath(
+    new URL("architect-critic/skills/critiquing-spec", root),
+  );
+  const marker = "OpenCode host policy (binding)";
+  const commandOutput = {
+    parts: [
+      {
+        type: "text",
+        text: `Canonical critique\nBase directory for this skill: ${skillDirectory}`,
+      },
+    ],
+  };
+  const skillOutput = {
+    output: await readFile(join(skillDirectory, "SKILL.md"), "utf8"),
+    metadata: { dir: skillDirectory },
+  };
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await hooks["command.execute.before"](
+      {
+        command: "critiquing-spec",
+        sessionID: "task-6-overlay-command",
+        arguments: "",
+      },
+      commandOutput,
+    );
+    await hooks["tool.execute.after"](
+      {
+        tool: "skill",
+        sessionID: "task-6-overlay-skill",
+        callID: `task-6-overlay-skill-${attempt}`,
+        args: { name: "critiquing-spec" },
+      },
+      skillOutput,
+    );
+  }
+
+  assert.equal(commandOutput.parts[0].text.split(marker).length - 1, 1);
+  assert.equal(skillOutput.output.split(marker).length - 1, 1);
+
+  const readOutput = { output: "Canonical critique read" };
+  await hooks["tool.execute.after"](
+    {
+      tool: "read",
+      sessionID: "task-6-overlay-read",
+      callID: "task-6-overlay-read-call",
+      args: { filePath: join(skillDirectory, "SKILL.md") },
+    },
+    readOutput,
+  );
+  assert.equal(readOutput.output, "Canonical critique read");
+
+  const externalDirectory = await mkdtemp(
+    join(tmpdir(), "opencode-colliding-critique-"),
+  );
+  t.after(() => rm(externalDirectory, { recursive: true, force: true }));
+  const collisionOutput = {
+    parts: [
+      {
+        type: "text",
+        text: `External critique\nBase directory for this skill: ${externalDirectory}`,
+      },
+    ],
+  };
+  const beforeCollision = structuredClone(collisionOutput);
+  await hooks["command.execute.before"](
+    {
+      command: "critiquing-spec",
+      sessionID: "task-6-overlay-collision",
+      arguments: "",
+    },
+    collisionOutput,
+  );
+  assert.deepEqual(collisionOutput, beforeCollision);
+});
+
 test("Task 6 overlay binds the OpenCode Architect Critic host policy", async () => {
   const hooks = await createPluginHooks({ plugins: ["architect-critic"] });
   const skillDirectory = fileURLToPath(
@@ -1391,19 +1501,47 @@ test("Task 6 overlay binds the OpenCode Architect Critic host policy", async () 
   await hooks["tool.execute.after"](
     {
       tool: "skill",
-      sessionID: "task-6-overlay",
-      callID: "task-6-overlay-call",
+      sessionID: "task-6-policy",
+      callID: "task-6-policy-call",
       args: { name: "critiquing-spec" },
     },
     output,
   );
 
-  assert.match(output.output, /OpenCode host policy \(binding\)/);
-  assert.match(output.output, /`HOST_AGENT=opencode`/);
-  assert.match(output.output, /active OpenCode model.*in-conversation host self-audit/i);
-  assert.match(output.output, /Codex.*foreground close-depth fresh-frame adversary/i);
-  assert.match(output.output, /Claude-host Codex companion\/state spine.*live compatibility smoke test/i);
-  assert.match(output.output, /explicit async requests.*fail clearly.*never silently degrade to foreground/i);
+  const policy = markdownSection(
+    output.output,
+    "OpenCode host policy (binding)",
+  );
+  assert.deepEqual(parseMarkdownTable(policy), [
+    {
+      "Canonical decision point": "`HOST_AGENT` detection",
+      "Binding OpenCode evaluation": "Set `HOST_AGENT=opencode`.",
+    },
+    {
+      "Canonical decision point": "Every `HOST_AGENT=claude` condition and table row",
+      "Binding OpenCode evaluation": "Evaluate it as `HOST_AGENT=opencode`.",
+    },
+    {
+      "Canonical decision point": "Every `HOST_AGENT=claude` status branch",
+      "Binding OpenCode evaluation": "Report the active OpenCode model as host and Codex availability as adversary status.",
+    },
+    {
+      "Canonical decision point": "The `HOST_AGENT=claude` foreground close-depth branch",
+      "Binding OpenCode evaluation": "Run Codex as the fresh-frame adversary.",
+    },
+    {
+      "Canonical decision point": "The `HOST_AGENT=claude` async branch",
+      "Binding OpenCode evaluation": "Reuse the Claude-host Codex spine only after its compatibility smoke passes.",
+    },
+    {
+      "Canonical decision point": "Any `HOST_AGENT=codex` / Claude-adversary branch",
+      "Binding OpenCode evaluation": "Never select or execute it.",
+    },
+  ]);
+  assert.match(policy, /active OpenCode model performs the host self-audit/i);
+  assert.match(policy, /record the async host as `opencode`/i);
+  assert.match(policy, /keep canonical compatibility filenames.*`claude-audit\.json`/i);
+  assert.match(policy, /explicit async preflight failure.*STOP.*no foreground fallback/is);
 });
 
 test("Task 6 overlay is restricted to the selected canonical critique workflow", async () => {
@@ -2446,6 +2584,20 @@ test("arc wrapper exports the shared Architect Critic data fallback", async (t) 
   assert.equal(result.status, 0);
   assert.equal(result.stderr, "");
   assert.equal(result.stdout, `${join(home, ".claude/architect-critic")}\n`);
+
+  const staleResult = spawnSync(join(adapterBin, "arc"), [], {
+    cwd: await realpath(fixture),
+    encoding: "utf8",
+    env: { ...env, CLAUDE_PLUGIN_DATA: join(fixture, "stale-plugin-data") },
+  });
+  assert.deepEqual(
+    {
+      status: staleResult.status,
+      stdout: staleResult.stdout,
+      stderr: staleResult.stderr,
+    },
+    { status: result.status, stdout: result.stdout, stderr: result.stderr },
+  );
 });
 
 test("arc wrapper reaches canonical --list without HOME or plugin data", () => {
@@ -2525,6 +2677,67 @@ test("all-four capabilities self-locate wi and arc without changing output", asy
     assert.equal(wrapped.status, 0);
     assert.notEqual(wrapped.stdout, "");
   }
+});
+
+test("oss critic detection uses the selected bundle before ambient caches", async (t) => {
+  const path = ["/usr/bin", "/bin"].join(delimiter);
+  const bundled = spawnSync(join(wrapperDirectory, "oss"), ["critic_detect"], {
+    encoding: "utf8",
+    env: {
+      PATH: path,
+      OPENCODE_SCAFFOLDING_PLUGINS: "ossify:architect-critic",
+    },
+  });
+
+  assert.deepEqual(
+    { status: bundled.status, stdout: bundled.stdout, stderr: bundled.stderr },
+    { status: 0, stdout: "v0.3\n", stderr: "" },
+  );
+
+  const home = await mkdtemp(join(tmpdir(), "opencode-oss-cache-"));
+  t.after(() => rm(home, { recursive: true, force: true }));
+  await mkdir(
+    join(
+      home,
+      ".claude/plugins/cache/vendor/architect-critic/v0.2/skills/critiquing-spec",
+    ),
+    { recursive: true },
+  );
+  await writeFile(
+    join(
+      home,
+      ".claude/plugins/cache/vendor/architect-critic/v0.2/skills/critiquing-spec/SKILL.md",
+    ),
+    "canonical fixture\n",
+    "utf8",
+  );
+  const ambientEnv = {
+    PATH: path,
+    HOME: home,
+    OPENCODE_SCAFFOLDING_PLUGINS: "ossify",
+  };
+  const wrapped = spawnSync(join(wrapperDirectory, "oss"), ["critic_detect"], {
+    encoding: "utf8",
+    env: ambientEnv,
+  });
+  const canonical = spawnSync(
+    fileURLToPath(new URL("ossify/bin/oss", root)),
+    ["critic_detect"],
+    { encoding: "utf8", env: ambientEnv },
+  );
+
+  assert.deepEqual(
+    { status: wrapped.status, stdout: wrapped.stdout, stderr: wrapped.stderr },
+    {
+      status: canonical.status,
+      stdout: canonical.stdout,
+      stderr: canonical.stderr,
+    },
+  );
+  assert.deepEqual(
+    { status: wrapped.status, stdout: wrapped.stdout },
+    { status: 0, stdout: "v0.2\n" },
+  );
 });
 
 test("oss wrapper preserves verify_step and redgate dispositions", async (t) => {

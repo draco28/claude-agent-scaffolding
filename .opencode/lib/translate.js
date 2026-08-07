@@ -5,11 +5,18 @@ import { PLUGIN_CATALOG, getSkillOwner } from "./catalog.js";
 
 const ARCHITECT_CRITIC_OPENCODE_OVERLAY = `## OpenCode host policy (binding)
 
-Under OpenCode, this package-owned policy overrides the canonical host branches:
-- Set \`HOST_AGENT=opencode\`; the active OpenCode model performs the in-conversation host self-audit.
-- Codex remains the foreground close-depth fresh-frame adversary.
-- Reuse the Claude-host Codex companion/state spine for async only after a live compatibility smoke test.
-- Explicit async requests must fail clearly and never silently degrade to foreground.`;
+This package-owned policy overrides every canonical host branch under OpenCode.
+
+| Canonical decision point | Binding OpenCode evaluation |
+| --- | --- |
+| \`HOST_AGENT\` detection | Set \`HOST_AGENT=opencode\`. |
+| Every \`HOST_AGENT=claude\` condition and table row | Evaluate it as \`HOST_AGENT=opencode\`. |
+| Every \`HOST_AGENT=claude\` status branch | Report the active OpenCode model as host and Codex availability as adversary status. |
+| The \`HOST_AGENT=claude\` foreground close-depth branch | Run Codex as the fresh-frame adversary. |
+| The \`HOST_AGENT=claude\` async branch | Reuse the Claude-host Codex spine only after its compatibility smoke passes. |
+| Any \`HOST_AGENT=codex\` / Claude-adversary branch | Never select or execute it. |
+
+The active OpenCode model performs the host self-audit in conversation. For async, run a live compatibility smoke before entering the reused Claude-host Codex companion/state spine, record the async host as \`opencode\`, and keep canonical compatibility filenames such as \`claude-audit.json\` when the shared canonical procedure requires them. An explicit async preflight failure must STOP the async request with remediation and no foreground fallback.`;
 
 function contextFor(owner) {
   return {
@@ -32,7 +39,7 @@ export function translatePrompt(text, context) {
   );
   translated = translated.replace(
     /\bTask\(\s*subagent_type="ossify:implementer-agent"/g,
-    'task(subagent_type="ossify-implementer-agent"',
+    'task(description="Implement Ossify work item", subagent_type="ossify-implementer-agent"',
   );
   translated = translated.replaceAll("AskUserQuestion", "question");
 
@@ -56,6 +63,20 @@ export function translatePrompt(text, context) {
   return translated;
 }
 
+export function translateOwnedPrompt(text, owner, skillName) {
+  if (!PLUGIN_CATALOG.includes(owner)) return text;
+
+  let translated = translatePrompt(text, contextFor(owner));
+  if (
+    owner.name === "architect-critic" &&
+    skillName === "critiquing-spec" &&
+    !translated.includes(ARCHITECT_CRITIC_OPENCODE_OVERLAY)
+  ) {
+    translated += `\n\n${ARCHITECT_CRITIC_OPENCODE_OVERLAY}`;
+  }
+  return translated;
+}
+
 export function translateToolOutput(tool, args, output) {
   if (typeof output?.output !== "string") return;
 
@@ -65,13 +86,10 @@ export function translateToolOutput(tool, args, output) {
       ? args.owner
       : undefined;
   if (owner) {
-    output.output = translatePrompt(output.output, contextFor(owner));
-    if (
-      tool === "skill" &&
-      owner.name === "architect-critic" &&
-      args?.name === "critiquing-spec"
-    ) {
-      output.output += `\n\n${ARCHITECT_CRITIC_OPENCODE_OVERLAY}`;
-    }
+    output.output = translateOwnedPrompt(
+      output.output,
+      owner,
+      tool === "skill" ? args?.name : undefined,
+    );
   }
 }

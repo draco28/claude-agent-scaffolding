@@ -4,7 +4,10 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 
 import { getSkillOwner } from "./catalog.js";
-import { translatePrompt, translateToolOutput } from "./translate.js";
+import {
+  translateOwnedPrompt,
+  translateToolOutput,
+} from "./translate.js";
 
 const ARGUMENT_EXPORT =
   /^[ \t]*export[ \t]+ARCHITECT_CRITIC_ARGS=(?:"((?:\\[^\r\n]|[^"\\\r\n])*)"|'([^'\r\n]*)')[ \t]*(?:\r?\n)?$/;
@@ -45,6 +48,7 @@ const SHELL_SEPARATORS = new Set([
   "#",
 ]);
 const MAX_AUDIT_QUOTE_DEPTH = 8;
+const SESSION_START_TIMEOUT_MS = 5_000;
 const execFileAsync = promisify(execFile);
 
 function containsPath(root, filePath) {
@@ -394,6 +398,7 @@ export function createRuntime({
   registeredCommands,
   registeredAgents,
   directory = process.cwd(),
+  sessionStartTimeoutMs = SESSION_START_TIMEOUT_MS,
 }) {
   const selectedNames = new Set(selected.map(({ name }) => name));
   const architectCritic = selected.find(
@@ -431,7 +436,7 @@ export function createRuntime({
 
       for (const part of output.parts) {
         if (part.type === "text" && typeof part.text === "string") {
-          part.text = translatePrompt(part.text, owner);
+          part.text = translateOwnedPrompt(part.text, owner, input.command);
         }
       }
 
@@ -541,6 +546,8 @@ export function createRuntime({
               PLUGIN_ROOT: architectCritic.root,
               CLAUDE_PLUGIN_ROOT: architectCritic.root,
             },
+            timeout: sessionStartTimeoutMs,
+            killSignal: "SIGKILL",
           },
         );
         if (typeof stdout === "string" && stdout.trim()) {
