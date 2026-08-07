@@ -1,6 +1,13 @@
 import { execFile } from "node:child_process";
 import { realpath } from "node:fs/promises";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve,
+} from "node:path";
 import { promisify } from "node:util";
 
 import { getSkillOwner } from "./catalog.js";
@@ -61,6 +68,22 @@ async function resolvedPath(filePath) {
     return await realpath(filePath);
   } catch {
     return;
+  }
+}
+
+async function canonicalTarget(filePath) {
+  let ancestor = filePath;
+  const missing = [];
+
+  while (true) {
+    try {
+      return resolve(await realpath(ancestor), ...missing);
+    } catch (error) {
+      const parent = dirname(ancestor);
+      if (parent === ancestor) throw error;
+      missing.unshift(basename(ancestor));
+      ancestor = parent;
+    }
   }
 }
 
@@ -405,6 +428,10 @@ export function createRuntime({
     ({ name }) => name === "architect-critic",
   );
   const architectCriticSelected = Boolean(architectCritic);
+  const ossify = selected.find(({ name }) => name === "ossify");
+  const ossifyRoot = ossify
+    ? canonicalTarget(resolve(ossify.root))
+    : undefined;
   const sessions = new Map();
   const sessionAgents = new Map();
   const sessionStartAttempts = new Set();
@@ -449,6 +476,27 @@ export function createRuntime({
     },
 
     "tool.execute.before": async (input, output) => {
+      const ossifyImplementerSession =
+        registeredAgents.has("ossify-implementer-agent") &&
+        sessionAgents.get(input.sessionID) === "ossify-implementer-agent";
+      if (
+        ossifyImplementerSession &&
+        (input.tool === "edit" || input.tool === "write")
+      ) {
+        const filePath = output?.args?.filePath;
+        if (typeof filePath !== "string" || !filePath.trim()) {
+          throw new Error(
+            `ossify-implementer-agent: Ossify package is read-only; ${input.tool} requires a valid nonempty filePath`,
+          );
+        }
+        const target = await canonicalTarget(resolve(directory, filePath));
+        if (containsPath(await ossifyRoot, target)) {
+          throw new Error(
+            `ossify-implementer-agent cannot ${input.tool} ${filePath}: Ossify package is read-only`,
+          );
+        }
+      }
+
       if (input.tool !== "bash") return;
       if (typeof input.sessionID !== "string" || !input.sessionID.trim()) {
         throw new Error("bash tool call requires a valid nonempty sessionID");
@@ -457,10 +505,7 @@ export function createRuntime({
       if (typeof command !== "string") {
         throw new Error("bash tool call requires a valid bash command");
       }
-      if (
-        registeredAgents.has("ossify-implementer-agent") &&
-        sessionAgents.get(input.sessionID) === "ossify-implementer-agent"
-      ) {
+      if (ossifyImplementerSession) {
         const verb = forbiddenGitVerb(command);
         if (verb) {
           throw new Error(

@@ -42,11 +42,7 @@ export async function ScaffoldingPlugin(input, options = {}) {
       permission: {
         "*": "deny",
         read: "allow",
-        edit: {
-          "*": "allow",
-          [join(ossify.root, ".")]: "deny",
-          [join(ossify.root, "**")]: "deny",
-        },
+        edit: "allow",
         glob: "allow",
         grep: "allow",
         bash: "allow",

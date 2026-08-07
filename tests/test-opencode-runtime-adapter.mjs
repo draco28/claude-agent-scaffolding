@@ -50,15 +50,22 @@ async function applyPluginConfig(options, config = {}) {
   return config;
 }
 
-async function createPluginHooks(options) {
+async function createPluginHooks(options, directory = fileURLToPath(root)) {
   const { ScaffoldingPlugin } = await import(marketplaceUrl);
-  return ScaffoldingPlugin({ directory: fileURLToPath(root) }, options);
+  return ScaffoldingPlugin({ directory }, options);
 }
 
-async function createRegisteredOssifyHooks() {
-  const hooks = await createPluginHooks({ plugins: ["ossify"] });
+async function createRegisteredOssifyHooks(directory) {
+  const hooks = await createPluginHooks({ plugins: ["ossify"] }, directory);
   await hooks.config({});
   return hooks;
+}
+
+async function trackOssifySession(hooks, sessionID) {
+  await hooks["chat.message"](
+    { sessionID, agent: "ossify-implementer-agent" },
+    { message: { role: "user" }, parts: [] },
+  );
 }
 
 function transformOutput(sessionID, text = "Audit this spec") {
@@ -970,11 +977,6 @@ test("Ossify selection registers the translated canonical implementer agent", as
     [ossifyRoot]: "allow",
     [join(ossifyRoot, "**")]: "allow",
   };
-  const edit = {
-    "*": "allow",
-    [ossifyRoot]: "deny",
-    [join(ossifyRoot, "**")]: "deny",
-  };
 
   assert.equal(agent.description, frontmatter.description);
   assert.equal(agent.mode, "subagent");
@@ -1008,7 +1010,7 @@ test("Ossify selection registers the translated canonical implementer agent", as
   assert.deepEqual(agent.permission, {
     "*": "deny",
     read: "allow",
-    edit,
+    edit: "allow",
     glob: "allow",
     grep: "allow",
     bash: "allow",
@@ -1020,12 +1022,6 @@ test("Ossify selection registers the translated canonical implementer agent", as
     ossifyRoot,
     join(ossifyRoot, "**"),
   ]);
-  assert.deepEqual(Object.keys(agent.permission.edit), [
-    "*",
-    ossifyRoot,
-    join(ossifyRoot, "**"),
-  ]);
-
   const wildcardMatch = (input, pattern) => {
     const escaped = pattern
       .replaceAll("\\", "/")
@@ -1037,7 +1033,7 @@ test("Ossify selection registers the translated canonical implementer agent", as
     );
   };
   const permissionAction = (permission, path) => {
-    const configured = agent.permission[permission === "write" ? "edit" : permission];
+    const configured = agent.permission[permission];
     if (typeof configured === "string") return configured;
     return (
       Object.entries(configured).findLast(([pattern]) =>
@@ -1045,26 +1041,15 @@ test("Ossify selection registers the translated canonical implementer agent", as
       )?.[1] ?? "ask"
     );
   };
-  const fileAction = (tool, path, external) => {
-    const toolAction = permissionAction(tool, path);
-    if (toolAction !== "allow" || !external) return toolAction;
-    return permissionAction("external_directory", path);
-  };
   const packageFile = join(ossifyRoot, "skills", "work-item", "SKILL.md");
   const siblingFile = join(ossifyRoot, "..", "ai-mentor", "README.md");
   const outsideFile = join(tmpdir(), "outside-opencode-project.txt");
-  const projectFile = fileURLToPath(new URL("src/project-file.js", root));
 
-  assert.equal(fileAction("read", ossifyRoot, true), "allow");
-  assert.equal(fileAction("read", packageFile, true), "allow");
-  assert.equal(fileAction("edit", ossifyRoot, true), "deny");
-  assert.equal(fileAction("edit", packageFile, true), "deny");
-  assert.equal(fileAction("write", ossifyRoot, true), "deny");
-  assert.equal(fileAction("write", packageFile, true), "deny");
-  assert.equal(fileAction("read", siblingFile, true), "ask");
-  assert.equal(fileAction("read", outsideFile, true), "ask");
-  assert.equal(fileAction("edit", projectFile, false), "allow");
-  assert.equal(fileAction("write", projectFile, false), "allow");
+  assert.equal(agent.permission.edit, "allow");
+  assert.equal(permissionAction("external_directory", ossifyRoot), "allow");
+  assert.equal(permissionAction("external_directory", packageFile), "allow");
+  assert.equal(permissionAction("external_directory", siblingFile), "ask");
+  assert.equal(permissionAction("external_directory", outsideFile), "ask");
 });
 
 test("the Ossify implementer agent is absent unless Ossify is selected", async () => {
@@ -1907,6 +1892,180 @@ test("cross-skill export capture rejects non-literal or compound shell", async (
     }
   }
   assert.deepEqual(captured, []);
+});
+
+test("Ossify package write guard rejects worktree-relative existing, new, and lexical targets", async () => {
+  const hooks = await createRegisteredOssifyHooks();
+  const sessionID = "ossify-relative-package-write";
+  await trackOssifySession(hooks, sessionID);
+  const targets = [
+    "ossify/skills/work-item/SKILL.md",
+    "ossify/skills/work-item/new-runtime-guard-file.md",
+    "tests/../ossify/README.md",
+  ];
+
+  for (const tool of ["edit", "write"]) {
+    for (const [index, filePath] of targets.entries()) {
+      await assert.rejects(
+        hooks["tool.execute.before"](
+          { tool, sessionID, callID: `${tool}-relative-${index}` },
+          { args: { filePath } },
+        ),
+        /Ossify package is read-only/i,
+        `${tool}: ${filePath}`,
+      );
+    }
+  }
+});
+
+test("Ossify package write guard rejects absolute package targets", async () => {
+  const hooks = await createRegisteredOssifyHooks();
+  const sessionID = "ossify-absolute-package-write";
+  await trackOssifySession(hooks, sessionID);
+  const ossifyRoot = fileURLToPath(new URL("ossify", root)).replace(/\/$/, "");
+  const targets = [
+    ossifyRoot,
+    join(ossifyRoot, "skills", "work-item", "SKILL.md"),
+    join(ossifyRoot, "skills", "work-item", "new-runtime-guard-file.md"),
+  ];
+
+  for (const tool of ["edit", "write"]) {
+    for (const [index, filePath] of targets.entries()) {
+      await assert.rejects(
+        hooks["tool.execute.before"](
+          { tool, sessionID, callID: `${tool}-absolute-${index}` },
+          { args: { filePath } },
+        ),
+        /Ossify package is read-only/i,
+        `${tool}: ${filePath}`,
+      );
+    }
+  }
+});
+
+test("Ossify package write guard leaves project and external sibling targets unchanged", async (t) => {
+  const project = await mkdtemp(join(tmpdir(), "opencode-ossify-write-project-"));
+  t.after(() => rm(project, { recursive: true, force: true }));
+  const existingProjectFile = join(project, "existing.txt");
+  await writeFile(existingProjectFile, "project fixture\n", "utf8");
+  const hooks = await createRegisteredOssifyHooks(project);
+  const sessionID = "ossify-allowed-project-write";
+  await trackOssifySession(hooks, sessionID);
+  const targets = [
+    "existing.txt",
+    "new/project-file.txt",
+    fileURLToPath(new URL("ai-mentor/README.md", root)),
+    join(fileURLToPath(new URL("ai-mentor", root)), "new-sibling-file.md"),
+  ];
+
+  for (const tool of ["edit", "write"]) {
+    for (const [index, filePath] of targets.entries()) {
+      const output = { args: { filePath, content: "unchanged" } };
+      const before = structuredClone(output);
+      await hooks["tool.execute.before"](
+        { tool, sessionID, callID: `${tool}-allowed-${index}` },
+        output,
+      );
+      assert.deepEqual(output, before, `${tool}: ${filePath}`);
+    }
+  }
+});
+
+test("Ossify package write guard rejects a project symlink into the package", async (t) => {
+  const project = await mkdtemp(join(tmpdir(), "opencode-ossify-write-symlink-"));
+  t.after(() => rm(project, { recursive: true, force: true }));
+  const ossifyRoot = fileURLToPath(new URL("ossify", root)).replace(/\/$/, "");
+  await symlink(ossifyRoot, join(project, "package-link"));
+  const hooks = await createRegisteredOssifyHooks(project);
+  const sessionID = "ossify-symlink-package-write";
+  await trackOssifySession(hooks, sessionID);
+
+  for (const tool of ["edit", "write"]) {
+    for (const filePath of [
+      "package-link/README.md",
+      "package-link/new-runtime-guard-file.md",
+    ]) {
+      await assert.rejects(
+        hooks["tool.execute.before"](
+          { tool, sessionID, callID: `${tool}-symlink-${filePath}` },
+          { args: { filePath } },
+        ),
+        /Ossify package is read-only/i,
+        `${tool}: ${filePath}`,
+      );
+    }
+  }
+});
+
+test("Ossify package write guard does not trust reserved-name sessions before registration", async () => {
+  const hooks = await createPluginHooks({ plugins: ["ossify"] });
+  const sessionID = "ossify-unregistered-package-write";
+  await trackOssifySession(hooks, sessionID);
+
+  for (const tool of ["edit", "write"]) {
+    const output = {
+      args: { filePath: "ossify/README.md", content: "unchanged" },
+    };
+    const before = structuredClone(output);
+    await hooks["tool.execute.before"](
+      { tool, sessionID, callID: `${tool}-unregistered` },
+      output,
+    );
+    assert.deepEqual(output, before, tool);
+  }
+});
+
+test("Ossify package write guard leaves primary and other-agent sessions unchanged", async () => {
+  const hooks = await createRegisteredOssifyHooks();
+  await hooks["chat.message"](
+    { sessionID: "other-agent-package-write", agent: "build" },
+    { message: { role: "user" }, parts: [] },
+  );
+
+  for (const [label, sessionID] of [
+    ["primary", "untracked-primary-package-write"],
+    ["other agent", "other-agent-package-write"],
+  ]) {
+    for (const tool of ["edit", "write"]) {
+      const output = {
+        args: { filePath: "ossify/README.md", content: "unchanged" },
+      };
+      const before = structuredClone(output);
+      await hooks["tool.execute.before"](
+        { tool, sessionID, callID: `${tool}-${label}` },
+        output,
+      );
+      assert.deepEqual(output, before, `${label}: ${tool}`);
+    }
+  }
+});
+
+test("Ossify package write guard fails closed on malformed target-session calls", async () => {
+  const hooks = await createRegisteredOssifyHooks();
+  const sessionID = "ossify-malformed-package-write";
+  await trackOssifySession(hooks, sessionID);
+  const malformed = [
+    undefined,
+    null,
+    { args: {} },
+    { args: { filePath: null } },
+    { args: { filePath: 42 } },
+    { args: { filePath: "" } },
+    { args: { filePath: "   " } },
+  ];
+
+  for (const tool of ["edit", "write"]) {
+    for (const [index, output] of malformed.entries()) {
+      await assert.rejects(
+        hooks["tool.execute.before"](
+          { tool, sessionID, callID: `${tool}-malformed-${index}` },
+          output,
+        ),
+        /Ossify package is read-only.*valid nonempty filePath/i,
+        `${tool}: ${index}`,
+      );
+    }
+  }
 });
 
 test("Ossify implementer sessions reject forbidden Git verbs anywhere in bash logs", async () => {

@@ -430,15 +430,10 @@ const expectedExternalDirectory = {
   [ossifyRoot]: "allow",
   [path.join(ossifyRoot, "**")]: "allow",
 };
-const expectedEdit = {
-  "*": "allow",
-  [ossifyRoot]: "deny",
-  [path.join(ossifyRoot, "**")]: "deny",
-};
 const expectedAgentPermission = {
   "*": "deny",
   read: "allow",
-  edit: expectedEdit,
+  edit: "allow",
   glob: "allow",
   grep: "allow",
   bash: "allow",
@@ -449,13 +444,7 @@ const expectedAgentPermission = {
 const expectedResolvedPermissionRules = [
   { permission: "*", action: "deny", pattern: "*" },
   { permission: "read", action: "allow", pattern: "*" },
-  { permission: "edit", pattern: "*", action: "allow" },
-  { permission: "edit", pattern: ossifyRoot, action: "deny" },
-  {
-    permission: "edit",
-    pattern: path.join(ossifyRoot, "**"),
-    action: "deny",
-  },
+  { permission: "edit", action: "allow", pattern: "*" },
   { permission: "glob", action: "allow", pattern: "*" },
   { permission: "grep", action: "allow", pattern: "*" },
   { permission: "bash", action: "allow", pattern: "*" },
@@ -671,30 +660,19 @@ function assertResolvedAgent(agent, configuredAgent) {
   const permissionAction = (permission, pattern) =>
     agent.permission.findLast(
       (rule) =>
-        wildcardMatch(permission === "write" ? "edit" : permission, rule.permission) &&
+        wildcardMatch(permission, rule.permission) &&
         wildcardMatch(pattern, rule.pattern),
     )?.action ?? "ask";
-  const fileAction = (tool, pattern, external) => {
-    const toolAction = permissionAction(tool, pattern);
-    if (toolAction !== "allow" || !external) return toolAction;
-    return permissionAction("external_directory", pattern);
-  };
   const packageRoot = ossifyRoot;
   const packageFile = path.join(ossifyRoot, "skills", "work-item", "SKILL.md");
   const siblingFile = path.join(path.dirname(ossifyRoot), "ai-mentor", "README.md");
   const outsideFile = path.join(allCase, "outside", "file.txt");
-  const projectFile = path.join(allCase, "project", "src", "file.js");
 
-  assert.equal(fileAction("read", packageRoot, true), "allow");
-  assert.equal(fileAction("read", packageFile, true), "allow");
-  assert.equal(fileAction("edit", packageRoot, true), "deny");
-  assert.equal(fileAction("edit", packageFile, true), "deny");
-  assert.equal(fileAction("write", packageRoot, true), "deny");
-  assert.equal(fileAction("write", packageFile, true), "deny");
-  assert.equal(fileAction("read", siblingFile, true), "ask");
-  assert.equal(fileAction("read", outsideFile, true), "ask");
-  assert.equal(fileAction("edit", projectFile, false), "allow");
-  assert.equal(fileAction("write", projectFile, false), "allow");
+  assert.equal(permissionAction("edit", "*"), "allow");
+  assert.equal(permissionAction("external_directory", packageRoot), "allow");
+  assert.equal(permissionAction("external_directory", packageFile), "allow");
+  assert.equal(permissionAction("external_directory", siblingFile), "ask");
+  assert.equal(permissionAction("external_directory", outsideFile), "ask");
 
   assert.equal(permissionAction("external_directory", path.join(ossifyRoot, "*")), "allow");
   assert.equal(
@@ -754,11 +732,7 @@ assert.deepEqual(Object.keys(configuredAgent.permission), [
   "external_directory",
 ]);
 assert.deepEqual(configuredAgent.permission, expectedAgentPermission);
-assert.deepEqual(Object.keys(configuredAgent.permission.edit), [
-  "*",
-  ossifyRoot,
-  path.join(ossifyRoot, "**"),
-]);
+assert.equal(configuredAgent.permission.edit, "allow");
 assert.deepEqual(Object.keys(configuredAgent.permission.external_directory), [
   "*",
   ossifyRoot,
