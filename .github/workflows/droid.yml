@@ -36,3 +36,5 @@ jobs:
         uses: Factory-AI/droid-action@main
         with:
           factory_api_key: ${{ secrets.FACTORY_API_KEY }}
+          review_model: glm-5.2
+          reasoning_effort: high
