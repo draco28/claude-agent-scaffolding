@@ -15,7 +15,7 @@ remaining bucket to a **version target** rather than only to a plan letter.
 | **Entry skills** | 5 of the 6 §9.1 allocates: `start`, `plan-release`, `plan-spine`, `work-item`, `close` |
 | **Execution engine** | worktrees, per-AC verification, work-item dispatch, round orchestration |
 | **Close ceremonies** | all three — work item → spine → release |
-| **Tests** | 24 files, 975 assertions, ALL GREEN |
+| **Tests** | 24 files, **981** assertions, ALL GREEN (975 was the pre-merge branch figure; the PR #117 review round added tests) |
 | **Evals** | 6 surfaces, 28 fixtures, 28/28 |
 | **plugin.json** | `0.1.0`, deliberately **not** stable-marketplace registered |
 
@@ -46,21 +46,29 @@ discovered.
 
 The theme is *make what exists usable and true*. Nothing new is built.
 
+> **The authoritative plan is `2026-08-09-ossify-v020.md`.** It reconciles this section against the
+> skill audit and re-derives every claim below against `main`. Where the two disagree, **the plan
+> wins** — several figures here were measured on the pre-merge branch. Known-stale in this section:
+> item 7 is reopened (above); item 9's "42 of ~56" is **44 of 61**, enumerated in the plan; "13 minors
+> + 3 nits" is 13 minors + **2 distinct** nits (two entries are the same defect); the two
+> zero-consumer verbs are **four**; and `task_cab0ee8c` resolves to no artifact — its content survives
+> only as items 9 and 10 here, which the plan carries inline.
+
 **Blocking**
 1. **An entry point for the execution lane.** Whatever form it takes (a sixth command, a `work-item`
    description that matches the round-driving intent, or a `plan-spine` hand-off), a user must be able
    to say "run the rounds" and land in `round-orchestration.md`.
 
 **7 remaining majors** (4 of the original 11 were fixed in `5c52e91`)
-2. ~~Patch-lane records are asserted twice to be `doctor`-visible; `oss doctor` never reports one.~~ **RESOLVED in PR #117** (Codex P2) — doctor now surfaces patch records.
-3. ~~The companion-spec release-close boundary audit is absent from release close *and* from its "deliberately not shipped" table, while `start` tells the user it executes.~~ **RESOLVED in PR #117** (Codex P2) — posture-block.md and release-close.md now state the deferral explicitly.
+2. ~~Patch-lane records are asserted twice to be `doctor`-visible; `oss doctor` never reports one.~~ **RESOLVED in PR #117** (Droid review round) — doctor now surfaces patch records.
+3. ~~The companion-spec release-close boundary audit is absent from release close *and* from its "deliberately not shipped" table, while `start` tells the user it executes.~~ **RESOLVED in PR #117** (Droid review round) — posture-block.md and release-close.md now state the deferral explicitly.
 4. `oss migrate` has zero prose consumers, and close's pre-flight names a remedy that cannot fix the failure it is offered for.
-5. ~~`_oss_worktree_ignore` skips any repo whose `.git` is a file, leaving a `--separate-git-dir` or submodule canonical permanently dirty.~~ **RESOLVED in PR #117** (Codex P2) — now resolves via `git rev-parse --git-common-dir`.
+5. ~~`_oss_worktree_ignore` skips any repo whose `.git` is a file, leaving a `--separate-git-dir` or submodule canonical permanently dirty.~~ **RESOLVED in PR #117** (Droid review round) — now resolves via `git rev-parse --git-common-dir`.
 6. `retrospective.md` claims the harvest sweeps retrospectives; it does not, and a candidate harvested from one is rejected whole-payload.
-7. ~~pre-flight Gate 2's malformed-AC detector names three causes that all produce non-empty output, so the gate cannot fire for any of them.~~ **RESOLVED in PR #117** (Codex P2) — `verify_acs` now rejects missing-backtick ACs; pre-flight.md prose corrected.
+7. **REOPENED 2026-08-09** — pre-flight Gate 2's malformed-AC detector. Only **one of three** causes was fixed in PR #117 (`verify_acs` now skips missing-backtick ACs with a stderr warning, and pre-flight.md's prose was corrected). Re-reproduced against `main`: the ASCII `->` and missing-`expected:` variants still emit a row whose expectation field is garbage, and **`oss redgate` returns rc 0 = "proceed"** on it because it folds `oss_verify_auto_step`'s rc 2 (malformed) into rc 1 (red). The review's Fix (a) landed; Fix (b) did not. Owned by Task 2 of `2026-08-09-ossify-v020.md`.
 8. (Counted with 2-7 above; see the review file for the full text of each.)
 
-**Additionally resolved in PR #117** (Codex P2 — not previously tracked):
+**Additionally resolved in PR #117** (Droid review round — not previously tracked):
 - `ledger_add_auto`/`ledger_add_user` accepted demo lines for nonexistent spine ids; now validates the spine exists (rc 7) before journaling.
 
 **Filed separately, same release** — `task_cab0ee8c`
