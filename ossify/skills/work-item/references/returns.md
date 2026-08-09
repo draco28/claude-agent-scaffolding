@@ -111,10 +111,6 @@ gaps-mode return strands staged work with no report explaining it.
 - **Mode A** — the final assistant message. Put the JSON there as its own block,
   last. Anything after it is noise the parser has to survive.
 - **Mode B** — the Task tool's return payload, which is the same final message.
-- **Mode C** — the worker's output, parsed by whatever dispatched it. The Codex
-  companion runs a bare prompt file and never sees this reference, so **both
-  shapes above must be pasted into that prompt file verbatim.** A worker prompt
-  that says "return the standard shape" has handed the worker nothing.
 
-The shape is identical in all three. The harness handles the difference; you do
+The shape is identical in both. The harness handles the difference; you do
 not.

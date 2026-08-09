@@ -1,6 +1,6 @@
 ---
 name: work-item
-description: Execute one ossify work item end to end from its handoff doc — pre-flight gates, a RED gate per command-bearing AC, the TDD loop in AC order, every verification command run, a ten-section report.md, then stage-never-commit and one structured JSON return. Tri-mode under one invariant contract — direct invocation, the ossify:implementer-agent subagent, and a Codex worker prompt. Use this when the user says execute work item r1.s2.w1, implement the work item, run the handoff at <path>, or /work-item <handoff-path>. Do NOT use for decomposing a spine or authoring specs and demo criteria (use /plan-spine), or for the work-item gate, the cumulative demo, the harvest and the retro (use /close).
+description: Execute one ossify work item end to end from its handoff doc — pre-flight gates, a RED gate per command-bearing AC, the TDD loop in AC order, every verification command run, a ten-section report.md, then stage-never-commit and one structured JSON return. Also drives a spine's rounds end to end. Use this when the user says execute work item r1.s2.w1, implement the work item, run the handoff at <path>, /work-item <handoff-path>, or asks to run the rounds, execute the spine, or dispatch the work items. Do NOT use for decomposing a spine or authoring specs and demo criteria (use /plan-spine), or for the work-item gate, the cumulative demo, the harvest and the retro (use /close).
 ---
 
 # work-item
@@ -18,7 +18,7 @@ know — happens here, in your own reasoning. `oss` handles the mechanical facts
 
 ## 1. Overview and the mode invariant
 
-Three invocation modes:
+Two invocation modes:
 
 - **Mode A — direct invocation.** The user runs `/work-item <absolute handoff
   path>` or types one of the §2 trigger phrases. Your return is rendered as the
@@ -32,19 +32,18 @@ Three invocation modes:
   binding contract; `agents/implementer-agent.md` is the registration that points
   at it. The dispatcher is **not** `plan-spine` — that skill plans and says so in
   its own body; it authors your spec and the spine's demo lines and stops there.
-- **Mode C — Codex worker prompt.** A Codex-backed worker runs a bare prompt file
-  and **never sees this skill**. So for Mode C every return shape and behavioural
-  rule below must be embedded **verbatim in the prompt file** — the companion does
-  not auto-load a contract it was not handed. A prompt that says "follow the
-  work-item contract" hands the worker nothing.
+**ossify dispatches work to no other agent.** `ossify:implementer-agent` is the
+only worker. The deprecated stack also carried an external-agent worker path; it
+was never used and ossify does not have one — no external implementer, no
+external reviewer, no prompt-file handoff. (Running *ossify itself* on another
+host, such as OpenCode, is the opposite direction and is unaffected.)
 
-**The behavioural contract is invariant across all three modes, and this body
+**The behavioural contract is invariant across both modes, and this body
 never branches on mode.** Pre-flight shape, RED-gate semantics, the two return
 shapes, the report section set, the no-commit guarantee: identical everywhere.
-What differs is only where the return surfaces (transcript vs. Task payload vs.
-worker output) and that is the harness's problem, not yours. If you find yourself
-writing "in Mode B I would…", stop — you are inventing a branch that does not
-exist.
+What differs is only where the return surfaces (transcript vs. Task payload) and
+that is the harness's problem, not yours. If you find yourself writing "in Mode B
+I would…", stop — you are inventing a branch that does not exist.
 
 Where it sits: `start` → `plan-release` → `plan-spine` → **execution (you are
 here)** → `close`.
@@ -62,11 +61,27 @@ here)** → `close`.
 **Mode B has no description-match** — the subagent system prompt fires on
 dispatch, and the handoff path arrives in the invocation block.
 
+**Orchestrator mode — you were asked to drive a SPINE, not one item:**
+
+- `/run-spine <spine-id>` (slash command)
+- "run the rounds", "execute the spine", "dispatch the work items", "drive
+  `r1.s2`'s rounds"
+
+**Read `references/round-orchestration.md` in full and follow it.** It owns the
+whole lane: the spine-branch cut-and-checkout, one worktree per work item,
+`oss work_item_exec`, dispatching `ossify:implementer-agent` per item, the
+3-iteration cap, and the round barrier. **Do not ask for a handoff path** — the
+lane authors one per work item as it goes. `plan-spine` ends where this begins;
+`/close <spine-id>` takes over when the final round clears its barrier.
+
 **Do NOT auto-invoke when:**
 
-- **No handoff path was given.** Ask once — *"Which handoff? (absolute path to a
-  `handoff.md` under the work item's directory)"* — and wait. Do not guess a work
-  item from an id, and do not go hunting the filesystem for the newest handoff.
+- **No handoff path was given — *and* you were not asked to drive a spine.** Ask
+  once — *"Which handoff? (absolute path to a `handoff.md` under the work item's
+  directory)"* — and wait. Do not guess a work item from an id, and do not go
+  hunting the filesystem for the newest handoff. If the ask was a spine id or one
+  of the orchestrator phrases above, this rule does not apply: go to
+  `references/round-orchestration.md` instead of asking.
 - The user wants to decompose a spine, author a spec, or author demo criteria —
   that is `plan-spine`.
 - The user wants the per-work-item gate, the cumulative demo run, the harvest, or

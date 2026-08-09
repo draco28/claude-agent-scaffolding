@@ -165,7 +165,9 @@ from both.
 
 ## 6. Handling the return
 
-Exactly two shapes come back (`references/returns.md`). Route on `mode`.
+Two shapes come back on the normal path (`references/returns.md`). Route on
+`mode` — and treat anything that is neither as a third, explicitly handled case
+(below), never as a shape to be salvaged.
 
 **`gaps-surfaced`** — pre-flight stopped the run and no work was done.
 
@@ -193,6 +195,25 @@ close layer (`close`), which runs the gate, commits in the worktree, and merges
 the AC outcomes. Read `summary` and the report before deciding anything; a
 `complete` return is not a green gate, and the gate is close's to run, not yours.
 
+**Anything else — malformed, crashed, or timed out.** A payload that is not one
+of the two shapes (unparseable, missing `mode`, a `mode` outside the enum, an
+empty return, a subagent that died mid-run) is a **third case with its own
+handling**, not a `complete` with rough edges:
+
+1. **Do not parse around it.** Do not infer the outcome from prose in the
+   payload, do not go read the worktree to decide whether it "basically
+   finished", and do not treat a missing `report_path` as a green gate. A broken
+   envelope means you do not know what state the work item is in, and guessing
+   is how unverified work reaches a merge.
+2. **Re-dispatch once** on the same handoff, unchanged. A crash or timeout is
+   usually transient, and the worker re-reads the handoff end to end anyway.
+3. **If the second dispatch also returns a broken envelope, halt and surface it**
+   to the user with the raw payload. This counts against the 3-iteration cap
+   like any other dispatch.
+
+The worktree is left exactly as the worker left it. Do not clean it up — its
+state is the evidence for diagnosing what happened.
+
 ---
 
 ## 7. The round barrier
@@ -209,6 +230,23 @@ no way to know why.
 Items *within* a round are parallel by construction, and dispatching them
 concurrently is fine. Their merges are not parallel: each one lands on the spine
 branch through close, one at a time, and a conflict halts (never auto-resolve).
+
+**Returns are processed in declared decomposition order, never arrival order.**
+§3 says this about the *spawn* step, where it is nearly free — no returns exist
+yet. It binds here, where it costs something: when a concurrent round's items
+come back out of order, **work item N+1 is not verified, closed or merged until
+N is fully committed and merged**. Hold the early return and wait.
+
+This is spec §6's strict-order verification, and dispatching concurrently is
+exactly what makes it easy to violate — an orchestrator that closes items as
+they arrive is following §3 to the letter and breaking the contract anyway. The
+DAG guarantees the items do not depend on each other *logically*; it says
+nothing about two of them touching the same file, which is what serial merges
+onto one spine branch protect against.
+
+**When the final round clears this barrier, the spine is ready for
+`/close <spine-id>`.** That is where this lane ends — hand the baton over
+explicitly rather than stopping silently.
 
 ---
 
