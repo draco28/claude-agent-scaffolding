@@ -240,7 +240,16 @@ Discipline:
 - **A failing test mid-loop is the expected state**, not an escalation. Stop for a
   structural surprise (a helper the spec references does not exist; an API has a
   different signature) — gather information, proceed as best you can, and put the
-  surprise in the report. Not a gaps-mode return; that door closed at §3.
+  surprise in the report. Not a gaps-mode return; that door closed at §4.
+
+**Read `references/debugging.md` when a RED will not clear** — a failure whose
+message does not match its AC, a fix that reddens something else, a failure that
+returns after you fixed it, or a gate that halts on an AC that passed locally. It
+carries the diagnosis loop (reproduce reliably → minimize → hypothesize →
+instrument → fix → regression-test) and the three worked structural-surprise
+cases behind the rule above: when to build the missing helper, when to adapt, and
+when to halt. **Not** for an ordinary "not built yet" RED — that is the loop
+above, and reaching for a diagnosis loop there costs an afternoon.
 
 Worked walk-through, the two legitimate GREEN-on-first-run cases, and the pitfall
 list are in `references/tdd-loop.md`.
