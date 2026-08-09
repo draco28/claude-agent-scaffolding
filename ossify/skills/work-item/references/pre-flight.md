@@ -58,6 +58,30 @@ command"). That is a gap. Do **not** hand-parse the lines yourself and carry
 on — you would be building against ACs the orchestrator's own gate cannot see,
 and the mismatch surfaces at close instead of now.
 
+**Rows can come back malformed too — check their shape, not just their count.**
+Two malformations still produce a row: an ASCII `->` where the grammar wants
+`→`, and a missing `expected:`. In both the tail of the line lands in the
+**expectation** field instead of being parsed, so the row looks present and is
+unusable. Check every row:
+
+```bash
+oss verify_acs "<abs spec path>" | while IFS=$'\t' read -r label cmd exp; do
+  case "$exp" in
+    "exit "*|"output contains "*) ;;
+    *) echo "GAP $label: expectation '$exp' is not 'exit <n>' or 'output contains <str>'" ;;
+  esac
+done
+```
+
+**Any `GAP` line is a blocking gap — return gaps-mode.** Do not "fix" the AC by
+reading past the garbage: the spec is what the close gate reads too, so an AC
+that is wrong here is wrong there. Left alone it costs the whole TDD loop —
+`oss redgate` answers rc 2 (malformed) rather than rc 0 (RED), so the loop
+cannot even start honestly, and `oss verify_step` rejects the same row at rc 2
+two ceremonies later at the close gate, where recovery option 1 ("re-dispatch
+the implementer — the default when the code is wrong") points at code that was
+never the problem.
+
 `user:` lines belong to the cumulative demo and are `close`'s to run. Skip them.
 
 ### Gate 3 — the worktree is real, clean, and on the declared branch

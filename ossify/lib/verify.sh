@@ -119,7 +119,22 @@ oss_verify_redgate() { # $1=workdir $2=command $3=expectation
   # nonzero exit IS the success case and must not kill the dispatcher.
   if ( cd "$dir" && bash -c "$cmd" ) >/dev/null 2>&1; then rc=0; else rc=$?; fi
   case "$rc" in 126|127) echo "red-gate: '$cmd' is not invocable here (rc $rc) - advisory, not a block" >&2; return 2 ;; esac
-  if oss_verify_auto_step "$dir" "$cmd" "$exp" >/dev/null 2>&1; then
+  # auto_step's rc is THREE-valued and this gate must not flatten it: 0 = the
+  # expectation is already satisfied, 1 = legitimately not satisfied (a real
+  # RED), 2 = the expectation could not be PARSED. Folding 2 in with 1 answers
+  # rc 0 = "proceed" for an AC whose command can never pass, and the worker
+  # then runs the whole TDD loop against it - the failure only surfacing two
+  # ceremonies later at the close gate, where the recovery menu points at code
+  # that was never the problem. `step=0; … || step=$?` rather than `…; step=$?`
+  # because bin/oss runs `set -euo pipefail`, under which the bare form aborts
+  # the dispatcher before this function can return anything at all.
+  local step=0
+  oss_verify_auto_step "$dir" "$cmd" "$exp" >/dev/null 2>&1 || step=$?
+  if [ "$step" -eq 2 ]; then
+    echo "red-gate: malformed expectation '$exp' - not a RED (grammar: 'exit <n>' | 'output contains <str>')" >&2
+    return 2
+  fi
+  if [ "$step" -eq 0 ]; then
     echo "red-gate: '$cmd' ALREADY satisfies '$exp' before any implementation" >&2
     return 1
   fi
