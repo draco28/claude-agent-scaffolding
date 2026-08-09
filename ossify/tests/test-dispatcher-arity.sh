@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# The DISPATCHER SURFACE, not any one lib: every `oss <verb>` invoked with too
+# few arguments must answer with the rc-2 usage error the taxonomy defines
+# (lib/harvest.sh:44 — "1 generic, 2 usage, 3 lock, ...") and never with bash's
+# raw `unbound variable` diagnostic at rc 1.
+#
+# WHY THIS FILE RUNS THE REAL DISPATCHER AND BUILDS A REAL PROJECT:
+#
+# 1. `bin/oss` runs `set -euo pipefail`; every other suite sources the libs
+#    directly and is therefore NON-strict. An unguarded `"$1"` is invisible to a
+#    sourced-function test and fatal through the dispatcher. Only `bash "$OSS"`
+#    sees it.
+# 2. The fixture MUST have a pairing manifest and an initialized state. Run from
+#    a directory with neither, 46 of the 61 verbs short-circuit on
+#    `_oss_resolve_state`'s manifest error BEFORE ever touching `$1` — which
+#    measures 13 leaking verbs instead of the real 44. That is not a
+#    hypothetical: it is the mis-measurement this test was written to prevent.
+#
+# The loop is over the LIVE verb list from `oss help`, not a hand-maintained
+# array, so a verb added later is covered the day it ships.
+HERE="$(cd "$(dirname "$0")" && pwd)"
+. "$HERE/harness.sh"
+OSS="$HERE/../bin/oss"
+
+TMP="$(mktemp -d)"
+mkdir -p "$TMP/ws/.workspace" "$TMP/canon"
+git -C "$TMP/canon" init -q
+git -C "$TMP/canon" config user.email t@t; git -C "$TMP/canon" config user.name t
+echo seed > "$TMP/canon/f.txt"
+git -C "$TMP/canon" add .; git -C "$TMP/canon" commit -qm seed
+cat > "$TMP/ws/.workspace/pairing.json" <<EOF
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{}}
+EOF
+cd "$TMP/ws"
+
+bash "$OSS" init arity-demo >/dev/null 2>&1
+
+# --- setup sanity, BEFORE any arity assertion ------------------------------
+# If init silently failed, every verb below returns the manifest/state error
+# instead of an arity error, the loop finds zero leaks, and the whole file
+# passes while measuring nothing. Assert the precondition is real first.
+t_capture bash "$OSS" doctor
+t_assert_rc 0 "setup: the fixture is a REAL initialized project (doctor green) - without this every assertion below is vacuous"
+
+VERBS="$(bash "$OSS" help 2>&1 | sed -n 's/^  //p')"
+t_assert_ge_local() { if [ "$2" -ge "$1" ]; then T_PASS=$((T_PASS+1)); else T_FAIL=$((T_FAIL+1)); echo "FAIL: $3 (wanted >= $1, got $2)"; fi; }
+t_assert_ge_local 55 "$(printf '%s\n' "$VERBS" | grep -c .)" "setup: the verb list is live and populated (not an empty glob)"
+
+# --- the sweep -------------------------------------------------------------
+LEAKED=""; BAD_RC=""
+for v in $VERBS; do
+  out="$(bash "$OSS" "$v" 2>&1)"; rc=$?
+  case "$out" in
+    *"unbound variable"*) LEAKED="$LEAKED $v"; continue ;;
+  esac
+  # A verb that legitimately takes no arguments may succeed (rc 0) or answer
+  # with any diagnostic it likes. What none of them may do is die on a raw
+  # parameter expansion. Where a verb DID need arguments, the rc must be the
+  # taxonomy's 2 = usage, so a caller can branch on it.
+  case "$out" in
+    *"needs "*" argument"*) [ "$rc" -eq 2 ] || BAD_RC="$BAD_RC $v:rc$rc" ;;
+  esac
+done
+
+t_assert_eq "" "$LEAKED" "no dispatcher verb leaks a raw bash 'unbound variable' diagnostic${LEAKED:+ -- leaked:$LEAKED}"
+t_assert_eq "" "$BAD_RC" "every arity refusal uses the taxonomy's rc 2 = usage${BAD_RC:+ -- wrong rc:$BAD_RC}"
+
+# --- the usage message is actionable, not just present ---------------------
+# A guard that fires with an empty message is a guard that moved the problem
+# rather than fixing it: the caller still cannot tell what was missing.
+t_capture bash "$OSS" bone_add
+t_assert_rc 2 "a representative multi-arg verb refuses at rc 2"
+t_assert_contains "$T_OUT" "oss bone_add" "the refusal names the verb"
+t_assert_contains "$T_OUT" "<adr>" "the refusal names the missing arguments, not just the count"
+
+t_capture bash "$OSS" bone_add ADR-1 title
+t_assert_rc 2 "a PARTIALLY-supplied verb is still rc 2 (2 of 3 args is still short)"
+
+t_capture bash "$OSS" bone_add ADR-1 title src/a
+t_assert_rc 0 "the happy path is untouched by the guard"
+
+# The optional-argument boundary: a verb whose last parameter is optional must
+# accept the short form. A guard that counted the optional arg as required
+# would break every caller that omits it, and the happy-path assertion above
+# would not see it.
+t_capture bash "$OSS" bone_add ADR-2 title2 src/b "revisit when X"
+t_assert_rc 0 "the optional 4th argument is still accepted"
+
+# --- an uninitialised project is told to init, not to retry a lock ---------
+# Lock-acquire conflated "lock held" with "state file missing", so a project
+# that had never run `oss init` was told to "retry or run 'oss doctor'" at rc 3.
+# doctor itself says `fail: state - not found`, so the two disagreed about the
+# same condition and the remedy sent the user in a circle.
+TMP2="$(mktemp -d)"
+mkdir -p "$TMP2/ws/.workspace" "$TMP2/canon"
+git -C "$TMP2/canon" init -q
+cat > "$TMP2/ws/.workspace/pairing.json" <<EOF
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP2/ws"},"canonical":{"root":"$TMP2/canon"},"well_known_paths":{}}
+EOF
+cd "$TMP2/ws"
+# setup sanity: a manifest EXISTS (so we are past that gate) and state does NOT
+[ -f "$TMP2/ws/.workspace/pairing.json" ] && T_PASS=$((T_PASS+1)) || { T_FAIL=$((T_FAIL+1)); echo "FAIL: setup: uninitialised fixture has no manifest"; }
+[ -f "$TMP2/ws/.ossify/project-state.json" ] && { T_FAIL=$((T_FAIL+1)); echo "FAIL: setup: fixture is initialized; the assertion below cannot fail"; } || T_PASS=$((T_PASS+1))
+
+t_capture bash "$OSS" posture_set private
+t_assert_rc 1 "an uninitialised project is rc 1 (not found), not rc 3 (lock held)"
+t_assert_contains "$T_OUT" "oss init" "...and the remedy named is 'oss init', not 'retry or run doctor'"
+case "$T_OUT" in
+  *"state locked"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: an uninitialised project is still reported as a held lock" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+
+cd /; rm -rf "$TMP" "$TMP2"
+t_summary
