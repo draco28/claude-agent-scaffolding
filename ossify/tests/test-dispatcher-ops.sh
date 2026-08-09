@@ -108,6 +108,8 @@ rm -rf "$TMP"
 FTMP="$(mktemp -d)"; export OSS_STATE_FILE="$FTMP/state.json"
 t_capture "$OSS" init fake-status-demo
 t_assert_rc 0 "dispatcher: init ok (quarantine/fake_status block)"
+"$OSS" release_add "Skeleton" "goal" >/dev/null
+"$OSS" spine_add r0 "demo spine" bone >/dev/null
 t_capture "$OSS" ledger_add_auto r0.s1 "smoke" "true" "exit:0"
 t_assert_rc 0 "dispatcher: ledger_add_auto ok"; DL1="$T_OUT"
 t_capture "$OSS" ledger_quarantine "$DL1" "flaky upstream" "r1"

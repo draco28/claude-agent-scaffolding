@@ -7,7 +7,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 # (verify.sh). ANY new test file that CALLS the demo runner (not merely
 # sources demo.sh) needs this same trio - see the criterion note below.
 . "$HERE/../lib/id.sh"; . "$HERE/../lib/state.sh"; . "$HERE/../lib/manifest.sh"
-. "$HERE/../lib/ledger.sh"; . "$HERE/../lib/verify.sh"; . "$HERE/../lib/worktree.sh"; . "$HERE/../lib/demo.sh"
+. "$HERE/../lib/entities.sh"; . "$HERE/../lib/ledger.sh"; . "$HERE/../lib/verify.sh"; . "$HERE/../lib/worktree.sh"; . "$HERE/../lib/demo.sh"
 TMP="$(mktemp -d)"; S="$TMP/state.json"
 # Task 6: `oss_demo_run_auto` now resolves its working directory via a
 # pairing manifest (composition root when set, canonical root otherwise) -
@@ -23,6 +23,10 @@ cat > "$TMP/.workspace/pairing.json" <<EOF
 EOF
 cd "$TMP"
 oss_state_init "$S" demo-run >/dev/null
+# Mint the spines demo lines are keyed to (ledger validates source_spine exists).
+oss_entity_add_release "$S" "demo" "goal" >/dev/null
+oss_entity_add_spine "$S" r0 "demo spine" bone canonical >/dev/null
+oss_entity_add_spine "$S" r0 "second spine" flesh canonical >/dev/null
 
 oss_ledger_add_auto "$S" r0.s1 "always true" "true" "exit:0" >/dev/null
 oss_ledger_add_auto "$S" r0.s1 "greets" "echo hello-world" "contains:hello" >/dev/null
@@ -74,6 +78,8 @@ t_assert_contains "$T_OUT" "cannot read state" "error message names the problem"
 # state because the validator now correctly refuses to create such a line.
 T2="$(mktemp -d)"; S2="$T2/state.json"
 oss_state_init "$S2" demo-malformed >/dev/null
+oss_entity_add_release "$S2" "demo" "goal" >/dev/null
+oss_entity_add_spine "$S2" r0 "demo spine" bone canonical >/dev/null
 oss_ledger_add_auto "$S2" r0.s1 "legacy line, malformed operand" "exit 1" "exit:0" >/dev/null
 jq '.demo_ledger[0].expected = "exit:0 (tests green)"' "$S2" > "$S2.x" && mv "$S2.x" "$S2"
 t_capture oss_demo_run_auto "$S2"

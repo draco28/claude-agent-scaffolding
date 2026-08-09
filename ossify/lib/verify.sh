@@ -21,6 +21,15 @@ oss_verify_parse_acs() { # $1=spec-file ; TSV label \t command \t expectation
       label="$(printf '%s' "$line" | sed -E 's/^.*\[[ xX]\][[:space:]]*(AC-[0-9]+).*/\1/')"
       rest="${line#*auto:}"
       cmd="$(printf '%s' "$rest" | sed -E 's/^[^`]*`([^`]*)`.*/\1/')"
+      # If the sed did not match (no backtick pair in $rest), it passes $rest
+      # through unchanged as cmd. That makes the whole tail of the line —
+      # including `→ expected: exit 0` — the command, which the RED gate runs
+      # as garbage and reads as RED = proceed. Detect the no-match instead:
+      # when $rest contains no backtick, the AC is malformed — skip the row so
+      # it produces zero output, which Gate 2's "visibly has AC lines but this
+      # prints nothing" detector catches. (Codex P2 finding #4.)
+      case "$rest" in *\`*) ;; *)
+        echo "oss: AC line '$label' has no backticked command — skipping (malformed AC)" >&2; continue ;; esac
       exp="$(printf '%s' "$rest" | sed -E 's/.*→[[:space:]]*expected:[[:space:]]*//')"
       exp="${exp#"${exp%%[![:space:]]*}"}"; exp="${exp%"${exp##*[![:space:]]}"}"
       [ -n "$cmd" ] && printf '%s\t%s\t%s\n' "$label" "$cmd" "$exp"

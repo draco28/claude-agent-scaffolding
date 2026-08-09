@@ -50,11 +50,13 @@ One TSV row per `auto:` AC — `label <tab> command <tab> expectation` — in
 **declared order**. That order is the working order for the whole run.
 
 If the spec visibly has AC lines and this prints nothing, the AC grammar is
-malformed (a missing backtick pair around the command, an ASCII `->` where the
-grammar wants the arrow, a missing `expected:`). That is a gap. Do **not**
-hand-parse the lines yourself and carry on — you would be building against ACs the
-orchestrator's own gate cannot see, and the mismatch surfaces at close instead of
-now.
+malformed — a missing or wrong checkbox (`- AC-1` or `* [ ] AC-1` instead of
+`- [ ] AC-1`), or a missing `auto:` marker. A line that has the checkbox and
+`auto:` but **no backticks around the command** is also malformed and is
+skipped with a stderr warning (check the tool output for "no backticked
+command"). That is a gap. Do **not** hand-parse the lines yourself and carry
+on — you would be building against ACs the orchestrator's own gate cannot see,
+and the mismatch surfaces at close instead of now.
 
 `user:` lines belong to the cumulative demo and are `close`'s to run. Skip them.
 

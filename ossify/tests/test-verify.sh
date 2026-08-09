@@ -24,6 +24,22 @@ t_assert_contains "$T_OUT" "AC-10	true	exit 0" "an uppercase [X] checkbox still 
 # substitution by the caller's eval, executing something entirely different.
 case "$T_OUT" in *'`'*) T_FAIL=$((T_FAIL+1)); echo "FAIL: backticks survived the parse";; *) T_PASS=$((T_PASS+1));; esac
 
+# Codex P2 finding #4: an AC line without backticks around the command must NOT
+# produce a row — the whole line tail would become the command, pass the RED
+# gate as garbage (fails = RED = proceed), and waste the entire TDD loop.
+MAL="$TMP/malformed.md"
+cat > "$MAL" <<'EOF'
+- [ ] AC-1 auto: `true` → expected: exit 0
+- [ ] AC-2 auto: pytest tests/ → expected: exit 0
+- [ ] AC-3 auto: `echo hi` → expected: output contains hi
+EOF
+t_capture oss_verify_parse_acs "$MAL"
+# Only 2 TSV rows: AC-1 and AC-3 have backticks; AC-2 is skipped (no backtick
+# pair). The stderr warning merges into T_OUT via 2>&1, so count TSV rows only
+# (lines starting with AC-, not warning lines).
+t_assert_eq "2" "$(printf '%s\n' "$T_OUT" | grep -c '^AC-')" "missing-backtick AC produces zero TSV rows (not garbage)"
+t_assert_contains "$T_OUT" "AC-2" "the skipped line is named in the warning"
+
 t_capture oss_verify_auto_step "$TMP" "true" "exit 0";           t_assert_rc 0 "exit 0 expectation passes"
 t_capture oss_verify_auto_step "$TMP" "false" "exit 0";          t_assert_rc 1 "exit 0 expectation fails on rc 1"
 t_capture oss_verify_auto_step "$TMP" "false" "exit 1";          t_assert_rc 0 "exit 1 expectation passes on rc 1"

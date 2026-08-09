@@ -66,5 +66,14 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
   fexp="$(jq -r '[.fakes[] | select(.status == "active" or .status == "renewed")] | length' "$sf" 2>/dev/null || echo 0)"
   [ "$fexp" -gt 0 ] 2>/dev/null && echo "warn: fakes - $fexp outstanding fake(s) carrying a replacement trigger and expiry release"
 
+  # §6.1 operator visibility: the fourth thing that rots silently — out-of-spine
+  # patch-lane records. A patch is self-declared and unchecked until the next
+  # spine close's cumulative demo re-validates the product; doctor must surface
+  # the count so an operator can audit accumulated drift (spec §6.1 patch lane:
+  # "self-declared, doctor-visible").
+  local pat
+  pat="$(jq -r '.patch_records | length' "$sf" 2>/dev/null || echo 0)"
+  [ "$pat" -gt 0 ] 2>/dev/null && echo "warn: patches - $pat out-of-spine patch record(s) since the last spine close"
+
   return "$rc"
 }

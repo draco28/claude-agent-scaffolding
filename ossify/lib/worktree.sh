@@ -65,11 +65,17 @@ oss_worktree_add() { # $1=repo-key $2=work-item-id $3=slug $4=base-ref ; echoes 
 # ignore the tool owns rather than the project. Never edit a file the project
 # owns to make a tool's own artifact disappear.
 _oss_worktree_ignore() { # $1=repo-root ; best-effort, never fatal
-  local ex="$1/.git/info/exclude"
-  # A repo whose `.git` is a FILE is itself a worktree; it has no info/ of its
-  # own and inherits the parent's excludes, so there is nothing to do.
-  [ -d "$1/.git" ] || return 0
-  mkdir -p "$1/.git/info" || return 1
+  # Resolve the real git common dir rather than assuming `.git` is a directory.
+  # A repo created with `git init --separate-git-dir` (or a submodule) has a
+  # `.git` FILE pointing elsewhere — its info/exclude lives at the common dir,
+  # not at `$1/.git/info/exclude`. The old `[ -d "$1/.git" ] || return 0`
+  # guard skipped those repos, leaving `.worktrees/` permanently un-excluded
+  # and the canonical tree dirty on every spawn. (Codex P2 finding #5.)
+  local cd
+  cd="$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \
+    || { echo "oss: cannot resolve git common dir for $1 - .worktrees/ not excluded" >&2; return 1; }
+  local ex="$cd/info/exclude"
+  mkdir -p "$cd/info" || return 1
   [ -f "$ex" ] && grep -qxF '.worktrees/' "$ex" && return 0
   printf '%s\n' '.worktrees/' >> "$ex" 2>/dev/null || return 1
 }

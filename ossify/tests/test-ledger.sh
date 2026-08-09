@@ -6,6 +6,12 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 TMP="$(mktemp -d)"; S="$TMP/state.json"
 oss_state_init "$S" ledger-demo >/dev/null
 
+# Mint the spine that the demo lines are keyed to. ledger_add_auto/add_user now
+# validate the source_spine exists (Codex P2 finding #1) — a demo line against
+# a nonexistent spine is silently skipped at close.
+oss_entity_add_release "$S" "demo release" "goal" >/dev/null
+oss_entity_add_spine "$S" r0 "demo spine" bone canonical >/dev/null
+
 t_capture oss_ledger_add_auto "$S" r0.s1 "backtest CLI smoke" "true" "exit:0"
 t_assert_rc 0 "auto line added"; t_assert_eq "d1" "$T_OUT" "counter-minted id"
 t_capture oss_ledger_add_auto "$S" r0.s1 "bad expected" "true" "somehow:fine"
@@ -15,6 +21,18 @@ t_capture oss_ledger_add_user "$S" r0.s1 "Type a strategy idea and run a backtes
 t_assert_rc 0 "user journey line added"; t_assert_eq "d2" "$T_OUT" "second id"
 t_capture oss_ledger_add_user "$S" r0.s1 "Inspect the pulse.db schema" "schema visible"
 t_assert_rc 2 "inspector phrasing banned"
+
+# Codex P2 finding #1: a demo line keyed to a nonexistent spine journals
+# silently and is never exercised at close. Both add_auto and add_user must
+# reject an unknown spine with rc 7 before mutating.
+t_capture oss_state_read "$S" '.demo_ledger | length'
+BEFORE="$T_OUT"
+t_capture oss_ledger_add_auto "$S" r9.s99 "phantom" "true" "exit:0"
+t_assert_rc 7 "add_auto rejects unknown spine"
+t_capture oss_ledger_add_user "$S" r9.s99 "phantom user line" "phantom outcome"
+t_assert_rc 7 "add_user rejects unknown spine"
+t_capture oss_state_read "$S" '.demo_ledger | length'
+t_assert_eq "$BEFORE" "$T_OUT" "no phantom demo line journaled after unknown-spine refusal"
 
 # D1: <by-spine> is now the join key apply_pending matches on, and is validated
 # against known spines - this file predates entities.sh and used the free-text
