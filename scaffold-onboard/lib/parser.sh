@@ -16,7 +16,9 @@ sf_spec_phases_present() {
     | sed 's/ $//'
 }
 
-# Print the content of phase N (markdown between marker N and marker N+1, or EOF).
+# Print the content of phase N (markdown between marker N and marker N+1, the
+# post-MVP appendix boundary, or EOF). The appendix is a top-level peer after
+# Phase 10 and must not be reported as Operations & Support content.
 sf_spec_phase() {
   local path="$1" pid="$2"
   awk -v target="$pid" '
@@ -29,6 +31,11 @@ sf_spec_phase() {
       pid = line
       if (pid == target) { in_phase = 1; next }
       else if (in_phase) { in_phase = 0 }
+    }
+    # Contract anchor: MASTER-SPEC.brief.md requires this exact heading as the
+    # Phase-10 extraction boundary. Keep the heading synchronized there.
+    /^## Appendix: Post-MVP Horizon[[:space:]]*$/ {
+      if (in_phase) { in_phase = 0 }
     }
     in_phase { print }
   ' "$path"

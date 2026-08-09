@@ -7,16 +7,19 @@ description: Bootstrap a fresh dual-repo workspace — creates a new AI workspac
 
 ## 1. Overview
 
-This skill bootstraps a fresh **dual-repo workspace**: a brand-new sibling pair
-of git repositories where AI scaffolding lives in one repo and production code
-lives in the other, joined by a pairing manifest. The skill auto-invokes when
+This skill bootstraps a fresh **dual-repo workspace**: a brand-new pair of git
+repositories where AI scaffolding lives in one repo and production code lives
+in the other, joined by a pairing manifest. By default the repos are siblings
+under a parent directory. Explicit `--wrapper <existing-dir>` mode places the
+same pair inside an existing outer wrapper without touching other wrapper
+contents. The skill auto-invokes when
 the user signals intent to start a new project under workspace-init's topology
 (triggers: "create workspace", "bootstrap project", "new AI workspace", "set up
 dual repo", "init project workspace"). It also runs when the user explicitly
 invokes the `/init-workspace` slash command. On success it produces:
 `<parent>/<name>-ai/` (the AI workspace, with skeleton + manifest + stubs
-staged) AND `<parent>/<name>/` (the canonical, freshly `git init`'d, working
-tree empty). Trace-filter commit-msg hooks are installed in both. Cite
+staged) AND `<parent>/<name>/` (the canonical, freshly `git init`'d on `main`,
+working tree empty). Trace-filter commit-msg hooks are installed in both. Cite
 **SPEC §1** (TL;DR) and **SPEC §4.3** (the dual-repo topology). The user is
 expected to commit the staged bootstrap manually — workspace-init never
 auto-commits (SPEC §7.4).
@@ -32,16 +35,18 @@ unset and the libs crash. Always go through `wi`.
 
 ## 2. Preconditions
 
-Before doing any work, verify each item below. If any check fails, print a
-clear error to stderr and EXIT — do NOT start the 8 tasks (per **SPEC §8.1**
-and **SPEC §13.3**). No rollback is needed at this point because nothing has
-been created yet.
+Before doing any work, verify each item below. Run the dependency checks before
+prompting; run the name/path checks immediately after §3 resolves the inputs and
+before starting the 8 tasks. If any check fails, print a clear error to stderr
+and EXIT (per **SPEC §8.1** and **SPEC §13.3**). No rollback is needed at this
+point because nothing has been created yet.
 
 Checks (run as bash one-liners):
 
 - `command -v jq >/dev/null 2>&1` — `jq` must be on `$PATH` (manifest reads/writes use it).
 - `command -v git >/dev/null 2>&1` — `git` must be on `$PATH`.
-- `[[ -d "$parent" && -w "$parent" ]]` — the parent dir must exist and be writable.
+- `[[ -d "$parent" && -w "$parent" ]]` — the resolved parent must exist and be
+  writable. In wrapper mode this is the wrapper itself.
 - `[[ "$name" =~ ^[a-z0-9-]+$ ]]` — project name must be kebab-case (lowercase, digits, hyphens).
 
 If a check fails, the error message must say WHICH check failed and what to
@@ -52,28 +57,52 @@ prompt the user to fix and retry, but treat retries as a separate invocation.
 
 ## 3. Input collection
 
-Inputs (prompt the user OR read from the slash command's `$ARGUMENTS`
-env-var bridge — never `$1`/`$2`, per the slash-command `$N` substitution
-bug):
+Slash-command grammar:
+
+```
+/init-workspace <name>
+/init-workspace <name> --wrapper <existing-dir>
+```
+
+Read the raw slash-command text from the `$ARGUMENTS` env-var bridge — never
+from `$1`/`$2`, per the slash-command `$N` substitution bug. Interpret exactly
+one positional project name plus the optional `--wrapper <existing-dir>` pair.
+Reject an unknown option, duplicate `--wrapper`, a missing/empty wrapper value,
+or more than one positional name with a concise usage error. A wrapper path
+containing spaces must be quoted in the slash command.
+
+Inputs (prompt the user when not supplied):
 
 - **project name** (kebab-case; must satisfy `^[a-z0-9-]+$`).
-- **parent dir** (default: `$PWD`; must be an absolute path; `wi_realpath` if user types a relative path).
+- **parent dir** (normal mode only; default: `$PWD`; must be an absolute path;
+  `wi_realpath` if the user types a relative path).
+- **wrapper dir** (wrapper mode only; the explicit `--wrapper` value; resolve
+  it with `wi_realpath`; it must already exist and be writable). Treat the
+  resolved wrapper as `parent`. Do not also prompt for a separate parent.
 - **project_type** — one of `personal` or `work`. Per **SPEC §7.1** prompt
   the user with the exact wording: *"Is this a personal project or a
   work/company project?"* Both project types still enforce the trace filter;
   `project_type` is a forward hook for v0.2 policy differentiation.
 
-Record the resolved values in shell variables for use below:
+Record the resolved values in shell variables for use below. In wrapper mode,
+set `parent="$resolved_wrapper"`; otherwise use the resolved normal parent:
 
 - `name="$resolved_name"`
-- `parent="$resolved_parent"`
+- `parent="$resolved_wrapper"` in wrapper mode, otherwise
+  `parent="$resolved_parent"`
 - `project_type="$resolved_project_type"`
 - `ai_root="${parent}/${name}-ai"`
 - `canonical_root="${parent}/${name}"`
 
+Wrapper mode is explicit only: never auto-detect it from the parent's basename,
+existence, or non-empty state. Existing wrapper contents are orchestration
+context, not owned bootstrap artifacts: preserve them byte-for-byte, do not
+move/copy them into either repo, do not log the wrapper itself for rollback,
+and do not add a `wrapper_root` field to the pairing manifest.
+
 Do NOT prompt for `--git-remote` or `--default-branch` in fresh mode — fresh
-repos have neither; the canonical's default branch will be whatever
-`git init` produces.
+repos have neither, and `wi_git_init` explicitly initializes them on `main` so
+the repository state matches the manifest default on every machine.
 
 ## 4. Validate via lib/
 
@@ -90,7 +119,8 @@ under a bash shebang and resolves the function-suffix argument
 
 `wi_skeleton_preflight` checks the parent-writable + name-regex invariants
 (same as section 2) AND verifies that the target dirs (`<parent>/<name>-ai`
-and `<parent>/<name>`) do NOT already exist. If any check fails, abort
+and `<parent>/<name>`) do NOT already exist. A non-empty explicit wrapper is
+valid: only those two inner targets are collision-sensitive. If any check fails, abort
 cleanly — no rollback needed because nothing has been created. Print the
 preflight error to stderr and exit non-zero.
 
@@ -114,7 +144,9 @@ resolved `name`, `parent`, `project_type`, `ai_root`, `canonical_root`.
 
 ### 5.2 — Task 8.2: Create root dir pair
 
-Creates `<parent>/<name>-ai` AND `<parent>/<name>` (both empty).
+Creates `<parent>/<name>-ai` AND `<parent>/<name>` (both empty). In wrapper
+mode, `<parent>` is the existing wrapper; the operation creates/logs only the
+two inner roots and `<name>-ai/.workspace`, never the wrapper itself.
 
 ```
 wi skeleton_create_root_pair "$parent" "$name"
@@ -190,7 +222,9 @@ Expected init-log entry: `file <ai_root>/README.md`.
 
 Three sequential sub-steps; any failure triggers full rollback:
 
-1. `wi git_init_pair "$ai_root" "$canonical_root"` — `git init` both repos.
+1. `wi git_init_pair "$ai_root" "$canonical_root"` — `git init` both repos
+   with the unborn branch explicitly set to `main`, independent of the user's
+   `init.defaultBranch` configuration.
 2. `wi trace_filter_install_pair "$ai_root" "$canonical_root"` — render
    `hooks/commit-msg.tmpl` with the baked AI workspace path and install to
    `<ai_root>/.git/hooks/commit-msg` AND `<canonical_root>/.git/hooks/commit-msg`,
@@ -239,6 +273,11 @@ These are non-negotiable invariants for this skill:
   strict-honor convention.
 - **DO stage-only** in the AI workspace (canonical stays empty in fresh mode).
 - **DO NOT push.** workspace-init never pushes; remote setup is v0.2 work.
+- **DO NOT infer wrapper mode.** It is enabled only by an explicit
+  `--wrapper <existing-dir>` argument or an equivalent unambiguous natural-
+  language request naming the wrapper.
+- **DO NOT mutate wrapper-level source material.** Only the two inner target
+  repos belong to the bootstrap and rollback log.
 - **DO NOT pull or fetch.** Network ops are off (`allow_ai_pull=false`,
   `allow_ai_fetch=false`); this is a fresh project, there's nothing to pull.
 - **DO NOT add a `Co-Authored-By:` trailer or any AI-marker** anywhere —
@@ -261,6 +300,11 @@ where indicated.
 - **Parent dir not writable** → `wi_skeleton_preflight` aborts; nothing
   created; no rollback needed. Error tells user to chmod the parent or
   pick a different one.
+- **Wrapper missing/not writable** → reject before the 8 tasks with a
+  `--wrapper requires an existing writable directory` error; do not create the
+  wrapper implicitly and do not fall back to normal mode.
+- **Unknown or malformed slash option** → reject with the two accepted command
+  forms from §3; do not guess intent.
 - **Project name invalid** (fails kebab-case regex) → preflight aborts;
   nothing created.
 - **Pair-with path doesn't exist** → not relevant in fresh mode (this skill
@@ -276,7 +320,7 @@ where indicated.
   this skill calls `wi_rollback`. In fresh mode every op IS reversible —
   we just created both repos, so removing them is safe.
 - **`git symbolic-ref` returns nothing** during default-branch detection →
-  fresh mode shouldn't hit this (no canonical exists yet), but
+  fresh mode does not use detection (`wi_git_init` pins `main`), but
   `wi_git_detect_default_branch` is the canonical fallback path used
   elsewhere. Per **SPEC §8.4** it walks the chain
   `symbolic-ref refs/remotes/origin/HEAD` → `symbolic-ref HEAD` →

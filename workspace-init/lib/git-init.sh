@@ -16,20 +16,21 @@ if ! declare -F wi_log_op >/dev/null 2>&1; then
 fi
 
 # ---------------------------------------------------------------------------
-# wi_git_init — initialize a single git repo at the given path.
+# wi_git_init — initialize a single git repo at the given path on `main`.
 #
 # Args:
 #   $1  repo-root             path to initialize
 #   $2  ai-root-for-log       (optional, default=$1) AI workspace root whose
 #                             .workspace/init-log receives the GIT_INIT entry.
 #
-# Idempotent: if $repo/.git already exists, logs a warn and returns 0.
+# Idempotent: if $repo/.git already exists (directory or gitfile), logs a warn
+# and returns 0 without changing the existing repository's branch.
 # ---------------------------------------------------------------------------
 wi_git_init() {
   local repo="$1"
   local ai_root_for_log="${2:-$repo}"
 
-  if [[ -d "$repo/.git" ]]; then
+  if [[ -e "$repo/.git" ]]; then
     wi_log_warn "wi_git_init: $repo already a git repo; skipping"
     return 0
   fi
@@ -39,9 +40,16 @@ wi_git_init() {
     return 1
   fi
 
-  if ! git -C "$repo" init -q 2>/dev/null; then
-    wi_log_error "wi_git_init: git init failed for $repo"
-    return 1
+  # Pin the unborn branch explicitly. Git 2.28+ supports --initial-branch;
+  # older Git releases need a plain init followed by an explicit HEAD update.
+  # Both paths ignore machine-level init.defaultBranch without imposing a new
+  # minimum Git version (#103).
+  if ! git -C "$repo" init -q --initial-branch=main 2>/dev/null; then
+    if ! git -C "$repo" init -q 2>/dev/null \
+      || ! git -C "$repo" symbolic-ref HEAD refs/heads/main 2>/dev/null; then
+      wi_log_error "wi_git_init: git init failed for $repo"
+      return 1
+    fi
   fi
 
   local log="${ai_root_for_log}/.workspace/init-log"
@@ -157,7 +165,10 @@ wi_git_detect_remote() {
 wi_git_stage_ai_workspace() {
   local ai_root="$1"
 
-  if [[ ! -d "$ai_root/.git" ]]; then
+  # Accept both a normal .git directory and a gitfile-backed worktree (for
+  # example `git init --separate-git-dir`). This matches wi_git_init's
+  # idempotence check; git itself remains the authority on whether `add` works.
+  if [[ ! -e "$ai_root/.git" ]]; then
     wi_log_error "wi_git_stage_ai_workspace: not a git repo: $ai_root"
     return 1
   fi

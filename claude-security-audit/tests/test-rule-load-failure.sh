@@ -49,7 +49,8 @@ test_broken_rule_emits_scanner_001() {
 # the rule engine currently checks for SCANNER-002 (detect() failures), not
 # SCANNER-001 (load failures). We test the actual behavior: load failures
 # emit SCANNER-001 (not SCANNER-002), so the banner is for detect() failures.
-# We test the correct scenario: 4 rules whose detect() returns non-zero → SCANNER-002 banner.
+# We test the correct scenario: 4 rules whose detect() returns a genuine error
+# status (2) → SCANNER-002 banner.
 # ---------------------------------------------------------------------------
 test_multiple_broken_rules_show_banner() {
   _next_scratch; local scratch="$_CSA_TMP/t$_test_n"
@@ -64,7 +65,7 @@ test_multiple_broken_rules_show_banner() {
   local rules_dir="$scratch/rules"
   mkdir -p "$rules_dir/test"
 
-  # Write 4 rules whose detect() always exits non-zero → SCANNER-002.
+  # Write 4 rules whose detect() always exits with an error → SCANNER-002.
   local i
   for i in 1 2 3 4; do
     cat > "$rules_dir/test/FAIL-00${i}.sh" << RULEEOF
@@ -75,7 +76,7 @@ RULE_ASPECT="test"
 RULE_SEVERITY="low"
 RULE_AUTO_FIXABLE="false"
 RULE_MECHANICALLY_FIXABLE="false"
-detect() { return 1; }
+detect() { return 2; }
 RULEEOF
   done
 

@@ -128,6 +128,68 @@ test_enum_codex_project_targets() {
   assert_contains "$stdout" ".codex-plugin/plugin.json" || return 1
 }
 
+# 10. Native OpenCode surfaces include source files and exclude only runtime
+# artifacts. A CLAUDE.md reachable through both surfaces must appear once.
+test_enum_opencode_project_targets_exact_set() {
+  local fixture; fixture="$(mktemp -d "${TMPDIR:-/tmp}/csa-opencode.XXXXXX")"
+  trap "rm -rf '$fixture'" EXIT
+  mkdir -p \
+    "$fixture/.claude/audits" \
+    "$fixture/.opencode/audits" \
+    "$fixture/.opencode/bin" \
+    "$fixture/.opencode/config" \
+    "$fixture/.opencode/hooks" \
+    "$fixture/.opencode/lib" \
+    "$fixture/.opencode/node_modules/dependency"
+
+  printf '{}\n' > "$fixture/package.json"
+  printf '# Instructions\n' > "$fixture/.opencode/CLAUDE.md"
+  printf '# Install\n' > "$fixture/.opencode/INSTALL.md"
+  printf '#!/usr/bin/env bash\n' > "$fixture/.opencode/bin/arc"
+  printf '{}\n' > "$fixture/.opencode/config/settings.json"
+  printf 'enabled = true\n' > "$fixture/.opencode/config/settings.toml"
+  printf 'enabled: true\n' > "$fixture/.opencode/config/settings.yaml"
+  printf '#!/usr/bin/env bash\n' > "$fixture/.opencode/hooks/check.sh"
+  printf 'export default {};\n' > "$fixture/.opencode/lib/plugin.js"
+  printf 'export {};\n' > "$fixture/.opencode/lib/plugin.ts"
+
+  printf '{}\n' > "$fixture/.opencode/package.json"
+  printf '{}\n' > "$fixture/.opencode/package-lock.json"
+  printf 'lock\n' > "$fixture/.opencode/bun.lock"
+  printf '.cache\n' > "$fixture/.opencode/.gitignore"
+  printf 'ignored\n' > "$fixture/.opencode/node_modules/dependency/index.js"
+  printf '{}\n' > "$fixture/.claude/audits/state.json"
+  printf '# Report\n' > "$fixture/.opencode/audits/security-report.md"
+  ln -s "$fixture/.opencode/bin/arc" "$fixture/.opencode/bin/arc-link"
+
+  local stdout_file="$fixture/stdout" stderr_file="$fixture/stderr"
+  HOME=/nonexistent csa_enum_targets_all "$fixture" > "$stdout_file" 2> "$stderr_file"
+
+  local expected actual
+  expected="$(printf '%s\n' \
+    "$fixture/package.json" \
+    "$fixture/.opencode/CLAUDE.md" \
+    "$fixture/.opencode/INSTALL.md" \
+    "$fixture/.opencode/bin/arc" \
+    "$fixture/.opencode/config/settings.json" \
+    "$fixture/.opencode/config/settings.toml" \
+    "$fixture/.opencode/config/settings.yaml" \
+    "$fixture/.opencode/hooks/check.sh" \
+    "$fixture/.opencode/lib/plugin.js" \
+    "$fixture/.opencode/lib/plugin.ts" | sort)"
+  actual="$(sort "$stdout_file")"
+  assert_eq "$expected" "$actual" "OpenCode target exact set" || return 1
+
+  local target_count unique_count
+  target_count="$(wc -l < "$stdout_file" | tr -d ' ')"
+  unique_count="$(sort -u "$stdout_file" | wc -l | tr -d ' ')"
+  assert_eq "$target_count" "$unique_count" "OpenCode targets are deduplicated" || return 1
+
+  local stderr; stderr="$(<"$stderr_file")"
+  assert_contains "$stderr" "info: symlink at $fixture/.opencode/bin/arc-link not followed" \
+    "OpenCode symlink warning" || return 1
+}
+
 csa_test_run test_enum_no_dot_claude_returns_empty       || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_project_only                       || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_project_plus_one_plugin            || _csa_failed=$((_csa_failed + 1))
@@ -137,5 +199,6 @@ csa_test_run test_enum_missing_cache_returns_provenance   || _csa_failed=$((_csa
 csa_test_run test_enum_symlink_in_target_dir              || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_gitignored_target_still_scanned    || _csa_failed=$((_csa_failed + 1))
 csa_test_run test_enum_codex_project_targets              || _csa_failed=$((_csa_failed + 1))
+csa_test_run test_enum_opencode_project_targets_exact_set || _csa_failed=$((_csa_failed + 1))
 
 [[ "$_csa_failed" -eq 0 ]] || exit 1

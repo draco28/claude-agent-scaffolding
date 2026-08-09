@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # tests/test-skeleton.sh — unit tests for lib/skeleton.sh
-# Covers (per SPEC §8.1/§8.2/§8.3, ~13 tests):
-#   P. Preflight  (7) — name validation + writable parent + target absence + pair-with mode
-#   R. Root pair  (1) — wi_skeleton_create_root_pair
+# Covers (per SPEC §8.1/§8.2/§8.3, ~18 tests):
+#   P. Preflight  (12) — name validation + writable parent + target absence + pair-with/wrapper modes
+#   R. Root pair  (2) — standard + non-empty wrapper preservation
 #   A. AI-only    (1) — wi_skeleton_create_root_ai_only
 #   S. Seed       (4) — subdirs + .gitkeep + .gitignore content + idempotency
 
@@ -23,7 +23,7 @@ _wi_skeleton_cleanup() {
 trap _wi_skeleton_cleanup EXIT
 
 # ---------------------------------------------------------------------------
-# P. Preflight (7 tests)
+# P. Preflight (10 tests)
 # ---------------------------------------------------------------------------
 
 test_P1_valid_name_writable_parent_no_existing() {
@@ -133,8 +133,78 @@ test_P8_pair_with_linked_worktree_rejected() {
   fi
 }
 
+# A non-empty wrapper is a valid parent. Only the two inner repo targets are
+# collision-sensitive; unrelated source material at wrapper level is preserved.
+test_P9_nonempty_wrapper_is_valid_when_inner_targets_absent() {
+  local wrapper="$_WI_TMP/p9-wrapper"
+  mkdir -p "$wrapper"
+  printf 'source material\n' > "$wrapper/PROJECT_SPEC.md"
+
+  if ! wi_skeleton_preflight "$wrapper" "foo" 2>/dev/null; then
+    echo "    expected success for a non-empty wrapper with free inner targets"
+    return 1
+  fi
+}
+
+test_P10_nonempty_wrapper_rejects_inner_target_collision() {
+  local wrapper="$_WI_TMP/p10-wrapper"
+  mkdir -p "$wrapper/foo"
+  printf 'source material\n' > "$wrapper/PROJECT_SPEC.md"
+
+  if wi_skeleton_preflight "$wrapper" "foo" 2>/dev/null; then
+    echo "    expected collision failure for wrapper/foo"
+    return 1
+  fi
+}
+
+test_P11_wrapper_rejects_regular_file_targets_before_writes() {
+  local canonical_wrapper="$_WI_TMP/p11-canonical-file"
+  mkdir -p "$canonical_wrapper"
+  printf 'occupied\n' > "$canonical_wrapper/foo"
+
+  if wi_skeleton_preflight "$canonical_wrapper" "foo" 2>/dev/null; then
+    echo "    expected collision failure for regular file wrapper/foo"
+    return 1
+  fi
+  [[ ! -e "$canonical_wrapper/foo-ai" ]] || {
+    echo "    preflight created the AI sibling before rejecting canonical file"
+    return 1
+  }
+
+  local ai_wrapper="$_WI_TMP/p11-ai-file"
+  mkdir -p "$ai_wrapper"
+  printf 'occupied\n' > "$ai_wrapper/foo-ai"
+
+  if wi_skeleton_preflight "$ai_wrapper" "foo" 2>/dev/null; then
+    echo "    expected collision failure for regular file wrapper/foo-ai"
+    return 1
+  fi
+  [[ ! -e "$ai_wrapper/foo" ]] || {
+    echo "    preflight created the canonical sibling before rejecting AI file"
+    return 1
+  }
+}
+
+test_P12_wrapper_rejects_dangling_symlink_targets() {
+  local canonical_wrapper="$_WI_TMP/p12-canonical-link"
+  mkdir -p "$canonical_wrapper"
+  ln -s "$canonical_wrapper/missing" "$canonical_wrapper/foo"
+  if wi_skeleton_preflight "$canonical_wrapper" "foo" 2>/dev/null; then
+    echo "    expected collision failure for dangling canonical symlink"
+    return 1
+  fi
+
+  local ai_wrapper="$_WI_TMP/p12-ai-link"
+  mkdir -p "$ai_wrapper"
+  ln -s "$ai_wrapper/missing" "$ai_wrapper/foo-ai"
+  if wi_skeleton_preflight "$ai_wrapper" "foo" 2>/dev/null; then
+    echo "    expected collision failure for dangling AI symlink"
+    return 1
+  fi
+}
+
 # ---------------------------------------------------------------------------
-# R. Root pair (1 test)
+# R. Root pair (2 tests)
 # ---------------------------------------------------------------------------
 
 test_R1_create_root_pair_creates_both_and_logs() {
@@ -151,6 +221,27 @@ test_R1_create_root_pair_creates_both_and_logs() {
   # Both roots should appear in log
   grep -qE "^MKDIR	${parent}/foo-ai\$"  "$log" || { echo "    ai_root not in log"; return 1; }
   grep -qE "^MKDIR	${parent}/foo\$"     "$log" || { echo "    canonical not in log"; return 1; }
+}
+
+test_R2_create_root_pair_preserves_wrapper_contents() {
+  local wrapper="$_WI_TMP/r2-wrapper"
+  mkdir -p "$wrapper"
+  printf 'keep me byte-for-byte\n' > "$wrapper/PROJECT_SPEC.md"
+  local before
+  before="$(cksum "$wrapper/PROJECT_SPEC.md")"
+
+  wi_skeleton_create_root_pair "$wrapper" "foo" >/dev/null 2>&1 || {
+    echo "    create_root_pair failed inside non-empty wrapper"
+    return 1
+  }
+
+  assert_dir_exists "$wrapper/foo-ai" || return 1
+  assert_dir_exists "$wrapper/foo" || return 1
+  assert_file_exists "$wrapper/PROJECT_SPEC.md" || return 1
+  assert_eq "$before" "$(cksum "$wrapper/PROJECT_SPEC.md")" || {
+    echo "    wrapper source material changed"
+    return 1
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -269,8 +360,13 @@ wi_test_run test_P6_pair_with_existing_git_repo_ok
 wi_test_run test_P7_pair_with_missing_canonical
 wi_test_run test_W1_is_linked_worktree_discriminates
 wi_test_run test_P8_pair_with_linked_worktree_rejected
+wi_test_run test_P9_nonempty_wrapper_is_valid_when_inner_targets_absent
+wi_test_run test_P10_nonempty_wrapper_rejects_inner_target_collision
+wi_test_run test_P11_wrapper_rejects_regular_file_targets_before_writes
+wi_test_run test_P12_wrapper_rejects_dangling_symlink_targets
 
 wi_test_run test_R1_create_root_pair_creates_both_and_logs
+wi_test_run test_R2_create_root_pair_preserves_wrapper_contents
 
 wi_test_run test_A1_create_root_ai_only_creates_only_ai
 
