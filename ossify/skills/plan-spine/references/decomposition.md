@@ -25,6 +25,34 @@ There is no size or weight axis in ossify. **Class is the only classification**
 from decomposition — so a count is never evidence about a spine's importance and
 never needs defending as one.
 
+### When an honest decomposition needs more than five
+
+The upper bound is the one that bites, and it has a specific meaning: **a
+decomposition that genuinely needs more than five items is telling you the spine
+is two spines.** The bound is a scope signal, not a formatting rule, and 6 is not
+"5 with an exception".
+
+**Take it back to `plan-release`.** Split the spine along the *journey* — the
+same cut `feature-map-grooming.md` §3 uses on an over-large candidate — and let
+each half be declared, classed, and DAG-positioned in its own right. Both halves
+must still cross the product end to end; a split that leaves one half unable to
+reach an outcome has produced an `internal-enabler`, which is a different
+conversation (`class-declaration.md` §4).
+
+What **not** to do, in order of how tempting each is:
+
+- **Do not merge two items to reach five.** The count is now legal and the plan
+  is worse: one item hides two changes, and its RED→GREEN evidence covers
+  neither cleanly.
+- **Do not defer the sixth item to "a follow-up spine" without planning it.** An
+  unplanned follow-up is a deferral with no record; if it is real work, it
+  belongs on the feature map (`oss feature_add`).
+- **Do not quietly ship six.** The bound exists so this conversation happens.
+
+The signal is reliable in practice: a six-item decomposition almost always has a
+seam in the middle where the first *n* items deliver one outcome and the rest
+deliver another. That seam is the spine boundary you are looking for.
+
 ---
 
 ## 2. What each work item declares

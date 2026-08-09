@@ -110,9 +110,39 @@ a journey line, whatever verb it opens with.
   see the row is there", "…and the file is present". Existence is not an outcome
   a user came for.
 - **Protocol-level evidence** — "the endpoint returns 200", "the job exits 0".
-  Those are `auto:` lines wearing a `user:` label.
+  Those are `auto:` lines wearing a `user:` label. **This bans protocol trivia,
+  not the API surface itself** — see below.
 - **The passive dodge** — "the report is available to the user". No actor
   performs anything; nothing is observed.
+
+### 3.2b Headless products — the user is a consumer, not a person
+
+For a library, a database, or a service there is no screen, and spec §3 is
+explicit that such a product "defines its journey at its real surface — e.g. a
+downstream API round trip — and no UI is invented." **Do not read the
+protocol-level ban as banning that surface**; read as a blanket rule it would
+leave a headless product unable to author a single legal `user:` line, which is
+the opposite of the intent.
+
+The distinction is what the line *observes*:
+
+| Line | Verdict |
+|---|---|
+| "the endpoint returns 200" | **REJECT** — a status code, not an outcome |
+| "the job exits 0" | **REJECT** — an exit code, not an outcome |
+| "query the store through the client SDK and see the results ranked by recency" | **ACCEPT** — a consumer reaches the value it came for |
+| "submit an order through the client and get back a confirmed order id" | **ACCEPT** — round trip with an observable outcome |
+
+The consumer is the actor: an integrating service, an SDK caller, another team's
+code. Both audiences are valid — the person driving a UI, and the developer
+driving an interface — and what the F2 test asks in both cases is the same:
+**who performs this, and for what value?** "Because the protocol said 200" is not
+an answer; "to get their results ranked" is.
+
+`plan-release/references/class-declaration.md` rung 1 states the same rule for
+spine *classification*. If these two ever disagree, a headless project gets its
+spines classed `internal-enabler` and its demo lines rejected — both halves of
+the same mistake.
 
 ### 3.3 The ban is on the action, not on the outcome
 
