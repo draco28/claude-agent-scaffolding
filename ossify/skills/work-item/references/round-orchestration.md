@@ -113,7 +113,12 @@ not have been authored yet:
 ```bash
 spec="$spine_dir_abs/work-<wi-id>/spec.md"
 [ -f "$spec" ] || { echo "halt: no spec for <wi-id> - re-enter /plan-spine for this round"; exit 1; }
-oss verify_acs "$spec" >/dev/null || { echo "halt: <wi-id>'s spec parses to no ACs"; exit 1; }
+# Test the OUTPUT, not the rc. `oss verify_acs` returns 0 on a spec that yields
+# zero parseable rows — the same empty-but-successful shape `report_cross_check`
+# guards with `[ -n "$rows" ] || return 2`. An `|| { … }` here cannot fire for
+# the condition its own message names, which is a guard that reads as coverage.
+rows="$(oss verify_acs "$spec")" || { echo "halt: <wi-id>'s spec could not be read"; exit 1; }
+[ -n "$rows" ] || { echo "halt: <wi-id>'s spec parses to no ACs - grammar drift, or it was never authored"; exit 1; }
 ```
 
 **This lane does not author specs** — it dispatches workers who read them. A
@@ -249,9 +254,26 @@ handling**, not a `complete` with rough edges:
    finished", and do not treat a missing `report_path` as a green gate. A broken
    envelope means you do not know what state the work item is in, and guessing
    is how unverified work reaches a merge.
-2. **Re-dispatch once** on the same handoff, unchanged. A crash or timeout is
-   usually transient, and the worker re-reads the handoff end to end anyway.
-3. **If the second dispatch also returns a broken envelope, halt and surface it**
+2. **Check the worktree BEFORE re-dispatching** — a crash after the worker
+   started editing leaves it dirty, and a re-dispatch cannot recover from that:
+
+   ```bash
+   [ -z "$(git -C "$wt" status --porcelain)" ] || { echo "halt: <wi-id>'s worktree is dirty after a broken return"; exit 1; }
+   ```
+
+   Pre-flight Gate 3 requires a clean worktree and SKILL.md §10 forbids the
+   worker from tidying one, so a dirty worktree comes back as a **well-formed
+   `gaps-surfaced` envelope** — not a broken one. Step 3's halt therefore never
+   fires: you get a valid gaps return asking a question no clarification can
+   answer, you append an answer, you re-dispatch, and you burn the 3-dispatch
+   cap in a loop that cannot converge. **Halt here and surface the dirty
+   worktree to the user** — respawning it or keeping the partial work is their
+   call, and neither is yours to make silently.
+
+3. **Only if the worktree is clean, re-dispatch once** on the same handoff,
+   unchanged. A crash or timeout with nothing written is usually transient, and
+   the worker re-reads the handoff end to end anyway.
+4. **If the second dispatch also returns a broken envelope, halt and surface it**
    to the user with the raw payload. This counts against the 3-iteration cap
    like any other dispatch.
 

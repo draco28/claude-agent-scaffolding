@@ -114,10 +114,20 @@ belonging to a spine ends up inside one.
 canonical="$(oss repo_root canonical)"
 br="$(git -C "$canonical" rev-parse --abbrev-ref HEAD)"
 case "$br" in
-  spine/*) echo "halt: canonical is parked on '$br' - a patch does not land in a spine's diff"; exit 1 ;;
-  *)       echo "ok: patching on '$br'" ;;
+  spine/*|work/*) echo "halt: canonical is parked on '$br' - a patch does not land in a spine's diff"; exit 1 ;;
+  HEAD)           echo "halt: canonical is in DETACHED HEAD - a patch commit here belongs to no branch"; exit 1 ;;
+  '')             echo "halt: could not resolve canonical's branch"; exit 1 ;;
+  *)              echo "ok: patching on '$br'" ;;
 esac
 ```
+
+**Allow-list the destination; do not deny-list the bad cases.** `rev-parse
+--abbrev-ref HEAD` prints the literal string **`HEAD`** on a detached checkout,
+which a bare `*)` arm waves through as a valid branch. The patch then commits to
+no ref at all: `oss patch_add` records a sha that exists only until the next gc,
+the change never reaches the base branch, and `doctor`'s patch count reports a
+record whose commit is unreachable. Every arm above fires on something real — a
+parked spine, a work-item branch, a detached checkout, an unresolvable HEAD.
 
 **If a spine is parked, halt and put it to the user** — two options, and it is
 their call:

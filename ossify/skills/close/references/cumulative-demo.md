@@ -131,10 +131,33 @@ git -C "$canonical" checkout --detach "$merge_sha^1"
 git -C "$canonical" checkout -                            # back to where you were
 ```
 
-- **Fails at the first parent too** → the line was already broken. Genuinely
-  unrelated to this spine, and the quarantine is honest.
 - **Passes at the first parent** → **this spine broke it.** Not a quarantine
   candidate at all, whatever the read-aloud test said. Fix it or halt.
+- **Fails at the first parent for the SAME reason** → the line was already
+  broken. Genuinely unrelated to this spine, and the quarantine is honest.
+- **Fails at the first parent for a DIFFERENT reason** → **the comparison is
+  void; this proves nothing.** Do not quarantine on it.
+
+**The third case is the one that will bite you, and it is not rare.** If this
+spine introduced the demo line, its command, or the file that command runs, then
+at `$merge_sha^1` that command is *absent* — it fails with "no such file",
+"unknown subcommand", an import error. Read as a bare nonzero rc that is
+indistinguishable from "already broken", and a regression this spine caused gets
+quarantined and closes green. Compare the **failure**, not the exit code:
+
+```bash
+# same command, both trees, and diff the OUTPUT before believing the rc
+( cd "$canonical" && bash -c "$cmd" ) > /tmp/oss-head.txt 2>&1; echo "head rc=$?"
+git -C "$canonical" checkout --detach "$merge_sha^1"
+( cd "$canonical" && bash -c "$cmd" ) > /tmp/oss-parent.txt 2>&1; echo "parent rc=$?"
+git -C "$canonical" checkout -
+diff /tmp/oss-head.txt /tmp/oss-parent.txt
+```
+
+If the parent's output says the command or its target does not exist, the parent
+run was never **invocable** and the check has not run. You are back to judgment
+with one fact established: the line is new, so "already broken" is not available
+as an explanation.
 
 Do this before writing the ticket. It converts "unrelated" from a claim into an
 observation, and it takes one checkout.
