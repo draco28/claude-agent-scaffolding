@@ -1,5 +1,5 @@
 {
   "name": "ossify",
   "version": "0.1.0",
-  "description": "Skeleton-first lifecycle plugin: Skeleton (Release 0) -> MVP -> v1 releases; bone/flesh feature spines; cumulative product demo; bones registry. v0.1.0 ships the state engine, five of six entry skills, the execution engine and all three close ceremonies. KNOWN GAPS: the round-orchestration execution lane has no invoking entry point, and ossify is NOT marketplace-registered and ships no .codex-plugin manifest until Plan D's eval ship gate passes - so it is dogfoodable from the repo, not installable. Roadmap: docs/superpowers/plans/2026-08-06-ossify-release-roadmap.md"
+  "description": "Experimental OpenCode opt-in for a skeleton-first lifecycle from Release 0 through MVP and v1. The v0.x engine, five entry skills, and close ceremonies are packaged through the root bundle's explicit allowlist; the round-orchestration lane still lacks an entry point. Ossify remains outside stable Claude and Codex marketplaces until Plan D's consolidated eval and pilot gate. Roadmap: docs/superpowers/plans/2026-08-06-ossify-release-roadmap.md"
 }
