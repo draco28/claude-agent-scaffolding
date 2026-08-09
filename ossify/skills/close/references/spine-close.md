@@ -63,6 +63,13 @@ after its merge is verified landed, precisely so this step can read it that way.
 
 ## 3. Step 2 — switch canonical back to its base branch, then merge
 
+**Read `references/code-review.md` before this merge.** It is the last moment the
+spine's accumulated diff is reviewable as one thing, and the only reader in the
+ceremony that judges *craft and fidelity* — impl-check verified the ACs pass and
+that no **documented** pattern is violated; nothing has yet asked whether the code
+is good, or whether it is the code the spine set out to write. Advisory: it
+produces findings and a decision per finding, not a halt.
+
 The two facts this step needs are not in state and are recovered, not guessed:
 
 - **The spine slug** from the spine directory's name, exactly as the execution

@@ -199,7 +199,10 @@ steps, in **binding order**:
    assert HEAD matches it — never read it off HEAD**; then assert the switch-back
    actually moved HEAD, and check reachability after the merge. Each of those
    guards catches a distinct failure that is otherwise rc 0 all the way to a
-   green close.
+   green close. **Read `references/code-review.md` before this merge** — the last
+   moment the spine's diff is reviewable as one thing, and the only reader that
+   judges craft and fidelity rather than whether the ACs passed. Advisory: it
+   yields findings and a per-finding decision, never a halt.
 3. **`oss ledger_apply_pending <spine>`** — after the merge, before the demo.
 4. **The cumulative demo**: `oss demo_run` for every active `auto:` line, then
    walk **this spine's own** `user:` lines (`oss demo_user_lines <spine>`) with
