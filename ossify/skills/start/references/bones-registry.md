@@ -81,6 +81,58 @@ The registry entry is the *index*; the ADR file carries the full context /
 decision / consequences prose. Keep them consistent — the index is what the
 mechanical checks read.
 
+### Authoring the ADR file
+
+`oss bone_add` writes **the index row only**. Nothing writes the ADR file, and
+ossify ships no `/adr` utility in this release — so until one lands in v0.3,
+**this is the convention**:
+
+**Where:** `<canonical>/docs/adr/` — resolve it with
+`canonical="$(oss repo_root canonical)"`. Bones are decisions about the
+*product's* architecture, so they live with the product, not in the AI
+workspace beside the planning docs.
+
+**Filename:** `NNNN-kebab-title.md`, four-digit zero-padded, matching the index
+reference — `ADR-0002` is `0002-hexagonal-core-with-six-port-traits.md`.
+
+**Numbering:** the next number is the highest existing plus one. Read it, do not
+guess:
+
+```bash
+canonical="$(oss repo_root canonical)"; mkdir -p "$canonical/docs/adr"
+next="$(ls -1 "$canonical/docs/adr" 2>/dev/null \
+        | sed -n 's/^\([0-9][0-9]*\)-.*\.md$/\1/p' | sort -n | tail -1)"
+printf 'ADR-%04d\n' "$(( 10#${next:-0} + 1 ))"
+```
+
+`10#` forces base-10: without it `0008` is an invalid octal literal and the
+arithmetic aborts under the dispatcher's `set -e`. An existing project may
+already have ADRs — that is why this reads the directory rather than starting
+at 1.
+
+**Sections (MADR-lite), in this order:**
+
+```markdown
+# ADR-NNNN — <title>
+
+- **Status:** Proposed        <!-- bones default to proposed-then-flip (§3.1) -->
+- **Date:** <YYYY-MM-DD>
+
+## Context
+What forced the decision. The constraints that were real at the time.
+
+## Decision
+What was chosen, stated in the present tense.
+
+## Consequences
+What this makes easy, what it makes hard, and what it forecloses.
+```
+
+Mint the number **before** `oss bone_add`, so the index reference and the file
+agree. An index row pointing at a file that was never written is the failure
+this section exists to prevent: the mechanical checks read the index and pass,
+while the prose the decision actually lives in does not exist.
+
 ---
 
 ## 4. Touch-surface glob semantics

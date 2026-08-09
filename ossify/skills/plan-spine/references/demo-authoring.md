@@ -11,7 +11,7 @@ is a floor and not a guideline.
 
 ---
 
-## 1. The five floors
+## 1. The six floors
 
 | | Floor | Applies to |
 |---|---|---|
@@ -24,6 +24,37 @@ is a floor and not a guideline.
 
 An internal spine **cannot claim product value** — not in its own demo lines, not
 in the release's exit criteria, not in the retro.
+
+### The community-edition line — posture-conditional, not a seventh floor
+
+Companion spec §4.3 is a **MUST**: for an `open-core` or `fully-open` posture the
+cumulative ledger has to carry a **standing `auto:` line that builds and
+smoke-runs the public repo standalone from a clean checkout**. It is not one
+spine's contribution — it is the product-level guarantee that the public edition
+is a real product rather than a package that only builds inside the private
+composition.
+
+Nothing else owns it: `cross-repo.md` §5 states the *principle* ("the public
+edition must remain buildable and demoable on its own") without naming the ledger
+line, and `close` runs the ledger without knowing a line is missing from it. A
+line nobody authors is a guarantee nobody keeps.
+
+So check it here, at every spine on a public-routed posture:
+
+```bash
+posture="$(oss get '.project.posture')"
+case "$posture" in
+  open-core|fully-open)
+    oss get '[.demo_ledger[] | select(.status=="active" and (.text|test("standalone|clean checkout";"i")))] | length' ;;
+  *) echo "n/a - posture is $posture" ;;
+esac
+```
+
+**If the posture is public-routed and no such line is active, this spine authors
+it** — one `auto:` line, the public repo cloned fresh, built, and smoke-run,
+expected `exit:0`. Author it once; later spines find it and move on. It is a
+standing line, so it never belongs to a single spine's contribution and never
+counts toward F1.
 
 ---
 
