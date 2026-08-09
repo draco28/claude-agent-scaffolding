@@ -23,10 +23,10 @@ _oss_repo_root() { # $1=repo-key
   printf '%s\n' "$root"
 }
 
-oss_worktree_dir() { # $1=repo-key
-  local root; root="$(_oss_repo_root "$1")" || return $?
-  printf '%s\n' "$root/.worktrees"
-}
+# `oss_worktree_dir` was REMOVED in v0.2.0: built in Plan C1 and never called by
+# the dispatcher, another lib, a test, or any prose. Every consumer that needs
+# the path composes it from `_oss_repo_root` inline, which is what the functions
+# below do.
 
 oss_worktree_add() { # $1=repo-key $2=work-item-id $3=slug $4=base-ref ; echoes abs path
   local key="$1" wi="$2" slug="$3" base="${4:-HEAD}" root dir path branch
@@ -85,12 +85,6 @@ oss_worktree_resolve() { # $1=repo-key $2=work-item-id
   path="$root/.worktrees/$2"
   [ -d "$path" ] || { echo "oss: no worktree for '$2' under $root/.worktrees" >&2; return 1; }
   printf '%s\n' "$path"
-}
-
-oss_worktree_list() { # $1=repo-key
-  local root; root="$(_oss_repo_root "$1")" || return $?
-  [ -d "$root/.worktrees" ] || return 0
-  { ls -1 "$root/.worktrees" 2>/dev/null || true; }
 }
 
 # D9: HALT on a dirty worktree; never `--force`. The source retries with --force

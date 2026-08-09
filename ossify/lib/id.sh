@@ -25,6 +25,11 @@ oss_id_parse() {
 }
 
 oss_id_branch_name() { echo "spine/$1-$2"; }
+# The RELATIVE half, kept pure and testable. Callers want the absolute path -
+# see `oss_cmd_release_dir`, which prefixes the ai_workspace root. Handing this
+# relative form to a reader is the defect round-orchestration.md §1 had: every
+# sibling consumer prefixes `oss repo_root ai_workspace`, so one that does not
+# resolves against whatever directory the agent happens to be standing in.
 oss_id_release_dir() { echo "docs/specs/$1"; }
 
 # Work items get their OWN branch namespace. Sharing `spine/<id>-<slug>` would

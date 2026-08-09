@@ -112,8 +112,24 @@ oss_cmd_get() { # $1=jq-expr [$2=state-file]
 }
 
 oss_cmd_state_restore()  { local sf; sf="$(_oss_resolve_state "${1:-}")" || return $?; oss_state_restore "$sf"; }
-oss_cmd_manifest_get()   { _oss_need 1 manifest_get "<key>" "$@" || return 2; oss_manifest_get "$1"; }
+# `oss_cmd_manifest_get` was REMOVED in v0.2.0. Every manifest field already has
+# a dedicated resolver that this raw accessor bypassed: roots via `repo_root`,
+# `well_known_paths.project_state` via `oss_manifest_state_path`, and
+# `.memory_bank` via `harvest_dir`. Those resolvers substitute the
+# `${ai_workspace.root}` tokens; the raw read did not, so
+# `manifest_get '.well_known_paths.project_state'` handed the caller a literal
+# unresolved token string. Zero prose consumers plus a wrong answer for the only
+# fields left to ask about. The LIB function `oss_manifest_get` stays - it is
+# what `_oss_repo_root` is built on.
 oss_cmd_manifest_require(){ oss_manifest_require; }
+# The release's docs directory, ABSOLUTE. Prose consumers are readers who are
+# not standing in a known directory, which is why this resolves the root rather
+# than returning `oss_id_release_dir`'s relative half.
+oss_cmd_release_dir()    {
+  _oss_need 1 release_dir "<release-id>" "$@" || return 2
+  local ai; ai="$(_oss_repo_root ai_workspace)" || return $?
+  printf '%s/%s\n' "$ai" "$(oss_id_release_dir "$1")"
+}
 oss_cmd_work_item_branch(){ _oss_need 2 work_item_branch "<wi-id> <slug>" "$@" || return 2; oss_id_work_item_branch "$1" "$2"; }
 oss_cmd_spine_dir()      { _oss_need 3 spine_dir "<release> <spine> <slug>" "$@" || return 2; oss_id_spine_dir "$1" "$2" "$3"; }
 oss_cmd_branch_name()    { _oss_need 2 branch_name "<spine> <slug>" "$@" || return 2; oss_id_branch_name "$1" "$2"; }
@@ -229,7 +245,13 @@ oss_cmd_repo_root()        { _oss_repo_root "${1:-canonical}"; }
 oss_cmd_worktree_add()     { _oss_need 3 worktree_add "<repo-key> <wi-id> <slug> [base-ref]" "$@" || return 2; oss_worktree_add "$1" "$2" "$3" "${4:-HEAD}"; }
 oss_cmd_worktree_resolve() { _oss_need 2 worktree_resolve "<repo-key> <wi-id>" "$@" || return 2; oss_worktree_resolve "$1" "$2"; }
 oss_cmd_worktree_remove()  { _oss_need 2 worktree_remove "<repo-key> <wi-id>" "$@" || return 2; oss_worktree_remove "$1" "$2"; }
-oss_cmd_worktree_list()    { oss_worktree_list "${1:-canonical}"; }
+# `oss_cmd_worktree_list` was REMOVED in v0.2.0, with its lib function. STATE is
+# the source of truth for worktrees ossify created - `work_item_exec` journals
+# `worktree_path`, and spine-close.md §10 removes each one by reading state, not
+# by enumerating the filesystem. An enumeration verb answers a question no
+# ceremony asks and can disagree with state when it does. Its one real use,
+# orphan detection (a directory on disk with no state record), belongs to
+# `doctor` in v0.3 and should be built there against that requirement.
 
 # Cumulative demo runner (spec §6.1 + companion §4.3). Thin dispatcher
 # wrappers, no judgment logic - resolution (workdir, composition root) lives in

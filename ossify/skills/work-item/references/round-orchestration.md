@@ -20,8 +20,17 @@ The work-item rounds live in the **spine plan document** that `plan-spine`
 authored, under:
 
 ```bash
-oss spine_dir "<release-id>" "<spine-id>" "<spine-slug>"   # docs/specs/<release-id>/<spine-id>-<slug>
+ai_root="$(oss repo_root ai_workspace)"
+spine_dir_abs="$ai_root/$(oss spine_dir "<release-id>" "<spine-id>" "<spine-slug>")"
 ```
+
+**`oss spine_dir` returns a RELATIVE path** (`docs/specs/<release-id>/<spine-id>-<slug>`)
+— it must be prefixed with the ai_workspace root, exactly as every sibling
+consumer in `close` does. Used bare it resolves against whatever directory the
+agent happens to be standing in, which during a round is usually a worktree
+under the canonical repo — so the read silently misses, or worse, finds a
+different project's file. (`oss release_dir <release-id>` returns the release
+level of the same tree already absolute, if that is all you need.)
 
 Read them from there. Two ways to get this wrong, both silent:
 
