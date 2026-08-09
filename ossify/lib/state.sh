@@ -271,7 +271,7 @@ oss_state_mutate() { # $1=state-file $2=op $3=payload-json [$4=mint-spec]
     oss_state_check_version "$sf" || return 6
   fi
   if ! mkdir "$lock" 2>/dev/null; then
-    echo "oss: state locked ($lock exists) - another ceremony is mutating; retry or run 'oss doctor'" >&2
+    echo "oss: state locked ($lock exists) - another ceremony is mutating. If none is, the lock leaked from an interrupted run: 'oss doctor' names the stale-lock remedy once it is >30min old, or rmdir it yourself after confirming no ceremony is running" >&2
     return 3
   fi
   # Critical section runs as a body function invoked in `|| rc=$?` context:
@@ -397,7 +397,7 @@ oss_state_restore() { # $1=state-file ; rc 0 restored-or-already-clean, 1 no bas
     return 0
   fi
   if ! mkdir "$lock" 2>/dev/null; then
-    echo "oss: state locked ($lock exists) - another ceremony is mutating; retry or run 'oss doctor'" >&2
+    echo "oss: state locked ($lock exists) - another ceremony is mutating. If none is, the lock leaked from an interrupted run: 'oss doctor' names the stale-lock remedy once it is >30min old, or rmdir it yourself after confirming no ceremony is running" >&2
     return 3
   fi
   _OSS_RESTORE_APPLIED=""

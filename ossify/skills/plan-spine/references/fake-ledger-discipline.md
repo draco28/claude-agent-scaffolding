@@ -63,10 +63,23 @@ itself is never deleted, same as a demo line.
 
 **`renewed` with no 5th argument is a status annotation only.** It records that
 the fake was re-examined and is still needed — it does **not** move the
-deadline. `expiry_release` stays exactly what it was. This is deliberate: the
-release-close expiry check reads `expiry_release`, not `status`, so a
-`renewed` call with no new expiry changes nothing that check enforces. To
-actually move the deadline, pass the new expiry release as the 5th argument.
+deadline. `expiry_release` stays exactly what it was, so a `renewed` call with
+no new expiry changes nothing the release-close expiry check enforces: the fake
+is caught by the same release it was already going to be caught by. To actually
+move the deadline, pass the new expiry release as the 5th argument.
+
+**The check reads BOTH fields, and it is worth knowing which does what**
+(`oss_reg_expired_fakes`, `lib/registries.sh`):
+
+- **`status` decides what is in scope** — `select(.status == "active" or
+  .status == "renewed")`. A fake moved to `replaced` drops out of the gate
+  entirely.
+- **`expiry_release` decides whether an in-scope fake is expired.**
+
+So `renewed` keeps a fake **in** scope while leaving its deadline alone, which
+is exactly the intent — a re-examined fake is still owed. Reading it as "the
+check ignores `status`" inverts the first half: it suggests `replaced` and
+`renewed` are equivalent to the gate, and they are opposites.
 
 ---
 

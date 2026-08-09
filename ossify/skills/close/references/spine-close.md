@@ -84,6 +84,13 @@ The two facts this step needs are not in state and are recovered, not guessed:
 ```bash
 canonical="$(oss repo_root canonical)"
 
+# $spine_slug is NOT ambient — nothing in state holds it. Recover it from the
+# spine directory's name with the ambiguity guard, exactly as `harvest.md` §2
+# does in this same skill, and hoist it once for the whole ceremony:
+#   spine_dir="$(…the glob…)"; spine_slug="${spine_dir##*/}"; spine_slug="${spine_slug#$spine_id-}"
+# Using it unset under `set -u` aborts the close here, before any of the guards
+# below can report anything.
+
 # DERIVE the spine branch; never read it off HEAD. HEAD is durable git state
 # that a session boundary, a hotfix or a halted close can move.
 spine_branch="$(oss branch_name "$spine_id" "$spine_slug")"

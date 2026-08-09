@@ -145,11 +145,28 @@ oss work_item_status "<wi-id>" active
   with an id and derives its scope from the id's shape — it has no slug and
   cannot re-derive the branch. Skip this call and the merge target is
   unrecoverable.
-- **`target_repo` comes from state, not from you.** Only `canonical` resolves
-  today; an item declaring another repo halts at rc 2 out of the manifest lookup,
-  which is the honest outcome — cross-repo execution is a later release, and the
-  field is already carried so that release changes one resolver rather than every
+- **`target_repo` comes from state, not from you**, and **only `canonical` is a
+  supported execution target today.** Cross-repo execution is a later release;
+  the field is carried now so that release changes one resolver rather than every
   call site.
+
+  **The halt is yours to make — the lib will not make it for you.**
+  `_oss_repo_root` accepts `canonical`, `ai_workspace` and `private_core`, so
+  `oss worktree_add ai_workspace …` **returns rc 0 and creates a worktree inside
+  the AI workspace** (reproduced). `private_core` is unconfigured in a normal
+  manifest and does fail at rc 2, which is what makes the gap easy to miss:
+  two of the three unsupported values behave as documented and the third does
+  not. Assert it:
+
+  ```bash
+  [ "$target_repo" = "canonical" ] \
+    || { echo "halt: work item <wi-id> targets '$target_repo'; only canonical executes in this release"; exit 1; }
+  ```
+
+  Skipped, the failure is quiet and awkward to undo: the work lands in a
+  worktree under the AI workspace, `.worktrees/` appears in the repo that holds
+  the specs, and the spine's merge step then looks for a branch in canonical
+  that was never cut there.
 
 ---
 

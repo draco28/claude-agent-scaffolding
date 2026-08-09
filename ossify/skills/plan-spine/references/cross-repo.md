@@ -63,9 +63,20 @@ install, npm `file:` / `overrides`, as the stack requires.
 Two properties of that override matter at **planning** time, because they change
 what the plan must contain:
 
-- **It is never committed.** Implementation-check and spine close verify its
-  absence from staged and tracked content. Plan for it as environment, not as a
-  file change; do not add "update Cargo.toml" as a work item.
+- **It is never committed.** Plan for it as environment, not as a file change;
+  do not add "update Cargo.toml" as a work item.
+
+  **Nothing verifies this in v0.2 — it is a discipline, not a gate.** Neither
+  impl-check nor spine close reads the override or checks for its absence
+  (verified: neither file mentions it). An earlier draft of this bullet claimed
+  they did, which is the worse failure of the two: a planner who believes a check
+  exists stops looking, and a committed override then travels to every other
+  developer as a silent, machine-specific path. Until cross-repo execution ships
+  with the gate that owns this, **check it yourself before the work-item close**:
+
+  ```bash
+  git -C "$canonical" diff --cached --name-only | grep -E '(Cargo|package|go)\.(toml|json|mod)$' || true
+  ```
 - **The spine-close cumulative demo builds the composition *with* the override**,
   against both repos' post-merge state. So an `auto:` line that builds the
   composition is legitimate and will pass mid-flight — and the *release*-close

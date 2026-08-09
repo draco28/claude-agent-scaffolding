@@ -95,6 +95,41 @@ t_assert_rc 7 "work item status on an unknown id is rc 7"
 t_capture oss_entity_set_release_status "$S" "r9" "closed"
 t_assert_rc 7 "release status on an unknown id is rc 7"
 
+# The block comment above claims "bad enum -> rc 2" for status transitions, but
+# only the SPINE setter was ever asserted for it — the work-item and release
+# setters had their unknown-id arm covered and their enum arm not, so a header
+# promising all three was describing one. Each enum is DIFFERENT (spine adds
+# `abandoned`, work item uses `complete`, release has neither), which is exactly
+# the shape where a copy-paste guard goes unnoticed.
+t_capture oss_entity_set_work_item_status "$S" "$WI" "shipped"
+t_assert_rc 2 "work item status rejects an unknown enum value"
+t_assert_contains "$T_OUT" "planned|active|complete" "...and names the work-item enum, not another entity's"
+# `closed` is valid for a spine and a release, and NOT for a work item. A guard
+# copied from a sibling would accept it here; this is the assertion that sees it.
+t_capture oss_entity_set_work_item_status "$S" "$WI" "closed"
+t_assert_rc 2 "work item status rejects 'closed' - valid for a spine, not for a work item"
+
+t_capture oss_entity_set_release_status "$S" "r0" "shipped"
+t_assert_rc 2 "release status rejects an unknown enum value"
+t_assert_contains "$T_OUT" "planned|active|closed" "...and names the release enum"
+# `abandoned` is valid for a spine and not for a release — the mirror of the above.
+t_capture oss_entity_set_release_status "$S" "r0" "abandoned"
+t_assert_rc 2 "release status rejects 'abandoned' - valid for a spine, not for a release"
+
+# Nothing above may have journaled: every one of those calls was refused.
+t_capture oss_state_read "$S" '[.mutations[] | select(.op=="set_work_item_status" or .op=="set_release_status")] | length'
+t_assert_eq "0" "$T_OUT" "no rejected work-item/release status change journals anything"
+
+# And the accept path, so the guards are not passing by refusing everything.
+t_capture oss_entity_set_work_item_status "$S" "$WI" "complete"
+t_assert_rc 0 "work item status accepts a valid transition"
+t_capture oss_state_read "$S" ".work_items[] | select(.id==\"$WI\") | .status"
+t_assert_eq "complete" "$T_OUT" "work item status actually changed"
+t_capture oss_entity_set_release_status "$S" "r0" "closed"
+t_assert_rc 0 "release status accepts a valid transition"
+t_capture oss_state_read "$S" '.releases[] | select(.id=="r0") | .status'
+t_assert_eq "closed" "$T_OUT" "release status actually changed"
+
 t_capture oss_entity_set_work_item_exec "$S" "$WI" "work/r0.s1.w1-x" "/tmp/wt" "abc123"
 t_assert_rc 0 "work item exec fields recorded"
 t_capture oss_state_replay "$S"

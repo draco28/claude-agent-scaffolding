@@ -26,10 +26,10 @@ spec §5.2 step 3). That one is not this one, and it is not owned by `start`.
 
 ---
 
-## 2. Detection — filesystem probe, binary v0.2-or-absent
+## 2. Detection — filesystem probe, v0.2-or-later or absent
 
 ```bash
-oss critic_detect     # echoes "v0.2" (rc 0) or "absent" (rc 1)
+oss critic_detect     # echoes "v0.2" / "v0.3" / … (rc 0) or "absent" (rc 1)
 ```
 
 The probe walks the known plugin cache directories looking for
@@ -59,7 +59,11 @@ dropped its entry from that registry in v0.2 (ac settlement #1).
    continue to the next block. Do not argue, do not re-offer.
 
 3. **Probe:** `oss critic_detect`.
-   - `v0.2` → step 4.
+   - `v0.2` **or later** (`v0.3`, and anything after it) → step 4. The probe is
+     not binary despite this section's heading: `oss critic_detect` reports the
+     **highest** version it finds, so a v0.3 install prints `v0.3` and a branch
+     testing only for the literal string `v0.2` falls through to the absent arm
+     and skips the critic on a machine that has a newer one.
    - `absent` → warn once (§4) and continue. Do not stall.
 
 4. **Invoke**, in-conversation, via the env-var bridge (§3.1):

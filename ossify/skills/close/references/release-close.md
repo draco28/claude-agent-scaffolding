@@ -335,9 +335,16 @@ oss demo_record release "$rel" "<true|false>" "<line-count>" "<notes>"
 
 **`demo_record` takes five arguments after the scope word**, not two: scope, id,
 `passed`, the line count, and the notes. `passed` is the literal `true` or
-`false` and anything else is rc 2. The scope word here is **`release`** — the
-same verb records `work_item` and `spine` closes, and the scope is what
-distinguishes them in the close record.
+`false` and anything else is rc 2. The scope word here is **`release`**; the same
+verb also records **`spine`** closes (`spine-close.md` §9, step 11).
+
+**Its third scope, `work_item`, has no caller in this release.** The lib accepts
+`work_item|spine|release`, but no ceremony writes one: the work-item layer's
+record of a close is `report.md` plus the item's `status`, and nothing reads a
+`work_item` close record. `close_records` is likewise **write-only in v0.2** —
+the ceremonies append to it and nothing consumes it. Both are Plan C1 groundwork
+for the v0.3 records work, and saying so here is the point: an unread record that
+looks read is how a later reader concludes a check exists.
 
 `release_status` accepts `planned|active|closed` — the release enum has **no
 `abandoned`**, unlike the spine enum §2 reads.

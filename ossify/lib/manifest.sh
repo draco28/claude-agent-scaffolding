@@ -53,7 +53,11 @@ _oss_manifest_resolve() { # $1=ai-root $2=string
   cn="$(jq -r '.canonical.root // empty' "$manifest" 2>/dev/null)" || true
   [ -n "$aw" ] && result="${result//\$\{ai_workspace.root\}/$aw}"
   [ -n "$cn" ] && result="${result//\$\{canonical.root\}/$cn}"
-  result="${result//\$\{HOME\}/$HOME}"
+  # `${HOME:-}`, not `$HOME`: under the dispatcher's `set -u` an unset HOME is a
+  # fatal expansion error raised on the REPLACEMENT side of this substitution,
+  # which aborts every state-resolving verb before it can return a diagnostic.
+  # The sibling in commands.sh was already guarded; these three were not.
+  result="${result//\$\{HOME\}/${HOME:-}}"
   result="${result//\$\{USER\}/$(_oss_current_user)}"
   echo "$result"
 }
@@ -68,7 +72,7 @@ oss_manifest_state_path() {
   manifest="$(oss_manifest_discover)" || { echo "oss: $OSS_MANIFEST_REFUSAL" >&2; return 1; }
   ai_root="$(jq -r '.ai_workspace.root // empty' "$manifest" 2>/dev/null)" || true
   [ -n "$ai_root" ] || { echo "oss: manifest missing ai_workspace.root" >&2; return 1; }
-  ai_root="${ai_root//\$\{HOME\}/$HOME}"
+  ai_root="${ai_root//\$\{HOME\}/${HOME:-}}"
   ai_root="${ai_root//\$\{USER\}/$(_oss_current_user)}"
   routed="$(jq -r '.well_known_paths.project_state // empty' "$manifest" 2>/dev/null)" || true
   if [ -n "$routed" ]; then

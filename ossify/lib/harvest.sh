@@ -76,7 +76,7 @@ oss_harvest_memory_bank_dir() {
   manifest="$(oss_manifest_discover)" || { echo "oss: $OSS_MANIFEST_REFUSAL" >&2; return 1; }
   ai_root="$(jq -r '.ai_workspace.root // empty' "$manifest" 2>/dev/null)" || true
   [ -n "$ai_root" ] || { echo "oss: manifest missing ai_workspace.root" >&2; return 1; }
-  ai_root="${ai_root//\$\{HOME\}/$HOME}"
+  ai_root="${ai_root//\$\{HOME\}/${HOME:-}}"
   ai_root="${ai_root//\$\{USER\}/$(_oss_current_user)}"
   routed="$(jq -r '.well_known_paths.memory_bank // empty' "$manifest" 2>/dev/null)" || true
   if [ -n "$routed" ]; then
