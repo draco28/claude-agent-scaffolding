@@ -2040,6 +2040,53 @@ test("Ossify package write guard leaves primary and other-agent sessions unchang
   }
 });
 
+test("Ossify package write guard rejects Bash redirects into the package (Codex C3)", async () => {
+  const hooks = await createRegisteredOssifyHooks();
+  const sessionID = "ossify-bash-redirect-package-write";
+  await trackOssifySession(hooks, sessionID);
+  const ossifyRoot = fileURLToPath(new URL("ossify", root)).replace(/\/$/, "");
+
+  // > and >> redirects whose target resolves inside the package root.
+  const rejected = [
+    ["relative redirect", `printf x > ossify/lib/state.sh`],
+    ["relative append", `printf x >> ossify/lib/state.sh`],
+    ["absolute redirect", `printf x > ${ossifyRoot}/lib/state.sh`],
+    ["lexical traversal", `printf x > tests/../ossify/README.md`],
+    ["redirect mid-pipeline", `echo y | tee /dev/null > ossify/README.md`],
+  ];
+  for (const [label, command] of rejected) {
+    await assert.rejects(
+      hooks["tool.execute.before"](
+        { tool: "bash", sessionID, callID: `reject-${label}` },
+        { args: { command } },
+      ),
+      /Ossify package is read-only/i,
+      `${label}: ${command}`,
+    );
+  }
+
+  // A quoted ">" is NOT a redirect, and a redirect into the project/external
+  // tree is allowed — both must pass through unchanged (no false positives).
+  const project = await mkdtemp(join(tmpdir(), "opencode-ossify-bash-redirect-"));
+  const projectHooks = await createRegisteredOssifyHooks(project);
+  const projectSession = "ossify-bash-redirect-project";
+  await trackOssifySession(projectHooks, projectSession);
+  const allowed = [
+    `echo ">" unrelated`,
+    `printf x > existing.txt`,
+    `printf x >> new/project-file.txt`,
+  ];
+  for (const [index, command] of allowed.entries()) {
+    const output = { args: { command } };
+    const before = structuredClone(output);
+    await projectHooks["tool.execute.before"](
+      { tool: "bash", sessionID: projectSession, callID: `allow-${index}` },
+      output,
+    );
+    assert.deepEqual(output, before, `allowed: ${command}`);
+  }
+});
+
 test("Ossify package write guard fails closed on malformed target-session calls", async () => {
   const hooks = await createRegisteredOssifyHooks();
   const sessionID = "ossify-malformed-package-write";

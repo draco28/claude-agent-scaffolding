@@ -278,10 +278,18 @@ function auditTokens(command) {
         separated = true;
         continue;
       }
-      tokens.push({ type: "separator" });
+      const doubledSeparator = command[index + 1] === character;
+      // Record the literal separator (">", ">>", ";", "&&", ...) so the package
+      // write guard can match redirection operators without re-tokenizing. This
+      // only ADDS a field; existing consumers test token.type and never read
+      // separator.value (it did not exist before), so behavior is unchanged.
+      tokens.push({
+        type: "separator",
+        value: doubledSeparator ? character + character : character,
+      });
       quoteStart = false;
       separated = true;
-      if (command[index + 1] === character) index += 1;
+      if (doubledSeparator) index += 1;
       continue;
     }
 
@@ -416,6 +424,28 @@ function forbiddenGitVerb(command) {
   }
 }
 
+// Codex C3: detect a Bash output redirection (> / >>) whose target resolves
+// inside the Ossify package root. auditTokens already splits the command
+// quote-aware, so a quoted ">" (e.g. `echo ">" file`) is NOT treated as a
+// redirect. Returns the offending target as-written, or undefined.
+// This mirrors the edit/write guard, not a full OS sandbox: tee/heredoc and
+// dynamically-substituted names remain the documented accepted boundary
+// (INSTALL.md "not an OS/process sandbox").
+async function packageRedirectTarget(command, directory, root) {
+  if (!root) return;
+  const tokens = auditTokens(command);
+  for (let index = 0; index < tokens.length; index += 1) {
+    const token = tokens[index];
+    if (token.type !== "separator") continue;
+    if (token.value !== ">" && token.value !== ">>") continue;
+    const next = tokens[index + 1];
+    if (next?.type !== "word" || !next.value) continue;
+    const target = await canonicalTarget(resolve(directory, next.value));
+    if (containsPath(root, target)) return next.value;
+  }
+  return;
+}
+
 export function createRuntime({
   selected,
   registeredCommands,
@@ -510,6 +540,18 @@ export function createRuntime({
         if (verb) {
           throw new Error(
             `ossify-implementer-agent cannot run git ${verb}`,
+          );
+        }
+        // Codex C3: a Bash redirect (> / >>) into the Ossify package bypasses
+        // the edit/write guard above (e.g. `printf x > $OSS_ROOT/lib/x.sh`).
+        const redirectTarget = await packageRedirectTarget(
+          command,
+          directory,
+          await ossifyRoot,
+        );
+        if (redirectTarget) {
+          throw new Error(
+            `ossify-implementer-agent cannot redirect to ${redirectTarget}: Ossify package is read-only`,
           );
         }
       }
