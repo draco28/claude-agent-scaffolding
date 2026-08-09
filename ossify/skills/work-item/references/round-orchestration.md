@@ -105,8 +105,26 @@ writes the branch it actually created into state.
 
 ## 3. Per work item in the round
 
-In **declared decomposition order** — the order the plan lists them, never the
-order returns arrive.
+**Before spawning anything: confirm the round's specs exist and parse.**
+`plan-spine` may legitimately defer a later round's specs until that round starts
+(`plan-spine/references/spec-authoring.md` §3), so for round *K > 1* the spec may
+not have been authored yet:
+
+```bash
+spec="$spine_dir_abs/work-<wi-id>/spec.md"
+[ -f "$spec" ] || { echo "halt: no spec for <wi-id> - re-enter /plan-spine for this round"; exit 1; }
+oss verify_acs "$spec" >/dev/null || { echo "halt: <wi-id>'s spec parses to no ACs"; exit 1; }
+```
+
+**This lane does not author specs** — it dispatches workers who read them. A
+missing spec means the round was dispatched before it was planned, so the fix is
+to re-enter `plan-spine` for this round, not to write one here. Checked now, the
+recovery is one skill invocation; left to the worker's Gate 2 it comes back as a
+gaps-mode return that reads like an under-specified work item rather than a
+skipped planning step.
+
+Then, in **declared decomposition order** — the order the plan lists them, never
+the order returns arrive.
 
 ```bash
 target_repo="$(oss get '.work_items[] | select(.id=="<wi-id>") | .target_repo')"

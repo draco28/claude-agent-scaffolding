@@ -359,3 +359,28 @@ command bodies at template-render time and silently corrupts them.
 
 The only argument is the id. When it is missing, emit one line, list what is
 open, and stop (§2).
+
+---
+
+## 10. The close summary
+
+**The close summary is this ceremony's final assistant message** — the last thing
+you emit when the scope's steps are done. It is a message, **not a file**: this
+release ships no close-summary artifact, the same deferral §8 records for handoff
+authoring. The durable records are `retrospective.md`, `report.md`, and the state
+writes; the summary is how a human reads the run without opening them.
+
+It carries, in this order:
+
+1. **What closed** — the id and scope, and whether every step ran or the ceremony
+   halted partway.
+2. **Gate outcomes** — each blocking gate with its verdict, source-tagged the way
+   the step reported it (`[AC]`, `[report cross-check]`, `[rule]`).
+3. **Anything a step told you to record here.** Several steps route their output
+   to the summary rather than to a file: `harvest.md` §2's missing-report gaps,
+   §5's C2 referrals, and §8's harvest outcomes. If a step says "record it in the
+   close summary," this is where it lands.
+4. **What the operator must do next**, if anything.
+
+Named here rather than in each step so the phrase has one definition — several
+references route to "the close summary" and none of them owns it.

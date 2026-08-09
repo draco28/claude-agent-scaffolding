@@ -100,9 +100,14 @@ Three things that feel like gaps and are not. All three go in the report.
    gate 3's dirty or missing worktree — which is a gap because it makes the run
    itself invalid.
 
-And the timing rule that subsumes all three: **gaps-mode is a pre-flight-only
-exit.** Once pre-flight passes, the only terminal mode is `complete`. A late
-gaps-mode return strands staged work with no report explaining it.
+And the timing rule that subsumes all three: **gaps-mode is a GATE-PHASE exit,
+and the gate phase is SKILL.md §3 + §4** — pre-flight and the RED gate, which
+runs only on the success path out of pre-flight and can still stop the run.
+**Once §4 passes, the only terminal mode is `complete`.**
+
+The line sits after §4 rather than after §3 because of what it protects: nothing
+is staged until §5, so a gate-phase exit strands nothing, while a late gaps-mode
+return strands implemented work with no report explaining it.
 
 ---
 

@@ -1,7 +1,10 @@
 # Pre-flight
 
-Depth for SKILL.md §3. Pre-flight is the only gate that can stop the run before
-work starts, and the only place a `gaps-surfaced` return is legal.
+Depth for SKILL.md §3. Pre-flight is the first half of the **gate phase** — the
+part of the run that can still stop before any work starts. The second half is
+SKILL.md §4's RED gate, which runs only on the success path out of here and can
+also return gaps-mode. **§3 and §4 together are where a `gaps-surfaced` return is
+legal; from §5 onward it is not** (SKILL.md §10).
 
 It re-runs **from scratch on every dispatch.** On a re-dispatch the handoff has
 grown a clarifications section; reading it end to end again is exactly how those

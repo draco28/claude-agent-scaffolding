@@ -79,7 +79,9 @@ it is never the way in.
 
 A work item whose `report.md` is missing is **named, not skipped silently** — a
 `complete` item with no report is a gap in the record, and the close summary is
-where it belongs.
+where it belongs. (**The close summary** is the ceremony's final assistant
+message, defined in `close/SKILL.md` §10 — a message, not a file. This reference
+routes three things there; that section is what they route to.)
 
 ---
 

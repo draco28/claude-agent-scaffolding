@@ -26,12 +26,19 @@ scope here — record it as `next` on the journey map instead.
 
 ## 2. How to derive the cut
 
-The cut is a **marking exercise on the journey map**, not a fresh brainstorm.
+The cut is a **validation of the marks already on the journey map**, not a fresh
+brainstorm and not a second marking pass. `journey-map.md` §3 marked every step
+`skeleton` / `next` / `later`, and §5 has already harvested the non-`skeleton`
+ones into the feature map. **Re-marking here would run after that harvest and
+silently disagree with it.**
 
-1. Take the mapped journey (`references/journey-map.md`).
-2. Ask: *"Which contiguous set of steps is the minimum for the named actor to
-   enter through the real entry point and reach a real outcome?"*
-3. Mark exactly those steps `skeleton`. Everything else is `next` or `later`.
+1. Take the mapped journey (`references/journey-map.md`) with its marks.
+2. Ask of the `skeleton` set: *"Is this the contiguous minimum for the named actor
+   to enter through the real entry point and reach a real outcome?"*
+3. **Correct the map if the answer is no** — go back to `journey-map.md` §3, fix
+   the marks there, and re-run its §5 harvest for anything that changed. Do not
+   patch the set here; the map is the record, and a step demoted after the harvest
+   has to reach the feature map or it is simply lost.
 4. Read the marked path back as one sentence: *"At Release 0 close, a `<actor>`
    can `<action>` and `<observable outcome>`."* If you cannot say that sentence
    without an "and then I manually…" clause, the cut is wrong.

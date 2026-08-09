@@ -109,9 +109,30 @@ and without the behaviour is testing nothing, and a vacuous green here is worse
 than a failure — it ships as evidence.
 
 Anything else that goes green on the first run is a third case, and it is not
-legitimate: it means the work item was already done, and that is a RED-gate rc 1
-the gate should have caught. Return gaps-mode with the skip-escape question
-(SKILL.md §4) rather than quietly counting it as complete.
+legitimate — but **"the work item was already done" is usually the wrong
+diagnosis**, and gaps-mode is the wrong response.
+
+Already-done is mostly ruled out by arithmetic: if the gate probed this AC and
+returned rc 0, the AC's own command **failed** at gate time, minutes ago. Two
+causes actually fit:
+
+- **The test is misaimed or tautological.** It asserts something that was always
+  true — it imports the module and checks it imports, it asserts on a fixture it
+  built itself, it matches a substring present in the error message too. This is
+  §3's pitfall territory and it is the common case. Break the production code,
+  re-run, and if the test still passes you have found it.
+- **The gate probe and the new test disagree.** The probe ran a different command,
+  a different working directory, or a different fixture state than your test. Read
+  both side by side; the difference is the finding.
+
+**Do not return gaps-mode here.** By this point earlier ACs are implemented, so a
+gaps-mode return strands that work with no report explaining it — the exact
+failure `returns.md` §4 names, and out of bounds anyway: gaps-mode is a gate-phase
+exit (SKILL.md §3 + §4) and the loop is past it. Instead: stop, diagnose which of
+the two it is, record the finding in `## 8. Blockers and advisories`, then proceed
+or halt under the structural-surprise rule (SKILL.md §5). A first-run green you
+have diagnosed and written down is an honest result; one you routed into a late
+gaps-mode return is a stranded work item.
 
 ---
 

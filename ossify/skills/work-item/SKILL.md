@@ -159,9 +159,16 @@ A clean pre-flight emits **no** "pre-flight passed" announcement. It just
 continues to §4. Full gate detail, the four gap archetypes, and what is
 deliberately *not* checked in this version are in `references/pre-flight.md`.
 
-**Gaps-mode is a pre-flight-only exit.** Once §3 passes, the only terminal mode is
-`complete` — a mid-run surprise goes in the report, not into a late gaps return
+**Gaps-mode is a GATE-PHASE exit, and the gate phase is §3 + §4.** Pre-flight and
+the RED gate are one gate in two steps: §4 runs only on the success path out of
+§3, and it can still stop the run. **Once §4 passes, the only terminal mode is
+`complete`** — a mid-run surprise goes in the report, not into a late gaps return
 (§10).
+
+The boundary is where it is because of what a late gaps return costs: after §5
+starts, earlier ACs are already implemented, so returning gaps-mode strands that
+work with no report explaining it. Nothing is staged before §4 finishes, which is
+exactly why the gate can still exit there and not after.
 
 ---
 
@@ -349,7 +356,8 @@ gaps-mode is *not* for are in `references/returns.md`.
   that needs changing is a replan, and that is the orchestrator's call.
 - **Relative paths to worktree files.** Your cwd is not the worktree (§5).
 - **`cat`-ing the handoff or the spec** instead of using Read (§3).
-- **Returning gaps-mode after pre-flight has passed** (§3, §5).
+- **Returning gaps-mode after the GATE PHASE has passed** — the gate phase is
+  §3 **and** §4, so a RED-gate rc 1 may still return it; §5 onward may not (§5).
 - **Auto-cleaning a dirty worktree** — `git stash`, `git reset`, `git checkout --`
   are all forbidden. A dirty worktree is a gap you report, never one you tidy: the
   uncommitted work in it may be the only copy.

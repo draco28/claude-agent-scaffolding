@@ -71,6 +71,15 @@ the thin path is still `skeleton`; an easy step off it is not.
 Unmarked steps are a bug in the map — every step gets a mark before you leave
 this block.
 
+**This block owns the marking — all three marks, including `skeleton`.** The
+skeleton cut (`references/skeleton-cut.md`, SKILL.md §6) does not mark; it
+**validates** the `skeleton` set you produce here and reads it back as one
+sentence. The ownership matters because §5's harvest runs *before* the cut and
+keys on these marks: deferred to §6, either nothing is marked `skeleton` yet — so
+the harvest sweeps future-skeleton steps into the feature map, violating its own
+"do not `feature_add` skeleton steps" rule — or the harvest slips past its stated
+trigger. One station marks; the next checks.
+
 ---
 
 ## 4. Worked example (pulse-trader, condensed)

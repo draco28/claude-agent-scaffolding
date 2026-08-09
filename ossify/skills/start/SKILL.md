@@ -148,9 +148,9 @@ Full grammar + worked example in `references/journey-map.md`.
 
 ## 6. Skeleton-cut
 
-Mark the **thinnest coherent path** across the journey map. Read it back as one
-sentence: *"At Release 0 close, a `<actor>` can `<action>` and `<observable
-outcome>`."*
+**Validate** §5's `skeleton` marks as the **thinnest coherent path** — §5 marks,
+this step checks, and a correction goes back to §5 (its harvest already ran).
+Read it back: *"At Release 0 close, a `<actor>` can `<action>` and `<outcome>`."*
 
 This answer defines **Release 0**, **not the MVP** — the rename from the legacy
 "MVP cut" question exists to kill that terminology collision. Release 0 is
