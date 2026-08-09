@@ -1,0 +1,11 @@
+{
+  "scores": {
+    "class_correct": 5,
+    "horizontal_caught": 5,
+    "flesh_bone_reclassified": 4,
+    "no_over_ceremony": 5,
+    "rationale_cited": 5
+  },
+  "pass": true,
+  "notes": "Declares bone matching expected_class, correctly refuses to over-trip rung 1 (citing the \"positive evidence of a missing journey\" caveat and \u00a73's fourth contrast row), decides on rung 3 with a named bones-vocabulary category, keeps the enabler verdict/admission judgments separate, and emits \u00a72's \"creates a bone\" rationale shape verbatim; every citation (class-declaration \u00a71/\u00a72/\u00a73/\u00a74, bone-touch-judge \u00a71 rc-semantics, SKILL.md \u00a77c veto direction) was verified against the real reference files, the only soft spot being that the reclassify-on-touch-hit consequence is implied (\"rc 0 = hit\", \"not the deciding rung\") rather than stated outright, and the header's \"ADMITTED\" label is unnecessary noise for a non-enabler though it is self-disclaimed."
+}

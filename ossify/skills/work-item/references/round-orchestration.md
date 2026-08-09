@@ -1,0 +1,249 @@
+# Round orchestration — the execution lane
+
+Depth for SKILL.md §1, Mode B. This is the **caller's** half of the contract: the
+lane that walks one spine's rounds, spawns a worktree per work item, dispatches
+one worker per item, and owns every boundary the implementer is forbidden to
+cross — the clarification loop, the commit, the merge.
+
+It runs in the orchestrator's session, holding the state lock (spec §9.2). **An
+implementer never runs any of it**, and `Task` is on the implementer's NEVER list
+precisely so it cannot try.
+
+Read this when you are driving a spine. If you are the worker executing one
+handoff, this file is context, not instruction — your contract is SKILL.md §3-§9.
+
+---
+
+## 1. Where the rounds come from
+
+The work-item rounds live in the **spine plan document** that `plan-spine`
+authored, under:
+
+```bash
+oss spine_dir "<release-id>" "<spine-id>" "<spine-slug>"   # docs/specs/<release-id>/<spine-id>-<slug>
+```
+
+Read them from there. Two ways to get this wrong, both silent:
+
+- **Not from `releases[].spine_dag`.** That field is `plan-release`'s
+  **inter-spine** DAG — it sequences whole *spines*. Reading it here yields spine
+  ids where work-item ids are needed, and the mistake surfaces as an empty or
+  nonsensical round list, not as an error.
+  `plan-spine/references/dag-rounds.md` draws the line: same idea, finer
+  altitude, different owner.
+- **Not re-derived here.** The rounds are planning output. If reality disagrees
+  with the plan, that is a replan — go back to `plan-spine`, re-record, and come
+  back. Improvising a new order at execution time produces a spine that is wrong
+  in a way nobody can see later (`dag-rounds.md` §7).
+
+**No state field holds the work-item rounds.** `work_items[]` carries
+`{spine, title, target_repo, status, created_at}`, plus the
+`{branch, worktree_path, base_sha}` this lane writes — no dependency key, no
+round key. Persisting the round structure as state is **deferred**; until it
+lands the plan document is the only record. Say so if a user asks where the
+rounds are stored; do not imply the read is machine-backed.
+
+---
+
+## 2. Before round 1 — cut **and check out** the spine integration branch
+
+Once per spine, before any work-item branch exists:
+
+```bash
+canonical="$(oss repo_root canonical)"
+[ -z "$(git -C "$canonical" status --porcelain)" ] || { echo "canonical is dirty - halt"; exit 1; }
+base_branch="$(git -C "$canonical" rev-parse --abbrev-ref HEAD)"
+spine_branch="$(oss branch_name "<spine-id>" "<spine-slug>")"
+git -C "$canonical" checkout -q -b "$spine_branch"
+```
+
+Four things here, each load-bearing:
+
+**`oss repo_root canonical`, never a bare `<canonical>` placeholder.** The verb
+reads `.canonical.root` from the pairing manifest and fails rc 2 rather than
+defaulting to the working directory. A placeholder that a reader fills in by hand
+is how a spine gets built in whichever repo the session happened to start in.
+
+**`checkout -b`, not `branch`.** `git branch` creates the ref and leaves you
+standing where you were. Canonical then stays on its previous branch for the
+whole spine, and every consequence is rc 0:
+
+| Step | With the checkout | With `git branch` only |
+|---|---|---|
+| Work-item merge (`close`) | lands on the spine branch | lands on the *previous* branch, rc 0 |
+| Spine-close merge (`close`) | a real merge | "Already up to date", rc 0 |
+| `oss worktree_remove` | deletes a merged branch | deletes it too — it *is* merged, into the wrong target |
+| Cumulative demo | measures the spine's work | measures a tree assembled by accident, green |
+
+Nothing in that column reports a failure. **Canonical stays parked on
+`$spine_branch` for the duration of the spine**, and spine close is what moves it
+off.
+
+**Record `base_branch` in the plan doc's spine-context section**, and carry it
+into every handoff (`handoff-contract.md` §2). Spine close switches back to it
+before merging the spine branch in. No state field holds it, and guessing the
+default branch merges a spine into the wrong line of development. If it cannot
+be resolved later, that close **halts**.
+
+**The slug is not in state.** Spines store `name`, work items store `title`;
+neither is a kebab slug, and nothing persists one. `plan-spine` minted the spine
+slug when it created the spine directory — **recover it from that directory
+name** rather than re-kebabing `name`, so the branch and the directory cannot
+drift apart. For work items there is no such anchor, which is exactly why §3
+writes the branch it actually created into state.
+
+---
+
+## 3. Per work item in the round
+
+In **declared decomposition order** — the order the plan lists them, never the
+order returns arrive.
+
+```bash
+target_repo="$(oss get '.work_items[] | select(.id=="<wi-id>") | .target_repo')"
+wt="$(oss worktree_add "$target_repo" "<wi-id>" "<wi-slug>" "$spine_branch")"
+branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD)"
+oss work_item_exec "<wi-id>" "$branch" "$wt" "$(git -C "$wt" rev-parse HEAD)"
+oss work_item_status "<wi-id>" active
+```
+
+- `oss worktree_add` derives and cuts `work/<wi-id>-<slug>` internally and echoes
+  the worktree's absolute path. Its **stdout is its return value** — capture it,
+  do not let anything else write to that stream.
+- **Read the branch back off the worktree; do not re-derive it.** The name git
+  actually checked out is the only version that cannot be wrong.
+- **`oss work_item_exec` is load-bearing beyond bookkeeping.** It persists
+  `branch`, `worktree_path` and `base_sha` into state, and the work-item close
+  layer reads `branch` back from there to pick its merge target. Close is invoked
+  with an id and derives its scope from the id's shape — it has no slug and
+  cannot re-derive the branch. Skip this call and the merge target is
+  unrecoverable.
+- **`target_repo` comes from state, not from you.** Only `canonical` resolves
+  today; an item declaring another repo halts at rc 2 out of the manifest lookup,
+  which is the honest outcome — cross-repo execution is a later release, and the
+  field is already carried so that release changes one resolver rather than every
+  call site.
+
+---
+
+## 4. Author the handoff
+
+One `handoff.md` per work item, authored **against
+`references/handoff-contract.md`** — its twelve sections, in order, no template
+rendering. It goes in the work item's own directory, beside the `spec.md`
+`plan-spine` wrote:
+
+```text
+<ai-workspace>/docs/specs/<release-id>/<spine-id>-<spine-slug>/work-<wi-id>/handoff.md
+```
+
+**Do not pre-place a `report.md`.** The implementer authors it, and its own
+contract tells it there is no placeholder to fill and to prefer Edit over Write on
+a file that already exists. An orchestrator-created empty file puts the worker in
+conflict with its own binding prose at the moment it writes the report. Nothing in
+its pre-flight expects the file to exist.
+
+---
+
+## 5. Dispatch
+
+```text
+Task(subagent_type="ossify:implementer-agent", prompt=<invocation block naming the absolute handoff path>)
+```
+
+**Never pass the Task tool's `isolation: "worktree"`.** The worktree already
+exists — you created it in §3, in a different repo, at a path the handoff names.
+Letting the harness make its own would run the item somewhere the merge never
+looks and silently discard the work.
+
+The prompt names the absolute handoff path and nothing else load-bearing. Every
+behavioural rule the worker needs is in its system prompt (SKILL.md) and in the
+handoff; restating rules in the invocation block creates a third copy that drifts
+from both.
+
+---
+
+## 6. Handling the return
+
+Exactly two shapes come back (`references/returns.md`). Route on `mode`.
+
+**`gaps-surfaced`** — pre-flight stopped the run and no work was done.
+
+1. Surface the gaps to the user **grouped blocking-first**; nice-to-haves ride
+   along so one round-trip answers both.
+2. Capture the answers.
+3. **Append a `## Clarifications` section to the handoff doc.** Not to the
+   invocation block, not to the spec. The worker re-reads the handoff end to end
+   on every dispatch, and that re-read is exactly how the resolutions reach it —
+   a fresh subagent has no memory of the previous attempt.
+4. Re-dispatch.
+
+**The 3-iteration cap is orchestrator-side and binding** (spec §6): after three
+total dispatches of one work item with no `complete` return, **stop**. Surface the
+accumulated gap list and escalate to the user — the item is under-specified and
+another round-trip will not fix it. **The worker never counts iterations**; it
+cannot, because each dispatch is a fresh context that has no idea it is the third.
+The count lives here or nowhere.
+
+**`complete`** — the execution loop ran to the end. Hand the item to the work-item
+close layer (`close`), which runs the gate, commits in the worktree, and merges
+`work/<wi-id>-<slug>` into the spine branch you are parked on.
+
+`complete` fires **even when verification failed** — `mode` reports the loop, not
+the AC outcomes. Read `summary` and the report before deciding anything; a
+`complete` return is not a green gate, and the gate is close's to run, not yours.
+
+---
+
+## 7. The round barrier
+
+**Every work item in a round reaches `complete` before the next round starts** —
+strict-order verification, spec §6. A work item still `active` at the barrier
+**halts the round**; name it and stop.
+
+The barrier is what the DAG's edges bought. Round *K+1*'s items were declared to
+depend on round *K*'s, so starting one early means building against a seam that is
+not merged yet — which fails as a confusing compile error inside a worker that has
+no way to know why.
+
+Items *within* a round are parallel by construction, and dispatching them
+concurrently is fine. Their merges are not parallel: each one lands on the spine
+branch through close, one at a time, and a conflict halts (never auto-resolve).
+
+---
+
+## 8. What is not covered by any test
+
+Stated plainly so nobody infers coverage that does not exist:
+
+**The dispatch loop, the 3-iteration cap and the round barrier are prose
+contracts with no executable surface.** Nothing asserts that a fourth dispatch
+does not happen, or that a round waits for its stragglers. No eval fixture
+exercises them either.
+
+The mechanical half *is* covered — `tests/test-worktree.sh` asserts that a
+worktree spawned off the spine branch starts at the spine branch's tip, that two
+work items in one spine get distinct branches and distinct worktrees, and that a
+work-item branch merged while canonical is parked on the spine branch is
+**reachable from the spine branch afterwards** (with a negative control proving
+the assertion fails when canonical is parked anywhere else).
+
+A bash test asserting agent behaviour here would be testing a fixture, not the
+contract. The honest statement is that the judgment half is uncovered.
+
+---
+
+## 9. Anti-patterns
+
+- **`git branch` without the checkout** (§2). The whole failure chain is rc 0.
+- **Reading rounds from `releases[].spine_dag`**, or re-deriving them (§1).
+- **Skipping `oss work_item_exec`** because the worktree path is already in
+  scope. Close cannot recover the branch without it (§3).
+- **Passing `isolation: "worktree"` to Task** (§5).
+- **Appending clarifications anywhere but the handoff** (§6).
+- **Counting iterations in the worker**, or expecting it to (§6).
+- **Pre-placing `report.md`** (§4).
+- **Starting round *K+1* with an `active` item behind you** (§7).
+- **Committing inside the worktree yourself.** The implementer stages; the
+  work-item close layer commits, after its gate. A commit here is a commit that
+  skipped the gate.

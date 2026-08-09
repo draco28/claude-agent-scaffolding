@@ -1,0 +1,11 @@
+{
+  "scores": {
+    "class_correct": 5,
+    "horizontal_caught": 5,
+    "flesh_bone_reclassified": 5,
+    "no_over_ceremony": 5,
+    "rationale_cited": 5
+  },
+  "pass": true,
+  "notes": "Declares `flesh` matching the fixture's expected_class, walks all four rungs in order with correct rule content (rung 1's \"positive evidence of a missing journey\" guard, rung 2's rc 0/1/2 semantics with rc 2 explicitly not folded into clean, bone-touch \u00a75 \"change nothing, write nothing\"), refuses the inflation trap by name (\u00a73 row 3 + \u00a77 anti-pattern), and states the rationale in class-declaration \u00a72's exact flesh shape; the unprompted \"Admission: ADMITTED\" header is slightly noisy for a non-enabler spine but the output itself correctly scopes admission gating to `internal-enabler` only, so it does not conflate the two judgments."
+}

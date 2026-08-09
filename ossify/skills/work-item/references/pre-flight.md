@@ -1,0 +1,158 @@
+# Pre-flight
+
+Depth for SKILL.md §3. Pre-flight is the only gate that can stop the run before
+work starts, and the only place a `gaps-surfaced` return is legal.
+
+It re-runs **from scratch on every dispatch.** On a re-dispatch the handoff has
+grown a clarifications section; reading it end to end again is exactly how those
+resolutions reach you. Do not cache, do not skim because "I read this last time" —
+in a fresh subagent there is no last time, and in a Mode A re-invocation the file
+has changed underneath you.
+
+---
+
+## 1. The four hard gates
+
+### Gate 1 — the handoff is complete
+
+Read it with the **Read tool** against the absolute path. Not `cat`. The
+orchestrator audits your tool-call log; a Read entry is evidence that you read the
+file, a bash pipeline is evidence that a shell did.
+
+Five things must resolve:
+
+| Field | Fails how |
+|---|---|
+| Worktree absolute path | Nothing to `git -C`; every later step is guesswork |
+| Declared branch | Gate 3 has nothing to compare against |
+| Spec path | No ACs, so nothing to build or verify |
+| Verification commands | SKILL.md §6 has nothing to run |
+| Constraints | See below |
+
+Constraints must carry **both** `git_policy: STAGE-not-commit` **and** the return
+JSON shape. Either one missing makes the handoff malformed, and **that is itself a
+gap** — return gaps-mode naming the missing field.
+
+The temptation is to shrug and proceed: you know the policy, it is in your own
+body. Resist it. A handoff that never stated the boundary may have been produced
+by something that does not know the boundary exists, and the rest of that handoff
+is then equally suspect.
+
+### Gate 2 — the spec reads and its ACs parse
+
+Read the spec end to end (Read tool, absolute path), then:
+
+```bash
+oss verify_acs "<abs spec path>"
+```
+
+One TSV row per `auto:` AC — `label <tab> command <tab> expectation` — in
+**declared order**. That order is the working order for the whole run.
+
+If the spec visibly has AC lines and this prints nothing, the AC grammar is
+malformed (a missing backtick pair around the command, an ASCII `->` where the
+grammar wants the arrow, a missing `expected:`). That is a gap. Do **not**
+hand-parse the lines yourself and carry on — you would be building against ACs the
+orchestrator's own gate cannot see, and the mismatch surfaces at close instead of
+now.
+
+`user:` lines belong to the cumulative demo and are `close`'s to run. Skip them.
+
+### Gate 3 — the worktree is real, clean, and on the declared branch
+
+```bash
+git -C "<worktree-abs>" status --porcelain          # MUST print nothing
+git -C "<worktree-abs>" rev-parse --abbrev-ref HEAD # MUST equal the declared branch
+```
+
+Three ways this fails, all gaps:
+
+1. **Not a worktree** — the path does not exist or git refuses it. The spawn step
+   did not run, or the worktree was removed under you.
+2. **Wrong branch** — usually a stale checkout left by an aborted earlier run.
+3. **Dirty** — *any* line of `--porcelain` output counts: modified, staged, or
+   untracked alike.
+
+`oss work_item_branch "<work-item-id>" "<slug>"` prints the branch name the id
+grammar implies, which is a cheap cross-check on what the handoff declared.
+
+**Never clean it yourself.** No `git stash`, no `git reset`, no `git checkout --`.
+Whatever is in that worktree may be the only copy of it, and deciding its fate is
+the orchestrator's call, not yours. Report the dirt; do not sweep it.
+
+### Gate 4 — no blocking ambiguity in the spec
+
+The bar, exactly: *"can a competent implementer pick a unique correct
+implementation from this spec alone?"*
+
+- **Yes** → not a gap, even if you would personally have specified it differently.
+- **No** → a gap, phrased as a concrete question someone can answer in a sentence.
+
+This is a **shallow** scan for blockers, not a spec review. Literal markers help
+as a first pass (`TBD`, `decide later`, `unclear`, `or similar`, a bare `?`), but
+the real signal is structural: an AC referencing a name the spec never defines, a
+threshold with no value, a comparison with no baseline.
+
+Each gap entry carries three fields, and all three are load-bearing:
+
+- `section` — where it lives: `"spec §3 — decisions"`, `"AC-2"`,
+  `"pre-flight — worktree state"`.
+- `question` — a concrete answerable sentence. *"Should a duplicate heading get a
+  numeric suffix, or should the run exit nonzero?"* — **not** *"AC-2 unclear"*,
+  which tells the reader only that you stopped.
+- `severity` — `blocking` (no implementation possible until it is answered) or
+  `nice-to-have` (a defensible default exists; the answer would improve the
+  result, not unblock it).
+
+A `nice-to-have`-only pre-flight does **not** stop the run. Proceed, take the
+defensible default, and record both the default and the reasoning in the report.
+
+---
+
+## 2. The four gap archetypes
+
+| Archetype | Looks like | The question to ask |
+|---|---|---|
+| **Undefined contract** | An AC names a function, flag, format or error type the spec never defines | *"What exactly does `<name>` return on an empty input — an empty list, or an error?"* |
+| **Conflicting dependency** | Two sections require incompatible things; or the spec assumes a sibling work item that this round has not merged | *"Section 4 pins the reader to streaming, AC-3 expects the whole document in memory — which wins?"* |
+| **Stale worktree** | Gate 3's dirty / wrong-branch / missing outcomes | *"The worktree has uncommitted changes to `<path>` — should they be kept, or should the worktree be respawned?"* |
+| **Missing referenced file** | The spec cites a path, fixture, or ADR that does not exist | *"The spec cites `<path>` as the fixture — it is not in the worktree; where should it come from?"* |
+
+The first two are spec gaps and the orchestrator resolves them with the user. The
+last two are environment gaps and the orchestrator usually resolves them alone.
+Both go through the same return shape.
+
+---
+
+## 3. What a clean pre-flight looks like
+
+Nothing. **A clean pre-flight emits no "pre-flight passed" message** — no summary
+of what you read, no checklist rendered back at the caller. You simply continue
+into the RED gate.
+
+The announcement is worse than noise. In Mode B it lands in the orchestrator's
+transcript as a status update it did not ask for and cannot act on; in Mode A it
+trains the user to skim your output. The evidence that pre-flight ran is the
+tool-call log — two Reads and two `git -C` probes, in order.
+
+---
+
+## 4. Deliberately not checked in this version
+
+**Blocker recall is omitted, and this section exists so that omission is visible
+rather than silent.**
+
+The predecessor behaviour: before filing a gap that reads like *"X is missing, why
+was this not done?"*, read the memory bank's `tech-debt.md` index and, if the gap
+is already a tracked deferral, surface it as *known* rather than as a fresh
+blocker.
+
+It is omitted here because the file it reads does not exist yet. That index is
+maintained by `/defer`, and `/defer` does not ship in this plugin yet. Describing a
+read that resolves to nothing would be worse than describing nothing: it produces
+an agent that reports "checked known issues — none found" on a file that was never
+written, which is a confident false negative.
+
+So: **every gap you surface in this version is a fresh gap.** If the orchestrator
+already knows about it, the orchestrator says so on the re-dispatch. When the
+deferral index ships, this section is where recall gets wired in.

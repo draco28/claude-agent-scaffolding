@@ -35,6 +35,30 @@ csa_enum_codex_project_targets() {
   fi
 }
 
+csa_enum_opencode_project_targets() {
+  local root="$1"
+  if [[ -L "$root/package.json" ]]; then
+    printf 'info: symlink at %s not followed\n' "$root/package.json" >&2
+  elif [[ -f "$root/package.json" ]]; then
+    printf '%s\n' "$root/package.json"
+  fi
+
+  [[ -e "$root/.opencode" || -L "$root/.opencode" ]] || return 0
+  find "$root/.opencode" \
+       \( -path "$root/.opencode/node_modules" -o -path "$root/.opencode/audits" \) -prune -o \
+       -type f \
+       -not -path "$root/.opencode/package.json" \
+       -not -path "$root/.opencode/package-lock.json" \
+       -not -path "$root/.opencode/bun.lock" \
+       -not -path "$root/.opencode/.gitignore" \
+       -print 2>/dev/null
+  find "$root/.opencode" \
+       \( -path "$root/.opencode/node_modules" -o -path "$root/.opencode/audits" \) -prune -o \
+       -type l -print 2>/dev/null | while read -r sl; do
+    printf 'info: symlink at %s not followed\n' "$sl" >&2
+  done
+}
+
 csa_enum_project_targets() {
   local root="$1"
   if [[ -d "$root/.claude" ]]; then
@@ -50,6 +74,7 @@ csa_enum_project_targets() {
   fi
   find "$root" -name 'CLAUDE.md' -type f 2>/dev/null
   [[ -f "$root/.claude-plugin/marketplace.json" ]] && printf '%s\n' "$root/.claude-plugin/marketplace.json"
+  csa_enum_opencode_project_targets "$root"
   csa_enum_codex_project_targets "$root"
 }
 
@@ -94,19 +119,21 @@ csa_enum_resolve_plugin_path() {
 
 csa_enum_targets_all() {
   local root="$1"
-  csa_enum_project_targets "$root"
-  while read -r plugin_name; do
-    [[ -z "$plugin_name" ]] && continue
-    local plugin_path
-    if ! plugin_path="$(csa_enum_resolve_plugin_path "$plugin_name")"; then
-      printf 'finding: PROVENANCE-002 plugin %s enabled but not installed at expected path\n' "$plugin_name" >&2
-      continue
-    fi
-    find "$plugin_path" -type f 2>/dev/null | while read -r f; do
-      local rel="${f#$plugin_path/}"
-      printf '@plugin:%s:%s\t%s\n' "$plugin_name" "$rel" "$f"
-    done
-  done < <(csa_enum_enabled_plugins "$root")
+  {
+    csa_enum_project_targets "$root"
+    while read -r plugin_name; do
+      [[ -z "$plugin_name" ]] && continue
+      local plugin_path
+      if ! plugin_path="$(csa_enum_resolve_plugin_path "$plugin_name")"; then
+        printf 'finding: PROVENANCE-002 plugin %s enabled but not installed at expected path\n' "$plugin_name" >&2
+        continue
+      fi
+      find "$plugin_path" -type f 2>/dev/null | while read -r f; do
+        local rel="${f#$plugin_path/}"
+        printf '@plugin:%s:%s\t%s\n' "$plugin_name" "$rel" "$f"
+      done
+    done < <(csa_enum_enabled_plugins "$root")
+  } | awk -F '\t' '!seen[$NF]++'
 }
 
 csa_enum_paranoid_candidates() {

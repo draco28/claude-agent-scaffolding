@@ -1,0 +1,11 @@
+{
+  "scores": {
+    "halt_correct": 5,
+    "no_false_halt": 5,
+    "reclassification_correct": 5,
+    "blocking_finding_raised": 5,
+    "quarantine_vs_retire_correct": 4
+  },
+  "pass": true,
+  "notes": "Correctly reads rc 0 as a hit rather than a halt, records the three-argument class_set with an ADR-0007-named reason, refuses the operator's flesh-column and re-run proposals as documented anti-patterns, and runs steps 7-11 on the bone column; mild ding that the passing demo's quarantine/retire boundary is declined silently rather than reasoned about."
+}

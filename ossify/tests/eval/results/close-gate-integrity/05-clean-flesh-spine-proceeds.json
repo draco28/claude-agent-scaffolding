@@ -1,0 +1,11 @@
+{
+  "scores": {
+    "halt_correct": 5,
+    "no_false_halt": 5,
+    "reclassification_correct": 5,
+    "blocking_finding_raised": 5,
+    "quarantine_vs_retire_correct": 5
+  },
+  "pass": true,
+  "notes": "Correctly proceeds through every remaining core row with the right reasons, reads touch_check's no-match as rc 1 = clean per spine-close.md 6 rather than merely asserting cleanliness, and declines class_set/veto_add/halt on cited grounds; no invented mechanisms."
+}

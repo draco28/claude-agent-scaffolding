@@ -1,0 +1,12 @@
+{
+  "scores": {
+    "verdict_correct": 5,
+    "inspector_caught": 4,
+    "verb_outcome": 5,
+    "consumer_rule": 5,
+    "no_false_reject": 5,
+    "before_after_evidence": 5
+  },
+  "pass": true,
+  "notes": "Verdict REJECT \u2014 F3 matches the fixture's expected_verdict/expected_reason exactly, and the consumer rule is worked in full (both admission legs, \"the UI\" rejected as a capability area not a spine id, one-release-ahead cap with the empty-next_sketch fail direction, spine_list/next_sketch verification reads, and the feature_add return path \u2014 all verifiable against skills/plan-spine/SKILL.md \u00a78a/\u00a78b/\u00a711 and references/demo-authoring.md \u00a74/\u00a74.1). The three unexercised criteria are consistent rather than contradicted: F4 n/a is scoped to the correct performance/reliability/cost trigger, the internal-vs-journey distinction is stated as \"no actor-to-outcome journey / completion evidence is that an artifact exists\", and the extra \"claims product value\" flag is grounded in the fixture text and in the \u00a74.1 last row, so it is not a false reject; inspector phrasing is only implicitly honored (refusing to add a user: line to manufacture value), hence 4. Two immaterial nits: F5 is reported as \"unstated\" where the \u00a78b template allows only pass|fail, and the quoted \u00a74.1 row uses \"eventually\" while \"someday\" is the \u00a711 wording."
+}

@@ -1,0 +1,499 @@
+---
+name: plan-spine
+description: Plan an ossify feature spine — decompose into 1-5 work items, identify rounds via a DAG, author specs per round, offer grill-me for bone spines only, and author the cumulative-demo criteria under the journey-line floor (inspector phrasing banned), with fake-ledger discipline and a mechanical citation fold-in. Use this when the user wants to plan a spine, decompose a spine into work items, run /plan-spine, author demo criteria, or start building a spine. Requires a release planned via /plan-release. Do NOT use for release selection (use /plan-release) or spec-core onboarding (use /start).
+---
+
+# plan-spine
+
+You are the conductor of ossify's **spine planning** — the ceremony that turns one
+selected spine into a buildable plan: work items, rounds, specs, the fakes it
+admits, and the lines it contributes to the cumulative product demo.
+
+Bash helpers behind the `oss` dispatcher do the bookkeeping (state CRUD, id
+minting, touch-surface matching, ledger writes). The judgment work — how the spine
+decomposes, which dependency edges are real, whether a demo line is a journey or
+an inspection, whether a fake is admissible — happens **here, in conversation**.
+Do not stuff reasoning steps inside `bash -c '...'` wrappers.
+
+---
+
+## 1. Overview
+
+Where it sits: `start` (spec-core onboarding) → `plan-release` (spines, classes,
+exit criteria, DAG) → **`plan-spine`** (you are here) → execution → `close`.
+
+This skill re-anchors the predecessor stack's `planning-vertical-slice` with four
+deliberate changes — changes, not omissions:
+
+| Then | Now | Why |
+|---|---|---|
+| 4-5 work items, anti-microscope floor | **1-5 items**; a thin spine of 1-3 is legitimate and expected | Item count follows decomposition. Class is the only declared classification — there is no size or weight axis to defend a count against |
+| All specs authored upfront | **Per-round spec authoring** where the DAG allows; the critic still sees the full spine plan | Round 3's spec written before round 1 lands is written twice |
+| grill-me offered at three gates for every slice | **Offered for bone spines only** (plus any fix-up replan) | Ceremony scaled to what the spine moves |
+| Demo criteria declared at roadmap time | **Authored here**, under the journey-line floor (§8) | Roadmap time has no implementation context; a demo line written then is a wish |
+
+When invoked, work §3 through §9 below in order — each numbered block is one step
+of the conversation. **This skill plans; it does not execute:** worktree spin-up,
+implementer dispatch, verification, and merge belong to the execution engine
+(`work-item`, whose lane is `skills/work-item/references/round-orchestration.md`); the cumulative-demo *run*, the harvest, and the retro belong to
+`close`. You author the demo *criteria* here; you never run them.
+
+---
+
+## 2. When to use
+
+**Trigger phrases (description-match):**
+
+- `/plan-spine <spine-id>` (slash command — see §10 for the `$ARGUMENTS` bridge)
+- "plan the spine", "decompose r1.s2", "break this spine into work items",
+  "author the demo criteria", "let's start building this spine"
+
+**Do NOT auto-invoke when:**
+
+- No release exists — that is `/plan-release`. A spine without a release has no
+  class, no DAG position, and no ledger budget to author against. Selecting
+  spines, phrasing exit criteria, and declaring a class all live there too; you
+  **read** the class here and never re-derive it.
+- The project was never onboarded — that is `/start`.
+- The user wants to close a spine or run the cumulative demo — that is `close`.
+- The named spine already has work items and the user did not explicitly ask for
+  a replan. Ask first: *"Replan `<spine-id>` from scratch, or amend it?"*
+
+---
+
+## 3. Pre-flight
+
+All ossify lib calls go through the `oss` dispatcher (`ossify/bin/oss`, on `$PATH`
+because Claude Code adds each plugin's `bin/` automatically; the dispatcher's bash
+shebang forces a bash runtime under it regardless of the calling shell — required
+because Claude Code's Bash tool runs zsh by default on macOS). Call form:
+`oss <subcommand> [args...]` resolves to `oss_cmd_<subcommand>`. Never `source` the
+lib files directly from a skill body — under zsh `BASH_SOURCE` is unset and the
+libs break. Use `oss help` for discovery.
+
+**Three probes, all fail-fast.**
+
+```bash
+if ! oss state_path >/dev/null 2>&1; then
+  printf '%s\n' "ossify requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first."
+  exit 0
+fi
+bones="$(oss get '.bones | length' 2>/dev/null)" || bones=""
+rels="$(oss get '.releases | length' 2>/dev/null)" || rels=""
+printf 'bones=%s releases=%s\n' "${bones:-<no state>}" "${rels:-<no state>}"
+```
+
+The literal tokens `/init-workspace` and `/pair-workspace` are load-bearing — do
+not paraphrase the refusal.
+
+1. **Manifest** — `oss state_path` echoes the path whether or not the file exists,
+   so it proves the *manifest*, not the project.
+2. **Project** — `bones` empty (no state file) or `0` means the project was never
+   onboarded. Refuse: *"No ossify project state here — run `/start` first."*
+3. **A release exists** — `rels` empty or `0` means nothing has been planned.
+   Refuse with: *"No release planned — run `/plan-release` first; spine planning
+   reads the spine's class, its DAG position, and the release's ledger budget."*
+   Author nothing, create no work item, stop.
+
+Then resolve the target spine and **fail loudly on an unknown id** — do not guess
+the user's intent from a name:
+
+```bash
+spine="<spine-id from $ARGUMENTS>"
+class="$(oss get ".spines[] | select(.id == \"$spine\") | .class")"
+rel="$(oss get ".spines[] | select(.id == \"$spine\") | .release")"
+name="$(oss get ".spines[] | select(.id == \"$spine\") | .name")"
+if [ -z "$class" ]; then
+  printf '%s\n' "No spine '$spine'. Planned spines:"; oss spine_list; exit 0
+fi
+```
+
+**Test the output, not the rc.** `oss get` is `jq -r` without `-e`: a `select`
+that matches nothing exits **0** with an empty string, so `oss get … || …` never
+fires on an unknown id and would silently plan against a typo. Only an unreadable
+state file makes `oss get` itself fail — which is what probes 2 and 3 above catch.
+
+`class` is `bone`/`flesh` as `plan-release` recorded it — §7 reads it and nothing
+here re-derives it. `rel` is the spine's release (§8 reads its ledger budget).
+`name` carries the `[internal]` marker `.class` cannot express — §8b F3 reads it.
+
+The probes resolve differently, and only the first is manifest-proof:
+`oss state_path` reads the manifest and nothing else, so an exported
+`$OSS_STATE_FILE` cannot satisfy it. `oss get` routes through `_oss_resolve_state`
+(precedence `explicit-arg > $OSS_STATE_FILE > manifest`) and *can* be — a stale
+export from an unrelated session makes probes 2 and 3 read *that* project. The
+resolver announces on stderr when the env var overrides the manifest; heed that
+line. `oss doctor` gives a full state read-out at any point.
+
+---
+
+## 4. Decomposition
+
+Propose a decomposition into **1-5 work items**, surfaced as a numbered list with
+one-line summaries. Each item names: what it delivers, the paths it expects to
+touch, its dependencies on sibling items, and its **target repo**.
+
+**The count is an outcome, not a target.** 1-5 is a *bound*, and the lower end is
+ordinary: a spine that is genuinely one coherent change is one work item. The old
+stack's "4-5 items" norm and its anti-microscope rule no longer act as **floors** —
+do not split a coherent change into five to look thorough, and do not pad a thin
+spine. (They remain sane *advice* against the opposite failure: a 1500-LOC mega
+item behind one bullet is still one bullet hiding four items.)
+
+**4a. Record each item.**
+
+```bash
+oss work_item_add "$spine" "<title>" [target_repo]      # prints r1.s2.w1, …
+```
+
+`target_repo` defaults to `canonical`; pass the private-side repo (e.g.
+`private_core`) for an item that lands there. **Each work item targets exactly one
+repo** — an item that spans two repos is two items. Full rules in
+`references/cross-repo.md`. An unknown spine id exits **7** and writes nothing.
+
+**4b. Iterate.** Surface the draft, attach one firm recommendation with a
+one-line reason cited to the spine's plan or the lean MASTER-SPEC, and ask:
+*"Accept as-is, refine (which items?), or restart?"* Loop until the user accepts.
+
+**4c. Re-run the bone-touch check on the decomposed path set.** Release planning
+judged a coarse plan; decomposition is the first moment the real file set exists.
+
+```bash
+if oss touch_check src/domain/order.rs src/ui/ticket.rs; then
+  : # rc 0 = HIT (prints "bone <adr>" / "risk_gate <name>" per match)
+else
+  : # rc 1 = clean. rc 2 = could NOT check (stderr says why) - never read as clean
+fi
+```
+
+**The rc is inverted on purpose: 0 means a path matched, 1 means clean.** Reading
+it backwards inverts the whole judge. Capture **stdout as well as the rc** — the
+matched surface names are what you record.
+
+A hit on a `flesh`-class spine is **drift**, not a formality: the declared class
+was made against a plan that did not include this path. Reclassify and record,
+then tell the user what changed:
+
+```bash
+oss class_set "$spine" bone "bone-touch at decomposition: <ADR-ref> (<matched surface>)"
+```
+
+A **risk-gate** hit additionally attaches that gate's control checklist
+(`oss get '.risk_gates'`) to the spine's close path as required work — harm is
+orthogonal to reversibility.
+
+Full worked example in `references/decomposition.md`.
+
+---
+
+## 5. Round identification (DAG)
+
+Run a strict-layer topological sort over the declared item-level dependencies:
+round *K* holds every item whose dependencies are fully covered by rounds 1…*K-1*
+(`> Round 1: w1, w2 (parallel) / Round 2: w3 (depends on w1)`). This is the
+**work-item** DAG — the coarser inter-spine DAG belongs to `plan-release`.
+**Interrogate every edge**, because a false edge silently serializes the spine:
+loosening that violates a declared dependency is refused by name, tightening is
+always allowed, empty rounds collapse and renumber, and a cross-repo pair is
+always a real edge in one order (the public port lands in `canonical` first, then
+the private adapter in `private_core` against it). Full method — the edge tests,
+the false-edge table, cycles — in `references/dag-rounds.md`; the repo dimension
+in `references/cross-repo.md`.
+
+---
+
+## 6. Spec authoring
+
+Author a spec per work item into the spine's directory under the release:
+
+```text
+<ai-workspace>/docs/specs/<release-id>/<spine-id>-<kebab-slug>/work-<work-id>/spec.md
+```
+
+Ids are used **verbatim** — ossify's ID grammar has one owner (spec §9.2), and
+directories, branch names (`spine/<spine-id>-…`, `work/<work-item-id>-…`), paths, and
+ledger keys all derive from it without transformation.
+
+**Per round, where the DAG allows.** Round 1's specs are authored now; a later
+round's spec may wait for its round to start, because the rounds ahead of it will
+have taught you something. What is **not** deferred is the **plan**: the critic
+and the user see the full spine plan (all items, all rounds, all demo lines) even
+when only round 1's spec text exists.
+
+**Citation fold-in is a mechanical step, not a ceremony.** Every citation resolves
+against the current target set — lean MASTER-SPEC sections, bones registry ADRs,
+prior releases' increments; Release 0 specs cite the spec and the bones only.
+Re-verification is **mandatory across every live spine spec after any bone
+change**. Full rules in `references/citation-foldin.md`.
+
+**Adversarial pass (optional, at the full plan).** Probe `oss critic_detect`
+(warn-and-proceed on `absent`), then invoke architect-critic through its **only**
+contract — the *exported* env-var bridge, one quoted absolute path, `--close`
+inside the string, then a bare plugin-qualified skill call:
+
+```bash
+export ARCHITECT_CRITIC_ARGS="--spec \"<absolute path to the spine plan>\" --close"
+```
+
+```text
+Skill(architect-critic:critiquing-spec)
+```
+
+There is **no** `target=` / `depth=` / `artifact_path=` parameter; all three fail
+silently, resolving the wrong artifact at the wrong depth. Full grammar,
+sections, and the audit's placement in `references/spec-authoring.md` §6.
+
+---
+
+## 7. Grill-me gate — bone spines only
+
+The gate fires at two moments: once **after the decomposition settles** (§4), and
+again on **any fix-up replan** (a round that failed verification and is being
+re-planned). Both are offers, never auto-invocation.
+
+**It is offered for `bone` spines only, and skipped for `flesh`.** Read the class
+from state (§3) — do not re-derive it, and do not offer the gate because the spine
+"feels architectural". Adding grill gates to a flesh spine is ceremony inflation,
+and ceremony inflation is what trains people to skip checklists wholesale.
+
+```text
+Skill(ai-mentor:grill-me)
+```
+
+Bare and plugin-qualified. There is no `oss` probe for ai-mentor — offer it, and
+if the skill cannot be resolved in this host treat it as absent: skip silently and
+continue. grill-me is enrichment, not a contract. On **yes**, loop back to §4 with
+whatever it surfaced; on **no**, record the skip and proceed.
+
+---
+
+## 8. Demo authoring — the journey-line floor
+
+Demo criteria are authored **here**, at planning time, with implementation context
+in hand. The spine's contribution joins the **cumulative** ledger: every `auto:`
+line it adds is re-run at every future spine close, and every `user:` line it adds
+is walked by a human at release close. You are spending runtime against the
+release's ledger budget — set at `plan-release`, read here with
+`oss get ".releases[] | select(.id == \"$rel\") | .ledger_budget"` — and attention
+against the release-close walkthrough. Author accordingly.
+
+### 8a. The floor rules (binding)
+
+- **Every spine MUST contribute ≥1 demo line** to the cumulative ledger. A spine
+  that changes nothing a demo can observe is not a spine.
+- **A user-facing spine MUST contribute ≥1 `user:` journey line** = a **verb +
+  observable outcome** (an action the user performs for value). Inspector phrasing
+  ("inspect", "view", "open the record/file/schema") is banned — `oss ledger_add_user`
+  rejects the obvious case mechanically (rc 2); phrase for value.
+- **An internal spine** (rare; declared at release planning) **may contribute
+  `auto:` lines only**, and is admitted **ONLY** if it names the committed
+  user-facing spine that consumes it, scheduled in the **current or next release**
+  (the one-release-ahead cap); else it returns to the feature map. It **cannot
+  claim product value**.
+- **A deepening pass claiming a measured quality** (performance, reliability,
+  cost) **MUST state before/after evidence** in its demo contribution.
+- **Every `auto:` line binds to a runnable command + a declared expected**
+  (`exit:<n>` | `contains:<str>`) at authoring time — a line that can't state its
+  command doesn't enter the ledger.
+- **Release 0 MUST contribute ≥1 automated golden-journey `auto:` line** — one
+  command driving the release's exit-criterion journey end to end, so the journey
+  is a standing regression test and not a walkthrough someone performs once
+  (`start` derives the skeleton cut against this bar and hands the obligation
+  here). The r0 spine owning the journey's entry point authors it; any other r0
+  spine either finds it already in the ledger (`oss ledger_active_auto`) or names
+  the spine that will. Release 0 does not close without it.
+
+### 8b. Emit the floor read-out before you write anything
+
+Judge the spine's whole contribution once, out loud, against all six floors, and
+name the floor that decides the verdict:
+
+```text
+Demo contribution — <spine-id> "<name>"   [user-facing | internal]
+  F1  at least one line        pass|fail       <n> lines
+  F2  user: journey line       pass|fail|n/a   "<the line>"
+  F3  enabler names consumer   pass|fail|n/a   <consumer spine-id> in <release-id>
+  F4  measured-quality proof   pass|fail|n/a   before <x> → after <y>, via <command>
+  F5  auto: lines bind         pass|fail       <command> → exit:<n>|contains:<str>
+  F6  r0 golden-journey auto:  pass|fail|n/a   <command> drives <actor> → <outcome>
+  Verdict: ACCEPT | REJECT — <the floor that decided it>
+```
+
+`n/a` is legitimate and specific: **F2** is `n/a` only for an admitted internal
+spine; **F3** only for a user-facing spine; **F4** only for a spine claiming no
+measured quality; **F6** only for a spine outside Release 0. `n/a` is never a way
+to skip a floor that applies.
+
+**A REJECT means no `oss ledger_add_*` call happens.** The contribution goes back:
+re-phrase (F2), name a consumer or return the spine to the feature map (F3), add
+the measurement (F4), state the command (F5), or author the golden-journey line
+(F6). Do not record a line and plan to fix it later — the ledger is cumulative,
+and a bad line is re-run forever.
+
+### 8c. Judging a `user:` line
+
+**The test: who performs this action, and why?** A user acts *for the value* —
+places a trade, exports a report, cancels an order. A developer inspects a
+schema, views a record, confirms a table exists — to check an artifact is there.
+If the line only makes sense with a developer and a debugger behind it, it is not
+a journey line, whatever verb it uses. And **the ban is on the action, not on the
+outcome**: every journey line ends in something the user can *see*, so a line
+whose outcome is visible is **meeting** the floor, not violating it. Rejecting it
+because "see" or "appears" occurs is the **false-reject** failure mode, as
+damaging as letting an inspector line through — it pushes authors toward vague
+lines with no observable half at all. Read the **verb the user performs**.
+
+Full depth — the banned shapes, the worked accept/reject pairs (both directions),
+and the exact scope of the mechanical backstop — in
+`references/demo-authoring.md` §3.
+
+### 8d. Record the accepted lines
+
+```bash
+oss ledger_add_user "$spine" "cancel a working order from the order book and see it drop out of the working list" "the order leaves the working list and its margin is released"
+oss ledger_add_auto "$spine" "a cancelled order round-trips the matching engine" "cargo test --test cancel_order" "exit:0"
+```
+
+Each call **prints the minted line id** (`d7`, `d8`, …) — capture it. Amendments
+(§8e) are keyed by that id, not by the line's text.
+
+`ledger_add_auto` validates `<expected>` as `exit:<n>` or `contains:<str>` and
+exits **2** on anything else. The grammar has **no comparison form**: a threshold
+("p50 under 40ms") lives inside the command, which exits non-zero when the
+threshold is missed — that is how F4's after-number becomes machine-checkable.
+
+**The mechanical floor is a backstop, not the judge.** `oss ledger_add_user`
+lowercases the text, trims leading whitespace, and rejects it only if it *begins
+with* `inspect `, `view `, or `open ` (rc 2). The check is **prefix-only**: *"Lets
+the user open the settings file"* is accepted by the lib and is still an inspector
+line; so is *"review the generated schema"*, *"confirm the audit table exists"*,
+*"check that the record was written"*. **The judgment is yours** — the lib catches
+the obvious case so a typo cannot smuggle one past you, and nothing more. A rc 0
+from `ledger_add_user` is not a verdict.
+
+Full floor rules, the internal-spine admission procedure, and worked accept/reject
+pairs in `references/demo-authoring.md`.
+
+### 8e. Amendments
+
+A spine's plan may declare that it **supersedes** or **retires** accumulated lines
+whose flow this spine changes — with a reason. They are **recorded now and
+applied at this spine's close**, so a sibling spine closing first still runs the
+line. `oss ledger_unplan <line-id> <spine>` clears this spine's one if replanned:
+
+```bash
+oss ledger_supersede d3 "$spine" "the order ticket replaced the CLI entry point"
+oss ledger_retire    d5 "$spine" "the CSV export flow was removed by this spine"
+```
+
+Full rules, and why quarantine is not a planning verb, in
+`references/demo-amendments.md`.
+
+---
+
+## 9. Fake-ledger discipline
+
+Selective fakes reduce **breadth, not truth**. Any work item that introduces or
+retains a shell or fake records a fake-ledger entry — no exceptions, including
+fakes inherited from the skeleton and left in place:
+
+```bash
+oss fake_add "<boundary>" "<real|fake|deferred>" "<reason>" "<replacement trigger>" "<expiry release>"
+```
+
+The channel is validated against `real|fake|deferred` (exit **2** otherwise). Both
+the **replacement trigger** (a condition, never a date) and the **expiry release**
+are mandatory: a fake whose trigger has fired, or whose expiry release closes
+without a replacement, becomes a **blocking release-close finding**. Deferred
+truth never becomes permanent silently.
+
+Feed the trigger back into planning so the replacement competes for selection:
+
+```bash
+oss feature_add "<replace the <boundary> fake>" "<the value the real one unlocks>" "<bone|flesh>" fake-replacement
+```
+
+**Banned fakes** — never admissible, whatever the schedule pressure: faking the
+core hypothesis or the actor's outcome · bypassing the real entry point or a
+load-bearing integration seam · replacing a safety / money / identity / ordering
+invariant · hiding failure signals or requiring manual state repair · a fake whose
+semantics differ from its planned replacement · a speculative abstraction added
+solely to make something mockable. AI providers are volatile external boundaries
+and always sit behind a product-owned swappable interface — which does **not**
+license speculative interfaces around unrelated internal algorithms.
+
+Full list with the reasoning and worked cases in
+`references/fake-ledger-discipline.md`.
+
+---
+
+## 10. Slash-command interaction
+
+The `/plan-spine` slash command (`commands/plan-spine.md`) exports the raw
+argument string as `$ARGUMENTS` via an env-var bridge. **Parse `$ARGUMENTS` in
+bash; never reference `$1` / `$2` / `$N`** — Claude Code substitutes positional
+tokens in command bodies at template-render time and silently corrupts them.
+
+The only argument is the spine id (`r1.s2`). When it is absent, list the planned
+spines (`oss spine_list`) and ask which one — never pick for the user, and never
+infer a spine from a name when the id missed (§3).
+
+---
+
+## 11. Anti-patterns (do not do these)
+
+- **An inspector-phrased journey line.** "Inspect the schema", "view the record",
+  "open the generated file". The lib catches the prefix case only; you catch the
+  rest (§8d).
+- **Rejecting a valid journey line because its outcome is visible.** The ban is on
+  the action, not the outcome (§8c). False rejects push authors toward lines with
+  no observable half at all.
+- **Applying a 4-5 item floor.** 1-5 is a bound. A 2-item spine is a normal spine,
+  not an under-planned one.
+- **Offering grill-me on a flesh spine.** Bone only, plus fix-up replans (§7).
+- **A measured-quality claim with no before/after evidence.** "Twice as fast",
+  closing green on the pre-existing suite, measures nothing. State the baseline
+  and the bound, and bind both to a command.
+- **Closing Release 0 with its core journey as a human walkthrough only.** r0
+  owes the ledger one automated golden-journey `auto:` line (F6, §8a).
+- **An internal spine with no named consumer** ("the UI will consume it someday"
+  is the exact phrasing the rule exists to reject — name the spine and the
+  release, current or next, or it goes back to the feature map), **or one that
+  claims product value** in the exit criteria or contributes a `user:` line.
+- **Recording a demo line you intend to fix later.** The ledger is cumulative; a
+  bad line is re-run at every future close.
+- **Deleting a demo line.** Supersede or retire it with a reason; archived, never
+  deleted (§8e).
+- **Reading `oss touch_check`'s exit code backwards**, or folding its rc 2 into
+  "clean". rc 0 = matched, 1 = clean, 2 = could not check (§4c).
+- **Re-deriving the spine's class.** `plan-release` declared it; you read it.
+- **Authoring the release's exit criteria, selecting spines, or running the
+  cumulative demo here.** Those belong to `plan-release` and `close`.
+- **Letting this body exceed 500 lines.** Hard cap; ossify's premise is a small
+  front-loaded skill surface — move depth into `references/`.
+
+---
+
+## 12. Notes on tool boundaries
+
+- **You** (Claude reading this body) make every judgment call: how the spine
+  decomposes, whether a dependency edge is real, whether a `user:` line is a
+  journey or an inspection, whether an enabler's consumer is committed and in
+  range, whether a deepening pass's evidence is evidence, whether Release 0's
+  golden-journey line really drives the journey, and whether a fake is admissible.
+- **`oss`** (the dispatcher over `lib/*.sh`) handles mechanical state only:
+  `work_item_add`, `ledger_add_auto`, `ledger_add_user`, `ledger_active_auto`,
+  `ledger_supersede`, `ledger_retire`, `ledger_unplan`, `fake_add`,
+  `fake_status`, `feature_add`, `touch_check`, `class_set`, `spine_list`, `get`,
+  `critic_detect`, `state_path`, `doctor`. It holds no judgment —
+  `ledger_add_user`'s prefix check is a typo guard, not the journey-line floor.
+- **`ai-mentor:grill-me`** and **`architect-critic:critiquing-spec`** are invoked
+  as unmodified peer skills, bare and plugin-qualified. Neither gains a new
+  interface here.
+- **Peer entry skills:** `start` owns spec-core, the bones registry, and the
+  journey map; `plan-release` owns spine selection, exit criteria, the inter-spine
+  DAG, the class declaration under the critic veto, and the ledger budget; `close`
+  owns the demo run, the harvest, and the retro.
+- **The user** is the final authority. You surface the decomposition, the rounds,
+  the specs, the floor read-out, and every fake you propose to admit; they accept,
+  edit, or override. A floor a user overrides is recorded with their reason.

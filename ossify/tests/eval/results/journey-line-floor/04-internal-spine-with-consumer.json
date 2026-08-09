@@ -1,0 +1,12 @@
+{
+  "scores": {
+    "verdict_correct": 5,
+    "inspector_caught": 4,
+    "verb_outcome": 4,
+    "consumer_rule": 5,
+    "no_false_reject": 5,
+    "before_after_evidence": 5
+  },
+  "pass": true,
+  "notes": "ACCEPT matches expected_verdict, and the F3 reasoning is exactly the rule: it separates Judgment 1 (internal-ness read from the [internal] marker + class_set reason, not re-derived) from Judgment 2 (a committed user-facing spine \"quote ticket\", not a capability area or an \"eventually\", inside the inclusive one-release-ahead cap), citing the correct \u00a74.1 session-replay row and contrasting the two rejected shapes \u2014 plus it names the correct fail direction for an empty next_sketch. F4 is correctly n/a on the \"fires on the claim\" logic (\u00a75's last row), and F2 is correctly n/a per \u00a72's stated exception with the right consequence if a user: line ever appeared (\u00a74.1 last row), so the unexercised inspector-phrasing and verb+outcome criteria are consistent though not demonstrated (scored 4, not 5). No false reject: the output resists flipping to REJECT on F3 and correctly quarantines the genuinely uncertain point as a conditional F5 (pass*) on unstated commands, which is the only defensible open item given the terse fixture. All cited section numbers, table rows, and command shapes verified against the real demo-authoring.md \u2014 nothing fabricated."
+}

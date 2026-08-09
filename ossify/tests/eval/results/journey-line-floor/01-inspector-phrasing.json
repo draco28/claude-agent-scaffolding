@@ -1,0 +1,12 @@
+{
+  "scores": {
+    "verdict_correct": 5,
+    "inspector_caught": 5,
+    "verb_outcome": 5,
+    "consumer_rule": 4,
+    "no_false_reject": 5,
+    "before_after_evidence": 4
+  },
+  "pass": true,
+  "notes": "Verdict REJECT matches expected_verdict and is decided on F2 with verifiable citations (\u00a73.1 developer-inspects-a-schema test, \u00a73.2 both \"artifact inspection\" and \"artifact existence as the outcome\" banned shapes), it correctly demotes the \u00a73.5 rc-2 prefix backstop to non-evidence and enforces the REJECT-implies-no-ledger-call consequence, it self-clears \u00a73.3 and offers a replacement line whose outcome is visibly observable (so no false-reject tendency), and the untested F3/F4 criteria are marked n/a with exactly the reasons \u00a72 permits."
+}
