@@ -111,10 +111,26 @@ ai_root="$(oss repo_root ai_workspace)"
    **`/pair-workspace`** — do not paraphrase them.
 2. **`oss doctor` must be green on `schema` and `replay`.** A close *mutates*
    state; running one over a drifted state compounds the drift into the record
-   that every later ceremony reads. The remedy to name is **`oss state_restore`**,
-   which rebuilds the live state from base + journal. `warn:` lines (a held lock,
-   a pending amendment, an outstanding fake) are not blockers here — they are
-   inputs the spine and release layers act on.
+   that every later ceremony reads.
+
+   **The remedy differs by which line failed — echo doctor's own line rather
+   than substituting a fixed one:**
+
+   | doctor line | Remedy |
+   |---|---|
+   | `fail: replay` | **`oss state_restore`** — rebuilds live state from base + journal |
+   | `fail: schema` | **`oss migrate`** — the state predates this build |
+   | `fail: state` | **`oss init <name>`** — this project was never initialised |
+
+   Naming `state_restore` for all three wedges the close on a schema failure:
+   against a v1/v2 state it prints `restore: state is already clean - nothing to
+   do` at **rc 0**, leaves `schema_version` untouched, and `oss doctor` fails
+   identically on the retry. The operator loops. `oss migrate` is the verb that
+   moves the version, and doctor already names it in its own output — which is
+   why echoing the line beats paraphrasing it.
+
+   `warn:` lines (a held lock, a pending amendment, an outstanding fake) are not
+   blockers here — they are inputs the spine and release layers act on.
 3. **Resolve every path to an absolute one up front, and never `cd`.** The
    manifest walk starts at `$PWD` and the dispatcher re-runs it on every call that
    takes no explicit state path, so a `cd` mid-ceremony silently re-points the

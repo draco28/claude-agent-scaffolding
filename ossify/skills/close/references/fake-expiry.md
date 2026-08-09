@@ -144,6 +144,31 @@ differently, which is why the spec names both.
 Do not paraphrase a trigger into something easier to answer, and do not answer it
 from the fake's `reason` — the reason says why the fake was acceptable *then*.
 
+### When the trigger is not answerable from the walkthrough
+
+The paragraph above assumes a **product-observable** trigger, which is what the
+authoring discipline asks for. Two kinds routinely arrive anyway, especially on a
+project that predates the discipline:
+
+**Externally-anchored** — *"when the vendor ships a sandbox"*, *"when the upstream
+API leaves beta"*. Nothing in the walkthrough answers it, because the condition
+lives outside the product. Check the external fact directly and **record the check
+with its date and source** in the release retro's §7. Unchecked is not the same as
+not fired; an unchecked external trigger is an open item, not a pass.
+
+**Undecidable** — *"when performance becomes a problem"*, *"once the design
+settles"*, *"when we have real users"*. There is no observation that closes these,
+which means the fake can never expire by trigger and only the expiry release will
+ever catch it.
+
+**The rule: an unverifiable trigger is itself a finding.** Do not guess, and do
+not wave it through as "not fired" — "not fired" is a claim you cannot support.
+Surface it, and let the operator take one of the two unblocks in §5. **Renewal
+requires rewriting the trigger into something checkable** — that rewrite is the
+actual work, and a renewal that carries the same undecidable string forward has
+renewed nothing. If the operator cannot state an observation that would fire it,
+that is strong evidence the fake needs replacing rather than renewing.
+
 ---
 
 ## 5. The only two unblocks

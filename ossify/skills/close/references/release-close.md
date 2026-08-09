@@ -134,6 +134,16 @@ Once the walk exceeds the user's tolerance, spec §6.1 allows unchanged features
 to rotate through spot-checks. **That is an explicit recorded choice, and the
 default is the full walk.** This layer does not make it silently.
 
+**Where "recorded" lands.** There is no verb and no state field for it, so the
+record is the **release retrospective's walkthrough section** (§6): name which
+feature groups were spot-checked rather than fully walked, and the tolerance that
+drove it. Write it at the moment of the decision, not reconstructed at §6 — by
+then the walk is over and "which ones did we skip" is a memory test.
+
+Unrecorded, the rotation is indistinguishable from a full walk to every later
+reader, and the next release close has no way to rotate *different* features —
+which is the entire point of a rotation.
+
 ---
 
 ## 4. Step 3 — the fake-expiry blocking finding
@@ -251,12 +261,40 @@ There is no dispatcher verb for the release directory; compose it from
 
 **What it aggregates**, drawing on the sections `retrospective.md` pins so this
 is a roll-up and not a re-interview: what the release set out to do against what
-shipped; the walkthrough outcome from §3, by feature group; every spine's class
-and any mid-flight reclassification; **what is still standing** — the fakes,
-deferrals and quarantines each spine's own "still standing" section left owed,
-reconciled against steps 3 and 4's findings above; the durable lessons; and the
+shipped; the walkthrough outcome from §3, by feature group (**including which
+groups were spot-checked rather than fully walked**); every spine's class and any
+mid-flight reclassification; **what is still standing** — the fakes, deferrals and
+quarantines each spine's own "still standing" section left owed, reconciled
+against steps 3 and 4's findings above; the durable lessons; and the
 carried-forward items. **Nothing arrives in the carried-forward roll-up that does
 not appear above it**, the same rule the spine retro's §9 states.
+
+**"What the release set out to do" has a source — read it, do not recall it:**
+
+```bash
+oss get ".releases[] | select(.id==\"$rel\") | {goal, exit_criteria}"
+```
+
+The goal is the one recorded at `release_add`; `exit_criteria` is what
+`plan-release` phrased as user journeys and `release_set_meta` stored. `RELEASE.md`
+in the release directory carries the same, in prose. Writing this section from
+memory of the release is how a release quietly grades itself against what it
+delivered rather than against what it promised — the one comparison the retro
+exists to make.
+
+**Two mechanics the port carried over from the sprint retro, and they are not
+optional:**
+
+- **The cross-release pattern round is confirmed with the user, not asserted.**
+  When you name a pattern across spines ("every spine in this release
+  underestimated the migration surface"), put it to the user before it lands in
+  the document. A pattern is an interpretation of their project, and the retro is
+  the record others will read; one wrong pattern stated confidently outlives the
+  release.
+- **Roll up the memory-bank harvest totals.** Each spine close ran a harvest
+  (`harvest.md`); the release retro records the totals — how many candidates were
+  accepted, edited, rejected across the release, and which bank files grew. A
+  release that harvested nothing is a finding about the release, not a blank.
 
 ---
 

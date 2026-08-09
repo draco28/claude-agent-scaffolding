@@ -6,9 +6,21 @@ spine, lean for a flesh one.
 
 This file is the **only copy** of both section sets. Headings exactly as written,
 in the order written — the same pinned-headings discipline the work-item report
-contract uses, and for the same reason: the memory-bank harvest (step 9) sweeps
-these files, and a heading invented per spine makes the retro series unreadable
-as a series.
+contract uses, for two reasons that are both about **readers**:
+
+- **The release close reads these sections by name.** `release-close.md` §6
+  aggregates every spine retro in the release into the release retrospective; a
+  heading invented per spine is a section that aggregation cannot find.
+- **The series has to be readable as a series.** Six spines with six different
+  section sets is six documents; six with the same set is a record.
+
+**The memory-bank harvest does NOT read this file.** It enumerates exactly two
+inputs — each work item's `report.md` §9 and its `handoff.md` `## Clarifications`
+(`harvest.md` §2) — and `oss harvest_apply` validates the *whole* payload before
+touching the filesystem, rejecting at rc 2 on the first item whose `source` is
+outside the two-value enum. So a candidate harvested out of a retro does not
+just fail on its own: **it rejects the entire accepted set**, including every
+legitimate report-origin entry. Do not enumerate retro content as harvest input.
 
 Where it goes — beside the spine plan it closes, never in the worktree (which
 step 10 removes):
@@ -48,6 +60,11 @@ about it) and the `user:` walk — which journeys the human drove and whether ea
 outcome matched. Name any line that was **quarantined during this close**, with
 its expiry release.
 
+*Read it from:* step 4's `oss demo_run` output for the `auto:` half and the
+`oss demo_user_lines` walk for the `user:` half — both from this close, not from
+scrollback of an earlier one. Quarantines from this close are
+`oss get '.demo_ledger[] | select(.status=="quarantined")'`.
+
 ### `## 4. Class movement`
 
 Whether the class changed and why. If step 5 reclassified this spine mid-flight,
@@ -71,6 +88,11 @@ is invisible.
 
 If the critic was not installed, say that in one line. A missing section is
 indistinguishable from a clean pass.
+
+*Read it from:* step 7's critic return — the run's own summary, not a
+recollection of it — and the dispositions this close recorded,
+`oss get '.veto_dispositions[] | select(.spine=="<spine-id>")'`. Reconstructing
+either from scrollback is how an auto-applied disposition goes unrecorded.
 
 ### `## 7. Fakes, deferrals and quarantines still standing`
 
