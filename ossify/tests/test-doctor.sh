@@ -126,6 +126,10 @@ oss_ledger_quarantine   "$W" "$L2" "flaky under load" "$REL"               # -> 
 oss_reg_add_fake        "$W" "payment-gateway" "fake" "no vendor sandbox" "sandbox ships" "$REL" >/dev/null
 oss_reg_set_fake_status "$W" "payment-gateway" renewed "vendor slipped a quarter" "r2"
 
+# Codex P2 finding #2: doctor must surface out-of-spine patch records. The
+# patch-lane contract (spec §6.1) says these are doctor-visible.
+oss_ledger_add_patch "$W" abc1234 "typo in export path, no bone no gate no line"
+
 # Through the REAL dispatcher binary (set -euo pipefail), not a sourced call:
 # all three new warn: lines use the `[ "$n" -gt 0 ] && echo ...` bare-command
 # shape, which is exactly the form that dies under strict mode if the
@@ -135,7 +139,8 @@ t_capture "$OSS" doctor "$W"
 t_assert_contains "$T_OUT" "warn: ledger - 1 demo line(s) carry a pending amendment" "doctor surfaces a pending amendment"
 t_assert_contains "$T_OUT" "warn: ledger - 1 quarantined line(s)" "doctor surfaces a quarantined line"
 t_assert_contains "$T_OUT" "warn: fakes - 1 outstanding fake(s)" "doctor surfaces a RENEWED fake, not just an active one"
-t_assert_rc 0 "the three warn: lines are advisory - they must not change doctor's rc"
+t_assert_contains "$T_OUT" "warn: patches - 1 out-of-spine patch record(s)" "doctor surfaces patch-lane records"
+t_assert_rc 0 "the four warn: lines are advisory - they must not change doctor's rc"
 rm -rf "$WTMP"
 
 rm -rf "$TMP"

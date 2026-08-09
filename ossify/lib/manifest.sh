@@ -53,13 +53,7 @@ _oss_manifest_resolve() { # $1=ai-root $2=string
   cn="$(jq -r '.canonical.root // empty' "$manifest" 2>/dev/null)" || true
   [ -n "$aw" ] && result="${result//\$\{ai_workspace.root\}/$aw}"
   [ -n "$cn" ] && result="${result//\$\{canonical.root\}/$cn}"
-  # Guard ${HOME:-} (Codex C8): bin/oss runs `set -euo pipefail`, so a bare
-  # `$HOME` aborts every manifest-routed state command with "HOME: unbound
-  # variable" when OpenCode launches without HOME set (e.g. `env -u HOME oss
-  # state_path`). Leaving the literal ${HOME} token in place when unset matches
-  # the "unknown tokens left for the caller to detect" contract above; it is
-  # caught by the caller's unresolved-${...} refusal rather than aborting here.
-  [ -n "${HOME:-}" ] && result="${result//\$\{HOME\}/$HOME}"
+  result="${result//\$\{HOME\}/$HOME}"
   result="${result//\$\{USER\}/$(_oss_current_user)}"
   echo "$result"
 }
@@ -74,8 +68,7 @@ oss_manifest_state_path() {
   manifest="$(oss_manifest_discover)" || { echo "oss: $OSS_MANIFEST_REFUSAL" >&2; return 1; }
   ai_root="$(jq -r '.ai_workspace.root // empty' "$manifest" 2>/dev/null)" || true
   [ -n "$ai_root" ] || { echo "oss: manifest missing ai_workspace.root" >&2; return 1; }
-  # Guard ${HOME:-} (Codex C8): see _oss_manifest_resolve above.
-  [ -n "${HOME:-}" ] && ai_root="${ai_root//\$\{HOME\}/$HOME}"
+  ai_root="${ai_root//\$\{HOME\}/$HOME}"
   ai_root="${ai_root//\$\{USER\}/$(_oss_current_user)}"
   routed="$(jq -r '.well_known_paths.project_state // empty' "$manifest" 2>/dev/null)" || true
   if [ -n "$routed" ]; then

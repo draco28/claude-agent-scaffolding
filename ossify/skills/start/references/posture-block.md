@@ -183,7 +183,10 @@ Three blocks:
 # PUBLIC_BOUNDARY.md
 
 ## Machine-checkable rules
-<!-- Executed against tracked files by the release-close boundary audit. -->
+<!-- Executed against tracked files by the release-close boundary audit (Plan D).
+     Nothing executes this block in this release — the boundary audit is not yet
+     built. The rules are authored now so PUBLIC_BOUNDARY.md exists from day one,
+     but no scanner reads them until Plan D ships. -->
 never-tracked: **/.env, **/.env.*, **/*.pem, **/*.key, **/id_rsa*
 never-tracked: **/secrets/**, **/credentials.json
 never-tracked: **/SPEC.md, docs/planning/**
@@ -205,8 +208,11 @@ fixtures-must-be: synthetic
   port, never its private implementation.
 ```
 
-The machine-checkable block is what the release-close audit executes —
-deterministically, from a clean checkout or CI, with no private context needed.
+The machine-checkable block is what the release-close boundary audit **will
+execute** (Plan D) — deterministically, from a clean checkout or CI, with no
+private context needed. In this release nothing scans it; the block is authored
+so the file exists from day one and the audit has something to read when it
+ships.
 
 **Even a fully-private project authors this file** with the standard secrets
 rules (companion §2 decision #5: hygiene is independent of visibility). That is

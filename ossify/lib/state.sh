@@ -7,34 +7,9 @@ OSS_STATE_SCHEMA_VERSION=3
 _oss_now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 
 oss_state_init() { # $1=state-file $2=project-name
-  local sf="$1" lock="$1.lock" rc=0
-  # §9.2 + Codex C2: acquire the state lock BEFORE the existence check so two
-  # concurrent `oss init` calls on the same new state cannot both pass the check
-  # and both install. Previously, with the existence check outside any lock, the
-  # two initializers' base snapshot and live file could come from different
-  # processes - base/live divergence at birth. Same mkdir-lock + rc 3 on
-  # contention as oss_state_mutate. The parent dir is created first (idempotent,
-  # safe under concurrency) so the lock directory itself can be mkdir'd.
-  mkdir -p "$(dirname "$sf")" || return 1
-  if ! mkdir "$lock" 2>/dev/null; then
-    echo "oss: state locked ($lock exists) - another ceremony is mutating; retry or run 'oss doctor'" >&2
-    return 3
-  fi
-  # Critical section runs as a body function in `|| rc=$?` context: errexit is
-  # SUSPENDED for the whole body, so no bare command-substitution inside it can
-  # hard-exit between lock-acquire and the unconditional rmdir and leak the lock.
-  _oss_state_init_body "$sf" "$2" || rc=$?
-  rmdir "$lock" 2>/dev/null || true
-  return "$rc"
-}
-
-# Critical-section body for oss_state_init. rc 0 ok, 1 exists/invalid. NO lock
-# logic here - the wrapper owns lock acquire/release (Codex C2). The parent dir
-# is already created by the wrapper; the existence check + all writes happen
-# under the lock so exactly one concurrent initializer wins.
-_oss_state_init_body() { # $1=state-file $2=project-name
   local sf="$1" name="$2" tmp
   [ -e "$sf" ] && { echo "oss: state already exists: $sf" >&2; return 1; }
+  mkdir -p "$(dirname "$sf")" || return 1
   # §9.2: every state write goes temp+mv. A crash/disk-full mid-write must not
   # leave a truncated file that the "refuse if exists" guard then treats as a
   # valid existing state, permanently wedging the project.

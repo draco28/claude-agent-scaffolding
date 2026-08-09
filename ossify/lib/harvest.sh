@@ -76,12 +76,7 @@ oss_harvest_memory_bank_dir() {
   manifest="$(oss_manifest_discover)" || { echo "oss: $OSS_MANIFEST_REFUSAL" >&2; return 1; }
   ai_root="$(jq -r '.ai_workspace.root // empty' "$manifest" 2>/dev/null)" || true
   [ -n "$ai_root" ] || { echo "oss: manifest missing ai_workspace.root" >&2; return 1; }
-  # Guard ${HOME:-} (Codex C8): bin/oss runs `set -euo pipefail`, so a bare
-  # `$HOME` aborts this command with "HOME: unbound variable" when OpenCode
-  # launches without HOME set (e.g. `env -u HOME oss harvest_dir`). Leaving the
-  # literal ${HOME} token in place when unset matches the resolver contract and
-  # is caught by the unresolved-${...} case below.
-  [ -n "${HOME:-}" ] && ai_root="${ai_root//\$\{HOME\}/$HOME}"
+  ai_root="${ai_root//\$\{HOME\}/$HOME}"
   ai_root="${ai_root//\$\{USER\}/$(_oss_current_user)}"
   routed="$(jq -r '.well_known_paths.memory_bank // empty' "$manifest" 2>/dev/null)" || true
   if [ -n "$routed" ]; then

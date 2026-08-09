@@ -27,6 +27,7 @@ named rather than left to read as executed:
 | **5. Docs increment (spec §8)** | **not shipped.** The trigger table lives in spec §8 and has no executable surface yet |
 | **6. Handoff cleanup for the closed release** | **not shipped.** It depends on the `/handoff` redesign; this release ships no handoff authoring at all, the same deferral `spine-close.md` §9 records for the spine boundary |
 | **7. Release tag / PR gate** | **not shipped.** The spine→release / release→main tier question is unsettled, and a PR gate written before it is settled would harden the wrong tier |
+| **8. Boundary audit (companion §6)** | **not shipped.** Plan D owns it; `PUBLIC_BOUNDARY.md`'s machine-checkable block is authored at onboarding but nothing executes it in this release. A release can close green without a secrets/boundary scan having run |
 
 A missing step and a step that silently does nothing are indistinguishable to
 every later reader, which is why they are a table rather than an omission.

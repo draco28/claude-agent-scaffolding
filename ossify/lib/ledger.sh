@@ -2,6 +2,13 @@
 # Cumulative product demo ledger (spec §3, §6.1) + patch lane records.
 
 oss_ledger_add_auto() { # $1=state $2=spine $3=text $4=command $5=expected
+  # Validate the spine exists BEFORE anything else: a demo line journaled
+  # against a nonexistent spine (typo like r0.s99) is silently skipped at
+  # spine close, which filters by source_spine — the line counts as authored
+  # but never runs, producing phantom coverage. Same reject-before-mutate
+  # shape as _oss_ledger_plan_amendment and oss_ledger_apply_pending below.
+  jq -e --arg s "$2" '.spines[] | select(.id == $s)' "$1" >/dev/null 2>&1 \
+    || { echo "oss: unknown spine '$2' - a demo line keyed to a spine that does not exist would never be exercised at close" >&2; return 7; }
   # The `exit:` operand must be digits-only END TO END. The old glob
   # `exit:[0-9]*` was "exit:" + ONE digit + anything, so plausible authoring
   # slips ("exit:0 (tests green)", "exit:0abc", "exit:0 # green") were accepted
@@ -26,6 +33,10 @@ oss_ledger_add_auto() { # $1=state $2=spine $3=text $4=command $5=expected
 }
 
 oss_ledger_add_user() { # $1=state $2=spine $3=text $4=outcome
+  # Same validation as add_auto: an unknown source_spine journals silently
+  # and is never run at the close ceremony.
+  jq -e --arg s "$2" '.spines[] | select(.id == $s)' "$1" >/dev/null 2>&1 \
+    || { echo "oss: unknown spine '$2' - a demo line keyed to a spine that does not exist would never be exercised at close" >&2; return 7; }
   local lower
   lower="$(printf '%s' "$3" | tr '[:upper:]' '[:lower:]')"
   lower="${lower#"${lower%%[![:space:]]*}"}"   # trim leading whitespace so " Open ..." can't evade the ban
