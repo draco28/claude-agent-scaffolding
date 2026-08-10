@@ -69,17 +69,25 @@ rounds are stored; do not imply the read is machine-backed.
 
 ## 2. Before round 1 — cut **and check out** the spine integration branch
 
-Once per spine, before any work-item branch exists:
+Once per spine — but **this block runs again on every `/run-spine`**, so it has
+to be safe to re-enter after an earlier invocation halted:
 
 ```bash
 canonical="$(oss repo_root canonical)"
 [ -z "$(git -C "$canonical" status --porcelain)" ] || { echo "canonical is dirty - halt"; exit 1; }
-base_branch="$(git -C "$canonical" rev-parse --abbrev-ref HEAD)"
 spine_branch="$(oss branch_name "<spine-id>" "<spine-slug>")"
-git -C "$canonical" checkout -q -b "$spine_branch"
+if git -C "$canonical" show-ref --verify --quiet "refs/heads/$spine_branch"; then
+  git -C "$canonical" checkout -q "$spine_branch" \
+    || { echo "cannot check out the existing '$spine_branch' - halt"; exit 1; }
+else
+  base_branch="$(git -C "$canonical" rev-parse --abbrev-ref HEAD)"
+  [ "$base_branch" != "HEAD" ] \
+    || { echo "canonical is in DETACHED HEAD - no base_branch to record - halt"; exit 1; }
+  git -C "$canonical" checkout -q -b "$spine_branch"
+fi
 ```
 
-Four things here, each load-bearing:
+Five things here, each load-bearing:
 
 **`oss repo_root canonical`, never a bare `<canonical>` placeholder.** The verb
 reads `.canonical.root` from the pairing manifest and fails rc 2 rather than
@@ -101,11 +109,22 @@ Nothing in that column reports a failure. **Canonical stays parked on
 `$spine_branch` for the duration of the spine**, and spine close is what moves it
 off.
 
-**Record `base_branch` in the plan doc's spine-context section**, and carry it
-into every handoff (`handoff-contract.md` §2). Spine close switches back to it
-before merging the spine branch in. No state field holds it, and guessing the
-default branch merges a spine into the wrong line of development. If it cannot
-be resolved later, that close **halts**.
+**The existing-branch arm is what makes `/run-spine` re-enterable.** A first
+invocation that halts — a gap returned, a round deferred, a session interrupted —
+leaves the spine branch cut and its work items journaled. The next invocation has
+to land back on that branch: an unconditional `checkout -b` exits non-zero the
+second time and takes the lane down at its very first step, so the durable run
+the command just created becomes unreachable by the command that created it.
+Reuse the ref; never re-cut it.
+
+**Record `base_branch` in the plan doc's spine-context section** on the run that
+cuts the branch, and carry it into every handoff (`handoff-contract.md` §2).
+Spine close switches back to it before merging the spine branch in. No state
+field holds it, and guessing the default branch merges a spine into the wrong
+line of development. If it cannot be resolved later, that close **halts**. The
+resume arm above **deliberately does not re-derive it** — HEAD is the spine
+branch by then, so re-deriving would record the spine as its own base. `SPINE.md`
+is where it already lives, and spine close reads it from there.
 
 **The slug is not in state.** Spines store `name`, work items store `title`;
 neither is a kebab slug, and nothing persists one. `plan-spine` minted the spine
@@ -280,14 +299,19 @@ handling**, not a `complete` with rough edges:
    [ -z "$(git -C "$wt" status --porcelain)" ] || { echo "halt: <wi-id>'s worktree is dirty after a broken return"; exit 1; }
    ```
 
-   Pre-flight Gate 3 requires a clean worktree and SKILL.md §10 forbids the
-   worker from tidying one, so a dirty worktree comes back as a **well-formed
-   `gaps-surfaced` envelope** — not a broken one. Step 3's halt therefore never
-   fires: you get a valid gaps return asking a question no clarification can
-   answer, you append an answer, you re-dispatch, and you burn the 3-dispatch
-   cap in a loop that cannot converge. **Halt here and surface the dirty
-   worktree to the user** — respawning it or keeping the partial work is their
-   call, and neither is yours to make silently.
+   **Two different dirty worktrees reach you by two different routes, and only
+   one of them lands here.** A worktree that was *already* dirty when the worker
+   reached pre-flight never produces a broken envelope at all: Gate 3 requires a
+   clean worktree and SKILL.md §10 forbids the worker from tidying one, so it
+   returns a **well-formed `gaps-surfaced`** envelope and you are in §5, not
+   here. The halt above is for the other route — a worker that crashed
+   **mid-edit**, leaving the worktree dirty *and* returning no payload. That is
+   the case this step exists for, and it does fire.
+
+   Re-dispatching into it cannot converge: every retry fails Gate 3 for a
+   condition no clarification can answer, and burns the 3-dispatch cap. **Halt
+   here and surface the dirty worktree to the user** — respawning it or keeping
+   the partial work is their call, and neither is yours to make silently.
 
 3. **Only if the worktree is clean, re-dispatch once** on the same handoff,
    unchanged. A crash or timeout with nothing written is usually transient, and

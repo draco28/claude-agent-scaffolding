@@ -493,7 +493,7 @@ state and is awkward to change later.
 - **Peer entry skills:** `plan-release` owns Release 0, spine classes, and the
   critic veto; `plan-spine` owns decomposition and demo lines. A `doctor` entry
   skill **is not shipped in this release** (planned v0.3) — until it lands, its
-  state inspection is `oss doctor` above and spec validation is this file's §4.
+  state inspection is `oss doctor` above and spec validation is this file's §11.
 - **The user** is the final authority. You surface candidate maps, cuts, bones,
   postures, and critic challenges; they accept, edit, or skip. Never auto-finalize
   a decision the user has not seen — and always escalate the contested cuts.
