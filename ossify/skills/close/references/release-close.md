@@ -291,10 +291,15 @@ optional:**
   the document. A pattern is an interpretation of their project, and the retro is
   the record others will read; one wrong pattern stated confidently outlives the
   release.
-- **Roll up the memory-bank harvest totals.** Each spine close ran a harvest
-  (`harvest.md`); the release retro records the totals — how many candidates were
-  accepted, edited, rejected across the release, and which bank files grew. A
-  release that harvested nothing is a finding about the release, not a blank.
+- **Roll up the memory-bank harvest totals — and note they are not persisted.**
+  Each spine close ran a harvest (`harvest.md`), which reports accepted / edited
+  / rejected counts **into its return and the close summary only**: no state
+  field holds them, and `harvest.md` §8 deliberately keeps them out of the spine
+  retro. In the same session they are in scrollback; **in a later session they
+  are gone**, and the honest entry is then "not recorded per spine — see each
+  spine's close summary", not a reconstructed number. If you want the roll-up to
+  survive, the place to put it is each spine's retro at the time of that close.
+  A release that harvested nothing is a finding about the release, not a blank.
 
 ---
 

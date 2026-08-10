@@ -198,9 +198,9 @@ always allowed, empty rounds collapse and renumber, and a cross-repo pair is a
 real edge in one order (public port first, then the private adapter). Full
 method in `references/dag-rounds.md`, repo dimension in `references/cross-repo.md`.
 
-**Then write `SPINE.md`.** Nothing in state holds the round structure, so until it
-lands the plan lives only in this conversation — and `close` reads it back for
-`base_branch` and as the critic's `--spec` target (`spec-authoring.md` §1).
+**Draft `SPINE.md` now; finish it at §9.** Nothing in state holds the rounds.
+Context/decomposition/rounds settle here, but **Demo contribution and Fakes are
+not decided until §8-§9** — so complete it there (`spec-authoring.md` §1).
 ---
 
 ## 6. Spec authoring

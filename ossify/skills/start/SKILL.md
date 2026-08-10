@@ -356,7 +356,7 @@ Fires **once**, at spec-core close — after the lean MASTER-SPEC is authored an
 3. **Probe:** `oss critic_detect`. If `absent`, warn once — *"architect-critic
    not installed — skipping spec-core audit. Install via `/plugin install
    architect-critic` (v0.2+)."* — and continue. Do not stall.
-4. If `v0.2`, **export the args string, then invoke the skill bare and
+4. If `v0.2` **or later**, **export the args string, then invoke the skill bare and
    plugin-qualified** — that env-var bridge is architect-critic's only
    invocation contract; there are no `target` / `depth` / `artifact_path`
    parameters:

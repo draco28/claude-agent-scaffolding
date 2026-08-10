@@ -75,6 +75,7 @@ what the plan must contain:
   with the gate that owns this, **check it yourself before the work-item close**:
 
   ```bash
+  canonical="$(oss repo_root canonical)"
   git -C "$canonical" diff --cached --name-only | grep -E '(Cargo|package|go)\.(toml|json|mod)$' || true
   ```
 - **The spine-close cumulative demo builds the composition *with* the override**,

@@ -20,9 +20,22 @@ The work-item rounds live in the **spine plan document** that `plan-spine`
 authored, under:
 
 ```bash
+# /run-spine hands you ONLY the spine id. The release id and the slug are not
+# arguments — derive one, recover the other, exactly as close does (Route B in
+# `close/references/work-item-close.md` §1, inlined in `harvest.md` §2).
 ai_root="$(oss repo_root ai_workspace)"
-spine_dir_abs="$ai_root/$(oss spine_dir "<release-id>" "<spine-id>" "<spine-slug>")"
+rel_id="r$(oss id_parse "$spine_id" | awk '{print $2}')"       # r1.s2 -> r1
+matches="$(find "$ai_root/docs/specs/$rel_id" -maxdepth 1 -type d -name "$spine_id-*" 2>/dev/null)"
+n="$(printf '%s\n' "$matches" | grep -c . || true)"
+[ "$n" -eq 1 ] || { echo "halt: expected exactly one spine dir for $spine_id, found $n"; exit 1; }
+spine_dir_abs="$matches"
+spine_slug="${spine_dir_abs##*/}"; spine_slug="${spine_slug#$spine_id-}"
 ```
+
+**Nothing in state holds the slug**, so the directory is recovered by glob with
+an ambiguity guard and the slug falls out of the directory name. Inventing it
+from the spine's `name`, or asking the user, produces a path that does not match
+what `plan-spine` actually wrote.
 
 **`oss spine_dir` returns a RELATIVE path** (`docs/specs/<release-id>/<spine-id>-<slug>`)
 — it must be prefixed with the ai_workspace root, exactly as every sibling

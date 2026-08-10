@@ -112,12 +112,17 @@ belonging to a spine ends up inside one.
 
 ```bash
 canonical="$(oss repo_root canonical)"
+# The project's integration branch. There is no state field for it in v0.2, so
+# resolve it from the remote's default and let the user correct it if wrong.
+base_branch="$(git -C "$canonical" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')"
+[ -n "$base_branch" ] || { echo "halt: cannot resolve canonical's base branch - name it explicitly"; exit 1; }
 br="$(git -C "$canonical" rev-parse --abbrev-ref HEAD)"
 case "$br" in
   spine/*|work/*) echo "halt: canonical is parked on '$br' - a patch does not land in a spine's diff"; exit 1 ;;
   HEAD)           echo "halt: canonical is in DETACHED HEAD - a patch commit here belongs to no branch"; exit 1 ;;
   '')             echo "halt: could not resolve canonical's branch"; exit 1 ;;
-  *)              echo "ok: patching on '$br'" ;;
+  "$base_branch") echo "ok: patching on the base branch '$br'" ;;
+  *)              echo "halt: canonical is on '$br', not the base branch '$base_branch'"; exit 1 ;;
 esac
 ```
 

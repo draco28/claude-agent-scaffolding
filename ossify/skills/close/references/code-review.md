@@ -164,9 +164,18 @@ negotiable. What it produces is a decision for the operator, on each finding:
   is real but not this spine's job;
 - **accept it**, recorded in the retro's §8 with the reason.
 
-**Findings do not evaporate.** Every one goes into the spine retro — §8 for the
-durable lessons, §9 for anything carried forward. A review whose output lives only
-in the transcript did not happen.
+**Findings do not evaporate — but where they land depends on the spine's class.**
+A **bone** spine's full retro has §8 (durable lessons) and §9 (carried forward);
+a **flesh** spine's lean set has neither (`retrospective.md` §2). So:
+
+- **bone** → accepted findings to §8, carried-forward ones to §9.
+- **flesh** → both to the lean set's own carried-forward section, and if the
+  lean set has no home for a durable lesson, that is a signal the finding is
+  worth a tracked issue rather than a retro line.
+
+A review whose output lives only in the transcript did not happen; pick the
+heading that exists for the class you are closing rather than the one this
+paragraph would prefer.
 
 **One exception that does halt:** if Axis B finds the diff does something the
 spine's **class** does not admit — a flesh spine that turned out to modify a bone

@@ -70,7 +70,8 @@ unusable. Check every row:
 ```bash
 oss verify_acs "<abs spec path>" | while IFS=$'\t' read -r label cmd exp; do
   case "$exp" in
-    "exit "*|"output contains "*) ;;
+    "exit "*)            case "${exp#exit }" in ''|*[!0-9]*) echo "GAP $label: 'exit' takes digits only, got '$exp'";; esac ;;
+    "output contains ?"*) ;;
     *) echo "GAP $label: expectation '$exp' is not 'exit <n>' or 'output contains <str>'" ;;
   esac
 done
