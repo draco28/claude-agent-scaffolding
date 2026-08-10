@@ -132,6 +132,32 @@ The version where ossify stops needing scaffold-dev alongside it.
   > belongs if it returns).
 - **The machine-checkable-rule evaluator** — C1 shipped the gate *without* one by decision D2, next to
   rule authoring where a correct evaluator can be built and tested against real rule blocks.
+- **The executable-prose gate** — ossify ships **150 bash blocks across 56 skill/command files** and
+  the suite executes roughly **ten** of them. `test-skill-bash-blocks.sh` says so in its own header
+  (*"SCOPE — check, do not execute"*): it runs `bash -n`, which is a *parse* check. Every P1 in PR
+  #130's rounds 4–7 was **parse-clean and behaviourally wrong** — a quoted `?` that inverted a guard,
+  a base branch derived from HEAD, a bare `oss demo_run` discarding its rc, and a variable the prose
+  claimed was read that nothing assigned. Generalize the `_extract_block` harness in `test-close.sh`
+  from the four blocks it covers today to every **operative** block, each run under real
+  `set -euo pipefail` against a fixture, with (a) a vacuity guard per block so a silent extraction
+  failure goes red rather than green, and (b) an explicit **NOT-COVERED ledger** naming each block
+  deliberately excluded and why. The C1 branch review recommended exactly this on 2026-08-05 and it
+  was applied to two blocks instead of generalized; #130's W1/W2 and D1–D4 are the working pattern to
+  copy. **Extraction must anchor on a token that survives the regression it guards** — anchoring on
+  the fix makes a reintroduced bug report as "vacuous" rather than as wrong (learned the hard way in
+  #130 round 6).
+- **`impl-check` Layer 4 — agent semantic review.** L3 is bounded by what `03-code-patterns.md`
+  documents, and correctly so; the consequence is that *generic* defects are invisible to every
+  mechanical tier, because no project will ever have written them down. PR #130 produced a seed
+  checklist of six recurring classes, all real, all found by an external reviewer and none by a gate:
+  **(1)** guards that cannot fire (or fire always) — a verb returning 0 on empty, a quoted wildcard,
+  a wildcard arm accepting detached `HEAD`; **(2)** ordering — an assertion after the mutation it
+  guards, an instruction in a file read after the step it governs; **(3)** cross-file contradictions
+  introduced in the same change; **(4)** usage strings that disagree with the lib contract;
+  **(5)** prose claiming behaviour no command implements; **(6)** a gate whose status is discarded by
+  a trailing command. Per the recorded *agent-review-over-deterministic-gates* principle this is an
+  **agent pass driven by the checklist**, not new deterministic rules — the classes are semantic and
+  a lexical matcher for them would be exactly the brittle gate that principle exists to prevent.
 - **Docs-increment trigger table** at release close.
 - **ADR lifecycle completion** — `Superseded-by`, `proposed-then-flip` as the bone default.
 - **`/amend-spec` architecture-revision lane**, with mandatory citation re-verification.
