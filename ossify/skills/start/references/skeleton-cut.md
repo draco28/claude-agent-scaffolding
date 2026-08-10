@@ -35,10 +35,23 @@ silently disagree with it.**
 1. Take the mapped journey (`references/journey-map.md`) with its marks.
 2. Ask of the `skeleton` set: *"Is this the contiguous minimum for the named actor
    to enter through the real entry point and reach a real outcome?"*
-3. **Correct the map if the answer is no** — go back to `journey-map.md` §3, fix
-   the marks there, and re-run its §5 harvest for anything that changed. Do not
-   patch the set here; the map is the record, and a step demoted after the harvest
-   has to reach the feature map or it is simply lost.
+3. **Correct the map if the answer is no** — go back to `journey-map.md` §3 and
+   fix the marks there. Do not patch the set here; the map is the record.
+
+   **A promotion cannot be undone downstream, so validate before the harvest
+   runs.** `journey-map.md` §5 harvests every non-`skeleton` step into the
+   feature map, and the map is **append-only** — `oss feature_add` has no remove
+   or update sibling (`feature-map-grooming.md` §2). Promote a `next` step into
+   the skeleton *after* that harvest and its entry is already committed: release
+   planning then sees Release-0 work sitting in the candidate list and may plan
+   it a second time.
+
+   So: run this validation between §3's marking and §5's harvest, while a
+   correction is still free. If a promotion is discovered late anyway, the entry
+   stays — say so at the next groom, where pass 4 prunes it with a reason
+   ("shipped in Release 0"), which is the supported way an entry leaves
+   contention. A **demotion** late is harmless in the other direction: re-run
+   the harvest for the newly non-skeleton step or it never reaches the map.
 4. Read the marked path back as one sentence: *"At Release 0 close, a `<actor>`
    can `<action>` and `<observable outcome>`."* If you cannot say that sentence
    without an "and then I manually…" clause, the cut is wrong.

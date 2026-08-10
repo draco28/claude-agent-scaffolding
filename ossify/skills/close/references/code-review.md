@@ -62,10 +62,20 @@ contaminated by the other.
 
 ```bash
 canonical="$(oss repo_root canonical)"
-base="$(grep -A5 'Spine context' "$spine_dir_abs/SPINE.md" | sed -n 's/.*base_branch[: ]*//p' | head -1)"
-git -C "$canonical" diff --stat "$base...$spine_branch"     # scope first
-git -C "$canonical" diff "$base...$spine_branch"            # the review surface
+# $base_branch and $spine_branch are ALREADY RESOLVED by the ceremony — step 2
+# recovers base_branch from SPINE.md with its own halt-on-failure, and derives
+# the spine branch with `oss branch_name` (spine-close.md §3). Reuse them.
+git -C "$canonical" diff --stat "$base_branch...$spine_branch"   # scope first
+git -C "$canonical" diff "$base_branch...$spine_branch"          # the review surface
 ```
+
+**Do not re-parse `SPINE.md` here.** A private `grep -A5 … | sed` reads a fixed
+window and a fixed shape, so a spine-context block that runs past five lines,
+writes the field as a paragraph, or wraps it in Markdown emphasis yields an
+empty or markup-laden value. Both `git diff` calls then fail, and this review —
+which is advisory and does not halt — is **silently skipped** on a spine whose
+merge step resolves the same field perfectly well one step later. One resolver,
+one halt, one source of truth.
 
 **`base...spine_branch` (three dots), not `base..spine_branch`.** Three dots diffs
 against the merge base, so you see what the spine *added*; two dots also shows

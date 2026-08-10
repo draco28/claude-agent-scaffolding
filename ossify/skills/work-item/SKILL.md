@@ -393,7 +393,7 @@ path directly.
 
 ## 12. Notes on tool boundaries
 
-- **You** (Claude reading this body, in any of the three modes) make every
+- **You** (Claude reading this body, in either mode) make every
   judgment inside the work item: gap versus defensible default, what a test must
   do to exercise the AC's real behaviour, whether an already-GREEN AC is
   suspicious or expected, what the one-line `summary` should point the

@@ -41,20 +41,39 @@ line nobody authors is a guarantee nobody keeps.
 
 So check it here, at every spine on a public-routed posture:
 
+**Give the line a durable marker, and match on that — not on its wording.**
+There is no `kind` field on a ledger line in v0.2, so the marker is a **required
+text prefix**: the line's `text` begins with `[community-edition]`.
+
 ```bash
 posture="$(oss get '.project.posture')"
 case "$posture" in
   open-core|fully-open)
-    oss get '[.demo_ledger[] | select(.status=="active" and (.text|test("standalone|clean checkout";"i")))] | length' ;;
+    oss get '[.demo_ledger[] | select(.status=="active" and (.text|startswith("[community-edition]")))] | length' ;;
   *) echo "n/a - posture is $posture" ;;
 esac
 ```
 
-**If the posture is public-routed and no such line is active, this spine authors
-it** — one `auto:` line, the public repo cloned fresh, built, and smoke-run,
-expected `exit:0`. Author it once; later spines find it and move on. It is a
-standing line, so it never belongs to a single spine's contribution and never
-counts toward F1.
+**If the posture is public-routed and the count is 0, this spine authors it:**
+
+```bash
+oss ledger_add_auto "<spine-id>" \
+  "[community-edition] clone the public repo fresh, build it standalone, and smoke-run it" \
+  "<the clone+build+run command>" "exit:0"
+```
+
+A prefix rather than a phrase search, because a phrase search is wrong in both
+directions and both are silent. Grepping the text for *standalone* or *clean
+checkout* matches any unrelated line that happens to contain those words — the
+mandatory check reads as satisfied by a line that never clones anything — while
+a legitimate existing line phrased *"from a fresh clone"* is missed, so **every
+later spine authors another one** and the cumulative suite grows a duplicate per
+spine, forever. The prefix is exact, greppable, and visible in `demo_run`'s
+output, which is what makes it auditable later.
+
+Author it once; later spines find it and move on. It is a standing line, so it
+never belongs to a single spine's contribution and never counts toward F1. (If
+v0.3's records work adds a typed field, that field supersedes the prefix.)
 
 ---
 

@@ -133,11 +133,21 @@ the order returns arrive.
 
 ```bash
 target_repo="$(oss get '.work_items[] | select(.id=="<wi-id>") | .target_repo')"
+# FIRST — before anything is created or journaled. `_oss_repo_root` accepts
+# ai_workspace and private_core, so worktree_add would succeed against them.
+[ "$target_repo" = "canonical" ] \
+  || { echo "halt: work item <wi-id> targets '$target_repo'; only canonical executes in this release"; exit 1; }
 wt="$(oss worktree_add "$target_repo" "<wi-id>" "<wi-slug>" "$spine_branch")"
 branch="$(git -C "$wt" rev-parse --abbrev-ref HEAD)"
 oss work_item_exec "<wi-id>" "$branch" "$wt" "$(git -C "$wt" rev-parse HEAD)"
 oss work_item_status "<wi-id>" active
 ```
+
+**The order of those two lines is the whole guard.** Placed after
+`worktree_add`, it fires having already created the worktree in the wrong repo,
+journaled its path through `work_item_exec`, and marked the item `active` — so
+the "prevention" is a report of damage already done, and undoing it means
+removing a worktree and reversing two state mutations.
 
 - `oss worktree_add` derives and cuts `work/<wi-id>-<slug>` internally and echoes
   the worktree's absolute path. Its **stdout is its return value** — capture it,
@@ -155,18 +165,14 @@ oss work_item_status "<wi-id>" active
   the field is carried now so that release changes one resolver rather than every
   call site.
 
-  **The halt is yours to make — the lib will not make it for you.**
-  `_oss_repo_root` accepts `canonical`, `ai_workspace` and `private_core`, so
-  `oss worktree_add ai_workspace …` **returns rc 0 and creates a worktree inside
-  the AI workspace** (reproduced). `private_core` is unconfigured in a normal
-  manifest and does fail at rc 2, which is what makes the gap easy to miss:
-  two of the three unsupported values behave as documented and the third does
-  not. Assert it:
-
-  ```bash
-  [ "$target_repo" = "canonical" ] \
-    || { echo "halt: work item <wi-id> targets '$target_repo'; only canonical executes in this release"; exit 1; }
-  ```
+  **The halt is yours to make — the lib will not make it for you**, which is
+  why the assertion is the first line of the spawn block above rather than a
+  note here. `_oss_repo_root` accepts `canonical`, `ai_workspace` and
+  `private_core`, so `oss worktree_add ai_workspace …` **returns rc 0 and
+  creates a worktree inside the AI workspace** (reproduced). `private_core` is
+  unconfigured in a normal manifest and does fail at rc 2, which is what makes
+  the gap easy to miss: two of the three unsupported values behave as
+  documented and the third does not.
 
   Skipped, the failure is quiet and awkward to undo: the work lands in a
   worktree under the AI workspace, `.worktrees/` appears in the repo that holds

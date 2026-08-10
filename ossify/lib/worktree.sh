@@ -20,6 +20,20 @@ _oss_repo_root() { # $1=repo-key
   # companion spec exists to prevent.
   [ -n "$root" ] && [ "$root" != "null" ] \
     || { echo "oss: repo '$key' is not configured in the pairing manifest" >&2; return 2; }
+  # `oss_manifest_get` is a RAW jq read, so a manifest storing a root as
+  # `${HOME}/workspace` returns the token verbatim. Every consumer treats this
+  # as an absolute path — `oss release_dir` composes on it, worktree paths are
+  # built from it — so an unresolved token becomes a relative-looking path that
+  # resolves against the caller's cwd and writes artifacts in the wrong place.
+  # Resolve here, once, and refuse anything still holding a `${...}` rather than
+  # handing a caller a path that only looks absolute.
+  local mroot; mroot="$(oss_manifest_discover)" || return 1
+  root="$(_oss_manifest_resolve "$(dirname "$(dirname "$mroot")")" "$root")" || return 1
+  case "$root" in
+    *'${'*) echo "oss: repo '$key' root has an unresolved token: '$root'" >&2; return 2 ;;
+    /*) ;;
+    *) echo "oss: repo '$key' root is not absolute: '$root'" >&2; return 2 ;;
+  esac
   printf '%s\n' "$root"
 }
 

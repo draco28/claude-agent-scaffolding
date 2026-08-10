@@ -92,7 +92,7 @@ oss_cmd_ledger_retire() { # $1=line $2=by-spine $3=reason
 oss_cmd_ledger_quarantine()    { _oss_need 2 ledger_quarantine "<line-id> <reason> [release]" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_quarantine "$sf" "$1" "$2" "${3:-}"; }
 oss_cmd_ledger_apply_pending() { _oss_need 1 ledger_apply_pending "<spine>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_apply_pending "$sf" "$1"; }
 oss_cmd_ledger_unplan()        { _oss_need 2 ledger_unplan "<line> <spine>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_unplan "$sf" "$1" "$2"; }
-oss_cmd_fake_status()          { _oss_need 3 fake_status "<fake> <status> <reason> [note]" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_set_fake_status "$sf" "$1" "$2" "$3" "${4:-}"; }
+oss_cmd_fake_status()          { _oss_need 3 fake_status "<boundary> <active|replaced|renewed> <reason> [new-expiry-release]" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_set_fake_status "$sf" "$1" "$2" "$3" "${4:-}"; }
 # The two release-close blocking gates (§6.2 steps 3 and 4). Both are rc 0 =
 # CLEAN / 1 = BLOCKING / 2 = could-not-check - the OPPOSITE polarity to
 # `touch_check`, which is 0 = hit. Read-only selectors: no mutation, no op.
@@ -155,7 +155,7 @@ oss_cmd_veto_add() { # $1=spine $2=finding $3=disposition $4=reason
 oss_cmd_spine_status()     { _oss_need 2 spine_status "<spine> <status>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_spine_status "$sf" "$1" "$2"; }
 oss_cmd_work_item_status() { _oss_need 2 work_item_status "<wi-id> <status>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_work_item_status "$sf" "$1" "$2"; }
 oss_cmd_release_status()   { _oss_need 2 release_status "<release> <status>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_release_status "$sf" "$1" "$2"; }
-oss_cmd_work_item_exec()   { _oss_need 4 work_item_exec "<wi-id> <branch> <worktree> <status>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_work_item_exec "$sf" "$1" "$2" "$3" "$4"; }
+oss_cmd_work_item_exec()   { _oss_need 4 work_item_exec "<wi-id> <branch> <worktree> <base-sha>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_work_item_exec "$sf" "$1" "$2" "$3" "$4"; }
 
 # §9.2's explicit, never-silent migration. Journals a `migrate_schema` op rather
 # than rewriting the file in place, so `$sf.base.json` stays v1 and replay still
@@ -261,7 +261,7 @@ oss_cmd_demo_run() { # [$1=state-file] [$2=workdir]
   oss_demo_run_auto "$sf" "${2:-}"
 }
 oss_cmd_demo_user_lines() { local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_user_lines "$sf" "${1:-}"; }
-oss_cmd_demo_record()     { _oss_need 4 demo_record "<scope> <id> <result> <detail> [note]" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_record_close "$sf" "$1" "$2" "$3" "$4" "${5:-}"; }
+oss_cmd_demo_record()     { _oss_need 4 demo_record "<work_item|spine|release> <id> <true|false> <line-count> [notes]" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_record_close "$sf" "$1" "$2" "$3" "$4" "${5:-}"; }
 
 # Memory-bank harvest (spec §6.1's core row), driven from spine close step 9.
 # `harvest_dir` takes no state and needs none - it resolves the memory bank from

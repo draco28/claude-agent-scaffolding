@@ -62,8 +62,21 @@ its expiry release.
 
 *Read it from:* step 4's `oss demo_run` output for the `auto:` half and the
 `oss demo_user_lines` walk for the `user:` half — both from this close, not from
-scrollback of an earlier one. Quarantines from this close are
-`oss get '.demo_ledger[] | select(.status=="quarantined")'`.
+scrollback of an earlier one.
+
+**Quarantines: name the ones YOU quarantined, from step 4's own decisions.**
+The obvious selector returns every quarantine the ledger holds:
+
+```bash
+oss get '.demo_ledger[] | select(.status=="quarantined")'    # ALL of them, all releases
+```
+
+Used as-is it attributes earlier spines' still-open tickets to this spine, and
+repeats them in every later retro — the ledger records *that* a line is
+quarantined and its expiry release, not which close did it. So carry the line
+ids forward from step 4 and list those, or filter to this release with
+`select(.quarantined_in_release=="<rel>")` and say plainly that the release, not
+the spine, is the finest provenance the state actually holds.
 
 ### `## 4. Class movement`
 
