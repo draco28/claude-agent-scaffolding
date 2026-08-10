@@ -804,5 +804,61 @@ t_capture env "PATH=$TMP/shim-w2c:$PATH" bash -c \
 t_assert_rc 1 "W2d: a base_branch naming no ref HALTS"
 t_assert_contains "$T_OUT" "names no branch" "W2d: ...naming the unresolvable branch"
 
+# ---------------------------------------------------------------------------
+# D1-D4: the cumulative-demo MEASUREMENT block. Timing is advisory; the demo
+# result is the gate. Written as a bare `oss demo_run` with the budget report
+# after it, the block's status becomes the trailing echo's — so a FAILING demo
+# returns 0 and the close walks past the one gate it must not. Same shape as the
+# W1/W2 wrong-branch class: the failure is invisible to an rc-only reading, so
+# these assert the re-raised status, not just that the block ran.
+# ---------------------------------------------------------------------------
+CUMDEMO="$SKILLS/close/references/cumulative-demo.md"
+# Anchor on `elapsed=`, not on `demo_rc`: the anchor has to survive the very
+# regression these tests exist to catch, or removing the status capture would
+# make the block unfindable and the failure would read as "vacuous" instead of
+# as the wrong behaviour it is.
+DEMO_BLOCK="$TMP/cum-demo.sh"; _extract_block "$CUMDEMO" 'elapsed=' "$DEMO_BLOCK"
+if [ -s "$DEMO_BLOCK" ] && grep -Fq 'oss demo_run' "$DEMO_BLOCK"; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract the demo measurement block - D1-D4 are vacuous"
+fi
+
+_dshim() { # $1=budget-to-echo $2=demo_run-rc $3=shim-dir
+  mkdir -p "$3"
+  { printf '#!/usr/bin/env bash\ncase "$1" in\n'
+    printf '  get)      echo %s ;;\n' "$1"
+    printf '  demo_run) exit %s ;;\n' "$2"
+    printf '  *) exec bash "%s" "$@" ;;\nesac\n' "$OSS"
+  } > "$3/oss"; chmod +x "$3/oss"
+}
+
+_dshim '60s' 0 "$TMP/shim-d0"
+t_capture env "PATH=$TMP/shim-d0:$PATH" bash -c ". '$DEMO_BLOCK'"
+t_assert_rc 0 "D1: a PASSING cumulative demo leaves the measurement block green"
+t_assert_contains "$T_OUT" "within the 60s budget" "D1: ...and reports the timing"
+
+# THE LOAD-BEARING ASSERTION. Drop the `|| demo_rc=$?` capture and the re-raise
+# and this is the one that goes red - D1 stays green either way.
+_dshim '60s' 1 "$TMP/shim-d1"
+t_capture env "PATH=$TMP/shim-d1:$PATH" bash -c ". '$DEMO_BLOCK'"
+t_assert_rc 1 "D2: a FAILING cumulative demo RE-RAISES its status - the close gate does not pass"
+t_assert_contains "$T_OUT" "within the 60s budget" "D2: ...after the timing was still reported"
+t_assert_contains "$T_OUT" "FAILED rc 1" "D2: ...naming the failure"
+
+# D3 - the runner's exact status survives rather than being flattened to 1, and
+# the no-budget branch does not mask it.
+_dshim 'null' 3 "$TMP/shim-d3"
+t_capture env "PATH=$TMP/shim-d3:$PATH" bash -c ". '$DEMO_BLOCK'"
+t_assert_rc 3 "D3: the runner's exact status survives an absent budget"
+t_assert_contains "$T_OUT" "no budget recorded" "D3: ...with the no-budget branch still taken"
+
+# D4 - the capture must also survive `errexit`, where an unprotected `oss
+# demo_run` would abort the block before the timing is ever reported.
+_dshim '60s' 1 "$TMP/shim-d4"
+t_capture env "PATH=$TMP/shim-d4:$PATH" bash -c "set -euo pipefail; . '$DEMO_BLOCK'"
+t_assert_rc 1 "D4: the same failing demo re-raises under errexit"
+t_assert_contains "$T_OUT" "within the 60s budget" "D4: ...and the timing is still reported first"
+
 cd /; rm -rf "$TMP"
 t_summary

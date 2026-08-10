@@ -75,9 +75,22 @@ what the plan must contain:
   with the gate that owns this, **check it yourself before the work-item close**:
 
   ```bash
-  canonical="$(oss repo_root canonical)"
-  git -C "$canonical" diff --cached --name-only | grep -E '(Cargo|package|go)\.(toml|json|mod)$' || true
+  # The override is staged in the worktree the ITEM executes in, not in
+  # canonical - read the path the execution lane journaled for that item.
+  wt="$(oss get '.work_items[] | select(.id=="<wi-id>") | .worktree_path')"
+  [ -n "$wt" ] || { echo "no worktree_path recorded for that item - cannot check"; exit 1; }
+  git -C "$wt" diff --cached --name-only \
+    | grep -E '(Cargo\.toml|package\.json|go\.mod|pyproject\.toml|requirements[^/]*\.txt|setup\.(py|cfg))$' \
+    || true
   ```
+
+  **Point it at the item's worktree, and cover every manifest form named above.**
+  A cross-repo item stages its override in the private worktree it is executing
+  in; run against `canonical` and the command inspects an index the override was
+  never in, prints nothing, and reads as a clean check — the machine-specific
+  path then travels with the commit. The pattern also has to match what this
+  section actually lists: Cargo, npm and Go were covered, the pip forms
+  (`pyproject.toml`, `requirements*.txt`, `setup.py` / `setup.cfg`) were not.
 - **The spine-close cumulative demo builds the composition *with* the override**,
   against both repos' post-merge state. So an `auto:` line that builds the
   composition is legitimate and will pass mid-flight — and the *release*-close

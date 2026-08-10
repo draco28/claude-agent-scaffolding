@@ -192,7 +192,8 @@ not have to mean "felt slow":
 ```bash
 budget="$(oss get ".releases[] | select(.id==\"<release-id>\") | .ledger_budget")"
 start=$(date +%s)
-oss demo_run
+demo_rc=0
+oss demo_run || demo_rc=$?
 elapsed=$(( $(date +%s) - start ))
 secs="${budget%s}"
 case "$secs" in
@@ -201,7 +202,17 @@ case "$secs" in
        && echo "demo: ${elapsed}s - OVER the ${secs}s budget; take it to plan-release" \
        || echo "demo: ${elapsed}s (within the ${secs}s budget)" ;;
 esac
+[ "$demo_rc" -eq 0 ] \
+  || { echo "demo: FAILED rc $demo_rc - the close gate does not pass"; exit "$demo_rc"; }
 ```
+
+**Capture the runner's status and re-raise it last.** Timing is advisory; the
+demo result is the **gate**. Written as a bare `oss demo_run` with the budget
+report after it, the block's exit status becomes the status of that trailing
+`echo` — so in any shell without `errexit` a **failing** cumulative demo returns
+**0** and the close walks straight past the one gate it must not. `|| demo_rc=$?`
+keeps the status across the measurement without arming `errexit` mid-block, and
+the final check re-raises it after the time has been reported.
 
 Report the number either way. A budget nobody measures is the one that drifts,
 and `${budget%s}` degrading to the no-budget arm is deliberate: a release planned
