@@ -75,7 +75,8 @@ The two facts this step needs are not in state and are recovered, not guessed:
 - **The spine slug** from the spine directory's name, exactly as the execution
   lane recovers it (`round-orchestration.md` §2). Nothing persists a slug.
 - **`base_branch`** from the spine plan document `SPINE.md`'s spine-context
-  section, where the execution lane recorded it (`round-orchestration.md` §2).
+  section, where `plan-spine` authored it at planning time (`spec-authoring.md`
+  §1) and the execution lane read it to cut from (`round-orchestration.md` §2).
   Every handoff in the spine carries the same fact under `## 2. Spine context`
   (`handoff-contract.md` §2), which makes a useful cross-check. **If it cannot be
   resolved, halt** — guessing the default branch merges a spine into the wrong

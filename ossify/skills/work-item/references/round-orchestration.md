@@ -69,22 +69,29 @@ rounds are stored; do not imply the read is machine-backed.
 
 ## 2. Before round 1 — cut **and check out** the spine integration branch
 
-Once per spine — but **this block runs again on every `/run-spine`**, so it has
-to be safe to re-enter after an earlier invocation halted:
+Once per spine. This block runs on **every** `/run-spine`, so an already-existing
+spine branch means an earlier invocation got here first — halt rather than
+re-cutting it or half-reusing it:
 
 ```bash
 canonical="$(oss repo_root canonical)"
 [ -z "$(git -C "$canonical" status --porcelain)" ] || { echo "canonical is dirty - halt"; exit 1; }
 spine_branch="$(oss branch_name "<spine-id>" "<spine-slug>")"
+
 if git -C "$canonical" show-ref --verify --quiet "refs/heads/$spine_branch"; then
-  git -C "$canonical" checkout -q "$spine_branch" \
-    || { echo "cannot check out the existing '$spine_branch' - halt"; exit 1; }
-else
-  base_branch="$(git -C "$canonical" rev-parse --abbrev-ref HEAD)"
-  [ "$base_branch" != "HEAD" ] \
-    || { echo "canonical is in DETACHED HEAD - no base_branch to record - halt"; exit 1; }
-  git -C "$canonical" checkout -q -b "$spine_branch"
+  echo "halt: $spine_branch already exists - an earlier run of this spine cut it."
+  echo "      Resuming a halted spine is not supported in this release (issue 133)."
+  exit 1
 fi
+
+# base_branch is READ from the spine plan, never derived from HEAD.
+[ -n "${base_branch:-}" ] \
+  || { echo "halt: no base_branch in the spine plan spine-context section"; exit 1; }
+git -C "$canonical" show-ref --verify --quiet "refs/heads/$base_branch" \
+  || { echo "halt: base_branch $base_branch names no branch in canonical"; exit 1; }
+git -C "$canonical" checkout -q "$base_branch" \
+  || { echo "halt: cannot check out base branch $base_branch"; exit 1; }
+git -C "$canonical" checkout -q -b "$spine_branch"
 ```
 
 Five things here, each load-bearing:
@@ -109,22 +116,24 @@ Nothing in that column reports a failure. **Canonical stays parked on
 `$spine_branch` for the duration of the spine**, and spine close is what moves it
 off.
 
-**The existing-branch arm is what makes `/run-spine` re-enterable.** A first
-invocation that halts — a gap returned, a round deferred, a session interrupted —
-leaves the spine branch cut and its work items journaled. The next invocation has
-to land back on that branch: an unconditional `checkout -b` exits non-zero the
-second time and takes the lane down at its very first step, so the durable run
-the command just created becomes unreachable by the command that created it.
-Reuse the ref; never re-cut it.
+**An existing spine branch halts the run; it does not resume it.** A first
+invocation that stopped — a gap returned, a round deferred, a session interrupted
+— leaves the branch cut, per-item worktrees on disk, and item status journaled.
+Reusing the branch alone buys exactly one step: `oss worktree_add` returns **rc 8**
+for every item already spawned (`lib/worktree.sh:50`), and nothing routes
+completed or active items to close or to redispatch from their recorded state.
+Resuming means reconciling all four at once — that is issue 133, not this block.
+Until it lands, halting with the branch named beats a lane that half-restarts.
 
-**Record `base_branch` in the plan doc's spine-context section** on the run that
-cuts the branch, and carry it into every handoff (`handoff-contract.md` §2).
-Spine close switches back to it before merging the spine branch in. No state
-field holds it, and guessing the default branch merges a spine into the wrong
-line of development. If it cannot be resolved later, that close **halts**. The
-resume arm above **deliberately does not re-derive it** — HEAD is the spine
-branch by then, so re-deriving would record the spine as its own base. `SPINE.md`
-is where it already lives, and spine close reads it from there.
+**`base_branch` is read from `SPINE.md`, never derived from HEAD.** `plan-spine`
+authors it into the spine-context section at planning time (`spec-authoring.md`
+§1), precisely because the checkout has moved by the time anything needs it.
+Deriving it from `rev-parse --abbrev-ref HEAD` cuts the spine from whatever branch
+the session happened to be parked on; spine close then merges back into that same
+unintended branch with every branch and reachability guard passing, and the work
+is simply absent from the planned base. Carry it into every handoff
+(`handoff-contract.md` §2), which makes a useful cross-check. If it cannot be
+resolved, both this lane and that close **halt**.
 
 **The slug is not in state.** Spines store `name`, work items store `title`;
 neither is a kebab slug, and nothing persists one. `plan-spine` minted the spine
