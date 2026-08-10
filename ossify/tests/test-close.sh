@@ -757,52 +757,46 @@ W2="$TMP/w2"; mkdir -p "$W2"; git -C "$W2" init -q
 git -C "$W2" config user.email t@t; git -C "$W2" config user.name t
 echo seed > "$W2/f"; git -C "$W2" add .; git -C "$W2" commit -qm seed
 W2_BASE="$(git -C "$W2" rev-parse --abbrev-ref HEAD)"
-# The PLANNED base carries a commit the parked branch does not, so "cut from the
-# planned base" and "cut from HEAD" produce provably different trees. Without
-# this divergence both readings share a sha and the assertion below is vacuous.
-git -C "$W2" checkout -q -b w2-planned
-echo planned > "$W2/planned.txt"; git -C "$W2" add planned.txt
-git -C "$W2" commit -qm planned
-W2_PLANNED_SHA="$(git -C "$W2" rev-parse w2-planned)"
-# Park canonical somewhere else entirely — the precondition the guard exists for.
-git -C "$W2" checkout -q -b w2-stray "$W2_BASE"
+# Park canonical on a branch carrying a commit the default branch does not, so
+# "cut from HEAD" is observably distinct from "cut from the default branch" and
+# the sha assertion below cannot pass by coincidence.
+git -C "$W2" checkout -q -b w2-parked
+echo parked > "$W2/parked.txt"; git -C "$W2" add parked.txt
+git -C "$W2" commit -qm parked
+W2_PARKED_SHA="$(git -C "$W2" rev-parse w2-parked)"
 _wshim "$W2" "spine/r0.s9-demo" "unused" "$TMP/shim-w2"
-t_capture env "PATH=$TMP/shim-w2:$PATH" bash -c \
-  "set -euo pipefail; base_branch='w2-planned'; . '$W_CUT'"
-t_assert_rc 0 "W2: the shipped spine cut runs clean on a clean canonical"
+# RUN IT WITH NOTHING INJECTED. An earlier revision of this test passed
+# `base_branch=...` into the block, which made it blind to the block not
+# assigning the variable at all - the lane then halted on every fresh run and
+# every assertion here still passed. Under `set -u` a self-sufficient block is
+# the thing under test, so supply it nothing.
+t_capture env "PATH=$TMP/shim-w2:$PATH" bash -c "set -euo pipefail; . '$W_CUT'"
+t_assert_rc 0 "W2: the shipped spine cut runs clean on a clean canonical with NOTHING injected"
 t_assert_eq "spine/r0.s9-demo" "$(git -C "$W2" rev-parse --abbrev-ref HEAD)" \
-  "W2: ...and leaves canonical CHECKED OUT on the spine branch - 'git branch' alone would leave it on w2-stray"
-# THE LOAD-BEARING ASSERTION. Deriving base_branch from HEAD cuts from w2-stray,
-# which does not carry planned.txt. Assert the PLANNED tip, not merely some tip.
-t_assert_eq "$W2_PLANNED_SHA" "$(git -C "$W2" rev-parse spine/r0.s9-demo)" \
-  "W2: ...cut from the PLANNED base_branch, not from the branch canonical was parked on"
-t_assert_eq "planned" "$(cat "$W2/planned.txt" 2>/dev/null || echo MISSING)" \
-  "W2: ...so the planned base's content is actually present in the working tree"
+  "W2: ...and leaves canonical CHECKED OUT on the spine branch - 'git branch' alone would leave it on w2-parked"
+t_assert_eq "$W2_PARKED_SHA" "$(git -C "$W2" rev-parse spine/r0.s9-demo)" \
+  "W2: ...cut from the branch canonical was parked on (v0.2 limitation; issue 133 moves this to SPINE.md)"
 
 # W2b — resuming is NOT supported in this release. An existing spine branch halts
 # rather than being re-cut or half-reused: branch reuse alone gets one step
 # further and then dies at `worktree_add` rc 8 for every already-spawned item.
-t_capture env "PATH=$TMP/shim-w2:$PATH" bash -c \
-  "set -euo pipefail; base_branch='w2-planned'; . '$W_CUT'"
+t_capture env "PATH=$TMP/shim-w2:$PATH" bash -c "set -euo pipefail; . '$W_CUT'"
 t_assert_rc 1 "W2b: a second run HALTS because the spine branch already exists"
 t_assert_contains "$T_OUT" "already exists" "W2b: ...naming the collision"
 t_assert_contains "$T_OUT" "133" "W2b: ...and pointing at the resume issue"
 
-# W2c/W2d — the base_branch guards. A silent fallback to HEAD is the defect;
-# both must halt rather than guess.
+# W2c — a DETACHED HEAD has no branch name to record, so the lane must halt
+# rather than cut a spine whose base_branch would be the literal string "HEAD".
 W2C="$TMP/w2c"; mkdir -p "$W2C"; git -C "$W2C" init -q
 git -C "$W2C" config user.email t@t; git -C "$W2C" config user.name t
 echo seed > "$W2C/f"; git -C "$W2C" add .; git -C "$W2C" commit -qm seed
+git -C "$W2C" checkout -q --detach HEAD
 _wshim "$W2C" "spine/r0.s9-demo" "unused" "$TMP/shim-w2c"
 t_capture env "PATH=$TMP/shim-w2c:$PATH" bash -c "set -euo pipefail; . '$W_CUT'"
-t_assert_rc 1 "W2c: an unset base_branch HALTS rather than silently deriving one from HEAD"
-t_assert_contains "$T_OUT" "no base_branch" "W2c: ...naming what is missing"
+t_assert_rc 1 "W2c: a DETACHED HEAD halts - there is no branch name to record as base_branch"
+t_assert_contains "$T_OUT" "DETACHED HEAD" "W2c: ...naming the condition"
 t_assert_eq "" "$(git -C "$W2C" branch --list 'spine/*')" \
   "W2c: ...and cut no spine branch on the way out"
-t_capture env "PATH=$TMP/shim-w2c:$PATH" bash -c \
-  "set -euo pipefail; base_branch='no-such-branch'; . '$W_CUT'"
-t_assert_rc 1 "W2d: a base_branch naming no ref HALTS"
-t_assert_contains "$T_OUT" "names no branch" "W2d: ...naming the unresolvable branch"
 
 # ---------------------------------------------------------------------------
 # D1-D4: the cumulative-demo MEASUREMENT block. Timing is advisory; the demo

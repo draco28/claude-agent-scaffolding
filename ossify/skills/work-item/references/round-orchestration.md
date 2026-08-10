@@ -84,13 +84,11 @@ if git -C "$canonical" show-ref --verify --quiet "refs/heads/$spine_branch"; the
   exit 1
 fi
 
-# base_branch is READ from the spine plan, never derived from HEAD.
-[ -n "${base_branch:-}" ] \
-  || { echo "halt: no base_branch in the spine plan spine-context section"; exit 1; }
-git -C "$canonical" show-ref --verify --quiet "refs/heads/$base_branch" \
-  || { echo "halt: base_branch $base_branch names no branch in canonical"; exit 1; }
-git -C "$canonical" checkout -q "$base_branch" \
-  || { echo "halt: cannot check out base branch $base_branch"; exit 1; }
+# base_branch is the branch canonical is parked on RIGHT NOW - see the caveat
+# below. Reading the PLANNED base out of SPINE.md is issue 133.
+base_branch="$(git -C "$canonical" rev-parse --abbrev-ref HEAD)"
+[ "$base_branch" != "HEAD" ] \
+  || { echo "halt: canonical is in DETACHED HEAD - no base_branch to record"; exit 1; }
 git -C "$canonical" checkout -q -b "$spine_branch"
 ```
 
@@ -125,15 +123,18 @@ completed or active items to close or to redispatch from their recorded state.
 Resuming means reconciling all four at once — that is issue 133, not this block.
 Until it lands, halting with the branch named beats a lane that half-restarts.
 
-**`base_branch` is read from `SPINE.md`, never derived from HEAD.** `plan-spine`
-authors it into the spine-context section at planning time (`spec-authoring.md`
-§1), precisely because the checkout has moved by the time anything needs it.
-Deriving it from `rev-parse --abbrev-ref HEAD` cuts the spine from whatever branch
-the session happened to be parked on; spine close then merges back into that same
-unintended branch with every branch and reachability guard passing, and the work
-is simply absent from the planned base. Carry it into every handoff
-(`handoff-contract.md` §2), which makes a useful cross-check. If it cannot be
-resolved, both this lane and that close **halt**.
+**`base_branch` is taken from HEAD in this release, and that is a known
+limitation — park canonical on the intended base before you run the lane.**
+`plan-spine` authors the planned base into `SPINE.md`'s spine-context section at
+planning time (`spec-authoring.md` §1), and that is where it *should* come from:
+deriving it from HEAD cuts the spine from whatever branch the session happened to
+be parked on, and spine close then merges back into that same unintended branch
+with every branch and reachability guard passing. **Nothing reads it out of
+`SPINE.md` today** — no lane, no close step, and no `oss` verb — because the
+spine-context section is prose, not `key: value` lines, so a reliable read means
+specifying that format first. Issue 133 owns both. Record the value in every
+handoff (`handoff-contract.md` §2) so spine close can still recover it, and if it
+cannot be resolved there, that close **halts**.
 
 **The slug is not in state.** Spines store `name`, work items store `title`;
 neither is a kebab slug, and nothing persists one. `plan-spine` minted the spine
