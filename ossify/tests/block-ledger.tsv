@@ -1,0 +1,113 @@
+# ossify executable-prose ledger (#138)
+#
+# EVERY shipped bash block is accounted for here. `test-block-ledger.sh` asserts,
+# per file, that O-rows + D-count + I-count equals the block count actually in
+# the file - so inserting, deleting, or re-fencing a block turns the suite RED
+# until someone classifies it. That is the whole point: uncovered surface is
+# DECLARED, never assumed.
+#
+# ROW TYPES (tab-separated)
+#   O <file> <anchor> <covered-by> <what it guards>
+#       An operative block that a test EXTRACTS AND EXECUTES. The anchor must
+#       resolve to exactly one block in the file (uniqueness is asserted).
+#   D <file> <count> <issue> <reason>
+#       Operative blocks not yet executed. Honest debt, not silence.
+#   I <file> <count> <reason>
+#       Illustrative blocks: they show THAT a verb exists or WHAT SHAPE a call
+#       takes. No logic of their own; the verb itself is covered by the lib and
+#       dispatcher suites.
+#
+# THE CLASSIFICATION RULE
+#   operative    - the block's LOGIC is the contract: control flow, a guard that
+#                  must fire (or must not), a multi-step sequence where ordering
+#                  or rc-handling matters, or a variable one step assigns and a
+#                  later step consumes. Fails invisibly to `bash -n`, and often
+#                  invisibly to rc alone.
+#   illustrative - a worked example or single dispatcher call, typically with
+#                  <placeholder> arguments. Executing it would test the fixture,
+#                  not the prose.
+#
+# THE ANCHOR RULE (see tests/lib/blocks.sh for the full account)
+#   Anchor on a token that SURVIVES the regression being guarded. #130 round 6
+#   anchored on `demo_rc` - the thing under test - so removing the fix made the
+#   block unfindable and the failure read as "vacuous" rather than as wrong
+#   behaviour. Pick the anchor from the block's SCAFFOLDING, never from its FIX.
+#
+# Totals at authoring: 160 blocks - 51 operative (11 covered, 40 deferred),
+# 109 illustrative.
+#
+O	skills/close/references/spine-close.md	work items that are not complete	tests/test-close.sh	the open-work-item gate refuses to close a spine with incomplete items
+O	skills/close/references/spine-close.md	is-ancestor	tests/test-close.sh	the merge guard: the spine tip must actually reach the base branch
+O	skills/close/references/spine-close.md	touch_check	tests/test-close.sh	bone-touch at close re-classifies the spine rather than trusting the plan
+D	skills/close/references/spine-close.md	1	#138	the architect-critic ARGS bridge (export form, quoting, absolute --spec) is contract-bearing and unexecuted
+I	skills/close/references/spine-close.md	6	single-verb calls with <placeholder> args: ledger_apply_pending, class_set, risk-gate read, critic_detect, worktree_remove, spine_status
+O	skills/close/references/release-close.md	spines that are not closed	tests/test-close.sh	the release gate blocks on any spine still open
+O	skills/close/references/release-close.md	expired_fakes	tests/test-close.sh	the fake-expiry gate blocks on fakes past their expiry release
+O	skills/close/references/release-close.md	expired_quarantines	tests/test-close.sh	the quarantine gate blocks on quarantines that have come due
+D	skills/close/references/release-close.md	1	#138	the ai_workspace path composition for the release retro is unexecuted
+I	skills/close/references/release-close.md	5	single-verb calls: demo_user_lines, ledger_retire, release goal read, feature_list, release_status
+O	skills/close/references/patch-lane.md	touch_check	tests/test-close.sh	a patch touching a bone surface must escalate out of the patch lane
+D	skills/close/references/patch-lane.md	1	#138	the patch commit's branch placement block - CL-1 says the target branch is unspecified, so executing it needs the design decision first
+I	skills/close/references/patch-lane.md	1	single patch_add call with <placeholder> args
+O	skills/close/references/work-item-close.md	abbrev-ref	tests/test-close.sh	W1: the merge guard fires when canonical is parked on the wrong branch
+D	skills/close/references/work-item-close.md	4	#138	path resolution, the spec-exists halt, the staged-changes read, and the Route A/B close sequence
+I	skills/close/references/work-item-close.md	1	a single <placeholder> assignment showing the report path's origin
+O	skills/close/references/cumulative-demo.md	elapsed=	tests/test-close.sh	D1-D4: the demo measurement block preserves the runner's rc instead of flattening it
+D	skills/close/references/cumulative-demo.md	2	#138	the quarantine innocence probe (reproduce at first parent) and the ledger-budget comparison
+I	skills/close/references/cumulative-demo.md	4	single-verb calls: demo_run, ledger_quarantine, budget read, demo_record
+O	skills/close/references/impl-check.md	while IFS=	tests/test-close.sh	the halt loop exits nonzero on the first failing AC and names the row
+I	skills/close/references/impl-check.md	3	single-verb calls: verify_acs, report_cross_check, harvest_dir
+O	skills/work-item/references/round-orchestration.md	checkout -q -b	tests/test-close.sh	W2: the spine cut uses the PLANNED base, not HEAD, and halts on a detached HEAD
+D	skills/work-item/references/round-orchestration.md	4	#138	spine-dir resolution, per-item spec path derivation, target_repo worktree spawn, and the dirty-worktree halt
+D	commands/close.md	1	#138	the $ARGUMENTS env-var bridge - a positional-substitution regression here silently drops every argument
+D	commands/plan-release.md	1	#138	the $ARGUMENTS env-var bridge
+D	commands/plan-spine.md	1	#138	the $ARGUMENTS env-var bridge
+D	commands/run-spine.md	1	#138	the $ARGUMENTS env-var bridge
+D	commands/start.md	1	#138	the $ARGUMENTS env-var bridge
+D	commands/work-item.md	1	#138	the $ARGUMENTS env-var bridge
+D	skills/close/SKILL.md	2	#138	the id-shape router and the manifest-refusal + doctor gate
+D	skills/close/references/code-review.md	1	#138	consumes $base_branch and $spine_branch assuming an earlier step assigned them - the exact round-7 shape
+D	skills/close/references/fake-expiry.md	1	#138	the expired-fakes branch whose rc contract folds rc 2 into neither pass nor block
+I	skills/close/references/fake-expiry.md	2	an active-fakes read and a single fake_status call
+D	skills/close/references/harvest.md	2	#138	the empty-items halt guard and the memory-bank path composition
+D	skills/close/references/routing.md	1	#138	the id_parse scope router - shares its shape with close/SKILL.md #1
+I	skills/close/references/routing.md	1	a single spine_list call
+I	skills/close/references/retrospective.md	1	a single quarantine read
+D	skills/plan-release/SKILL.md	2	#138	the state-absent refusal and the touch_check rc-capture
+I	skills/plan-release/SKILL.md	8	single-verb calls with <placeholder> args: release_set_meta x4, feature_add, release_add, class_set, the critic ARGS export
+D	skills/plan-release/references/bone-touch-judge.md	2	#138	the two-branch if that folds rc 2 into clean, and the rc-capture form that does not - REL-9 flags the first as a copy trap
+I	skills/plan-release/references/bone-touch-judge.md	3	single-verb calls: class_set x2 and a risk-gate controls read
+I	skills/plan-release/references/class-declaration.md	2	a feature_add return and a spine_add with an [internal] name
+I	skills/plan-release/references/critic-veto.md	4	the critic ARGS export and three single-verb disposition calls
+I	skills/plan-release/references/feature-map-grooming.md	1	a single feature_list call
+I	skills/plan-release/references/real-use-findings.md	3	three worked release_set_meta / feature_add calls
+I	skills/plan-release/references/release-md-emission.md	1	a release-id read; REL-2's unresolved <ai-workspace> placeholder makes it unexecutable as written
+I	skills/plan-release/references/rolling-wave.md	1	a single next_sketch write
+I	skills/plan-release/references/spine-sequencing-dag.md	1	a single spine_dag write
+D	skills/plan-spine/SKILL.md	3	#138	the state-absent refusal, the spine-id resolution, and the touch_check branch
+I	skills/plan-spine/SKILL.md	7	single-verb calls with <placeholder> args: work_item_add, class_set, the critic ARGS export, ledger_add_user, ledger_supersede, fake_add, feature_add
+D	skills/plan-spine/references/cross-repo.md	1	#138	the worktree_path read and cross-repo dispatch
+I	skills/plan-spine/references/cross-repo.md	2	a work_item_add shape and a work-items-by-spine read
+D	skills/plan-spine/references/decomposition.md	1	#138	the bone-touch re-check at decomposition
+I	skills/plan-spine/references/decomposition.md	2	a work_item_add return and a single class_set call
+D	skills/plan-spine/references/demo-authoring.md	2	#138	the posture read that gates the community-edition line, and the [internal] spine case guard
+I	skills/plan-spine/references/demo-authoring.md	7	worked ledger_add_auto examples and single-verb reads
+I	skills/plan-spine/references/demo-amendments.md	3	single-verb calls: supersede, ledger read, quarantine
+I	skills/plan-spine/references/fake-ledger-discipline.md	3	single-verb calls: fake_add, fake_status, feature_add
+I	skills/plan-spine/references/citation-foldin.md	2	two ADR reads used to check citations by eye
+I	skills/plan-spine/references/spec-authoring.md	1	the critic ARGS export
+D	skills/start/SKILL.md	1	#138	the state-absent bootstrap refusal
+I	skills/start/SKILL.md	7	single-verb calls with <placeholder> args: feature_add, bone_add, risk_gate_add, posture_set, overlay_set, the critic ARGS export, doctor
+D	skills/start/references/bones-registry.md	1	#138	the ADR-number minting block - two sed forms, a sort -n tail, and 10# base-10 forcing, all silently wrong on an empty or odd-named dir
+I	skills/start/references/bones-registry.md	2	a bone_add shape and a worked bone_add example
+I	skills/start/references/critic-moment.md	2	a critic_detect probe and the ARGS export
+I	skills/start/references/journey-map.md	1	a single feature_add call
+I	skills/start/references/posture-block.md	4	single-verb calls: posture_set, overlay_set, bone_add, composition_set
+I	skills/start/references/risk-gates.md	2	a risk_gate_add shape and a worked example
+D	skills/work-item/references/pre-flight.md	1	#138	the verify_acs read loop that Gate 2 uses to detect a malformed AC table
+I	skills/work-item/references/pre-flight.md	2	a verify_acs call and a porcelain cleanliness read
+I	skills/work-item/SKILL.md	5	single-verb calls with <placeholder> args: verify_acs, porcelain read, redgate, verify_step, git add
+I	skills/work-item/references/debugging.md	3	worked pytest invocations teaching a debugging move, all <worktree-abs> placeholders
+I	skills/work-item/references/tdd-loop.md	4	worked RED-GREEN examples: a redgate call, two test invocations, a zero_tests_guard pipe
+I	skills/work-item/references/handoff-contract.md	1	a single verify_step call
+I	skills/work-item/references/report-contract.md	1	a single report_cross_check call

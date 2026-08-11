@@ -310,10 +310,15 @@ t_assert_rc 8 "an UNMERGED work-item branch refuses cleanup rc 8 - which is why 
 #    names resolves; beyond that those orderings have no coverage in this release.
 # ---------------------------------------------------------------------------
 SPINE_CLOSE="$SKILLS/close/references/spine-close.md"
+# Delegates to the shared harness (#138). Same signature, same ten call sites,
+# but the extraction now REFUSES an anchor that matches more than one block:
+# the old inline awk stopped at the first match, so a duplicated anchor bound
+# silently to whichever came first and would have silently REBOUND if a block
+# were inserted above it. Every anchor used below is asserted unique by
+# test-block-ledger.sh check 3.
+. "$HERE/lib/blocks.sh"
 _extract_block() { # $1=source-md $2=awk-regex identifying the block $3=out-path
-  awk -v want="$2" '/^```bash$/{inb=1;buf="";next}
-       /^```$/{if(inb && buf ~ want){printf "%s", buf; exit} inb=0; next}
-       inb{buf = buf $0 "\n"}' "$1" > "$3"
+  oss_block_extract "$1" "$2" "$3"
 }
 OPEN_BLOCK="$TMP/spine-open.sh";  _extract_block "$SPINE_CLOSE" 'work items that are not complete' "$OPEN_BLOCK"
 MERGE_BLOCK="$TMP/spine-merge.sh"; _extract_block "$SPINE_CLOSE" 'is-ancestor' "$MERGE_BLOCK"
