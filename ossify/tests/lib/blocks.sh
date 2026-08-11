@@ -37,11 +37,16 @@
 # injected under `set -u` wherever the block is supposed to establish its own
 # state; inject only what the CALLER genuinely supplies.
 
-# Count fenced bash blocks in a markdown file. Tolerates indented fences, which
-# is what `test-skill-bash-blocks.sh`'s own extractor does - the two counts are
-# cross-checked by test-block-ledger.sh so a drift in either surfaces.
+# Count fenced bash blocks in a markdown file.
+#
+# The opener is EXACT - ```bash plus optional trailing whitespace - not a
+# prefix. A prefix match also accepts ```bashx, so re-fencing a block to an
+# info-string the real harness does not recognise would preserve both the count
+# and the digest and leave this gate green while the block silently stopped
+# being a bash block. (Codex P2 round 2 on PR #144.) Indented fences are still
+# accepted, which is what `test-skill-bash-blocks.sh`'s own extractor does.
 oss_block_count() { # $1=md ; echoes the count
-  awk '/^[[:space:]]*```bash/{n++} END{print n+0}' "$1"
+  awk '/^[[:space:]]*```bash[[:space:]]*$/{n++} END{print n+0}' "$1"
 }
 
 # A digest over a file's BLOCK BODIES ONLY - not the prose around them.
@@ -57,7 +62,7 @@ oss_block_count() { # $1=md ; echoes the count
 # itself must.
 oss_block_digest() { # $1=md ; echoes a stable digest of every block body
   awk '
-    /^[[:space:]]*```bash/ { inb=1; next }
+    /^[[:space:]]*```bash[[:space:]]*$/ { inb=1; next }
     inb && /^[[:space:]]*```[[:space:]]*$/ { inb=0; next }
     inb { print }
   ' "$1" | cksum | awk '{print $1"-"$2}'
@@ -69,10 +74,29 @@ oss_block_digest() { # $1=md ; echoes a stable digest of every block body
 # above it. An anchor that is not unique is not an identity.
 oss_block_matches() { # $1=md $2=anchor-regex ; echoes the match count
   awk -v want="$2" '
-    /^[[:space:]]*```bash/ { inb=1; buf=""; next }
+    /^[[:space:]]*```bash[[:space:]]*$/ { inb=1; buf=""; next }
     inb && /^[[:space:]]*```[[:space:]]*$/ { inb=0; if (buf ~ want) n++; next }
     inb { buf = buf $0 "\n" }
     END { print n+0 }
+  ' "$1"
+}
+
+# Which block INDEX (1-based) does the anchor resolve to? 0 if none.
+#
+# Two O rows can each resolve uniquely and still name the SAME block: duplicate
+# an O row, decrement the file's D or I count to keep the total, and
+# completeness, uniqueness, digest and covered-by all stay green while one real
+# block drops out of the ledger entirely. Counting O rows as distinct blocks is
+# an assumption; this makes it checkable. (Codex P2 round 2 on PR #144.)
+oss_block_index_of() { # $1=md $2=anchor-regex ; echoes the 1-based index, or 0
+  # NB: awk's `exit` still runs END, so the hit must be recorded in a flag and
+  # printed once from END - printing at the match site and again in END emits
+  # two lines, which a caller comparing strings reads as neither index.
+  awk -v want="$2" '
+    /^[[:space:]]*```bash[[:space:]]*$/ { inb=1; buf=""; idx++; next }
+    inb && /^[[:space:]]*```[[:space:]]*$/ { inb=0; if (buf ~ want) { hit=idx; exit } next }
+    inb { buf = buf $0 "\n" }
+    END { print hit+0 }
   ' "$1"
 }
 
@@ -93,7 +117,7 @@ oss_block_extract() { # $1=md $2=anchor-regex $3=out-path
     return 2
   fi
   awk -v want="$want" '
-    /^[[:space:]]*```bash/ { inb=1; buf=""; next }
+    /^[[:space:]]*```bash[[:space:]]*$/ { inb=1; buf=""; next }
     /^[[:space:]]*```[[:space:]]*$/ { if (inb && buf ~ want) { printf "%s", buf; exit } inb=0; next }
     inb { buf = buf $0 "\n" }
   ' "$md" > "$out"

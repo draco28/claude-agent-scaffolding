@@ -98,7 +98,20 @@ while IFS=$'\t' read -r _kind file want _rest; do
   fi
 done < <(grep -E '^H'$'\t' "$LEDGER" || true)
 echo "-- check 2c: $digests per-file block digests"
-if [ "$digests" -eq "$shipped" ]; then pass; else fail "check 2c: $digests digest rows for $shipped files with blocks - every such file needs an H row"; fi
+
+# EXACTLY ONE H row per shipped file, checked per path rather than by comparing
+# totals. An aggregate count is satisfied when one file loses its H row and
+# another is duplicated - and the file without one silently stops being digest-
+# checked, which is the whole protection. (Codex P2 round 2 on PR #144.)
+while IFS= read -r rel; do
+  [ "$(oss_block_count "$OSS_TREE/$rel")" -gt 0 ] || continue
+  n="$(awk -F'\t' -v f="$rel" '$1=="H" && $2==f {n++} END{print n+0}' "$LEDGER")"
+  case "$n" in
+    1) pass ;;
+    0) fail "check 2c: $rel has blocks but no H row - its block bodies are unchecked" ;;
+    *) fail "check 2c: $rel has $n H rows - duplicates let one file's digest stand in for another's" ;;
+  esac
+done < <(cd "$OSS_TREE" && find skills commands agents -name '*.md' | sort)
 # A floor, not just a per-file equality: if the enumeration itself broke and
 # produced zero files, every per-file assertion above would be vacuously true.
 if [ "$shipped" -ge 40 ]; then pass; else fail "check 2: only $shipped files enumerated - the file walk is broken, the per-file checks above are vacuous"; fi
@@ -125,6 +138,22 @@ done < <(grep -E '^O' "$LEDGER" || true)
 # own failures - the same prose-contradicts-behaviour class this gate exists
 # to catch.
 echo "-- check 3: $anchors covered-block anchors checked for unique resolution"
+
+# check 3b - two O rows in the same file must not resolve to the SAME block.
+# Each row above is checked in isolation, so duplicating an O row and
+# decrementing that file's D or I count keeps the completeness sum, the anchor
+# uniqueness, the digest and the covered-by claims all green - while one real
+# block drops out of the ledger with nothing pointing at it. Completeness
+# counts O rows as distinct blocks; this is what makes that true rather than
+# assumed. (Codex P2 round 2 on PR #144.)
+dupes="$(
+  while IFS=$'\t' read -r _k file anchor _rest; do
+    printf '%s\t%s\n' "$file" "$(oss_block_index_of "$OSS_TREE/$file" "$anchor")"
+  done < <(grep -E '^O'$'\t' "$LEDGER" || true) | sort | uniq -d
+)"
+if [ -z "$dupes" ]; then pass; else
+  fail "check 3b: two O rows resolve to the same block - $(printf '%s' "$dupes" | tr '\n' ' ')"
+fi
 if [ "$anchors" -ge 10 ]; then pass; else fail "check 3: only $anchors anchors found - the O-row grep is broken, check 3 is vacuous"; fi
 
 # ---------------------------------------------------------------------------
@@ -166,11 +195,39 @@ while IFS=$'\t' read -r kind file anchor covered_by _guards; do
   # genuinely matched. That form failed a TRUE coverage claim.
   # `index()` is a literal substring test, so anchors containing regex
   # metacharacters compare as themselves.
-  if awk -v a="$anchor" '
+  # The extraction line must also name the LEDGER'S SOURCE FILE. Requiring only
+  # anchor + extraction construct still lets a call be repointed at a different
+  # markdown source with its anchor unchanged, preserving a false covered-by
+  # claim. (Codex P2 round 2 on PR #144.) The tests pass the source as a shell
+  # variable, so resolve `VAR="..."` assignments in the test file first, expand
+  # the extraction call's first argument, and require the ledger's path to be a
+  # suffix of it. This is why every extraction was normalised to a single
+  # `_extract_block <source-var> <anchor> <out>` line.
+  # Suffix after the first path component: skills/close/references/x.md ->
+  # /close/references/x.md, which is what a "$SKILLS/..." value ends with.
+  tail="/${file#*/}"
+  if awk -v a="$anchor" -v tail="$tail" '
+       # Collect VAR="value" assignments VERBATIM. Deliberately no recursive
+       # expansion: substituting $VARs invites prefix collisions - $SP (a real
+       # variable in test-close.sh) matches inside $SPINE_CLOSE and corrupts the
+       # path. Comparing the raw value by suffix needs no expansion at all.
+       /^[A-Za-z_][A-Za-z0-9_]*=/ {
+         eq = index($0,"="); name = substr($0,1,eq-1); val = substr($0,eq+1)
+         if (match(val, /^"[^"]*"/)) val = substr(val, RSTART+1, RLENGTH-2)
+         else sub(/[[:space:];].*$/, "", val)
+         v[name] = val
+       }
        index($0,a) && $0 !~ /^[[:space:]]*#/ &&
-       (index($0,"_extract_block") || index($0,"oss_block_extract") || index($0,"buf ~")) { found=1; exit }
+       (index($0,"_extract_block") || index($0,"oss_block_extract")) {
+         p = index($0,"_extract_block"); if (!p) p = index($0,"oss_block_extract")
+         rest = substr($0, p); sub(/^[A-Za-z_]+[[:space:]]+/, "", rest)
+         arg = rest; sub(/[[:space:]].*$/, "", arg)
+         gsub(/["\047$]/, "", arg)
+         src = (arg in v) ? v[arg] : arg
+         if (length(src) >= length(tail) && substr(src, length(src)-length(tail)+1) == tail) { found = 1; exit }
+       }
        END { exit !found }' "$t"; then pass; else
-    fail "check 4: $covered_by never EXTRACTS on anchor '$anchor' claimed for $file - the coverage claim is false"
+    fail "check 4: $covered_by never extracts anchor '$anchor' FROM $file - the coverage claim is false (anchor missing, not an extraction call, or pointed at another source)"
   fi
 done < <(grep -E '^O' "$LEDGER" || true)
 

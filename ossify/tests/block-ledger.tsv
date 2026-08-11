@@ -45,11 +45,18 @@
 #   block unfindable and the failure read as "vacuous" rather than as wrong
 #   behaviour. Pick the anchor from the block's SCAFFOLDING, never from its FIX.
 #
-# Totals: 160 blocks - 52 operative (11 covered, 41 deferred), 108 illustrative.
-# (Was 51/109 at authoring: release-md-emission.md was reclassified operative on
-# review - `rel` -> `oss release_dir` -> `mkdir -p` is the assigned-then-consumed
-# case this file's own rule names, and the earlier reason described only the
-# block's first line.)
+# Totals: 160 blocks - 54 operative (11 covered, 43 deferred), 106 illustrative.
+# (Was 51/109 at authoring. Three blocks were reclassified operative on review,
+# all the same way: the rule above says "a variable one step assigns and a later
+# step consumes", and all three do exactly that, so the original illustrative
+# calls understated the declared debt -
+#   release-md-emission.md  rel  -> oss release_dir -> mkdir -p
+#   plan-release/SKILL.md   rel  -> spine_add + release_set_meta
+#   class-declaration.md    sid  -> class_set
+# The lesson is worth keeping: when a stated rule and a case-by-case instinct
+# disagree, the rule wins or the rule gets rewritten - a ledger whose value is
+# that someone else can apply it and get the same answer cannot have exceptions
+# that live only in the author's head.)
 #
 O	skills/close/references/spine-close.md	work items that are not complete	tests/test-close.sh	the open-work-item gate refuses to close a spine with incomplete items
 O	skills/close/references/spine-close.md	is-ancestor	tests/test-close.sh	the merge guard: the spine tip must actually reach the base branch
@@ -88,11 +95,12 @@ D	skills/close/references/harvest.md	2	#138	the empty-items halt guard and the m
 D	skills/close/references/routing.md	1	#138	the id_parse scope router - shares its shape with close/SKILL.md #1
 I	skills/close/references/routing.md	1	a single spine_list call
 I	skills/close/references/retrospective.md	1	a single quarantine read
-D	skills/plan-release/SKILL.md	2	#138	the state-absent refusal and the touch_check rc-capture
-I	skills/plan-release/SKILL.md	8	single-verb calls with <placeholder> args: release_set_meta x4, feature_add, release_add, class_set, the critic ARGS export
+D	skills/plan-release/SKILL.md	3	#138	the state-absent refusal, the touch_check rc-capture, and the release_add capture whose $rel feeds spine_add and release_set_meta
+I	skills/plan-release/SKILL.md	7	single-verb calls with <placeholder> args: release_set_meta x4, feature_add, release_add, class_set, the critic ARGS export
 D	skills/plan-release/references/bone-touch-judge.md	2	#138	the two-branch if that folds rc 2 into clean, and the rc-capture form that does not - REL-9 flags the first as a copy trap
 I	skills/plan-release/references/bone-touch-judge.md	3	single-verb calls: class_set x2 and a risk-gate controls read
-I	skills/plan-release/references/class-declaration.md	2	a feature_add return and a spine_add with an [internal] name
+D	skills/plan-release/references/class-declaration.md	1	#138	sid=$(oss spine_add ...) consumed by class_set - assigned then consumed, the same rule that reclassified release-md-emission.md
+I	skills/plan-release/references/class-declaration.md	1	a single feature_add return
 I	skills/plan-release/references/critic-veto.md	4	the critic ARGS export and three single-verb disposition calls
 I	skills/plan-release/references/feature-map-grooming.md	1	a single feature_list call
 I	skills/plan-release/references/real-use-findings.md	3	three worked release_set_meta / feature_add calls
