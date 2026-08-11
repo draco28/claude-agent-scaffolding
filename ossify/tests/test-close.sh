@@ -18,6 +18,15 @@
 # a fixture written to satisfy it proves nothing.
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/harness.sh"
+
+# Sourced HERE, not beside the first spine-close extraction further down: the
+# impl-check halt-loop extraction at §Task-13 runs earlier in the file, and a
+# function defined after its first call site is a definition-after-use bug —
+# the same ordering class as a guard placed after the mutation it protects.
+. "$HERE/lib/blocks.sh"
+_extract_block() { # $1=source-md $2=anchor identifying the block $3=out-path
+  oss_block_extract "$1" "$2" "$3"
+}
 for lib in id state manifest commands entities registries ledger demo doctor verify worktree; do . "$HERE/../lib/$lib.sh"; done
 OSS="$HERE/../bin/oss"
 SKILLS="$HERE/../skills"
@@ -201,9 +210,13 @@ printf '%s\n' \
   '- [ ] AC-3 auto: `touch third-row-ran` → expected: exit 0' > "$HALT_SPEC"
 HALT_DIR="$TMP/halt-run"; mkdir -p "$HALT_DIR"
 BLOCK="$TMP/halt-block.sh"
-awk '/^```bash$/{inb=1;buf="";next}
-     /^```$/{if(inb && buf ~ /while IFS=/){printf "%s", buf; exit} inb=0; next}
-     inb{buf = buf $0 "\n"}' "$SKILLS/close/references/impl-check.md" > "$BLOCK"
+# Was a hand-rolled awk; now the shared harness like the other ten, so every
+# extraction in this file is one `_extract_block <source-var> <anchor> <out>`
+# line. test-block-ledger.sh check 4 resolves that source variable back to the
+# ledger's file, which it cannot do when the path sits on a different line from
+# the anchor.
+IMPL_CHECK="$SKILLS/close/references/impl-check.md"
+_extract_block "$IMPL_CHECK" 'while IFS=' "$BLOCK"
 if grep -q 'verify_step' "$BLOCK" && grep -q 'while IFS=' "$BLOCK"; then
   T_PASS=$((T_PASS+1))
 else
@@ -310,11 +323,12 @@ t_assert_rc 8 "an UNMERGED work-item branch refuses cleanup rc 8 - which is why 
 #    names resolves; beyond that those orderings have no coverage in this release.
 # ---------------------------------------------------------------------------
 SPINE_CLOSE="$SKILLS/close/references/spine-close.md"
-_extract_block() { # $1=source-md $2=awk-regex identifying the block $3=out-path
-  awk -v want="$2" '/^```bash$/{inb=1;buf="";next}
-       /^```$/{if(inb && buf ~ want){printf "%s", buf; exit} inb=0; next}
-       inb{buf = buf $0 "\n"}' "$1" > "$3"
-}
+# `_extract_block` is defined at the TOP of this file (see the note there).
+# It delegates to the shared harness (#138), which REFUSES an anchor matching
+# more than one block: the old inline awk stopped at the first match, so a
+# duplicated anchor bound silently to whichever came first and would have
+# silently REBOUND if a block were inserted above it. Every anchor used below
+# is asserted unique, and bound to its source file, by test-block-ledger.sh.
 OPEN_BLOCK="$TMP/spine-open.sh";  _extract_block "$SPINE_CLOSE" 'work items that are not complete' "$OPEN_BLOCK"
 MERGE_BLOCK="$TMP/spine-merge.sh"; _extract_block "$SPINE_CLOSE" 'is-ancestor' "$MERGE_BLOCK"
 TOUCH_BLOCK="$TMP/spine-touch.sh"; _extract_block "$SPINE_CLOSE" 'touch_check' "$TOUCH_BLOCK"
@@ -855,4 +869,15 @@ t_assert_rc 1 "D4: the same failing demo re-raises under errexit"
 t_assert_contains "$T_OUT" "within the 60s budget" "D4: ...and the timing is still reported first"
 
 cd /; rm -rf "$TMP"
+
+# A FLOOR ON THE ASSERTION COUNT. Every check in test-block-ledger.sh proves
+# this file EXTRACTS and SOURCES each covered block; none of them can see the
+# behavioural assertions around that being deleted, and a file whose assertions
+# are gone reports pass=0 fail=0 and exits 0. The floor is what makes wholesale
+# removal loud. Raise it when the file grows; never lower it to make a run go
+# green. (Codex P2 round 3 on PR #144.)
+if [ "$T_PASS" -lt 180 ]; then
+  echo "FAIL: test-close.sh ran only $T_PASS assertions (floor 180) - assertions were removed, not just skipped"
+  T_FAIL=$((T_FAIL+1))
+fi
 t_summary
