@@ -14,6 +14,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 OSS_TREE="$(cd "$HERE/.." && pwd)"
 LEDGER="$HERE/block-ledger.tsv"
+TMPOUT="$(mktemp)"
 . "$HERE/lib/blocks.sh"
 
 PASS=0; FAIL=0
@@ -224,10 +225,37 @@ while IFS=$'\t' read -r kind file anchor covered_by _guards; do
          arg = rest; sub(/[[:space:]].*$/, "", arg)
          gsub(/["\047$]/, "", arg)
          src = (arg in v) ? v[arg] : arg
-         if (length(src) >= length(tail) && substr(src, length(src)-length(tail)+1) == tail) { found = 1; exit }
+         if (length(src) >= length(tail) && substr(src, length(src)-length(tail)+1) == tail) {
+           # Remember the OUT variable so check 4b can prove it is EXECUTED.
+           # Take the LAST "$VAR" on the line rather than splitting on
+           # whitespace: anchors contain spaces ("work items that are not
+           # complete"), so positional splitting picks a word out of the middle
+           # of the anchor and yields nonsense like $items or $-q.
+           out = ""; s = rest
+           while (match(s, /"\$[A-Za-z_][A-Za-z0-9_]*"/)) {
+             out = substr(s, RSTART+2, RLENGTH-3)
+             s = substr(s, RSTART+RLENGTH)
+           }
+           print out > "/dev/stderr"
+           found = 1; exit
+         }
        }
-       END { exit !found }' "$t"; then pass; else
+       END { exit !found }' "$t" 2>"$TMPOUT"; then pass; else
     fail "check 4: $covered_by never extracts anchor '$anchor' FROM $file - the coverage claim is false (anchor missing, not an extraction call, or pointed at another source)"
+    continue
+  fi
+
+  # check 4b - EXTRACTION IS NOT EXECUTION, and an O row promises both.
+  # Deleting the `t_capture … . '$OUT'` line and its assertions while leaving
+  # the `_extract_block` call in place satisfied every check above, so the row
+  # still claimed coverage for a block nothing ran. (Codex P2 round 3 on
+  # PR #144.) Require the extraction's OUT variable to be dot-sourced somewhere
+  # in the same test - which is how all eleven are actually executed.
+  outvar="$(cat "$TMPOUT" 2>/dev/null | head -1)"
+  if [ -z "$outvar" ]; then
+    fail "check 4b: could not determine the output variable for '$anchor' in $covered_by"
+  elif grep -Eq "\.[[:space:]]+[\"']\\\$$outvar[\"']" "$t"; then pass; else
+    fail "check 4b: $covered_by extracts '$anchor' into \$$outvar but never sources it - extraction is not execution"
   fi
 done < <(grep -E '^O' "$LEDGER" || true)
 
@@ -236,7 +264,7 @@ done < <(grep -E '^O' "$LEDGER" || true)
 # rests on oss_block_extract, and an extractor that silently returns nothing
 # would make the whole file pass while testing air.
 # ---------------------------------------------------------------------------
-FIX="$(mktemp -d)"; trap 'rm -rf "$FIX"' EXIT
+FIX="$(mktemp -d)"; trap 'rm -rf "$FIX" "$TMPOUT"' EXIT
 cat > "$FIX/f.md" <<'EOF'
 prose
 ```bash

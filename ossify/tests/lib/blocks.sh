@@ -37,16 +37,47 @@
 # injected under `set -u` wherever the block is supposed to establish its own
 # state; inject only what the CALLER genuinely supplies.
 
-# Count fenced bash blocks in a markdown file.
+# THE FENCE STATE MACHINE - shared by every function below, and deliberately
+# byte-for-byte in agreement with `test-skill-bash-blocks.sh`'s own extractor
+# (see its lines 76-83). Two rules, both learned the hard way:
 #
-# The opener is EXACT - ```bash plus optional trailing whitespace - not a
-# prefix. A prefix match also accepts ```bashx, so re-fencing a block to an
-# info-string the real harness does not recognise would preserve both the count
-# and the digest and leave this gate green while the block silently stopped
-# being a bash block. (Codex P2 round 2 on PR #144.) Indented fences are still
-# accepted, which is what `test-skill-bash-blocks.sh`'s own extractor does.
+#   EXACT opener, not a prefix. A prefix match also accepts ```bashx, so
+#   re-fencing a block to an info-string the real harness does not recognise
+#   would preserve both the count and the digest and leave this gate green
+#   while the block silently stopped being a bash block.
+#   (Codex P2 round 2 on PR #144.)
+#
+#   ONLY A BARE FENCE CLOSES. A ```bash line appearing INSIDE an already-open
+#   ```text or ```markdown fence is content - a doc example quoting a bash
+#   fence - not an opener. A stateless matcher counts it as a block, which
+#   would force a classification for something the real harness never sees, and
+#   would let `oss_block_extract` pull out quoted documentation as if it were
+#   shipped code. The two extractors agree at 160 today only because no such
+#   nested case exists yet; that is luck, not a guarantee.
+#   (Codex P2 round 3 on PR #144.)
+#
+# Emitted as a string so the five readers cannot drift apart.
+_OSS_BLOCK_FSM='
+  /^[ \t]*```/ {
+    if (inblk) {
+      if ($0 ~ /^[ \t]*```[ \t]*$/) { if (isbash) { CLOSE } inblk=0; isbash=0; next }
+      # an info-string fence while already inside a block is CONTENT
+    } else {
+      info=$0; sub(/^[ \t]*```/,"",info); sub(/[ \t]*$/,"",info)
+      inblk=1; isbash=(info=="bash"); if (isbash) { OPEN }
+      next
+    }
+  }
+  { if (inblk && isbash) { BODY } }
+'
+_oss_block_awk() { # $1=OPEN $2=CLOSE $3=BODY $4=END ; echoes the awk program
+  local p="$_OSS_BLOCK_FSM"
+  p="${p//OPEN/$1}"; p="${p//CLOSE/$2}"; p="${p//BODY/$3}"
+  printf '%s\nEND { %s }\n' "$p" "$4"
+}
+
 oss_block_count() { # $1=md ; echoes the count
-  awk '/^[[:space:]]*```bash[[:space:]]*$/{n++} END{print n+0}' "$1"
+  awk "$(_oss_block_awk 'idx++' '' '' 'print idx+0')" "$1"
 }
 
 # A digest over a file's BLOCK BODIES ONLY - not the prose around them.
@@ -60,12 +91,15 @@ oss_block_count() { # $1=md ; echoes the count
 # Digesting bodies rather than whole files is deliberate: editing the prose
 # AROUND a block should not force a reclassification, but editing the block
 # itself must.
+# BOUNDARIES ARE PART OF THE DIGEST. Concatenating bodies with no separator
+# makes the digest blind to a fence MOVE: shift a line from the end of one block
+# to the start of the next and the concatenation - and so the cksum - is
+# identical, while operative logic has just migrated between two rows with
+# different D/I classifications. The per-block marker makes the split itself
+# part of what is hashed. (Codex P2 round 3 on PR #144.)
 oss_block_digest() { # $1=md ; echoes a stable digest of every block body
-  awk '
-    /^[[:space:]]*```bash[[:space:]]*$/ { inb=1; next }
-    inb && /^[[:space:]]*```[[:space:]]*$/ { inb=0; next }
-    inb { print }
-  ' "$1" | cksum | awk '{print $1"-"$2}'
+  awk "$(_oss_block_awk 'idx++; print "\n--- oss-block " idx " ---"' '' 'print' '')" "$1" \
+    | cksum | awk '{print $1"-"$2}'
 }
 
 # How many blocks in $1 does the anchor regex match? The old `_extract_block`
@@ -73,12 +107,7 @@ oss_block_digest() { # $1=md ; echoes a stable digest of every block body
 # whichever came first - and would silently REBIND if a block were inserted
 # above it. An anchor that is not unique is not an identity.
 oss_block_matches() { # $1=md $2=anchor-regex ; echoes the match count
-  awk -v want="$2" '
-    /^[[:space:]]*```bash[[:space:]]*$/ { inb=1; buf=""; next }
-    inb && /^[[:space:]]*```[[:space:]]*$/ { inb=0; if (buf ~ want) n++; next }
-    inb { buf = buf $0 "\n" }
-    END { print n+0 }
-  ' "$1"
+  awk -v want="$2" "$(_oss_block_awk 'buf=""' 'if (buf ~ want) n++' 'buf = buf $0 "\n"' 'print n+0')" "$1"
 }
 
 # Which block INDEX (1-based) does the anchor resolve to? 0 if none.
@@ -92,12 +121,7 @@ oss_block_index_of() { # $1=md $2=anchor-regex ; echoes the 1-based index, or 0
   # NB: awk's `exit` still runs END, so the hit must be recorded in a flag and
   # printed once from END - printing at the match site and again in END emits
   # two lines, which a caller comparing strings reads as neither index.
-  awk -v want="$2" '
-    /^[[:space:]]*```bash[[:space:]]*$/ { inb=1; buf=""; idx++; next }
-    inb && /^[[:space:]]*```[[:space:]]*$/ { inb=0; if (buf ~ want) { hit=idx; exit } next }
-    inb { buf = buf $0 "\n" }
-    END { print hit+0 }
-  ' "$1"
+  awk -v want="$2" "$(_oss_block_awk 'buf=""; idx++' 'if (buf ~ want) { hit=idx; exit }' 'buf = buf $0 "\n"' 'print hit+0')" "$1"
 }
 
 # Extract the single block matching the anchor into $3.
@@ -116,11 +140,7 @@ oss_block_extract() { # $1=md $2=anchor-regex $3=out-path
     echo "block-extract: anchor '$want' matches $n blocks in $md - not an identity; pick a unique anchor" >&2
     return 2
   fi
-  awk -v want="$want" '
-    /^[[:space:]]*```bash[[:space:]]*$/ { inb=1; buf=""; next }
-    /^[[:space:]]*```[[:space:]]*$/ { if (inb && buf ~ want) { printf "%s", buf; exit } inb=0; next }
-    inb { buf = buf $0 "\n" }
-  ' "$md" > "$out"
+  awk -v want="$want" "$(_oss_block_awk 'buf=""' 'if (buf ~ want) { printf "%s", buf; exit }' 'buf = buf $0 "\n"' '')" "$md" > "$out"
   [ -s "$out" ] || { echo "block-extract: VACUOUS - anchor '$want' found no block in $md" >&2; return 1; }
   # The belt-and-braces half: awk matched, but assert the anchor survives into
   # the written file. A regex that matches the buffer but not the output means

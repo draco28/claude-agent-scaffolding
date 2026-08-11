@@ -869,4 +869,15 @@ t_assert_rc 1 "D4: the same failing demo re-raises under errexit"
 t_assert_contains "$T_OUT" "within the 60s budget" "D4: ...and the timing is still reported first"
 
 cd /; rm -rf "$TMP"
+
+# A FLOOR ON THE ASSERTION COUNT. Every check in test-block-ledger.sh proves
+# this file EXTRACTS and SOURCES each covered block; none of them can see the
+# behavioural assertions around that being deleted, and a file whose assertions
+# are gone reports pass=0 fail=0 and exits 0. The floor is what makes wholesale
+# removal loud. Raise it when the file grows; never lower it to make a run go
+# green. (Codex P2 round 3 on PR #144.)
+if [ "$T_PASS" -lt 180 ]; then
+  echo "FAIL: test-close.sh ran only $T_PASS assertions (floor 180) - assertions were removed, not just skipped"
+  T_FAIL=$((T_FAIL+1))
+fi
 t_summary
