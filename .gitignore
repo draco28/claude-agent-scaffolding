@@ -20,6 +20,28 @@ ai-mentor/state.json
 # Superpowers brainstorming visual companion mockups
 .superpowers/
 
+# AI-process scaffolding: session handoffs, build plans, design specs, reviews,
+# and per-issue program records. This repo is PUBLIC and ships plugins; the
+# process exhaust that produced them stays local from here on.
+#
+# NOTE this does NOT unpublish anything — every one of these files remains in
+# git history and is still readable there. Per the boundary doctrine this repo
+# authored, public -> private is impossible; this governs what ships forward.
+#
+# docs/conventions/ is deliberately EXCLUDED below: recommendation-policy.md is
+# the byte-parity source of truth that tests/test-recommendation-policy-parity.sh
+# checks three shipped plugins against, so it is shipped convention, not process.
+docs/agent-driven-program/
+docs/superpowers/
+docs/archive/
+docs/HANDOFF-*.md
+docs/PLAN-*.md
+docs/SPEC-*.md
+docs/MIGRATION-*.md
+docs/REPORT-*.md
+docs/discussion.md
+docs/wabash-reference-working-project.md
+
 # OpenCode project runtime metadata and dependencies
 .opencode/.gitignore
 .opencode/node_modules/

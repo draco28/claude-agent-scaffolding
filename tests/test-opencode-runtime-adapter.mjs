@@ -33,10 +33,6 @@ const architectCriticManifestUrl = new URL(
 );
 const ossifyReadmeUrl = new URL("ossify/README.md", root);
 const ossifyManifestUrl = new URL("ossify/.claude-plugin/plugin.json", root);
-const ossifyRoadmapUrl = new URL(
-  "docs/superpowers/plans/2026-08-06-ossify-release-roadmap.md",
-  root,
-);
 const gitignoreUrl = new URL(".gitignore", root);
 const wrapperDirectory = fileURLToPath(new URL(".opencode/bin", root));
 const selectedPluginsEnvironment = "OPENCODE_SCAFFOLDING_PLUGINS";
@@ -553,10 +549,12 @@ test("Task 8 documents update policy and the implemented trust boundary", async 
 });
 
 test("Task 8 reconciles experimental Ossify availability without claiming stability", async () => {
-  const [rootReadme, ossifyReadme, roadmap, manifestSource] = await Promise.all([
+  // The release roadmap was a third surface here until AI-process docs stopped
+  // being tracked in this repo. The consistency check is the point, not the
+  // count: every SHIPPED surface that describes ossify's status must agree.
+  const [rootReadme, ossifyReadme, manifestSource] = await Promise.all([
     readFile(readmeUrl, "utf8"),
     readFile(ossifyReadmeUrl, "utf8"),
-    readFile(ossifyRoadmapUrl, "utf8"),
     readFile(ossifyManifestUrl, "utf8"),
   ]);
   const manifest = JSON.parse(manifestSource);
@@ -624,7 +622,7 @@ test("Task 8 reconciles experimental Ossify availability without claiming stabil
         ),
     );
   }
-  for (const source of [ossifyReadme, roadmap, manifest.description]) {
+  for (const source of [ossifyReadme, manifest.description]) {
     assert.match(source, /experimental/i);
     assert.match(source, /OpenCode/i);
     assert.match(source, /Plan D/i);
@@ -632,7 +630,6 @@ test("Task 8 reconciles experimental Ossify availability without claiming stabil
   }
   assert.match(ossifyReadme, /explicit.*allowlist/is);
   assert.match(ossifyReadme, /not.*(?:Claude|Codex).*marketplace/is);
-  assert.match(roadmap, /consolidated eval.*pilot.*gate/is);
   assert.match(manifest.version, /^0\./);
   assert.ok(manifest.description.length <= 600);
   assert.doesNotMatch(manifest.description, /not installable/i);
