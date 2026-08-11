@@ -45,7 +45,7 @@
 #   block unfindable and the failure read as "vacuous" rather than as wrong
 #   behaviour. Pick the anchor from the block's SCAFFOLDING, never from its FIX.
 #
-# Totals: 160 blocks - 54 operative (11 covered, 43 deferred), 106 illustrative.
+# Totals: 160 blocks - 55 operative (11 covered, 44 deferred), 105 illustrative.
 # (Was 51/109 at authoring. Three blocks were reclassified operative on review,
 # all the same way: the rule above says "a variable one step assigns and a later
 # step consumes", and all three do exactly that, so the original illustrative
@@ -53,6 +53,8 @@
 #   release-md-emission.md  rel  -> oss release_dir -> mkdir -p
 #   plan-release/SKILL.md   rel  -> spine_add + release_set_meta
 #   class-declaration.md    sid  -> class_set
+#   spine-close.md          `oss critic_detect || true` - rc-handling, not decoration
+# The fourth was caught two rounds after the first three, by the same rule.
 # The lesson is worth keeping: when a stated rule and a case-by-case instinct
 # disagree, the rule wins or the rule gets rewritten - a ledger whose value is
 # that someone else can apply it and get the same answer cannot have exceptions
@@ -61,8 +63,8 @@
 O	skills/close/references/spine-close.md	work items that are not complete	tests/test-close.sh	the open-work-item gate refuses to close a spine with incomplete items
 O	skills/close/references/spine-close.md	is-ancestor	tests/test-close.sh	the merge guard: the spine tip must actually reach the base branch
 O	skills/close/references/spine-close.md	touch_check	tests/test-close.sh	bone-touch at close re-classifies the spine rather than trusting the plan
-D	skills/close/references/spine-close.md	1	#138	the architect-critic ARGS bridge (export form, quoting, absolute --spec) is contract-bearing and unexecuted
-I	skills/close/references/spine-close.md	6	single-verb calls with <placeholder> args: ledger_apply_pending, class_set, risk-gate read, critic_detect, worktree_remove, spine_status
+D	skills/close/references/spine-close.md	2	#138	the architect-critic ARGS bridge (export form, quoting, absolute --spec), and `oss critic_detect || true` - the `|| true` is rc-handling, not decoration: rc 1 means "not installed, carry on" and removing the guard aborts the whole close ceremony under set -e
+I	skills/close/references/spine-close.md	5	single-verb calls with <placeholder> args: ledger_apply_pending, class_set, risk-gate read, worktree_remove, spine_status
 O	skills/close/references/release-close.md	spines that are not closed	tests/test-close.sh	the release gate blocks on any spine still open
 O	skills/close/references/release-close.md	expired_fakes	tests/test-close.sh	the fake-expiry gate blocks on fakes past their expiry release
 O	skills/close/references/release-close.md	expired_quarantines	tests/test-close.sh	the quarantine gate blocks on quarantines that have come due

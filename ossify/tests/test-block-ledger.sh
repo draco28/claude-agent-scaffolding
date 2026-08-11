@@ -62,7 +62,19 @@ declare_counted() { # $1=file ; echoes "O D I" totals from the ledger
 shipped=0; accounted=0
 while IFS= read -r rel; do
   actual="$(oss_block_count "$OSS_TREE/$rel")"
-  [ "$actual" -gt 0 ] || continue
+  # NO `continue` ON ZERO. A file that still exists but whose last block was
+  # removed or re-fenced used to skip completeness entirely, leaving a stale
+  # D row claiming debt for a block that is gone. (Codex P2 round 4 on PR #144,
+  # reproduced by re-fencing commands/close.md and updating its H digest to the
+  # empty-file value: `159 blocks accounted for`, fail=0.) A file with no blocks
+  # must have no rows, and that is an assertion, not a skip.
+  if [ "$actual" -eq 0 ]; then
+    read -r o d i <<<"$(declare_counted "$rel")"
+    if [ $((o+d+i)) -eq 0 ]; then pass; else
+      fail "check 2: $rel has no bash blocks but the ledger still claims $((o+d+i)) (O=$o D=$d I=$i) - remove its rows"
+    fi
+    continue
+  fi
   shipped=$((shipped+1))
   read -r o d i <<<"$(declare_counted "$rel")"
   sum=$((o+d+i))
@@ -204,9 +216,13 @@ while IFS=$'\t' read -r kind file anchor covered_by _guards; do
   # the extraction call's first argument, and require the ledger's path to be a
   # suffix of it. This is why every extraction was normalised to a single
   # `_extract_block <source-var> <anchor> <out>` line.
-  # Suffix after the first path component: skills/close/references/x.md ->
-  # /close/references/x.md, which is what a "$SKILLS/..." value ends with.
-  tail="/${file#*/}"
+  # The FULL ledger path, with the test's own root variables resolved - not a
+  # suffix. Stripping the first component and suffix-matching accepted
+  # "$FIXTURES/close/references/spine-close.md", so a test could extract and
+  # execute a stale mirror while the O row claimed coverage of the shipped
+  # markdown. (Codex P2 round 4 on PR #144.) `$SKILLS` is the tree's one
+  # documented root for shipped prose, so resolve exactly that.
+  tail="$file"
   if awk -v a="$anchor" -v tail="$tail" '
        # Collect VAR="value" assignments VERBATIM. Deliberately no recursive
        # expansion: substituting $VARs invites prefix collisions - $SP (a real
@@ -225,7 +241,12 @@ while IFS=$'\t' read -r kind file anchor covered_by _guards; do
          arg = rest; sub(/[[:space:]].*$/, "", arg)
          gsub(/["\047$]/, "", arg)
          src = (arg in v) ? v[arg] : arg
-         if (length(src) >= length(tail) && substr(src, length(src)-length(tail)+1) == tail) {
+         # Resolve the ONE sanctioned root for shipped prose. Anything else -
+         # a fixture root, a copy, a temp dir - stays unresolved and cannot
+         # match the ledger path, which is the point.
+         gsub(/^\$SKILLS\//, "skills/", src)
+         gsub(/^\$\{SKILLS\}\//, "skills/", src)
+         if (src == tail) {
            # Remember the OUT variable so check 4b can prove it is EXECUTED.
            # Take the LAST "$VAR" on the line rather than splitting on
            # whitespace: anchors contain spaces ("work items that are not
@@ -254,7 +275,16 @@ while IFS=$'\t' read -r kind file anchor covered_by _guards; do
   outvar="$(cat "$TMPOUT" 2>/dev/null | head -1)"
   if [ -z "$outvar" ]; then
     fail "check 4b: could not determine the output variable for '$anchor' in $covered_by"
-  elif grep -Eq "\.[[:space:]]+[\"']\\\$$outvar[\"']" "$t"; then pass; else
+  # COMMENTED-OUT EXECUTION DOES NOT COUNT — the THIRD time a comment has
+  # defeated a check in this file. Commenting the `t_capture … . '$BLOCK'` line
+  # and deleting its assertions left both this file and test-close.sh green,
+  # the latter landing at 182 against its 180 floor. (Codex P2 round 4 on
+  # PR #144.) Same single-awk-pass form as check 4, and for the same pipefail
+  # reason.
+  elif awk -v ov="$outvar" '
+         $0 ~ /^[[:space:]]*#/ { next }
+         $0 ~ ("\\.[[:space:]]+[\"'"'"']\\$" ov "[\"'"'"']") { found=1; exit }
+         END { exit !found }' "$t"; then pass; else
     fail "check 4b: $covered_by extracts '$anchor' into \$$outvar but never sources it - extraction is not execution"
   fi
 done < <(grep -E '^O' "$LEDGER" || true)
