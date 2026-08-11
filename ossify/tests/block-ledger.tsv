@@ -16,6 +16,18 @@
 #       Illustrative blocks: they show THAT a verb exists or WHAT SHAPE a call
 #       takes. No logic of their own; the verb itself is covered by the lib and
 #       dispatcher suites.
+#   H <file> <digest>
+#       A digest over that file's BLOCK BODIES ONLY. Counts cannot see a
+#       same-count SWAP - replacing an operative gate with a trivial read leaves
+#       the total unchanged and the D/I split silently stale. Any edit to any
+#       block turns this red; prose edits AROUND blocks do not. On mismatch the
+#       test prints the expected value, so updating it is mechanical - but read
+#       the changed block and re-confirm its O/D/I classification first, which
+#       is the entire reason the row exists.
+#
+# Every file with blocks needs exactly one H row, and every path named here must
+# still exist: the completeness walk is driven off the TREE, so deleting a file
+# whole would otherwise drop its rows out of the check entirely.
 #
 # THE CLASSIFICATION RULE
 #   operative    - the block's LOGIC is the contract: control flow, a guard that
@@ -33,8 +45,11 @@
 #   block unfindable and the failure read as "vacuous" rather than as wrong
 #   behaviour. Pick the anchor from the block's SCAFFOLDING, never from its FIX.
 #
-# Totals at authoring: 160 blocks - 51 operative (11 covered, 40 deferred),
-# 109 illustrative.
+# Totals: 160 blocks - 52 operative (11 covered, 41 deferred), 108 illustrative.
+# (Was 51/109 at authoring: release-md-emission.md was reclassified operative on
+# review - `rel` -> `oss release_dir` -> `mkdir -p` is the assigned-then-consumed
+# case this file's own rule names, and the earlier reason described only the
+# block's first line.)
 #
 O	skills/close/references/spine-close.md	work items that are not complete	tests/test-close.sh	the open-work-item gate refuses to close a spine with incomplete items
 O	skills/close/references/spine-close.md	is-ancestor	tests/test-close.sh	the merge guard: the spine tip must actually reach the base branch
@@ -57,7 +72,7 @@ D	skills/close/references/cumulative-demo.md	2	#138	the quarantine innocence pro
 I	skills/close/references/cumulative-demo.md	4	single-verb calls: demo_run, ledger_quarantine, budget read, demo_record
 O	skills/close/references/impl-check.md	while IFS=	tests/test-close.sh	the halt loop exits nonzero on the first failing AC and names the row
 I	skills/close/references/impl-check.md	3	single-verb calls: verify_acs, report_cross_check, harvest_dir
-O	skills/work-item/references/round-orchestration.md	checkout -q -b	tests/test-close.sh	W2: the spine cut uses the PLANNED base, not HEAD, and halts on a detached HEAD
+O	skills/work-item/references/round-orchestration.md	checkout -q -b	tests/test-close.sh	W2: the cut runs clean under set -u with NOTHING injected, leaves canonical checked out on the spine branch, halts on an existing spine branch (W2b) and on a detached HEAD (W2c). It cuts from the branch canonical is PARKED ON - reading the planned base from SPINE.md is deferred to #133, and 07a0bd8 reverted an attempt at it. An earlier revision of this row claimed planned-base coverage, which is behaviour the block deliberately does not have
 D	skills/work-item/references/round-orchestration.md	4	#138	spine-dir resolution, per-item spec path derivation, target_repo worktree spawn, and the dirty-worktree halt
 D	commands/close.md	1	#138	the $ARGUMENTS env-var bridge - a positional-substitution regression here silently drops every argument
 D	commands/plan-release.md	1	#138	the $ARGUMENTS env-var bridge
@@ -81,7 +96,7 @@ I	skills/plan-release/references/class-declaration.md	2	a feature_add return and
 I	skills/plan-release/references/critic-veto.md	4	the critic ARGS export and three single-verb disposition calls
 I	skills/plan-release/references/feature-map-grooming.md	1	a single feature_list call
 I	skills/plan-release/references/real-use-findings.md	3	three worked release_set_meta / feature_add calls
-I	skills/plan-release/references/release-md-emission.md	1	a release-id read; REL-2's unresolved <ai-workspace> placeholder makes it unexecutable as written
+D	skills/plan-release/references/release-md-emission.md	1	#138	rel -> oss release_dir -> mkdir -p: a variable one step assigns and two later steps consume, and it creates a directory. Operative by this file's own rule; an earlier revision called it "a release-id read", describing only its first line
 I	skills/plan-release/references/rolling-wave.md	1	a single next_sketch write
 I	skills/plan-release/references/spine-sequencing-dag.md	1	a single spine_dag write
 D	skills/plan-spine/SKILL.md	3	#138	the state-absent refusal, the spine-id resolution, and the touch_check branch
@@ -111,3 +126,51 @@ I	skills/work-item/references/debugging.md	3	worked pytest invocations teaching 
 I	skills/work-item/references/tdd-loop.md	4	worked RED-GREEN examples: a redgate call, two test invocations, a zero_tests_guard pipe
 I	skills/work-item/references/handoff-contract.md	1	a single verify_step call
 I	skills/work-item/references/report-contract.md	1	a single report_cross_check call
+H	commands/close.md	1417737593-119
+H	commands/plan-release.md	2807789570-126
+H	commands/plan-spine.md	3006318552-124
+H	commands/run-spine.md	1722905382-123
+H	commands/start.md	4142546154-119
+H	commands/work-item.md	2093535349-123
+H	skills/close/SKILL.md	2962620668-367
+H	skills/close/references/code-review.md	3290949323-440
+H	skills/close/references/cumulative-demo.md	1450043052-1742
+H	skills/close/references/fake-expiry.md	928609589-652
+H	skills/close/references/harvest.md	3862957649-607
+H	skills/close/references/impl-check.md	543104730-888
+H	skills/close/references/patch-lane.md	1056866697-1672
+H	skills/close/references/release-close.md	757386434-2095
+H	skills/close/references/retrospective.md	1748143535-89
+H	skills/close/references/routing.md	3140518170-190
+H	skills/close/references/spine-close.md	3982629417-3378
+H	skills/close/references/work-item-close.md	1750378581-2247
+H	skills/plan-release/SKILL.md	2712957915-1440
+H	skills/plan-release/references/bone-touch-judge.md	935008540-1094
+H	skills/plan-release/references/class-declaration.md	2778159394-260
+H	skills/plan-release/references/critic-veto.md	1395992260-477
+H	skills/plan-release/references/feature-map-grooming.md	645162076-137
+H	skills/plan-release/references/real-use-findings.md	577681805-426
+H	skills/plan-release/references/release-md-emission.md	2697018640-152
+H	skills/plan-release/references/rolling-wave.md	4047842279-190
+H	skills/plan-release/references/spine-sequencing-dag.md	595210404-120
+H	skills/plan-spine/SKILL.md	2971292265-1866
+H	skills/plan-spine/references/citation-foldin.md	2305742553-305
+H	skills/plan-spine/references/cross-repo.md	3184387129-642
+H	skills/plan-spine/references/decomposition.md	3538651223-480
+H	skills/plan-spine/references/demo-amendments.md	1606432758-266
+H	skills/plan-spine/references/demo-authoring.md	4194581119-1355
+H	skills/plan-spine/references/fake-ledger-discipline.md	3533659181-309
+H	skills/plan-spine/references/spec-authoring.md	1985834375-81
+H	skills/start/SKILL.md	1363561948-597
+H	skills/start/references/bones-registry.md	1535806972-664
+H	skills/start/references/critic-moment.md	2597989274-172
+H	skills/start/references/journey-map.md	361362248-76
+H	skills/start/references/posture-block.md	1776606187-379
+H	skills/start/references/risk-gates.md	2770672741-327
+H	skills/work-item/SKILL.md	1154023083-423
+H	skills/work-item/references/debugging.md	398918854-499
+H	skills/work-item/references/handoff-contract.md	1107358298-61
+H	skills/work-item/references/pre-flight.md	2433856218-546
+H	skills/work-item/references/report-contract.md	2425214840-61
+H	skills/work-item/references/round-orchestration.md	3385548920-2981
+H	skills/work-item/references/tdd-loop.md	3377740324-758

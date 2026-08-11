@@ -44,6 +44,25 @@ oss_block_count() { # $1=md ; echoes the count
   awk '/^[[:space:]]*```bash/{n++} END{print n+0}' "$1"
 }
 
+# A digest over a file's BLOCK BODIES ONLY - not the prose around them.
+#
+# The per-file completeness invariant counts blocks, and a count cannot see a
+# same-count SWAP: replace an operative gate with a trivial one-line read and
+# the total is unchanged, so the D/I classification silently goes stale while
+# the suite stays green. (Codex P2 on PR #144; reproduced by replacing
+# fake-expiry.md's expired_fakes gate - pass=77 fail=0.)
+#
+# Digesting bodies rather than whole files is deliberate: editing the prose
+# AROUND a block should not force a reclassification, but editing the block
+# itself must.
+oss_block_digest() { # $1=md ; echoes a stable digest of every block body
+  awk '
+    /^[[:space:]]*```bash/ { inb=1; next }
+    inb && /^[[:space:]]*```[[:space:]]*$/ { inb=0; next }
+    inb { print }
+  ' "$1" | cksum | awk '{print $1"-"$2}'
+}
+
 # How many blocks in $1 does the anchor regex match? The old `_extract_block`
 # stopped at the FIRST match, so an anchor matching two blocks silently bound to
 # whichever came first - and would silently REBIND if a block were inserted
