@@ -1,8 +1,9 @@
 # ossify (experimental v0.x)
 
-Skeleton-first lifecycle plugin. Specs of record:
-- docs/superpowers/specs/2026-07-11-poc-first-lifecycle-design.md
-- docs/superpowers/specs/2026-07-12-public-private-boundary-design.md
+Skeleton-first lifecycle plugin: Release 0 → MVP → v1, driven by bone and flesh
+spines against a cumulative demo ledger. Five entry skills (`start`,
+`plan-release`, `plan-spine`, `work-item`, `close`) plus `/run-spine`, which
+drives a planned spine's rounds end to end.
 
 Ossify's experimental installability begins only after an immutable bundle tag
 is published. At that point it requires the root OpenCode bundle's explicit
@@ -11,8 +12,8 @@ four-plugin allowlist documented in
 Claude or Codex marketplaces and is not stable or ready for v1 until Plan D's
 consolidated eval suite and two real-project pilots pass.
 
-The current v0.x build still has no invoking entry point for its completed
-round-orchestration execution lane. Track that and the Plan D gate in
-[`../docs/superpowers/plans/2026-08-06-ossify-release-roadmap.md`](../docs/superpowers/plans/2026-08-06-ossify-release-roadmap.md).
+Design of record and the release roadmap are tracked in this repository's
+issues and git history rather than as shipped files. The Plan D gate is the
+condition for leaving experimental status.
 
 Dispatcher: `bin/oss`. Tests: `bash tests/run-all.sh`.
