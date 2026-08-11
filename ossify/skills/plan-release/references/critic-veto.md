@@ -90,6 +90,30 @@ class-irrelevant:
 - naming, style, test-shape, or work-item-detail notes;
 - praise, or a restatement of the plan.
 
+**Not veto-grade is not the same as not worth acting on.** The critic audits the
+whole of `RELEASE.md`, so it also returns findings that are substantive and
+release-level yet say nothing about any spine's class:
+
+- *"the exit criteria contradict each other"*
+- *"the DAG serializes two spines that have no dependency"*
+- *"the release goal is not a user journey"*
+- *"two spines both claim the same feature-map entry"*
+
+These are neither veto input nor the trivia listed above. Read literally, the
+list is a two-way sort and they fall out of it producing **nothing** — not a
+veto, not a digest line, not a mention. A real problem with the release, found
+and then dropped, because the only machinery on this page is about class.
+
+**So route them: surface substantive non-class findings to the user as ordinary
+critique, and fold the accepted ones into the plan before the final render**
+(`release-md-emission.md`). They do not enter the veto ladder, they are not
+`oss veto_add` rows — that verb records *class* dispositions and a non-class
+finding in it corrupts the record the class audit reads. They are planning
+feedback, and this is the last moment the plan is cheap to change.
+
+Say what you did with each in the digest, one line, the same as any other
+finding. "Not veto-grade" is a routing decision, never a synonym for "ignored".
+
 **The fail-closed clause.** If you cannot positively place a finding on either
 side — because it is too vague to locate, or because it cites scope that is not in
 the plan — it is a **veto candidate**, and it goes to Gate B. Only findings you

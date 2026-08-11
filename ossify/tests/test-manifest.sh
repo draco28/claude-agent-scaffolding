@@ -77,15 +77,24 @@ t_assert_rc 0 "oss state_path works through the dispatcher under strict mode"
 t_assert_eq "$TMP/ws/.ossify/project-state.json" "$T_OUT" "dispatcher state_path matches convention default"
 cd "$HERE"
 
-# `oss manifest_get` (Task 3): a skill reads an arbitrary manifest field
-# without a bespoke wrapper per key. Reachable through the real dispatcher
-# binary, and rc 1 on a missing/null field (oss_manifest_get's own contract).
+# The `oss manifest_get` VERB was removed in v0.2.0 (zero prose consumers, and
+# it bypassed the token substitution every real field needs). The lib function
+# it wrapped is load-bearing - `_oss_repo_root` is built on it - so the coverage
+# moves here rather than being deleted, and is exercised through the dispatcher
+# via `repo_root`, which is the supported way to ask.
 cd "$TMP/ws"
+t_capture oss_manifest_get '.ai_workspace.root'
+t_assert_rc 0 "lib: manifest_get ok"
+t_assert_eq "$TMP/ws" "$T_OUT" "lib: manifest_get reads a manifest field"
+t_capture oss_manifest_get '.no_such_key'
+t_assert_rc 1 "lib: manifest_get rc 1 on a missing/null field"
+t_capture "$OSS" repo_root ai_workspace
+t_assert_rc 0 "dispatcher: repo_root is the supported way to read a root"
+t_assert_eq "$TMP/ws" "$T_OUT" "dispatcher: repo_root resolves ai_workspace through bin/oss"
+# The removed verb must be GONE, not merely unused - a stale wrapper would keep
+# handing callers unresolved `${ai_workspace.root}` tokens.
 t_capture "$OSS" manifest_get '.ai_workspace.root'
-t_assert_rc 0 "dispatcher: manifest_get ok"
-t_assert_eq "$TMP/ws" "$T_OUT" "dispatcher: manifest_get reads a manifest field through bin/oss"
-t_capture "$OSS" manifest_get '.no_such_key'
-t_assert_rc 1 "dispatcher: manifest_get rc 1 on a missing/null field"
+t_assert_rc 2 "dispatcher: the removed manifest_get verb is unknown (rc 2)"
 cd "$HERE"
 
 # --- Final review M1: when OSS_STATE_FILE overrides a MANIFEST-ROUTED project,

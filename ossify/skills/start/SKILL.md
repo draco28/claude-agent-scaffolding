@@ -148,9 +148,9 @@ Full grammar + worked example in `references/journey-map.md`.
 
 ## 6. Skeleton-cut
 
-Mark the **thinnest coherent path** across the journey map. Read it back as one
-sentence: *"At Release 0 close, a `<actor>` can `<action>` and `<observable
-outcome>`."*
+**Validate** §5's `skeleton` marks as the **thinnest coherent path** — §5 marks,
+this step checks, and a correction goes back to §5 (its harvest already ran).
+Read it back: *"At Release 0 close, a `<actor>` can `<action>` and `<outcome>`."*
 
 This answer defines **Release 0**, **not the MVP** — the rename from the legacy
 "MVP cut" question exists to kill that terminology collision. Release 0 is
@@ -356,7 +356,7 @@ Fires **once**, at spec-core close — after the lean MASTER-SPEC is authored an
 3. **Probe:** `oss critic_detect`. If `absent`, warn once — *"architect-critic
    not installed — skipping spec-core audit. Install via `/plugin install
    architect-critic` (v0.2+)."* — and continue. Do not stall.
-4. If `v0.2`, **export the args string, then invoke the skill bare and
+4. If `v0.2` **or later**, **export the args string, then invoke the skill bare and
    plugin-qualified** — that env-var bridge is architect-critic's only
    invocation contract; there are no `target` / `depth` / `artifact_path`
    parameters:
@@ -491,9 +491,9 @@ state and is awkward to change later.
 - **`architect-critic:critiquing-spec`** is invoked as a peer skill; it runs its
   own rebuttal loop and returns a summary. You do not mediate its internals.
 - **Peer entry skills:** `plan-release` owns Release 0, spine classes, and the
-  critic veto; `plan-spine` owns decomposition and demo lines; the `doctor`
-  entry skill owns state inspection and spec validation (distinct from the
-  `oss doctor` subcommand above, which is its mechanical half).
+  critic veto; `plan-spine` owns decomposition and demo lines. A `doctor` entry
+  skill **is not shipped in this release** (planned v0.3) — until it lands, its
+  state inspection is `oss doctor` above and spec validation is this file's §11.
 - **The user** is the final authority. You surface candidate maps, cuts, bones,
   postures, and critic challenges; they accept, edit, or skip. Never auto-finalize
   a decision the user has not seen — and always escalate the contested cuts.

@@ -26,12 +26,36 @@ scope here — record it as `next` on the journey map instead.
 
 ## 2. How to derive the cut
 
-The cut is a **marking exercise on the journey map**, not a fresh brainstorm.
+The cut is a **validation of the marks already on the journey map**, not a fresh
+brainstorm and not a second marking pass. `journey-map.md` §3 marked every step
+`skeleton` / `next` / `later`, and §5 has already harvested the non-`skeleton`
+ones into the feature map. **Re-marking here would run after that harvest and
+silently disagree with it.**
 
-1. Take the mapped journey (`references/journey-map.md`).
-2. Ask: *"Which contiguous set of steps is the minimum for the named actor to
-   enter through the real entry point and reach a real outcome?"*
-3. Mark exactly those steps `skeleton`. Everything else is `next` or `later`.
+1. Take the mapped journey (`references/journey-map.md`) with its marks.
+2. Ask of the `skeleton` set: *"Is this the contiguous minimum for the named actor
+   to enter through the real entry point and reach a real outcome?"*
+3. **Correct the map if the answer is no** — go back to `journey-map.md` §3 and
+   fix the marks there. Do not patch the set here; the map is the record.
+
+   **By the time you are reading this, the harvest has already run.** This file
+   is depth for SKILL.md **§6**, and §5's "Harvest before moving on" step
+   committed every non-`skeleton` step to the feature map before §6 began. The
+   map is **append-only** — `oss feature_add` has no remove or update sibling
+   (`feature-map-grooming.md` §2) — so a promotion here cannot retract the entry
+   that already exists. The pre-harvest check belongs one station earlier and
+   lives there: `journey-map.md` §3, "before you leave this block".
+
+   So handle the two directions differently, because only one is recoverable:
+
+   - **Demotion** (a `skeleton` step is really `next`/`later`): re-run §5's
+     `oss feature_add` for that step, or it never reaches the map at all.
+   - **Promotion** (a `next`/`later` step belongs in the skeleton): its feature-
+     map entry is already committed and **stays**. Do not hand-edit state to
+     remove it. Say so now, and let the next groom prune it with a reason —
+     "shipped in Release 0" — which is the supported way an entry leaves
+     contention (`feature-map-grooming.md` §2 pass 4). Unsaid, release planning
+     sees Release-0 work in the candidate list and may plan it twice.
 4. Read the marked path back as one sentence: *"At Release 0 close, a `<actor>`
    can `<action>` and `<observable outcome>`."* If you cannot say that sentence
    without an "and then I manually…" clause, the cut is wrong.

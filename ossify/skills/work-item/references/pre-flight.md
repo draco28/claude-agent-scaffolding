@@ -1,7 +1,10 @@
 # Pre-flight
 
-Depth for SKILL.md §3. Pre-flight is the only gate that can stop the run before
-work starts, and the only place a `gaps-surfaced` return is legal.
+Depth for SKILL.md §3. Pre-flight is the first half of the **gate phase** — the
+part of the run that can still stop before any work starts. The second half is
+SKILL.md §4's RED gate, which runs only on the success path out of here and can
+also return gaps-mode. **§3 and §4 together are where a `gaps-surfaced` return is
+legal; from §5 onward it is not** (SKILL.md §10).
 
 It re-runs **from scratch on every dispatch.** On a re-dispatch the handoff has
 grown a clarifications section; reading it end to end again is exactly how those
@@ -57,6 +60,31 @@ skipped with a stderr warning (check the tool output for "no backticked
 command"). That is a gap. Do **not** hand-parse the lines yourself and carry
 on — you would be building against ACs the orchestrator's own gate cannot see,
 and the mismatch surfaces at close instead of now.
+
+**Rows can come back malformed too — check their shape, not just their count.**
+Two malformations still produce a row: an ASCII `->` where the grammar wants
+`→`, and a missing `expected:`. In both the tail of the line lands in the
+**expectation** field instead of being parsed, so the row looks present and is
+unusable. Check every row:
+
+```bash
+oss verify_acs "<abs spec path>" | while IFS=$'\t' read -r label cmd exp; do
+  case "$exp" in
+    "exit "*)            case "${exp#exit }" in ''|*[!0-9]*) echo "GAP $label: 'exit' takes digits only, got '$exp'";; esac ;;
+    "output contains "?*) ;;
+    *) echo "GAP $label: expectation '$exp' is not 'exit <n>' or 'output contains <str>'" ;;
+  esac
+done
+```
+
+**Any `GAP` line is a blocking gap — return gaps-mode.** Do not "fix" the AC by
+reading past the garbage: the spec is what the close gate reads too, so an AC
+that is wrong here is wrong there. Left alone it costs the whole TDD loop —
+`oss redgate` answers rc 2 (malformed) rather than rc 0 (RED), so the loop
+cannot even start honestly, and `oss verify_step` rejects the same row at rc 2
+two ceremonies later at the close gate, where recovery option 1 ("re-dispatch
+the implementer — the default when the code is wrong") points at code that was
+never the problem.
 
 `user:` lines belong to the cumulative demo and are `close`'s to run. Skip them.
 

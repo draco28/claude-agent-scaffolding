@@ -233,6 +233,23 @@ _oss_mint_id() { # $1=state-file $2=mint-spec (release | spine:<rel> | work_item
 
 oss_state_mutate() { # $1=state-file $2=op $3=payload-json [$4=mint-spec]
   local sf="$1" op="$2" payload="$3" mint="${4:-}" lock="$1.lock" rc=0
+  # A project that was never initialised is not a project whose lock is held.
+  # `mkdir "$lock"` below fails for BOTH reasons - the lock directory already
+  # exists, or its parent `.ossify/` does not exist at all - and the single
+  # diagnostic there reported the first for both, telling an uninitialised
+  # project to "retry or run 'oss doctor'". doctor then correctly answers
+  # `fail: state - not found`, so the two disagreed about one condition and the
+  # remedy sent the user in a circle. The fix is `oss init`, so say that.
+  #
+  # rc 1 = generic/not-found per the taxonomy (see lib/harvest.sh:44) and per
+  # `doctor`'s own arm for this exact condition - NOT rc 3, which means a lock
+  # genuinely is held, and not rc 5, which means drift.
+  #
+  # Placed BEFORE `mkdir "$lock"` for the same reason as the schema guard
+  # below: a return after the lock is acquired jumps past the unconditional
+  # `rmdir` and wedges the state file permanently.
+  [ -f "$sf" ] || {
+    echo "oss: no project state at $sf - run 'oss init <name>' first" >&2; return 1; }
   # §9.2 schema guard, on the WRITE path. doctor's call is advisory and
   # read-only and therefore protects nothing; without this line a v1 build
   # journals v1-semantics ops straight into a state claiming a future schema.
@@ -254,7 +271,7 @@ oss_state_mutate() { # $1=state-file $2=op $3=payload-json [$4=mint-spec]
     oss_state_check_version "$sf" || return 6
   fi
   if ! mkdir "$lock" 2>/dev/null; then
-    echo "oss: state locked ($lock exists) - another ceremony is mutating; retry or run 'oss doctor'" >&2
+    echo "oss: state locked ($lock exists) - another ceremony is mutating. If none is, the lock leaked from an interrupted run: 'oss doctor' names the stale-lock remedy once it is >30min old, or rmdir it yourself after confirming no ceremony is running" >&2
     return 3
   fi
   # Critical section runs as a body function invoked in `|| rc=$?` context:
@@ -380,7 +397,7 @@ oss_state_restore() { # $1=state-file ; rc 0 restored-or-already-clean, 1 no bas
     return 0
   fi
   if ! mkdir "$lock" 2>/dev/null; then
-    echo "oss: state locked ($lock exists) - another ceremony is mutating; retry or run 'oss doctor'" >&2
+    echo "oss: state locked ($lock exists) - another ceremony is mutating. If none is, the lock leaked from an interrupted run: 'oss doctor' names the stale-lock remedy once it is >30min old, or rmdir it yourself after confirming no ceremony is running" >&2
     return 3
   fi
   _OSS_RESTORE_APPLIED=""

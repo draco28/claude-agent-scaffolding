@@ -15,9 +15,9 @@ remaining bucket to a **version target** rather than only to a plan letter.
 | **Entry skills** | 5 of the 6 §9.1 allocates: `start`, `plan-release`, `plan-spine`, `work-item`, `close` |
 | **Execution engine** | worktrees, per-AC verification, work-item dispatch, round orchestration |
 | **Close ceremonies** | all three — work item → spine → release |
-| **Tests** | 24 files, 975 assertions, ALL GREEN |
+| **Tests** | **25 files, 1,025 assertions, ALL GREEN** (v0.1.0 shipped 24/981; 975 was the pre-merge branch figure) |
 | **Evals** | 6 surfaces, 28 fixtures, 28/28 |
-| **plugin.json** | `0.1.0`, deliberately **not** stable-marketplace registered |
+| **plugin.json** | **`0.2.0`**, deliberately **not** stable-marketplace registered |
 
 **The gating fact for v1:** ossify is absent from `.claude-plugin/marketplace.json` and ships no
 `.codex-plugin` manifest. It is experimentally installable in OpenCode only through the root bundle's
@@ -25,9 +25,10 @@ explicit four-plugin allowlist after an immutable bundle tag is published. That 
 not make Ossify stable or put it in the Claude/Codex marketplaces. A v1 tag before Plan D's
 consolidated eval and two-pilot gate would claim evidence the project does not yet have.
 
-**The second blocker of the same shape:** the round-orchestration execution lane has **no invoking
-entry point**. No skill description matches "run the rounds" / "execute the spine". The engine is
-built and wired at every seam and a user cannot reach it. That is v0.2 blocking, not a carry.
+~~**The second blocker of the same shape:** the round-orchestration execution lane has **no invoking
+entry point**.~~ **RESOLVED in v0.2.0** — `/run-spine <spine-id>` plus an orchestrator mode in
+`work-item` §2, with §2's "no handoff path → ask once" rule carved out so the routing actually
+reaches the lane. The engine C1 shipped is reachable.
 
 ---
 
@@ -42,9 +43,32 @@ discovered.
 
 ---
 
-## v0.2.0 — reachability + the review carries
+## v0.2.0 — reachability + the review carries — **SHIPPED**
 
-The theme is *make what exists usable and true*. Nothing new is built.
+The theme was *make what exists usable and true*. Nothing new was built.
+
+> **SHIPPED.** Plan: `2026-08-09-ossify-v020.md`, 11 tasks, all closed. Suite 981 → **1,025**
+> assertions across 25 files, eval 28/28. Everything below is kept as the historical scope
+> statement; **the plan is the record of what actually happened**, and it corrects several figures
+> here that were measured on the pre-merge branch.
+>
+> **Delivered:** the execution-lane entry point (`/run-spine`) with WI-3…WI-6; the reopened
+> pre-flight Gate 2 major plus `redgate`'s rc conflation; 44 dispatcher arity guards; the
+> lock-vs-uninitialised conflation; `oss release_dir`; three retired helpers; audit batches **A, B
+> and C**; both absorbed capability references (`debugging.md`, `code-review.md`); all 13 C1 minors
+> and both distinct nits; and a **new `check 7`** guarding the every-call description budget, which
+> nothing had enforced.
+>
+> **Corrections this release proved:** item 7 was **not** resolved in PR #117 — only 1 of its 3
+> causes was (reopened above, fixed in v0.2 T2). Item 9's "42 of ~56" is **44 of 61**. "13 minors +
+> 3 nits" is 13 minors + **2 distinct** nits — two entries are the same defect. The zero-consumer
+> verbs were **four**, not two, and three were retired. `task_cab0ee8c` resolves to no artifact; its
+> content survived only as items 9 and 10 here.
+>
+> **Three more prose claims were found false and fixed:** `target_repo`'s documented rc-2 halt does
+> not fire for `ai_workspace` (rc 0, and a worktree lands in the AI workspace); `cross-repo` claimed
+> a verification neither impl-check nor spine close performs; `fake-ledger-discipline` had the
+> expiry gate's field logic inverted.
 
 **Blocking**
 1. **An entry point for the execution lane.** Whatever form it takes (a sixth command, a `work-item`
@@ -52,15 +76,15 @@ The theme is *make what exists usable and true*. Nothing new is built.
    to say "run the rounds" and land in `round-orchestration.md`.
 
 **7 remaining majors** (4 of the original 11 were fixed in `5c52e91`)
-2. ~~Patch-lane records are asserted twice to be `doctor`-visible; `oss doctor` never reports one.~~ **RESOLVED in PR #117** (Codex P2) — doctor now surfaces patch records.
-3. ~~The companion-spec release-close boundary audit is absent from release close *and* from its "deliberately not shipped" table, while `start` tells the user it executes.~~ **RESOLVED in PR #117** (Codex P2) — posture-block.md and release-close.md now state the deferral explicitly.
+2. ~~Patch-lane records are asserted twice to be `doctor`-visible; `oss doctor` never reports one.~~ **RESOLVED in PR #117** (Droid review round) — doctor now surfaces patch records.
+3. ~~The companion-spec release-close boundary audit is absent from release close *and* from its "deliberately not shipped" table, while `start` tells the user it executes.~~ **RESOLVED in PR #117** (Droid review round) — posture-block.md and release-close.md now state the deferral explicitly.
 4. `oss migrate` has zero prose consumers, and close's pre-flight names a remedy that cannot fix the failure it is offered for.
-5. ~~`_oss_worktree_ignore` skips any repo whose `.git` is a file, leaving a `--separate-git-dir` or submodule canonical permanently dirty.~~ **RESOLVED in PR #117** (Codex P2) — now resolves via `git rev-parse --git-common-dir`.
+5. ~~`_oss_worktree_ignore` skips any repo whose `.git` is a file, leaving a `--separate-git-dir` or submodule canonical permanently dirty.~~ **RESOLVED in PR #117** (Droid review round) — now resolves via `git rev-parse --git-common-dir`.
 6. `retrospective.md` claims the harvest sweeps retrospectives; it does not, and a candidate harvested from one is rejected whole-payload.
-7. ~~pre-flight Gate 2's malformed-AC detector names three causes that all produce non-empty output, so the gate cannot fire for any of them.~~ **RESOLVED in PR #117** (Codex P2) — `verify_acs` now rejects missing-backtick ACs; pre-flight.md prose corrected.
+7. **REOPENED 2026-08-09** — pre-flight Gate 2's malformed-AC detector. Only **one of three** causes was fixed in PR #117 (`verify_acs` now skips missing-backtick ACs with a stderr warning, and pre-flight.md's prose was corrected). Re-reproduced against `main`: the ASCII `->` and missing-`expected:` variants still emit a row whose expectation field is garbage, and **`oss redgate` returns rc 0 = "proceed"** on it because it folds `oss_verify_auto_step`'s rc 2 (malformed) into rc 1 (red). The review's Fix (a) landed; Fix (b) did not. Owned by Task 2 of `2026-08-09-ossify-v020.md`.
 8. (Counted with 2-7 above; see the review file for the full text of each.)
 
-**Additionally resolved in PR #117** (Codex P2 — not previously tracked):
+**Additionally resolved in PR #117** (Droid review round — not previously tracked):
 - `ledger_add_auto`/`ledger_add_user` accepted demo lines for nonexistent spine ids; now validates the spine exists (rc 7) before journaling.
 
 **Filed separately, same release** — `task_cab0ee8c`
@@ -92,9 +116,48 @@ The version where ossify stops needing scaffold-dev alongside it.
 - **The `doctor` entry skill** — the 6th and last of §9.1: state inspection, lean-spec validation,
   machine-checkable-rules authoring, interop check, budget check. Several v0.2 findings resolve
   *into* this skill rather than beside it (patch-lane visibility, the migrate remedy), so sequencing
-  matters: fix them in v0.2 where they are wrong, and let `doctor` absorb them here.
+  matters: they were fixed in v0.2 where they were wrong, and `doctor` absorbs them here.
+
+  > **HARD PREREQUISITE — Batch E must land first, and the margin is now one character.**
+  > v0.2 closed with the five entry-skill descriptions at **3,120 of the 3,121-char budget**, and
+  > `check 7` in `tests/test-skill-bash-blocks.sh` now **fails the suite** if that is exceeded.
+  > `doctor`'s description is the sixth and cannot fit. Batch E (SP-4, X-1, X-2, START-7, WI-8,
+  > CL-12, CL-13, CL-17 + the description diet) has to free roughly **120 tokens** before `doctor`
+  > can ship. This is no longer advisory — it is a red test.
+  >
+  > Two other v0.3 items to fold in while `doctor` is open: **orphan worktree detection** (the one
+  > real use of the `worktree_list` verb v0.2 retired — build the primitive against this
+  > requirement, not before it), and a decision on whether the feature map ever earns a **persisted
+  > rank/prune** (v0.2 settled it as conversational; `doctor` + records is where the argument
+  > belongs if it returns).
 - **The machine-checkable-rule evaluator** — C1 shipped the gate *without* one by decision D2, next to
   rule authoring where a correct evaluator can be built and tested against real rule blocks.
+- **The executable-prose gate** — ossify ships **150 bash blocks across 56 skill/command files** and
+  the suite executes roughly **ten** of them. `test-skill-bash-blocks.sh` says so in its own header
+  (*"SCOPE — check, do not execute"*): it runs `bash -n`, which is a *parse* check. Every P1 in PR
+  #130's rounds 4–7 was **parse-clean and behaviourally wrong** — a quoted `?` that inverted a guard,
+  a base branch derived from HEAD, a bare `oss demo_run` discarding its rc, and a variable the prose
+  claimed was read that nothing assigned. Generalize the `_extract_block` harness in `test-close.sh`
+  from the four blocks it covers today to every **operative** block, each run under real
+  `set -euo pipefail` against a fixture, with (a) a vacuity guard per block so a silent extraction
+  failure goes red rather than green, and (b) an explicit **NOT-COVERED ledger** naming each block
+  deliberately excluded and why. The C1 branch review recommended exactly this on 2026-08-05 and it
+  was applied to two blocks instead of generalized; #130's W1/W2 and D1–D4 are the working pattern to
+  copy. **Extraction must anchor on a token that survives the regression it guards** — anchoring on
+  the fix makes a reintroduced bug report as "vacuous" rather than as wrong (learned the hard way in
+  #130 round 6).
+- **`impl-check` Layer 4 — agent semantic review.** L3 is bounded by what `03-code-patterns.md`
+  documents, and correctly so; the consequence is that *generic* defects are invisible to every
+  mechanical tier, because no project will ever have written them down. PR #130 produced a seed
+  checklist of six recurring classes, all real, all found by an external reviewer and none by a gate:
+  **(1)** guards that cannot fire (or fire always) — a verb returning 0 on empty, a quoted wildcard,
+  a wildcard arm accepting detached `HEAD`; **(2)** ordering — an assertion after the mutation it
+  guards, an instruction in a file read after the step it governs; **(3)** cross-file contradictions
+  introduced in the same change; **(4)** usage strings that disagree with the lib contract;
+  **(5)** prose claiming behaviour no command implements; **(6)** a gate whose status is discarded by
+  a trailing command. Per the recorded *agent-review-over-deterministic-gates* principle this is an
+  **agent pass driven by the checklist**, not new deterministic rules — the classes are semantic and
+  a lexical matcher for them would be exactly the brittle gate that principle exists to prevent.
 - **Docs-increment trigger table** at release close.
 - **ADR lifecycle completion** — `Superseded-by`, `proposed-then-flip` as the bone default.
 - **`/amend-spec` architecture-revision lane**, with mandatory citation re-verification.

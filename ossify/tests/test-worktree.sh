@@ -52,8 +52,10 @@ t_capture oss_worktree_resolve canonical r0.s1.w1
 t_assert_eq "$WT" "$T_OUT" "worktree_resolve finds it"
 t_capture oss_worktree_resolve canonical r0.s1.w9
 t_assert_rc 1 "resolve on an unknown work item is rc 1"
-t_capture oss_worktree_list canonical
-t_assert_contains "$T_OUT" "r0.s1.w1" "worktree_list names it"
+# `worktree_list` was removed in v0.2.0: STATE holds each worktree_path (via
+# work_item_exec) and spine-close removes from state, so filesystem enumeration
+# answered nothing and could disagree. What still matters is that the directory
+# is really there, which resolve already proves above.
 
 # Named risk #7: oss_worktree_add's stdout IS its return value (the abs path).
 # A chatty git hook (post-checkout fires on `worktree add`) must never corrupt
@@ -141,7 +143,21 @@ t_assert_eq "$TMP/canon/.worktrees/r0.s2.w1" "$WT3" "dispatcher: worktree path c
 t_capture "$OSS" worktree_resolve canonical r0.s2.w1
 t_assert_eq "$WT3" "$T_OUT" "dispatcher: worktree_resolve finds it"
 t_capture "$OSS" worktree_list canonical
-t_assert_contains "$T_OUT" "r0.s2.w1" "dispatcher: worktree_list names it"
+t_assert_rc 2 "dispatcher: the removed worktree_list verb is unknown (rc 2)"
+
+# `oss release_dir` — the manifest-rooted ABSOLUTE docs path. The relative half
+# (oss_id_release_dir) is unit-tested in test-id.sh; what matters here is that
+# the dispatcher prefixes the ai_workspace root, because every prose consumer is
+# a reader who is not standing in a known directory.
+t_capture "$OSS" release_dir r2
+t_assert_rc 0 "dispatcher: release_dir ok"
+t_assert_eq "$TMP/ws/docs/specs/r2" "$T_OUT" "dispatcher: release_dir is ai_workspace-rooted, not canonical-rooted"
+case "$T_OUT" in
+  /*) T_PASS=$((T_PASS+1)) ;;
+  *)  T_FAIL=$((T_FAIL+1)); echo "FAIL: release_dir returned a RELATIVE path ('$T_OUT') - the defect it exists to fix" ;;
+esac
+t_capture "$OSS" release_dir
+t_assert_rc 2 "dispatcher: release_dir with no release id is the usage error, not an unbound-variable crash"
 t_capture "$OSS" worktree_remove canonical r0.s2.w1
 t_assert_rc 0 "dispatcher: clean worktree removes"
 [ -d "$WT3" ] && { T_FAIL=$((T_FAIL+1)); echo "FAIL: dispatcher worktree dir survived removal"; } || T_PASS=$((T_PASS+1))

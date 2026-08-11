@@ -3,104 +3,159 @@
 # resolve the state path (explicit > OSS_STATE_FILE > manifest) then delegate to
 # the tested lib functions. NO judgment logic here - that lives in the skills.
 
+# Arity guard. `bin/oss` runs `set -euo pipefail`, so a wrapper that expands
+# `"$1"` when the caller passed nothing dies with bash's raw `unbound variable`
+# at rc 1 - not the taxonomy's rc 2 = usage, and with no hint of what was
+# missing. 44 of the 61 verbs did exactly that.
+#
+# Placed FIRST in each wrapper, so `"$1"` below it is provably safe and no
+# body needs changing. Where a lib function already validates its own input
+# (`oss_reg_touch_check` rejects a zero-path call at rc 2, `oss_harvest_apply`
+# is handed `"${1:-}"` on purpose so its own usage error fires) the wrapper
+# stays out of the way - the guard is for the expansion, not a second opinion.
+#
+# `$#` is counted AFTER the three fixed parameters are shifted off, so the
+# count compares against the caller's own arguments.
+_oss_need() { # $1=count $2=verb $3=usage ; then "$@" from the caller
+  local want="$1" verb="$2" usage="$3"; shift 3
+  [ "$#" -ge "$want" ] || {
+    echo "oss: $verb needs $want argument(s) - usage: oss $verb $usage" >&2; return 2; }
+}
+
 oss_cmd_init() { # $1=project-name
+  _oss_need 1 init "<project-name>" "$@" || return 2
   local sf; sf="$(_oss_resolve_state)" || return $?
   oss_state_init "$sf" "$1"
 }
 oss_cmd_posture_set() { # $1=posture
+  _oss_need 1 posture_set "<posture>" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?
   oss_state_mutate "$sf" set_posture "$(jq -n --arg p "$1" '{posture:$p}')"
 }
 oss_cmd_composition_set() { # $1=composition-root
+  _oss_need 1 composition_set "<composition-root>" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?
   oss_state_mutate "$sf" set_composition "$(jq -n --arg c "$1" '{composition_root:$c}')"
 }
 oss_cmd_overlay_set() { # $1=overlay-wiring
+  _oss_need 1 overlay_set "<overlay-wiring>" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?
   oss_state_mutate "$sf" set_overlay "$(jq -n --arg o "$1" '{overlay_wiring:$o}')"
 }
 oss_cmd_release_add() { # $1=name $2=goal
+  _oss_need 2 release_add "<name> <goal>" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_add_release "$sf" "$1" "$2"
 }
 oss_cmd_spine_add() { # $1=release $2=name $3=class [$4=target_repo]
+  _oss_need 3 spine_add "<release> <name> <class> [target_repo]" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_add_spine "$sf" "$1" "$2" "$3" "${4:-canonical}"
 }
 oss_cmd_class_set() { # $1=spine $2=new-class $3=reason
+  _oss_need 3 class_set "<spine> <new-class> <reason>" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_spine_class "$sf" "$1" "$2" "$3"
 }
 oss_cmd_bone_add() { # $1=adr $2=title $3=touch-csv [$4=revisit]
+  _oss_need 3 bone_add "<adr> <title> <touch-csv> [revisit]" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_add_bone "$sf" "$1" "$2" "$3" "${4:-}"
 }
 oss_cmd_risk_gate_add() { # $1=name $2=touch-csv $3=controls-csv
+  _oss_need 3 risk_gate_add "<name> <touch-csv> <controls-csv>" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_add_risk_gate "$sf" "$1" "$2" "$3"
 }
 oss_cmd_fake_add() { # $1=boundary $2=channel $3=reason $4=trigger $5=expiry-release
+  _oss_need 5 fake_add "<boundary> <channel> <reason> <trigger> <expiry-release>" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_add_fake "$sf" "$1" "$2" "$3" "$4" "$5"
 }
 oss_cmd_feature_add() { # $1=name $2=value $3=class-guess $4=source
+  _oss_need 4 feature_add "<name> <value> <class-guess> <source>" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_add_feature "$sf" "$1" "$2" "$3" "$4"
 }
 oss_cmd_touch_check() { # $@=paths
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_touch_check "$sf" "$@"
 }
 oss_cmd_ledger_add_auto() { # $1=spine $2=text $3=command $4=expected
+  _oss_need 4 ledger_add_auto "<spine> <text> <command> <expected>" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_add_auto "$sf" "$1" "$2" "$3" "$4"
 }
 oss_cmd_ledger_add_user() { # $1=spine $2=text $3=outcome
+  _oss_need 3 ledger_add_user "<spine> <text> <outcome>" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_add_user "$sf" "$1" "$2" "$3"
 }
 oss_cmd_ledger_supersede() { # $1=line $2=by-spine $3=reason
+  _oss_need 3 ledger_supersede "<line> <by-spine> <reason>" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_supersede "$sf" "$1" "$2" "$3"
 }
 oss_cmd_ledger_retire() { # $1=line $2=by-spine $3=reason
+  _oss_need 3 ledger_retire "<line> <by-spine> <reason>" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_retire "$sf" "$1" "$2" "$3"
 }
-oss_cmd_ledger_quarantine()    { local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_quarantine "$sf" "$1" "$2" "${3:-}"; }
-oss_cmd_ledger_apply_pending() { local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_apply_pending "$sf" "$1"; }
-oss_cmd_ledger_unplan()        { local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_unplan "$sf" "$1" "$2"; }
-oss_cmd_fake_status()          { local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_set_fake_status "$sf" "$1" "$2" "$3" "${4:-}"; }
+oss_cmd_ledger_quarantine()    { _oss_need 2 ledger_quarantine "<line-id> <reason> [release]" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_quarantine "$sf" "$1" "$2" "${3:-}"; }
+oss_cmd_ledger_apply_pending() { _oss_need 1 ledger_apply_pending "<spine>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_apply_pending "$sf" "$1"; }
+oss_cmd_ledger_unplan()        { _oss_need 2 ledger_unplan "<line> <spine>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_unplan "$sf" "$1" "$2"; }
+oss_cmd_fake_status()          { _oss_need 3 fake_status "<boundary> <active|replaced|renewed> <reason> [new-expiry-release]" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_set_fake_status "$sf" "$1" "$2" "$3" "${4:-}"; }
 # The two release-close blocking gates (§6.2 steps 3 and 4). Both are rc 0 =
 # CLEAN / 1 = BLOCKING / 2 = could-not-check - the OPPOSITE polarity to
 # `touch_check`, which is 0 = hit. Read-only selectors: no mutation, no op.
-oss_cmd_expired_fakes()        { local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_expired_fakes "$sf" "$1"; }
-oss_cmd_expired_quarantines()  { local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_expired_quarantines "$sf" "$1"; }
+oss_cmd_expired_fakes()        { _oss_need 1 expired_fakes "<release>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_expired_fakes "$sf" "$1"; }
+oss_cmd_expired_quarantines()  { _oss_need 1 expired_quarantines "<release>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_expired_quarantines "$sf" "$1"; }
 oss_cmd_patch_add() { # $1=commit $2=text
+  _oss_need 2 patch_add "<commit-sha> <text>" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_add_patch "$sf" "$1" "$2"
 }
 # Explicit state file beats the environment. Without this argument a pre-flight
 # probe in one project silently reads another project's state via a stale
 # exported $OSS_STATE_FILE (final review, Minor 1).
 oss_cmd_get() { # $1=jq-expr [$2=state-file]
+  _oss_need 1 get "<jq-expr> [state-file]" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state "${2:-}")" || return $?
   oss_state_read "$sf" "$1"
 }
 
 oss_cmd_state_restore()  { local sf; sf="$(_oss_resolve_state "${1:-}")" || return $?; oss_state_restore "$sf"; }
-oss_cmd_manifest_get()   { oss_manifest_get "$1"; }
+# `oss_cmd_manifest_get` was REMOVED in v0.2.0. Every manifest field already has
+# a dedicated resolver that this raw accessor bypassed: roots via `repo_root`,
+# `well_known_paths.project_state` via `oss_manifest_state_path`, and
+# `.memory_bank` via `harvest_dir`. Those resolvers substitute the
+# `${ai_workspace.root}` tokens; the raw read did not, so
+# `manifest_get '.well_known_paths.project_state'` handed the caller a literal
+# unresolved token string. Zero prose consumers plus a wrong answer for the only
+# fields left to ask about. The LIB function `oss_manifest_get` stays - it is
+# what `_oss_repo_root` is built on.
 oss_cmd_manifest_require(){ oss_manifest_require; }
-oss_cmd_work_item_branch(){ oss_id_work_item_branch "$1" "$2"; }
-oss_cmd_spine_dir()      { oss_id_spine_dir "$1" "$2" "$3"; }
-oss_cmd_branch_name()    { oss_id_branch_name "$1" "$2"; }
+# The release's docs directory, ABSOLUTE. Prose consumers are readers who are
+# not standing in a known directory, which is why this resolves the root rather
+# than returning `oss_id_release_dir`'s relative half.
+oss_cmd_release_dir()    {
+  _oss_need 1 release_dir "<release-id>" "$@" || return 2
+  local ai; ai="$(_oss_repo_root ai_workspace)" || return $?
+  printf '%s/%s\n' "$ai" "$(oss_id_release_dir "$1")"
+}
+oss_cmd_work_item_branch(){ _oss_need 2 work_item_branch "<wi-id> <slug>" "$@" || return 2; oss_id_work_item_branch "$1" "$2"; }
+oss_cmd_spine_dir()      { _oss_need 3 spine_dir "<release> <spine> <slug>" "$@" || return 2; oss_id_spine_dir "$1" "$2" "$3"; }
+oss_cmd_branch_name()    { _oss_need 2 branch_name "<spine> <slug>" "$@" || return 2; oss_id_branch_name "$1" "$2"; }
 # The close router (Task 9) derives its scope from the id SHAPE, so it needs this
 # through the dispatcher - oss_id_parse has no wrapper today, and skill prose
 # cannot reach a bare lib function (bin/oss dispatches only oss_cmd_*).
-oss_cmd_id_parse()       { oss_id_parse "$1"; }
+oss_cmd_id_parse()       { _oss_need 1 id_parse "<id>" "$@" || return 2; oss_id_parse "$1"; }
 oss_cmd_feature_list()      { local sf; sf="$(_oss_resolve_state)" || return $?; oss_state_read "$sf" '[.feature_map[]]'; }
 oss_cmd_spine_list()        { local sf; sf="$(_oss_resolve_state)" || return $?; oss_state_read "$sf" '[.spines[]]'; }
 oss_cmd_ledger_active_auto(){ local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_active_auto "$sf"; }
 oss_cmd_work_item_add() { # $1=spine $2=title [$3=target_repo]
+  _oss_need 2 work_item_add "<spine> <title> [target_repo]" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_add_work_item "$sf" "$1" "$2" "${3:-canonical}"
 }
 oss_cmd_release_set_meta() { # $1=release $2=patch-json
+  _oss_need 2 release_set_meta "<release> <patch-json>" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_release_meta "$sf" "$1" "$2"
 }
 oss_cmd_veto_add() { # $1=spine $2=finding $3=disposition $4=reason
+  _oss_need 4 veto_add "<spine> <finding> <disposition> <reason>" "$@" || return 2;
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_add_veto "$sf" "$1" "$2" "$3" "$4"
 }
-oss_cmd_spine_status()     { local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_spine_status "$sf" "$1" "$2"; }
-oss_cmd_work_item_status() { local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_work_item_status "$sf" "$1" "$2"; }
-oss_cmd_release_status()   { local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_release_status "$sf" "$1" "$2"; }
-oss_cmd_work_item_exec()   { local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_work_item_exec "$sf" "$1" "$2" "$3" "$4"; }
+oss_cmd_spine_status()     { _oss_need 2 spine_status "<spine> <status>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_spine_status "$sf" "$1" "$2"; }
+oss_cmd_work_item_status() { _oss_need 2 work_item_status "<wi-id> <status>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_work_item_status "$sf" "$1" "$2"; }
+oss_cmd_release_status()   { _oss_need 2 release_status "<release> <status>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_release_status "$sf" "$1" "$2"; }
+oss_cmd_work_item_exec()   { _oss_need 4 work_item_exec "<wi-id> <branch> <worktree> <base-sha>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_set_work_item_exec "$sf" "$1" "$2" "$3" "$4"; }
 
 # §9.2's explicit, never-silent migration. Journals a `migrate_schema` op rather
 # than rewriting the file in place, so `$sf.base.json` stays v1 and replay still
@@ -177,20 +232,26 @@ oss_cmd_critic_detect() {
 # Per-work-item verification gate (Task 5 / spec §6). Thin wrappers, no
 # judgment logic - state-file resolution does not apply here, these take
 # explicit paths/args like the id.sh wrappers above.
-oss_cmd_verify_acs()          { oss_verify_parse_acs "$1"; }
-oss_cmd_verify_step()         { oss_verify_auto_step "$1" "$2" "$3"; }
-oss_cmd_redgate()             { oss_verify_redgate "$1" "$2" "$3"; }
-oss_cmd_zero_tests_guard()    { oss_verify_zero_tests_guard "$1"; }
-oss_cmd_report_cross_check()  { oss_verify_report_cross_check "$1" "$2"; }
+oss_cmd_verify_acs()          { _oss_need 1 verify_acs "<abs-spec-path>" "$@" || return 2; oss_verify_parse_acs "$1"; }
+oss_cmd_verify_step()         { _oss_need 3 verify_step "<workdir> <command> <expectation>" "$@" || return 2; oss_verify_auto_step "$1" "$2" "$3"; }
+oss_cmd_redgate()             { _oss_need 3 redgate "<workdir> <command> <expectation>" "$@" || return 2; oss_verify_redgate "$1" "$2" "$3"; }
+oss_cmd_zero_tests_guard()    { _oss_need 1 zero_tests_guard "<runner-command>" "$@" || return 2; oss_verify_zero_tests_guard "$1"; }
+oss_cmd_report_cross_check()  { _oss_need 2 report_cross_check "<report-path> <spec-path>" "$@" || return 2; oss_verify_report_cross_check "$1" "$2"; }
 
 # Per-work-item worktree layer (Task 4). D4: repo-parameterized - only
 # `canonical` resolves today, Plan D adds `private_core` by extending
 # _oss_repo_root alone. Thin dispatcher wrappers, no judgment logic.
 oss_cmd_repo_root()        { _oss_repo_root "${1:-canonical}"; }
-oss_cmd_worktree_add()     { oss_worktree_add "$1" "$2" "$3" "${4:-HEAD}"; }
-oss_cmd_worktree_resolve() { oss_worktree_resolve "$1" "$2"; }
-oss_cmd_worktree_remove()  { oss_worktree_remove "$1" "$2"; }
-oss_cmd_worktree_list()    { oss_worktree_list "${1:-canonical}"; }
+oss_cmd_worktree_add()     { _oss_need 3 worktree_add "<repo-key> <wi-id> <slug> [base-ref]" "$@" || return 2; oss_worktree_add "$1" "$2" "$3" "${4:-HEAD}"; }
+oss_cmd_worktree_resolve() { _oss_need 2 worktree_resolve "<repo-key> <wi-id>" "$@" || return 2; oss_worktree_resolve "$1" "$2"; }
+oss_cmd_worktree_remove()  { _oss_need 2 worktree_remove "<repo-key> <wi-id>" "$@" || return 2; oss_worktree_remove "$1" "$2"; }
+# `oss_cmd_worktree_list` was REMOVED in v0.2.0, with its lib function. STATE is
+# the source of truth for worktrees ossify created - `work_item_exec` journals
+# `worktree_path`, and spine-close.md §10 removes each one by reading state, not
+# by enumerating the filesystem. An enumeration verb answers a question no
+# ceremony asks and can disagree with state when it does. Its one real use,
+# orphan detection (a directory on disk with no state record), belongs to
+# `doctor` in v0.3 and should be built there against that requirement.
 
 # Cumulative demo runner (spec §6.1 + companion §4.3). Thin dispatcher
 # wrappers, no judgment logic - resolution (workdir, composition root) lives in
@@ -200,7 +261,7 @@ oss_cmd_demo_run() { # [$1=state-file] [$2=workdir]
   oss_demo_run_auto "$sf" "${2:-}"
 }
 oss_cmd_demo_user_lines() { local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_user_lines "$sf" "${1:-}"; }
-oss_cmd_demo_record()     { local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_record_close "$sf" "$1" "$2" "$3" "$4" "${5:-}"; }
+oss_cmd_demo_record()     { _oss_need 4 demo_record "<work_item|spine|release> <id> <true|false> <line-count> [notes]" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_record_close "$sf" "$1" "$2" "$3" "$4" "${5:-}"; }
 
 # Memory-bank harvest (spec §6.1's core row), driven from spine close step 9.
 # `harvest_dir` takes no state and needs none - it resolves the memory bank from

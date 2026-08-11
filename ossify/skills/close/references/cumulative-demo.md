@@ -116,6 +116,59 @@ blind spot:
   cheap to write and expensive to owe; write it only when the "unrelated" claim
   would survive being read aloud at the release close.
 
+### Establishing "unrelated" — the check, not the feeling
+
+The read-aloud test above catches the obvious abuse. It does not *establish*
+innocence, and the abuse it misses is the sincere one: an agent that genuinely
+believes the failure is unrelated and is wrong. There is a mechanical check:
+
+```bash
+# Does the line fail WITHOUT this spine? Run it at the merge's first parent -
+# the canonical tree as it stood before this spine landed.
+cmd="$(oss get ".demo_ledger[] | select(.id==\"<line-id>\") | .command")"
+git -C "$canonical" checkout --detach "$merge_sha^1"
+( cd "$canonical" && bash -c "$cmd" ); echo "rc=$?"
+git -C "$canonical" checkout -                            # back to where you were
+```
+
+- **Passes at the first parent** → **this spine broke it.** Not a quarantine
+  candidate at all, whatever the read-aloud test said. Fix it or halt.
+- **Fails at the first parent for the SAME reason** → the line was already
+  broken. Genuinely unrelated to this spine, and the quarantine is honest.
+- **Fails at the first parent for a DIFFERENT reason** → **the comparison is
+  void; this proves nothing.** Do not quarantine on it.
+
+**The third case is the one that will bite you, and it is not rare.** If this
+spine introduced the demo line, its command, or the file that command runs, then
+at `$merge_sha^1` that command is *absent* — it fails with "no such file",
+"unknown subcommand", an import error. Read as a bare nonzero rc that is
+indistinguishable from "already broken", and a regression this spine caused gets
+quarantined and closes green. Compare the **failure**, not the exit code:
+
+```bash
+# same command, both trees, and diff the OUTPUT before believing the rc
+( cd "$canonical" && bash -c "$cmd" ) > /tmp/oss-head.txt 2>&1; echo "head rc=$?"
+git -C "$canonical" checkout --detach "$merge_sha^1"
+( cd "$canonical" && bash -c "$cmd" ) > /tmp/oss-parent.txt 2>&1; echo "parent rc=$?"
+git -C "$canonical" checkout -
+diff /tmp/oss-head.txt /tmp/oss-parent.txt
+```
+
+If the parent's output says the command or its target does not exist, the parent
+run was never **invocable** and the check has not run. You are back to judgment
+with one fact established: the line is new, so "already broken" is not available
+as an explanation.
+
+Do this before writing the ticket. It converts "unrelated" from a claim into an
+observation, and it takes one checkout.
+
+**A worked legitimate case.** The ledger carries `d7 — fetch the daily bar series
+and see yesterday's close`, whose command hits a vendor endpoint. Spine `r2.s3`
+touched only the local strategy store. `d7` fails; at `$merge_sha^1` it fails
+identically, and the vendor's status page shows an outage. That is a quarantine:
+recorded against `r2`, owed at the next release close, and expected to clear on
+its own — but still owed, because the ledger does not care why a line is red.
+
 ---
 
 ## 5. The wall-clock budget
@@ -128,10 +181,42 @@ oss get ".releases[] | select(.id==\"<release-id>\") | .ledger_budget"
 
 Exceeding it forces a **prune / parallelize / deepen** decision at release
 planning — never silent growth, and never a quiet decision here. This layer's job
-is to *notice and say so*: if the run visibly overshoots the budget, surface it
-with the close's result and point at `plan-release`. Do not prune the ledger to
-fit; dropping a line is a coverage decision with an owner, and that owner is not
-the close ceremony.
+is to *notice and say so*: surface an overshoot with the close's result and point
+at `plan-release`. Do not prune the ledger to fit; dropping a line is a coverage
+decision with an owner, and that owner is not the close ceremony.
+
+**Measure it — `oss demo_run` emits no timing of its own.** There is no verb for
+this and none is needed; the shell already has one, so "visibly overshoots" does
+not have to mean "felt slow":
+
+```bash
+budget="$(oss get ".releases[] | select(.id==\"<release-id>\") | .ledger_budget")"
+start=$(date +%s)
+demo_rc=0
+oss demo_run || demo_rc=$?
+elapsed=$(( $(date +%s) - start ))
+secs="${budget%s}"
+case "$secs" in
+  ''|*[!0-9]*) echo "demo: ${elapsed}s (no budget recorded for this release)" ;;
+  *) [ "$elapsed" -gt "$secs" ] \
+       && echo "demo: ${elapsed}s - OVER the ${secs}s budget; take it to plan-release" \
+       || echo "demo: ${elapsed}s (within the ${secs}s budget)" ;;
+esac
+[ "$demo_rc" -eq 0 ] \
+  || { echo "demo: FAILED rc $demo_rc - the close gate does not pass"; exit "$demo_rc"; }
+```
+
+**Capture the runner's status and re-raise it last.** Timing is advisory; the
+demo result is the **gate**. Written as a bare `oss demo_run` with the budget
+report after it, the block's exit status becomes the status of that trailing
+`echo` — so in any shell without `errexit` a **failing** cumulative demo returns
+**0** and the close walks straight past the one gate it must not. `|| demo_rc=$?`
+keeps the status across the measurement without arming `errexit` mid-block, and
+the final check re-raises it after the time has been reported.
+
+Report the number either way. A budget nobody measures is the one that drifts,
+and `${budget%s}` degrading to the no-budget arm is deliberate: a release planned
+before budgets existed records nothing, and that is not a failure to report.
 
 The budget is a wall-clock string as planning recorded it (for example `600s`),
 and it may be absent on a release planned before one was set — an absent budget

@@ -746,20 +746,113 @@ t_assert_eq "seed" "$(git -C "$W1" show -s --format=%s "$W1_BASE")" \
 t_assert_eq "" "$(git -C "$W1" log --oneline "$W1_BASE" --grep='merge r0.s1.w1' 2>/dev/null)" \
   "W1: ...and no work-item merge commit exists on it"
 
-# W2 — the spine cut must CHECK OUT the branch, not merely create it. `git branch`
-# leaves canonical on its previous branch and every downstream step still returns
-# rc 0, which is precisely how the spine silently never receives the work.
+# W2 — the spine cut must (a) cut from the PLANNED base recorded in the spine
+# plan, not from whatever branch canonical is parked on, and (b) CHECK OUT the
+# branch rather than merely creating it. `git branch` leaves canonical on its
+# previous branch and every downstream step still returns rc 0, which is
+# precisely how the spine silently never receives the work. Deriving the base
+# from HEAD is the same silent wrong-branch class one step earlier: the close
+# then merges back into the unintended branch with every guard passing.
 W2="$TMP/w2"; mkdir -p "$W2"; git -C "$W2" init -q
 git -C "$W2" config user.email t@t; git -C "$W2" config user.name t
 echo seed > "$W2/f"; git -C "$W2" add .; git -C "$W2" commit -qm seed
 W2_BASE="$(git -C "$W2" rev-parse --abbrev-ref HEAD)"
+# Park canonical on a branch carrying a commit the default branch does not, so
+# "cut from HEAD" is observably distinct from "cut from the default branch" and
+# the sha assertion below cannot pass by coincidence.
+git -C "$W2" checkout -q -b w2-parked
+echo parked > "$W2/parked.txt"; git -C "$W2" add parked.txt
+git -C "$W2" commit -qm parked
+W2_PARKED_SHA="$(git -C "$W2" rev-parse w2-parked)"
 _wshim "$W2" "spine/r0.s9-demo" "unused" "$TMP/shim-w2"
+# RUN IT WITH NOTHING INJECTED. An earlier revision of this test passed
+# `base_branch=...` into the block, which made it blind to the block not
+# assigning the variable at all - the lane then halted on every fresh run and
+# every assertion here still passed. Under `set -u` a self-sufficient block is
+# the thing under test, so supply it nothing.
 t_capture env "PATH=$TMP/shim-w2:$PATH" bash -c "set -euo pipefail; . '$W_CUT'"
-t_assert_rc 0 "W2: the shipped spine cut runs clean on a clean canonical"
+t_assert_rc 0 "W2: the shipped spine cut runs clean on a clean canonical with NOTHING injected"
 t_assert_eq "spine/r0.s9-demo" "$(git -C "$W2" rev-parse --abbrev-ref HEAD)" \
-  "W2: ...and leaves canonical CHECKED OUT on the spine branch - 'git branch' alone would leave it on $W2_BASE"
-t_assert_eq "$(git -C "$W2" rev-parse "$W2_BASE")" "$(git -C "$W2" rev-parse spine/r0.s9-demo)" \
-  "W2: ...cut from the branch canonical was on"
+  "W2: ...and leaves canonical CHECKED OUT on the spine branch - 'git branch' alone would leave it on w2-parked"
+t_assert_eq "$W2_PARKED_SHA" "$(git -C "$W2" rev-parse spine/r0.s9-demo)" \
+  "W2: ...cut from the branch canonical was parked on (v0.2 limitation; issue 133 moves this to SPINE.md)"
+
+# W2b — resuming is NOT supported in this release. An existing spine branch halts
+# rather than being re-cut or half-reused: branch reuse alone gets one step
+# further and then dies at `worktree_add` rc 8 for every already-spawned item.
+t_capture env "PATH=$TMP/shim-w2:$PATH" bash -c "set -euo pipefail; . '$W_CUT'"
+t_assert_rc 1 "W2b: a second run HALTS because the spine branch already exists"
+t_assert_contains "$T_OUT" "already exists" "W2b: ...naming the collision"
+t_assert_contains "$T_OUT" "133" "W2b: ...and pointing at the resume issue"
+
+# W2c — a DETACHED HEAD has no branch name to record, so the lane must halt
+# rather than cut a spine whose base_branch would be the literal string "HEAD".
+W2C="$TMP/w2c"; mkdir -p "$W2C"; git -C "$W2C" init -q
+git -C "$W2C" config user.email t@t; git -C "$W2C" config user.name t
+echo seed > "$W2C/f"; git -C "$W2C" add .; git -C "$W2C" commit -qm seed
+git -C "$W2C" checkout -q --detach HEAD
+_wshim "$W2C" "spine/r0.s9-demo" "unused" "$TMP/shim-w2c"
+t_capture env "PATH=$TMP/shim-w2c:$PATH" bash -c "set -euo pipefail; . '$W_CUT'"
+t_assert_rc 1 "W2c: a DETACHED HEAD halts - there is no branch name to record as base_branch"
+t_assert_contains "$T_OUT" "DETACHED HEAD" "W2c: ...naming the condition"
+t_assert_eq "" "$(git -C "$W2C" branch --list 'spine/*')" \
+  "W2c: ...and cut no spine branch on the way out"
+
+# ---------------------------------------------------------------------------
+# D1-D4: the cumulative-demo MEASUREMENT block. Timing is advisory; the demo
+# result is the gate. Written as a bare `oss demo_run` with the budget report
+# after it, the block's status becomes the trailing echo's — so a FAILING demo
+# returns 0 and the close walks past the one gate it must not. Same shape as the
+# W1/W2 wrong-branch class: the failure is invisible to an rc-only reading, so
+# these assert the re-raised status, not just that the block ran.
+# ---------------------------------------------------------------------------
+CUMDEMO="$SKILLS/close/references/cumulative-demo.md"
+# Anchor on `elapsed=`, not on `demo_rc`: the anchor has to survive the very
+# regression these tests exist to catch, or removing the status capture would
+# make the block unfindable and the failure would read as "vacuous" instead of
+# as the wrong behaviour it is.
+DEMO_BLOCK="$TMP/cum-demo.sh"; _extract_block "$CUMDEMO" 'elapsed=' "$DEMO_BLOCK"
+if [ -s "$DEMO_BLOCK" ] && grep -Fq 'oss demo_run' "$DEMO_BLOCK"; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract the demo measurement block - D1-D4 are vacuous"
+fi
+
+_dshim() { # $1=budget-to-echo $2=demo_run-rc $3=shim-dir
+  mkdir -p "$3"
+  { printf '#!/usr/bin/env bash\ncase "$1" in\n'
+    printf '  get)      echo %s ;;\n' "$1"
+    printf '  demo_run) exit %s ;;\n' "$2"
+    printf '  *) exec bash "%s" "$@" ;;\nesac\n' "$OSS"
+  } > "$3/oss"; chmod +x "$3/oss"
+}
+
+_dshim '60s' 0 "$TMP/shim-d0"
+t_capture env "PATH=$TMP/shim-d0:$PATH" bash -c ". '$DEMO_BLOCK'"
+t_assert_rc 0 "D1: a PASSING cumulative demo leaves the measurement block green"
+t_assert_contains "$T_OUT" "within the 60s budget" "D1: ...and reports the timing"
+
+# THE LOAD-BEARING ASSERTION. Drop the `|| demo_rc=$?` capture and the re-raise
+# and this is the one that goes red - D1 stays green either way.
+_dshim '60s' 1 "$TMP/shim-d1"
+t_capture env "PATH=$TMP/shim-d1:$PATH" bash -c ". '$DEMO_BLOCK'"
+t_assert_rc 1 "D2: a FAILING cumulative demo RE-RAISES its status - the close gate does not pass"
+t_assert_contains "$T_OUT" "within the 60s budget" "D2: ...after the timing was still reported"
+t_assert_contains "$T_OUT" "FAILED rc 1" "D2: ...naming the failure"
+
+# D3 - the runner's exact status survives rather than being flattened to 1, and
+# the no-budget branch does not mask it.
+_dshim 'null' 3 "$TMP/shim-d3"
+t_capture env "PATH=$TMP/shim-d3:$PATH" bash -c ". '$DEMO_BLOCK'"
+t_assert_rc 3 "D3: the runner's exact status survives an absent budget"
+t_assert_contains "$T_OUT" "no budget recorded" "D3: ...with the no-budget branch still taken"
+
+# D4 - the capture must also survive `errexit`, where an unprotected `oss
+# demo_run` would abort the block before the timing is ever reported.
+_dshim '60s' 1 "$TMP/shim-d4"
+t_capture env "PATH=$TMP/shim-d4:$PATH" bash -c "set -euo pipefail; . '$DEMO_BLOCK'"
+t_assert_rc 1 "D4: the same failing demo re-raises under errexit"
+t_assert_contains "$T_OUT" "within the 60s budget" "D4: ...and the timing is still reported first"
 
 cd /; rm -rf "$TMP"
 t_summary

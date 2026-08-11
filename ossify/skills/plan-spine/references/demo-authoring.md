@@ -11,7 +11,7 @@ is a floor and not a guideline.
 
 ---
 
-## 1. The five floors
+## 1. The six floors
 
 | | Floor | Applies to |
 |---|---|---|
@@ -24,6 +24,56 @@ is a floor and not a guideline.
 
 An internal spine **cannot claim product value** — not in its own demo lines, not
 in the release's exit criteria, not in the retro.
+
+### The community-edition line — posture-conditional, not a seventh floor
+
+Companion spec §4.3 is a **MUST**: for an `open-core` or `fully-open` posture the
+cumulative ledger has to carry a **standing `auto:` line that builds and
+smoke-runs the public repo standalone from a clean checkout**. It is not one
+spine's contribution — it is the product-level guarantee that the public edition
+is a real product rather than a package that only builds inside the private
+composition.
+
+Nothing else owns it: `cross-repo.md` §5 states the *principle* ("the public
+edition must remain buildable and demoable on its own") without naming the ledger
+line, and `close` runs the ledger without knowing a line is missing from it. A
+line nobody authors is a guarantee nobody keeps.
+
+So check it here, at every spine on a public-routed posture:
+
+**Give the line a durable marker, and match on that — not on its wording.**
+There is no `kind` field on a ledger line in v0.2, so the marker is a **required
+text prefix**: the line's `text` begins with `[community-edition]`.
+
+```bash
+posture="$(oss get '.project.posture')"
+case "$posture" in
+  open-core|fully-open)
+    oss get '[.demo_ledger[] | select(.status=="active" and (.text|startswith("[community-edition]")))] | length' ;;
+  *) echo "n/a - posture is $posture" ;;
+esac
+```
+
+**If the posture is public-routed and the count is 0, this spine authors it:**
+
+```bash
+oss ledger_add_auto "<spine-id>" \
+  "[community-edition] clone the public repo fresh, build it standalone, and smoke-run it" \
+  "<the clone+build+run command>" "exit:0"
+```
+
+A prefix rather than a phrase search, because a phrase search is wrong in both
+directions and both are silent. Grepping the text for *standalone* or *clean
+checkout* matches any unrelated line that happens to contain those words — the
+mandatory check reads as satisfied by a line that never clones anything — while
+a legitimate existing line phrased *"from a fresh clone"* is missed, so **every
+later spine authors another one** and the cumulative suite grows a duplicate per
+spine, forever. The prefix is exact, greppable, and visible in `demo_run`'s
+output, which is what makes it auditable later.
+
+Author it once; later spines find it and move on. It is a standing line, so it
+never belongs to a single spine's contribution and never counts toward F1. (If
+v0.3's records work adds a typed field, that field supersedes the prefix.)
 
 ---
 
@@ -79,9 +129,39 @@ a journey line, whatever verb it opens with.
   see the row is there", "…and the file is present". Existence is not an outcome
   a user came for.
 - **Protocol-level evidence** — "the endpoint returns 200", "the job exits 0".
-  Those are `auto:` lines wearing a `user:` label.
+  Those are `auto:` lines wearing a `user:` label. **This bans protocol trivia,
+  not the API surface itself** — see below.
 - **The passive dodge** — "the report is available to the user". No actor
   performs anything; nothing is observed.
+
+### 3.2b Headless products — the user is a consumer, not a person
+
+For a library, a database, or a service there is no screen, and spec §3 is
+explicit that such a product "defines its journey at its real surface — e.g. a
+downstream API round trip — and no UI is invented." **Do not read the
+protocol-level ban as banning that surface**; read as a blanket rule it would
+leave a headless product unable to author a single legal `user:` line, which is
+the opposite of the intent.
+
+The distinction is what the line *observes*:
+
+| Line | Verdict |
+|---|---|
+| "the endpoint returns 200" | **REJECT** — a status code, not an outcome |
+| "the job exits 0" | **REJECT** — an exit code, not an outcome |
+| "query the store through the client SDK and see the results ranked by recency" | **ACCEPT** — a consumer reaches the value it came for |
+| "submit an order through the client and get back a confirmed order id" | **ACCEPT** — round trip with an observable outcome |
+
+The consumer is the actor: an integrating service, an SDK caller, another team's
+code. Both audiences are valid — the person driving a UI, and the developer
+driving an interface — and what the F2 test asks in both cases is the same:
+**who performs this, and for what value?** "Because the protocol said 200" is not
+an answer; "to get their results ranked" is.
+
+`plan-release/references/class-declaration.md` rung 1 states the same rule for
+spine *classification*. If these two ever disagree, a headless project gets its
+spines classed `internal-enabler` and its demo lines rejected — both halves of
+the same mistake.
 
 ### 3.3 The ban is on the action, not on the outcome
 

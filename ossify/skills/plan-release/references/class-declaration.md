@@ -42,6 +42,31 @@ architecture **and** carries the journey that exercises it is a **bone spine**,
 not an enabler. Introducing a bone is not by itself horizontal; §3's contrast
 table is the discriminator.
 
+**The actor does not have to be human.** Spec §3: a headless product — a library,
+a database, a service — "defines its journey at its real surface, e.g. a
+downstream API round trip, and no UI is invented." For a headless product the
+actor *is* the consumer of its interface, and a spine that carries a real round
+trip through that interface passes rung 1.
+
+The ban is on **artifact-existence**, not on non-human actors. Read the anti-
+example above precisely: "the endpoint returns 200" fails because a status code
+is not an outcome anyone came for — **not** because an API is involved. The same
+endpoint, exercised as *"a downstream service submits an order through the client
+and gets back a confirmed order id"*, is a journey.
+
+| Spine | Rung 1 |
+|---|---|
+| "the migration runs and the tables exist" | ✗ artifact existence |
+| "the endpoint returns 200" | ✗ a status code is not an outcome |
+| "the module compiles" | ✗ artifact existence |
+| **"a downstream service queries the store through the client SDK and gets results ranked by recency"** | **✓ a consumer reaches an outcome through the real surface** |
+
+Getting this wrong on a headless project mis-trips `internal-enabler` on **every
+legitimate spine**, because every one of them lands at an API rather than a
+screen — and an internal-enabler cannot claim product value, so the whole product
+becomes unable to demonstrate any. `demo-authoring.md` §3.2 states the same rule
+for demo lines; the two must agree.
+
 ### Rung 2 — the bone-touch judge (mechanical)
 
 > **Does the spine's plan touch a registered bone or risk-gate surface?**

@@ -111,10 +111,27 @@ ai_root="$(oss repo_root ai_workspace)"
    **`/pair-workspace`** — do not paraphrase them.
 2. **`oss doctor` must be green on `schema` and `replay`.** A close *mutates*
    state; running one over a drifted state compounds the drift into the record
-   that every later ceremony reads. The remedy to name is **`oss state_restore`**,
-   which rebuilds the live state from base + journal. `warn:` lines (a held lock,
-   a pending amendment, an outstanding fake) are not blockers here — they are
-   inputs the spine and release layers act on.
+   that every later ceremony reads.
+
+   **The remedy differs by which line failed — echo doctor's own line rather
+   than substituting a fixed one:**
+
+   | doctor line | Remedy |
+   |---|---|
+   | `fail: replay` | **`oss state_restore`** — rebuilds live state from base + journal |
+   | `fail: shape` | **`oss state_restore`** — a required key is missing; same rebuild |
+   | `fail: schema` | **`oss migrate`** — the state predates this build |
+   | `fail: state` | **`oss init <name>`** — this project was never initialised |
+
+   Naming `state_restore` for every line wedges the close on a schema failure:
+   against a v1/v2 state it prints `restore: state is already clean - nothing to
+   do` at **rc 0**, leaves `schema_version` untouched, and `oss doctor` fails
+   identically on the retry. The operator loops. `oss migrate` is the verb that
+   moves the version, and doctor already names it in its own output — which is
+   why echoing the line beats paraphrasing it.
+
+   `warn:` lines (a held lock, a pending amendment, an outstanding fake) are not
+   blockers here — they are inputs the spine and release layers act on.
 3. **Resolve every path to an absolute one up front, and never `cd`.** The
    manifest walk starts at `$PWD` and the dispatcher re-runs it on every call that
    takes no explicit state path, so a `cd` mid-ceremony silently re-points the
@@ -183,7 +200,10 @@ steps, in **binding order**:
    assert HEAD matches it — never read it off HEAD**; then assert the switch-back
    actually moved HEAD, and check reachability after the merge. Each of those
    guards catches a distinct failure that is otherwise rc 0 all the way to a
-   green close.
+   green close. **Read `references/code-review.md` before this merge** — the last
+   moment the spine's diff is reviewable as one thing, and the only reader that
+   judges craft and fidelity rather than whether the ACs passed. Advisory: it
+   yields findings and a per-finding decision, never a halt.
 3. **`oss ledger_apply_pending <spine>`** — after the merge, before the demo.
 4. **The cumulative demo**: `oss demo_run` for every active `auto:` line, then
    walk **this spine's own** `user:` lines (`oss demo_user_lines <spine>`) with
@@ -359,3 +379,28 @@ command bodies at template-render time and silently corrupts them.
 
 The only argument is the id. When it is missing, emit one line, list what is
 open, and stop (§2).
+
+---
+
+## 10. The close summary
+
+**The close summary is this ceremony's final assistant message** — the last thing
+you emit when the scope's steps are done. It is a message, **not a file**: this
+release ships no close-summary artifact, the same deferral §8 records for handoff
+authoring. The durable records are `retrospective.md`, `report.md`, and the state
+writes; the summary is how a human reads the run without opening them.
+
+It carries, in this order:
+
+1. **What closed** — the id and scope, and whether every step ran or the ceremony
+   halted partway.
+2. **Gate outcomes** — each blocking gate with its verdict, source-tagged the way
+   the step reported it (`[AC]`, `[report cross-check]`, `[rule]`).
+3. **Anything a step told you to record here.** Several steps route their output
+   to the summary rather than to a file: `harvest.md` §2's missing-report gaps,
+   §5's C2 referrals, and §8's harvest outcomes. If a step says "record it in the
+   close summary," this is where it lands.
+4. **What the operator must do next**, if anything.
+
+Named here rather than in each step so the phrase has one definition — several
+references route to "the close summary" and none of them owns it.

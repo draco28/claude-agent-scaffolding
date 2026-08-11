@@ -1,5 +1,5 @@
 {
   "name": "ossify",
-  "version": "0.1.0",
-  "description": "Experimental OpenCode opt-in for a skeleton-first lifecycle from Release 0 through MVP and v1. The v0.x engine, five entry skills, and close ceremonies are packaged through the root bundle's explicit allowlist; the round-orchestration lane still lacks an entry point. Ossify remains outside stable Claude and Codex marketplaces until Plan D's consolidated eval and pilot gate. Roadmap: docs/superpowers/plans/2026-08-06-ossify-release-roadmap.md"
+  "version": "0.2.0",
+  "description": "Experimental OpenCode opt-in for a skeleton-first lifecycle from Release 0 through MVP and v1. The v0.x engine, five entry skills, and close ceremonies are packaged through the root bundle's explicit allowlist; /run-spine drives a planned spine's rounds end to end. Ossify remains outside stable Claude and Codex marketplaces until Plan D's consolidated eval and pilot gate. Roadmap: docs/superpowers/plans/2026-08-06-ossify-release-roadmap.md"
 }

@@ -8,7 +8,8 @@ what turns it from a list into a release.
 
 ## 1. What the map holds
 
-A living ranked list of candidate spines, thin by design. Each entry:
+An append-only list of candidate spines, thin by design, ranked in conversation
+at each groom rather than in state (§2). Each entry:
 
 | Field | Meaning |
 |---|---|
@@ -44,15 +45,38 @@ surfaced in the last release should be living only in someone's memory.
 **Pass 2 — rank against *this* release's goal.** Not global priority — fit. The
 question is *"does this move the promise this release is making?"*, and the
 promise is a user journey, so the ranking is by user value, not by architectural
-tidiness. A high-value entry that does not serve this release's promise stays on
-the map, ranked, and waits.
+tidiness. A high-value entry that does not serve this release's promise waits.
 
 **Pass 3 — cut candidates into spines.** An entry becomes a spine only if it can
 cross the product end to end (§3). Entries that cannot are split or deferred.
 
-**Pass 4 — prune.** Entries superseded by shipped work, or by a decision that made
-them meaningless, are removed with a one-line reason said out loud. An
-ever-growing map is a map nobody reads.
+**Pass 4 — prune.** Name every entry superseded by shipped work, or made
+meaningless by a decision, with a one-line reason said out loud. An ever-growing
+map is a map nobody reads.
+
+### What the ranking and the prune actually *are*
+
+**Both are conversational. Neither writes to state, and no verb exists for
+either** — the map has exactly two: `oss feature_add` and `oss feature_list`.
+There is no rank field, no reorder, and no remove. Read that as the design, not
+as a missing feature:
+
+- **The ranking is this conversation's working order**, not a stored attribute.
+  It exists to drive pass 3, and pass 3's output is the thing that persists.
+- **A prune means "not carried into this release"** — say it, and record the
+  reason in `RELEASE.md`'s rationale. **It does not delete the entry from
+  state.** The feature map is append-only history: an entry pruned for this
+  release is still a candidate for the next one, and the reason it was passed
+  over is exactly what a later groom needs.
+- **The map is not a backlog and not a ranked queue.** Grooming's only persisted
+  output is **this release's spine selection**. Everything else is reasoning that
+  produced it.
+
+So: do not hand-edit `project-state.json` to reorder or delete entries, and do
+not read a pass as a no-op because no verb ran. Deleting an entry would destroy
+the record of a decision the next groom re-litigates from scratch. (`doctor` and
+records land in v0.3; if a persisted rank ever earns its keep, that is where the
+argument belongs.)
 
 ---
 

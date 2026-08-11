@@ -146,6 +146,50 @@ So: read the file, read the diff, and say what you find. If the project has no
 `03-code-patterns.md`, say that too — an absent rule file is a fact worth one
 line, not a silent pass.
 
+### Where the file is
+
+The memory bank, in the **AI workspace** — not the canonical repo, and not
+beside the code being reviewed:
+
+```bash
+bank="$(oss harvest_dir)"        # the memory-bank directory, manifest-routed
+patterns="$bank/03-code-patterns.md"
+```
+
+`03-code-patterns.md` is one of the bank's live files, authored at onboarding
+from bones category 8 (`start/references/memory-bank-brief.md` §1) and grown by
+the harvest. Its `## Machine-checkable rules` section ships **seeded empty** —
+an empty section is not the same as an absent file, and neither is a violation.
+
+### What a finding looks like
+
+Two parts, always, because a finding the author cannot act on is an opinion:
+
+1. **The pattern, quoted** from `03-code-patterns.md` — its own words, not your
+   paraphrase of them.
+2. **The offending hunk**, by file and line, from the staged diff.
+
+> `[rule] src/orders/api.rs:142` — `03-code-patterns.md`: *"adapters never
+> import from `domain::internal`"*. This hunk adds
+> `use crate::domain::internal::OrderState;` in an adapter.
+
+**Calibrate against the pattern as written, not its spirit.** If the diff
+violates what the rule *says*, it is a finding. If it violates something you
+believe the rule *meant*, that is a gap in the rule — say so as an observation
+and do not halt the gate on it. The rules are the project's, and rewriting them
+by interpretation at a close gate is how a rule set stops meaning anything.
+
+### What is not a finding
+
+- **Style the file does not mention.** Naming, formatting, import order — if
+  `03-code-patterns.md` is silent, so are you. This is not a code review; see
+  `code-review.md` for the judgment layer that *is*.
+- **Code the diff did not touch.** Pre-existing violations are a backlog item,
+  not this work item's failure. Note them once, in passing.
+- **A pattern you would have written differently.** Not yours to relitigate here.
+- **An empty or absent `## Machine-checkable rules` section.** Expected on a
+  young project. Say so in a line and move on.
+
 ---
 
 ## 5. Source-tagged errors
@@ -178,10 +222,23 @@ consequences and stop:
    and not worth another round now. It is *recorded*, not waved through — an
    accepted failure that leaves no trace is an unaccepted failure that nobody
    will find.
-3. **Re-author the AC.** Only when the **criterion** is wrong — a malformed
-   expectation, a command that never tested what the AC describes. **Never when
-   the code is wrong.** Rewriting a criterion to match what was built is how a
-   gate becomes decorative, and it is silent: every later run passes.
+3. **Fix the criterion.** Only when the **criterion** is wrong — never when the
+   code is wrong. Rewriting a criterion to match what was built is how a gate
+   becomes decorative, and it is silent: every later run passes.
+
+   **Which criterion depends on the layer that halted**, because the three layers
+   are judged against three different documents:
+
+   | Halting layer | The criterion is | Fixing it means |
+   |---|---|---|
+   | `[AC]` — Layer 1 | the AC in `spec.md` | re-author the AC: a malformed expectation, or a command that never tested what the AC describes |
+   | `[report cross-check]` — Layer 2 | the report's AC table | the report under-accounts; the fix is in `report.md`, not the spec |
+   | `[rule]` — Layer 3 | the pattern in `03-code-patterns.md` | amend the pattern in the memory bank — with the user, since it binds every future spine |
+
+   A Layer 3 halt offered "re-author the AC" is being offered the wrong document:
+   no AC is involved, and the honest options are amend the pattern, or fix the
+   code. **A pattern amendment is never a quiet by-product of one work item's
+   gate** — it changes the rule for everything after it.
 
 The user picks. This is not a disposition row and the auto-apply policy does not
 reach it (`work-item-close.md` §5).

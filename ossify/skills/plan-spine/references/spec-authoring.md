@@ -24,6 +24,39 @@ The kebab slug comes from the spine's recorded name
 (`oss get '.spines[] | select(.id=="…") | .name'`). If it sanitizes to empty, stop
 and fix the spine's name in state rather than inventing a directory slug.
 
+### Authoring `SPINE.md` — the step that is easy to skip
+
+**Write it at the end of SKILL.md §5, once the rounds are settled.** No state
+field holds the round structure: `oss` records spines and work items, but nothing
+records *which items share a round*. Until `SPINE.md` lands, **the plan exists
+only in the conversation** — and two ceremonies read it back later:
+
+| Consumer | Reads |
+|---|---|
+| `close/references/spine-close.md:70` | `base_branch`, from the spine-context section |
+| `close/references/spine-close.md:270` | the whole file, as the architect-critic `--spec` target |
+| §6 of this file | the same, for the planning-time adversarial pass |
+
+Skipped, both fail in the same shape: the critic audits a path that does not
+exist, and the merge step cannot resolve the branch it must return to.
+
+Pinned sections, in this order:
+
+```text
+# <spine-id> — <spine name>
+
+## Spine context          class (bone|flesh|internal-enabler), target repo,
+                          base_branch, the bones this spine rides
+## Decomposition          the 1-5 work items, one line each: id, title, target repo
+## Rounds                 Round 1: w1, w2 (parallel) / Round 2: w3 (depends on w1)
+## Demo contribution      the ledger lines this spine adds (§4's ledger half)
+## Fakes                  each fake with its replacement trigger and expiry release
+```
+
+`base_branch` is the branch the spine cuts from and merges back to — record it
+here at planning time, because at close the checkout has moved and there is
+nothing left to derive it from.
+
 ---
 
 ## 2. What a work-item spec carries
@@ -34,13 +67,52 @@ and fix the spine's name in state rather than inventing a directory slug.
 | **Context** | Which bones it rides; which registered touch surfaces (if any) it hits and the controls that came with them |
 | **Target repo** | Exactly one (`cross-repo.md`) |
 | **Approach** | The intended change, at the level a fresh session could execute |
-| **Acceptance criteria** | Machine-checkable `auto:` lines + any `user:` step. These are the item's ACs, distinct from the spine's ledger contribution (§4) |
+| **Acceptance criteria** | `auto:` lines in the grammar below + any `user:` step. These are the item's ACs, distinct from the spine's ledger contribution (§4) |
 | **Citations** | Lean MASTER-SPEC sections + bones ADRs it depends on (`citation-foldin.md`) |
 | **Out of scope** | What a reader might reasonably assume is included and is not |
 
 Never author a parallel prose AC table beside the machine-checkable lines. One AC
 source of truth per item — the split is what produced the predecessor stack's
 zero-ACs class of bugs.
+
+### The AC grammar — exact, because a parser reads it
+
+`oss verify_acs` parses these lines at the worker's pre-flight Gate 2. A line
+that does not match yields **no row**, and a spec whose ACs all miss the grammar
+reaches the worker as a spec with zero ACs:
+
+```text
+- [ ] AC-<N> auto: `<command>` → expected: exit <n>
+- [ ] AC-<N> auto: `<command>` → expected: output contains <string>
+- [ ] AC-<N> user: <a step a human performs>
+```
+
+Five parts, each load-bearing:
+
+| Part | Requirement | What breaks without it |
+|---|---|---|
+| `- [ ] ` | A markdown checkbox, exactly this | `- AC-1` or `* [ ] AC-1` yields **no row at all** |
+| `AC-<N>` | The label, numbered | No row |
+| `auto:` | The marker | No row — `user:` lines are the cumulative demo's, and `close` runs those |
+| `` `<command>` `` | **Backticked** | The AC is skipped with a stderr warning |
+| `→ expected: ` | U+2192, then the literal word | An ASCII `->`, or a missing `expected:`, lands the whole tail in the expectation field: a row is emitted and it is **unusable** |
+
+**The expectation grammar is `exit <n>` or `output contains <str>` — space-form,
+no colon.** This is the one to get wrong, because §8's ledger lines take the
+**colon-form** (`exit:0`, `contains:ready`), and an agent that just authored a
+batch of ledger lines will carry the habit straight into the spec. They are
+different grammars read by different parsers:
+
+| | Spec AC (`oss verify_acs`) | Ledger line (`oss ledger_add_auto`) |
+|---|---|---|
+| Expectation | `expected: exit 0` | `exit:0` |
+| Arrow | `→` required | no arrow |
+| Checkbox + label | required | none |
+
+`close/references/impl-check.md` §2 owns the runtime side of this grammar; when
+the two disagree, it is authoritative. The worker's Gate 2 also shape-checks the
+parsed rows (`work-item/references/pre-flight.md`), so a malformed AC is a
+blocking gap **at pre-flight** rather than a confusing failure at the close gate.
 
 ---
 
@@ -61,9 +133,30 @@ Two things this buys, and one thing it costs:
   predicted to land.
 - A round that changes the plan (a gap surfaced during execution) re-plans cheaply
   — there is no stale spec text downstream to reconcile.
-- The cost: someone must remember to author round *K*'s spec at round *K*'s start.
-  That is the execution engine's first step for the round, and it is why the plan
-  records the rounds explicitly.
+- The cost: someone must remember to author round *K*'s spec before round *K* is
+  dispatched.
+
+**Who authors it, and when.** **`plan-spine` does — this skill, re-entered.** Not
+the execution lane: `work-item/references/round-orchestration.md` opens a round
+with worktree creation and handoff authoring, and its handoff step describes
+landing the handoff *beside the `spec.md` plan-spine already wrote*. The lane
+dispatches workers who **read** specs; it has no spec-authoring step and should
+not grow one, or the artifact and its reviewer become the same agent.
+
+So the deferred spec is authored **between rounds**: round *K-1* clears its
+barrier, `plan-spine` is re-entered to author round *K*'s specs against what
+actually landed, and only then does the lane spawn round *K*.
+
+**How the lane knows to pause.** It checks, rather than assuming. Before spawning
+a round, the spec each work item names must exist and parse — that is the same
+`oss verify_acs` the worker's Gate 2 runs, just run one step earlier where the
+recovery is cheap. A missing or unparseable spec is **not** a gap for the worker
+to surface: it means the round was dispatched before it was planned. Halt and
+re-enter `plan-spine` for that round.
+
+Left implicit, this fails in the worst available way — the worker reaches Gate 2,
+finds no spec, and returns gaps-mode against an item nobody has specified yet,
+which reads like an under-specified work item rather than a skipped planning step.
 
 ---
 
@@ -76,7 +169,7 @@ the cumulative ledger with per-item scaffolding:
 |---|---|---|
 | Scope | One work item | The whole product |
 | Lifetime | Until the item merges | Forever, until superseded/retired |
-| Run by | `implementation-checking` at the item's gate | The cumulative demo, at every future spine close |
+| Run by | `close`'s work-item gate (`close/references/impl-check.md`) | The cumulative demo, at every future spine close |
 | Authored in | `spec.md` (§2) | `oss ledger_add_auto` / `ledger_add_user` (§8) |
 
 An item AC that asserts an internal helper returns the right shape is a good AC

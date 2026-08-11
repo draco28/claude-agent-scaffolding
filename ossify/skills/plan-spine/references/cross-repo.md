@@ -63,9 +63,34 @@ install, npm `file:` / `overrides`, as the stack requires.
 Two properties of that override matter at **planning** time, because they change
 what the plan must contain:
 
-- **It is never committed.** Implementation-check and spine close verify its
-  absence from staged and tracked content. Plan for it as environment, not as a
-  file change; do not add "update Cargo.toml" as a work item.
+- **It is never committed.** Plan for it as environment, not as a file change;
+  do not add "update Cargo.toml" as a work item.
+
+  **Nothing verifies this in v0.2 — it is a discipline, not a gate.** Neither
+  impl-check nor spine close reads the override or checks for its absence
+  (verified: neither file mentions it). An earlier draft of this bullet claimed
+  they did, which is the worse failure of the two: a planner who believes a check
+  exists stops looking, and a committed override then travels to every other
+  developer as a silent, machine-specific path. Until cross-repo execution ships
+  with the gate that owns this, **check it yourself before the work-item close**:
+
+  ```bash
+  # The override is staged in the worktree the ITEM executes in, not in
+  # canonical - read the path the execution lane journaled for that item.
+  wt="$(oss get '.work_items[] | select(.id=="<wi-id>") | .worktree_path')"
+  [ -n "$wt" ] || { echo "no worktree_path recorded for that item - cannot check"; exit 1; }
+  git -C "$wt" diff --cached --name-only \
+    | grep -E '(Cargo\.toml|package\.json|go\.mod|pyproject\.toml|requirements[^/]*\.txt|setup\.(py|cfg))$' \
+    || true
+  ```
+
+  **Point it at the item's worktree, and cover every manifest form named above.**
+  A cross-repo item stages its override in the private worktree it is executing
+  in; run against `canonical` and the command inspects an index the override was
+  never in, prints nothing, and reads as a clean check — the machine-specific
+  path then travels with the commit. The pattern also has to match what this
+  section actually lists: Cargo, npm and Go were covered, the pip forms
+  (`pyproject.toml`, `requirements*.txt`, `setup.py` / `setup.cfg`) were not.
 - **The spine-close cumulative demo builds the composition *with* the override**,
   against both repos' post-merge state. So an `auto:` line that builds the
   composition is legitimate and will pass mid-flight — and the *release*-close

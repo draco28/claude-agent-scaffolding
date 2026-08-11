@@ -80,6 +80,20 @@ t_capture oss_verify_redgate "$TMP" "false" "exit 0";            t_assert_rc 0 "
 t_capture oss_verify_redgate "$TMP" "true" "exit 0";             t_assert_rc 1 "an already-passing command is already-GREEN"
 t_capture oss_verify_redgate "$TMP" "nosuchcommand_xyz" "exit 0";t_assert_rc 2 "an uninvocable command is errored, not already-GREEN"
 
+# A MALFORMED expectation is not a RED. oss_verify_auto_step returns 2 for a
+# grammar it cannot parse and 1 for a legitimately-failing command; folding both
+# into "not satisfied" makes redgate answer rc 0 = "proceed" for an AC whose
+# command can never pass, and the worker then spends the whole TDD loop on it.
+# The command is deliberately `false` — genuinely failing — so a redgate that
+# ignores the expectation returns 0 and this assertion is what catches it.
+t_capture oss_verify_redgate "$TMP" "false" "whatever"
+t_assert_rc 2 "a malformed expectation is rc 2 (malformed), never rc 0 (RED = proceed)"
+t_assert_contains "$T_OUT" "malformed" "...and the diagnostic says malformed rather than reporting a RED"
+# The realistic shape: verify_acs lands the whole tail in the expectation field
+# when the AC uses an ASCII '->' or omits 'expected:'. Same class, real text.
+t_capture oss_verify_redgate "$TMP" "false" '`pytest c` -> expected: exit 0'
+t_assert_rc 2 "the ASCII-arrow malformation reaching redgate is rc 2, not a RED"
+
 # report cross-check: every auto AC in the spec must appear in the report.
 cat > "$TMP/report.md" <<'EOF'
 ## 3. ACs — verification status
@@ -125,6 +139,12 @@ t_capture bash "$OSSB" redgate "$TMP" "true" "exit 0"
 t_assert_rc 1 "dispatcher: already-GREEN is the hard block"
 t_capture bash "$OSSB" redgate "$TMP" "nosuchcommand_xyz" "exit 0"
 t_assert_rc 2 "dispatcher: an uninvocable command is advisory rc 2, not 127"
+# The dispatcher path specifically: bin/oss runs `set -euo pipefail` while this
+# harness sources the libs non-strict, so a capture idiom that aborts under
+# errexit passes here and dies there. This is the assertion that sees it.
+t_capture bash "$OSSB" redgate "$TMP" "false" "whatever"
+t_assert_rc 2 "dispatcher: a malformed expectation is rc 2, not rc 0 = proceed, and not a strict-mode abort"
+t_assert_contains "$T_OUT" "malformed" "dispatcher: the malformed arm emitted its diagnostic rather than dying silently"
 
 # ---------------------------------------------------------------------------
 # X1: report_cross_check must NOT report clean when it is BLIND.

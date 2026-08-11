@@ -98,7 +98,54 @@ answer.
 
 ---
 
-## 5. Recording it
+## 5. Committing it — and the branch is not optional
+
+**A patch never lands on a spine branch.** Spec §6.1's "may commit directly"
+names no branch, and the obvious reading is wrong here, because
+`work-item-close.md` §4 parks canonical **on the spine branch for the whole
+spine**. Committed there, an out-of-spine change lands inside that spine's diff:
+it is swept into the spine's changed-path list at close, feeds its `touch_check`,
+and gets attributed to its demo contribution. The one lane defined by *not*
+belonging to a spine ends up inside one.
+
+**Assert the branch before you commit — check the name, never the rc:**
+
+```bash
+canonical="$(oss repo_root canonical)"
+# The project's integration branch. There is no state field for it in v0.2, so
+# resolve it from the remote's default and let the user correct it if wrong.
+base_branch="$(git -C "$canonical" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')"
+[ -n "$base_branch" ] || { echo "halt: cannot resolve canonical's base branch - name it explicitly"; exit 1; }
+br="$(git -C "$canonical" rev-parse --abbrev-ref HEAD)"
+case "$br" in
+  spine/*|work/*) echo "halt: canonical is parked on '$br' - a patch does not land in a spine's diff"; exit 1 ;;
+  HEAD)           echo "halt: canonical is in DETACHED HEAD - a patch commit here belongs to no branch"; exit 1 ;;
+  '')             echo "halt: could not resolve canonical's branch"; exit 1 ;;
+  "$base_branch") echo "ok: patching on the base branch '$br'" ;;
+  *)              echo "halt: canonical is on '$br', not the base branch '$base_branch'"; exit 1 ;;
+esac
+```
+
+**Allow-list the destination; do not deny-list the bad cases.** `rev-parse
+--abbrev-ref HEAD` prints the literal string **`HEAD`** on a detached checkout,
+which a bare `*)` arm waves through as a valid branch. The patch then commits to
+no ref at all: `oss patch_add` records a sha that exists only until the next gc,
+the change never reaches the base branch, and `doctor`'s patch count reports a
+record whose commit is unreachable. Every arm above fires on something real — a
+parked spine, a work-item branch, a detached checkout, an unresolvable HEAD.
+
+**If a spine is parked, halt and put it to the user** — two options, and it is
+their call:
+
+1. **Wait.** Close the spine first, then patch on the base branch. Right when the
+   spine is nearly done.
+2. **Route the change through the spine.** Right when the patch is small and
+   related enough that living in that spine's diff is honest.
+
+Do **not** silently create a worktree to get around the parked spine — that
+splits the patch lane across two places and the second one has no record.
+
+## 5b. Recording it
 
 ```bash
 oss patch_add "<commit-sha>" "<one line: what changed and why it took no spine>"

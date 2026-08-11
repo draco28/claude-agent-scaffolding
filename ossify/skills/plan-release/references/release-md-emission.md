@@ -26,8 +26,15 @@ canonical repo.
 
 ```bash
 rel="$(oss get '.releases[-1].id')"          # e.g. r0
-mkdir -p "<ai-workspace>/docs/specs/$rel"
+rel_dir="$(oss release_dir "$rel")"          # ABSOLUTE, ai_workspace-rooted
+mkdir -p "$rel_dir"
 ```
+
+`oss release_dir` resolves the manifest root for you, so the `<ai-workspace>`
+in the diagram above is a **shape**, never something to paste into a command.
+Running `mkdir -p "<ai-workspace>/..."` literally creates a directory named
+`<ai-workspace>` under wherever the agent happens to be standing, and every
+later lookup then misses in a way nothing reports.
 
 ---
 

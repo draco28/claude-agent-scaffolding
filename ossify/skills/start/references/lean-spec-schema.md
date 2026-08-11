@@ -25,6 +25,25 @@ Two derived artifacts accompany it: **EXECUTIVE-SUMMARY.md** (a spec-derived
 read of sections 1-3, for a human skimming the project) and the **seed feature
 map** (in `project-state.json`, not in the spec file).
 
+### Authoring EXECUTIVE-SUMMARY.md
+
+Named as an output in SKILL.md §13 and as a derived artifact here, with no step
+saying who writes it or when. **`start` writes it, at outputs time (SKILL.md
+§13), after the seven sections are settled** — routed per the manifest, like the
+lean spec itself.
+
+Derive it from **sections 1-3 only** — vision, journey map, skeleton cut — and
+keep it to **a page or less**. It answers one question for a human who will not
+read the spec: *what is this project, and what does its first release deliver?*
+
+- **Derive, never re-decide.** If writing it makes you want to change something,
+  the spec is what changes; a summary that disagrees with its source is worse
+  than no summary.
+- **No bones, no risk gates, no posture.** Those are sections 4-6, they are for
+  people doing the work, and pulling them in makes this a second spec.
+- Skip it and nothing breaks mechanically — which is exactly why it goes missing.
+  No gate reads it, and its absence is silent.
+
 ---
 
 ## 2. The vision narrative is narrative — and nothing else

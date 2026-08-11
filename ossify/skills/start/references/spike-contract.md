@@ -83,6 +83,34 @@ seam. The disposable spike plus a lean Release 0 covers both tracks without it.
    changed the plan, into the lean MASTER-SPEC).
 7. If the spike surfaced work, `oss feature_add "<name>" "<value>" "<class>" spec`.
 
+### Where the contract and the note are written
+
+Steps 1 and 5 say *write* without saying **where**, and it matters: there is no
+`oss spike_*` verb and the §9.2 state schema has no spike entity, so nothing
+persists a spike automatically. Left in conversation, a contract whose entire
+point is enforceability evaporates at the end of the session — and a spike that
+is declined or interrupted leaves no trace at all.
+
+**Both live in a `### Spike contract` section inside the affected bone's ADR
+file** (`bones-registry.md` §3, "Authoring the ADR file" — `<canonical>/docs/adr/adr-NNNN-*.md`):
+
+- **Step 1** writes the six fields there, under a `Status: running` line, *before*
+  the work starts. That is what makes the timebox and the falsifier binding
+  rather than remembered.
+- **Step 5** appends the decision note to the same section and moves the status
+  to `resolved` / `inconclusive`.
+- **Step 6** then folds the *decision* into the ADR's own Context/Decision prose.
+  The spike section stays as the audit trail of how the decision was reached.
+
+**If the spike precedes its bone** — common, since the spike is often what
+decides the bone — hold the contract in the conversation only until the ADR file
+exists, and write it in as the ADR's first content. Do not invent a second home;
+one decision, one file.
+
+**A declined spike is still written down**: the contract, plus one line saying it
+was declined and why. The next person to propose the same experiment should find
+out it was already considered.
+
 ---
 
 ## 5. Reading the result

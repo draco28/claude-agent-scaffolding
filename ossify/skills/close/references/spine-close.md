@@ -63,12 +63,20 @@ after its merge is verified landed, precisely so this step can read it that way.
 
 ## 3. Step 2 — switch canonical back to its base branch, then merge
 
+**Read `references/code-review.md` before this merge.** It is the last moment the
+spine's accumulated diff is reviewable as one thing, and the only reader in the
+ceremony that judges *craft and fidelity* — impl-check verified the ACs pass and
+that no **documented** pattern is violated; nothing has yet asked whether the code
+is good, or whether it is the code the spine set out to write. Advisory: it
+produces findings and a decision per finding, not a halt.
+
 The two facts this step needs are not in state and are recovered, not guessed:
 
 - **The spine slug** from the spine directory's name, exactly as the execution
   lane recovers it (`round-orchestration.md` §2). Nothing persists a slug.
 - **`base_branch`** from the spine plan document `SPINE.md`'s spine-context
-  section, where the execution lane recorded it (`round-orchestration.md` §2).
+  section, where `plan-spine` authored it at planning time (`spec-authoring.md`
+  §1) and the execution lane read it to cut from (`round-orchestration.md` §2).
   Every handoff in the spine carries the same fact under `## 2. Spine context`
   (`handoff-contract.md` §2), which makes a useful cross-check. **If it cannot be
   resolved, halt** — guessing the default branch merges a spine into the wrong
@@ -76,6 +84,13 @@ The two facts this step needs are not in state and are recovered, not guessed:
 
 ```bash
 canonical="$(oss repo_root canonical)"
+
+# $spine_slug is NOT ambient — nothing in state holds it. Recover it from the
+# spine directory's name with the ambiguity guard, exactly as `harvest.md` §2
+# does in this same skill, and hoist it once for the whole ceremony:
+#   spine_dir="$(…the glob…)"; spine_slug="${spine_dir##*/}"; spine_slug="${spine_slug#$spine_id-}"
+# Using it unset under `set -u` aborts the close here, before any of the guards
+# below can report anything.
 
 # DERIVE the spine branch; never read it off HEAD. HEAD is durable git state
 # that a session boundary, a hotfix or a halted close can move.

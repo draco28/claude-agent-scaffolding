@@ -191,15 +191,16 @@ Full worked example in `references/decomposition.md`.
 Run a strict-layer topological sort over the declared item-level dependencies:
 round *K* holds every item whose dependencies are fully covered by rounds 1…*K-1*
 (`> Round 1: w1, w2 (parallel) / Round 2: w3 (depends on w1)`). This is the
-**work-item** DAG — the coarser inter-spine DAG belongs to `plan-release`.
+**work-item** DAG; the coarser inter-spine DAG belongs to `plan-release`.
 **Interrogate every edge**, because a false edge silently serializes the spine:
 loosening that violates a declared dependency is refused by name, tightening is
-always allowed, empty rounds collapse and renumber, and a cross-repo pair is
-always a real edge in one order (the public port lands in `canonical` first, then
-the private adapter in `private_core` against it). Full method — the edge tests,
-the false-edge table, cycles — in `references/dag-rounds.md`; the repo dimension
-in `references/cross-repo.md`.
+always allowed, empty rounds collapse and renumber, and a cross-repo pair is a
+real edge in one order (public port first, then the private adapter). Full
+method in `references/dag-rounds.md`, repo dimension in `references/cross-repo.md`.
 
+**Draft `SPINE.md` now; finish it at §9.** Nothing in state holds the rounds.
+Context/decomposition/rounds settle here, but **Demo contribution and Fakes are
+not decided until §8-§9** — so complete it there (`spec-authoring.md` §1).
 ---
 
 ## 6. Spec authoring
