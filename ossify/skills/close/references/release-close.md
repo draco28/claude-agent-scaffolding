@@ -149,7 +149,8 @@ which is the entire point of a rotation.
 ## 4. Step 3 — the fake-expiry blocking finding
 
 The gate, its rc contract, both of its arms and the two ways to unblock it are
-in **`references/fake-expiry.md`**. The branch this step runs:
+in **`references/fake-expiry.md`**. The branch this step runs — the shipped
+copy, executed from here (§9):
 
 ```bash
 ef=0; fakes_due="$(oss expired_fakes "$rel")" || ef=$?
@@ -161,11 +162,9 @@ case "$ef" in
 esac
 ```
 
-**rc 0 is CLEAN here, and rc 0 is a HIT in `oss touch_check`.** The two gates
-have opposite polarity on purpose — one asks "did anything match", this one asks
-"may the close proceed" — and copying the touch-check branch shape inverts the
-judge, passing exactly the releases this gate exists to block. Three arms,
-always, with rc 2 halting rather than degrading to clean.
+**rc 0 is CLEAN here, and rc 0 is a HIT in `oss touch_check`** — three arms
+always, with rc 2 halting rather than degrading to clean. The polarity trap, and
+what copying the touch-check branch shape passes: `fake-expiry.md` §2.
 
 ---
 

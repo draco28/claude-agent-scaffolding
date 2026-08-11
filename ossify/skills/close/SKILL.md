@@ -1,6 +1,6 @@
 ---
 name: close
-description: Run the ossify close ceremony — one skill, three scopes, routed mechanically from the id shape (a work item r1.s2.w3, a spine r1.s2, a release r1), each a fixed checklist whose core rows are never skippable. Use this when the user says close work item r1.s2.w3, close the spine, close spine r1.s2, close the release, run the close ceremony, run the impl-check gate, or /close <id>. Do NOT use for decomposing a spine or authoring specs and demo criteria (use /plan-spine), release selection or the class declaration (use /plan-release), or executing a work item from its handoff (use /work-item).
+description: Run the ossify close ceremony — one skill, three scopes, routed from the id shape (a work item r1.s2.w3, a spine r1.s2, a release r1). Use when the user says close work item r1.s2.w3, close the spine, close spine r1.s2, close the release, run the close ceremony, run the impl-check gate, or /close <id>. Not spine decomposition or spec/demo-criteria authoring (/plan-spine), not release selection or the bone/flesh declaration (/plan-release), not executing a work item (/work-item).
 ---
 
 # close
