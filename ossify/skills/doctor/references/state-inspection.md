@@ -93,9 +93,17 @@ New in v0.3, and the only check that reads the repository rather than the state
 file.
 
 ```bash
-oss worktree_orphans canonical          # the repo key is REQUIRED, not defaulted
+oss worktree_orphans canonical          # ALWAYS pass the key explicitly
 oss worktree_orphans private_core       # doctor runs one of these per repo key
 ```
+
+**Pass the key every time — the verb does not make you.** Omitting it silently
+resolves to `canonical` (`oss_cmd_worktree_orphans` and `oss_worktree_orphans`
+both default it), so a bare `oss worktree_orphans` answers a question about the
+public repo no matter which one you meant. That defaulting is how #156 happened
+in the first place. Making the argument mandatory is a breaking change to a
+shipped verb and is tracked separately; until then the discipline is yours, not
+the tool's.
 
 **What it reports:** directories under `<repo>/.worktrees/` that no work item
 claims. A directory is *claimed* when a work item's journaled `worktree_path` is
@@ -103,10 +111,18 @@ exactly it, **or** when its basename is a work item's id — and only when that
 work item's `target_repo` is the repo being asked about, so a `private_core`
 item cannot claim a same-named directory sitting under the public root.
 
-**The repo key is a required argument, and `oss doctor` runs the selector once
-per key** — `canonical`, `ai_workspace`, `private_core` — printing
-`ok:`/`warn:`/`skip: worktrees(<key>)` for each. A key the manifest does not
-configure gets the `skip:`; it is never silently dropped.
+**`oss doctor` runs the selector once per repo key** — `canonical`,
+`ai_workspace`, `private_core` — printing `ok:`/`warn:`/`skip: worktrees(<key>)`
+for each. A key the manifest does not configure gets the `skip:`, as does one
+whose root does not exist on this machine; neither is ever silently dropped.
+
+**Two gates come before the per-key loop, and they emit one *unkeyed* line for
+the whole surface**: state health being red, and the inspected state not being
+this directory's manifest-routed state. Both are properties of the run, not of
+any one repository, so a keyed line per repo would repeat the identical reason
+three times. Read `skip: worktrees - skipped (…)` with no key as *the surface
+did not run at all* — which is why it names its cause. So the contract is: keyed
+lines when the comparison runs, one unkeyed line when it could not.
 
 *Why that is worth a paragraph:* the v0.3 shipping build called the selector
 with `canonical` hardcoded. The selector itself was already parameterized, so

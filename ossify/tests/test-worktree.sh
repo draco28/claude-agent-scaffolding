@@ -511,6 +511,35 @@ t_capture "$OSS" doctor "$PS"
 t_assert_contains "$T_OUT" "ok: worktrees(private_core) - none orphaned" \
   "doctor: a configured private_core with nothing orphaned reports its own clean line"
 
+# (12c) A CONFIGURED ROOT THAT DOES NOT EXIST HAS NOT BEEN INSPECTED.
+#
+# `_oss_repo_root` validates the manifest value — enum, non-empty, token-free,
+# absolute — but never that the directory is THERE. So an unmounted volume or a
+# moved repo resolved fine, `[ -d "$root/.worktrees" ]` was false, and the
+# "nothing spawned yet is not a finding" early return exited 0 with no output.
+# doctor then printed `ok: worktrees(private_core) - none orphaned` about a
+# repository that does not exist on this machine — #156's own false assurance,
+# one level in, and reachable on every repo key at once. (Codex P1, PR #160.)
+#
+# rc 2, not rc 1: this is the same "cannot use this repo" class as an
+# unconfigured key, and doctor's existing skip arm already handles it — which is
+# why the fix lives in the selector and doctor needs no new branch.
+rm -rf "$PRIV/priv"
+t_capture oss_worktree_orphans private_core "$PS"
+t_assert_rc 2 "orphans: a configured repo whose root does not exist is rc 2, not a silent clean"
+t_assert_contains "$T_OUT" "does not exist" "orphans: the missing root names itself"
+t_capture "$OSS" doctor "$PS"
+t_assert_contains "$T_OUT" "skip: worktrees(private_core)" \
+  "doctor: a configured-but-absent root SKIPS — it must never report clean about a repo it could not open"
+case "$T_OUT" in
+  *"ok: worktrees(private_core)"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor reported an absent private_core as clean" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+# The other repos are unaffected — one missing root must not degrade the keys
+# that ARE inspectable, or a single unmounted volume blinds the whole surface.
+t_assert_contains "$T_OUT" "ok: worktrees(canonical) - none orphaned" \
+  "doctor: a missing private_core root does not suppress canonical's own result"
+
 # (12b) DRIFT GUARD. doctor's loop spells the repo-key list out a second time
 # rather than deriving it, so the two copies can diverge — and divergence
 # reintroduces #156 for whichever key only one of them knows about. "Two

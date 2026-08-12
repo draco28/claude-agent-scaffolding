@@ -159,20 +159,26 @@ Being repo-reading also makes it the only check that can be legitimately
 *unavailable*: with no pairing manifest there is no repo root to look in, and it
 emits `skip:` rather than falling silent.
 
-**It is also the only check that prints one line per repository**, tagged
+**When it runs, it prints one line per repository**, tagged
 `worktrees(<repo-key>)` — `canonical`, `ai_workspace`, `private_core`. A key the
-manifest does not configure still costs a `skip:` line. Read that literally: a
-repo with no line was not inspected, and until #156 that is exactly what
-happened — doctor asked only about `canonical` and printed a clean
+manifest does not configure, or whose root is not on this machine, still costs a
+`skip:` line. Read that literally: a repo reported as `ok:` was opened, and until
+#156 that was not true — doctor asked only about `canonical` and printed a clean
 `ok: worktrees - none orphaned` for projects whose `private_core` it had never
-opened. Do not summarise the three lines into one verdict; the whole point is
-that "clean" and "not looked at" stay distinguishable per repo.
+opened. Do not summarise the lines into one verdict; the whole point is that
+"clean" and "not looked at" stay distinguishable per repo.
 
-`oss worktree_orphans <repo-key>` names them individually, and the repo key is
-required — doctor's own warn line carries the right one, so echo it rather than
-defaulting to `canonical`. **It is a pure selector: the finding is its OUTPUT,
-and rc 0 means the check ran, not that the tree is clean.** Branch on the rc and
-you will report every project as orphan-free.
+Two gates sit *before* the per-key loop — red state health, and a state this
+directory's manifest does not route to — and each emits a single **unkeyed**
+`skip: worktrees` line, because the cause is the run rather than any one repo.
+An unkeyed line means the surface did not run at all, and it names why.
+
+`oss worktree_orphans <repo-key>` names the directories individually. **Always
+pass the key**: omitting it silently defaults to `canonical`, which is the exact
+habit #156 punished. doctor's own warn line carries the right key, so echo it.
+**It is a pure selector: the finding is its OUTPUT, and rc 0 means the check ran,
+not that the tree is clean.** Branch on the rc and you will report every project
+as orphan-free.
 
 Full detail — the four-line remedy table and why you echo doctor's own line
 rather than substituting a fixed remedy, the advisory-vs-blocking split, the

@@ -157,8 +157,24 @@ oss_worktree_orphans() { # $1=repo-key [$2=state-file] ; echoes one abs path per
   # `.work_items` shape is NOT checked here. It is validated inside the single
   # jq expression below, together with the computation it guards - see the note
   # there for why splitting them was the thing that kept going wrong.
+  # A CONFIGURED ROOT THAT DOES NOT EXIST HAS NOT BEEN INSPECTED, and must not
+  # reach the early return below. `_oss_repo_root` validates the manifest VALUE
+  # - enum, non-empty, token-free, absolute - but never that the directory is
+  # there, so an unmounted volume or a moved repo resolved cleanly, failed
+  # `[ -d "$dir" ]`, and exited 0 with no output. That is indistinguishable from
+  # "inspected, nothing orphaned", and it violates this function's own contract
+  # that rc 0 means the check RAN. `oss doctor` printed
+  # `ok: worktrees(private_core) - none orphaned` about a repository absent from
+  # the machine - the same false assurance #156 fixed, one level in, and
+  # reachable on every repo key at once. (Codex P1, PR #160.)
+  #
+  # rc 2 deliberately: this is the same "cannot use this repo" class as an
+  # unconfigured key, so every caller that already handles `_oss_repo_root`'s
+  # rc 2 handles this with no new branch - including doctor's skip arm.
+  [ -d "$root" ] || { echo "oss: repo '$key' root does not exist at $root" >&2; return 2; }
   dir="$root/.worktrees"
-  # Nothing spawned yet is not a finding.
+  # Nothing spawned yet is not a finding. Reachable only once the root above is
+  # known to exist, which is what keeps this arm meaning what it says.
   [ -d "$dir" ] || return 0
 
   local -a cands=()
