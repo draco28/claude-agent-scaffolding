@@ -497,8 +497,31 @@ t_assert_rc 0 "doctor: an orphan under private_core stays advisory — it must n
 # The remedy line must name the repo it applies to. `oss worktree_orphans` takes
 # a repo key, so a remedy that omits it (or names canonical) sends the operator
 # to look in the wrong repository and find nothing.
-t_assert_contains "$T_OUT" "'oss worktree_orphans private_core' names them" \
-  "doctor: the remedy names the repo key the operator must actually pass"
+# The remedy must be runnable AS PRINTED. It carries the repo key — a remedy
+# naming the wrong repo sends the operator to search a clean repository — and
+# the INSPECTED STATE, because `_oss_resolve_state` puts `$OSS_STATE_FILE` ahead
+# of the manifest route (`manifest.sh:183-190`). Without the state argument, an
+# operator with that variable exported runs the printed command against a
+# different project and sees no paths, having just been told the command names
+# them. (Codex P2, PR #160 round 2.)
+REMEDY="$(printf '%s\n' "$T_OUT" | sed -n "s/.*; '\(oss worktree_orphans [^']*\)' names them.*/\1/p" | head -1)"
+t_assert_contains "$REMEDY" "private_core" "doctor: the remedy names the repo key the operator must actually pass"
+t_assert_contains "$REMEDY" "state.json" "doctor: the remedy pins the inspected state, not just the key"
+# RUN IT rather than matching its spelling. The line claims the command names
+# the directories, so that claim is what gets tested — and doctor prints the
+# CANONICALIZED state path, so a string assertion built from the fixture's own
+# raw path would fail on a symlinked $TMPDIR while proving nothing about whether
+# the command works. Asserting a spelling re-derived from `_oss_canon_path`
+# would be worse: the expectation would come from the code under test.
+#
+# Executed with $OSS_STATE_FILE pointing at a path that does not exist — the
+# exact condition the finding describes. An UNPINNED command resolves to that
+# override and dies rc 1; a pinned one ignores it, because an explicit argument
+# beats the variable (`manifest.sh:181-190`). So this fails loudly if the state
+# argument is ever dropped again.
+REMEDY_OUT="$( export OSS_STATE_FILE="$PRIV/no-such-state.json"; eval "\"$OSS\" ${REMEDY#oss }" 2>/dev/null )"; REMEDY_RC=$?
+t_assert_eq "0" "$REMEDY_RC" "doctor: the printed remedy RUNS as printed, even with a stale \$OSS_STATE_FILE exported"
+t_assert_eq "$PRIV/priv/.worktrees/r9.s9.w9" "$REMEDY_OUT" "doctor: and it names the very orphan doctor had just counted"
 
 # The private orphan must NOT also be attributed to canonical, and removing it
 # must return the private line to its own clean arm.
@@ -539,6 +562,44 @@ esac
 # that ARE inspectable, or a single unmounted volume blinds the whole surface.
 t_assert_contains "$T_OUT" "ok: worktrees(canonical) - none orphaned" \
   "doctor: a missing private_core root does not suppress canonical's own result"
+
+# (12d) A ROOT THAT EXISTS BUT CANNOT BE TRAVERSED IS ALSO NOT INSPECTED.
+#
+# The (12c) guard tests `-d "$root"`, which is TRUE for a directory the caller
+# has no execute permission on — while `[ -d "$root/.worktrees" ]` is FALSE,
+# because the stat cannot be performed. So a private checkout mounted with
+# restrictive permissions walked straight past the new guard into the "nothing
+# spawned yet" arm and reported clean. Measured: with `chmod 000` on the root,
+# `[ -d root ]` is true, `[ -x root ]` is false, `[ -d root/.worktrees ]` is
+# false while the directory demonstrably exists. Same false-clean class as
+# (12c), reached by permissions rather than absence. (Codex, PR #160 round 2 —
+# filed P2, treated as P1 because a false clean here is this PR's subject.)
+mkdir -p "$PRIV/priv/.worktrees/r9.s9.w9"
+chmod 000 "$PRIV/priv"
+# NOT ASSUMED TO BITE. Running as root ignores the mode bits, and an assertion
+# that cannot fail is worse than an absent one — it reads as coverage. Probe
+# first and say so out loud when the arm is not exercised.
+if [ -d "$PRIV/priv/.worktrees" ]; then
+  echo "NOTE: chmod 000 did not restrict this user (uid $(id -u)); traversability arm NOT exercised"
+else
+  t_capture oss_worktree_orphans private_core "$PS"
+  t_assert_rc 2 "orphans: a root that exists but cannot be traversed is rc 2, not a silent clean"
+  t_assert_contains "$T_OUT" "cannot be read" "orphans: the unreadable root names itself"
+  t_capture "$OSS" doctor "$PS"
+  t_assert_contains "$T_OUT" "skip: worktrees(private_core)" \
+    "doctor: an unreadable private_core root SKIPS rather than reporting clean"
+  case "$T_OUT" in
+    *"ok: worktrees(private_core)"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor reported an unreadable private_core as clean" ;;
+    *) T_PASS=$((T_PASS+1)) ;;
+  esac
+fi
+chmod 755 "$PRIV/priv"
+# And the ordinary case still works once permission is restored — otherwise the
+# guard above could be refusing every root and the tests above would not notice.
+t_capture oss_worktree_orphans private_core "$PS"
+t_assert_rc 0 "orphans: a readable root with an unclaimed dir is rc 0 again once permission is restored"
+t_assert_eq "$PRIV/priv/.worktrees/r9.s9.w9" "$T_OUT" "orphans: and it reports the orphan it could not see a moment ago"
+rm -rf "$PRIV/priv"
 
 # (12b) DRIFT GUARD. doctor's loop spells the repo-key list out a second time
 # rather than deriving it, so the two copies can diverge — and divergence

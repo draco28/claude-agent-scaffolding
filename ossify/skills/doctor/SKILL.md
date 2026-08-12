@@ -173,9 +173,12 @@ directory's manifest does not route to — and each emits a single **unkeyed**
 `skip: worktrees` line, because the cause is the run rather than any one repo.
 An unkeyed line means the surface did not run at all, and it names why.
 
-`oss worktree_orphans <repo-key>` names the directories individually. **Always
-pass the key**: omitting it silently defaults to `canonical`, which is the exact
-habit #156 punished. doctor's own warn line carries the right key, so echo it.
+`oss worktree_orphans <repo-key> <state>` names the directories individually.
+**Echo doctor's warn line verbatim** — it pins both the repo key and the
+inspected state, and it is runnable as printed. Do not retype it from memory:
+omitting the key silently defaults to `canonical` (the exact habit #156
+punished), and omitting the state lets an exported `$OSS_STATE_FILE` answer
+about a different project.
 **It is a pure selector: the finding is its OUTPUT, and rc 0 means the check ran,
 not that the tree is clean.** Branch on the rc and you will report every project
 as orphan-free.

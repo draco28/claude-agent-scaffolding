@@ -172,10 +172,28 @@ oss_worktree_orphans() { # $1=repo-key [$2=state-file] ; echoes one abs path per
   # unconfigured key, so every caller that already handles `_oss_repo_root`'s
   # rc 2 handles this with no new branch - including doctor's skip arm.
   [ -d "$root" ] || { echo "oss: repo '$key' root does not exist at $root" >&2; return 2; }
+  # EXISTS is not the same as CAN BE INSPECTED, and the difference is invisible
+  # to `-d`. On a root the caller cannot traverse, `[ -d "$root" ]` is TRUE while
+  # `[ -d "$root/.worktrees" ]` is FALSE - not because the directory is absent
+  # but because the stat cannot be performed - so a private checkout mounted
+  # with restrictive permissions walked past the guard above straight into the
+  # "nothing spawned yet" arm and reported clean. (Measured: with mode 000,
+  # `-d root` true, `-x root` false, `-d root/.worktrees` false while the
+  # directory demonstrably exists.) Same false-clean class as a missing root,
+  # reached by permissions instead of absence. (Codex, PR #160 round 2.)
+  { [ -x "$root" ] && [ -r "$root" ]; } \
+    || { echo "oss: repo '$key' root at $root cannot be read (permissions)" >&2; return 2; }
   dir="$root/.worktrees"
   # Nothing spawned yet is not a finding. Reachable only once the root above is
-  # known to exist, which is what keeps this arm meaning what it says.
+  # known to exist AND to be readable, which is what keeps this arm meaning what
+  # it says rather than absorbing two different failures.
   [ -d "$dir" ] || return 0
+  # The same distinction one level down: `.worktrees` itself can be unreadable
+  # while `-d` succeeds through the parent's execute bit. The glob below would
+  # then match nothing, leave `cands` empty, and return 0 - clean, from a
+  # directory never listed.
+  { [ -x "$dir" ] && [ -r "$dir" ]; } \
+    || { echo "oss: repo '$key' worktree dir at $dir cannot be read (permissions)" >&2; return 2; }
 
   local -a cands=()
   for path in "$dir"/*; do

@@ -114,7 +114,10 @@ item cannot claim a same-named directory sitting under the public root.
 **`oss doctor` runs the selector once per repo key** — `canonical`,
 `ai_workspace`, `private_core` — printing `ok:`/`warn:`/`skip: worktrees(<key>)`
 for each. A key the manifest does not configure gets the `skip:`, as does one
-whose root does not exist on this machine; neither is ever silently dropped.
+whose root does not exist on this machine **or cannot be read** — an unmounted
+volume and a restrictively-permissioned private checkout both land there. None
+is ever silently dropped, because "could not open it" and "opened it and found
+nothing" are the two states this check exists to keep apart.
 
 **Two gates come before the per-key loop, and they emit one *unkeyed* line for
 the whole surface**: state health being red, and the inspected state not being

@@ -221,7 +221,14 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
       # suspension the surrounding `if` gives its own condition.
       if orph="$(oss_worktree_orphans "$key" "$sf" 2>/dev/null)"; then
         if [ -n "$orph" ]; then
-          echo "warn: worktrees($key) - $(printf '%s\n' "$orph" | wc -l | tr -d ' ') orphaned worktree dir(s) under ${key}'s .worktrees/ claimed by no work item; 'oss worktree_orphans $key' names them"
+          # The remedy is PINNED to the inspected state, not just to the repo
+          # key. `_oss_resolve_state` puts `$OSS_STATE_FILE` ahead of the
+          # manifest route (manifest.sh:183-190), so a bare
+          # `oss worktree_orphans <key>` run by an operator with that variable
+          # exported inspects a DIFFERENT project and prints nothing - directly
+          # after a line promising it names the directories just found.
+          # (Codex P2, PR #160 round 2.)
+          echo "warn: worktrees($key) - $(printf '%s\n' "$orph" | wc -l | tr -d ' ') orphaned worktree dir(s) under ${key}'s .worktrees/ claimed by no work item; 'oss worktree_orphans $key \"$sf\"' names them"
         else
           echo "ok: worktrees($key) - none orphaned"
         fi
@@ -230,7 +237,7 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
         # all three repo-side ones and the state-side one is shared by every
         # key, so splitting them would print the SAME state complaint three
         # times while telling the operator nothing the remedy differs on.
-        echo "skip: worktrees($key) - skipped (not configured in the pairing manifest, its root does not resolve, or the state file could not be read)"
+        echo "skip: worktrees($key) - skipped (not configured in the pairing manifest, or its root does not resolve / does not exist / cannot be read)"
       fi
     done
   fi
