@@ -19,9 +19,12 @@ Every check prints exactly one line, tagged:
 Two properties are load-bearing and are asserted by tests rather than assumed:
 
 - **A check that cannot run still emits a line.** `skip: replay - skipped
-  (schema check failed)` and `skip: worktrees - skipped (no resolvable canonical
-  root…)` both exist because a *missing* line is indistinguishable from a clean
-  one. Never summarise a run in a way that drops a `skip:`.
+  (schema check failed)` and `skip: worktrees(private_core) - skipped (not
+  configured in the pairing manifest…)` both exist because a *missing* line is
+  indistinguishable from a clean one. Never summarise a run in a way that drops
+  a `skip:`. This is not hypothetical: `worktrees` shipped in v0.3 asking only
+  about `canonical`, so a project with a configured `private_core` got a clean
+  read-out about a repo that was never opened (#156).
 - **`warn:` never changes the rc.** So `oss doctor` exiting 0 does **not** mean
   "nothing to report" — it means "nothing broken". Read the lines, not the rc.
   A close pre-flight that only checks the rc will happily proceed past four
@@ -40,7 +43,7 @@ Two properties are load-bearing and are asserted by tests rather than assumed:
 | `ledger` | `demo_ledger` | pending amendments; quarantined lines |
 | `fakes` | `fakes` | `active` **or** `renewed` fakes still outstanding |
 | `patches` | `patch_records` | out-of-spine work since the last spine close |
-| `worktrees` | **the repo** | directories no work item claims (§4) |
+| `worktrees` | **the repos** | directories no work item claims — one line per repo key (§4) |
 
 `replay` is gated on `schema`, because replaying against a version this build
 cannot read produces noise rather than a finding. That gating is why the `skip:`
@@ -90,12 +93,28 @@ New in v0.3, and the only check that reads the repository rather than the state
 file.
 
 ```bash
-oss worktree_orphans canonical
+oss worktree_orphans canonical          # the repo key is REQUIRED, not defaulted
+oss worktree_orphans private_core       # doctor runs one of these per repo key
 ```
 
-**What it reports:** directories under `<canonical>/.worktrees/` that no work
-item claims. A directory is *claimed* when a work item's journaled
-`worktree_path` is exactly it, **or** when its basename is a work item's id.
+**What it reports:** directories under `<repo>/.worktrees/` that no work item
+claims. A directory is *claimed* when a work item's journaled `worktree_path` is
+exactly it, **or** when its basename is a work item's id — and only when that
+work item's `target_repo` is the repo being asked about, so a `private_core`
+item cannot claim a same-named directory sitting under the public root.
+
+**The repo key is a required argument, and `oss doctor` runs the selector once
+per key** — `canonical`, `ai_workspace`, `private_core` — printing
+`ok:`/`warn:`/`skip: worktrees(<key>)` for each. A key the manifest does not
+configure gets the `skip:`; it is never silently dropped.
+
+*Why that is worth a paragraph:* the v0.3 shipping build called the selector
+with `canonical` hardcoded. The selector itself was already parameterized, so
+nothing looked wrong — the read-out simply asserted `ok: worktrees - none
+orphaned` for projects whose `private_core` root it had never opened. Private
+work accumulating under an unchecked root is the exact failure the public/private
+boundary exists to prevent, so a *false clean* here is worse than no check at
+all. Fixed as #156; the per-key lines are what make the difference visible.
 
 **Why the second arm exists:** `oss worktree_add` names the directory for its
 work item but writes nothing to state — `worktree_path` appears only once
@@ -105,7 +124,7 @@ project is behaving correctly.
 
 **Why it matters at all:** spine close removes worktrees by *reading state*
 (`close/references/spine-close.md` step 10). A directory state does not know
-about is therefore cleaned by no ceremony at all. It accumulates in the canonical
+about is therefore cleaned by no ceremony at all. It accumulates in the very
 repo whose cleanliness `close` then checks, and the first symptom is a close
 failing for a reason that has nothing to do with the spine being closed.
 
@@ -137,7 +156,8 @@ missing worktree; it is a targeted probe, not part of the sweep.
 ## 5. State-vs-repo drift that no verb can decide
 
 `oss doctor` compares the state file against itself and, for worktrees, against
-one directory. The following are drift that only reading can find, and they
+one `.worktrees/` directory per configured repo. The following are drift that
+only reading can find, and they
 belong in the read-out when the sweep gives you reason to look:
 
 - **A spine marked `closed` whose branch never merged.** `close` guards this at

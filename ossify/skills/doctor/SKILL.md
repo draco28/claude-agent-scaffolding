@@ -150,19 +150,29 @@ rot-and-drift advisories — `ledger` (which can print two lines: pending
 amendments, and quarantined lines), `fakes`, `patches`, and `worktrees`.
 
 **`worktrees` is new in v0.3 and is the only check that reads the *repo* rather
-than the state file.** It reports directories under `<canonical>/.worktrees/`
-that no work item claims. That matters because spine close removes worktrees by
-reading state, so a directory state does not know about is cleaned by no ceremony
-at all — it accumulates in the very repo whose cleanliness `close` then checks,
-and the first symptom is a close failing for a reason unrelated to the spine.
+than the state file.** It reports directories under `<repo>/.worktrees/` that no
+work item claims. That matters because spine close removes worktrees by reading
+state, so a directory state does not know about is cleaned by no ceremony at
+all — it accumulates in the very repo whose cleanliness `close` then checks, and
+the first symptom is a close failing for a reason unrelated to the spine.
 Being repo-reading also makes it the only check that can be legitimately
-*unavailable*: with no pairing manifest there is no canonical root to look in,
-and it emits `skip:` rather than falling silent.
+*unavailable*: with no pairing manifest there is no repo root to look in, and it
+emits `skip:` rather than falling silent.
 
-`oss worktree_orphans canonical` names them individually. **It is a pure
-selector: the finding is its OUTPUT, and rc 0 means the check ran, not that the
-tree is clean.** Branch on the rc and you will report every project as
-orphan-free.
+**It is also the only check that prints one line per repository**, tagged
+`worktrees(<repo-key>)` — `canonical`, `ai_workspace`, `private_core`. A key the
+manifest does not configure still costs a `skip:` line. Read that literally: a
+repo with no line was not inspected, and until #156 that is exactly what
+happened — doctor asked only about `canonical` and printed a clean
+`ok: worktrees - none orphaned` for projects whose `private_core` it had never
+opened. Do not summarise the three lines into one verdict; the whole point is
+that "clean" and "not looked at" stay distinguishable per repo.
+
+`oss worktree_orphans <repo-key>` names them individually, and the repo key is
+required — doctor's own warn line carries the right one, so echo it rather than
+defaulting to `canonical`. **It is a pure selector: the finding is its OUTPUT,
+and rc 0 means the check ran, not that the tree is clean.** Branch on the rc and
+you will report every project as orphan-free.
 
 Full detail — the four-line remedy table and why you echo doctor's own line
 rather than substituting a fixed remedy, the advisory-vs-blocking split, the
@@ -324,6 +334,13 @@ Named here rather than left to read as executed:
   pass (§3).
 - **Branching on `oss worktree_orphans`' rc.** rc 0 means it ran. The finding is
   the output (§4).
+- **Echoing `oss worktree_orphans canonical` when the warn line named a
+  different repo.** The verb takes a repo key. The wrong one sends the operator
+  to search a repository that has nothing wrong with it, and they come back
+  believing doctor was mistaken (§4).
+- **Collapsing the per-repo `worktrees(...)` lines into one verdict.** Their
+  separateness *is* the finding: one repo clean and another unconfigured is not
+  the same state as both clean (§4).
 - **Copying `oss touch_check`'s rc polarity onto anything here.** rc 0 is a
   *hit* there. Nothing on this skill's surface shares that convention.
 - **Substituting a fixed remedy for `oss doctor`'s own line.** The remedy
