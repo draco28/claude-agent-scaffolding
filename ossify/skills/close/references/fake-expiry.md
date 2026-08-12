@@ -74,11 +74,11 @@ check would add an rc-7 arm the ceremony has no branch for.
 
 ## 3. The selector, and every clause in it is load-bearing
 
-```jq
-select(.status == "active" or .status == "renewed")
-| (try (.expiry_release | ltrimstr("r") | tonumber) catch null) as $e
-| select($e == null or $e <= ($rel | ltrimstr("r") | tonumber))
-```
+The selector lives in **`oss_reg_expired_fakes`** (`lib/registries.sh`) — read it
+there, never from a copy here that can drift. In prose: a fake joins the blocking
+set when its `status` is `active` **or** `renewed`, **and** its `expiry_release`
+(leading `r` stripped, compared as a number) is at or below the closing
+release's — or fails to parse at all.
 
 ### `renewed` is inside the selector, and it is the entry most in need of it
 
