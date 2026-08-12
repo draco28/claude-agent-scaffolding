@@ -45,7 +45,9 @@
 #   block unfindable and the failure read as "vacuous" rather than as wrong
 #   behaviour. Pick the anchor from the block's SCAFFOLDING, never from its FIX.
 #
-# Totals: 160 blocks - 55 operative (11 covered, 44 deferred), 105 illustrative.
+# Totals: 175 blocks - 57 operative (11 covered, 46 deferred), 118 illustrative.
+# (Was 160/55/11/44/105 before v0.3's `doctor`, which added 2 deferred - the
+# surface router and the /doctor $ARGUMENTS bridge - and 13 illustrative.)
 # (Was 51/109 at authoring. Three blocks were reclassified operative on review,
 # all the same way: the rule above says "a variable one step assigns and a later
 # step consumes", and all three do exactly that, so the original illustrative
@@ -93,7 +95,7 @@ D	commands/work-item.md	1	#138	the $ARGUMENTS env-var bridge
 D	skills/doctor/SKILL.md	1	#138	the surface router - a broken parse silently runs the FULL SWEEP instead of the named surface, which reads as success rather than as a routing failure
 I	skills/doctor/SKILL.md	4	single-verb calls: doctor, rules_types, rules_validate with <placeholder> args, interop_check
 I	skills/doctor/references/state-inspection.md	1	a single worktree_orphans call
-I	skills/doctor/references/spec-validation.md	2	a repo_root read and a single bones-count get
+I	skills/doctor/references/spec-validation.md	2	a spec_path resolve and a single bones-count get
 I	skills/doctor/references/rule-authoring.md	3	the harvest_dir memory-bank path composition (same shape impl-check.md classifies I), rules_types, and rules_validate with <placeholder> args
 I	skills/doctor/references/interop-check.md	1	a single interop_check call
 I	skills/doctor/references/budget-check.md	2	the check 6/7 suite invocation and an awk read of the agent description length no test guards
@@ -164,10 +166,10 @@ H	skills/close/references/spine-close.md	272077069-3589
 H	skills/close/references/work-item-close.md	705326676-2373
 H	commands/doctor.md	729179949-141
 H	skills/doctor/SKILL.md	2750546164-276
-H	skills/doctor/references/budget-check.md	3919417587-186
+H	skills/doctor/references/budget-check.md	2133115943-220
 H	skills/doctor/references/interop-check.md	2668344631-39
 H	skills/doctor/references/rule-authoring.md	3854220773-235
-H	skills/doctor/references/spec-validation.md	2685872794-95
+H	skills/doctor/references/spec-validation.md	1661334447-82
 H	skills/doctor/references/state-inspection.md	1009267609-52
 H	skills/plan-release/SKILL.md	84192511-1651
 H	skills/plan-release/references/bone-touch-judge.md	3236126632-1199

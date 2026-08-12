@@ -16,13 +16,22 @@ schema is*; this one is the authority on *how a validation run reports*.
 The spec is manifest-routed, not conventionally placed:
 
 ```bash
-oss repo_root ai_workspace
+oss spec_path
 ```
 
-The lean spec lives under the AI workspace. If no pairing manifest resolves,
-that is a **finding, not a refusal** — emit
+**Use that verb; do not compose the path from `oss repo_root ai_workspace`.**
+workspace-init writes `.well_known_paths.master_spec` into the manifest — its
+default is `${ai_workspace.root}/docs/MASTER-SPEC.md`, but a project may route
+it anywhere. Resolving only the workspace root and then guessing (or searching)
+misses a customized destination, and the symptom is this surface reporting *"no
+MASTER-SPEC.md"* for a properly initialised project. `oss spec_path` reads the
+routed key, expands its `${...}` tokens, falls back to the same convention when
+the key is absent, and refuses a value that is not absolute.
+
+If no pairing manifest resolves, that is a **finding, not a refusal** — emit
 `skip: spec - no pairing manifest, so MASTER-SPEC.md cannot be located` and
-carry on with the rest of the sweep (`SKILL.md` §3).
+carry on with the rest of the sweep (`SKILL.md` §3). The verb exits nonzero and
+says why; echo its message rather than substituting a guess.
 
 If the manifest resolves but no `MASTER-SPEC.md` exists, that is also a
 `skip:`, not a `fail:` — a project that has not run `/start` yet has no spec to

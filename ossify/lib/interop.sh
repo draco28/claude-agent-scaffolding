@@ -67,14 +67,19 @@ oss_interop_check() { # echoes one line per check ; rc 1 if any fail: printed
   # draft of this check did, and it was a claim about behaviour the function
   # does not have.
   #
-  # What IS a risk is a path that does not resolve at all. An unresolved
-  # `${...}` token resolves differently depending on which variables a given
-  # session's environment happens to carry, which is precisely two agents
-  # driving two different files.
+  # What IS a risk is a path that does not resolve to an absolute location. Two
+  # shapes, both now refused by `_oss_manifest_wellknown_guard`:
+  #   - an unresolved `${...}` token, which expands differently depending on
+  #     which variables a given session's environment happens to carry;
+  #   - a RELATIVE routed value, which resolves against whichever directory the
+  #     session started in. That one used to print `ok:` here, because the
+  #     resolver substituted tokens without ever joining a bare relative value
+  #     onto the workspace root - so the check certified as interop-safe the
+  #     exact configuration it exists to catch. (Codex P2, PR #149.)
   if sf="$(oss_manifest_state_path 2>/dev/null)" && [ -n "$sf" ]; then
     echo "ok: state_path - $sf"
   else
-    echo "fail: state_path - the state path does not resolve (an unresolved \${...} token, or no ai_workspace.root)"
+    echo "fail: state_path - the state path does not resolve to an absolute location (an unresolved \${...} token, a relative routed value, or no ai_workspace.root)"
     rc=1
   fi
 

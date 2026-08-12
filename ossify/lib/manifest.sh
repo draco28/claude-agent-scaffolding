@@ -66,27 +66,72 @@ _oss_manifest_resolve() { # $1=ai-root $2=string
   echo "$result"
 }
 
-# Resolve the ossify state-file path. Honors an optional
-# .well_known_paths.project_state key (Plan D may add it); else derives by
-# convention <ai_workspace.root>/.ossify/project-state.json. Closes the
-# silent-literal trap: refuses any path still holding an unresolved ${...}.
-# Echoes the path (the file itself may not exist yet).
-oss_manifest_state_path() {
-  local manifest ai_root routed dest
+# Shared guard for every well-known-path resolver.
+#
+# The token half was always here. The ABSOLUTE half is new, and it closes a trap
+# that hid behind the token guard: `_oss_manifest_resolve` substitutes `${...}`
+# tokens but does NOT join a bare relative value onto the AI-workspace root. So
+# `.well_known_paths.project_state = "state.json"` came back unchanged, sailed
+# past the token check, and then resolved against whatever directory the session
+# happened to start in - two agents in two directories driving two different
+# files, which is precisely the failure a well-known path exists to prevent.
+# (Codex P2, PR #149.)
+_oss_manifest_wellknown_guard() { # $1=resolved $2=what $3=source ; rc 0 if usable
+  case "$1" in
+    '')      echo "oss: unresolved $2 path: <empty> (from '$3')" >&2; return 1 ;;
+    *'${'*)  echo "oss: unresolved $2 path: '$1' (from '$3')" >&2; return 1 ;;
+    /*)      return 0 ;;
+    *)       echo "oss: $2 path is not absolute: '$1' (from '$3') - a well-known path that depends on the session's cwd is not well-known" >&2; return 1 ;;
+  esac
+}
+
+# The AI-workspace root, token-substituted. Both resolvers below need exactly
+# this and nothing else, and having it once keeps their two copies from drifting.
+_oss_manifest_ai_root() { # echoes the substituted ai_workspace.root
+  local manifest ai_root
   manifest="$(oss_manifest_discover)" || { echo "oss: $OSS_MANIFEST_REFUSAL" >&2; return 1; }
   ai_root="$(jq -r '.ai_workspace.root // empty' "$manifest" 2>/dev/null)" || true
   [ -n "$ai_root" ] || { echo "oss: manifest missing ai_workspace.root" >&2; return 1; }
   [ -n "${HOME:-}" ] && ai_root="${ai_root//\$\{HOME\}/$HOME}"
   ai_root="${ai_root//\$\{USER\}/$(_oss_current_user)}"
+  printf '%s\n' "$ai_root"
+}
+
+# Resolve the ossify state-file path. Honors an optional
+# .well_known_paths.project_state key (Plan D may add it); else derives by
+# convention <ai_workspace.root>/.ossify/project-state.json.
+# Echoes the path (the file itself may not exist yet).
+oss_manifest_state_path() {
+  local manifest ai_root routed dest
+  ai_root="$(_oss_manifest_ai_root)" || return 1
+  manifest="$(oss_manifest_discover)" || return 1
   routed="$(jq -r '.well_known_paths.project_state // empty' "$manifest" 2>/dev/null)" || true
   if [ -n "$routed" ]; then
     dest="$(_oss_manifest_resolve "$ai_root" "$routed")" || return 1
   else
     dest="$ai_root/.ossify/project-state.json"
   fi
-  case "$dest" in
-    ''|*'${'*) echo "oss: unresolved state path: '${dest:-<empty>}' (from '${routed:-convention}')" >&2; return 1 ;;
-  esac
+  _oss_manifest_wellknown_guard "$dest" state "${routed:-convention}" || return 1
+  echo "$dest"
+}
+
+# Resolve the lean MASTER-SPEC path, the same way and from the same manifest.
+# `.well_known_paths.master_spec` is the key workspace-init actually writes
+# (default `${ai_workspace.root}/docs/MASTER-SPEC.md`), so a resolver that only
+# knew the AI-workspace root would miss a customized routed destination and
+# report an initialised project as having no spec. `doctor`'s spec-validation
+# surface is the consumer. Echoes the path; the file may not exist yet.
+oss_manifest_spec_path() {
+  local manifest ai_root routed dest
+  ai_root="$(_oss_manifest_ai_root)" || return 1
+  manifest="$(oss_manifest_discover)" || return 1
+  routed="$(jq -r '.well_known_paths.master_spec // empty' "$manifest" 2>/dev/null)" || true
+  if [ -n "$routed" ]; then
+    dest="$(_oss_manifest_resolve "$ai_root" "$routed")" || return 1
+  else
+    dest="$ai_root/docs/MASTER-SPEC.md"
+  fi
+  _oss_manifest_wellknown_guard "$dest" spec "${routed:-convention}" || return 1
   echo "$dest"
 }
 
@@ -117,3 +162,4 @@ _oss_resolve_state() { # [$1=explicit-path]
 }
 
 oss_cmd_state_path() { oss_manifest_state_path; }   # `oss state_path` for skills/debug
+oss_cmd_spec_path()  { oss_manifest_spec_path; }    # `oss spec_path` for doctor's spec surface

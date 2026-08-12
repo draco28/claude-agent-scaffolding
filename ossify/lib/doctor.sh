@@ -87,15 +87,27 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
   # the replay precedent above and emits a `skip:` line rather than nothing: a
   # missing line reads as clean, and making silence impossible is the entire job
   # of this function. `skip:` (like `warn:`) never sets rc.
-  local orph
-  if orph="$(oss_worktree_orphans canonical "$sf" 2>/dev/null)"; then
+  # The check compares a repo found via `$PWD`'s manifest against work items in
+  # the state file THIS RUN was given - and those are not always the same
+  # project. `oss doctor <explicit-state>` (a supported, tested form) or a stale
+  # exported $OSS_STATE_FILE can point at project B while $PWD discovers project
+  # A's manifest, in which case A's directories would be judged against B's work
+  # items and reported as orphaned or claimed on no evidence at all. Every OTHER
+  # check here reads only `$sf`, so this association problem is unique to this
+  # one. Refuse to guess: unless the inspected state IS the manifest-routed
+  # state, skip and say why. (Codex P2, PR #149.)
+  local orph mstate
+  mstate="$(oss_manifest_state_path 2>/dev/null)" || mstate=""
+  if [ -z "$mstate" ] || [ "$mstate" != "$sf" ]; then
+    echo "skip: worktrees - skipped (the inspected state is not this directory's manifest-routed state, so a repo-vs-state comparison would cross projects)"
+  elif orph="$(oss_worktree_orphans canonical "$sf" 2>/dev/null)"; then
     if [ -n "$orph" ]; then
       echo "warn: worktrees - $(printf '%s\n' "$orph" | wc -l | tr -d ' ') orphaned worktree dir(s) under canonical .worktrees/ claimed by no work item; 'oss worktree_orphans canonical' names them"
     else
       echo "ok: worktrees - none orphaned"
     fi
   else
-    echo "skip: worktrees - skipped (no resolvable canonical root; needs a pairing manifest)"
+    echo "skip: worktrees - skipped (no resolvable canonical root, or the state file does not parse)"
   fi
 
   return "$rc"

@@ -275,8 +275,13 @@ git -C "$ORPH/canon" init -q
 git -C "$ORPH/canon" config user.email t@t; git -C "$ORPH/canon" config user.name t
 echo seed > "$ORPH/canon/f.txt"
 git -C "$ORPH/canon" add .; git -C "$ORPH/canon" commit -qm seed
+# The routed state path is set EXPLICITLY to the fixture's state file, because
+# `oss doctor`'s worktree check now refuses to compare a repo found via $PWD's
+# manifest against a state file that manifest does not route to. Without this
+# key the fixture would exercise only the skip arm, and the warn/ok arms would
+# silently stop being covered while still reading as covered.
 cat > "$ORPH/ws/.workspace/pairing.json" <<EOF
-{"schema_version":"1.0","ai_workspace":{"root":"$ORPH/ws"},"canonical":{"root":"$ORPH/canon"},"well_known_paths":{}}
+{"schema_version":"1.0","ai_workspace":{"root":"$ORPH/ws"},"canonical":{"root":"$ORPH/canon"},"well_known_paths":{"project_state":"$ORPH/state.json"}}
 EOF
 cd "$ORPH/ws"
 OS="$ORPH/state.json"
@@ -337,6 +342,47 @@ t_assert_rc 0 "doctor: an orphan is advisory — it must not change doctor's rc"
 rm -rf "$ORPH/canon/.worktrees/r9.s9.w9"
 t_capture "$OSS" doctor "$OS"
 t_assert_contains "$T_OUT" "ok: worktrees - none orphaned" "doctor: the clean arm emits its own line rather than falling silent"
+
+# (8) A state file this directory's manifest does NOT route to must not be
+# compared against this directory's repo. Every other doctor check reads only
+# the state file it was handed, so this one — the only repo-reading check — is
+# the only one that can silently cross two projects: $PWD finds project A's
+# canonical root while the state argument describes project B's work items, and
+# A's directories get judged against B's records on no evidence at all.
+OTHER="$ORPH/other-state.json"
+oss_state_init "$OTHER" other-project >/dev/null
+t_capture "$OSS" doctor "$OTHER"
+t_assert_contains "$T_OUT" "skip: worktrees" "doctor: a state the manifest does not route to skips the repo comparison"
+t_assert_contains "$T_OUT" "would cross projects" "doctor: the skip says WHY, so it does not read as a clean tree"
+case "$T_OUT" in
+  *"orphaned worktree dir"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor reported orphans for a cross-project state" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+
+# (9) target_repo scoping. A work item belonging to `private_core` must NOT
+# claim a directory under the CANONICAL root just because the basename matches
+# its id — that suppresses precisely the wrong-repository directory the repo-key
+# design exists to expose, and in the worst case leaves private work sitting
+# under the public root.
+PWI="$(oss_entity_add_work_item "$OS" "$OSPN" "private work item" private_core)"
+mkdir -p "$ORPH/canon/.worktrees/$PWI"
+t_capture oss_worktree_orphans canonical "$OS"
+t_assert_eq "$ORPH/canon/.worktrees/$PWI" "$T_OUT" \
+  "orphans: a private_core work item does NOT claim a canonical-rooted directory of the same id"
+rm -rf "$ORPH/canon/.worktrees/$PWI"
+
+# (10) A state file that does not parse is a FAILURE, not zero matches. Before
+# this guard, jq's parse error (rc 5) was indistinguishable from a false
+# predicate, so every directory was reported as orphaned — a deletion-flavoured
+# finding stacked on top of the corrupt state that is the real problem.
+printf '{not valid json' > "$ORPH/broken-state.json"
+t_capture oss_worktree_orphans canonical "$ORPH/broken-state.json"
+t_assert_rc 1 "orphans: an unparseable state file is rc 1, not a silent all-orphaned report"
+t_assert_contains "$T_OUT" "not valid JSON" "orphans: the parse failure names itself"
+case "$T_OUT" in
+  *".worktrees/"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: orphans listed directories from an unparseable state" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
 
 cd /; rm -rf "$ORPH" "$TMP"
 t_summary

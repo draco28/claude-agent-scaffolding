@@ -57,15 +57,27 @@ The remedy differs by line, and the wrong one loops the operator:
 |---|---|
 | `fail: replay` | **`oss state_restore`** — rebuilds live state from base + journal |
 | `fail: shape` | **`oss state_restore`** — a required key is missing; same rebuild |
-| `fail: schema` | **`oss migrate`** — the state predates this build |
+| `fail: schema`, version **below** this build | **`oss migrate`** — the state predates this build |
+| `fail: schema`, version **above** this build | **upgrade ossify.** `migrate` accepts v1/v2 only; there is no downgrade |
 | `fail: state` | **`oss init <name>`** — this project was never initialised |
 | `warn: lock` (stale) | `rmdir '<state>.lock'`, **only** if no ceremony is running |
 
-Why the distinction is not pedantry: against a v1/v2 state, `oss state_restore`
-prints `restore: state is already clean - nothing to do` at **rc 0**, leaves
-`schema_version` untouched, and the next `oss doctor` fails identically. Naming
-`state_restore` for a schema failure produces an infinite, entirely green retry
-loop. `oss migrate` is the verb that moves the version.
+**The table is a starting point keyed on the tag, and the tag is not the whole
+finding.** Read the rest of doctor's line before recommending anything — the
+same four tags cover conditions these verbs cannot repair:
+
+- **A schema version *newer* than this build.** `oss migrate` accepts v1/v2; a
+  future version is an ossify upgrade, not a migration. doctor already says
+  *"requires a newer ossify"* in its own line, which is exactly why you echo it.
+- **A corrupt journal, or a missing base snapshot.** `oss state_restore`
+  refuses both by name. Recommending it anyway sends the operator around a loop
+  whose every lap looks like progress.
+
+Why this is not pedantry: against a v1/v2 state, `oss state_restore` prints
+`restore: state is already clean - nothing to do` at **rc 0**, leaves
+`schema_version` untouched, and the next `oss doctor` fails identically. A
+remedy that exits 0 while changing nothing is the worst kind of wrong answer,
+because the operator has no signal that they are stuck.
 
 **You never run these.** Name the verb; the user runs it. The one exception in
 this whole skill is rule authoring, and the user asked for that explicitly.

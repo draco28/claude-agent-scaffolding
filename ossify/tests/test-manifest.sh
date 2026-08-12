@@ -131,5 +131,67 @@ t_assert_eq "" "$ERR_NOMANIFEST" "no notice when there is no manifest to overrid
 unset OSS_STATE_FILE
 cd "$HERE"
 
+# ---------------------------------------------------------------------------
+# The RELATIVE-path trap (Codex P2, PR #149). `_oss_manifest_resolve`
+# substitutes `${...}` tokens but never joins a bare relative value onto the
+# workspace root, so a relative routed value came back unchanged and sailed past
+# the unresolved-token guard — then resolved against whichever directory the
+# session happened to start in. Two agents in two directories, two state files.
+# ---------------------------------------------------------------------------
+cat > "$TMP/ws/.workspace/pairing.json" <<JSON
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{"project_state":"ps.json"}}
+JSON
+cd "$TMP/ws"
+t_capture oss_manifest_state_path
+t_assert_rc 1 "a RELATIVE routed state path is refused, not resolved against the cwd"
+t_assert_contains "$T_OUT" "not absolute" "the refusal names absoluteness, not tokens"
+cd "$HERE"
+
+# ---------------------------------------------------------------------------
+# `oss spec_path` — the lean MASTER-SPEC resolver behind doctor's spec surface.
+# workspace-init writes `.well_known_paths.master_spec` (default
+# `${ai_workspace.root}/docs/MASTER-SPEC.md`), so a resolver that knew only the
+# workspace root would miss a customized routed destination and report an
+# initialised project as having no spec at all.
+# ---------------------------------------------------------------------------
+cat > "$TMP/ws/.workspace/pairing.json" <<JSON
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{}}
+JSON
+cd "$TMP/ws"
+t_capture oss_manifest_spec_path
+t_assert_rc 0 "spec path resolved with no routing key"
+t_assert_eq "$TMP/ws/docs/MASTER-SPEC.md" "$T_OUT" "convention default matches workspace-init's own default destination"
+cd "$HERE"
+
+# A CUSTOMIZED routed destination must win over the convention — the whole point
+# of reading the key. If this returned the convention path, the finding Codex
+# raised would still be live and this suite would still be green.
+cat > "$TMP/ws/.workspace/pairing.json" <<JSON
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{"master_spec":"\${ai_workspace.root}/specs/LEAN-SPEC.md"}}
+JSON
+cd "$TMP/ws"
+t_capture oss_manifest_spec_path
+t_assert_rc 0 "routed spec path resolved"
+t_assert_eq "$TMP/ws/specs/LEAN-SPEC.md" "$T_OUT" "the ROUTED destination wins over the convention"
+cd "$HERE"
+
+# The same two guards apply, because they are the same guard.
+cat > "$TMP/ws/.workspace/pairing.json" <<JSON
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{"master_spec":"\${private_core.root}/S.md"}}
+JSON
+cd "$TMP/ws"
+t_capture oss_manifest_spec_path
+t_assert_rc 1 "an unresolved token in the spec path is refused"
+cd "$HERE"
+cat > "$TMP/ws/.workspace/pairing.json" <<JSON
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{"master_spec":"docs/S.md"}}
+JSON
+cd "$TMP/ws"
+t_capture oss_manifest_spec_path
+t_assert_rc 1 "a relative spec path is refused"
+t_capture "$OSS" spec_path
+t_assert_rc 1 "dispatcher: spec_path propagates the refusal under strict mode"
+cd "$HERE"
+
 rm -rf "$TMP"
 t_summary

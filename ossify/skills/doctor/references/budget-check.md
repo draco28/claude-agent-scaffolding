@@ -21,11 +21,19 @@ room, open the check that enforces the budget you mean.**
 | **Agent listing** | `agents/*.md` descriptions | **nothing** | **none** |
 
 ```bash
-bash ossify/tests/test-skill-bash-blocks.sh
+bash "${CLAUDE_PLUGIN_ROOT}/tests/test-skill-bash-blocks.sh"
 ```
 
 Checks 6 and 7 print their full per-file tables on every run, with live headroom
 on each line. That output is the answer; do not carry a remembered figure.
+
+**Root it at `${CLAUDE_PLUGIN_ROOT}`, never at a repo-relative path.** This
+surface runs from whatever project the user is standing in, and
+`ossify/tests/...` only exists when `$PWD` happens to be the scaffolding
+checkout — everywhere else it is a "No such file" that takes both budgets down
+with it. The harness resolves its own tree from its own location, so invoking it
+by absolute path measures the **installed** plugin, which is the thing the
+budget is actually about.
 
 ### What does *not* move either budget
 
@@ -80,7 +88,7 @@ largest every-call string in the plugin.
 So measure it rather than quoting a remembered figure:
 
 ```bash
-awk -F'description: ' '/^description: /{print length($2); exit}' ossify/agents/implementer-agent.md
+awk -F'description: ' '/^description: /{print length($2); exit}' "${CLAUDE_PLUGIN_ROOT}/agents/implementer-agent.md"
 ```
 
 Two notes on reading that number. It counts the raw YAML value **including the

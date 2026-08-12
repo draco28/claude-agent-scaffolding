@@ -131,6 +131,17 @@ oss_worktree_orphans() { # $1=repo-key [$2=state-file] ; echoes one abs path per
   root="$(_oss_repo_root "$key")" || return $?
   sf="$(_oss_resolve_state "${2:-}")" || return $?
   [ -f "$sf" ] || { echo "oss: state file not found at $sf" >&2; return 1; }
+  # Parse the state ONCE, up front, and fail loudly if it does not parse.
+  # Without this the per-directory `jq -e … || printf` treats a PARSE ERROR
+  # (jq rc 5) exactly like a false predicate, so a corrupt state file makes
+  # every worktree look orphaned - and `oss doctor` then stacks a
+  # deletion-flavoured warning on top of the corrupt-state finding that is the
+  # real problem. A selector that cannot read its input has not found zero
+  # matches; it has failed. (Codex P2, PR #149.)
+  jq -e . "$sf" >/dev/null 2>&1 || {
+    echo "oss: state file at $sf is not valid JSON - cannot tell an orphan from a claimed worktree" >&2
+    return 1
+  }
   dir="$root/.worktrees"
   # Nothing spawned yet is not a finding. Returning here rather than letting the
   # loop run keeps the unmatched-glob path below off the common case entirely.
@@ -142,8 +153,17 @@ oss_worktree_orphans() { # $1=repo-key [$2=state-file] ; echoes one abs path per
     # was written without it, so turning it on here changes their behaviour too.
     [ -d "$path" ] || continue
     base="${path##*/}"
-    jq -e --arg p "$path" --arg b "$base" \
-      'any((.work_items // [])[]; (.worktree_path // "") == $p or (.id // "") == $b)' \
+    # SCOPED TO THIS REPO KEY. Without the `target_repo` filter, a private_core
+    # work item whose id happens to be `r0.s1.w1` makes
+    # `canonical/.worktrees/r0.s1.w1` look claimed - which suppresses exactly
+    # the wrong-repository directory the repo-key design exists to expose, and
+    # in the worst case leaves private work sitting under the public canonical
+    # root. `target_repo` has been written into state since B4; this reads it.
+    # Items predating the field default to `canonical`, matching how
+    # `oss_cmd_work_item_add` defaults it. (Codex P2, PR #149.)
+    jq -e --arg p "$path" --arg b "$base" --arg k "$key" \
+      'any((.work_items // [])[] | select((.target_repo // "canonical") == $k);
+           (.worktree_path // "") == $p or (.id // "") == $b)' \
       "$sf" >/dev/null 2>&1 || printf '%s\n' "$path"
   done
 }

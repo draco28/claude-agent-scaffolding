@@ -60,6 +60,28 @@ printf '# AGENTS\n\n## Ossify\n\nCeremonies are driven through /start.\n' > "$TM
 t_capture oss_interop_check
 t_assert_rc 0 "AGENTS.md naming 'Ossify' with a capital satisfies the check"
 
+# --- a RELATIVE routed state path is an interop failure --------------------
+# This is the shape that used to print `ok:`. The resolver substitutes `${...}`
+# tokens but never joins a bare relative value onto the workspace root, so
+# `relative-state.json` came back unchanged, passed the token guard, and then
+# resolved against whichever directory each session started in — two agents,
+# two state files, certified as switch-ready.
+cat > "$TMP/ws/.workspace/pairing.json" <<EOF
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{"project_state":"relative-state.json"}}
+EOF
+t_capture oss_interop_check
+t_assert_rc 1 "a RELATIVE routed state path is rc 1"
+t_assert_contains "$T_OUT" "fail: state_path" "the relative routed path is a state_path failure"
+t_assert_contains "$T_OUT" "absolute" "the message names absoluteness as the requirement"
+
+# An ABSOLUTE routed state path is fine — the guard rejects relativity, not routing.
+cat > "$TMP/ws/.workspace/pairing.json" <<EOF
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{"project_state":"$TMP/ws/custom-state.json"}}
+EOF
+t_capture oss_interop_check
+t_assert_rc 0 "an ABSOLUTE routed state path passes — routing itself is not the problem"
+t_assert_contains "$T_OUT" "custom-state.json" "the routed path is echoed, not the convention"
+
 # --- a root that resolves but is not there ---------------------------------
 cat > "$TMP/ws/.workspace/pairing.json" <<EOF
 {"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"$TMP/nope"},"well_known_paths":{}}
