@@ -101,6 +101,53 @@ oss_worktree_resolve() { # $1=repo-key $2=work-item-id
   printf '%s\n' "$path"
 }
 
+# Orphan detection - the ONE real use of the enumeration verb v0.2 retired (see
+# the `oss_cmd_worktree_list` tombstone in lib/commands.sh, which named this
+# requirement and said to build the primitive against it rather than before it).
+#
+# This is deliberately NOT that verb rebuilt. The tombstone's objection to
+# enumeration was that a filesystem listing "answers a question no ceremony asks
+# and can disagree with state". Both halves still hold - so what ships is the
+# DISAGREEMENT ITSELF: the set of directories under <repo>/.worktrees that no
+# work item in state claims. That set is the finding, and it is the only form of
+# the question `doctor` has to ask.
+#
+# A directory is CLAIMED when a work item's journaled `worktree_path` is exactly
+# it, or when its basename is a work item's id. The second arm is not slack.
+# `oss_worktree_add` names the directory for its work item, but nothing writes
+# `worktree_path` into state until `work_item_exec` journals one - so matching on
+# the path alone reports every freshly-spawned worktree as an orphan, i.e. it is
+# loudest precisely when the project is behaving correctly.
+#
+# PURE SELECTOR: the finding is the OUTPUT, never the rc. rc 0 means the check
+# RAN, not that the tree is clean; a caller branching on rc reports every project
+# as orphan-free. That matches how `oss doctor` already treats quarantines, fakes
+# and patch records - counted, surfaced as `warn:`, never folded into the exit
+# code - and deliberately does NOT copy `oss touch_check`'s rc-0-is-a-hit
+# polarity, which close/SKILL.md §7 already lists as a trap for exactly this
+# reason.
+oss_worktree_orphans() { # $1=repo-key [$2=state-file] ; echoes one abs path per orphan
+  local key="${1:-canonical}" root sf dir path base
+  root="$(_oss_repo_root "$key")" || return $?
+  sf="$(_oss_resolve_state "${2:-}")" || return $?
+  [ -f "$sf" ] || { echo "oss: state file not found at $sf" >&2; return 1; }
+  dir="$root/.worktrees"
+  # Nothing spawned yet is not a finding. Returning here rather than letting the
+  # loop run keeps the unmatched-glob path below off the common case entirely.
+  [ -d "$dir" ] || return 0
+  for path in "$dir"/*; do
+    # An unmatched glob leaves the PATTERN itself as the single iteration value;
+    # `-d` rejects it. `nullglob` would be tidier and is deliberately not set -
+    # it is a shell-wide option and every other function the dispatcher sources
+    # was written without it, so turning it on here changes their behaviour too.
+    [ -d "$path" ] || continue
+    base="${path##*/}"
+    jq -e --arg p "$path" --arg b "$base" \
+      'any((.work_items // [])[]; (.worktree_path // "") == $p or (.id // "") == $b)' \
+      "$sf" >/dev/null 2>&1 || printf '%s\n' "$path"
+  done
+}
+
 # D9: HALT on a dirty worktree; never `--force`. The source retries with --force
 # (discarding uncommitted work) and swallows the branch delete with `|| true`,
 # while its own skill prose promises a halt and the close ceremony asserts no

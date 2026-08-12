@@ -250,8 +250,11 @@ oss_cmd_worktree_remove()  { _oss_need 2 worktree_remove "<repo-key> <wi-id>" "$
 # `worktree_path`, and spine-close.md §10 removes each one by reading state, not
 # by enumerating the filesystem. An enumeration verb answers a question no
 # ceremony asks and can disagree with state when it does. Its one real use,
-# orphan detection (a directory on disk with no state record), belongs to
-# `doctor` in v0.3 and should be built there against that requirement.
+# orphan detection (a directory on disk with no state record), was BUILT AGAINST
+# THAT REQUIREMENT in v0.3 as `oss worktree_orphans` below - the disagreement,
+# not the listing. The retired verb stays retired: `test-worktree.sh` asserts it
+# is still an unknown subcommand (rc 2).
+oss_cmd_worktree_orphans() { oss_worktree_orphans "${1:-canonical}" "${2:-}"; }
 
 # Cumulative demo runner (spec §6.1 + companion §4.3). Thin dispatcher
 # wrappers, no judgment logic - resolution (workdir, composition root) lives in
@@ -273,3 +276,15 @@ oss_cmd_harvest_dir()   { oss_harvest_memory_bank_dir; }
 oss_cmd_harvest_apply() { # $1=payload-json
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_harvest_apply "$sf" "${1:-}"
 }
+
+# Machine-checkable rules (spec §9.1, `doctor`'s third surface). SHAPE ONLY -
+# these two verbs answer "is this block well-formed" and "which types exist".
+# Neither runs a rule against a codebase; the evaluator is a separate v0.3 item.
+# `${1:-}`/`${2:-}` rather than positionals so a missing argument is the lib's
+# own rc-2 usage error instead of a strict-mode unbound-variable abort.
+oss_cmd_rules_types()    { oss_rules_types; }
+oss_cmd_rules_validate() { _oss_need 2 rules_validate "<type> <block-body>" "$@" || return 2; oss_rules_validate_block "${1:-}" "${2:-}"; }
+
+# Claude/Codex interop (spec §9.1, `doctor`'s fourth surface). CHECK ONLY - the
+# additive repair half was scaffold-onboard's own extension, not §9.1's word.
+oss_cmd_interop_check() { oss_interop_check; }

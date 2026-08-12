@@ -75,5 +75,28 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
   pat="$(jq -r '.patch_records | length' "$sf" 2>/dev/null || echo 0)"
   [ "$pat" -gt 0 ] 2>/dev/null && echo "warn: patches - $pat out-of-spine patch record(s) since the last spine close"
 
+  # Repo-vs-state drift (v0.3). Spine close removes worktrees by READING STATE
+  # (spine-close.md §10), so a directory state does not know about is cleaned by
+  # no ceremony at all: it accumulates in the canonical repo whose cleanliness
+  # close then checks, and the first symptom is a close failing for a reason
+  # that has nothing to do with the spine being closed.
+  #
+  # This is the only check here that reads the REPO rather than the state file,
+  # which makes it the only one that can be legitimately UNAVAILABLE - without a
+  # pairing manifest there is no canonical root to look in. It therefore follows
+  # the replay precedent above and emits a `skip:` line rather than nothing: a
+  # missing line reads as clean, and making silence impossible is the entire job
+  # of this function. `skip:` (like `warn:`) never sets rc.
+  local orph
+  if orph="$(oss_worktree_orphans canonical "$sf" 2>/dev/null)"; then
+    if [ -n "$orph" ]; then
+      echo "warn: worktrees - $(printf '%s\n' "$orph" | wc -l | tr -d ' ') orphaned worktree dir(s) under canonical .worktrees/ claimed by no work item; 'oss worktree_orphans canonical' names them"
+    else
+      echo "ok: worktrees - none orphaned"
+    fi
+  else
+    echo "skip: worktrees - skipped (no resolvable canonical root; needs a pairing manifest)"
+  fi
+
   return "$rc"
 }

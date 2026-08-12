@@ -260,5 +260,83 @@ else
   T_FAIL=$((T_FAIL+1)); echo "FAIL: negative control did not land the commit on $BASE_BRANCH either"
 fi
 
-cd /; rm -rf "$TMP"
+# ---------------------------------------------------------------------------
+# `oss worktree_orphans` (v0.3) — the repo-vs-state drift `doctor` reports.
+#
+# Its own workspace, canonical repo and state file, deliberately reusing NOTHING
+# above. The fixtures above spawn and remove worktrees in an order this check is
+# sensitive to, and "a mutation disarms one fixture by changing another that set
+# its precondition" is a vacuity mode this repo has already been bitten by.
+# Everything below stands alone and is readable without scrolling up.
+# ---------------------------------------------------------------------------
+ORPH="$(mktemp -d)"
+mkdir -p "$ORPH/ws/.workspace" "$ORPH/canon"
+git -C "$ORPH/canon" init -q
+git -C "$ORPH/canon" config user.email t@t; git -C "$ORPH/canon" config user.name t
+echo seed > "$ORPH/canon/f.txt"
+git -C "$ORPH/canon" add .; git -C "$ORPH/canon" commit -qm seed
+cat > "$ORPH/ws/.workspace/pairing.json" <<EOF
+{"schema_version":"1.0","ai_workspace":{"root":"$ORPH/ws"},"canonical":{"root":"$ORPH/canon"},"well_known_paths":{}}
+EOF
+cd "$ORPH/ws"
+OS="$ORPH/state.json"
+oss_state_init "$OS" orphan-demo >/dev/null
+OREL="$(oss_entity_add_release "$OS" "orphan-rel" "a goal")"
+OSPN="$(oss_entity_add_spine "$OS" "$OREL" "orphan-spine" flesh canonical)"
+OWI="$(oss_entity_add_work_item "$OS" "$OSPN" "orphan work item" canonical)"
+
+# (1) No `.worktrees` directory at all is not a finding. The early return that
+# makes this true also keeps the unmatched-glob path off the common case.
+t_capture oss_worktree_orphans canonical "$OS"
+t_assert_rc 0 "orphans: a canonical with no .worktrees dir is rc 0"
+t_assert_eq "" "$T_OUT" "orphans: no .worktrees dir reports nothing"
+
+# (2) THE ARM THAT MATTERS. `worktree_add` names the directory for its work item
+# but writes NOTHING to state — `worktree_path` appears only once
+# `work_item_exec` journals it. So a claim test matching on the path ALONE
+# reports a correctly-spawned worktree as an orphan, i.e. it is loudest exactly
+# when the project is behaving. Drop the id arm from the jq and this assertion
+# is the one that goes red.
+OWT="$(oss_worktree_add canonical "$OWI" "orphan-slug" HEAD)"
+t_assert_eq "$ORPH/canon/.worktrees/$OWI" "$OWT" "orphans: fixture spawned the worktree at the id-named path"
+t_capture oss_worktree_orphans canonical "$OS"
+t_assert_eq "" "$T_OUT" "orphans: a spawned-but-not-yet-journaled worktree is CLAIMED by its work item's id"
+
+# (3) A directory no work item claims by either arm — the actual finding.
+mkdir -p "$ORPH/canon/.worktrees/r9.s9.w9"
+t_capture oss_worktree_orphans canonical "$OS"
+t_assert_rc 0 "orphans: finding one is still rc 0 — the finding is the OUTPUT, never the rc"
+t_assert_eq "$ORPH/canon/.worktrees/r9.s9.w9" "$T_OUT" "orphans: the unclaimed dir is reported, and it is the ONLY line"
+
+# (4) The other arm: a directory whose basename is NOT a work-item id, claimed
+# because a work item's journaled `worktree_path` IS it. Drop the path arm and
+# this goes red while (2) stays green — the two arms cover disjoint failures.
+mkdir -p "$ORPH/canon/.worktrees/hand-named-dir"
+oss_entity_set_work_item_exec "$OS" "$OWI" "work/$OWI-orphan-slug" \
+  "$ORPH/canon/.worktrees/hand-named-dir" "$(git -C "$ORPH/canon" rev-parse HEAD)" >/dev/null
+t_capture oss_worktree_orphans canonical "$OS"
+t_assert_eq "$ORPH/canon/.worktrees/r9.s9.w9" "$T_OUT" "orphans: a dir claimed by a journaled worktree_path is not reported"
+
+# (5) An unconfigured repo key must not degrade to "canonical, probably".
+t_capture oss_worktree_orphans private_core "$OS"
+t_assert_rc 2 "orphans: an unconfigured repo key is rc 2, never a silent canonical fallback"
+
+# (6) Dispatcher path — bin/oss runs `set -euo pipefail` and everything above
+# only sourced the lib. The unmatched-glob guard and the `jq -e || printf` pair
+# are both shapes that behave differently under strict mode.
+t_capture "$OSS" worktree_orphans canonical "$OS"
+t_assert_rc 0 "dispatcher: worktree_orphans under strict mode is rc 0"
+t_assert_eq "$ORPH/canon/.worktrees/r9.s9.w9" "$T_OUT" "dispatcher: worktree_orphans reports the same single orphan"
+
+# (7) `oss doctor`'s worktree line, both arms, through the real binary. The warn
+# arm asserts the COUNT, so a check that reports the wrong number cannot pass by
+# merely printing the word "orphaned".
+t_capture "$OSS" doctor "$OS"
+t_assert_contains "$T_OUT" "warn: worktrees - 1 orphaned worktree dir(s)" "doctor: the orphan count reaches the read-out"
+t_assert_rc 0 "doctor: an orphan is advisory — it must not change doctor's rc"
+rm -rf "$ORPH/canon/.worktrees/r9.s9.w9"
+t_capture "$OSS" doctor "$OS"
+t_assert_contains "$T_OUT" "ok: worktrees - none orphaned" "doctor: the clean arm emits its own line rather than falling silent"
+
+cd /; rm -rf "$ORPH" "$TMP"
 t_summary

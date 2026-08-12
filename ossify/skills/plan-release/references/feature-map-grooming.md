@@ -74,9 +74,18 @@ as a missing feature:
 
 So: do not hand-edit `project-state.json` to reorder or delete entries, and do
 not read a pass as a no-op because no verb ran. Deleting an entry would destroy
-the record of a decision the next groom re-litigates from scratch. (`doctor` and
+the record of a decision the next groom re-litigates from scratch.
+
+**SETTLED in v0.3.** This paragraph used to defer the question — *"`doctor` and
 records land in v0.3; if a persisted rank ever earns its keep, that is where the
-argument belongs.)
+argument belongs."* `doctor` has landed, the argument was had there, and the
+answer is **no persisted rank and no prune verb**. `doctor` makes the map
+inspectable, which was the only thing the deferral was waiting on, and an
+inspectable append-only log does not become a ranked queue by being readable.
+The reasoning is recorded in `doctor/references/state-inspection.md` §6 — in the
+`ossify` plugin, alongside the surface that inspects the map. Reopening it needs
+new evidence: a groom that demonstrably lost information these two verbs could
+have kept, not a second pass over the same argument.
 
 ---
 

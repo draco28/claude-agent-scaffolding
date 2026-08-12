@@ -54,9 +54,14 @@ t_assert_contains "$T_OUT" "fail: schema" "schema fail line present"
 t_assert_contains "$T_OUT" "skip: replay" "replay skip line present (not silently dropped)"
 rm -rf "$T3"
 
-# --- Fix 4: the shape check must verify ALL 14 required top-level keys, not
-# just 6. A state missing e.g. `counters` (which every ledger add needs) must
-# FAIL shape, not be reported as having "all required keys present". ---
+# --- Fix 4: the shape check must verify EVERY required top-level key, not just
+# 6. A state missing e.g. `counters` (which every ledger add needs) must FAIL
+# shape, not be reported as having "all required keys present".
+#
+# This comment used to say "ALL 14 keys". The list is 16 as of v0.3 and will
+# grow again, so the count is deliberately not restated here — a number in a
+# comment beside a loop that owns the real list is a second copy that only ever
+# drifts. `doctor.sh`'s `for key in …` is the list. ---
 T4="$(mktemp -d)"; S4="$T4/state.json"
 oss_state_init "$S4" doc-shape >/dev/null
 jq 'del(.counters)' "$S4" > "$S4.x" && mv "$S4.x" "$S4"
@@ -141,6 +146,26 @@ t_assert_contains "$T_OUT" "warn: ledger - 1 quarantined line(s)" "doctor surfac
 t_assert_contains "$T_OUT" "warn: fakes - 1 outstanding fake(s)" "doctor surfaces a RENEWED fake, not just an active one"
 t_assert_contains "$T_OUT" "warn: patches - 1 out-of-spine patch record(s)" "doctor surfaces patch-lane records"
 t_assert_rc 0 "the four warn: lines are advisory - they must not change doctor's rc"
+
+# --- v0.3 worktree drift, the SKIP arm. The worktree check is the only one here
+# that reads the REPO rather than the state file, so it is the only one that can
+# be legitimately unavailable: no pairing manifest means no canonical root to
+# look in. It must still emit a line. A check that falls silent when it cannot
+# run reads as a check that ran and found nothing - the exact failure the
+# `skip: replay` branch above already exists to prevent, and the reason this arm
+# is asserted rather than assumed.
+#
+# Run from a MANIFEST-FREE directory rather than wherever the suite happened to
+# be launched: `oss_manifest_discover` walks up from $PWD, so a repo that later
+# grows a pairing manifest would silently flip this assertion's arm.
+# The warn: and ok: arms need a real canonical repo with real worktree dirs and
+# live in test-worktree.sh, next to the selector they exercise.
+NOMAN="$(mktemp -d)"; PREVPWD="$PWD"
+cd "$NOMAN"
+t_capture "$OSS" doctor "$W"
+t_assert_contains "$T_OUT" "skip: worktrees - skipped" "doctor: the worktree check emits a skip line with no manifest, never silence"
+t_assert_rc 0 "doctor: an unavailable worktree check is advisory - skip: never sets rc"
+cd "$PREVPWD"; rm -rf "$NOMAN"
 rm -rf "$WTMP"
 
 rm -rf "$TMP"
