@@ -46,13 +46,43 @@ oss_manifest_require() {
 
 # Resolve the two root tokens + ${HOME}/${USER} in a string. Unknown ${x} tokens
 # are LEFT IN PLACE (matching the upstream resolvers) - the CALLER detects them.
+# Literal find-and-replace, without bash pattern substitution.
+#
+# `${s//needle/$repl}` is NOT literal in the replacement half. Under bash 5.2's
+# default `patsub_replacement`, an `&` in $repl expands to the whole matched
+# text - so a perfectly valid workspace root like `/home/acme&co` turns
+# `${ai_workspace.root}/docs/S.md` back into `${ai_workspace.root}...`, and the
+# unresolved-token guard downstream then rejects a correctly-configured project.
+#
+# The obvious fix does not work. Escaping as `${repl//&/\\&}` was MEASURED on
+# both: it repairs bash 5.2 and BREAKS bash 3.2, which renders the backslash
+# literally (`/home/acme\&co`). macOS ships bash 3.2 and this repo runs on it,
+# so an escape-based fix would trade a Linux bug for a mac one. Doing the
+# substitution by hand is the only form that is literal on every version.
+# (Codex P2, PR #149 round 4.)
+_oss_subst_literal() { # $1=haystack $2=needle $3=replacement
+  local hay="$1" needle="$2" repl="$3" out="" pre
+  [ -n "$needle" ] || { printf '%s' "$hay"; return 0; }
+  while :; do
+    case "$hay" in
+      *"$needle"*)
+        pre="${hay%%"$needle"*}"
+        out="$out$pre$repl"
+        hay="${hay#"$pre$needle"}"
+        ;;
+      *) out="$out$hay"; break ;;
+    esac
+  done
+  printf '%s' "$out"
+}
+
 _oss_manifest_resolve() { # $1=ai-root $2=string
   local ai_root="$1" result="$2" manifest="$1/.workspace/pairing.json" aw cn
   [ -f "$manifest" ] || { echo "oss: manifest not found at $manifest" >&2; return 1; }
   aw="$(jq -r '.ai_workspace.root // empty' "$manifest" 2>/dev/null)" || true
   cn="$(jq -r '.canonical.root // empty' "$manifest" 2>/dev/null)" || true
-  [ -n "$aw" ] && result="${result//\$\{ai_workspace.root\}/$aw}"
-  [ -n "$cn" ] && result="${result//\$\{canonical.root\}/$cn}"
+  [ -n "$aw" ] && result="$(_oss_subst_literal "$result" '${ai_workspace.root}' "$aw")"
+  [ -n "$cn" ] && result="$(_oss_subst_literal "$result" '${canonical.root}' "$cn")"
   # Two failure modes, and only substituting-when-present avoids both. Under the
   # dispatcher's `set -u` a bare `$HOME` with HOME unset is a fatal expansion
   # error raised on the REPLACEMENT side, aborting every state-resolving verb
@@ -61,32 +91,77 @@ _oss_manifest_resolve() { # $1=ai-root $2=string
   # unresolved-token guard below and lets `oss init` write outside the intended
   # workspace. So substitute only when HOME is actually set, and otherwise LEAVE
   # THE TOKEN IN PLACE for that guard to reject by name.
-  [ -n "${HOME:-}" ] && result="${result//\$\{HOME\}/$HOME}"
-  result="${result//\$\{USER\}/$(_oss_current_user)}"
+  [ -n "${HOME:-}" ] && result="$(_oss_subst_literal "$result" '${HOME}' "$HOME")"
+  result="$(_oss_subst_literal "$result" '${USER}' "$(_oss_current_user)")"
   echo "$result"
+}
+
+# Shared guard for every well-known-path resolver.
+#
+# The token half was always here. The ABSOLUTE half is new, and it closes a trap
+# that hid behind the token guard: `_oss_manifest_resolve` substitutes `${...}`
+# tokens but does NOT join a bare relative value onto the AI-workspace root. So
+# `.well_known_paths.project_state = "state.json"` came back unchanged, sailed
+# past the token check, and then resolved against whatever directory the session
+# happened to start in - two agents in two directories driving two different
+# files, which is precisely the failure a well-known path exists to prevent.
+# (Codex P2, PR #149.)
+_oss_manifest_wellknown_guard() { # $1=resolved $2=what $3=source ; rc 0 if usable
+  case "$1" in
+    '')      echo "oss: unresolved $2 path: <empty> (from '$3')" >&2; return 1 ;;
+    *'${'*)  echo "oss: unresolved $2 path: '$1' (from '$3')" >&2; return 1 ;;
+    /*)      return 0 ;;
+    *)       echo "oss: $2 path is not absolute: '$1' (from '$3') - a well-known path that depends on the session's cwd is not well-known" >&2; return 1 ;;
+  esac
+}
+
+# The AI-workspace root, token-substituted. Both resolvers below need exactly
+# this and nothing else, and having it once keeps their two copies from drifting.
+_oss_manifest_ai_root() { # echoes the substituted ai_workspace.root
+  local manifest ai_root
+  manifest="$(oss_manifest_discover)" || { echo "oss: $OSS_MANIFEST_REFUSAL" >&2; return 1; }
+  ai_root="$(jq -r '.ai_workspace.root // empty' "$manifest" 2>/dev/null)" || true
+  [ -n "$ai_root" ] || { echo "oss: manifest missing ai_workspace.root" >&2; return 1; }
+  [ -n "${HOME:-}" ] && ai_root="$(_oss_subst_literal "$ai_root" '${HOME}' "$HOME")"
+  ai_root="$(_oss_subst_literal "$ai_root" '${USER}' "$(_oss_current_user)")"
+  printf '%s\n' "$ai_root"
 }
 
 # Resolve the ossify state-file path. Honors an optional
 # .well_known_paths.project_state key (Plan D may add it); else derives by
-# convention <ai_workspace.root>/.ossify/project-state.json. Closes the
-# silent-literal trap: refuses any path still holding an unresolved ${...}.
+# convention <ai_workspace.root>/.ossify/project-state.json.
 # Echoes the path (the file itself may not exist yet).
 oss_manifest_state_path() {
   local manifest ai_root routed dest
-  manifest="$(oss_manifest_discover)" || { echo "oss: $OSS_MANIFEST_REFUSAL" >&2; return 1; }
-  ai_root="$(jq -r '.ai_workspace.root // empty' "$manifest" 2>/dev/null)" || true
-  [ -n "$ai_root" ] || { echo "oss: manifest missing ai_workspace.root" >&2; return 1; }
-  [ -n "${HOME:-}" ] && ai_root="${ai_root//\$\{HOME\}/$HOME}"
-  ai_root="${ai_root//\$\{USER\}/$(_oss_current_user)}"
+  ai_root="$(_oss_manifest_ai_root)" || return 1
+  manifest="$(oss_manifest_discover)" || return 1
   routed="$(jq -r '.well_known_paths.project_state // empty' "$manifest" 2>/dev/null)" || true
   if [ -n "$routed" ]; then
     dest="$(_oss_manifest_resolve "$ai_root" "$routed")" || return 1
   else
     dest="$ai_root/.ossify/project-state.json"
   fi
-  case "$dest" in
-    ''|*'${'*) echo "oss: unresolved state path: '${dest:-<empty>}' (from '${routed:-convention}')" >&2; return 1 ;;
-  esac
+  _oss_manifest_wellknown_guard "$dest" state "${routed:-convention}" || return 1
+  echo "$dest"
+}
+
+# Resolve the lean MASTER-SPEC path, the same way and from the same manifest.
+# `.well_known_paths.master_spec` is the key workspace-init actually writes
+# (default `${ai_workspace.root}/docs/MASTER-SPEC.md`), so a resolver that only
+# knew the AI-workspace root would miss a customized routed destination and
+# report an initialised project as having no spec. `doctor`'s spec-validation
+# surface is the consumer. Echoes the path; the file may not exist yet.
+oss_manifest_spec_path() {
+  local manifest ai_root routed dest
+  ai_root="$(_oss_manifest_ai_root)" || return 1
+  manifest="$(oss_manifest_discover)" || return 1
+  routed="$(jq -r '.well_known_paths.master_spec // empty' "$manifest" 2>/dev/null)" || true
+  if [ -n "$routed" ]; then
+    dest="$(_oss_manifest_resolve "$ai_root" "$routed")" || return 1
+  else
+    dest="$ai_root/docs/MASTER-SPEC.md"
+  fi
+  _oss_manifest_wellknown_guard "$dest" spec "${routed:-convention}" || return 1
   echo "$dest"
 }
 
@@ -117,3 +192,4 @@ _oss_resolve_state() { # [$1=explicit-path]
 }
 
 oss_cmd_state_path() { oss_manifest_state_path; }   # `oss state_path` for skills/debug
+oss_cmd_spec_path()  { oss_manifest_spec_path; }    # `oss spec_path` for doctor's spec surface

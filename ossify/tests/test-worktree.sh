@@ -260,5 +260,188 @@ else
   T_FAIL=$((T_FAIL+1)); echo "FAIL: negative control did not land the commit on $BASE_BRANCH either"
 fi
 
-cd /; rm -rf "$TMP"
+# ---------------------------------------------------------------------------
+# `oss worktree_orphans` (v0.3) — the repo-vs-state drift `doctor` reports.
+#
+# Its own workspace, canonical repo and state file, deliberately reusing NOTHING
+# above. The fixtures above spawn and remove worktrees in an order this check is
+# sensitive to, and "a mutation disarms one fixture by changing another that set
+# its precondition" is a vacuity mode this repo has already been bitten by.
+# Everything below stands alone and is readable without scrolling up.
+# ---------------------------------------------------------------------------
+ORPH="$(mktemp -d)"
+mkdir -p "$ORPH/ws/.workspace" "$ORPH/canon"
+git -C "$ORPH/canon" init -q
+git -C "$ORPH/canon" config user.email t@t; git -C "$ORPH/canon" config user.name t
+echo seed > "$ORPH/canon/f.txt"
+git -C "$ORPH/canon" add .; git -C "$ORPH/canon" commit -qm seed
+# The routed state path is set EXPLICITLY to the fixture's state file, because
+# `oss doctor`'s worktree check now refuses to compare a repo found via $PWD's
+# manifest against a state file that manifest does not route to. Without this
+# key the fixture would exercise only the skip arm, and the warn/ok arms would
+# silently stop being covered while still reading as covered.
+cat > "$ORPH/ws/.workspace/pairing.json" <<EOF
+{"schema_version":"1.0","ai_workspace":{"root":"$ORPH/ws"},"canonical":{"root":"$ORPH/canon"},"well_known_paths":{"project_state":"$ORPH/state.json"}}
+EOF
+cd "$ORPH/ws"
+OS="$ORPH/state.json"
+oss_state_init "$OS" orphan-demo >/dev/null
+OREL="$(oss_entity_add_release "$OS" "orphan-rel" "a goal")"
+OSPN="$(oss_entity_add_spine "$OS" "$OREL" "orphan-spine" flesh canonical)"
+OWI="$(oss_entity_add_work_item "$OS" "$OSPN" "orphan work item" canonical)"
+
+# (1) No `.worktrees` directory at all is not a finding. The early return that
+# makes this true also keeps the unmatched-glob path off the common case.
+t_capture oss_worktree_orphans canonical "$OS"
+t_assert_rc 0 "orphans: a canonical with no .worktrees dir is rc 0"
+t_assert_eq "" "$T_OUT" "orphans: no .worktrees dir reports nothing"
+
+# (2) THE ARM THAT MATTERS. `worktree_add` names the directory for its work item
+# but writes NOTHING to state — `worktree_path` appears only once
+# `work_item_exec` journals it. So a claim test matching on the path ALONE
+# reports a correctly-spawned worktree as an orphan, i.e. it is loudest exactly
+# when the project is behaving. Drop the id arm from the jq and this assertion
+# is the one that goes red.
+OWT="$(oss_worktree_add canonical "$OWI" "orphan-slug" HEAD)"
+t_assert_eq "$ORPH/canon/.worktrees/$OWI" "$OWT" "orphans: fixture spawned the worktree at the id-named path"
+t_capture oss_worktree_orphans canonical "$OS"
+t_assert_eq "" "$T_OUT" "orphans: a spawned-but-not-yet-journaled worktree is CLAIMED by its work item's id"
+
+# (3) A directory no work item claims by either arm — the actual finding.
+mkdir -p "$ORPH/canon/.worktrees/r9.s9.w9"
+t_capture oss_worktree_orphans canonical "$OS"
+t_assert_rc 0 "orphans: finding one is still rc 0 — the finding is the OUTPUT, never the rc"
+t_assert_eq "$ORPH/canon/.worktrees/r9.s9.w9" "$T_OUT" "orphans: the unclaimed dir is reported, and it is the ONLY line"
+
+# (4) The other arm: a directory whose basename is NOT a work-item id, claimed
+# because a work item's journaled `worktree_path` IS it. Drop the path arm and
+# this goes red while (2) stays green — the two arms cover disjoint failures.
+mkdir -p "$ORPH/canon/.worktrees/hand-named-dir"
+oss_entity_set_work_item_exec "$OS" "$OWI" "work/$OWI-orphan-slug" \
+  "$ORPH/canon/.worktrees/hand-named-dir" "$(git -C "$ORPH/canon" rev-parse HEAD)" >/dev/null
+t_capture oss_worktree_orphans canonical "$OS"
+t_assert_eq "$ORPH/canon/.worktrees/r9.s9.w9" "$T_OUT" "orphans: a dir claimed by a journaled worktree_path is not reported"
+
+# (5) An unconfigured repo key must not degrade to "canonical, probably".
+t_capture oss_worktree_orphans private_core "$OS"
+t_assert_rc 2 "orphans: an unconfigured repo key is rc 2, never a silent canonical fallback"
+
+# (6) Dispatcher path — bin/oss runs `set -euo pipefail` and everything above
+# only sourced the lib. The unmatched-glob guard and the `jq -e || printf` pair
+# are both shapes that behave differently under strict mode.
+t_capture "$OSS" worktree_orphans canonical "$OS"
+t_assert_rc 0 "dispatcher: worktree_orphans under strict mode is rc 0"
+t_assert_eq "$ORPH/canon/.worktrees/r9.s9.w9" "$T_OUT" "dispatcher: worktree_orphans reports the same single orphan"
+
+# (7) `oss doctor`'s worktree line, both arms, through the real binary. The warn
+# arm asserts the COUNT, so a check that reports the wrong number cannot pass by
+# merely printing the word "orphaned".
+t_capture "$OSS" doctor "$OS"
+t_assert_contains "$T_OUT" "warn: worktrees - 1 orphaned worktree dir(s)" "doctor: the orphan count reaches the read-out"
+t_assert_rc 0 "doctor: an orphan is advisory — it must not change doctor's rc"
+rm -rf "$ORPH/canon/.worktrees/r9.s9.w9"
+t_capture "$OSS" doctor "$OS"
+t_assert_contains "$T_OUT" "ok: worktrees - none orphaned" "doctor: the clean arm emits its own line rather than falling silent"
+
+# (8) A state file this directory's manifest does NOT route to must not be
+# compared against this directory's repo. Every other doctor check reads only
+# the state file it was handed, so this one — the only repo-reading check — is
+# the only one that can silently cross two projects: $PWD finds project A's
+# canonical root while the state argument describes project B's work items, and
+# A's directories get judged against B's records on no evidence at all.
+# (8a) The SAME file named a different way must still be recognised as the same
+# project. A raw string compare drops orphan detection on the supported relative
+# spelling — a silent false negative on an otherwise healthy run, which is the
+# failure this whole function exists to avoid.
+# Stay inside the workspace so the manifest is still discoverable on the walk-up
+# — `../state.json` from here is the SAME file the manifest routes to, spelled
+# differently, which is exactly the case a string compare gets wrong.
+mkdir -p "$ORPH/canon/.worktrees/r9.s9.w9"
+t_capture "$OSS" doctor "../state.json"
+t_assert_contains "$T_OUT" "warn: worktrees - 1 orphaned" "doctor: a relative spelling of the manifest-routed state still runs the comparison"
+rm -rf "$ORPH/canon/.worktrees/r9.s9.w9"
+
+OTHER="$ORPH/other-state.json"
+oss_state_init "$OTHER" other-project >/dev/null
+t_capture "$OSS" doctor "$OTHER"
+t_assert_contains "$T_OUT" "skip: worktrees" "doctor: a state the manifest does not route to skips the repo comparison"
+t_assert_contains "$T_OUT" "would cross projects" "doctor: the skip says WHY, so it does not read as a clean tree"
+case "$T_OUT" in
+  *"orphaned worktree dir"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor reported orphans for a cross-project state" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+
+# (9) target_repo scoping. A work item belonging to `private_core` must NOT
+# claim a directory under the CANONICAL root just because the basename matches
+# its id — that suppresses precisely the wrong-repository directory the repo-key
+# design exists to expose, and in the worst case leaves private work sitting
+# under the public root.
+PWI="$(oss_entity_add_work_item "$OS" "$OSPN" "private work item" private_core)"
+mkdir -p "$ORPH/canon/.worktrees/$PWI"
+t_capture oss_worktree_orphans canonical "$OS"
+t_assert_eq "$ORPH/canon/.worktrees/$PWI" "$T_OUT" \
+  "orphans: a private_core work item does NOT claim a canonical-rooted directory of the same id"
+rm -rf "$ORPH/canon/.worktrees/$PWI"
+
+# (10) A state file that does not parse is a FAILURE, not zero matches. Before
+# this guard, jq's parse error (rc 5) was indistinguishable from a false
+# predicate, so every directory was reported as orphaned — a deletion-flavoured
+# finding stacked on top of the corrupt state that is the real problem.
+printf '{not valid json' > "$ORPH/broken-state.json"
+t_capture oss_worktree_orphans canonical "$ORPH/broken-state.json"
+t_assert_rc 1 "orphans: an unparseable state file is rc 1, not a silent all-orphaned report"
+t_assert_contains "$T_OUT" "not valid JSON" "orphans: the parse failure names itself"
+case "$T_OUT" in
+  *".worktrees/"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: orphans listed directories from an unparseable state" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+
+# (10b) A state that PARSES but whose .work_items is not an array. jq errors
+# while iterating a string, and the `|| printf` arm cannot tell that error from
+# a false predicate — so every directory reported as orphaned while the selector
+# still exited 0. `// []` does not cover this: a string is truthy, so the
+# alternative never fires. The parse guard above accepts this file happily.
+printf '{"work_items":"oops"}' > "$ORPH/shape-state.json"
+t_capture oss_worktree_orphans canonical "$ORPH/shape-state.json"
+t_assert_rc 1 "orphans: a non-array .work_items is rc 1, not an all-orphaned report"
+t_assert_contains "$T_OUT" "not an array" "orphans: the shape failure is distinguished from the parse failure"
+case "$T_OUT" in
+  *".worktrees/"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: orphans listed directories from a non-array .work_items" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+
+# (10c) The THIRD shape of the same class, and the one the single-jq rewrite
+# exists to end: `.work_items` IS an array but holds a non-object record.
+# Property access on a string raised inside the old per-directory predicate, and
+# the `|| printf` arm read that error as "unclaimed" — so every directory came
+# back as a deletion-oriented orphan at rc 0. A junk record is REFUSED here
+# rather than skipped: "some records are garbage" is not evidence that a
+# directory is unclaimed.
+printf '{"work_items":[{"id":"r0.s1.w1","target_repo":"canonical"},"junk"]}' > "$ORPH/elem-state.json"
+t_capture oss_worktree_orphans canonical "$ORPH/elem-state.json"
+t_assert_rc 1 "orphans: a non-object record inside .work_items is rc 1"
+t_assert_contains "$T_OUT" "not an object" "orphans: the element-shape failure names itself"
+case "$T_OUT" in
+  *".worktrees/"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: orphans listed directories from a junk work-item record" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+
+# (11) A state that PARSES but has drifted from its base and journal must not be
+# used for a repo comparison either. The parse guard inside worktree_orphans
+# accepts it — valid JSON — but its live `.work_items` is exactly what replay is
+# telling you not to trust, so a work item deleted by a hand edit turns its
+# surviving directory into a deletion-flavoured "orphan" warning for a worktree
+# `oss state_restore` is about to reclaim.
+mkdir -p "$ORPH/canon/.worktrees/$OWI"
+jq 'del(.work_items[0])' "$OS" > "$OS.x" && mv "$OS.x" "$OS"
+t_capture "$OSS" doctor "$OS"
+t_assert_rc 1 "doctor: a drifted live state still fails replay"
+t_assert_contains "$T_OUT" "skip: worktrees" "doctor: repo drift is skipped while state health is red"
+t_assert_contains "$T_OUT" "state health is not green" "doctor: the skip names state health, not the manifest"
+case "$T_OUT" in
+  *"orphaned worktree dir"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor reported orphans from a replay-invalid state" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+
+cd /; rm -rf "$ORPH" "$TMP"
 t_summary

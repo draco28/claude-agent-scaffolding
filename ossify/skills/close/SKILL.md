@@ -120,7 +120,8 @@ ai_root="$(oss repo_root ai_workspace)"
    |---|---|
    | `fail: replay` | **`oss state_restore`** — rebuilds live state from base + journal |
    | `fail: shape` | **`oss state_restore`** — a required key is missing; same rebuild |
-   | `fail: schema` | **`oss migrate`** — the state predates this build |
+   | `fail: schema`, version **below** this build | **`oss migrate`** — the state predates this build |
+   | `fail: schema`, version **above** this build | **upgrade ossify** — `migrate` accepts v1/v2 only |
    | `fail: state` | **`oss init <name>`** — this project was never initialised |
 
    Naming `state_restore` for every line wedges the close on a schema failure:
@@ -129,6 +130,13 @@ ai_root="$(oss repo_root ai_workspace)"
    identically on the retry. The operator loops. `oss migrate` is the verb that
    moves the version, and doctor already names it in its own output — which is
    why echoing the line beats paraphrasing it.
+
+   **The tag alone does not pick the remedy.** A schema *newer* than this build
+   is an ossify upgrade, not a migration; a corrupt journal or a missing base
+   snapshot is refused by `state_restore` by name. Both arrive tagged exactly
+   like the rows above, so read the rest of doctor's line before recommending
+   anything. `doctor/references/state-inspection.md` §3, in this plugin, carries
+   the full treatment.
 
    `warn:` lines (a held lock, a pending amendment, an outstanding fake) are not
    blockers here — they are inputs the spine and release layers act on.

@@ -45,7 +45,16 @@
 #   block unfindable and the failure read as "vacuous" rather than as wrong
 #   behaviour. Pick the anchor from the block's SCAFFOLDING, never from its FIX.
 #
-# Totals: 160 blocks - 55 operative (11 covered, 44 deferred), 105 illustrative.
+# Totals: 174 blocks - 60 operative (11 covered, 49 deferred), 114 illustrative.
+# (Was 160 blocks / 55 operative / 105 illustrative before v0.3's `doctor`.
+# rule-authoring.md's validate example went operative and then back: it briefly
+# became a quoted heredoc assigning `body` for the next line to consume, which
+# made it a security boundary rather than an illustration - and then the heredoc
+# itself turned out to BE the vulnerability, because a body line equal to the
+# delimiter ends it and the rest is parsed as shell. The body now travels as a
+# FILE, so the block is a single call again and illustrative again. The ledger
+# recording that round trip is the point: the classification followed the code,
+# not the other way round.)
 # (Was 51/109 at authoring. Three blocks were reclassified operative on review,
 # all the same way: the rule above says "a variable one step assigns and a later
 # step consumes", and all three do exactly that, so the original illustrative
@@ -84,11 +93,20 @@ I	skills/close/references/impl-check.md	3	single-verb calls: verify_acs, report_
 O	skills/work-item/references/round-orchestration.md	checkout -q -b	tests/test-close.sh	W2: the cut runs clean under set -u with NOTHING injected, leaves canonical checked out on the spine branch, halts on an existing spine branch (W2b) and on a detached HEAD (W2c). It cuts from the branch canonical is PARKED ON - reading the planned base from SPINE.md is deferred to #133, and 07a0bd8 reverted an attempt at it. An earlier revision of this row claimed planned-base coverage, which is behaviour the block deliberately does not have
 D	skills/work-item/references/round-orchestration.md	4	#138	spine-dir resolution, per-item spec path derivation, target_repo worktree spawn, and the dirty-worktree halt
 D	commands/close.md	1	#138	the $ARGUMENTS env-var bridge - a positional-substitution regression here silently drops every argument
+D	commands/doctor.md	1	#138	the $ARGUMENTS env-var bridge
 D	commands/plan-release.md	1	#138	the $ARGUMENTS env-var bridge
 D	commands/plan-spine.md	1	#138	the $ARGUMENTS env-var bridge
 D	commands/run-spine.md	1	#138	the $ARGUMENTS env-var bridge
 D	commands/start.md	1	#138	the $ARGUMENTS env-var bridge
 D	commands/work-item.md	1	#138	the $ARGUMENTS env-var bridge
+D	skills/doctor/SKILL.md	1	#138	the surface router - a broken parse silently runs the FULL SWEEP instead of the named surface, which reads as success rather than as a routing failure
+I	skills/doctor/SKILL.md	3	single-verb calls: doctor, rules_types, interop_check
+I	skills/doctor/references/state-inspection.md	1	a single worktree_orphans call
+I	skills/doctor/references/spec-validation.md	2	a spec_path resolve and a bones-count get bound to an explicit state path
+D	skills/doctor/references/rule-authoring.md	1	#138	the harvest_dir memory-bank path composition
+I	skills/doctor/references/rule-authoring.md	2	a rules_types call and a single --file validate call; the validate example is illustrative again now that the body travels as a FILE rather than as an embedded heredoc
+I	skills/doctor/references/interop-check.md	1	a single interop_check call
+D	skills/doctor/references/budget-check.md	2	#138	both budget probes now self-locate the ossify root from the `oss` dispatcher and consume it on the next line - operative by the stated rule. The two forms they replaced (a repo-relative path, then ${CLAUDE_PLUGIN_ROOT}) both failed SILENTLY, the second by expanding to empty and reading /tests/..., so a regression here looks exactly like a working command
 D	skills/close/SKILL.md	2	#138	the id-shape router and the manifest-refusal + doctor gate
 D	skills/close/references/code-review.md	1	#138	consumes $base_branch and $spine_branch assuming an earlier step assigned them - the exact round-7 shape
 D	skills/close/references/fake-expiry.md	1	#138	the expired-fakes branch whose rc contract folds rc 2 into neither pass nor block
@@ -154,6 +172,13 @@ H	skills/close/references/retrospective.md	2875153190-110
 H	skills/close/references/routing.md	948295148-232
 H	skills/close/references/spine-close.md	272077069-3589
 H	skills/close/references/work-item-close.md	705326676-2373
+H	commands/doctor.md	729179949-141
+H	skills/doctor/SKILL.md	3103983438-214
+H	skills/doctor/references/budget-check.md	582880737-316
+H	skills/doctor/references/interop-check.md	2668344631-39
+H	skills/doctor/references/rule-authoring.md	1710469119-263
+H	skills/doctor/references/spec-validation.md	2541080060-102
+H	skills/doctor/references/state-inspection.md	1009267609-52
 H	skills/plan-release/SKILL.md	84192511-1651
 H	skills/plan-release/references/bone-touch-judge.md	3236126632-1199
 H	skills/plan-release/references/class-declaration.md	119880498-302

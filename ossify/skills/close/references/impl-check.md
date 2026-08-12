@@ -139,8 +139,16 @@ than an omission.** The predecessor stack's mechanical evaluator is a phantom
 entry point over three unimplemented rule families: it resolves to nothing, it
 passes everything, and it reads as coverage. **A mechanical gate that silently
 passes is worse than an honest judgment call** — the first is trusted, the second
-is read. A real evaluator arrives with rule authoring, when there are authored
-rules for it to evaluate.
+is read.
+
+**Sequencing correction, v0.3.** This paragraph used to end *"a real evaluator
+arrives with rule authoring"*. Rule authoring has now arrived — `doctor` §6
+authors and shape-validates `mcrule` blocks — and **the evaluator has not**. The
+two shipped apart deliberately, so state the split rather than letting the older
+sentence imply enforcement: an authored rule is documented, validated, and read
+**here, by you**, on every work-item close. Nothing yet parses those blocks and
+runs them against a codebase. That remains a separate v0.3 item, and this layer
+stays agent judgment until it lands.
 
 So: read the file, read the diff, and say what you find. If the project has no
 `03-code-patterns.md`, say that too — an absent rule file is a fact worth one

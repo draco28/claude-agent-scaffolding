@@ -466,9 +466,12 @@ state and is awkward to change later.
 - **`architect-critic:critiquing-spec`** is invoked as a peer skill; it runs its
   own rebuttal loop and returns a summary. You do not mediate its internals.
 - **Peer entry skills:** `plan-release` owns Release 0, spine classes, and the
-  critic veto; `plan-spine` owns decomposition and demo lines. A `doctor` entry
-  skill **is not shipped in this release** (planned v0.3) — until it lands, its
-  state inspection is `oss doctor` above and spec validation is this file's §11.
+  critic veto; `plan-spine` owns decomposition and demo lines. `doctor` **ships
+  as of v0.3** and owns state inspection, lean-spec validation, machine-checkable
+  rule authoring, the Claude/Codex interop check and the budget check — route
+  there rather than re-deriving any of them here. This file's §11 stays the
+  spec's authoring-time check; `doctor` is the one that runs later, against a
+  spec that already exists.
 - **The user** is the final authority. You surface candidate maps, cuts, bones,
   postures, and critic challenges; they accept, edit, or skip. Never auto-finalize
   a decision the user has not seen — and always escalate the contested cuts.
