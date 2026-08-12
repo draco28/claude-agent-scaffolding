@@ -74,6 +74,22 @@ t_capture oss_rules_validate_block banned_imports 'two words: x'
 t_assert_rc 1 "a key containing a space is invalid"
 t_assert_contains "$T_OUT" "malformed rule key" "the key-charset failure has its own message"
 
+# --- an EMPTY value is not a present field ---------------------------------
+# Only the text before the colon used to be recorded, so `forbid:` registered
+# the key and the required-field pass below saw it as satisfied — validating a
+# rule that forbids nothing. An empty pattern is worse than useless: its match
+# semantics under a future evaluator are whatever that evaluator happens to
+# decide, which is a decision nobody made deliberately.
+t_capture oss_rules_validate_block banned_imports 'forbid:'
+t_assert_rc 1 "a required field with no value is invalid"
+t_assert_contains "$T_OUT" "has no value" "the empty-value failure has its own message, not 'requires field'"
+t_capture oss_rules_validate_block coverage_floor 'paths:
+threshold: 80'
+t_assert_rc 1 "a required field holding only whitespace is invalid"
+t_capture oss_rules_validate_block style_invariants 'forbid_pattern: x
+exclude:'
+t_assert_rc 1 "an OPTIONAL field with no value is invalid too — an empty exclude excludes nothing"
+
 t_capture oss_rules_validate_block no_such_type 'forbid: [x]'
 t_assert_rc 1 "an unknown rule type is invalid"
 t_assert_contains "$T_OUT" "banned_imports" "the error lists the known types rather than making the author look them up"

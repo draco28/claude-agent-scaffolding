@@ -184,6 +184,26 @@ case "$T_OUT" in
 esac
 rm -rf "$QT"
 
+# --- an UNREADABLE advisory field is `skip:`, never `ok:` -------------------
+# `jq … || echo 0` turned a failed query into a zero count. That was survivable
+# while a zero count printed nothing; once the clean arms landed, the same
+# fallback started ASSERTING "no pending amendments" over a field it had failed
+# to read. A check that cannot read its input has not found it clean.
+BT="$(mktemp -d)"; BS="$BT/state.json"
+oss_state_init "$BS" bad-shapes >/dev/null
+jq '.demo_ledger = "not-a-list" | .fakes = 7 | .patch_records = {"a":1}' "$BS" > "$BS.x" && mv "$BS.x" "$BS"
+t_capture "$OSS" doctor "$BS"
+t_assert_contains "$T_OUT" "skip: ledger - unavailable" "an unreadable demo_ledger is skipped, not called clean"
+t_assert_contains "$T_OUT" "skip: fakes - unavailable" "an unreadable fakes field is skipped, not called clean"
+t_assert_contains "$T_OUT" "skip: patches - unavailable" "an unreadable patch_records field is skipped, not called clean"
+for bad in "ok: ledger" "ok: fakes" "ok: patches"; do
+  case "$T_OUT" in
+    *"$bad"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor asserted '$bad' over a field it could not read" ;;
+    *) T_PASS=$((T_PASS+1)) ;;
+  esac
+done
+rm -rf "$BT"
+
 # --- v0.3 worktree drift, the SKIP arm. The worktree check is the only one here
 # that reads the REPO rather than the state file, so it is the only one that can
 # be legitimately unavailable: no pairing manifest means no canonical root to

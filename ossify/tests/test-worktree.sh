@@ -384,6 +384,20 @@ case "$T_OUT" in
   *) T_PASS=$((T_PASS+1)) ;;
 esac
 
+# (10b) A state that PARSES but whose .work_items is not an array. jq errors
+# while iterating a string, and the `|| printf` arm cannot tell that error from
+# a false predicate — so every directory reported as orphaned while the selector
+# still exited 0. `// []` does not cover this: a string is truthy, so the
+# alternative never fires. The parse guard above accepts this file happily.
+printf '{"work_items":"oops"}' > "$ORPH/shape-state.json"
+t_capture oss_worktree_orphans canonical "$ORPH/shape-state.json"
+t_assert_rc 1 "orphans: a non-array .work_items is rc 1, not an all-orphaned report"
+t_assert_contains "$T_OUT" "not an array" "orphans: the shape failure is distinguished from the parse failure"
+case "$T_OUT" in
+  *".worktrees/"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: orphans listed directories from a non-array .work_items" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+
 # (11) A state that PARSES but has drifted from its base and journal must not be
 # used for a repo comparison either. The parse guard inside worktree_orphans
 # accepts it — valid JSON — but its live `.work_items` is exactly what replay is

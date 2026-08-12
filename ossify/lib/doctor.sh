@@ -1,6 +1,37 @@
 #!/usr/bin/env bash
 # oss doctor - state health checks (spec §9.2 + §9.1 doctor entry).
 
+# Read one advisory COUNT, and treat an unreadable field as UNREADABLE rather
+# than as zero. The old `jq ... || echo 0` form was survivable only while these
+# advisories printed nothing on a zero count: a corrupt `.demo_ledger` produced
+# "0" and therefore silence. Once the clean `ok:` arms were added (round 2), the
+# identical fallback started printing "ok: ledger - no pending amendments" over
+# data it had failed to read - a check ASSERTING cleanliness about a field it
+# could not parse, which is worse than the silence it replaced and contradicts
+# the `skip:` contract every other check here follows.
+#
+# A count must also LOOK like a count: `jq -r` exits 0 while echoing `null` for
+# a missing field, and `[ null -gt 0 ]` is a syntax error, not a zero.
+#
+# Every caller's expression opens with `_arr(f)`, which ERRORS unless the field
+# is an array. That is not belt-and-braces: `jq`'s `length` is defined for
+# almost everything, so `.patch_records | length` on an OBJECT quietly returns
+# its key count and on a NUMBER returns its absolute value. Neither is a record
+# count, and neither fails - so without the type guard a structurally wrong
+# field produces a confident wrong number instead of a `skip:`. (Measured, when
+# a test fixture using `{"a":1}` was expected to fail and reported `warn:
+# patches - 1` instead.) (Codex P2, PR #149 round 3.)
+_OSS_DOCTOR_ARR='def _arr(f): if (f|type) == "array" then f else error("not an array") end;'
+
+_oss_doctor_count() { # $1=state-file $2=jq-expr ; echoes the count, rc 1 if unreadable
+  local out
+  out="$(jq -r "$_OSS_DOCTOR_ARR $2" "$1" 2>/dev/null)" || return 1
+  case "$out" in
+    ''|*[!0-9]*) return 1 ;;
+  esac
+  printf '%s\n' "$out"
+}
+
 oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FILE when omitted)
   local sf rc=0 out; sf="$(_oss_resolve_state "${1:-}")" || return $?
   [ -f "$sf" ] || { echo "fail: state - not found at $sf"; return 1; }
@@ -67,20 +98,26 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
   # stated as "one line per check" before it was true of these three.
   # (Codex P2, PR #149 round 2.)
   local pend quar fexp
-  pend="$(jq -r '[.demo_ledger[] | select(((.pending_amendments // []) | length) > 0)] | length' "$sf" 2>/dev/null || echo 0)"
-  [ "$pend" -gt 0 ] 2>/dev/null && echo "warn: ledger - $pend demo line(s) carry a pending amendment awaiting a spine close ('oss ledger_unplan <line-id> <spine>' to drop one)"
-  quar="$(jq -r '[.demo_ledger[] | select(.status == "quarantined")] | length' "$sf" 2>/dev/null || echo 0)"
-  [ "$quar" -gt 0 ] 2>/dev/null && echo "warn: ledger - $quar quarantined line(s); each must be fixed or retired by the next release close"
-  # The ledger owns TWO counters, so its clean line is emitted once, only when
-  # BOTH are zero - otherwise a project with a quarantine but no pending
-  # amendment would print a warning and a clean line about the same check.
-  { [ "$pend" -eq 0 ] && [ "$quar" -eq 0 ]; } 2>/dev/null \
-    && echo "ok: ledger - no pending amendments, no quarantined lines"
-  fexp="$(jq -r '[.fakes[] | select(.status == "active" or .status == "renewed")] | length' "$sf" 2>/dev/null || echo 0)"
-  if [ "$fexp" -gt 0 ] 2>/dev/null; then
-    echo "warn: fakes - $fexp outstanding fake(s) carrying a replacement trigger and expiry release"
+  if pend="$(_oss_doctor_count "$sf" '[_arr(.demo_ledger)[] | select(((.pending_amendments // []) | length) > 0)] | length')" \
+     && quar="$(_oss_doctor_count "$sf" '[_arr(.demo_ledger)[] | select(.status == "quarantined")] | length')"; then
+    [ "$pend" -gt 0 ] && echo "warn: ledger - $pend demo line(s) carry a pending amendment awaiting a spine close ('oss ledger_unplan <line-id> <spine>' to drop one)"
+    [ "$quar" -gt 0 ] && echo "warn: ledger - $quar quarantined line(s); each must be fixed or retired by the next release close"
+    # The ledger owns TWO counters, so its clean line is emitted once, only when
+    # BOTH are zero - otherwise a project with a quarantine but no pending
+    # amendment would print a warning and a clean line about the same check.
+    { [ "$pend" -eq 0 ] && [ "$quar" -eq 0 ]; } \
+      && echo "ok: ledger - no pending amendments, no quarantined lines"
   else
-    echo "ok: fakes - none outstanding"
+    echo "skip: ledger - unavailable (.demo_ledger could not be read as a countable list)"
+  fi
+  if fexp="$(_oss_doctor_count "$sf" '[_arr(.fakes)[] | select(.status == "active" or .status == "renewed")] | length')"; then
+    if [ "$fexp" -gt 0 ]; then
+      echo "warn: fakes - $fexp outstanding fake(s) carrying a replacement trigger and expiry release"
+    else
+      echo "ok: fakes - none outstanding"
+    fi
+  else
+    echo "skip: fakes - unavailable (.fakes could not be read as a countable list)"
   fi
 
   # §6.1 operator visibility: the fourth thing that rots silently — out-of-spine
@@ -89,11 +126,14 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
   # the count so an operator can audit accumulated drift (spec §6.1 patch lane:
   # "self-declared, doctor-visible").
   local pat
-  pat="$(jq -r '.patch_records | length' "$sf" 2>/dev/null || echo 0)"
-  if [ "$pat" -gt 0 ] 2>/dev/null; then
-    echo "warn: patches - $pat out-of-spine patch record(s) since the last spine close"
+  if pat="$(_oss_doctor_count "$sf" '_arr(.patch_records) | length')"; then
+    if [ "$pat" -gt 0 ]; then
+      echo "warn: patches - $pat out-of-spine patch record(s) since the last spine close"
+    else
+      echo "ok: patches - none since the last spine close"
+    fi
   else
-    echo "ok: patches - none since the last spine close"
+    echo "skip: patches - unavailable (.patch_records could not be read as a countable list)"
   fi
 
   # Repo-vs-state drift (v0.3). Spine close removes worktrees by READING STATE

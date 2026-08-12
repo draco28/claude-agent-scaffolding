@@ -40,7 +40,7 @@ oss_rules_types() { printf '%s\n' "${_OSS_RULE_TYPES[@]}"; }
 # repo has shipped twice.
 oss_rules_validate_block() { # $1=type $2=body ; rc 0 valid, 1 invalid, 2 usage
   local type="${1:-}" body="${2:-}"
-  local i n idx="" line stripped key present=" " req pk known found required_str optional_str
+  local i n idx="" line stripped key val present=" " req pk known found required_str optional_str
 
   [ -n "$type" ] || { echo "oss: rules_validate needs a rule type" >&2; return 2; }
   [ -n "$body" ] || { echo "oss: rules_validate needs a block body" >&2; return 2; }
@@ -62,12 +62,25 @@ oss_rules_validate_block() { # $1=type $2=body ; rc 0 valid, 1 invalid, 2 usage
     stripped="${line#"${line%%[![:space:]]*}"}"
     [ -n "$stripped" ] || continue
     case "$stripped" in
-      *:*) key="${stripped%%:*}" ;;
+      *:*) key="${stripped%%:*}"; val="${stripped#*:}" ;;
       *) echo "oss: malformed rule line (expected 'key: value'): $stripped" >&2; return 1 ;;
     esac
     case "$key" in
       *[!a-zA-Z0-9_]*|"") echo "oss: malformed rule key '$key' (letters, digits and _ only)" >&2; return 1 ;;
     esac
+    # A field with no value cannot express a constraint. `forbid:` and
+    # `paths:   ` recorded the KEY and nothing else, so the required-field pass
+    # below saw the field as present and the block validated at rc 0 - meaning
+    # authoring could certify, and inspection could bless, a rule that forbids
+    # nothing and matches nothing. An empty pattern is worse than useless: its
+    # match semantics under a future evaluator are whatever that evaluator
+    # decides, which is a decision nobody made deliberately.
+    # (Codex P2, PR #149 round 3.)
+    val="${val#"${val%%[![:space:]]*}"}"
+    if [ -z "$val" ]; then
+      echo "oss: rule field '$key' has no value - a field with no value cannot express a constraint" >&2
+      return 1
+    fi
     present="$present$key "
     # `<<<"$body"`, and the reason is NOT the one it looks like. An unquoted
     # `<<EOF` / $body / EOF is equivalent here - measured, not reasoned:

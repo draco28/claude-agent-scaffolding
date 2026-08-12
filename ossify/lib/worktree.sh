@@ -138,8 +138,24 @@ oss_worktree_orphans() { # $1=repo-key [$2=state-file] ; echoes one abs path per
   # deletion-flavoured warning on top of the corrupt-state finding that is the
   # real problem. A selector that cannot read its input has not found zero
   # matches; it has failed. (Codex P2, PR #149.)
+  # Two structural preconditions, both checked ONCE up front, because the
+  # per-directory predicate below cannot tell an evaluation ERROR from a false
+  # result - `jq -e … || printf` reports "unclaimed" for both.
+  #
+  #   1. the file parses at all (malformed JSON: jq rc 5);
+  #   2. `.work_items` is an ARRAY. A parseable, replay-consistent state whose
+  #      `.work_items` is a string or object makes jq error while iterating, so
+  #      every directory reports as orphaned and the selector still exits 0 -
+  #      the same deletion-flavoured false positive as (1), reached from a state
+  #      that (1) happily accepts. `// []` does not cover this: a string is
+  #      truthy, so the alternative never fires.
+  # (Codex P2, PR #149 rounds 1 and 3.)
   jq -e . "$sf" >/dev/null 2>&1 || {
     echo "oss: state file at $sf is not valid JSON - cannot tell an orphan from a claimed worktree" >&2
+    return 1
+  }
+  jq -e '(.work_items // []) | type == "array"' "$sf" >/dev/null 2>&1 || {
+    echo "oss: .work_items in $sf is not an array - cannot tell an orphan from a claimed worktree" >&2
     return 1
   }
   dir="$root/.worktrees"
