@@ -193,5 +193,36 @@ t_capture "$OSS" spec_path
 t_assert_rc 1 "dispatcher: spec_path propagates the refusal under strict mode"
 cd "$HERE"
 
+# ---------------------------------------------------------------------------
+# A workspace root containing `&`. `${s//needle/$repl}` is not literal in the
+# replacement half: under bash 5.2's default `patsub_replacement` an `&` expands
+# to the whole matched text, turning `${ai_workspace.root}/docs/S.md` back into
+# an unresolved token and making the guard reject a correctly-configured
+# project. The escape-based fix was measured to repair 5.2 and BREAK 3.2 (which
+# macOS ships), so the substitution is done by hand instead.
+#
+# This assertion passes on 3.2 today for the wrong reason — 3.2 has no
+# patsub_replacement — but it is the regression guard for the machines that do,
+# and it fails on ANY version if the hand-rolled substituter is wrong.
+# ---------------------------------------------------------------------------
+mkdir -p "$TMP/amp&ws/.workspace"
+cat > "$TMP/amp&ws/.workspace/pairing.json" <<JSON
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP/amp&ws"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{"master_spec":"\${ai_workspace.root}/docs/MASTER-SPEC.md"}}
+JSON
+cd "$TMP/amp&ws"
+t_capture oss_manifest_spec_path
+t_assert_rc 0 "a workspace root containing '&' still resolves"
+t_assert_eq "$TMP/amp&ws/docs/MASTER-SPEC.md" "$T_OUT" "the '&' survives verbatim instead of re-expanding to the matched token"
+t_capture oss_manifest_state_path
+t_assert_eq "$TMP/amp&ws/.ossify/project-state.json" "$T_OUT" "the same holds for the state resolver"
+cd "$HERE"
+
+# The substituter itself, directly — every case the token expansion relies on.
+t_assert_eq "/a&b/x"  "$(_oss_subst_literal '${R}/x' '${R}' '/a&b')"  "subst: & is literal in the replacement"
+t_assert_eq '/a\b/x'  "$(_oss_subst_literal '${R}/x' '${R}' '/a\b')" "subst: a backslash is literal too"
+t_assert_eq "aZbZc"   "$(_oss_subst_literal 'a${T}b${T}c' '${T}' 'Z')" "subst: every occurrence is replaced"
+t_assert_eq 'a${T}b'  "$(_oss_subst_literal 'a${T}b' '${T}' '${T}')" "subst: a replacement containing the needle does not re-match"
+t_assert_eq "plain"   "$(_oss_subst_literal 'plain' '${T}' 'Z')"    "subst: no occurrence leaves the string alone"
+
 rm -rf "$TMP"
 t_summary

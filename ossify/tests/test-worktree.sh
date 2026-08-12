@@ -349,6 +349,18 @@ t_assert_contains "$T_OUT" "ok: worktrees - none orphaned" "doctor: the clean ar
 # the only one that can silently cross two projects: $PWD finds project A's
 # canonical root while the state argument describes project B's work items, and
 # A's directories get judged against B's records on no evidence at all.
+# (8a) The SAME file named a different way must still be recognised as the same
+# project. A raw string compare drops orphan detection on the supported relative
+# spelling — a silent false negative on an otherwise healthy run, which is the
+# failure this whole function exists to avoid.
+# Stay inside the workspace so the manifest is still discoverable on the walk-up
+# — `../state.json` from here is the SAME file the manifest routes to, spelled
+# differently, which is exactly the case a string compare gets wrong.
+mkdir -p "$ORPH/canon/.worktrees/r9.s9.w9"
+t_capture "$OSS" doctor "../state.json"
+t_assert_contains "$T_OUT" "warn: worktrees - 1 orphaned" "doctor: a relative spelling of the manifest-routed state still runs the comparison"
+rm -rf "$ORPH/canon/.worktrees/r9.s9.w9"
+
 OTHER="$ORPH/other-state.json"
 oss_state_init "$OTHER" other-project >/dev/null
 t_capture "$OSS" doctor "$OTHER"
@@ -395,6 +407,22 @@ t_assert_rc 1 "orphans: a non-array .work_items is rc 1, not an all-orphaned rep
 t_assert_contains "$T_OUT" "not an array" "orphans: the shape failure is distinguished from the parse failure"
 case "$T_OUT" in
   *".worktrees/"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: orphans listed directories from a non-array .work_items" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+
+# (10c) The THIRD shape of the same class, and the one the single-jq rewrite
+# exists to end: `.work_items` IS an array but holds a non-object record.
+# Property access on a string raised inside the old per-directory predicate, and
+# the `|| printf` arm read that error as "unclaimed" — so every directory came
+# back as a deletion-oriented orphan at rc 0. A junk record is REFUSED here
+# rather than skipped: "some records are garbage" is not evidence that a
+# directory is unclaimed.
+printf '{"work_items":[{"id":"r0.s1.w1","target_repo":"canonical"},"junk"]}' > "$ORPH/elem-state.json"
+t_capture oss_worktree_orphans canonical "$ORPH/elem-state.json"
+t_assert_rc 1 "orphans: a non-object record inside .work_items is rc 1"
+t_assert_contains "$T_OUT" "not an object" "orphans: the element-shape failure names itself"
+case "$T_OUT" in
+  *".worktrees/"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: orphans listed directories from a junk work-item record" ;;
   *) T_PASS=$((T_PASS+1)) ;;
 esac
 

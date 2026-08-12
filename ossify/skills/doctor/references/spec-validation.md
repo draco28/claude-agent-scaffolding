@@ -78,8 +78,16 @@ in `doctor` rather than in `/start`: it is a comparison between two artifacts,
 and only one of them is the spec.
 
 ```bash
-oss get '.bones | length'
+oss get '.bones | length' "$(oss state_path)"
 ```
+
+**Pass the state path explicitly.** A bare `oss get` honours an exported
+`$OSS_STATE_FILE`, so with an override in play this would read *another
+project's* bones while `oss spec_path` read this one's spec — reporting drift
+between two unrelated projects. `oss state_path` is the manifest-routed answer
+regardless of the override, which binds both halves of the comparison to the
+same project. (The interop surface, §7 of the skill body, reports the override
+separately; this comparison must not depend on the user having run it first.)
 
 Compare against the row count of section 4. The direction of the mismatch
 changes the finding:

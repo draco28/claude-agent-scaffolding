@@ -46,13 +46,43 @@ oss_manifest_require() {
 
 # Resolve the two root tokens + ${HOME}/${USER} in a string. Unknown ${x} tokens
 # are LEFT IN PLACE (matching the upstream resolvers) - the CALLER detects them.
+# Literal find-and-replace, without bash pattern substitution.
+#
+# `${s//needle/$repl}` is NOT literal in the replacement half. Under bash 5.2's
+# default `patsub_replacement`, an `&` in $repl expands to the whole matched
+# text - so a perfectly valid workspace root like `/home/acme&co` turns
+# `${ai_workspace.root}/docs/S.md` back into `${ai_workspace.root}...`, and the
+# unresolved-token guard downstream then rejects a correctly-configured project.
+#
+# The obvious fix does not work. Escaping as `${repl//&/\\&}` was MEASURED on
+# both: it repairs bash 5.2 and BREAKS bash 3.2, which renders the backslash
+# literally (`/home/acme\&co`). macOS ships bash 3.2 and this repo runs on it,
+# so an escape-based fix would trade a Linux bug for a mac one. Doing the
+# substitution by hand is the only form that is literal on every version.
+# (Codex P2, PR #149 round 4.)
+_oss_subst_literal() { # $1=haystack $2=needle $3=replacement
+  local hay="$1" needle="$2" repl="$3" out="" pre
+  [ -n "$needle" ] || { printf '%s' "$hay"; return 0; }
+  while :; do
+    case "$hay" in
+      *"$needle"*)
+        pre="${hay%%"$needle"*}"
+        out="$out$pre$repl"
+        hay="${hay#"$pre$needle"}"
+        ;;
+      *) out="$out$hay"; break ;;
+    esac
+  done
+  printf '%s' "$out"
+}
+
 _oss_manifest_resolve() { # $1=ai-root $2=string
   local ai_root="$1" result="$2" manifest="$1/.workspace/pairing.json" aw cn
   [ -f "$manifest" ] || { echo "oss: manifest not found at $manifest" >&2; return 1; }
   aw="$(jq -r '.ai_workspace.root // empty' "$manifest" 2>/dev/null)" || true
   cn="$(jq -r '.canonical.root // empty' "$manifest" 2>/dev/null)" || true
-  [ -n "$aw" ] && result="${result//\$\{ai_workspace.root\}/$aw}"
-  [ -n "$cn" ] && result="${result//\$\{canonical.root\}/$cn}"
+  [ -n "$aw" ] && result="$(_oss_subst_literal "$result" '${ai_workspace.root}' "$aw")"
+  [ -n "$cn" ] && result="$(_oss_subst_literal "$result" '${canonical.root}' "$cn")"
   # Two failure modes, and only substituting-when-present avoids both. Under the
   # dispatcher's `set -u` a bare `$HOME` with HOME unset is a fatal expansion
   # error raised on the REPLACEMENT side, aborting every state-resolving verb
@@ -61,8 +91,8 @@ _oss_manifest_resolve() { # $1=ai-root $2=string
   # unresolved-token guard below and lets `oss init` write outside the intended
   # workspace. So substitute only when HOME is actually set, and otherwise LEAVE
   # THE TOKEN IN PLACE for that guard to reject by name.
-  [ -n "${HOME:-}" ] && result="${result//\$\{HOME\}/$HOME}"
-  result="${result//\$\{USER\}/$(_oss_current_user)}"
+  [ -n "${HOME:-}" ] && result="$(_oss_subst_literal "$result" '${HOME}' "$HOME")"
+  result="$(_oss_subst_literal "$result" '${USER}' "$(_oss_current_user)")"
   echo "$result"
 }
 
@@ -92,8 +122,8 @@ _oss_manifest_ai_root() { # echoes the substituted ai_workspace.root
   manifest="$(oss_manifest_discover)" || { echo "oss: $OSS_MANIFEST_REFUSAL" >&2; return 1; }
   ai_root="$(jq -r '.ai_workspace.root // empty' "$manifest" 2>/dev/null)" || true
   [ -n "$ai_root" ] || { echo "oss: manifest missing ai_workspace.root" >&2; return 1; }
-  [ -n "${HOME:-}" ] && ai_root="${ai_root//\$\{HOME\}/$HOME}"
-  ai_root="${ai_root//\$\{USER\}/$(_oss_current_user)}"
+  [ -n "${HOME:-}" ] && ai_root="$(_oss_subst_literal "$ai_root" '${HOME}' "$HOME")"
+  ai_root="$(_oss_subst_literal "$ai_root" '${USER}' "$(_oss_current_user)")"
   printf '%s\n' "$ai_root"
 }
 

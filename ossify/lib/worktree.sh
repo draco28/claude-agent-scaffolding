@@ -127,7 +127,7 @@ oss_worktree_resolve() { # $1=repo-key $2=work-item-id
 # polarity, which close/SKILL.md §7 already lists as a trap for exactly this
 # reason.
 oss_worktree_orphans() { # $1=repo-key [$2=state-file] ; echoes one abs path per orphan
-  local key="${1:-canonical}" root sf dir path base
+  local key="${1:-canonical}" root sf dir path
   root="$(_oss_repo_root "$key")" || return $?
   sf="$(_oss_resolve_state "${2:-}")" || return $?
   [ -f "$sf" ] || { echo "oss: state file not found at $sf" >&2; return 1; }
@@ -154,34 +154,74 @@ oss_worktree_orphans() { # $1=repo-key [$2=state-file] ; echoes one abs path per
     echo "oss: state file at $sf is not valid JSON - cannot tell an orphan from a claimed worktree" >&2
     return 1
   }
-  jq -e '(.work_items // []) | type == "array"' "$sf" >/dev/null 2>&1 || {
-    echo "oss: .work_items in $sf is not an array - cannot tell an orphan from a claimed worktree" >&2
-    return 1
-  }
+  # `.work_items` shape is NOT checked here. It is validated inside the single
+  # jq expression below, together with the computation it guards - see the note
+  # there for why splitting them was the thing that kept going wrong.
   dir="$root/.worktrees"
-  # Nothing spawned yet is not a finding. Returning here rather than letting the
-  # loop run keeps the unmatched-glob path below off the common case entirely.
+  # Nothing spawned yet is not a finding.
   [ -d "$dir" ] || return 0
+
+  local -a cands=()
   for path in "$dir"/*; do
     # An unmatched glob leaves the PATTERN itself as the single iteration value;
     # `-d` rejects it. `nullglob` would be tidier and is deliberately not set -
     # it is a shell-wide option and every other function the dispatcher sources
     # was written without it, so turning it on here changes their behaviour too.
     [ -d "$path" ] || continue
-    base="${path##*/}"
-    # SCOPED TO THIS REPO KEY. Without the `target_repo` filter, a private_core
-    # work item whose id happens to be `r0.s1.w1` makes
-    # `canonical/.worktrees/r0.s1.w1` look claimed - which suppresses exactly
-    # the wrong-repository directory the repo-key design exists to expose, and
-    # in the worst case leaves private work sitting under the public canonical
-    # root. `target_repo` has been written into state since B4; this reads it.
-    # Items predating the field default to `canonical`, matching how
-    # `oss_cmd_work_item_add` defaults it. (Codex P2, PR #149.)
-    jq -e --arg p "$path" --arg b "$base" --arg k "$key" \
-      'any((.work_items // [])[] | select((.target_repo // "canonical") == $k);
-           (.worktree_path // "") == $p or (.id // "") == $b)' \
-      "$sf" >/dev/null 2>&1 || printf '%s\n' "$path"
+    cands+=("$path")
   done
+  # Guarded BEFORE expansion: under `set -u`, bash 3.2 errors on "${a[@]}" for an
+  # empty array, and bash 3.2 is what macOS ships.
+  [ "${#cands[@]}" -gt 0 ] || return 0
+
+  # ONE jq invocation over the whole candidate set - not one per directory, and
+  # this shape is the fix for a CLASS rather than for a case.
+  #
+  # The previous form ran `jq -e … || printf` per directory, and that `||`
+  # cannot distinguish jq returning FALSE (this directory is unclaimed: a
+  # finding) from jq ERRORING (the state could not be inspected: not a finding).
+  # So every malformed shape reported EVERY directory as an orphan, at rc 0,
+  # with a deletion-flavoured message. It was patched three times for three
+  # shapes - malformed JSON, a non-array `.work_items`, a non-object element -
+  # and a fourth shape would have done it again.
+  #
+  # With a single call, jq's exit status IS the error signal, once: rc 0 means
+  # the claims were inspected and the output is the finding; nonzero means they
+  # were not, and NOTHING is reported.
+  #
+  # Validation lives in the same expression as the computation, deliberately.
+  # Splitting them into separate bash pre-guards is what kept going wrong: each
+  # guard covered the one shape that had just been reported, and the next shape
+  # walked straight past all of them into the `||`. Here the shape checks
+  # `error()` out through the same channel the computation uses, so an
+  # unvalidated shape cannot reach the finding path at all - and a junk record
+  # is REFUSED rather than silently skipped, because "some records are garbage"
+  # is not evidence that a directory is unclaimed.
+  #
+  # SCOPED TO THIS REPO KEY. Without the `target_repo` filter, a private_core
+  # work item whose id happens to be `r0.s1.w1` makes
+  # `canonical/.worktrees/r0.s1.w1` look claimed - which suppresses exactly the
+  # wrong-repository directory the repo-key design exists to expose, and in the
+  # worst case leaves private work sitting under the public canonical root.
+  # Items predating the field default to `canonical`, matching how
+  # `oss_cmd_work_item_add` defaults it. (Codex P2, PR #149 rounds 1-4.)
+  printf '%s\n' "${cands[@]}" | jq -R -s -r --arg k "$key" --slurpfile st "$sf" '
+      ($st[0].work_items // []) as $all
+      | (if ($all | type) != "array" then
+           error(".work_items is not an array")
+         elif ($all | any(type != "object")) then
+           error(".work_items holds a record that is not an object")
+         else . end)
+      | ($all | map(select((.target_repo // "canonical") == $k))) as $mine
+      | split("\n") | map(select(length > 0))
+      | map(select(
+          . as $p
+          | ($p | split("/") | last) as $b
+          | ($mine | any((.worktree_path // "") == $p or (.id // "") == $b)) | not))
+      | .[]' || {
+    echo "oss: cannot inspect work-item claims in $sf - refusing to report orphans from unreadable state" >&2
+    return 1
+  }
 }
 
 # D9: HALT on a dirty worktree; never `--force`. The source retries with --force

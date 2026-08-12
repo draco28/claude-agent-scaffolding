@@ -23,6 +23,21 @@
 # patches - 1` instead.) (Codex P2, PR #149 round 3.)
 _OSS_DOCTOR_ARR='def _arr(f): if (f|type) == "array" then f else error("not an array") end;'
 
+# Canonicalize a path for IDENTITY comparison: absolute, with the directory
+# portion's symlinks and `..` resolved. Deliberately not `realpath` - it is
+# absent on stock macOS - and deliberately tolerant: a path that does not exist,
+# or whose directory cannot be entered, comes back unchanged rather than empty,
+# because the caller is comparing two spellings and an empty string would make
+# two different files look identical.
+_oss_canon_path() { # $1=path ; echoes the canonical form, or $1 unchanged
+  local d b
+  [ -n "$1" ] || { printf '%s' ""; return 0; }
+  [ -e "$1" ] || { printf '%s' "$1"; return 0; }
+  d="$(cd "$(dirname -- "$1")" 2>/dev/null && pwd -P)" || { printf '%s' "$1"; return 0; }
+  b="$(basename -- "$1")"
+  printf '%s/%s' "${d%/}" "$b"
+}
+
 _oss_doctor_count() { # $1=state-file $2=jq-expr ; echoes the count, rc 1 if unreadable
   local out
   out="$(jq -r "$_OSS_DOCTOR_ARR $2" "$1" 2>/dev/null)" || return 1
@@ -166,8 +181,16 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
   # `worktree_orphans` catches malformed JSON and is the wrong instrument for
   # this; replay is the check that knows. Same precedent as `skip: replay`
   # above, one gate further along. (Codex P2, PR #149 round 2.)
+  # Both paths are CANONICALIZED before comparison. A raw string compare drops
+  # the check on paths that name the same file in different spellings - the
+  # supported `oss doctor .ossify/project-state.json` relative form, or any
+  # absolute spelling carrying a symlink or `..` - and losing orphan detection
+  # on an otherwise healthy run is a silent false negative, the failure mode
+  # this whole function is built to avoid. (Codex P2, PR #149 round 4.)
   local orph mstate
   mstate="$(oss_manifest_state_path 2>/dev/null)" || mstate=""
+  mstate="$(_oss_canon_path "$mstate")"
+  sf="$(_oss_canon_path "$sf")"
   if [ "$rc" -ne 0 ]; then
     echo "skip: worktrees - skipped (state health is not green; fix the fail: line above before trusting a repo-vs-state comparison)"
   elif [ -z "$mstate" ] || [ "$mstate" != "$sf" ]; then
