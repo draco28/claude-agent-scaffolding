@@ -17,6 +17,15 @@ t_assert_rc 0 "doctor green on fresh state"
 t_assert_contains "$T_OUT" "ok: schema" "version check reported"
 t_assert_contains "$T_OUT" "ok: replay" "drift check reported"
 
+# EVERY advertised check emits a line on a HEALTHY state, not just the ones with
+# something to say. These three used to have a `warn:` arm and nothing else, so
+# on a clean project they printed nothing at all — and an omitted check is
+# indistinguishable from one that ran and found nothing, which is the whole
+# invariant the `skip:` arms exist to protect. (Codex P2, PR #149 round 2.)
+t_assert_contains "$T_OUT" "ok: ledger" "a clean ledger emits its own line rather than falling silent"
+t_assert_contains "$T_OUT" "ok: fakes" "a clean fakes check emits its own line"
+t_assert_contains "$T_OUT" "ok: patches" "a clean patches check emits its own line"
+
 jq '.schema_version = 99' "$S" > "$S.x" && mv "$S.x" "$S"
 t_capture "$OSS" doctor "$S"
 t_assert_rc 1 "doctor fails on future schema"
@@ -146,6 +155,34 @@ t_assert_contains "$T_OUT" "warn: ledger - 1 quarantined line(s)" "doctor surfac
 t_assert_contains "$T_OUT" "warn: fakes - 1 outstanding fake(s)" "doctor surfaces a RENEWED fake, not just an active one"
 t_assert_contains "$T_OUT" "warn: patches - 1 out-of-spine patch record(s)" "doctor surfaces patch-lane records"
 t_assert_rc 0 "the four warn: lines are advisory - they must not change doctor's rc"
+# The clean arms must NOT also fire for the same checks — a read-out carrying
+# both "1 quarantined line" and "no quarantined lines" is worse than either.
+case "$T_OUT" in
+  *"ok: ledger"*)  T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor printed both a ledger warning AND the ledger clean line" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+case "$T_OUT" in
+  *"ok: fakes"*)   T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor printed both a fakes warning AND the fakes clean line" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+
+# --- The ledger's TWO counters share one clean line, so it must not fire when
+# only ONE of them is dirty. A quarantine with no pending amendment is exactly
+# that case, and the naive `[ $pend -eq 0 ] && echo ok` would print the clean
+# line right underneath the quarantine warning. ---
+QT="$(mktemp -d)"; QS="$QT/state.json"
+oss_state_init "$QS" ledger-halfdirty >/dev/null
+QREL="$(oss_entity_add_release "$QS" "r" "g")"
+QSPN="$(oss_entity_add_spine "$QS" "$QREL" "s" flesh canonical)"
+QL="$(oss_ledger_add_auto "$QS" "$QSPN" "a line" "true" "exit:0")"
+oss_ledger_quarantine "$QS" "$QL" "flaky" "$QREL" >/dev/null
+t_capture "$OSS" doctor "$QS"
+t_assert_contains "$T_OUT" "warn: ledger - 1 quarantined" "half-dirty ledger warns"
+case "$T_OUT" in
+  *"ok: ledger"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: the ledger clean line fired while one of its two counters was dirty" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+rm -rf "$QT"
 
 # --- v0.3 worktree drift, the SKIP arm. The worktree check is the only one here
 # that reads the REPO rather than the state file, so it is the only one that can

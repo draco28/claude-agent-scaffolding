@@ -280,7 +280,7 @@ test("Task 8 documents exact native skills, aliases, and runtime requirements", 
       "/checking-adversary-readiness",
       "/managing-async-critique",
     ],
-    ossify: ["/start", "/plan-spine", "/work-item", "/close", "/plan-release"],
+    ossify: ["/start", "/plan-spine", "/work-item", "/close", "/plan-release", "/doctor"],
   };
 
   for (const requirement of [

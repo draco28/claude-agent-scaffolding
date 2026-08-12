@@ -384,5 +384,22 @@ case "$T_OUT" in
   *) T_PASS=$((T_PASS+1)) ;;
 esac
 
+# (11) A state that PARSES but has drifted from its base and journal must not be
+# used for a repo comparison either. The parse guard inside worktree_orphans
+# accepts it — valid JSON — but its live `.work_items` is exactly what replay is
+# telling you not to trust, so a work item deleted by a hand edit turns its
+# surviving directory into a deletion-flavoured "orphan" warning for a worktree
+# `oss state_restore` is about to reclaim.
+mkdir -p "$ORPH/canon/.worktrees/$OWI"
+jq 'del(.work_items[0])' "$OS" > "$OS.x" && mv "$OS.x" "$OS"
+t_capture "$OSS" doctor "$OS"
+t_assert_rc 1 "doctor: a drifted live state still fails replay"
+t_assert_contains "$T_OUT" "skip: worktrees" "doctor: repo drift is skipped while state health is red"
+t_assert_contains "$T_OUT" "state health is not green" "doctor: the skip names state health, not the manifest"
+case "$T_OUT" in
+  *"orphaned worktree dir"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor reported orphans from a replay-invalid state" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+
 cd /; rm -rf "$ORPH" "$TMP"
 t_summary

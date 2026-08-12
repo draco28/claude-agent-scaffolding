@@ -3,6 +3,19 @@
 The depth behind `doctor/SKILL.md` §6. The one surface in this skill that
 writes, and it writes to exactly one file.
 
+**Two modes, and the sweep only ever gets the first.**
+
+| Mode | When | Writes? |
+|---|---|---|
+| **Inspect** | a full sweep (`SKILL.md` §3), or any request that names no rule | never |
+| **Author** | an explicit ask for a rule — "add a project rule", "forbid X" | appends one block, after confirmation |
+
+**Inspect** is the sweep's verdict: read `03-code-patterns.md`, count the
+`mcrule` blocks, validate each one's shape (§5), and note any carrying a type
+this build does not recognise (§8). Report the count and any malformed block.
+Do **not** prompt for a rule — a health check that stops to solicit an unrelated
+write has stopped being a health check.
+
 ---
 
 ## 1. The file, and how to find it
@@ -119,9 +132,32 @@ whole.
 
 ## 5. Validation, before every write
 
+**Pass the body through a QUOTED heredoc. Never interpolate it into the command
+line.**
+
 ```bash
-oss rules_validate <type> "<block body>"
+body="$(cat <<'MCRULE'
+in: src/**/*.py
+exclude: tests/**/*.py
+forbid_pattern: '\bprint\('
+MCRULE
+)"
+oss rules_validate style_invariants "$body"
 ```
+
+This is a security boundary, not a style preference. Rule values are regexes and
+path globs, they routinely contain `$`, backticks and parentheses, and they
+arrive from a user's prompt or from a pattern already sitting in the repo.
+Written the obvious way — `oss rules_validate <type> "<block body>"` with the
+body pasted in — a value containing `$(…)` or a backtick is **executed by the
+shell before `rules_validate` ever sees it**, during what the user was told is a
+shape-only check. The single quotes §4 recommends around regexes do not save
+you: they are inside the outer double-quoted argument, so the shell has already
+finished expanding by the time they are just characters.
+
+The quoted delimiter (`<<'MCRULE'`, not `<<MCRULE`) is what disarms it — a
+quoted heredoc performs no expansion at all — and `"$body"` then passes the text
+as one argument that is not re-scanned.
 
 | rc | Meaning | Do |
 |---|---|---|

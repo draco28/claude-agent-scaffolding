@@ -77,7 +77,21 @@ oss_interop_check() { # echoes one line per check ; rc 1 if any fail: printed
   #     onto the workspace root - so the check certified as interop-safe the
   #     exact configuration it exists to catch. (Codex P2, PR #149.)
   if sf="$(oss_manifest_state_path 2>/dev/null)" && [ -n "$sf" ]; then
-    echo "ok: state_path - $sf"
+    # The manifest path is not necessarily the EFFECTIVE one. `_oss_resolve_state`
+    # gives an exported $OSS_STATE_FILE precedence over the manifest, and that
+    # override is a supported, tested form - so a check that reads only the
+    # manifest path certifies the workspace as switch-ready while every ceremony
+    # in this session reads and MUTATES a different project's state. That is the
+    # interop failure in its purest form, so it is checked here rather than
+    # assumed away. (Codex P2, PR #149 round 2.)
+    local eff
+    eff="$(_oss_resolve_state 2>/dev/null)" || eff=""
+    if [ -n "$eff" ] && [ "$eff" != "$sf" ]; then
+      echo "fail: state_path - \$OSS_STATE_FILE overrides the manifest ($eff, not $sf); this session's ceremonies would read another project's state"
+      rc=1
+    else
+      echo "ok: state_path - $sf"
+    fi
   else
     echo "fail: state_path - the state path does not resolve to an absolute location (an unresolved \${...} token, a relative routed value, or no ai_workspace.root)"
     rc=1

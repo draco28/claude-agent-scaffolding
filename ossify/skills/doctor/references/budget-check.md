@@ -111,19 +111,25 @@ Checks 6 and 7 measure the *plugin*. The spec's claim is about a **session**,
 and the two are not the same number: what a session actually loads depends on
 which plugins are enabled in that project.
 
-Claude Code's own `/doctor` reports the live skill-listing percentage. That is
-ground truth for the spec §64 claim, and it is the only place the claim can
-honestly be checked (spec §556 says so explicitly).
+**In a Claude Code session**, Claude Code's own `/doctor` reports the live
+skill-listing percentage. That is ground truth for the spec §64 claim, and it is
+the only place the claim can honestly be checked (spec §556 says so explicitly).
 
-Two things to know when reading it:
+Three things to know when reading it:
 
+- **Name the host before naming the command.** Under OpenCode, ossify's own
+  entry skills are registered as native slash commands — including **`/doctor`,
+  which is this skill**. Telling an OpenCode user to "run `/doctor`" re-enters
+  this very surface instead of opening any diagnostics panel, and the loop is
+  the only thing they get. On OpenCode, report the session-level figure as
+  **unavailable** and give them the plugin-level measurement from §1 instead.
+  Do not dress one up as the other.
 - **The figure is per-project.** Dormant plugins can be disabled in project
   settings, and project settings override user settings. A repo with the whole
   scaffold family enabled reads far above one running ossify alone.
-- **`/doctor` is an interactive terminal panel.** You cannot run it from here.
-  When the user asks whether the budget claim holds at session level, tell them
-  the command and what to look for; do not substitute the plugin-level figure
-  and call it the session figure.
+- **Claude Code's `/doctor` is an interactive terminal panel.** You cannot run
+  it from here. Tell the user the command and what to look for; do not
+  substitute the plugin-level figure and call it the session figure.
 
 ---
 

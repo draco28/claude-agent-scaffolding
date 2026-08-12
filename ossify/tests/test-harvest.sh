@@ -89,6 +89,19 @@ t_capture oss_harvest_memory_bank_dir
 t_assert_rc 1 "(g) an unresolvable token is refused"
 t_assert_contains "$T_OUT" "unresolved" "(g) the refusal names the unresolved path"
 
+# (g2) a RELATIVE route is refused too, and this is the sharper of the two: the
+# token guard above always caught `${...}`, but a bare relative value came back
+# from `_oss_manifest_resolve` unchanged and passed. Every consumer then composed
+# `<relative>/03-code-patterns.md` against its own $PWD — so `doctor`'s rule
+# authoring, which promises a manifest-routed AI-workspace path, could write into
+# the canonical repo or wherever the caller happened to be standing. A WRITE path
+# resolving against cwd is the worst of the three well-known paths to leave
+# unguarded. (Codex P2, PR #149 round 2.)
+_manifest '{"memory_bank":"mb-relative"}'
+t_capture oss_harvest_memory_bank_dir
+t_assert_rc 1 "(g2) a RELATIVE memory_bank route is refused, not resolved against the cwd"
+t_assert_contains "$T_OUT" "not absolute" "(g2) the refusal names absoluteness, not tokens"
+
 # No manifest anywhere on the walk-up path.
 cd "$TMP"
 t_capture oss_harvest_memory_bank_dir

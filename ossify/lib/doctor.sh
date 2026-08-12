@@ -58,13 +58,30 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
   [ "$shape_ok" -eq 1 ] && echo "ok: shape - all required keys present"
 
   # §6.1 operator visibility: the three things that rot silently.
+  #
+  # Each of these ALWAYS emits a line now. They used to print only their `warn:`
+  # arm, so on a healthy project the `ledger`, `fakes` and `patches` checks were
+  # simply absent from the read-out - and an omitted check is indistinguishable
+  # from one that ran and found nothing, which is the exact invariant the
+  # `skip:` arms elsewhere in this function exist to protect. The contract was
+  # stated as "one line per check" before it was true of these three.
+  # (Codex P2, PR #149 round 2.)
   local pend quar fexp
   pend="$(jq -r '[.demo_ledger[] | select(((.pending_amendments // []) | length) > 0)] | length' "$sf" 2>/dev/null || echo 0)"
   [ "$pend" -gt 0 ] 2>/dev/null && echo "warn: ledger - $pend demo line(s) carry a pending amendment awaiting a spine close ('oss ledger_unplan <line-id> <spine>' to drop one)"
   quar="$(jq -r '[.demo_ledger[] | select(.status == "quarantined")] | length' "$sf" 2>/dev/null || echo 0)"
   [ "$quar" -gt 0 ] 2>/dev/null && echo "warn: ledger - $quar quarantined line(s); each must be fixed or retired by the next release close"
+  # The ledger owns TWO counters, so its clean line is emitted once, only when
+  # BOTH are zero - otherwise a project with a quarantine but no pending
+  # amendment would print a warning and a clean line about the same check.
+  { [ "$pend" -eq 0 ] && [ "$quar" -eq 0 ]; } 2>/dev/null \
+    && echo "ok: ledger - no pending amendments, no quarantined lines"
   fexp="$(jq -r '[.fakes[] | select(.status == "active" or .status == "renewed")] | length' "$sf" 2>/dev/null || echo 0)"
-  [ "$fexp" -gt 0 ] 2>/dev/null && echo "warn: fakes - $fexp outstanding fake(s) carrying a replacement trigger and expiry release"
+  if [ "$fexp" -gt 0 ] 2>/dev/null; then
+    echo "warn: fakes - $fexp outstanding fake(s) carrying a replacement trigger and expiry release"
+  else
+    echo "ok: fakes - none outstanding"
+  fi
 
   # §6.1 operator visibility: the fourth thing that rots silently — out-of-spine
   # patch-lane records. A patch is self-declared and unchecked until the next
@@ -73,7 +90,11 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
   # "self-declared, doctor-visible").
   local pat
   pat="$(jq -r '.patch_records | length' "$sf" 2>/dev/null || echo 0)"
-  [ "$pat" -gt 0 ] 2>/dev/null && echo "warn: patches - $pat out-of-spine patch record(s) since the last spine close"
+  if [ "$pat" -gt 0 ] 2>/dev/null; then
+    echo "warn: patches - $pat out-of-spine patch record(s) since the last spine close"
+  else
+    echo "ok: patches - none since the last spine close"
+  fi
 
   # Repo-vs-state drift (v0.3). Spine close removes worktrees by READING STATE
   # (spine-close.md §10), so a directory state does not know about is cleaned by
@@ -96,9 +117,20 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
   # check here reads only `$sf`, so this association problem is unique to this
   # one. Refuse to guess: unless the inspected state IS the manifest-routed
   # state, skip and say why. (Codex P2, PR #149.)
+  # Gated on `rc` — i.e. on schema, replay and shape all being green — and NOT
+  # merely on the state being parseable JSON. A live state that parses but has
+  # drifted from its base and journal still has a corrupt `.work_items`: a
+  # removed work item whose id-named directory survives reads as an orphan, so
+  # doctor would print a deletion-flavoured warning about a worktree that
+  # `oss state_restore` is about to reclaim. The parse guard inside
+  # `worktree_orphans` catches malformed JSON and is the wrong instrument for
+  # this; replay is the check that knows. Same precedent as `skip: replay`
+  # above, one gate further along. (Codex P2, PR #149 round 2.)
   local orph mstate
   mstate="$(oss_manifest_state_path 2>/dev/null)" || mstate=""
-  if [ -z "$mstate" ] || [ "$mstate" != "$sf" ]; then
+  if [ "$rc" -ne 0 ]; then
+    echo "skip: worktrees - skipped (state health is not green; fix the fail: line above before trusting a repo-vs-state comparison)"
+  elif [ -z "$mstate" ] || [ "$mstate" != "$sf" ]; then
     echo "skip: worktrees - skipped (the inspected state is not this directory's manifest-routed state, so a repo-vs-state comparison would cross projects)"
   elif orph="$(oss_worktree_orphans canonical "$sf" 2>/dev/null)"; then
     if [ -n "$orph" ]; then

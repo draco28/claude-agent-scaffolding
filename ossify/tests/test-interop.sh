@@ -82,6 +82,26 @@ t_capture oss_interop_check
 t_assert_rc 0 "an ABSOLUTE routed state path passes — routing itself is not the problem"
 t_assert_contains "$T_OUT" "custom-state.json" "the routed path is echoed, not the convention"
 
+# --- $OSS_STATE_FILE overrides the manifest --------------------------------
+# `_oss_resolve_state` gives an exported OSS_STATE_FILE precedence over the
+# manifest, and that override is a supported, tested form. A check that reads
+# only the manifest path therefore certifies the workspace as switch-ready while
+# every ceremony in the session reads and MUTATES another project's state.
+cat > "$TMP/ws/.workspace/pairing.json" <<EOF
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{}}
+EOF
+printf '# AGENTS\n\nossify drives this project.\n' > "$TMP/ws/AGENTS.md"
+t_capture oss_interop_check
+t_assert_rc 0 "control: the workspace passes with no override in play"
+export OSS_STATE_FILE="$TMP/elsewhere/state.json"
+t_capture oss_interop_check
+t_assert_rc 1 "an OSS_STATE_FILE override pointing elsewhere is an interop failure"
+t_assert_contains "$T_OUT" "overrides the manifest" "the finding names the override, not a missing path"
+t_assert_contains "$T_OUT" "$TMP/elsewhere/state.json" "the finding echoes the path actually in effect"
+unset OSS_STATE_FILE
+t_capture oss_interop_check
+t_assert_rc 0 "unsetting the override restores the pass — the check reads the EFFECTIVE path, not a cached one"
+
 # --- a root that resolves but is not there ---------------------------------
 cat > "$TMP/ws/.workspace/pairing.json" <<EOF
 {"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"$TMP/nope"},"well_known_paths":{}}

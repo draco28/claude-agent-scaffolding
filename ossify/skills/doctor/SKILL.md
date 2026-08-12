@@ -118,6 +118,15 @@ already models this internally with `skip:` (see §4). Do the same at skill leve
 result. Silence is indistinguishable from a pass, and this skill exists to make
 that confusion impossible.
 
+**In a sweep, §6 runs read-only.** A bare `/doctor` carries no rule to author,
+so the sweep's rule verdict is an *inspection*: how many `mcrule` blocks
+`03-code-patterns.md` holds, whether each is well-formed, and whether any carry
+a type this build does not recognise. It never prompts for a rule and never
+writes. Authoring (§6's interactive flow) runs **only** on an explicit request
+for a rule — otherwise the sweep would have to either stall soliciting an
+unrelated write, or drop one of its five verdicts, and both break a contract
+stated three paragraphs above this one.
+
 Close with the read-out in §13.
 
 ---
@@ -199,17 +208,20 @@ Four rule types, and the field sets are per-type rather than shared:
 oss rules_types
 ```
 
-Validate every block **before** appending it:
-
-```bash
-oss rules_validate <type> "<block body>"
-```
+Validate every block **before** appending it — passing the body through a
+**quoted heredoc**, never interpolated into the command line. Rule values are
+regexes full of `$`, backticks and parentheses, and interpolating one executes
+it during what is advertised as a shape-only check. The reference has the exact
+form; use it verbatim.
 
 rc 0 = well-formed, rc 1 = not (stderr names the offending field *and* the
 type), rc 2 = usage. **Shape only.** Nothing here evaluates a rule against a
 codebase — the evaluator is a separate v0.3 item, and saying so is the point: a
 rule authored today is documented and validated, not yet enforced. Tell the user
 that rather than letting them infer enforcement from the ceremony.
+
+**In a full sweep this surface is READ-ONLY** (§3). Authoring runs only on an
+explicit rule request.
 
 Full detail — the HTML-sentinel grammar and why fenced blocks were rejected, a
 worked example per type, the per-type field table, the interactive authoring
