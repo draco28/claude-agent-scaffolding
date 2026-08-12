@@ -187,7 +187,20 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
   # absolute spelling carrying a symlink or `..` - and losing orphan detection
   # on an otherwise healthy run is a silent false negative, the failure mode
   # this whole function is built to avoid. (Codex P2, PR #149 round 4.)
-  local orph mstate
+  # ONE LINE PER REPO KEY, never one line for `canonical` alone. The selector
+  # has been repo-parameterized and `target_repo`-scoped since PR #149, but this
+  # call site passed `canonical` literally - so a project that configures
+  # `private_core` got a clean `ok: worktrees - none orphaned` read-out produced
+  # WITHOUT the private root ever being opened. That is not a missing feature,
+  # it is a false assurance in the one surface the public/private boundary
+  # exists to protect: private work accumulating under a root that no ceremony
+  # cleans and no check reads. (Issue #156, deferred from PR #149.)
+  #
+  # An unconfigured key still costs a LINE. Silence is what made the original
+  # bug invisible, and dropping a repo from the read-out is indistinguishable
+  # from reporting it clean; `skip:` says "not looked at" out loud, which is the
+  # same contract every other unavailable check here already follows.
+  local orph mstate key
   mstate="$(oss_manifest_state_path 2>/dev/null)" || mstate=""
   mstate="$(_oss_canon_path "$mstate")"
   sf="$(_oss_canon_path "$sf")"
@@ -195,14 +208,56 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
     echo "skip: worktrees - skipped (state health is not green; fix the fail: line above before trusting a repo-vs-state comparison)"
   elif [ -z "$mstate" ] || [ "$mstate" != "$sf" ]; then
     echo "skip: worktrees - skipped (the inspected state is not this directory's manifest-routed state, so a repo-vs-state comparison would cross projects)"
-  elif orph="$(oss_worktree_orphans canonical "$sf" 2>/dev/null)"; then
-    if [ -n "$orph" ]; then
-      echo "warn: worktrees - $(printf '%s\n' "$orph" | wc -l | tr -d ' ') orphaned worktree dir(s) under canonical .worktrees/ claimed by no work item; 'oss worktree_orphans canonical' names them"
-    else
-      echo "ok: worktrees - none orphaned"
-    fi
   else
-    echo "skip: worktrees - skipped (no resolvable canonical root, or the state file does not parse)"
+    # The key list is `_oss_repo_root`'s enum, and it is a SECOND copy of it -
+    # deliberately, because deriving it would mean a new lib verb for a fact
+    # that is three words long. `test-worktree.sh` (12) asserts the two copies
+    # agree, so a fourth repo key cannot be added to one and forgotten in the
+    # other without turning the suite red.
+    # --- REPO-KEY LOOP (drift-guarded: test-worktree.sh (12b)) ---
+    for key in canonical ai_workspace private_core; do
+      # Called from an `if` CONDITION so a nonzero rc lands in the else arm
+      # instead of tripping errexit - the loop body is not covered by the
+      # suspension the surrounding `if` gives its own condition.
+      if orph="$(oss_worktree_orphans "$key" "$sf" 2>/dev/null)"; then
+        if [ -n "$orph" ]; then
+          # The remedy is PINNED to the inspected state, not just to the repo
+          # key. `_oss_resolve_state` puts `$OSS_STATE_FILE` ahead of the
+          # manifest route (manifest.sh:183-190), so a bare
+          # `oss worktree_orphans <key>` run by an operator with that variable
+          # exported inspects a DIFFERENT project and prints nothing - directly
+          # after a line promising it names the directories just found.
+          # (Codex P2, PR #160 round 2.)
+          #
+          # SHELL-QUOTED, not just wrapped in `"`. Pinning the state made
+          # "runnable as printed" part of this line's contract, and double
+          # quotes do not deliver that: a `$` expands, backticks and `$(...)`
+          # execute, and an embedded `"` ends the quoting outright - so an
+          # operator copying the line could select a different state file or run
+          # something the line never displayed. `printf %q` exists for exactly
+          # this and is a bash builtin, so it costs no new lib verb.
+          # (Codex P2, PR #160 round 3.)
+          echo "warn: worktrees($key) - $(printf '%s\n' "$orph" | wc -l | tr -d ' ') orphaned worktree dir(s) under ${key}'s .worktrees/ claimed by no work item; 'oss worktree_orphans $key $(printf '%q' "$sf")' names them"
+        else
+          echo "ok: worktrees($key) - none orphaned"
+        fi
+      else
+        # The causes are collapsed on purpose. `_oss_repo_root` returns rc 2 for
+        # all three repo-side ones and the state-side one is shared by every
+        # key, so splitting them would print the SAME state complaint three
+        # times while telling the operator nothing the remedy differs on.
+        #
+        # BOTH FAMILIES MUST BE NAMED. The selector returns nonzero for
+        # state-side failures too - unparseable JSON, a non-array `.work_items`,
+        # a record that is not an object - and round 2 dropped that half while
+        # making the repo-side causes more precise. A skip listing only
+        # repo-side causes sends an operator to debug a healthy manifest and
+        # root while the state that actually stopped the check goes unnamed,
+        # which is the same misdirection-by-omission this whole surface exists
+        # to avoid. (Codex P2, PR #160 round 3, on a round 2 regression.)
+        echo "skip: worktrees($key) - skipped (not configured in the pairing manifest; or its root does not resolve / does not exist / cannot be read; or the state's work-item claims could not be inspected)"
+      fi
+    done
   fi
 
   return "$rc"

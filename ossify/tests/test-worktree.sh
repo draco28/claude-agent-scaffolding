@@ -337,11 +337,17 @@ t_assert_eq "$ORPH/canon/.worktrees/r9.s9.w9" "$T_OUT" "dispatcher: worktree_orp
 # arm asserts the COUNT, so a check that reports the wrong number cannot pass by
 # merely printing the word "orphaned".
 t_capture "$OSS" doctor "$OS"
-t_assert_contains "$T_OUT" "warn: worktrees - 1 orphaned worktree dir(s)" "doctor: the orphan count reaches the read-out"
+t_assert_contains "$T_OUT" "warn: worktrees(canonical) - 1 orphaned worktree dir(s)" "doctor: the orphan count reaches the read-out"
 t_assert_rc 0 "doctor: an orphan is advisory — it must not change doctor's rc"
 rm -rf "$ORPH/canon/.worktrees/r9.s9.w9"
 t_capture "$OSS" doctor "$OS"
-t_assert_contains "$T_OUT" "ok: worktrees - none orphaned" "doctor: the clean arm emits its own line rather than falling silent"
+t_assert_contains "$T_OUT" "ok: worktrees(canonical) - none orphaned" "doctor: the clean arm emits its own line rather than falling silent"
+# This fixture's manifest configures `canonical` and `ai_workspace` and NOT
+# `private_core`. An unconfigured key must still cost a LINE. Omitting it is the
+# same failure as #156 one level down: a read-out that says nothing about a repo
+# reads as a repo with nothing wrong, and the operator cannot tell "looked, and
+# it is clean" from "never looked".
+t_assert_contains "$T_OUT" "skip: worktrees(private_core)" "doctor: an unconfigured repo key is skipped EXPLICITLY, never silently omitted"
 
 # (8) A state file this directory's manifest does NOT route to must not be
 # compared against this directory's repo. Every other doctor check reads only
@@ -358,7 +364,7 @@ t_assert_contains "$T_OUT" "ok: worktrees - none orphaned" "doctor: the clean ar
 # differently, which is exactly the case a string compare gets wrong.
 mkdir -p "$ORPH/canon/.worktrees/r9.s9.w9"
 t_capture "$OSS" doctor "../state.json"
-t_assert_contains "$T_OUT" "warn: worktrees - 1 orphaned" "doctor: a relative spelling of the manifest-routed state still runs the comparison"
+t_assert_contains "$T_OUT" "warn: worktrees(canonical) - 1 orphaned" "doctor: a relative spelling of the manifest-routed state still runs the comparison"
 rm -rf "$ORPH/canon/.worktrees/r9.s9.w9"
 
 OTHER="$ORPH/other-state.json"
@@ -443,5 +449,226 @@ case "$T_OUT" in
   *) T_PASS=$((T_PASS+1)) ;;
 esac
 
-cd /; rm -rf "$ORPH" "$TMP"
+cd /; rm -rf "$ORPH"
+
+# ---------------------------------------------------------------------------
+# (12) #156 — doctor inspects EVERY configured repo, not only `canonical`.
+#
+# Every fixture above configures one repo, so a canonical-hardcoded call site
+# passed all of them. The bug only becomes visible once `private_core` is
+# configured AND holds the orphan: doctor printed "none orphaned" having never
+# looked at it. That is not a missing feature, it is a FALSE ASSURANCE in the
+# one surface the public/private boundary exists to protect — private work
+# accumulating under a root no ceremony and no check ever reads.
+#
+# The loop is driven off `_oss_repo_root`'s key enum rather than a hardcoded
+# pair, and an unconfigured key costs a `skip:` line (asserted at (7)) rather
+# than silence — so "not configured" and "configured and clean" stay
+# distinguishable in the read-out.
+# ---------------------------------------------------------------------------
+PRIV="$(mktemp -d)"
+mkdir -p "$PRIV/ws/.workspace" "$PRIV/canon" "$PRIV/priv"
+git -C "$PRIV/canon" init -q
+git -C "$PRIV/canon" config user.email t@t; git -C "$PRIV/canon" config user.name t
+echo seed > "$PRIV/canon/f.txt"
+git -C "$PRIV/canon" add .; git -C "$PRIV/canon" commit -qm seed
+cat > "$PRIV/ws/.workspace/pairing.json" <<EOF
+{"schema_version":"1.0","ai_workspace":{"root":"$PRIV/ws"},"canonical":{"root":"$PRIV/canon"},"private_core":{"root":"$PRIV/priv"},"well_known_paths":{"project_state":"$PRIV/state.json"}}
+EOF
+cd "$PRIV/ws"
+PS="$PRIV/state.json"
+oss_state_init "$PS" private-demo >/dev/null
+PREL="$(oss_entity_add_release "$PS" "priv-rel" "a goal")"
+PSPN="$(oss_entity_add_spine "$PS" "$PREL" "priv-spine" flesh canonical)"
+oss_entity_add_work_item "$PS" "$PSPN" "canonical work item" canonical >/dev/null
+
+# THE ARM THAT MATTERS. Canonical is clean; the orphan is under the PRIVATE
+# root. Before the fix this run printed a clean worktree read-out and said
+# nothing whatsoever about private_core.
+mkdir -p "$PRIV/priv/.worktrees/r9.s9.w9"
+t_capture "$OSS" doctor "$PS"
+t_assert_contains "$T_OUT" "warn: worktrees(private_core) - 1 orphaned worktree dir(s)" \
+  "doctor: an orphan under private_core is REPORTED, not invisible behind a canonical-only check"
+t_assert_contains "$T_OUT" "ok: worktrees(canonical) - none orphaned" \
+  "doctor: the canonical repo still reports its own independent result"
+t_assert_contains "$T_OUT" "worktrees(ai_workspace)" \
+  "doctor: every key in the repo-key enum costs a line, not just the two with worktrees today"
+t_assert_rc 0 "doctor: an orphan under private_core stays advisory — it must not change doctor's rc"
+# The remedy line must name the repo it applies to. `oss worktree_orphans` takes
+# a repo key, so a remedy that omits it (or names canonical) sends the operator
+# to look in the wrong repository and find nothing.
+# The remedy must be runnable AS PRINTED. It carries the repo key — a remedy
+# naming the wrong repo sends the operator to search a clean repository — and
+# the INSPECTED STATE, because `_oss_resolve_state` puts `$OSS_STATE_FILE` ahead
+# of the manifest route (`manifest.sh:183-190`). Without the state argument, an
+# operator with that variable exported runs the printed command against a
+# different project and sees no paths, having just been told the command names
+# them. (Codex P2, PR #160 round 2.)
+REMEDY="$(printf '%s\n' "$T_OUT" | sed -n "s/.*; '\(oss worktree_orphans [^']*\)' names them.*/\1/p" | head -1)"
+t_assert_contains "$REMEDY" "private_core" "doctor: the remedy names the repo key the operator must actually pass"
+t_assert_contains "$REMEDY" "state.json" "doctor: the remedy pins the inspected state, not just the key"
+# RUN IT rather than matching its spelling. The line claims the command names
+# the directories, so that claim is what gets tested — and doctor prints the
+# CANONICALIZED state path, so a string assertion built from the fixture's own
+# raw path would fail on a symlinked $TMPDIR while proving nothing about whether
+# the command works. Asserting a spelling re-derived from `_oss_canon_path`
+# would be worse: the expectation would come from the code under test.
+#
+# Executed with $OSS_STATE_FILE pointing at a path that does not exist — the
+# exact condition the finding describes. An UNPINNED command resolves to that
+# override and dies rc 1; a pinned one ignores it, because an explicit argument
+# beats the variable (`manifest.sh:181-190`). So this fails loudly if the state
+# argument is ever dropped again.
+REMEDY_OUT="$( export OSS_STATE_FILE="$PRIV/no-such-state.json"; eval "\"$OSS\" ${REMEDY#oss }" 2>/dev/null )"; REMEDY_RC=$?
+t_assert_eq "0" "$REMEDY_RC" "doctor: the printed remedy RUNS as printed, even with a stale \$OSS_STATE_FILE exported"
+t_assert_eq "$PRIV/priv/.worktrees/r9.s9.w9" "$REMEDY_OUT" "doctor: and it names the very orphan doctor had just counted"
+
+# The private orphan must NOT also be attributed to canonical, and removing it
+# must return the private line to its own clean arm.
+case "$T_OUT" in
+  *"warn: worktrees(canonical)"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: a private_core orphan was reported against canonical" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+rm -rf "$PRIV/priv/.worktrees/r9.s9.w9"
+t_capture "$OSS" doctor "$PS"
+t_assert_contains "$T_OUT" "ok: worktrees(private_core) - none orphaned" \
+  "doctor: a configured private_core with nothing orphaned reports its own clean line"
+
+# (12c) A CONFIGURED ROOT THAT DOES NOT EXIST HAS NOT BEEN INSPECTED.
+#
+# `_oss_repo_root` validates the manifest value — enum, non-empty, token-free,
+# absolute — but never that the directory is THERE. So an unmounted volume or a
+# moved repo resolved fine, `[ -d "$root/.worktrees" ]` was false, and the
+# "nothing spawned yet is not a finding" early return exited 0 with no output.
+# doctor then printed `ok: worktrees(private_core) - none orphaned` about a
+# repository that does not exist on this machine — #156's own false assurance,
+# one level in, and reachable on every repo key at once. (Codex P1, PR #160.)
+#
+# rc 2, not rc 1: this is the same "cannot use this repo" class as an
+# unconfigured key, and doctor's existing skip arm already handles it — which is
+# why the fix lives in the selector and doctor needs no new branch.
+rm -rf "$PRIV/priv"
+t_capture oss_worktree_orphans private_core "$PS"
+t_assert_rc 2 "orphans: a configured repo whose root does not exist is rc 2, not a silent clean"
+t_assert_contains "$T_OUT" "does not exist" "orphans: the missing root names itself"
+t_capture "$OSS" doctor "$PS"
+t_assert_contains "$T_OUT" "skip: worktrees(private_core)" \
+  "doctor: a configured-but-absent root SKIPS — it must never report clean about a repo it could not open"
+# The skip names BOTH cause families. `oss_worktree_orphans` returns nonzero for
+# repo-side reasons (unconfigured / absent / unreadable) AND for state-side ones
+# (unparseable JSON, a non-array `.work_items`, a non-object record), and one
+# collapsed line stands for all of them. A message listing only the repo-side
+# causes sends an operator to debug a healthy manifest while the corrupt state
+# that actually stopped the check goes unnamed. (Codex P2, PR #160 round 3 —
+# and a regression introduced by round 2's own message polish.)
+t_assert_contains "$T_OUT" "state" \
+  "doctor: the keyed skip names the state-side causes too, not only the repo-side ones"
+case "$T_OUT" in
+  *"ok: worktrees(private_core)"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor reported an absent private_core as clean" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+# The other repos are unaffected — one missing root must not degrade the keys
+# that ARE inspectable, or a single unmounted volume blinds the whole surface.
+t_assert_contains "$T_OUT" "ok: worktrees(canonical) - none orphaned" \
+  "doctor: a missing private_core root does not suppress canonical's own result"
+
+# (12d) A ROOT THAT EXISTS BUT CANNOT BE TRAVERSED IS ALSO NOT INSPECTED.
+#
+# The (12c) guard tests `-d "$root"`, which is TRUE for a directory the caller
+# has no execute permission on — while `[ -d "$root/.worktrees" ]` is FALSE,
+# because the stat cannot be performed. So a private checkout mounted with
+# restrictive permissions walked straight past the new guard into the "nothing
+# spawned yet" arm and reported clean. Measured: with `chmod 000` on the root,
+# `[ -d root ]` is true, `[ -x root ]` is false, `[ -d root/.worktrees ]` is
+# false while the directory demonstrably exists. Same false-clean class as
+# (12c), reached by permissions rather than absence. (Codex, PR #160 round 2 —
+# filed P2, treated as P1 because a false clean here is this PR's subject.)
+mkdir -p "$PRIV/priv/.worktrees/r9.s9.w9"
+chmod 000 "$PRIV/priv"
+# NOT ASSUMED TO BITE. Running as root ignores the mode bits, and an assertion
+# that cannot fail is worse than an absent one — it reads as coverage. Probe
+# first and say so out loud when the arm is not exercised.
+if [ -d "$PRIV/priv/.worktrees" ]; then
+  echo "NOTE: chmod 000 did not restrict this user (uid $(id -u)); traversability arm NOT exercised"
+else
+  t_capture oss_worktree_orphans private_core "$PS"
+  t_assert_rc 2 "orphans: a root that exists but cannot be traversed is rc 2, not a silent clean"
+  t_assert_contains "$T_OUT" "cannot be read" "orphans: the unreadable root names itself"
+  t_capture "$OSS" doctor "$PS"
+  t_assert_contains "$T_OUT" "skip: worktrees(private_core)" \
+    "doctor: an unreadable private_core root SKIPS rather than reporting clean"
+  case "$T_OUT" in
+    *"ok: worktrees(private_core)"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor reported an unreadable private_core as clean" ;;
+    *) T_PASS=$((T_PASS+1)) ;;
+  esac
+fi
+chmod 755 "$PRIV/priv"
+# And the ordinary case still works once permission is restored — otherwise the
+# guard above could be refusing every root and the tests above would not notice.
+t_capture oss_worktree_orphans private_core "$PS"
+t_assert_rc 0 "orphans: a readable root with an unclaimed dir is rc 0 again once permission is restored"
+t_assert_eq "$PRIV/priv/.worktrees/r9.s9.w9" "$T_OUT" "orphans: and it reports the orphan it could not see a moment ago"
+rm -rf "$PRIV/priv"
+
+# (12b) DRIFT GUARD. doctor's loop spells the repo-key list out a second time
+# rather than deriving it, so the two copies can diverge — and divergence
+# reintroduces #156 for whichever key only one of them knows about. "Two
+# enumerations agree" is a mechanical fact, so it is checked rather than
+# trusted. Both extractions are asserted NON-EMPTY first: a reformat that makes
+# either awk match nothing would otherwise compare "" against "" and pass while
+# checking nothing at all.
+ENUM_KEYS="$(awk '/^_oss_repo_root\(\)/{f=1} f && /^ *[a-z_|]+\) ;;$/{sub(/\).*/,""); gsub(/ /,""); print; exit}' "$HERE/../lib/worktree.sh" | tr '|' '\n' | sort | tr '\n' ' ')"
+# Anchored on the marker comment, NOT on the first `for key in` in the file —
+# doctor.sh has an earlier one that iterates state keys, and the unanchored form
+# extracted THAT list on its first run. The marker is only an anchor: if the
+# loop is deleted and the marker left behind, awk matches nothing and the
+# non-empty assertion below goes red rather than the guard passing on a comment.
+LOOP_KEYS="$(awk '/REPO-KEY LOOP \(drift-guarded/{f=1; next} f && /for key in /{sub(/.*for key in /,""); sub(/;.*/,""); print; exit}' "$HERE/../lib/doctor.sh" | tr ' ' '\n' | sed '/^$/d' | sort | tr '\n' ' ')"
+t_assert_contains "$ENUM_KEYS" "private_core" "drift guard: the enum extraction actually found _oss_repo_root's key list"
+t_assert_contains "$LOOP_KEYS" "private_core" "drift guard: the loop extraction actually found doctor's key list"
+t_assert_eq "$ENUM_KEYS" "$LOOP_KEYS" "drift guard: doctor's repo-key loop covers exactly _oss_repo_root's enum"
+
+cd /; rm -rf "$PRIV"
+
+# ---------------------------------------------------------------------------
+# (12e) THE PRINTED REMEDY MUST SURVIVE A PATH WITH SHELL METACHARACTERS.
+#
+# Round 2 pinned the state into the warn line and the prose began promising a
+# command "runnable as printed" — which made the quoting part of the contract.
+# Wrapping the path in `"` does not deliver it: a `$` expands, backticks and
+# `$(...)` execute, and an embedded `"` ends the quoting outright, so an
+# operator copying the line can select the wrong state or run something the
+# line never showed them. Fixed with `printf %q`, whose whole job is this.
+# (Codex P2, PR #160 round 3.)
+#
+# The fixture puts `$` and a space in the state filename — the mildest form of
+# the problem, and enough that an unquoted `$O` would expand to nothing.
+# ---------------------------------------------------------------------------
+QRT="$(mktemp -d)"
+mkdir -p "$QRT/ws/.workspace" "$QRT/canon" "$QRT/priv/.worktrees/r9.s9.w9"
+git -C "$QRT/canon" init -q
+git -C "$QRT/canon" config user.email t@t; git -C "$QRT/canon" config user.name t
+echo seed > "$QRT/canon/f.txt"
+git -C "$QRT/canon" add .; git -C "$QRT/canon" commit -qm seed
+QS="$QRT/state \$OSS_WEIRD name.json"
+cat > "$QRT/ws/.workspace/pairing.json" <<EOF
+{"schema_version":"1.0","ai_workspace":{"root":"$QRT/ws"},"canonical":{"root":"$QRT/canon"},"private_core":{"root":"$QRT/priv"},"well_known_paths":{"project_state":"$QS"}}
+EOF
+cd "$QRT/ws"
+oss_state_init "$QS" quoted-demo >/dev/null
+QREL="$(oss_entity_add_release "$QS" "q-rel" "a goal")"
+QSPN="$(oss_entity_add_spine "$QS" "$QREL" "q-spine" flesh canonical)"
+oss_entity_add_work_item "$QS" "$QSPN" "a work item" canonical >/dev/null
+
+t_capture "$OSS" doctor "$QS"
+t_assert_contains "$T_OUT" "warn: worktrees(private_core)" "quoting: the orphan is still found under a metacharacter-bearing state path"
+QREMEDY="$(printf '%s\n' "$T_OUT" | sed -n "s/.*; '\(oss worktree_orphans [^']*\)' names them.*/\1/p" | head -1)"
+# Run it exactly as printed. An unquoted `$OSS_WEIRD` expands to empty here, so
+# the command resolves a path that does not exist and dies — which is precisely
+# the failure an operator would hit after being told the command names them.
+QOUT="$( export OSS_WEIRD=BROKEN; eval "\"$OSS\" ${QREMEDY#oss }" 2>/dev/null )"; QRC=$?
+t_assert_eq "0" "$QRC" "quoting: the printed remedy RUNS verbatim even when the state path holds \$ and a space"
+t_assert_eq "$QRT/priv/.worktrees/r9.s9.w9" "$QOUT" "quoting: and it names the orphan rather than a wrong or empty path"
+
+cd /; rm -rf "$QRT" "$TMP"
 t_summary

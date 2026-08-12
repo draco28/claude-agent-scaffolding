@@ -108,8 +108,13 @@ bones is a **successful** close, not a lazy one — provided every category was
 
 ## 5. Validation
 
-The lean schema is what `validating-master-spec` checks under ossify (routed
-from `doctor`, spec §8.1). The rule diff versus the legacy 10-phase schema:
+The lean schema is what **`doctor` checks**, in its own §5 — see
+`doctor/references/spec-validation.md`. There is no `validating-master-spec`
+skill in this plugin to route to: spec §8.1 lists that name in its *capability*
+catalog and marks the capability **carried**, and what v0.3 shipped is `doctor`
+owning the check inline rather than delegating to a skill of that name. Read the
+§8.1 row as a capability that survived the consolidation, not as a skill ossify
+installs. The rule diff versus the legacy 10-phase schema:
 
 - Sections 1-7 above are the required set; the legacy phase-named sections are
   not.

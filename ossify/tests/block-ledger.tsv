@@ -101,7 +101,7 @@ D	commands/start.md	1	#138	the $ARGUMENTS env-var bridge
 D	commands/work-item.md	1	#138	the $ARGUMENTS env-var bridge
 D	skills/doctor/SKILL.md	1	#138	the surface router - a broken parse silently runs the FULL SWEEP instead of the named surface, which reads as success rather than as a routing failure
 I	skills/doctor/SKILL.md	3	single-verb calls: doctor, rules_types, interop_check
-I	skills/doctor/references/state-inspection.md	1	a single worktree_orphans call
+I	skills/doctor/references/state-inspection.md	1	worktree_orphans call shapes, one line per repo key (#156)
 I	skills/doctor/references/spec-validation.md	2	a spec_path resolve and a bones-count get bound to an explicit state path
 D	skills/doctor/references/rule-authoring.md	1	#138	the harvest_dir memory-bank path composition
 I	skills/doctor/references/rule-authoring.md	2	a rules_types call and a single --file validate call; the validate example is illustrative again now that the body travels as a FILE rather than as an embedded heredoc
@@ -178,7 +178,7 @@ H	skills/doctor/references/budget-check.md	582880737-316
 H	skills/doctor/references/interop-check.md	2668344631-39
 H	skills/doctor/references/rule-authoring.md	1710469119-263
 H	skills/doctor/references/spec-validation.md	2541080060-102
-H	skills/doctor/references/state-inspection.md	1009267609-52
+H	skills/doctor/references/state-inspection.md	4289717881-174
 H	skills/plan-release/SKILL.md	84192511-1651
 H	skills/plan-release/references/bone-touch-judge.md	3236126632-1199
 H	skills/plan-release/references/class-declaration.md	119880498-302
