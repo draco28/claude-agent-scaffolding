@@ -1,0 +1,23 @@
+name: Code Review
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+  statuses: write
+
+jobs:
+  code-review:
+    uses: pulseai-labs/ci-automation/.github/workflows/droid.yml@b1f077fb86e4a509ecf3584f34ae9673fb619d6a
+    with:
+      automations: code-review
+      runner: ubuntu-latest
+      target-repo: draco28/claude-agent-scaffolding
+      target-ref: ${{ github.event.pull_request.head.sha }}
+      comment-on: draco28/claude-agent-scaffolding
+      comment-issue: ${{ github.event.pull_request.number }}
+    secrets:
+      zai_api_key: ${{ secrets.ZAI_API_KEY }}
