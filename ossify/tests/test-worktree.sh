@@ -554,6 +554,15 @@ t_assert_contains "$T_OUT" "does not exist" "orphans: the missing root names its
 t_capture "$OSS" doctor "$PS"
 t_assert_contains "$T_OUT" "skip: worktrees(private_core)" \
   "doctor: a configured-but-absent root SKIPS — it must never report clean about a repo it could not open"
+# The skip names BOTH cause families. `oss_worktree_orphans` returns nonzero for
+# repo-side reasons (unconfigured / absent / unreadable) AND for state-side ones
+# (unparseable JSON, a non-array `.work_items`, a non-object record), and one
+# collapsed line stands for all of them. A message listing only the repo-side
+# causes sends an operator to debug a healthy manifest while the corrupt state
+# that actually stopped the check goes unnamed. (Codex P2, PR #160 round 3 —
+# and a regression introduced by round 2's own message polish.)
+t_assert_contains "$T_OUT" "state" \
+  "doctor: the keyed skip names the state-side causes too, not only the repo-side ones"
 case "$T_OUT" in
   *"ok: worktrees(private_core)"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor reported an absent private_core as clean" ;;
   *) T_PASS=$((T_PASS+1)) ;;
@@ -619,5 +628,47 @@ t_assert_contains "$ENUM_KEYS" "private_core" "drift guard: the enum extraction 
 t_assert_contains "$LOOP_KEYS" "private_core" "drift guard: the loop extraction actually found doctor's key list"
 t_assert_eq "$ENUM_KEYS" "$LOOP_KEYS" "drift guard: doctor's repo-key loop covers exactly _oss_repo_root's enum"
 
-cd /; rm -rf "$PRIV" "$TMP"
+cd /; rm -rf "$PRIV"
+
+# ---------------------------------------------------------------------------
+# (12e) THE PRINTED REMEDY MUST SURVIVE A PATH WITH SHELL METACHARACTERS.
+#
+# Round 2 pinned the state into the warn line and the prose began promising a
+# command "runnable as printed" — which made the quoting part of the contract.
+# Wrapping the path in `"` does not deliver it: a `$` expands, backticks and
+# `$(...)` execute, and an embedded `"` ends the quoting outright, so an
+# operator copying the line can select the wrong state or run something the
+# line never showed them. Fixed with `printf %q`, whose whole job is this.
+# (Codex P2, PR #160 round 3.)
+#
+# The fixture puts `$` and a space in the state filename — the mildest form of
+# the problem, and enough that an unquoted `$O` would expand to nothing.
+# ---------------------------------------------------------------------------
+QRT="$(mktemp -d)"
+mkdir -p "$QRT/ws/.workspace" "$QRT/canon" "$QRT/priv/.worktrees/r9.s9.w9"
+git -C "$QRT/canon" init -q
+git -C "$QRT/canon" config user.email t@t; git -C "$QRT/canon" config user.name t
+echo seed > "$QRT/canon/f.txt"
+git -C "$QRT/canon" add .; git -C "$QRT/canon" commit -qm seed
+QS="$QRT/state \$OSS_WEIRD name.json"
+cat > "$QRT/ws/.workspace/pairing.json" <<EOF
+{"schema_version":"1.0","ai_workspace":{"root":"$QRT/ws"},"canonical":{"root":"$QRT/canon"},"private_core":{"root":"$QRT/priv"},"well_known_paths":{"project_state":"$QS"}}
+EOF
+cd "$QRT/ws"
+oss_state_init "$QS" quoted-demo >/dev/null
+QREL="$(oss_entity_add_release "$QS" "q-rel" "a goal")"
+QSPN="$(oss_entity_add_spine "$QS" "$QREL" "q-spine" flesh canonical)"
+oss_entity_add_work_item "$QS" "$QSPN" "a work item" canonical >/dev/null
+
+t_capture "$OSS" doctor "$QS"
+t_assert_contains "$T_OUT" "warn: worktrees(private_core)" "quoting: the orphan is still found under a metacharacter-bearing state path"
+QREMEDY="$(printf '%s\n' "$T_OUT" | sed -n "s/.*; '\(oss worktree_orphans [^']*\)' names them.*/\1/p" | head -1)"
+# Run it exactly as printed. An unquoted `$OSS_WEIRD` expands to empty here, so
+# the command resolves a path that does not exist and dies — which is precisely
+# the failure an operator would hit after being told the command names them.
+QOUT="$( export OSS_WEIRD=BROKEN; eval "\"$OSS\" ${QREMEDY#oss }" 2>/dev/null )"; QRC=$?
+t_assert_eq "0" "$QRC" "quoting: the printed remedy RUNS verbatim even when the state path holds \$ and a space"
+t_assert_eq "$QRT/priv/.worktrees/r9.s9.w9" "$QOUT" "quoting: and it names the orphan rather than a wrong or empty path"
+
+cd /; rm -rf "$QRT" "$TMP"
 t_summary

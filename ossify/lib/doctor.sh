@@ -228,7 +228,16 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
           # exported inspects a DIFFERENT project and prints nothing - directly
           # after a line promising it names the directories just found.
           # (Codex P2, PR #160 round 2.)
-          echo "warn: worktrees($key) - $(printf '%s\n' "$orph" | wc -l | tr -d ' ') orphaned worktree dir(s) under ${key}'s .worktrees/ claimed by no work item; 'oss worktree_orphans $key \"$sf\"' names them"
+          #
+          # SHELL-QUOTED, not just wrapped in `"`. Pinning the state made
+          # "runnable as printed" part of this line's contract, and double
+          # quotes do not deliver that: a `$` expands, backticks and `$(...)`
+          # execute, and an embedded `"` ends the quoting outright - so an
+          # operator copying the line could select a different state file or run
+          # something the line never displayed. `printf %q` exists for exactly
+          # this and is a bash builtin, so it costs no new lib verb.
+          # (Codex P2, PR #160 round 3.)
+          echo "warn: worktrees($key) - $(printf '%s\n' "$orph" | wc -l | tr -d ' ') orphaned worktree dir(s) under ${key}'s .worktrees/ claimed by no work item; 'oss worktree_orphans $key $(printf '%q' "$sf")' names them"
         else
           echo "ok: worktrees($key) - none orphaned"
         fi
@@ -237,7 +246,16 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
         # all three repo-side ones and the state-side one is shared by every
         # key, so splitting them would print the SAME state complaint three
         # times while telling the operator nothing the remedy differs on.
-        echo "skip: worktrees($key) - skipped (not configured in the pairing manifest, or its root does not resolve / does not exist / cannot be read)"
+        #
+        # BOTH FAMILIES MUST BE NAMED. The selector returns nonzero for
+        # state-side failures too - unparseable JSON, a non-array `.work_items`,
+        # a record that is not an object - and round 2 dropped that half while
+        # making the repo-side causes more precise. A skip listing only
+        # repo-side causes sends an operator to debug a healthy manifest and
+        # root while the state that actually stopped the check goes unnamed,
+        # which is the same misdirection-by-omission this whole surface exists
+        # to avoid. (Codex P2, PR #160 round 3, on a round 2 regression.)
+        echo "skip: worktrees($key) - skipped (not configured in the pairing manifest; or its root does not resolve / does not exist / cannot be read; or the state's work-item claims could not be inspected)"
       fi
     done
   fi

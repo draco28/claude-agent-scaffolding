@@ -115,9 +115,13 @@ item cannot claim a same-named directory sitting under the public root.
 `ai_workspace`, `private_core` — printing `ok:`/`warn:`/`skip: worktrees(<key>)`
 for each. A key the manifest does not configure gets the `skip:`, as does one
 whose root does not exist on this machine **or cannot be read** — an unmounted
-volume and a restrictively-permissioned private checkout both land there. None
-is ever silently dropped, because "could not open it" and "opened it and found
-nothing" are the two states this check exists to keep apart.
+volume and a restrictively-permissioned private checkout both land there. So
+does a state whose work-item claims could not be inspected, which is a
+*state-side* cause wearing the same line: the skip names both families, because
+one that listed only the repo-side ones would send you to debug a healthy
+manifest while the corrupt state went unnamed. None is ever silently dropped,
+because "could not open it" and "opened it and found nothing" are the two states
+this check exists to keep apart.
 
 **Two gates come before the per-key loop, and they emit one *unkeyed* line for
 the whole surface**: state health being red, and the inspected state not being
