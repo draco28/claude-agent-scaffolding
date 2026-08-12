@@ -141,4 +141,37 @@ t_assert_rc 2 "dispatcher: a missing argument is the arity guard's rc 2, not an 
 t_capture "$OSS" rules_types
 t_assert_contains "$T_OUT" "required_pattern" "dispatcher: rules_types reaches the caller"
 
+# ---------------------------------------------------------------------------
+# `--file`: the form prose must use for a body that came out of a REPOSITORY.
+#
+# Passing bytes as a shell ARGUMENT is safe; embedding them in shell SOURCE is
+# not. A quoted heredoc stops expansion inside itself but cannot stop DELIMITER
+# INJECTION — a body line equal to the delimiter ends the heredoc and the rest
+# is parsed by bash. The fixture below carries exactly that line, plus a command
+# substitution that would run if the bytes ever reached shell source.
+# ---------------------------------------------------------------------------
+RF="$(mktemp -d)"
+CANARY="$RF/canary"
+cat > "$RF/block.txt" <<EOF
+in: src/**/*.py
+forbid_pattern: 'MCRULE'
+EOF
+printf 'MCRULE\ntouch %s\n' "$CANARY" >> "$RF/block.txt"
+t_capture "$OSS" rules_validate style_invariants --file "$RF/block.txt"
+t_assert_rc 1 "--file: a body whose later lines are prose is INVALID, not executed"
+[ -e "$CANARY" ] && { T_FAIL=$((T_FAIL+1)); echo "FAIL: the block body executed - bytes reached shell source"; } || T_PASS=$((T_PASS+1))
+
+# A well-formed body containing a line equal to the old heredoc delimiter must
+# validate normally. Under the heredoc form this block was unrepresentable.
+printf "in: src/**/*.py\nforbid_pattern: 'MCRULE'\n" > "$RF/ok.txt"
+t_capture "$OSS" rules_validate style_invariants --file "$RF/ok.txt"
+t_assert_rc 0 "--file: a value containing the old delimiter word validates like any other"
+
+t_capture "$OSS" rules_validate style_invariants --file "$RF/nope.txt"
+t_assert_rc 2 "--file: a missing path is a usage error, not a validation failure"
+t_assert_contains "$T_OUT" "no such file" "--file: the missing path is named"
+t_capture "$OSS" rules_validate style_invariants --file
+t_assert_rc 2 "--file with no path is a usage error"
+rm -rf "$RF"
+
 t_summary

@@ -1,6 +1,6 @@
 ---
 name: doctor
-description: Diagnose an ossify project and repair what it finds — state health and state-vs-repo drift, rotting demo lines, unexpired fakes, patch records, orphan worktrees, lean-spec validation, machine-checkable-rule authoring, the Claude/Codex interop check, and the skill budgets. Use when the user says run doctor, check project health, validate the spec, add a project rule, check Codex interop, find orphan worktrees, or /doctor. Not the close gates (/close), not onboarding (/start), not /amend-spec.
+description: Diagnose an ossify project and name the remedy for what it finds — state health and state-vs-repo drift, rotting demo lines, unexpired fakes, patch records, orphan worktrees, lean-spec validation, machine-checkable-rule authoring, the Claude/Codex interop check, and the skill budgets. Use when the user says run doctor, check project health, validate the spec, add a project rule, check Codex interop, find orphan worktrees, or /doctor. Not the close gates (/close), not onboarding (/start), not /amend-spec.
 ---
 
 # doctor
@@ -8,8 +8,8 @@ description: Diagnose an ossify project and repair what it finds — state healt
 You are ossify's **diagnostic surface** (spec §9.1, §9.2) — the sixth and last
 entry skill, and the only one that is not a ceremony. Every other entry skill
 *advances* the lifecycle. This one asks whether the lifecycle's records still
-describe the repository they claim to describe, and repairs what can be repaired
-without a judgment call.
+describe the repository they claim to describe, and names the remedy for each
+way they do not. It reports; the operator repairs.
 
 `oss` (the dispatcher over `lib/*.sh`) supplies the mechanical facts: whether the
 schema parses, whether the journal replays, which worktree directories no work
@@ -208,11 +208,13 @@ Four rule types, and the field sets are per-type rather than shared:
 oss rules_types
 ```
 
-Validate every block **before** appending it — passing the body through a
-**quoted heredoc**, never interpolated into the command line. Rule values are
-regexes full of `$`, backticks and parentheses, and interpolating one executes
-it during what is advertised as a shape-only check. The reference has the exact
-form; use it verbatim.
+Validate every block **before** appending it — by writing the body to a file
+with the Write tool and passing `--file`, never by putting the bytes into a
+shell command. Rule values are regexes full of `$`, backticks and parentheses,
+and in a sweep they come out of a repository file nobody here wrote:
+interpolating one executes it, and a quoted heredoc is no defence because a body
+line equal to the delimiter ends the heredoc and the rest is parsed as shell.
+The reference has the exact form; use it verbatim.
 
 rc 0 = well-formed, rc 1 = not (stderr names the offending field *and* the
 type), rc 2 = usage. **Shape only.** Nothing here evaluates a rule against a

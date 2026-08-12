@@ -132,32 +132,37 @@ whole.
 
 ## 5. Validation, before every write
 
-**Pass the body through a QUOTED heredoc. Never interpolate it into the command
-line.**
+**Never put a rule body into a shell command. Write it to a file with the Write
+tool, then validate the file.**
 
 ```bash
-body="$(cat <<'MCRULE'
-in: src/**/*.py
-exclude: tests/**/*.py
-forbid_pattern: '\bprint\('
-MCRULE
-)"
-oss rules_validate style_invariants "$body"
+oss rules_validate style_invariants --file /tmp/mcrule-candidate.txt
 ```
 
-This is a security boundary, not a style preference. Rule values are regexes and
-path globs, they routinely contain `$`, backticks and parentheses, and they
-arrive from a user's prompt or from a pattern already sitting in the repo.
-Written the obvious way — `oss rules_validate <type> "<block body>"` with the
-body pasted in — a value containing `$(…)` or a backtick is **executed by the
-shell before `rules_validate` ever sees it**, during what the user was told is a
-shape-only check. The single quotes §4 recommends around regexes do not save
-you: they are inside the outer double-quoted argument, so the shell has already
-finished expanding by the time they are just characters.
+This is a security boundary, not a style preference, and it has bitten twice.
 
-The quoted delimiter (`<<'MCRULE'`, not `<<MCRULE`) is what disarms it — a
-quoted heredoc performs no expansion at all — and `"$body"` then passes the text
-as one argument that is not re-scanned.
+Rule values are regexes and path globs. They routinely contain `$`, backticks
+and parentheses, and — this is the part that matters — **in a sweep they come
+out of `03-code-patterns.md`, a repository file nobody in this session wrote.**
+
+Two ways the obvious approaches fail:
+
+- **Interpolating the body** — `oss rules_validate <type> "<block body>"` with
+  the text pasted in. A value containing `$(…)` or a backtick is executed by the
+  shell before `rules_validate` ever sees it. The single quotes §4 recommends
+  around regexes do not help: they sit inside the outer double-quoted argument,
+  so expansion has already finished by the time they are characters.
+- **A quoted heredoc** — `<<'MCRULE'`. A quoted delimiter stops expansion
+  *inside* the heredoc, but it cannot stop **delimiter injection**: a block
+  containing a line equal to `MCRULE` ends the heredoc early, and every byte
+  after it is parsed by bash as source. Choosing a more obscure delimiter is not
+  a fix, it is a smaller target.
+
+The common flaw is that both embed untrusted bytes into **shell source**.
+`--file` does not: the dispatcher reads the file itself and passes the contents
+as a single quoted argument, which is never re-parsed. Create the file with the
+**Write tool**, not with `cat`/`echo`/a heredoc — the point is that the bytes
+never appear in a command at all.
 
 | rc | Meaning | Do |
 |---|---|---|

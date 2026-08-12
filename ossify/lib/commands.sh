@@ -282,8 +282,26 @@ oss_cmd_harvest_apply() { # $1=payload-json
 # Neither runs a rule against a codebase; the evaluator is a separate v0.3 item.
 # `${1:-}`/`${2:-}` rather than positionals so a missing argument is the lib's
 # own rc-2 usage error instead of a strict-mode unbound-variable abort.
+#
+# `--file` is the form prose must use for any body that came out of a
+# REPOSITORY. Passing the bytes as a shell argument is safe; embedding them in
+# shell SOURCE is not, and a heredoc does the latter - a block containing a line
+# equal to the delimiter ends the heredoc early and hands the rest to bash. A
+# quoted delimiter stops expansion INSIDE the heredoc; it cannot stop delimiter
+# injection. Reading the file here keeps untrusted bytes out of shell source
+# entirely: `$(cat …)` is quoted into a single argument and never re-parsed.
+# (Codex P1, PR #149 round 5.)
 oss_cmd_rules_types()    { oss_rules_types; }
-oss_cmd_rules_validate() { _oss_need 2 rules_validate "<type> <block-body>" "$@" || return 2; oss_rules_validate_block "${1:-}" "${2:-}"; }
+oss_cmd_rules_validate() { # <type> <block-body> | <type> --file <path>
+  _oss_need 2 rules_validate "<type> <block-body> | <type> --file <path>" "$@" || return 2
+  if [ "${2:-}" = "--file" ]; then
+    _oss_need 3 rules_validate "<type> --file <path>" "$@" || return 2
+    [ -f "${3:-}" ] || { echo "oss: rules_validate --file: no such file '${3:-}'" >&2; return 2; }
+    oss_rules_validate_block "${1:-}" "$(cat "${3}")"
+  else
+    oss_rules_validate_block "${1:-}" "${2:-}"
+  fi
+}
 
 # Claude/Codex interop (spec §9.1, `doctor`'s fourth surface). CHECK ONLY - the
 # additive repair half was scaffold-onboard's own extension, not §9.1's word.
