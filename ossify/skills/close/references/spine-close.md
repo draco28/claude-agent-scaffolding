@@ -337,14 +337,11 @@ oss harvest_dir                        # where the bank IS - manifest-routed
 oss harvest_apply '<payload-json>'     # the accepted array, in ONE call
 ```
 
-Only `09-known-issues.md` and `10-decisions-log.md` are appendable; anything else
-rejects the whole payload at rc 2 before a single write. rc 0 = something was
-written (or the payload was empty), rc 1 = non-empty and nothing written (every
-item already there), and both echo `harvest: wrote <N>, skipped <M>`.
-
 The full ceremony — how the candidates are enumerated, the `[report]`/`[handoff]`
-tagging, the payload shape, the rc contract and where the outcomes are recorded —
-is in **`references/harvest.md`**. It is the only copy.
+tagging, the payload shape, the two-file allowlist, the rc contract (rc 2 rejects
+the **whole** payload before a single write; rc 1 is all-duplicates, not a
+failure to re-run) and where the outcomes are recorded — is in
+**`references/harvest.md`** §2 and §5-§8. It is the only copy.
 
 **Step 10 — worktree + branch cleanup, per work item, and only now:**
 

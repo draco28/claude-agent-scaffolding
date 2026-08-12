@@ -71,22 +71,28 @@ _OSS_HARVEST_TARGETS="09-known-issues.md 10-decisions-log.md"
 # Takes NO state argument: the manifest is found by walking up from $PWD, never
 # from the state file, and nothing here reads state. Its sibling is
 # `_oss_repo_root`, which takes a repo key, not a state path.
+# The THIRD well-known-path resolver, and it now shares the guard the other two
+# use. It previously carried only the token half, so a relative
+# `.well_known_paths.memory_bank` like `rules` came back unchanged and every
+# consumer composed `rules/03-code-patterns.md` against its own $PWD - writing
+# into the canonical repo, or wherever the caller happened to be standing,
+# while promising a manifest-routed AI-workspace path. That is a WRITE path,
+# which makes it the worst of the three to leave unguarded.
+#
+# Found by review after the state/spec resolvers were fixed and a class scan
+# reported clean: the scan looked for jq conflation and repo-relative prose and
+# never asked "which other resolvers exist". (Codex P2, PR #149 round 2.)
 oss_harvest_memory_bank_dir() {
   local manifest ai_root routed dir
-  manifest="$(oss_manifest_discover)" || { echo "oss: $OSS_MANIFEST_REFUSAL" >&2; return 1; }
-  ai_root="$(jq -r '.ai_workspace.root // empty' "$manifest" 2>/dev/null)" || true
-  [ -n "$ai_root" ] || { echo "oss: manifest missing ai_workspace.root" >&2; return 1; }
-  [ -n "${HOME:-}" ] && ai_root="${ai_root//\$\{HOME\}/$HOME}"
-  ai_root="${ai_root//\$\{USER\}/$(_oss_current_user)}"
+  ai_root="$(_oss_manifest_ai_root)" || return 1
+  manifest="$(oss_manifest_discover)" || return 1
   routed="$(jq -r '.well_known_paths.memory_bank // empty' "$manifest" 2>/dev/null)" || true
   if [ -n "$routed" ]; then
     dir="$(_oss_manifest_resolve "$ai_root" "$routed")" || return 1
   else
     dir="$ai_root/.claude/memory-bank"
   fi
-  case "$dir" in
-    ''|*'${'*) echo "oss: unresolved memory-bank path: '${dir:-<empty>}' (from '${routed:-convention}')" >&2; return 1 ;;
-  esac
+  _oss_manifest_wellknown_guard "$dir" memory-bank "${routed:-convention}" || return 1
   echo "$dir"
 }
 

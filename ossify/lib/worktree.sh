@@ -101,6 +101,163 @@ oss_worktree_resolve() { # $1=repo-key $2=work-item-id
   printf '%s\n' "$path"
 }
 
+# Orphan detection - the ONE real use of the enumeration verb v0.2 retired (see
+# the `oss_cmd_worktree_list` tombstone in lib/commands.sh, which named this
+# requirement and said to build the primitive against it rather than before it).
+#
+# This is deliberately NOT that verb rebuilt. The tombstone's objection to
+# enumeration was that a filesystem listing "answers a question no ceremony asks
+# and can disagree with state". Both halves still hold - so what ships is the
+# DISAGREEMENT ITSELF: the set of directories under <repo>/.worktrees that no
+# work item in state claims. That set is the finding, and it is the only form of
+# the question `doctor` has to ask.
+#
+# A directory is CLAIMED when a work item's journaled `worktree_path` is exactly
+# it, or when its basename is a work item's id. The second arm is not slack.
+# `oss_worktree_add` names the directory for its work item, but nothing writes
+# `worktree_path` into state until `work_item_exec` journals one - so matching on
+# the path alone reports every freshly-spawned worktree as an orphan, i.e. it is
+# loudest precisely when the project is behaving correctly.
+#
+# PURE SELECTOR: the finding is the OUTPUT, never the rc. rc 0 means the check
+# RAN, not that the tree is clean; a caller branching on rc reports every project
+# as orphan-free. That matches how `oss doctor` already treats quarantines, fakes
+# and patch records - counted, surfaced as `warn:`, never folded into the exit
+# code - and deliberately does NOT copy `oss touch_check`'s rc-0-is-a-hit
+# polarity, which close/SKILL.md §7 already lists as a trap for exactly this
+# reason.
+oss_worktree_orphans() { # $1=repo-key [$2=state-file] ; echoes one abs path per orphan
+  local key="${1:-canonical}" root sf dir path
+  root="$(_oss_repo_root "$key")" || return $?
+  sf="$(_oss_resolve_state "${2:-}")" || return $?
+  [ -f "$sf" ] || { echo "oss: state file not found at $sf" >&2; return 1; }
+  # Parse the state ONCE, up front, and fail loudly if it does not parse.
+  # Without this the per-directory `jq -e … || printf` treats a PARSE ERROR
+  # (jq rc 5) exactly like a false predicate, so a corrupt state file makes
+  # every worktree look orphaned - and `oss doctor` then stacks a
+  # deletion-flavoured warning on top of the corrupt-state finding that is the
+  # real problem. A selector that cannot read its input has not found zero
+  # matches; it has failed. (Codex P2, PR #149.)
+  # Two structural preconditions, both checked ONCE up front, because the
+  # per-directory predicate below cannot tell an evaluation ERROR from a false
+  # result - `jq -e … || printf` reports "unclaimed" for both.
+  #
+  #   1. the file parses at all (malformed JSON: jq rc 5);
+  #   2. `.work_items` is an ARRAY. A parseable, replay-consistent state whose
+  #      `.work_items` is a string or object makes jq error while iterating, so
+  #      every directory reports as orphaned and the selector still exits 0 -
+  #      the same deletion-flavoured false positive as (1), reached from a state
+  #      that (1) happily accepts. `// []` does not cover this: a string is
+  #      truthy, so the alternative never fires.
+  # (Codex P2, PR #149 rounds 1 and 3.)
+  jq -e . "$sf" >/dev/null 2>&1 || {
+    echo "oss: state file at $sf is not valid JSON - cannot tell an orphan from a claimed worktree" >&2
+    return 1
+  }
+  # `.work_items` shape is NOT checked here. It is validated inside the single
+  # jq expression below, together with the computation it guards - see the note
+  # there for why splitting them was the thing that kept going wrong.
+  # A CONFIGURED ROOT THAT DOES NOT EXIST HAS NOT BEEN INSPECTED, and must not
+  # reach the early return below. `_oss_repo_root` validates the manifest VALUE
+  # - enum, non-empty, token-free, absolute - but never that the directory is
+  # there, so an unmounted volume or a moved repo resolved cleanly, failed
+  # `[ -d "$dir" ]`, and exited 0 with no output. That is indistinguishable from
+  # "inspected, nothing orphaned", and it violates this function's own contract
+  # that rc 0 means the check RAN. `oss doctor` printed
+  # `ok: worktrees(private_core) - none orphaned` about a repository absent from
+  # the machine - the same false assurance #156 fixed, one level in, and
+  # reachable on every repo key at once. (Codex P1, PR #160.)
+  #
+  # rc 2 deliberately: this is the same "cannot use this repo" class as an
+  # unconfigured key, so every caller that already handles `_oss_repo_root`'s
+  # rc 2 handles this with no new branch - including doctor's skip arm.
+  [ -d "$root" ] || { echo "oss: repo '$key' root does not exist at $root" >&2; return 2; }
+  # EXISTS is not the same as CAN BE INSPECTED, and the difference is invisible
+  # to `-d`. On a root the caller cannot traverse, `[ -d "$root" ]` is TRUE while
+  # `[ -d "$root/.worktrees" ]` is FALSE - not because the directory is absent
+  # but because the stat cannot be performed - so a private checkout mounted
+  # with restrictive permissions walked past the guard above straight into the
+  # "nothing spawned yet" arm and reported clean. (Measured: with mode 000,
+  # `-d root` true, `-x root` false, `-d root/.worktrees` false while the
+  # directory demonstrably exists.) Same false-clean class as a missing root,
+  # reached by permissions instead of absence. (Codex, PR #160 round 2.)
+  { [ -x "$root" ] && [ -r "$root" ]; } \
+    || { echo "oss: repo '$key' root at $root cannot be read (permissions)" >&2; return 2; }
+  dir="$root/.worktrees"
+  # Nothing spawned yet is not a finding. Reachable only once the root above is
+  # known to exist AND to be readable, which is what keeps this arm meaning what
+  # it says rather than absorbing two different failures.
+  [ -d "$dir" ] || return 0
+  # The same distinction one level down: `.worktrees` itself can be unreadable
+  # while `-d` succeeds through the parent's execute bit. The glob below would
+  # then match nothing, leave `cands` empty, and return 0 - clean, from a
+  # directory never listed.
+  { [ -x "$dir" ] && [ -r "$dir" ]; } \
+    || { echo "oss: repo '$key' worktree dir at $dir cannot be read (permissions)" >&2; return 2; }
+
+  local -a cands=()
+  for path in "$dir"/*; do
+    # An unmatched glob leaves the PATTERN itself as the single iteration value;
+    # `-d` rejects it. `nullglob` would be tidier and is deliberately not set -
+    # it is a shell-wide option and every other function the dispatcher sources
+    # was written without it, so turning it on here changes their behaviour too.
+    [ -d "$path" ] || continue
+    cands+=("$path")
+  done
+  # Guarded BEFORE expansion: under `set -u`, bash 3.2 errors on "${a[@]}" for an
+  # empty array, and bash 3.2 is what macOS ships.
+  [ "${#cands[@]}" -gt 0 ] || return 0
+
+  # ONE jq invocation over the whole candidate set - not one per directory, and
+  # this shape is the fix for a CLASS rather than for a case.
+  #
+  # The previous form ran `jq -e … || printf` per directory, and that `||`
+  # cannot distinguish jq returning FALSE (this directory is unclaimed: a
+  # finding) from jq ERRORING (the state could not be inspected: not a finding).
+  # So every malformed shape reported EVERY directory as an orphan, at rc 0,
+  # with a deletion-flavoured message. It was patched three times for three
+  # shapes - malformed JSON, a non-array `.work_items`, a non-object element -
+  # and a fourth shape would have done it again.
+  #
+  # With a single call, jq's exit status IS the error signal, once: rc 0 means
+  # the claims were inspected and the output is the finding; nonzero means they
+  # were not, and NOTHING is reported.
+  #
+  # Validation lives in the same expression as the computation, deliberately.
+  # Splitting them into separate bash pre-guards is what kept going wrong: each
+  # guard covered the one shape that had just been reported, and the next shape
+  # walked straight past all of them into the `||`. Here the shape checks
+  # `error()` out through the same channel the computation uses, so an
+  # unvalidated shape cannot reach the finding path at all - and a junk record
+  # is REFUSED rather than silently skipped, because "some records are garbage"
+  # is not evidence that a directory is unclaimed.
+  #
+  # SCOPED TO THIS REPO KEY. Without the `target_repo` filter, a private_core
+  # work item whose id happens to be `r0.s1.w1` makes
+  # `canonical/.worktrees/r0.s1.w1` look claimed - which suppresses exactly the
+  # wrong-repository directory the repo-key design exists to expose, and in the
+  # worst case leaves private work sitting under the public canonical root.
+  # Items predating the field default to `canonical`, matching how
+  # `oss_cmd_work_item_add` defaults it. (Codex P2, PR #149 rounds 1-4.)
+  printf '%s\n' "${cands[@]}" | jq -R -s -r --arg k "$key" --slurpfile st "$sf" '
+      ($st[0].work_items // []) as $all
+      | (if ($all | type) != "array" then
+           error(".work_items is not an array")
+         elif ($all | any(type != "object")) then
+           error(".work_items holds a record that is not an object")
+         else . end)
+      | ($all | map(select((.target_repo // "canonical") == $k))) as $mine
+      | split("\n") | map(select(length > 0))
+      | map(select(
+          . as $p
+          | ($p | split("/") | last) as $b
+          | ($mine | any((.worktree_path // "") == $p or (.id // "") == $b)) | not))
+      | .[]' || {
+    echo "oss: cannot inspect work-item claims in $sf - refusing to report orphans from unreadable state" >&2
+    return 1
+  }
+}
+
 # D9: HALT on a dirty worktree; never `--force`. The source retries with --force
 # (discarding uncommitted work) and swallows the branch delete with `|| true`,
 # while its own skill prose promises a halt and the close ceremony asserts no

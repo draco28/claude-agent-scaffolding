@@ -7,7 +7,7 @@ parses them, and every deviation below is a contract violation on its own:
 - a wrong key name (`status` for `mode`, `questions` for `gaps`, `report` for
   `report_path`),
 - a missing required key,
-- a value outside the declared enum,
+- a value outside a declared enum, however sensible the substitute reads,
 - prose without the JSON envelope.
 
 ---
@@ -26,10 +26,9 @@ parses them, and every deviation below is a contract violation on its own:
 {"mode": "gaps-surfaced", "gaps": [{"section": "<ref>", "question": "<concrete question>", "severity": "blocking | nice-to-have"}, ...]}
 ```
 
-`mode` is literally `"complete"` or `"gaps-surfaced"`. Never `failed`, never
-`blocked`, never `complete-with-fail`, never `clarification-needed`. There is no
-third mode, and inventing one to express nuance loses the nuance *and* breaks the
-parse — the nuance belongs in `summary` and in the report.
+`mode` is literally `"complete"` or `"gaps-surfaced"` — never `failed`, `blocked`,
+`complete-with-fail`, or `clarification-needed` (preamble). There is no third
+mode; the nuance you would invent one for belongs in `summary` and in the report.
 
 ---
 
@@ -69,7 +68,7 @@ Every element carries all three of `section`, `question`, `severity`.
 |---|---|
 | `section` | Where it lives — `"spec §3 — decisions"`, `"AC-2"`, `"pre-flight — worktree state"`. |
 | `question` | A concrete sentence someone can answer. Not a restatement of your confusion. |
-| `severity` | Exactly `"blocking"` or `"nice-to-have"`. Never `high`, `low`, or `critical`. |
+| `severity` | Exactly `"blocking"` or `"nice-to-have"` — never `high`, `low`, or `critical` (preamble). |
 
 ```
 {"mode": "gaps-surfaced", "gaps": [{"section": "AC-2", "question": "Should a duplicate heading get a numeric suffix, or should the run exit nonzero?", "severity": "blocking"}, {"section": "spec §4 — files to modify", "question": "Does the renderer live in tocgen/render.py or stay inline in __main__.py?", "severity": "nice-to-have"}]}

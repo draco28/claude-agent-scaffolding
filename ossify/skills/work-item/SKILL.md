@@ -1,6 +1,6 @@
 ---
 name: work-item
-description: Execute one ossify work item end to end from its handoff doc — pre-flight gates, a RED gate per command-bearing AC, the TDD loop in AC order, every verification command run, a ten-section report.md, then stage-never-commit and one structured JSON return. Also drives a spine's rounds end to end. Use this when the user says execute work item r1.s2.w1, implement the work item, run the handoff at <path>, /work-item <handoff-path>, or asks to run the rounds, execute the spine, or dispatch the work items. Do NOT use for decomposing a spine or authoring specs and demo criteria (use /plan-spine), or for the work-item gate, the cumulative demo, the harvest and the retro (use /close).
+description: Execute one ossify work item end to end from its handoff doc — pre-flight gates, a RED gate per command-bearing AC, the TDD loop, a report.md, then stage-never-commit and one structured JSON return. Also drives a spine's rounds. Use when the user says execute work item r1.s2.w1, implement the work item, run the handoff at <path>, run the rounds, execute the spine, dispatch the work items, or /work-item. Not spec or demo authoring (/plan-spine); not the work-item gate, demo, harvest or retro (/close).
 ---
 
 # work-item

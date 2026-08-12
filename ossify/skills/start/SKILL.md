@@ -1,6 +1,6 @@
 ---
 name: start
-description: Drive spec-core onboarding for a new ossify project — the Patton journey map, the skeleton-cut (Release 0), the bones registry, risk gates, a smoke-test pass over unverified tech claims, the privacy posture + moat channels, and a spec-core architect-critic moment — producing a lean MASTER-SPEC, memory bank, bones ADRs and a seed feature map. Use this when the user wants to start a new project, onboard a project into ossify, run /start, or kick off a skeleton-first build. Refuses without a workspace-init pairing manifest. Do NOT use for release planning (use /plan-release), spine decomposition (use /plan-spine), or amending an existing spec.
+description: Drive ossify spec-core onboarding for a new project — the Patton journey map, the skeleton cut that fixes Release 0, the bones registry, and the privacy posture with its moat channels — producing a lean MASTER-SPEC, memory bank, bones ADRs and a seed feature map. Use when the user wants to start a new project, onboard a project into ossify, kick off a skeleton-first build, or runs /start. Refuses without a workspace-init pairing manifest. Not release planning (/plan-release), spine decomposition (/plan-spine), or amending an existing spec (/amend-spec).
 ---
 
 # start
@@ -271,75 +271,50 @@ Full contract in `references/spike-contract.md`.
 
 ## 10. Posture block
 
-Asked alongside bones authoring, because its output **is** a bone.
+Asked alongside bones authoring, because its output **is** a bone. The canonical
+decision procedure — the two inputs, the P-rules, the moat inventory, the
+channel C-table, the two boundary artifacts, stack packaging (§8), and four
+worked examples (§12) — is `references/posture-block.md`. **Read it and work
+§1-§10 in order**; never derive a posture from this summary alone.
 
-**Step 1 — collect both inputs:** the project's **observable facts** (repo
-layout, what is tracked where, existing boundary artifacts, override seams in
-code, doc routing) *and* the owner's **intent signal** (target posture + revenue
-intent `none|license|saas`), asked directly.
+Three rules decide the outcome and are load-bearing:
 
-**Step 2 — derive the posture**, rules in order:
-
-- **No/ambiguous intent → `fully-private`.** The default-private fail-safe.
-  Private → public is one later ceremony; public → private is **impossible**.
-  Never resolve an undecided posture to a public value.
-- **Intent overrides observable facts.** When the facts read one posture and the
-  stated intent reads another, follow the intent and record the gap as a
+- **P1 — no or ambiguous intent signal → `fully-private`.** The default-private
+  fail-safe: private → public is one later ceremony, public → private is
+  **impossible**. Never resolve an undecided posture to a public value.
+- **P2 — intent overrides observable facts.** When the facts read one posture
+  and the stated intent reads another, follow the intent and record the gap as a
   migration note. Facts are an accident of history; intent is the target.
-- Otherwise read it off the value set: `fully-private` | `source-available` |
-  `open-core` | `fully-open`.
+- **Map each moat item to a channel by its carrier, never by the posture** —
+  `none` | `data-overlay` | `private-package` | `repo-private`, first match wins
+  (posture-block §3-§4; the inventory may legitimately be **empty**, and it is
+  private — AI workspace only). A `fully-private` project can absolutely be
+  `data-overlay`.
+
+With a clear, non-conflicting intent the posture reads off the value set
+`fully-private` | `source-available` | `open-core` | `fully-open`:
 
 ```bash
 oss posture_set "<posture>"
 ```
 
-Revenue intent is not its own field — it seeds the posture bone's revisit
-trigger (`saas` → "revisit when the SaaS decision lands").
-
-**Step 3 — moat inventory.** Name every item worth protecting (data corpora,
-algorithms and their specs, downstream strategy). It may legitimately be
-**empty**. The inventory is private — AI workspace only.
-
-**Step 4 — map each item to a channel.** The channel comes from the moat item's
-**carrier**, *not* from the posture. First match wins:
-
-| | Condition | Channel |
-|---|---|---|
-| C0 | Inventory empty (fully-open, no functionality moat; doc routing only) | `none` |
-| C1 | Runtime-loaded data the public code reads, with a named override seam | `data-overlay` |
-| C2 | Logic/spec that must execute, behind a public port a private package implements | `private-package` |
-| C3 | No narrower seam isolates the moat / nothing enumerated | `repo-private` |
-
-A `fully-private` project can absolutely be `data-overlay` — keeping the seam
-declared is what makes a later flip cheap, and a *declared* overlay env var
-counts as configuration (not manual repair) under the clean-checkout test.
+Revenue intent (`none|license|saas`) is not its own field — it seeds the posture
+bone's revisit trigger. On a `data-overlay` channel, record the seam:
 
 ```bash
 oss overlay_set '<seam>'      # e.g. '$PULSE_PROMPT_DIR'
 ```
 
-**Step 5 — register the posture as a bone** (`oss bone_add`), touch surface =
-private-side modules + the seam files + composition root; revisit trigger from
-revenue intent.
-
-**Step 6 — author `PUBLIC_BOUNDARY.md`** at each public repo root: a
-machine-checkable rules block (never-tracked path patterns, fixture rules), a
-working-tree hygiene allowlist (**patterns only**), and prose never-here rules.
-**No moat item is ever named here** — the file is public. Even a fully-private
-project authors it (hygiene is independent of visibility; it is what keeps a
-posture flip to one ceremony). The **private boundary inventory** — item →
-channel → location → seam → leak-risk — is routed to the AI workspace.
-
-**Provisioning is deferred to Plan D.** When the channel is `private-package`
-and no `private_core` repo exists, record the intent and emit *"provisioning
-deferred to Plan D"*. Do **NOT** call `add-private-core` (it does not exist
-yet), and do **NOT** edit the pairing manifest — ossify writes
-`project-state.json`; workspace-init owns the manifest.
-
+Then, per posture-block §5-§10: register the posture as a bone (`oss bone_add`;
+touch surface = private-side modules + the seam files + composition root,
+revisit trigger from the revenue intent); author `PUBLIC_BOUNDARY.md` at **each
+public repo root** — **no moat item is ever named there**, and even a
+fully-private project authors it; route the **private boundary inventory** (item
+→ channel → location → seam → leak-risk) to the AI workspace. Provisioning is
+deferred to Plan D: never call `add-private-core`, never edit the pairing
+manifest (ossify writes `project-state.json`; workspace-init owns the manifest).
 Leave `project.composition_root` unset unless Release 0 is trivially single-repo
 and the root is unambiguous (then `oss composition_set "<root>"`).
-
-Full rules + stack-packaging per language in `references/posture-block.md`.
 
 ---
 
@@ -491,9 +466,12 @@ state and is awkward to change later.
 - **`architect-critic:critiquing-spec`** is invoked as a peer skill; it runs its
   own rebuttal loop and returns a summary. You do not mediate its internals.
 - **Peer entry skills:** `plan-release` owns Release 0, spine classes, and the
-  critic veto; `plan-spine` owns decomposition and demo lines. A `doctor` entry
-  skill **is not shipped in this release** (planned v0.3) — until it lands, its
-  state inspection is `oss doctor` above and spec validation is this file's §11.
+  critic veto; `plan-spine` owns decomposition and demo lines. `doctor` **ships
+  as of v0.3** and owns state inspection, lean-spec validation, machine-checkable
+  rule authoring, the Claude/Codex interop check and the budget check — route
+  there rather than re-deriving any of them here. This file's §11 stays the
+  spec's authoring-time check; `doctor` is the one that runs later, against a
+  spec that already exists.
 - **The user** is the final authority. You surface candidate maps, cuts, bones,
   postures, and critic challenges; they accept, edit, or skip. Never auto-finalize
   a decision the user has not seen — and always escalate the contested cuts.

@@ -1,0 +1,434 @@
+---
+name: doctor
+description: Diagnose an ossify project and name the remedy for what it finds — state health and state-vs-repo drift, rotting demo lines, unexpired fakes, patch records, orphan worktrees, lean-spec validation, machine-checkable-rule authoring, the Claude/Codex interop check, and the skill budgets. Use when the user says run doctor, check project health, validate the spec, add a project rule, check Codex interop, find orphan worktrees, or /doctor. Not the close gates (/close), not onboarding (/start), not /amend-spec.
+---
+
+# doctor
+
+You are ossify's **diagnostic surface** (spec §9.1, §9.2) — the sixth and last
+entry skill, and the only one that is not a ceremony. Every other entry skill
+*advances* the lifecycle. This one asks whether the lifecycle's records still
+describe the repository they claim to describe, and names the remedy for each
+way they do not. It reports; the operator repairs.
+
+`oss` (the dispatcher over `lib/*.sh`) supplies the mechanical facts: whether the
+schema parses, whether the journal replays, which worktree directories no work
+item claims, whether a rule block is well-formed. The judgment — is this drift
+the record's fault or the repo's, is this rule the right rule for this project,
+is this warning worth acting on today — happens here, in your reasoning.
+
+---
+
+## 1. Overview and when to use
+
+Where it sits: **nowhere in the chain.** `start` → `plan-release` → `plan-spine`
+→ `work-item` → `close` is a sequence; `doctor` is a peer to all five and runs at
+any point, including before `start` has ever run.
+
+Five surfaces:
+
+| Surface | The question it answers | Go to |
+|---|---|---|
+| State inspection | Is the record intact, and does it still match the repo? | §4 |
+| Spec validation | Does the lean spec still satisfy its schema? | §5 |
+| Rule authoring | What should `03-code-patterns.md` mechanically enforce? | §6 |
+| Interop check | Can Claude *and* Codex both drive this workspace safely? | §7 |
+| Budget check | Does the front-loaded surface still cost what it claims? | §8 |
+
+**The guarantee, and it is the inverse of every other entry skill's:
+`doctor` runs on a broken project.** `start` refuses without a pairing manifest;
+`plan-release` requires an onboarded project; `close` refuses without a green
+`oss doctor`. This skill **never refuses for the condition it exists to report**.
+An uninitialised project, a corrupt state file, a missing manifest — each is a
+*finding*, reported with its remedy, not a reason to stop. The one thing you may
+refuse is a request to *change* something you were not asked to change.
+
+**`doctor` reports; it does not mutate state.** Four of the five surfaces are
+strictly read-only. **Exactly one thing writes** — **rule authoring** (§6),
+which appends to `03-code-patterns.md`, and only because the user asked for a
+rule. Everything else names a remedy and stops. Running `oss state_restore`
+because replay failed is not your call to make silently: surface the line, name
+the verb, let the user run it.
+
+**Trigger phrases (description-match):**
+
+- `/doctor [surface]` (slash command — see §12 for the `$ARGUMENTS` bridge)
+- "run doctor", "check project health", "is my state healthy", "what's wrong
+  with this project"
+- "validate the spec", "check my MASTER-SPEC"
+- "add a project rule", "author a machine-checkable rule"
+- "check Codex interop", "can I switch between Claude and Codex here"
+- "find orphan worktrees"
+- "check the skill budget"
+
+**Do NOT auto-invoke when:**
+
+- The user wants to **run a gate** — the work-item gate, the cumulative demo, a
+  release's blocking findings. Those are `/close`, and they halt; you do not.
+- The user wants to **author or amend the spec itself**. Authoring is `/start`,
+  amending is `/amend-spec`. You validate what exists and never edit it.
+- The user wants to **plan, decompose, or execute** anything. Those are
+  `/plan-release`, `/plan-spine`, `/work-item`.
+- The user asks to **fix** a finding you reported. Name the verb and let them
+  run it, unless it is one of the two explicit-write surfaces above.
+
+---
+
+## 2. Routing
+
+`doctor` routes on **what the user asked for**, not on state. With no surface
+named, run the full sweep (§3) — that is the common case and the default for a
+bare `/doctor`.
+
+```bash
+surface="$(printf '%s' "${ARGS:-}" | tr '[:upper:]' '[:lower:]' | awk '{print $1}')"
+```
+
+| `surface` | Go to |
+|---|---|
+| *(empty)* | §3 — the full sweep |
+| `state`, `health` | §4 |
+| `spec` | §5 |
+| `rules`, `rule` | §6 |
+| `interop`, `codex` | §7 |
+| `budget` | §8 |
+
+**An unrecognised token runs the full sweep anyway**, prefaced by one line
+naming what was passed and listing the five surfaces. It does **not** refuse:
+a user who mistypes a surface name still wants to know whether their project is
+healthy, and this is the one skill whose whole contract is that it answers.
+
+---
+
+## 3. The full sweep
+
+Run all five surfaces in the order of §4 → §8, and **report every one of them.**
+
+**No check halts another.** This is the sharpest difference between `doctor` and
+`close`, and copying `close`'s halt discipline here is the mistake to avoid: a
+close halts because every later step *mutates* on the assumption the earlier one
+passed. Nothing here mutates, so a failed check costs nothing but its own line.
+An operator with a corrupt state file still needs to know their interop is also
+broken — telling them one problem at a time is how a two-hour repair becomes
+three sessions.
+
+The corollary: **a surface that cannot run still emits a line.** `oss doctor`
+already models this internally with `skip:` (see §4). Do the same at skill level
+— "spec validation: skipped, no MASTER-SPEC.md at the manifest-routed path" is a
+result. Silence is indistinguishable from a pass, and this skill exists to make
+that confusion impossible.
+
+**In a sweep, §6 runs read-only.** A bare `/doctor` carries no rule to author,
+so the sweep's rule verdict is an *inspection*: how many `mcrule` blocks
+`03-code-patterns.md` holds, whether each is well-formed, and whether any carry
+a type this build does not recognise. It never prompts for a rule and never
+writes. Authoring (§6's interactive flow) runs **only** on an explicit request
+for a rule — otherwise the sweep would have to either stall soliciting an
+unrelated write, or drop one of its five verdicts, and both break a contract
+stated three paragraphs above this one.
+
+Close with the read-out in §13.
+
+---
+
+## 4. State inspection
+
+The mechanical half is one command, and it is the same one `close`'s pre-flight
+runs:
+
+```bash
+oss doctor
+```
+
+It emits one line per check, each tagged `ok:` / `warn:` / `fail:` / `skip:`,
+and returns **rc 0 unless a `fail:` line was printed**. `warn:` and `skip:`
+never touch the rc — that is a deliberate contract, not an accident, and §4's
+reference explains which findings are advisory and why.
+
+Checks, in the order they print: `schema`, `lock`, `replay`, `shape`, then the
+rot-and-drift advisories — `ledger` (which can print two lines: pending
+amendments, and quarantined lines), `fakes`, `patches`, and `worktrees`.
+
+**`worktrees` is new in v0.3 and is the only check that reads the *repo* rather
+than the state file.** It reports directories under `<repo>/.worktrees/` that no
+work item claims. That matters because spine close removes worktrees by reading
+state, so a directory state does not know about is cleaned by no ceremony at
+all — it accumulates in the very repo whose cleanliness `close` then checks, and
+the first symptom is a close failing for a reason unrelated to the spine.
+Being repo-reading also makes it the only check that can be legitimately
+*unavailable*: with no pairing manifest there is no repo root to look in, and it
+emits `skip:` rather than falling silent.
+
+**When it runs, it prints one line per repository**, tagged
+`worktrees(<repo-key>)` — `canonical`, `ai_workspace`, `private_core`. A key the
+manifest does not configure, or whose root is not on this machine, still costs a
+`skip:` line. Read that literally: a repo reported as `ok:` was opened, and until
+#156 that was not true — doctor asked only about `canonical` and printed a clean
+`ok: worktrees - none orphaned` for projects whose `private_core` it had never
+opened. Do not summarise the lines into one verdict; the whole point is that
+"clean" and "not looked at" stay distinguishable per repo.
+
+Two gates sit *before* the per-key loop — red state health, and a state this
+directory's manifest does not route to — and each emits a single **unkeyed**
+`skip: worktrees` line, because the cause is the run rather than any one repo.
+An unkeyed line means the surface did not run at all, and it names why.
+
+`oss worktree_orphans <repo-key> <state>` names the directories individually.
+**Echo doctor's warn line verbatim** — it pins both the repo key and the
+inspected state, and it is runnable as printed. Do not retype it from memory:
+omitting the key silently defaults to `canonical` (the exact habit #156
+punished), and omitting the state lets an exported `$OSS_STATE_FILE` answer
+about a different project.
+**It is a pure selector: the finding is its OUTPUT, and rc 0 means the check ran,
+not that the tree is clean.** Branch on the rc and you will report every project
+as orphan-free.
+
+Full detail — the four-line remedy table and why you echo doctor's own line
+rather than substituting a fixed remedy, the advisory-vs-blocking split, the
+state-vs-repo drift checks that `oss doctor` cannot make mechanically, the
+orphan-worktree remedy, and the feature map's inspection surface — is in
+**`references/state-inspection.md`**.
+
+---
+
+## 5. Lean-spec validation
+
+ossify's spec is the **lean** schema (spec §13.2), not the legacy 10-phase
+MASTER-SPEC. The difference is the whole point: no FR/NFR ID tables are
+required, and their absence is **not** an error.
+
+Three rules carry the weight, and each fails in a way a reader would not guess:
+
+1. **Sections 1–7 are the required set.** Legacy phase-named sections are not
+   required and their presence is not an error either.
+2. **The bones index must have a row per registry entry in
+   `project-state.json`.** A registry entry with no index row is spec-vs-state
+   drift — a `doctor` finding, and the reason this check belongs here rather
+   than in `/start`.
+3. **The posture section must be present and non-empty.** An *absent* posture is
+   an error rather than a default, because absence is exactly the ambiguity the
+   companion spec requires to resolve private.
+
+Full detail — the section contract, the drift check's direction, the error
+format with its line number and remediation hint, and what validation
+deliberately does not check — is in **`references/spec-validation.md`**.
+
+---
+
+## 6. Machine-checkable rule authoring
+
+`03-code-patterns.md` ships from `/start` with an **empty**
+`## Machine-checkable rules` section — the heading present, no rules. Filling it
+is this surface's job, and it is the one place `doctor` writes on purpose.
+
+Four rule types, and the field sets are per-type rather than shared:
+
+```bash
+oss rules_types
+```
+
+Validate every block **before** appending it — by writing the body to a file
+with the Write tool and passing `--file`, never by putting the bytes into a
+shell command. Rule values are regexes full of `$`, backticks and parentheses,
+and in a sweep they come out of a repository file nobody here wrote:
+interpolating one executes it, and a quoted heredoc is no defence because a body
+line equal to the delimiter ends the heredoc and the rest is parsed as shell.
+The reference has the exact form; use it verbatim.
+
+rc 0 = well-formed, rc 1 = not (stderr names the offending field *and* the
+type), rc 2 = usage. **Shape only.** Nothing here evaluates a rule against a
+codebase — the evaluator is a separate v0.3 item, and saying so is the point: a
+rule authored today is documented and validated, not yet enforced. Tell the user
+that rather than letting them infer enforcement from the ceremony.
+
+**In a full sweep this surface is READ-ONLY** (§3). Authoring runs only on an
+explicit rule request.
+
+Full detail — the HTML-sentinel grammar and why fenced blocks were rejected, a
+worked example per type, the per-type field table, the interactive authoring
+flow, the idempotent append semantics, and the manifest-routed output path — is
+in **`references/rule-authoring.md`**.
+
+---
+
+## 7. Workspace interop
+
+Absorbed from `scaffold-onboard`'s `checking-workspace-interoperability` (spec
+§8.1) so the unified plugin owns it and `workspace-init` stays unchanged. The
+question it answers: **can this workspace be driven by Claude Code and by Codex,
+interchangeably, mid-project?**
+
+```bash
+oss interop_check
+```
+
+Same line grammar as `oss doctor` — `ok:` / `fail:` per check, rc 1 if anything
+failed. Four checks: the pairing manifest, both repo roots resolving to real
+directories, the state path resolving, and **`AGENTS.md` existing and naming
+ossify**. That last one is the check that is actually about Codex: `AGENTS.md`
+is the only file Codex reads for project instructions, so a workspace whose
+`AGENTS.md` never mentions ossify has a Codex session driving the project with
+none of its ceremonies.
+
+**What was absorbed is the question, not the checklist.** The scaffold-onboard
+original requires `routing.roadmap`, `routing.sprint_specs` and
+`.workspace/locks` — every one of which this stack **retired**. Carrying that key
+set over would report a correctly-configured ossify project as broken for
+lacking the previous stack's furniture.
+
+**Check only.** Spec §9.1 allocates `doctor` an *interop check*; the additive
+repair half was scaffold-onboard's own extension and does not ship here (§9).
+Report the failing line and name the fix; do not edit `AGENTS.md` yourself.
+
+Full detail — each check with what it protects, why an unrouted manifest is
+deliberately not a finding, and the remedy per failing line — is in
+**`references/interop-check.md`**.
+
+---
+
+## 8. Budget check
+
+The progressive-disclosure design targets **0.3–0.4% of a 200k context window**
+for the front-loaded entry-skill surface (spec §64). That number is a claim, and
+this surface is where it gets measured against the real installed plugin rather
+than against the design document.
+
+Two distinct budgets, and conflating them is a documented, repeated error in
+this project's own history:
+
+| Budget | What it sums | Enforced by |
+|---|---|---|
+| **Every-call description** | the `description:` frontmatter of `skills/*/SKILL.md` | `check 7`, a red test |
+| **SKILL.md body** | line count per `SKILL.md`, 500 each | `check 6`, a red test |
+
+Neither is affected by `references/`, by `plugin.json`'s description, or by the
+agent listing — those are *different budgets*, and trimming one to relieve
+another frees exactly nothing. Before claiming any edit buys room, read the
+check that enforces the budget you mean.
+
+Full detail — both budgets with their live headroom, the third (agent-listing)
+budget that nothing enforces, how to verify the whole-session figure against
+Claude Code's own `/doctor`, and the measurement trap that has now produced the
+same wrong claim in three documents — is in **`references/budget-check.md`**.
+
+---
+
+## 9. What `doctor` deliberately does not do
+
+Named here rather than left to read as executed:
+
+- **Migration.** Spec §9.1 allocates `doctor` the `migrate` entry point in
+  **phase 2**. `oss migrate` exists and moves a state file's schema version;
+  the artifact-converting `migrate` *flow* does not ship in this release.
+- **Rule evaluation.** §6 authors and validates rule blocks. Running them
+  against a codebase is a separate v0.3 item.
+- **Interop repair.** §7 checks; it does not add manifest keys or merge
+  `AGENTS.md`. Spec §9.1 says *check*, and the repair half belongs to
+  `scaffold-onboard`'s original — porting it would also mean porting a managed
+  `AGENTS.md` section this stack does not yet define.
+- **Gates.** Nothing here blocks anything. `close` owns every blocking gate,
+  and a `fail:` line from `doctor` is information for the operator, not a veto
+  this skill enforces.
+- **Repairs you were not asked for.** §1.
+
+---
+
+## 10. Anti-patterns (do not do these)
+
+- **Refusing because the project is broken.** That is the finding, not an
+  obstacle to reporting it (§1).
+- **Halting the sweep on the first `fail:`.** Nothing here mutates, so nothing
+  downstream is unsafe. Report all five surfaces (§3).
+- **Letting a surface that could not run print nothing.** Silence reads as a
+  pass (§3).
+- **Branching on `oss worktree_orphans`' rc.** rc 0 means it ran. The finding is
+  the output (§4).
+- **Echoing `oss worktree_orphans canonical` when the warn line named a
+  different repo.** The verb takes a repo key. The wrong one sends the operator
+  to search a repository that has nothing wrong with it, and they come back
+  believing doctor was mistaken (§4).
+- **Collapsing the per-repo `worktrees(...)` lines into one verdict.** Their
+  separateness *is* the finding: one repo clean and another unconfigured is not
+  the same state as both clean (§4).
+- **Copying `oss touch_check`'s rc polarity onto anything here.** rc 0 is a
+  *hit* there. Nothing on this skill's surface shares that convention.
+- **Substituting a fixed remedy for `oss doctor`'s own line.** The remedy
+  differs by which line failed, and naming `state_restore` for a schema failure
+  loops the operator forever (§4).
+- **Running `oss state_restore`, `oss migrate`, or any repair verb on your own
+  initiative.** Name it; let the user run it (§1).
+- **Treating a missing FR/NFR table as a spec error.** The lean schema does not
+  require one (§5).
+- **Appending a rule block without validating it first**, or inventing a field
+  name a type does not define (§6).
+- **Telling the user an authored rule is enforced.** It is documented and
+  well-formed. The evaluator is not shipped (§6, §9).
+- **Editing `AGENTS.md` or the pairing manifest to make the interop check
+  pass.** This surface checks; the user repairs (§7, §9).
+- **Demanding `routing.roadmap`, `routing.sprint_specs` or `.workspace/locks`.**
+  Those belong to the stack ossify replaced, and a project that lacks them is
+  correct, not broken (§7).
+- **Claiming an edit freed budget without reading the check that enforces
+  it** (§8).
+- **Editing a `description:` to make room and not re-measuring.** `check 7` is
+  a red test; a description edit that overruns fails the suite (§8).
+- **Letting this body exceed 500 lines.** Hard cap; depth goes to `references/`.
+
+---
+
+## 11. Notes on tool boundaries
+
+- **You** (Claude reading this body) make every judgment: whether a `warn:` is
+  worth acting on now, whether a drift is the record's fault or the repo's,
+  whether a proposed rule is the right rule, whether an interop gap matters for
+  this project.
+- **`oss`** handles mechanical facts only and holds no judgment: `doctor` (the
+  check lines and their rc), `worktree_orphans` (the on-disk-minus-state
+  difference — never whether an orphan is safe to delete), `rules_types` and
+  `rules_validate` (block shape — never whether the rule is worth having),
+  `interop_check` (four presence-and-resolution facts — never whether a Codex
+  session would actually behave), `state_path`, `repo_root`, `manifest_require`,
+  `get` (arbitrary reads),
+  `feature_list`, `critic_detect`, `state_restore` and `migrate` (**named to the
+  user, not run by you**).
+- **`git`** is reached only as `git -C "<absolute path>"`. Resolve paths once
+  with `oss state_path` / `oss repo_root <key>` and never `cd`: the manifest walk
+  starts at `$PWD`, so a `cd` mid-run silently re-points the state file rather
+  than failing.
+- **Peer entry skills:** `start` owns spec-core authoring and the bones registry;
+  `plan-release` owns spine selection and the class declaration; `plan-spine`
+  owns decomposition and demo lines; `work-item` owns execution; `close` owns
+  every gate and every ceremony.
+- **The user** decides what to act on. You report, rank, and name the verb.
+
+---
+
+## 12. Slash-command interaction
+
+`/doctor [surface]` (`commands/doctor.md`) exports the raw argument string as
+`$ARGUMENTS` through an env-var bridge. **Parse `$ARGUMENTS` in bash; never
+reference `$1` / `$2` / `$N`** — Claude Code substitutes positional tokens in
+command bodies at template-render time and silently corrupts them.
+
+The only argument is an optional surface name (§2). Absent or unrecognised, run
+the full sweep.
+
+---
+
+## 13. The doctor read-out
+
+**The read-out is this skill's final assistant message.** It is a message, not a
+file: `doctor` writes no report artifact.
+
+It carries, in this order:
+
+1. **Each surface with its verdict** — including the ones that were skipped, and
+   why. Five lines for a full sweep, always five.
+2. **Findings, worst first**, each with the remedy verb named literally. A
+   `fail:` outranks a `warn:`; a `warn:` that blocks a close outranks one that
+   does not.
+3. **What is advisory** — stated as advisory, so a `warn:` is not read as a
+   thing that must be fixed before work continues.
+4. **What the operator must do next**, if anything — or an explicit "nothing"
+   rather than trailing off, so a clean project reads as clean rather than as a
+   run that stopped early.

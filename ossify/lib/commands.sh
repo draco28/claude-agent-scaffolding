@@ -250,8 +250,11 @@ oss_cmd_worktree_remove()  { _oss_need 2 worktree_remove "<repo-key> <wi-id>" "$
 # `worktree_path`, and spine-close.md §10 removes each one by reading state, not
 # by enumerating the filesystem. An enumeration verb answers a question no
 # ceremony asks and can disagree with state when it does. Its one real use,
-# orphan detection (a directory on disk with no state record), belongs to
-# `doctor` in v0.3 and should be built there against that requirement.
+# orphan detection (a directory on disk with no state record), was BUILT AGAINST
+# THAT REQUIREMENT in v0.3 as `oss worktree_orphans` below - the disagreement,
+# not the listing. The retired verb stays retired: `test-worktree.sh` asserts it
+# is still an unknown subcommand (rc 2).
+oss_cmd_worktree_orphans() { oss_worktree_orphans "${1:-canonical}" "${2:-}"; }
 
 # Cumulative demo runner (spec §6.1 + companion §4.3). Thin dispatcher
 # wrappers, no judgment logic - resolution (workdir, composition root) lives in
@@ -273,3 +276,33 @@ oss_cmd_harvest_dir()   { oss_harvest_memory_bank_dir; }
 oss_cmd_harvest_apply() { # $1=payload-json
   local sf; sf="$(_oss_resolve_state)" || return $?; oss_harvest_apply "$sf" "${1:-}"
 }
+
+# Machine-checkable rules (spec §9.1, `doctor`'s third surface). SHAPE ONLY -
+# these two verbs answer "is this block well-formed" and "which types exist".
+# Neither runs a rule against a codebase; the evaluator is a separate v0.3 item.
+# `${1:-}`/`${2:-}` rather than positionals so a missing argument is the lib's
+# own rc-2 usage error instead of a strict-mode unbound-variable abort.
+#
+# `--file` is the form prose must use for any body that came out of a
+# REPOSITORY. Passing the bytes as a shell argument is safe; embedding them in
+# shell SOURCE is not, and a heredoc does the latter - a block containing a line
+# equal to the delimiter ends the heredoc early and hands the rest to bash. A
+# quoted delimiter stops expansion INSIDE the heredoc; it cannot stop delimiter
+# injection. Reading the file here keeps untrusted bytes out of shell source
+# entirely: `$(cat …)` is quoted into a single argument and never re-parsed.
+# (Codex P1, PR #149 round 5.)
+oss_cmd_rules_types()    { oss_rules_types; }
+oss_cmd_rules_validate() { # <type> <block-body> | <type> --file <path>
+  _oss_need 2 rules_validate "<type> <block-body> | <type> --file <path>" "$@" || return 2
+  if [ "${2:-}" = "--file" ]; then
+    _oss_need 3 rules_validate "<type> --file <path>" "$@" || return 2
+    [ -f "${3:-}" ] || { echo "oss: rules_validate --file: no such file '${3:-}'" >&2; return 2; }
+    oss_rules_validate_block "${1:-}" "$(cat "${3}")"
+  else
+    oss_rules_validate_block "${1:-}" "${2:-}"
+  fi
+}
+
+# Claude/Codex interop (spec §9.1, `doctor`'s fourth surface). CHECK ONLY - the
+# additive repair half was scaffold-onboard's own extension, not §9.1's word.
+oss_cmd_interop_check() { oss_interop_check; }

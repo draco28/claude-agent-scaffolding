@@ -17,6 +17,15 @@ t_assert_rc 0 "doctor green on fresh state"
 t_assert_contains "$T_OUT" "ok: schema" "version check reported"
 t_assert_contains "$T_OUT" "ok: replay" "drift check reported"
 
+# EVERY advertised check emits a line on a HEALTHY state, not just the ones with
+# something to say. These three used to have a `warn:` arm and nothing else, so
+# on a clean project they printed nothing at all — and an omitted check is
+# indistinguishable from one that ran and found nothing, which is the whole
+# invariant the `skip:` arms exist to protect. (Codex P2, PR #149 round 2.)
+t_assert_contains "$T_OUT" "ok: ledger" "a clean ledger emits its own line rather than falling silent"
+t_assert_contains "$T_OUT" "ok: fakes" "a clean fakes check emits its own line"
+t_assert_contains "$T_OUT" "ok: patches" "a clean patches check emits its own line"
+
 jq '.schema_version = 99' "$S" > "$S.x" && mv "$S.x" "$S"
 t_capture "$OSS" doctor "$S"
 t_assert_rc 1 "doctor fails on future schema"
@@ -54,9 +63,14 @@ t_assert_contains "$T_OUT" "fail: schema" "schema fail line present"
 t_assert_contains "$T_OUT" "skip: replay" "replay skip line present (not silently dropped)"
 rm -rf "$T3"
 
-# --- Fix 4: the shape check must verify ALL 14 required top-level keys, not
-# just 6. A state missing e.g. `counters` (which every ledger add needs) must
-# FAIL shape, not be reported as having "all required keys present". ---
+# --- Fix 4: the shape check must verify EVERY required top-level key, not just
+# 6. A state missing e.g. `counters` (which every ledger add needs) must FAIL
+# shape, not be reported as having "all required keys present".
+#
+# This comment used to say "ALL 14 keys". The list is 16 as of v0.3 and will
+# grow again, so the count is deliberately not restated here — a number in a
+# comment beside a loop that owns the real list is a second copy that only ever
+# drifts. `doctor.sh`'s `for key in …` is the list. ---
 T4="$(mktemp -d)"; S4="$T4/state.json"
 oss_state_init "$S4" doc-shape >/dev/null
 jq 'del(.counters)' "$S4" > "$S4.x" && mv "$S4.x" "$S4"
@@ -141,6 +155,74 @@ t_assert_contains "$T_OUT" "warn: ledger - 1 quarantined line(s)" "doctor surfac
 t_assert_contains "$T_OUT" "warn: fakes - 1 outstanding fake(s)" "doctor surfaces a RENEWED fake, not just an active one"
 t_assert_contains "$T_OUT" "warn: patches - 1 out-of-spine patch record(s)" "doctor surfaces patch-lane records"
 t_assert_rc 0 "the four warn: lines are advisory - they must not change doctor's rc"
+# The clean arms must NOT also fire for the same checks — a read-out carrying
+# both "1 quarantined line" and "no quarantined lines" is worse than either.
+case "$T_OUT" in
+  *"ok: ledger"*)  T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor printed both a ledger warning AND the ledger clean line" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+case "$T_OUT" in
+  *"ok: fakes"*)   T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor printed both a fakes warning AND the fakes clean line" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+
+# --- The ledger's TWO counters share one clean line, so it must not fire when
+# only ONE of them is dirty. A quarantine with no pending amendment is exactly
+# that case, and the naive `[ $pend -eq 0 ] && echo ok` would print the clean
+# line right underneath the quarantine warning. ---
+QT="$(mktemp -d)"; QS="$QT/state.json"
+oss_state_init "$QS" ledger-halfdirty >/dev/null
+QREL="$(oss_entity_add_release "$QS" "r" "g")"
+QSPN="$(oss_entity_add_spine "$QS" "$QREL" "s" flesh canonical)"
+QL="$(oss_ledger_add_auto "$QS" "$QSPN" "a line" "true" "exit:0")"
+oss_ledger_quarantine "$QS" "$QL" "flaky" "$QREL" >/dev/null
+t_capture "$OSS" doctor "$QS"
+t_assert_contains "$T_OUT" "warn: ledger - 1 quarantined" "half-dirty ledger warns"
+case "$T_OUT" in
+  *"ok: ledger"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: the ledger clean line fired while one of its two counters was dirty" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+rm -rf "$QT"
+
+# --- an UNREADABLE advisory field is `skip:`, never `ok:` -------------------
+# `jq … || echo 0` turned a failed query into a zero count. That was survivable
+# while a zero count printed nothing; once the clean arms landed, the same
+# fallback started ASSERTING "no pending amendments" over a field it had failed
+# to read. A check that cannot read its input has not found it clean.
+BT="$(mktemp -d)"; BS="$BT/state.json"
+oss_state_init "$BS" bad-shapes >/dev/null
+jq '.demo_ledger = "not-a-list" | .fakes = 7 | .patch_records = {"a":1}' "$BS" > "$BS.x" && mv "$BS.x" "$BS"
+t_capture "$OSS" doctor "$BS"
+t_assert_contains "$T_OUT" "skip: ledger - unavailable" "an unreadable demo_ledger is skipped, not called clean"
+t_assert_contains "$T_OUT" "skip: fakes - unavailable" "an unreadable fakes field is skipped, not called clean"
+t_assert_contains "$T_OUT" "skip: patches - unavailable" "an unreadable patch_records field is skipped, not called clean"
+for bad in "ok: ledger" "ok: fakes" "ok: patches"; do
+  case "$T_OUT" in
+    *"$bad"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor asserted '$bad' over a field it could not read" ;;
+    *) T_PASS=$((T_PASS+1)) ;;
+  esac
+done
+rm -rf "$BT"
+
+# --- v0.3 worktree drift, the SKIP arm. The worktree check is the only one here
+# that reads the REPO rather than the state file, so it is the only one that can
+# be legitimately unavailable: no pairing manifest means no canonical root to
+# look in. It must still emit a line. A check that falls silent when it cannot
+# run reads as a check that ran and found nothing - the exact failure the
+# `skip: replay` branch above already exists to prevent, and the reason this arm
+# is asserted rather than assumed.
+#
+# Run from a MANIFEST-FREE directory rather than wherever the suite happened to
+# be launched: `oss_manifest_discover` walks up from $PWD, so a repo that later
+# grows a pairing manifest would silently flip this assertion's arm.
+# The warn: and ok: arms need a real canonical repo with real worktree dirs and
+# live in test-worktree.sh, next to the selector they exercise.
+NOMAN="$(mktemp -d)"; PREVPWD="$PWD"
+cd "$NOMAN"
+t_capture "$OSS" doctor "$W"
+t_assert_contains "$T_OUT" "skip: worktrees - skipped" "doctor: the worktree check emits a skip line with no manifest, never silence"
+t_assert_rc 0 "doctor: an unavailable worktree check is advisory - skip: never sets rc"
+cd "$PREVPWD"; rm -rf "$NOMAN"
 rm -rf "$WTMP"
 
 rm -rf "$TMP"

@@ -1,6 +1,6 @@
 ---
 name: plan-spine
-description: Plan an ossify feature spine — decompose into 1-5 work items, identify rounds via a DAG, author specs per round, offer grill-me for bone spines only, and author the cumulative-demo criteria under the journey-line floor (inspector phrasing banned), with fake-ledger discipline and a mechanical citation fold-in. Use this when the user wants to plan a spine, decompose a spine into work items, run /plan-spine, author demo criteria, or start building a spine. Requires a release planned via /plan-release. Do NOT use for release selection (use /plan-release) or spec-core onboarding (use /start).
+description: Plan one ossify spine — decompose it into 1-5 work items, identify rounds via a DAG, author a spec per round, and author the cumulative-demo criteria under the journey-line floor. Use when the user wants to plan a spine, decompose a spine into work items, author demo criteria, start building a spine, or runs /plan-spine. Requires a release planned via /plan-release. Not release selection or the bone/flesh declaration (/plan-release), not spec-core onboarding (/start).
 ---
 
 # plan-spine
@@ -271,10 +271,9 @@ whatever it surfaced; on **no**, record the skip and proceed.
 ## 8. Demo authoring — the journey-line floor
 
 Demo criteria are authored **here**, at planning time, with implementation context
-in hand. The spine's contribution joins the **cumulative** ledger: every `auto:`
-line it adds is re-run at every future spine close, and every `user:` line it adds
-is walked by a human at release close. You are spending runtime against the
-release's ledger budget — set at `plan-release`, read here with
+in hand. The ledger is **cumulative**: every `auto:` line is re-run at every future
+spine close, every `user:` line walked by a human at every release close. You spend
+runtime against the release's ledger budget — set at `plan-release`, read here with
 `oss get ".releases[] | select(.id == \"$rel\") | .ledger_budget"` — and attention
 against the release-close walkthrough. Author accordingly.
 
@@ -333,20 +332,14 @@ and a bad line is re-run forever.
 
 ### 8c. Judging a `user:` line
 
-**The test: who performs this action, and why?** A user acts *for the value* —
-places a trade, exports a report, cancels an order. A developer inspects a
-schema, views a record, confirms a table exists — to check an artifact is there.
-If the line only makes sense with a developer and a debugger behind it, it is not
-a journey line, whatever verb it uses. And **the ban is on the action, not on the
-outcome**: every journey line ends in something the user can *see*, so a line
-whose outcome is visible is **meeting** the floor, not violating it. Rejecting it
-because "see" or "appears" occurs is the **false-reject** failure mode, as
-damaging as letting an inspector line through — it pushes authors toward vague
-lines with no observable half at all. Read the **verb the user performs**.
-
-Full depth — the banned shapes, the worked accept/reject pairs (both directions),
-and the exact scope of the mechanical backstop — in
-`references/demo-authoring.md` §3.
+**The test: who performs this action, and why?** A user acts *for the value*
+(places a trade, exports a report); a developer inspects an artifact to check it
+is there. Read the **verb the user performs** — the ban is on the action, **not on
+the outcome** (rejecting a line because "see" occurs is the false-reject failure
+mode, §11). Full depth in `references/demo-authoring.md` §3: the banned shapes
+(§3.2), the headless/API-consumer surface (§3.2b), that ban's exact scope —
+action, not outcome (§3.3), worked accept/reject pairs in both directions
+(§3.4), the mechanical backstop's exact scope (§3.5).
 
 ### 8d. Record the accepted lines
 
@@ -355,25 +348,21 @@ oss ledger_add_user "$spine" "cancel a working order from the order book and see
 oss ledger_add_auto "$spine" "a cancelled order round-trips the matching engine" "cargo test --test cancel_order" "exit:0"
 ```
 
-Each call **prints the minted line id** (`d7`, `d8`, …) — capture it. Amendments
-(§8e) are keyed by that id, not by the line's text.
-
-`ledger_add_auto` validates `<expected>` as `exit:<n>` or `contains:<str>` and
-exits **2** on anything else. The grammar has **no comparison form**: a threshold
-("p50 under 40ms") lives inside the command, which exits non-zero when the
-threshold is missed — that is how F4's after-number becomes machine-checkable.
+Each call **prints the minted line id** (`d7`, `d8`, …) — capture it; amendments
+(§8e) are keyed by that id, not by the line's text. `ledger_add_auto` validates
+`<expected>` as `exit:<n>` or `contains:<str>` (exit **2** otherwise) and has **no
+comparison form** — a threshold ("p50 under 40ms") lives inside the command, which
+exits non-zero when it is missed; that is how F4's after-number becomes
+machine-checkable.
 
 **The mechanical floor is a backstop, not the judge.** `oss ledger_add_user`
-lowercases the text, trims leading whitespace, and rejects it only if it *begins
-with* `inspect `, `view `, or `open ` (rc 2). The check is **prefix-only**: *"Lets
-the user open the settings file"* is accepted by the lib and is still an inspector
-line; so is *"review the generated schema"*, *"confirm the audit table exists"*,
-*"check that the record was written"*. **The judgment is yours** — the lib catches
-the obvious case so a typo cannot smuggle one past you, and nothing more. A rc 0
-from `ledger_add_user` is not a verdict.
-
-Full floor rules, the internal-spine admission procedure, and worked accept/reject
-pairs in `references/demo-authoring.md`.
+rejects **prefix-only** — `inspect `, `view `, or `open ` at the *start* of the
+text, rc 2 — so *"review the generated schema"* or *"confirm the audit table
+exists"* passes the lib and is still an inspector line. **A rc 0 is not a verdict;
+the judgment is yours.** Full depth in `references/demo-authoring.md`: the six
+floors (§1), the backstop's exact scope and its accepted-but-still-inspector list
+(§3.5), the internal-spine admission procedure (§4), F4 before/after evidence
+(§5), F5 runnability + ledger budget (§6), F6's golden-journey rules (§7).
 
 ### 8e. Amendments
 
