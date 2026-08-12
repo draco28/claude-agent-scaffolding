@@ -45,7 +45,7 @@
 #   block unfindable and the failure read as "vacuous" rather than as wrong
 #   behaviour. Pick the anchor from the block's SCAFFOLDING, never from its FIX.
 #
-# Totals: 174 blocks - 58 operative (11 covered, 47 deferred), 116 illustrative.
+# Totals: 174 blocks - 60 operative (11 covered, 49 deferred), 114 illustrative.
 # (Was 160 blocks / 55 operative / 105 illustrative before v0.3's `doctor`.
 # rule-authoring.md's validate example went operative and then back: it briefly
 # became a quoted heredoc assigning `body` for the next line to consume, which
@@ -106,7 +106,7 @@ I	skills/doctor/references/spec-validation.md	2	a spec_path resolve and a bones-
 D	skills/doctor/references/rule-authoring.md	1	#138	the harvest_dir memory-bank path composition
 I	skills/doctor/references/rule-authoring.md	2	a rules_types call and a single --file validate call; the validate example is illustrative again now that the body travels as a FILE rather than as an embedded heredoc
 I	skills/doctor/references/interop-check.md	1	a single interop_check call
-I	skills/doctor/references/budget-check.md	2	the check 6/7 suite invocation and an awk read of the agent description length no test guards
+D	skills/doctor/references/budget-check.md	2	#138	both budget probes now self-locate the ossify root from the `oss` dispatcher and consume it on the next line - operative by the stated rule. The two forms they replaced (a repo-relative path, then ${CLAUDE_PLUGIN_ROOT}) both failed SILENTLY, the second by expanding to empty and reading /tests/..., so a regression here looks exactly like a working command
 D	skills/close/SKILL.md	2	#138	the id-shape router and the manifest-refusal + doctor gate
 D	skills/close/references/code-review.md	1	#138	consumes $base_branch and $spine_branch assuming an earlier step assigned them - the exact round-7 shape
 D	skills/close/references/fake-expiry.md	1	#138	the expired-fakes branch whose rc contract folds rc 2 into neither pass nor block
@@ -174,7 +174,7 @@ H	skills/close/references/spine-close.md	272077069-3589
 H	skills/close/references/work-item-close.md	705326676-2373
 H	commands/doctor.md	729179949-141
 H	skills/doctor/SKILL.md	3103983438-214
-H	skills/doctor/references/budget-check.md	2133115943-220
+H	skills/doctor/references/budget-check.md	582880737-316
 H	skills/doctor/references/interop-check.md	2668344631-39
 H	skills/doctor/references/rule-authoring.md	1710469119-263
 H	skills/doctor/references/spec-validation.md	2541080060-102
