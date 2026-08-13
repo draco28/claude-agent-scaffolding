@@ -114,14 +114,21 @@ item cannot claim a same-named directory sitting under the public root.
 **`oss doctor` runs the selector once per repo key** — `canonical`,
 `ai_workspace`, `private_core` — printing `ok:`/`warn:`/`skip: worktrees(<key>)`
 for each. A key the manifest does not configure gets the `skip:`, as does one
-whose root does not exist on this machine **or cannot be read** — an unmounted
-volume and a restrictively-permissioned private checkout both land there. So
-does a state whose work-item claims could not be inspected, which is a
+whose root does not exist on this machine **or cannot be traversed** — an
+unmounted volume and a checkout whose root denies `x` both land there. So does a
+state whose work-item claims could not be inspected, which is a
 *state-side* cause wearing the same line: the skip names both families, because
 one that listed only the repo-side ones would send you to debug a healthy
 manifest while the corrupt state went unnamed. None is ever silently dropped,
 because "could not open it" and "opened it and found nothing" are the two states
 this check exists to keep apart.
+
+**Traversal, not read, is what the root needs** — the check reaches
+`<root>/.worktrees` by composing the path and never lists the root itself. So a
+traversal-only root (mode `0111`) is inspected and its orphans reported, not
+skipped. `.worktrees` needs **both**, because that directory *is* enumerated.
+Requiring read on the root was #162: a guard stricter than the operation, which
+turned a usable repo into a skip and cost real detections.
 
 **Two gates come before the per-key loop, and they emit one *unkeyed* line for
 the whole surface**: state health being red, and the inspected state not being
