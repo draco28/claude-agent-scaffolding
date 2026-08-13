@@ -192,6 +192,23 @@ EOF
 t_capture "$OSS" interop_check
 t_assert_rc 0 "dispatcher: a good workspace is rc 0 under strict mode"
 t_assert_contains "$T_OUT" "ok: agents_md" "dispatcher: the AGENTS.md line reaches the caller"
+
+# The $OSS_STATE_FILE branch, under strict mode. Every assertion for it above
+# only SOURCED the libs, where errexit is not in force. That branch is where the
+# canonicalization landed — three command substitutions in a row — and under
+# `set -euo pipefail` a non-zero from any of them aborts the whole verb instead
+# of printing a finding, which reads to the operator as a crash rather than a
+# check. This is the gap that has bitten this codebase before: a lib change
+# verified only through direct sourcing, shipped into a strict-mode dispatcher.
+export OSS_STATE_FILE="$TMP/ws/./.ossify/project-state.json"
+t_capture "$OSS" interop_check
+t_assert_rc 0 "dispatcher: an equivalently-spelled override is ok under strict mode, not an errexit abort"
+t_assert_contains "$T_OUT" "ok: state_path" "dispatcher: the state_path line survives strict mode"
+export OSS_STATE_FILE="$TMP/ws/./other-project-state.json"
+t_capture "$OSS" interop_check
+t_assert_rc 1 "dispatcher: a genuinely different override is still rc 1 under strict mode"
+t_assert_contains "$T_OUT" "overrides the manifest" "dispatcher: the override finding survives strict mode"
+unset OSS_STATE_FILE
 rm -f "$TMP/ws/AGENTS.md"
 t_capture "$OSS" interop_check
 t_assert_rc 1 "dispatcher: a failing check is rc 1, not a strict-mode abort"

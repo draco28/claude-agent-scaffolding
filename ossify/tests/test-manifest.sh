@@ -270,5 +270,13 @@ t_assert_eq "$(cd "$CP" && pwd -P)/f2" "$(_oss_canon_path "$CP/dir/../f2")" \
 # never see two different files collapse to the same empty string.
 t_assert_eq "" "$(_oss_canon_path "")" "canon: empty stays empty"
 
+# `/` is the one input the physical half gets wrong on its own: `${d%/}` empties
+# and `basename /` is `/`, composing `//`. Unreachable through a state path,
+# which is how it survived unnoticed in doctor.sh — but a shared helper that
+# returns two unequal spellings of the ROOT is a trap laid for the next caller.
+t_assert_eq "/" "$(_oss_canon_path "/")"    "canon: the root is its own canonical form, not //"
+t_assert_eq "/" "$(_oss_canon_path "///")"  "canon: a repeated-slash root collapses to the same single /"
+t_assert_eq "/" "$(_oss_canon_path "/./")"  "canon: a /./ root collapses to the same single /"
+
 rm -rf "$TMP"
 t_summary

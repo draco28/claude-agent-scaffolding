@@ -238,6 +238,12 @@ _oss_canon_path() { # $1=path ; echoes the canonical form, or $1 lexically norma
     if (out == "") { print (lead == "/") ? "/" : "."; next }
     print lead out
   }')"
+  # `/` is its own canonical form, and it is the one input the physical half
+  # gets wrong: `${d%/}` empties and `basename /` is `/`, so it would compose
+  # `//` - two spellings of the root that no longer compare equal to each other.
+  # Unreachable through a state path, which is why it survived in doctor.sh; this
+  # is a shared helper now and the next caller should not have to know that.
+  if [ "$p" = "/" ]; then printf '%s' "/"; return 0; fi
   [ -e "$p" ] || { printf '%s' "$p"; return 0; }
   d="$(cd "$(dirname -- "$p")" 2>/dev/null && pwd -P)" || { printf '%s' "$p"; return 0; }
   b="$(basename -- "$p")"
