@@ -432,6 +432,42 @@ case "$T_OUT" in
   *) T_PASS=$((T_PASS+1)) ;;
 esac
 
+# (10d) The FOURTH shape of the same class, and the one (10c)'s guard does not
+# reach: the record IS an object, but a claim field is the wrong TYPE. #155.
+#
+# This shape is quieter than (10a)-(10c) and that is the whole point. Those
+# three ERROR — a parse failure, a string iterated as an array, a property
+# access on a string — so the single-jq rewrite's "jq's exit status IS the error
+# signal" catches them for free. `.id` as an ARRAY raises nothing: it simply
+# compares unequal to every basename, so the record silently claims nothing and
+# EVERY directory under `.worktrees` comes back as a deletion-flavoured orphan
+# at rc 0. A guard that only asks `type == "object"` cannot see it.
+#
+# Refused rather than skipped, matching (10c): a record whose claim fields are
+# unreadable is not evidence that a directory is unclaimed.
+printf '{"work_items":[{"id":[],"target_repo":"canonical"}]}' > "$ORPH/type-state.json"
+t_capture oss_worktree_orphans canonical "$ORPH/type-state.json"
+t_assert_rc 1 "orphans: a work-item record whose id is not a string is rc 1"
+t_assert_contains "$T_OUT" "not a string" "orphans: the field-TYPE failure names itself, distinctly from the element-shape one"
+case "$T_OUT" in
+  *".worktrees/"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: orphans listed directories from a record with a wrong-typed claim field" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+# The guard is scoped to WRONG TYPES, not to absence. `worktree_path` is absent
+# until `work_item_exec` journals it, and `target_repo` is absent on items
+# predating the field — both are read through `// ""` / `// "canonical"` and
+# must keep working, or this fix turns into the over-correction #162 is about.
+# Asserted with a REAL claim so the rc-0 below cannot come from an empty set:
+# `r9.s9.w9` is claimed by id, and the other two dirs stay reported.
+printf '{"work_items":[{"id":"r9.s9.w9"}]}' > "$ORPH/sparse-state.json"
+t_capture oss_worktree_orphans canonical "$ORPH/sparse-state.json"
+t_assert_rc 0 "orphans: a record with absent worktree_path/target_repo is still VALID — absence is not a wrong type"
+case "$T_OUT" in
+  *"/.worktrees/r9.s9.w9"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: a record claiming r9.s9.w9 by id did not claim it" ;;
+  *) T_PASS=$((T_PASS+1)) ;;
+esac
+t_assert_contains "$T_OUT" "hand-named-dir" "orphans: and the genuinely unclaimed dirs are still reported from that sparse record"
+
 # (11) A state that PARSES but has drifted from its base and journal must not be
 # used for a repo comparison either. The parse guard inside worktree_orphans
 # accepts it — valid JSON — but its live `.work_items` is exactly what replay is
@@ -593,7 +629,10 @@ if [ -d "$PRIV/priv/.worktrees" ]; then
 else
   t_capture oss_worktree_orphans private_core "$PS"
   t_assert_rc 2 "orphans: a root that exists but cannot be traversed is rc 2, not a silent clean"
-  t_assert_contains "$T_OUT" "cannot be read" "orphans: the unreadable root names itself"
+  # "cannot be traversed", not "cannot be read": #162 narrowed this guard to the
+  # `-x` the operation actually needs, so the message now names the bit that
+  # failed. See (12f) for the mode that separates the two.
+  t_assert_contains "$T_OUT" "cannot be traversed" "orphans: the untraversable root names the permission it lacks"
   t_capture "$OSS" doctor "$PS"
   t_assert_contains "$T_OUT" "skip: worktrees(private_core)" \
     "doctor: an unreadable private_core root SKIPS rather than reporting clean"
@@ -608,6 +647,42 @@ chmod 755 "$PRIV/priv"
 t_capture oss_worktree_orphans private_core "$PS"
 t_assert_rc 0 "orphans: a readable root with an unclaimed dir is rc 0 again once permission is restored"
 t_assert_eq "$PRIV/priv/.worktrees/r9.s9.w9" "$T_OUT" "orphans: and it reports the orphan it could not see a moment ago"
+rm -rf "$PRIV/priv"
+
+# (12f) A TRAVERSAL-ONLY ROOT IS USABLE, AND MUST NOT BE SKIPPED. #162.
+#
+# (12d)'s fix required `-x` AND `-r` on the root. Reaching `$root/.worktrees`
+# needs only EXECUTE; READ on the root would be needed to LIST the root, which
+# this selector never does — it composes the `.worktrees` path directly. So a
+# mode-0111 root is fully inspectable, and demanding `-r` turned it into
+# `skip: worktrees(private_core)`: a false skip on a repo whose orphans are
+# demonstrably enumerable. That is an OVER-CORRECTION — a guard stricter than
+# the operation needs — and it was created by (12d)'s own fix. (Codex, PR #160
+# round 4, in the review that landed six minutes after the merge.)
+#
+# MODE 0111 IS THE ONLY INPUT THAT SEPARATES THE TWO GUARDS. (12d) uses mode
+# 000, which fails `-x` and `-r` alike, so it passes whether the root check is
+# `-x` or `-x && -r` — it cannot distinguish the fix from the bug, and a test
+# that cannot fail reads as coverage while checking nothing.
+mkdir -p "$PRIV/priv/.worktrees/r9.s9.w9"
+chmod 0111 "$PRIV/priv"
+# Same root-user probe as (12d), for the same reason: mode bits do not restrict
+# uid 0, and there the arm would silently stop being exercised.
+if [ -r "$PRIV/priv" ]; then
+  echo "NOTE: chmod 0111 did not restrict this user (uid $(id -u)); traversal-only arm NOT exercised"
+else
+  t_capture oss_worktree_orphans private_core "$PS"
+  t_assert_rc 0 "orphans: a traversal-only root is INSPECTED — execute is all that reaching .worktrees needs"
+  t_assert_eq "$PRIV/priv/.worktrees/r9.s9.w9" "$T_OUT" "orphans: and it reports the orphan the -r requirement was hiding"
+  t_capture "$OSS" doctor "$PS"
+  t_assert_contains "$T_OUT" "warn: worktrees(private_core) - 1 orphaned worktree dir(s)" \
+    "doctor: a traversal-only private_core root REPORTS its orphan rather than skipping"
+  case "$T_OUT" in
+    *"skip: worktrees(private_core)"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor skipped a private_core root it could have inspected" ;;
+    *) T_PASS=$((T_PASS+1)) ;;
+  esac
+fi
+chmod 0755 "$PRIV/priv"
 rm -rf "$PRIV/priv"
 
 # (12b) DRIFT GUARD. doctor's loop spells the repo-key list out a second time

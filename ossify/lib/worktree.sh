@@ -181,12 +181,26 @@ oss_worktree_orphans() { # $1=repo-key [$2=state-file] ; echoes one abs path per
   # `-d root` true, `-x root` false, `-d root/.worktrees` false while the
   # directory demonstrably exists.) Same false-clean class as a missing root,
   # reached by permissions instead of absence. (Codex, PR #160 round 2.)
-  { [ -x "$root" ] && [ -r "$root" ]; } \
-    || { echo "oss: repo '$key' root at $root cannot be read (permissions)" >&2; return 2; }
+  #
+  # EXECUTE ONLY, deliberately. This guard first demanded `-r` as well, and that
+  # was an OVER-CORRECTION: reaching `$root/.worktrees` needs TRAVERSAL, while
+  # read on the root is what LISTING the root would need - and this selector
+  # never lists the root, it composes the `.worktrees` path directly. So a
+  # mode-0111 root is fully inspectable and was being skipped. (Measured
+  # 2026-08-13: at 0111, `-x root` true, `-r root` FALSE, `-d root/.worktrees`
+  # true, and the orphan under it enumerable.) A false SKIP is milder than the
+  # false CLEAN above - it says "did not look", which is honest - but it still
+  # stops doctor reporting genuine orphans on a repo it can read. #162, from the
+  # Codex review that landed six minutes after PR #160 merged.
+  #
+  # The minimum each operation actually needs is the rule here: traversal on the
+  # root, read AND traversal on `.worktrees`, which is the directory enumerated.
+  [ -x "$root" ] \
+    || { echo "oss: repo '$key' root at $root cannot be traversed (permissions)" >&2; return 2; }
   dir="$root/.worktrees"
   # Nothing spawned yet is not a finding. Reachable only once the root above is
-  # known to exist AND to be readable, which is what keeps this arm meaning what
-  # it says rather than absorbing two different failures.
+  # known to exist AND to be traversable, which is what keeps this arm meaning
+  # what it says rather than absorbing two different failures.
   [ -d "$dir" ] || return 0
   # The same distinction one level down: `.worktrees` itself can be unreadable
   # while `-d` succeeds through the parent's execute bit. The glob below would
@@ -245,6 +259,11 @@ oss_worktree_orphans() { # $1=repo-key [$2=state-file] ; echoes one abs path per
            error(".work_items is not an array")
          elif ($all | any(type != "object")) then
            error(".work_items holds a record that is not an object")
+         elif ($all | any(
+                  (.id            != null and (.id            | type) != "string")
+               or (.target_repo   != null and (.target_repo   | type) != "string")
+               or (.worktree_path != null and (.worktree_path | type) != "string"))) then
+           error(".work_items holds a record whose id, target_repo or worktree_path is not a string")
          else . end)
       | ($all | map(select((.target_repo // "canonical") == $k))) as $mine
       | split("\n") | map(select(length > 0))

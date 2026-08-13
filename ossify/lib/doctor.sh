@@ -249,13 +249,18 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
         #
         # BOTH FAMILIES MUST BE NAMED. The selector returns nonzero for
         # state-side failures too - unparseable JSON, a non-array `.work_items`,
-        # a record that is not an object - and round 2 dropped that half while
-        # making the repo-side causes more precise. A skip listing only
-        # repo-side causes sends an operator to debug a healthy manifest and
-        # root while the state that actually stopped the check goes unnamed,
-        # which is the same misdirection-by-omission this whole surface exists
-        # to avoid. (Codex P2, PR #160 round 3, on a round 2 regression.)
-        echo "skip: worktrees($key) - skipped (not configured in the pairing manifest; or its root does not resolve / does not exist / cannot be read; or the state's work-item claims could not be inspected)"
+        # a record that is not an object, a record whose claim fields are not
+        # strings (#155) - and round 2 dropped that half while making the
+        # repo-side causes more precise. A skip listing only repo-side causes
+        # sends an operator to debug a healthy manifest and root while the state
+        # that actually stopped the check goes unnamed, which is the same
+        # misdirection-by-omission this whole surface exists to avoid. (Codex
+        # P2, PR #160 round 3, on a round 2 regression.)
+        #
+        # "read or traversed", both: #162 split the two permissions apart. The
+        # root now fails on TRAVERSAL (`-x`) and `.worktrees` on READ, so a line
+        # naming only reading would misdescribe the commoner of the two.
+        echo "skip: worktrees($key) - skipped (not configured in the pairing manifest; or its root does not resolve / does not exist / cannot be read or traversed; or the state's work-item claims could not be inspected)"
       fi
     done
   fi
