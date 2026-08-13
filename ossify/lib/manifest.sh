@@ -221,22 +221,46 @@ _oss_resolve_state() { # [$1=explicit-path]
 # because the caller is comparing two spellings and an empty string would make
 # two DIFFERENT files look identical.
 #
+# A TRAILING `/` OR `.` IS PRESERVED, and that is not a special case - it is the
+# same rule as `lead`, at the other end. `f.json/` does not name the same thing
+# as `f.json`: the trailing separator asserts a DIRECTORY and POSIX enforces it,
+# so `jq -e . f.json/` fails ENOTDIR and `[ -f f.json/ ]` is false. Collapsing it
+# made `oss_interop_check` print `ok: state_path` for an `$OSS_STATE_FILE` that
+# every state read then failed on - certifying a workspace as switch-ready while
+# the session could not read its state at all, which is precisely the condition
+# that check exists to catch. (Codex P2, PR #166 round 1, on this function's own
+# first version.)
+#
+# The constraint is carried by the FINAL component only; a `/./` in the middle is
+# identity-neutral and still collapses. And it is keyed on `$NF == "."` as well as
+# a trailing slash, because `f.json/.` fails ENOTDIR identically while its final
+# component is `.` rather than empty - a rule phrased only about empty components
+# would leave that spelling broken.
+#
+# Consequence worth knowing before writing the next caller: the canonical form now
+# distinguishes `x` from `x/`. Both current callers compare FILE paths, where that
+# is what you want. For a target that exists AS a directory the physical half below
+# still collapses `d/` to `d`, so a directory's canonical form is existence-
+# dependent - harmless for identity comparison, since two spellings compared at the
+# same moment agree either way, but not something to rediscover.
+#
 # One awk pass rather than a loop of shell string surgery: rebuilding from the
-# `/`-split components makes "drop empty and `.` components" the whole rule, and
-# it keeps `&` and backslashes literal (this file has already shipped one
-# `&`-in-replacement defect, in `_oss_subst_literal`).
+# `/`-split components makes "drop empty and `.` components, keep the ends" the
+# whole rule, and it keeps `&` and backslashes literal (this file has already
+# shipped one `&`-in-replacement defect, in `_oss_subst_literal`).
 _oss_canon_path() { # $1=path ; echoes the canonical form, or $1 lexically normalized
   local p d b
   [ -n "$1" ] || { printf '%s' ""; return 0; }
   p="$(printf '%s\n' "$1" | awk -F/ '{
-    lead = ($0 ~ /^\//) ? "/" : ""
+    lead  = ($0 ~ /^\//) ? "/" : ""
+    trail = ($0 ~ /\/$/ || $NF == ".") ? "/" : ""
     out = ""
     for (i = 1; i <= NF; i++) {
       if ($i == "" || $i == ".") continue
       out = out (out == "" ? "" : "/") $i
     }
     if (out == "") { print (lead == "/") ? "/" : "."; next }
-    print lead out
+    print lead out trail
   }')"
   # `/` is its own canonical form, and it is the one input the physical half
   # gets wrong: `${d%/}` empties and `basename /` is `/`, so it would compose

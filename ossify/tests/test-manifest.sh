@@ -278,5 +278,30 @@ t_assert_eq "/" "$(_oss_canon_path "/")"    "canon: the root is its own canonica
 t_assert_eq "/" "$(_oss_canon_path "///")"  "canon: a repeated-slash root collapses to the same single /"
 t_assert_eq "/" "$(_oss_canon_path "/./")"  "canon: a /./ root collapses to the same single /"
 
+# A TRAILING `/` or `.` is not decoration — it asserts the path names a
+# DIRECTORY, and POSIX enforces that: `jq f.json/` fails ENOTDIR and
+# `[ -f f.json/ ]` is false. Collapsing it made `interop_check` print
+# `ok: state_path` for an $OSS_STATE_FILE that every state read then failed on —
+# the check certifying a workspace as switch-ready while the session could not
+# read its state at all. (Codex P2, PR #166 round 1.)
+#
+# Guarded as the CLASS. The review's remedy was "preserve the final EMPTY
+# component", which covers `f.json/` and `f.json//` but leaves `f.json/.` —
+# whose final component is `.`, not empty — collapsed and failing identically.
+t_assert_eq "$CP/dir/gone/" "$(_oss_canon_path "$CP/dir/gone/")" \
+  "canon: a trailing / is PRESERVED — it constrains the path to a directory"
+t_assert_eq "$CP/dir/gone/" "$(_oss_canon_path "$CP/dir/gone//")" \
+  "canon: a doubled trailing slash normalizes to ONE, still preserved"
+t_assert_eq "$CP/dir/gone/" "$(_oss_canon_path "$CP/dir/gone/.")" \
+  "canon: a trailing /. carries the same directory constraint and is preserved"
+t_assert_eq "$CP/dir/gone/" "$(_oss_canon_path "$CP/dir/gone/./")" \
+  "canon: a trailing /./ likewise"
+t_assert_eq "no" "$([ "$(_oss_canon_path "$CP/dir/gone/")" = "$(_oss_canon_path "$CP/dir/gone")" ] && echo yes || echo no)" \
+  "canon: the directory-constrained spelling does NOT compare equal to the bare file path — that equality was the defect"
+# And the constraint is about the FINAL component only: a `/./` in the middle is
+# still identity-neutral and must still collapse, or the #150 fix is undone.
+t_assert_eq "$CP/dir/gone" "$(_oss_canon_path "$CP/./dir/gone")" \
+  "canon: a mid-path /./ still collapses — preserving the trailing one must not re-break #150"
+
 rm -rf "$TMP"
 t_summary

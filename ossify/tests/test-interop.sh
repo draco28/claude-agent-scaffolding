@@ -137,6 +137,20 @@ export OSS_STATE_FILE="$TMP/ws/./other-project-state.json"
 t_capture oss_interop_check
 t_assert_rc 1 "control: a DIFFERENT path spelled with the same /./ is still an override — the fix must not make the check vacuous"
 t_assert_contains "$T_OUT" "overrides the manifest" "control: the override is still named"
+
+# A TRAILING SLASH IS NOT AN EQUIVALENT SPELLING. It constrains the path to a
+# directory, and POSIX enforces it — `jq -e . project-state.json/` fails ENOTDIR.
+# So an override spelled that way is a workspace where every ceremony fails to
+# read state, and reporting `ok:` for it certifies exactly the condition this
+# check exists to catch. Normalizing it away was a regression introduced by the
+# #150 fix in this same PR. (Codex P2, round 1.)
+export OSS_STATE_FILE="$TMP/ws/.ossify/project-state.json/"
+t_capture oss_interop_check
+t_assert_rc 1 "a trailing slash on the override is an interop failure — the path names a directory and state reads fail ENOTDIR"
+t_assert_contains "$T_OUT" "overrides the manifest" "the trailing-slash override is named as an override"
+export OSS_STATE_FILE="$TMP/ws/.ossify/project-state.json/."
+t_capture oss_interop_check
+t_assert_rc 1 "a trailing /. carries the identical constraint and is likewise a failure"
 unset OSS_STATE_FILE
 
 # --- a root that resolves but is not there ---------------------------------
