@@ -191,5 +191,58 @@ _oss_resolve_state() { # [$1=explicit-path]
   oss_manifest_state_path
 }
 
+# Canonicalize a path for IDENTITY comparison. Lives here rather than in
+# doctor.sh (its original home) because the two paths it exists to compare -
+# `_oss_resolve_state` above and `oss_manifest_state_path` - are both in this
+# file, and `oss_interop_check` needs it too.
+#
+# TWO HALVES, and the split is the point (#150).
+#
+# The LEXICAL half runs always. Collapsing `//` and `/./` cannot change which
+# file a path names, symlink or not, so it needs no filesystem and works on a
+# path that does not exist yet. That case is not hypothetical: unlike
+# `oss_cmd_doctor`, which returns early on `[ -f "$sf" ]` and therefore only
+# ever canonicalizes paths that exist, `oss_interop_check` compares a path whose
+# own resolver documents that the file may not exist yet. The existence-only
+# form skipped normalization in exactly the workspace where someone is still
+# wiring up their environment, so `$ws/./.ossify/…` read as another project.
+#
+# `..` is deliberately NOT collapsed lexically: `a/b/..` is not `a` when `b` is
+# a symlink, which is precisely the case canonicalization exists to get right.
+# On a path that exists the PHYSICAL half below resolves `..` correctly through
+# the filesystem; on one that does not, it is left in place rather than resolved
+# wrongly. A future resolver that walks to the deepest existing ancestor may
+# improve on this - adding textual `..` collapsing would not.
+#
+# The PHYSICAL half is the original behaviour, unchanged: `cd` the directory and
+# `pwd -P`, which resolves directory symlinks and `..` together. Deliberately not
+# `realpath` (absent on stock macOS), and deliberately tolerant - a path whose
+# directory cannot be entered comes back lexically normalized rather than empty,
+# because the caller is comparing two spellings and an empty string would make
+# two DIFFERENT files look identical.
+#
+# One awk pass rather than a loop of shell string surgery: rebuilding from the
+# `/`-split components makes "drop empty and `.` components" the whole rule, and
+# it keeps `&` and backslashes literal (this file has already shipped one
+# `&`-in-replacement defect, in `_oss_subst_literal`).
+_oss_canon_path() { # $1=path ; echoes the canonical form, or $1 lexically normalized
+  local p d b
+  [ -n "$1" ] || { printf '%s' ""; return 0; }
+  p="$(printf '%s\n' "$1" | awk -F/ '{
+    lead = ($0 ~ /^\//) ? "/" : ""
+    out = ""
+    for (i = 1; i <= NF; i++) {
+      if ($i == "" || $i == ".") continue
+      out = out (out == "" ? "" : "/") $i
+    }
+    if (out == "") { print (lead == "/") ? "/" : "."; next }
+    print lead out
+  }')"
+  [ -e "$p" ] || { printf '%s' "$p"; return 0; }
+  d="$(cd "$(dirname -- "$p")" 2>/dev/null && pwd -P)" || { printf '%s' "$p"; return 0; }
+  b="$(basename -- "$p")"
+  printf '%s/%s' "${d%/}" "$b"
+}
+
 oss_cmd_state_path() { oss_manifest_state_path; }   # `oss state_path` for skills/debug
 oss_cmd_spec_path()  { oss_manifest_spec_path; }    # `oss spec_path` for doctor's spec surface

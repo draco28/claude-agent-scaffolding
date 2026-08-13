@@ -224,5 +224,51 @@ t_assert_eq "aZbZc"   "$(_oss_subst_literal 'a${T}b${T}c' '${T}' 'Z')" "subst: e
 t_assert_eq 'a${T}b'  "$(_oss_subst_literal 'a${T}b' '${T}' '${T}')" "subst: a replacement containing the needle does not re-match"
 t_assert_eq "plain"   "$(_oss_subst_literal 'plain' '${T}' 'Z')"    "subst: no occurrence leaves the string alone"
 
+# --- _oss_canon_path: identity comparison for paths that may not exist -----
+# Moved here from doctor.sh, where it was reachable only by callers that had
+# already proved the file exists. `oss_interop_check` compares a path that
+# documents itself as possibly-absent, so the existence-only form silently
+# skipped normalization in exactly the case it was needed (#150).
+CP="$TMP/canon-fixture"
+mkdir -p "$CP/dir"
+
+# The pre-existing behaviour, kept: an existing path resolves physically, so
+# directory symlinks and `..` are handled by the filesystem rather than by string
+# surgery.
+: > "$CP/dir/f"
+t_assert_eq "$(cd "$CP/dir" && pwd -P)/f" "$(_oss_canon_path "$CP/dir/f")" \
+  "canon: an existing path resolves to its physical location"
+t_assert_eq "$(_oss_canon_path "$CP/dir/f")" "$(_oss_canon_path "$CP/./dir/f")" \
+  "canon: two spellings of an EXISTING file agree"
+t_assert_eq "$(_oss_canon_path "$CP/dir/f")" "$(_oss_canon_path "$CP//dir/f")" \
+  "canon: a doubled slash on an existing file agrees too"
+
+# The new half. These are the spellings interop_check actually compares.
+t_assert_eq "$CP/dir/gone" "$(_oss_canon_path "$CP/./dir/gone")" \
+  "canon: /./ is collapsed on a path that does NOT exist"
+t_assert_eq "$CP/dir/gone" "$(_oss_canon_path "$CP//dir//gone")" \
+  "canon: doubled slashes are collapsed on a path that does NOT exist"
+t_assert_eq "$CP/nodir/gone" "$(_oss_canon_path "$CP/./nodir/./gone")" \
+  "canon: collapsing does not require the PARENT to exist either"
+t_assert_eq "$(_oss_canon_path "$CP/./dir/gone")" "$(_oss_canon_path "$CP/dir/gone")" \
+  "canon: the two spellings interop_check compares now agree while the file is absent"
+
+# A DELIBERATE limit, pinned so it is a decision rather than an oversight.
+# `a/b/..` is NOT `a` when `b` is a symlink, so resolving `..` textually would
+# be wrong in precisely the case canonicalization exists to get right. On a path
+# that exists, `cd`+`pwd -P` resolves `..` correctly via the filesystem; on one
+# that does not, it is left alone. A future resolver that walks to the deepest
+# existing ancestor may legitimately change this line — it must not be changed
+# by adding textual `..` collapsing.
+t_assert_eq "$CP/dir/../gone" "$(_oss_canon_path "$CP/dir/../gone")" \
+  "canon: .. is left UNRESOLVED on a non-existent path — textual .. resolution is wrong under symlinks"
+: > "$CP/f2"
+t_assert_eq "$(cd "$CP" && pwd -P)/f2" "$(_oss_canon_path "$CP/dir/../f2")" \
+  "canon: .. IS resolved when the path exists, by the filesystem rather than by string surgery"
+
+# Unchanged contract: empty in, empty out; a caller comparing two spellings must
+# never see two different files collapse to the same empty string.
+t_assert_eq "" "$(_oss_canon_path "")" "canon: empty stays empty"
+
 rm -rf "$TMP"
 t_summary

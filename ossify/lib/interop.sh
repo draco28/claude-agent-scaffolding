@@ -42,6 +42,23 @@ oss_interop_check() { # echoes one line per check ; rc 1 if any fail: printed
     # read-out pointing at the one thing that has to be fixed first.
     return 1
   fi
+  # EXISTENCE IS NOT READABILITY. Every check below reads this file through
+  # `jq`, so a manifest that exists but cannot be read produced `ok: manifest`
+  # followed by three or four derived failures about roots and paths that were
+  # never actually consulted - directing the operator to repair several settings
+  # when only one thing was wrong. That is the same reasoning the missing-manifest
+  # branch above already applies; a manifest that cannot be read earns it too.
+  #
+  # `type == "object"` rather than a bare parse check, because the finding named
+  # a CLASS - "the manifest cannot be read" - and malformed JSON is one instance.
+  # `[]`, `null`, `42` and `"a string"` all parse cleanly and then fail every
+  # `jq -r '.ai_workspace.root'` downstream, reproducing the identical misleading
+  # read-out. Guarding only the parse would fix the reported instance and leave
+  # the class. (#157)
+  if ! jq -e 'type == "object"' "$manifest" >/dev/null 2>&1; then
+    echo "fail: manifest - $manifest is not a readable JSON object; every later check reads it through jq, so nothing else could be reported"
+    return 1
+  fi
   echo "ok: manifest - $manifest"
 
   # `_oss_repo_root` is the resolver every other ossify verb already goes
@@ -84,9 +101,22 @@ oss_interop_check() { # echoes one line per check ; rc 1 if any fail: printed
     # in this session reads and MUTATES a different project's state. That is the
     # interop failure in its purest form, so it is checked here rather than
     # assumed away. (Codex P2, PR #149 round 2.)
-    local eff
+    #
+    # COMPARED CANONICALLY, NOT AS RAW STRINGS. `$OSS_STATE_FILE` is an operator-
+    # typed value and `oss_manifest_state_path` is composed from the manifest, so
+    # the same file routinely arrives spelled two ways - `$ws/./.ossify/…` against
+    # `$ws/.ossify/…`. Compared verbatim, the supported override made a HEALTHY
+    # workspace fail, reporting that this session drives another project when it
+    # drives this one. (#150)
+    #
+    # The failure message still echoes the RAW spellings: the operator set that
+    # string, and showing them a canonicalized form they never typed makes the
+    # remedy harder to act on, not easier.
+    local eff eff_canon sf_canon
     eff="$(_oss_resolve_state 2>/dev/null)" || eff=""
-    if [ -n "$eff" ] && [ "$eff" != "$sf" ]; then
+    eff_canon="$(_oss_canon_path "$eff")"
+    sf_canon="$(_oss_canon_path "$sf")"
+    if [ -n "$eff" ] && [ "$eff_canon" != "$sf_canon" ]; then
       echo "fail: state_path - \$OSS_STATE_FILE overrides the manifest ($eff, not $sf); this session's ceremonies would read another project's state"
       rc=1
     else
