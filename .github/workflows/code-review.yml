@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   code-review:
-    uses: pulseai-labs/ci-automation/.github/workflows/droid.yml@b5f4cdca00946145ab5b948ec999215e398c4c65
+    uses: pulseai-labs/ci-automation/.github/workflows/droid.yml@29ae416d7fa5a0258c641d835eec81681ade7e07
     with:
       automations: code-review
       runner: ubuntu-latest
