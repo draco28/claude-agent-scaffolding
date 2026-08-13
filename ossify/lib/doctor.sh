@@ -23,20 +23,12 @@
 # patches - 1` instead.) (Codex P2, PR #149 round 3.)
 _OSS_DOCTOR_ARR='def _arr(f): if (f|type) == "array" then f else error("not an array") end;'
 
-# Canonicalize a path for IDENTITY comparison: absolute, with the directory
-# portion's symlinks and `..` resolved. Deliberately not `realpath` - it is
-# absent on stock macOS - and deliberately tolerant: a path that does not exist,
-# or whose directory cannot be entered, comes back unchanged rather than empty,
-# because the caller is comparing two spellings and an empty string would make
-# two different files look identical.
-_oss_canon_path() { # $1=path ; echoes the canonical form, or $1 unchanged
-  local d b
-  [ -n "$1" ] || { printf '%s' ""; return 0; }
-  [ -e "$1" ] || { printf '%s' "$1"; return 0; }
-  d="$(cd "$(dirname -- "$1")" 2>/dev/null && pwd -P)" || { printf '%s' "$1"; return 0; }
-  b="$(basename -- "$1")"
-  printf '%s/%s' "${d%/}" "$b"
-}
+# `_oss_canon_path` MOVED to lib/manifest.sh (#150). It compares the two paths
+# `_oss_resolve_state` and `oss_manifest_state_path` produce, and both live
+# there; leaving it here made `oss_interop_check` depend on doctor.sh being
+# sourced, which the dispatcher does but a directly-sourced test does not - and
+# a missing function there yields two empty strings that compare EQUAL, turning
+# a real cross-project failure into `ok:`.
 
 _oss_doctor_count() { # $1=state-file $2=jq-expr ; echoes the count, rc 1 if unreadable
   local out

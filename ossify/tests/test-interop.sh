@@ -102,6 +102,83 @@ unset OSS_STATE_FILE
 t_capture oss_interop_check
 t_assert_rc 0 "unsetting the override restores the pass — the check reads the EFFECTIVE path, not a cached one"
 
+# --- an EQUIVALENT spelling of the override is NOT an override (#150) -------
+# `$ws/./.ossify/project-state.json` and `$ws/.ossify/project-state.json` are
+# the same file. Compared as raw strings they are not, so the supported override
+# made a HEALTHY workspace fail — the check reported that the session was
+# driving another project when it was driving this one.
+#
+# The state file deliberately does NOT exist here. That is the case
+# `interop_check` actually meets: `oss_manifest_state_path` documents that the
+# file may not exist yet, and a workspace that has never run `oss init` is
+# exactly when someone is still wiring up their environment. `oss doctor` never
+# sees this case — it returns early on `[ -f "$sf" ]` — so a canonicalizer that
+# only normalizes paths that exist fixes doctor's instance and not this class.
+[ -e "$TMP/ws/.ossify" ] && { echo "fixture error: .ossify must not exist for this case" >&2; exit 1; }
+export OSS_STATE_FILE="$TMP/ws/./.ossify/project-state.json"
+t_capture oss_interop_check
+t_assert_rc 0 "an OSS_STATE_FILE spelled equivalently to the manifest path is NOT an override, even when the file does not exist yet"
+t_assert_contains "$T_OUT" "ok: state_path" "the equivalent spelling reports ok, not a cross-project failure"
+
+# The SAME case once the file exists, so the fix is not silently existence-only.
+mkdir -p "$TMP/ws/.ossify"; : > "$TMP/ws/.ossify/project-state.json"
+t_capture oss_interop_check
+t_assert_rc 0 "the equivalent spelling is still not an override once the state file exists"
+rm -rf "$TMP/ws/.ossify"
+
+# CONTROL, adjacent on purpose. Normalizing both sides is a loosening, and the
+# failure mode of a loosening is that it stops detecting anything. A genuinely
+# different path must still fail, or the override check has been made vacuous
+# by its own fix.
+# Carries the SAME `/./` the passing case does, so it proves normalization ran
+# and still distinguished two files, rather than passing because nothing was
+# normalized at all.
+export OSS_STATE_FILE="$TMP/ws/./other-project-state.json"
+t_capture oss_interop_check
+t_assert_rc 1 "control: a DIFFERENT path spelled with the same /./ is still an override — the fix must not make the check vacuous"
+t_assert_contains "$T_OUT" "overrides the manifest" "control: the override is still named"
+
+# A TRAILING SLASH IS NOT AN EQUIVALENT SPELLING. It constrains the path to a
+# directory, and POSIX enforces it — `jq -e . project-state.json/` fails ENOTDIR.
+# So an override spelled that way is a workspace where every ceremony fails to
+# read state, and reporting `ok:` for it certifies exactly the condition this
+# check exists to catch. Normalizing it away was a regression introduced by the
+# #150 fix in this same PR. (Codex P2, round 1.)
+export OSS_STATE_FILE="$TMP/ws/.ossify/project-state.json/"
+t_capture oss_interop_check
+t_assert_rc 1 "a trailing slash on the override is an interop failure — the path names a directory and state reads fail ENOTDIR"
+t_assert_contains "$T_OUT" "overrides the manifest" "the trailing-slash override is named as an override"
+export OSS_STATE_FILE="$TMP/ws/.ossify/project-state.json/."
+t_capture oss_interop_check
+t_assert_rc 1 "a trailing /. carries the identical constraint and is likewise a failure"
+unset OSS_STATE_FILE
+
+# --- a RELATIVE override is cwd-dependent, exactly like a relative ROUTED value
+# The check already refuses a relative `.well_known_paths.project_state`, on the
+# stated grounds that a path depending on the session's cwd is not well-known.
+# The override arm did not hold itself to that rule, and canonicalizing made it
+# worse rather than merely inconsistent: `_oss_canon_path`'s physical half `cd`s
+# to the dirname and returns an ABSOLUTE path, so a relative override whose
+# target happens to exist under the cwd was promoted to the manifest's own path
+# and printed `ok:` — certifying the cwd-dependent configuration this check
+# exists to reject. State commands keep the raw relative value, so a session
+# started from another directory reads a different file entirely.
+# (Codex P2, PR #166 round 3; a regression from this PR's own #150 fix.)
+mkdir -p "$TMP/ws/.ossify"; : > "$TMP/ws/.ossify/project-state.json"
+cd "$TMP/ws"
+export OSS_STATE_FILE=".ossify/project-state.json"
+t_capture oss_interop_check
+t_assert_rc 1 "a RELATIVE override whose target exists under the cwd is a failure, not an ok"
+t_assert_contains "$T_OUT" "fail: state_path" "the relative override is a state_path failure"
+t_assert_contains "$T_OUT" "relative" "the message names relativity as the defect, not a path mismatch"
+# The same rule when the relative target does NOT exist — one message, one cause.
+export OSS_STATE_FILE="nowhere/state.json"
+t_capture oss_interop_check
+t_assert_rc 1 "a relative override is a failure whether or not its target exists"
+t_assert_contains "$T_OUT" "relative" "and it is reported as relativity in both cases"
+unset OSS_STATE_FILE
+rm -rf "$TMP/ws/.ossify"
+
 # --- a root that resolves but is not there ---------------------------------
 cat > "$TMP/ws/.workspace/pairing.json" <<EOF
 {"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"$TMP/nope"},"well_known_paths":{}}
@@ -118,6 +195,32 @@ t_capture oss_interop_check
 t_assert_rc 1 "an unresolved \${...} token in a root is rc 1"
 t_assert_contains "$T_OUT" "unresolved" "the token failure names itself rather than reporting a missing directory"
 
+# --- a manifest that exists but cannot be read (#157) ----------------------
+# Existence was the whole test, so a corrupt manifest printed `ok: manifest` and
+# then three or four derived failures about roots and paths that were never
+# readable — sending the operator to repair settings that had not been consulted.
+# The MISSING-manifest branch at the top of this file already returns after one
+# line for exactly this reason; an unreadable manifest earns the same treatment.
+printf 'not json at all {{{\n' > "$TMP/ws/.workspace/pairing.json"
+t_capture oss_interop_check
+t_assert_rc 1 "a corrupt manifest is rc 1"
+t_assert_contains "$T_OUT" "fail: manifest" "the unreadable manifest is named as the failure"
+t_assert_eq "1" "$(printf '%s\n' "$T_OUT" | wc -l | tr -d ' ')" \
+  "a corrupt manifest emits ONE line, not derived failures about values that were never read"
+
+# The finding named a CLASS — "the manifest cannot be read" — and malformed JSON
+# is one instance. A syntactically valid non-object parses fine and then fails
+# every `jq -r '.ai_workspace.root'` downstream, reproducing the identical
+# misleading read-out. Guarding only the parse would fix the reported instance
+# and leave the class, which is the defect this repo keeps re-finding.
+for bad in '[]' '"a string"' 'null' '42'; do
+  printf '%s\n' "$bad" > "$TMP/ws/.workspace/pairing.json"
+  t_capture oss_interop_check
+  t_assert_rc 1 "a manifest holding $bad is rc 1 — valid JSON is not a readable manifest"
+  t_assert_eq "1" "$(printf '%s\n' "$T_OUT" | wc -l | tr -d ' ')" \
+    "a manifest holding $bad emits ONE line, same as malformed JSON"
+done
+
 # ---------------------------------------------------------------------------
 # Dispatcher path. bin/oss runs `set -euo pipefail`; every assertion above only
 # sourced the libs. The `for` loop with its `continue` arms and the awk-based
@@ -129,6 +232,23 @@ EOF
 t_capture "$OSS" interop_check
 t_assert_rc 0 "dispatcher: a good workspace is rc 0 under strict mode"
 t_assert_contains "$T_OUT" "ok: agents_md" "dispatcher: the AGENTS.md line reaches the caller"
+
+# The $OSS_STATE_FILE branch, under strict mode. Every assertion for it above
+# only SOURCED the libs, where errexit is not in force. That branch is where the
+# canonicalization landed — three command substitutions in a row — and under
+# `set -euo pipefail` a non-zero from any of them aborts the whole verb instead
+# of printing a finding, which reads to the operator as a crash rather than a
+# check. This is the gap that has bitten this codebase before: a lib change
+# verified only through direct sourcing, shipped into a strict-mode dispatcher.
+export OSS_STATE_FILE="$TMP/ws/./.ossify/project-state.json"
+t_capture "$OSS" interop_check
+t_assert_rc 0 "dispatcher: an equivalently-spelled override is ok under strict mode, not an errexit abort"
+t_assert_contains "$T_OUT" "ok: state_path" "dispatcher: the state_path line survives strict mode"
+export OSS_STATE_FILE="$TMP/ws/./other-project-state.json"
+t_capture "$OSS" interop_check
+t_assert_rc 1 "dispatcher: a genuinely different override is still rc 1 under strict mode"
+t_assert_contains "$T_OUT" "overrides the manifest" "dispatcher: the override finding survives strict mode"
+unset OSS_STATE_FILE
 rm -f "$TMP/ws/AGENTS.md"
 t_capture "$OSS" interop_check
 t_assert_rc 1 "dispatcher: a failing check is rc 1, not a strict-mode abort"
