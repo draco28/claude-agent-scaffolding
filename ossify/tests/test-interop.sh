@@ -153,6 +153,32 @@ t_capture oss_interop_check
 t_assert_rc 1 "a trailing /. carries the identical constraint and is likewise a failure"
 unset OSS_STATE_FILE
 
+# --- a RELATIVE override is cwd-dependent, exactly like a relative ROUTED value
+# The check already refuses a relative `.well_known_paths.project_state`, on the
+# stated grounds that a path depending on the session's cwd is not well-known.
+# The override arm did not hold itself to that rule, and canonicalizing made it
+# worse rather than merely inconsistent: `_oss_canon_path`'s physical half `cd`s
+# to the dirname and returns an ABSOLUTE path, so a relative override whose
+# target happens to exist under the cwd was promoted to the manifest's own path
+# and printed `ok:` — certifying the cwd-dependent configuration this check
+# exists to reject. State commands keep the raw relative value, so a session
+# started from another directory reads a different file entirely.
+# (Codex P2, PR #166 round 3; a regression from this PR's own #150 fix.)
+mkdir -p "$TMP/ws/.ossify"; : > "$TMP/ws/.ossify/project-state.json"
+cd "$TMP/ws"
+export OSS_STATE_FILE=".ossify/project-state.json"
+t_capture oss_interop_check
+t_assert_rc 1 "a RELATIVE override whose target exists under the cwd is a failure, not an ok"
+t_assert_contains "$T_OUT" "fail: state_path" "the relative override is a state_path failure"
+t_assert_contains "$T_OUT" "relative" "the message names relativity as the defect, not a path mismatch"
+# The same rule when the relative target does NOT exist — one message, one cause.
+export OSS_STATE_FILE="nowhere/state.json"
+t_capture oss_interop_check
+t_assert_rc 1 "a relative override is a failure whether or not its target exists"
+t_assert_contains "$T_OUT" "relative" "and it is reported as relativity in both cases"
+unset OSS_STATE_FILE
+rm -rf "$TMP/ws/.ossify"
+
 # --- a root that resolves but is not there ---------------------------------
 cat > "$TMP/ws/.workspace/pairing.json" <<EOF
 {"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"$TMP/nope"},"well_known_paths":{}}
