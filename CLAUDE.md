@@ -40,8 +40,15 @@ can carry a bug.
 **Measured, not asserted.** On this repo, new library bash has been ~29% of changed volume
 and ~57% of review findings — roughly 4x the defect density of prose. On PR #166 it was
 100%: four review rounds, five defects, every one in path-string handling, net product value
-a path normalizer. At the time of writing, **15 of 38 open issues are bugs in library code
-that the skill-first direction marks for deletion.**
+a path normalizer. At the time of writing, **6 of 41 open issues are bugs in library code the
+skill-first direction marks for deletion** — 8 at the ceiling, and only if converting *both*
+`interop` and `doctor` also orphans the shared path helper they call.
+
+An earlier draft of this line claimed 15 of 38. That number came from a keyword grep over
+issue **titles**, and a per-issue read retired it: it swept in prose bugs, other plugins'
+bugs, and bugs in `manifest.sh` and `commands.sh` — 586 LOC the deterministic/prose sort
+never classified in either direction. The direction still rests on the defect-density
+measurement above; it does not rest on issue count.
 
 Before adding anything to a `lib/`, answer: *what breaks if a model does this by reading
 files instead?* If the answer is "nothing", write the prose.
@@ -142,10 +149,26 @@ next to the case that must now pass.
 
 ## Commands
 
+**Run the suite for the plugin you changed, plus the whole repo-root set.**
+`ossify/tests/run-all.sh` is not a proxy for the others — it exercises none of their code, so
+an ossify-only run reports green on a scaffold-dev change that was never tested.
+
 ```bash
-bash ossify/tests/run-all.sh                    # full ossify suite
-bash ossify/tests/test-block-ledger.sh          # shipped bash-block ledger
-bash tests/test-recommendation-policy-parity.sh # cross-plugin byte-parity
+# Per-plugin — CI runs every one of these (.github/workflows/tests.yml)
+bash workspace-init/run-tests.sh
+bash scaffold-onboard/run-tests.sh
+bash scaffold-dev/run-tests.sh
+bash architect-critic/run-tests.sh
+bash claude-security-audit/run-tests.sh          # CSA_SKIP_PERF=1 on shared runners (#71)
+bash ai-mentor/tests/test-frontmatter-lint.sh
+bash ossify/tests/run-all.sh                     # full ossify suite
+bash ossify/tests/test-block-ledger.sh           # shipped bash-block ledger
+
+# Repo-root, cross-plugin — these catch what no single plugin suite can see
+bash tests/test-codex-dual-publish.sh            # Claude/Codex marketplace parity
+bash tests/test-recommendation-policy-parity.sh  # cross-plugin byte-parity
+node --test tests/test-opencode-runtime-adapter.mjs
+bash tests/test-opencode-live.sh                 # OpenCode live loader
 ```
 
 **The eval gate is NOT one command, and running the aggregator alone is a false green.**
