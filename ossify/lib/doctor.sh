@@ -23,12 +23,20 @@
 # patches - 1` instead.) (Codex P2, PR #149 round 3.)
 _OSS_DOCTOR_ARR='def _arr(f): if (f|type) == "array" then f else error("not an array") end;'
 
-# `_oss_canon_path` MOVED to lib/manifest.sh (#150). It compares the two paths
-# `_oss_resolve_state` and `oss_manifest_state_path` produce, and both live
-# there; leaving it here made `oss_interop_check` depend on doctor.sh being
-# sourced, which the dispatcher does but a directly-sourced test does not - and
-# a missing function there yields two empty strings that compare EQUAL, turning
-# a real cross-project failure into `ok:`.
+# `_oss_canon_path` MOVED to lib/manifest.sh (#150), because it compares the two
+# paths `_oss_resolve_state` and `oss_manifest_state_path` produce and both live
+# there, and because the interop check needed it without wanting doctor.sh
+# sourced.
+#
+# THAT SECOND REASON IS GONE: the interop check is prose now and its verb was
+# removed, so this file holds the only two remaining production calls. When
+# `doctor` itself converts, `_oss_canon_path` loses them and goes too — together
+# with test-manifest.sh's ~21 direct assertions on it, which are NOT covered by
+# "no callers". See the note on the function.
+#
+# Deliberately NOT moved back here in the meantime: a move now is churn on code
+# we intend to delete. The function body is 25 lines; the annotated block around
+# it is 93.
 
 _oss_doctor_count() { # $1=state-file $2=jq-expr ; echoes the count, rc 1 if unreadable
   local out

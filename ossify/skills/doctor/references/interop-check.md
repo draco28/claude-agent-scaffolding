@@ -9,6 +9,14 @@ repair half was scaffold-onboard's own extension and is not shipped here. This
 surface reports and names the fix. It does not edit the manifest and does not
 touch `AGENTS.md`.
 
+**You perform this check by reading. There is no dispatcher verb for it** — the
+`interop_check` subcommand was removed. It was 175 lines of bash that opened
+files and described what it found, which is work a model does directly and
+better. What remains deterministic is *path resolution* (`oss repo_root`,
+`oss state_path`), because every mutating verb routes through it and two
+spellings of one path is a real defect class. Deciding whether what you read is
+healthy is yours.
+
 ---
 
 ## 1. The question
@@ -18,13 +26,22 @@ mid-project, without either one silently working from different assumptions?*
 
 Everything below is a way that question comes out **no**.
 
-```bash
-oss interop_check
+### Output grammar — match it exactly
+
+One line per check, `ok:` or `fail:`, then the check name, then a dash and the
+detail. Same grammar as `oss doctor`, because a single read-out should not carry
+two vocabularies:
+
+```
+ok: manifest - /path/to/.workspace/pairing.json
+fail: agents_md - no AGENTS.md at /path/AGENTS.md; a Codex session gets no project instructions at all
 ```
 
-Same line grammar as `oss doctor` — `ok:` / `fail:`, one line per check, rc 1
-if anything failed — because a single read-out should not carry two
-vocabularies.
+Check names, in this order: `manifest`, `canonical`, `ai_workspace`,
+`state_path`, `agents_md`. **If any line is `fail:`, say so explicitly at the
+end** — there is no exit code to carry it now, so the summary is what the reader
+acts on. Report every failing line, not just the first, except where §3 says to
+stop.
 
 ---
 
@@ -49,68 +66,189 @@ ceremony read it?** If nothing reads it, its absence is not a finding.
 
 ---
 
-## 3. The four checks
+## 3. The checks
 
 ### `manifest`
 
-The workspace-init pairing manifest, discovered by walking up from `$PWD`.
+Walk up from `$PWD` for `.workspace/pairing.json` and read it. That walk is a
+few directory checks; do it yourself.
 
-Absent → **`fail:`, and the check returns immediately.** Every later check reads
-the manifest, so continuing would emit four derived failures for one root cause
-and bury the only thing that has to be fixed first. Remedy: `/init-workspace`
-(new workspace) or `/pair-workspace` (existing canonical repo) — name those
-tokens literally, do not paraphrase them.
+`oss manifest_require` is the *refusal*, not the finder — it returns rc 1 and
+prints the project's canonical refusal text to **stderr**, and discards the path
+on success. Use it when you want that exact wording; do not expect a path from
+it. There is no dispatcher verb that echoes the manifest path.
+
+**Absent → `fail:`, and STOP.** Do not run the remaining checks. Every one of
+them reads this file, so continuing emits four derived failures for one root
+cause and buries the only thing that has to be fixed first. Remedy:
+`/init-workspace` (new workspace) or `/pair-workspace` (existing canonical
+repo) — name those tokens literally, do not paraphrase them.
+
+**Present but unreadable → `fail:`, and STOP**, for the same reason. Read the
+file and satisfy yourself it is **exactly one JSON object**. Three ways it is
+not, all of which used to reach the later checks and produce nonsense:
+
+- Malformed JSON.
+- A valid non-object: `[]`, `null`, `42`, `"a string"`. Each parses, then every
+  key read comes back empty.
+- **Two or more concatenated top-level values** — `{...}{...}`. This is the one
+  worth reading for deliberately. A tool checking only "does the last value
+  parse as an object" accepts it, and every key read then returns *both* values'
+  answers joined by a newline, so roots and paths come out as two-line strings
+  and every later line is nonsense about a path nobody configured. Count the
+  top-level values. (#169)
 
 ### `canonical` and `ai_workspace`
 
-Both roots must resolve to real directories. Resolution goes through the same
-resolver every other ossify verb uses, which substitutes `${...}` tokens and
-refuses a path that only *looks* absolute — reading the raw JSON value instead
-would pass a manifest that every real call then fails on.
+Both roots must resolve, and both must be real directories.
 
-Two distinct failures, deliberately worded apart:
+```bash
+oss repo_root canonical
+oss repo_root ai_workspace
+```
 
-| Line | Means |
-|---|---|
-| `is absent, holds an unresolved ${...} token, or is not absolute` | the manifest is wrong |
-| `resolved root is not a directory: <path>` | the manifest is right and the directory moved |
+Use the verb, not the raw JSON value. It substitutes `${...}` tokens and refuses
+a path that only *looks* absolute — reading the raw value would pass a manifest
+that every real call then fails on. Its refusals are already worded for you,
+including the `${PLUGIN_DATA:...}` case, which is legal workspace-init
+vocabulary that ossify does not resolve: report that refusal as written rather
+than calling it malformed. (#165)
+
+Distinguish the two failures — they have different causes and different fixes:
+
+| Condition | Line | Means |
+|---|---|---|
+| the verb refuses | `fail: <key> - .<key>.root is absent, holds an unresolved ${...} token, or is not absolute` | the manifest is wrong |
+| resolves, not a directory | `fail: <key> - resolved root is not a directory: <path>` | the manifest is right and the directory moved |
 
 The second is the one that happens to real projects, usually after a repo is
 renamed or moved.
 
+**`canonical` must also be a git repository.** Probe it:
+
+```bash
+git -C "$(oss repo_root canonical)" rev-parse --git-dir
+```
+
+A canonical root that is an ordinary directory — `.git` removed, or the manifest
+hand-edited — passes a directory check and then fails the first ceremony that
+touches it: `oss_worktree_add` runs `git -C "$root" worktree add` immediately,
+and spine close runs merges and reachability checks against the same root. Line:
+`fail: canonical - resolved root is not a git repository: <path>`. (#153)
+
+**Do not apply the git probe to `ai_workspace`.** That workspace is legitimately
+allowed to be untracked, so the same probe there is a false failure. This is the
+one place the two roots are deliberately *not* treated alike — a check that
+loops over both keys uniformly is wrong.
+
 ### `state_path`
 
-The state file's path must resolve. It does **not** have to be routed.
+The state file's path must resolve, and the session must not be quietly driving
+a different project's state.
 
-`.well_known_paths.project_state` is honoured when present; when absent, the
-path derives as `<ai_workspace.root>/.ossify/project-state.json`. **Both forms
-are manifest-absolute**, so both resolve identically from any directory, and an
-unrouted manifest is therefore **not** an interop risk and is not reported as
-one.
+```bash
+oss state_path      # the manifest's answer; ignores the environment
+if [ -n "${OSS_STATE_FILE+set}" ]; then printf 'set: [%s]\n' "$OSS_STATE_FILE"; else printf 'unset\n'; fi
+```
 
-What *is* a risk is a path that does not resolve at all — an unresolved
-`${...}` token resolves differently depending on which variables a given
-session's environment happens to carry, which is precisely two agents driving
-two different files.
+**`${VAR+set}` and `printf`, not `echo "${VAR:-<unset>}"`.** Both halves of that
+shorter form lose information this check depends on, and both lose it toward a
+false `ok:`:
+
+- `${VAR:-<unset>}` cannot distinguish *unset* from the literal string `<unset>`
+  — they print identically. The resolver treats the literal as an active
+  **relative** override, so ceremonies would read and write `./<unset>` while the
+  check reported no override at all.
+- `echo` eats its own option-looking arguments: a value of `-n` or `-e` prints as
+  empty, so a live override reads as "not set".
+
+`${VAR+set}` tests **setness** without substituting, and `printf '%s'` prints any
+value literally. The brackets in `[%s]` make a trailing space or an empty value
+visible too.
+
+**Resolution first.** If `oss state_path` fails, that is
+`fail: state_path - the state path does not resolve to an absolute location (an
+unresolved ${...} token, a relative routed value, or no ai_workspace.root)`.
+
+**Routing is not required.** `.well_known_paths.project_state` is honoured when
+present; when absent the path derives as
+`<ai_workspace.root>/.ossify/project-state.json`. **Both forms are
+manifest-absolute**, so both resolve identically from any directory. An unrouted
+manifest is therefore **not** an interop risk and must not be reported as one.
+
+**Then the override.** `$OSS_STATE_FILE` takes precedence over the manifest for
+every ceremony in this session, so a check that reads only the manifest path
+certifies the workspace switch-ready while this session reads and *mutates*
+another project's state. That is the interop failure in its purest form.
+
+**The rule is deliberately blunt, and the bluntness is the design:**
+
+1. **Not set, or set but empty** → no override. `_oss_resolve_state` guards on
+   `[ -n "${OSS_STATE_FILE:-}" ]`, so an empty value falls through to the manifest
+   exactly as an unset one does. `ok: state_path - <routed>`.
+2. **Set and byte-identical to `oss state_path`** → `ok: state_path - <routed>`.
+3. **Anything else** → `fail: state_path - $OSS_STATE_FILE is set to '<env>' but
+   the manifest routes state to '<routed>'. If these name the same file, unset the
+   variable — the manifest already routes there. If they do not, this session's
+   ceremonies would read and WRITE another project's state.`
+
+**Do not normalize the two paths before comparing them.** Not `/./`, not `//`,
+not symlinks, not `..`, not case. A byte comparison, and a failure whenever it
+does not match.
+
+**Why, in full, because the temptation to "improve" this is strong and it has
+already been costly.** An earlier revision of this file compared *directory
+entries*: resolve the deepest existing ancestor with `cd -P`, keep the final
+component verbatim. It was five lines and it looked obviously correct. Review
+found, in four consecutive rounds: `-ef` accepting a hard link that `mv` then
+forks; a lexical-only fallback failing a healthy workspace whose root is a
+symlink; a bare `cd` disagreeing with the kernel about `..` after a symlink — a
+false `ok:` while writes landed in another project; an unreadable ancestor
+returning an empty prefix; case-insensitive volumes calling one entry two; and a
+`.` component in a not-yet-existing tail. Every one was real. None was the last.
+
+Path normalization is a **tarpit**, and this repo has now paid for it twice —
+PR #166 spent four rounds and five defects on a hand-rolled normalizer whose net
+product value was a hand-rolled normalizer, and this surface repeated it in prose.
+`CLAUDE.md` states the rule that both violated: *over-specifying mechanical
+precision in prose is its own failure — it drives review churn without buying
+correctness.*
+
+**What the blunt rule costs, stated honestly:** a `fail:` on an override that is
+merely spelled differently — `$ws/./.ossify/…`, or a symlinked root. That is a
+**false failure, never a false OK**, and it is the safe direction: this check
+exists to stop a session silently driving another project. **And the remedy is
+correct in every one of those cases anyway** — if the two spellings name the same
+file, unsetting the variable loses nothing, because the manifest already routes
+there. An operator who follows the message is right whether or not the paths were
+equivalent, which is what makes the imprecision affordable.
+
+**Exact-equivalence detection belongs to #171**, which tracks making the override
+a refusal at resolution time across all ~42 callers rather than a warning on one
+surface. If that lands with a normalizer, this check should read its answer — not
+grow a second one.
 
 ### `agents_md`
 
 The check that is actually about Codex.
 
-`AGENTS.md` in the AI workspace must exist **and name ossify**. `AGENTS.md` is
-the only file Codex reads for project instructions: a workspace whose
-`AGENTS.md` never mentions ossify has a Codex session driving the project with
-none of its ceremonies — no spine planning, no close gates, no demo ledger —
-while the state file goes on recording a lifecycle nobody is following.
+`AGENTS.md` in the AI workspace must exist **and name ossify**. It is the only
+file Codex reads for project instructions: a workspace whose `AGENTS.md` never
+mentions ossify has a Codex session driving the project with none of its
+ceremonies — no spine planning, no close gates, no demo ledger — while the state
+file goes on recording a lifecycle nobody is following.
 
-The match is case-insensitive, so a `## Ossify` heading satisfies it.
-
-Two failures:
+Read `<ai_workspace.root>/AGENTS.md` and look for `ossify`, case-insensitively,
+anywhere in the file — a `## Ossify` heading satisfies it.
 
 | Line | Remedy |
 |---|---|
-| `no AGENTS.md at <path>` | author one; it is the Codex-side entry point |
-| `never mentions ossify` | add a section routing Codex to the ossify ceremonies |
+| `fail: agents_md - no AGENTS.md at <path>; a Codex session gets no project instructions at all` | author one; it is the Codex-side entry point |
+| `fail: agents_md - <path> never mentions ossify; a Codex session would drive this project with none of its ceremonies` | add a section routing Codex to the ossify ceremonies |
+
+If the `ai_workspace` root did not resolve, you cannot look for the file: report
+`fail: agents_md - cannot look for AGENTS.md without a resolvable ai_workspace
+root` and stop there.
 
 **Do not write or edit `AGENTS.md` yourself.** It holds user-authored content,
 and this surface has no managed-section contract to merge into — that machinery
@@ -123,7 +261,7 @@ line, name the fix, stop.
 
 Stated so a green result is not over-read:
 
-- **Whether a Codex session will actually behave.** The check is four
+- **Whether a Codex session will actually behave.** The check is a handful of
   presence-and-resolution facts. `AGENTS.md` mentioning ossify is not the same
   as `AGENTS.md` describing it correctly.
 - **Whether the two agents agree on anything else** — model config, tool

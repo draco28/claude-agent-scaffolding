@@ -303,6 +303,11 @@ oss_cmd_rules_validate() { # <type> <block-body> | <type> --file <path>
   fi
 }
 
-# Claude/Codex interop (spec §9.1, `doctor`'s fourth surface). CHECK ONLY - the
-# additive repair half was scaffold-onboard's own extension, not §9.1's word.
-oss_cmd_interop_check() { oss_interop_check; }
+# Claude/Codex interop (spec §9.1, `doctor`'s fourth surface) has NO verb. It was
+# 175 lines of bash that opened files and described what it found - diagnostics,
+# which the skill-first line puts in prose. `doctor/references/interop-check.md`
+# now carries it, and the agent emits the same ok:/fail: grammar by reading.
+#
+# What stayed here is the part that is not diagnosis: `oss repo_root` and
+# `oss state_path` resolve paths, every mutating verb routes through them, and
+# two spellings of one path is a real defect class. The prose calls those.

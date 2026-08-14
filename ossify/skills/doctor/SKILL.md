@@ -258,17 +258,21 @@ Absorbed from `scaffold-onboard`'s `checking-workspace-interoperability` (spec
 question it answers: **can this workspace be driven by Claude Code and by Codex,
 interchangeably, mid-project?**
 
-```bash
-oss interop_check
-```
+**You perform this one by reading. There is no dispatcher verb for it** — the
+`interop_check` subcommand was removed. It was 175 lines of bash that opened
+files and described what it found, which is work you do directly. Path
+*resolution* stays deterministic (`oss repo_root`, `oss state_path`), because
+every mutating verb routes through it.
 
-Same line grammar as `oss doctor` — `ok:` / `fail:` per check, rc 1 if anything
-failed. Four checks: the pairing manifest, both repo roots resolving to real
-directories, the state path resolving, and **`AGENTS.md` existing and naming
-ossify**. That last one is the check that is actually about Codex: `AGENTS.md`
-is the only file Codex reads for project instructions, so a workspace whose
-`AGENTS.md` never mentions ossify has a Codex session driving the project with
-none of its ceremonies.
+Emit the same line grammar as `oss doctor` — `ok:` / `fail:` per check — and,
+since there is no exit code now, **state plainly at the end whether anything
+failed**. Checks, in order: the pairing manifest (and that it is *exactly one*
+JSON object), both repo roots resolving to real directories with `canonical`
+also being a git repository, the state path resolving and not silently
+overridden, and **`AGENTS.md` existing and naming ossify**. That last one is the
+check that is actually about Codex: `AGENTS.md` is the only file Codex reads for
+project instructions, so a workspace whose `AGENTS.md` never mentions ossify has
+a Codex session driving the project with none of its ceremonies.
 
 **What was absorbed is the question, not the checklist.** The scaffold-onboard
 original requires `routing.roadmap`, `routing.sprint_specs` and
@@ -386,9 +390,7 @@ Named here rather than left to read as executed:
   check lines and their rc), `worktree_orphans` (the on-disk-minus-state
   difference — never whether an orphan is safe to delete), `rules_types` and
   `rules_validate` (block shape — never whether the rule is worth having),
-  `interop_check` (four presence-and-resolution facts — never whether a Codex
-  session would actually behave), `state_path`, `repo_root`, `manifest_require`,
-  `get` (arbitrary reads),
+  `state_path`, `repo_root`, `manifest_require`, `get` (arbitrary reads),
   `feature_list`, `critic_detect`, `state_restore` and `migrate` (**named to the
   user, not run by you**).
 - **`git`** is reached only as `git -C "<absolute path>"`. Resolve paths once
