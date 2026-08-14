@@ -147,9 +147,24 @@ The state file's path must resolve, and the session must not be quietly driving
 a different project's state.
 
 ```bash
-oss state_path          # the manifest's answer, ignores the environment
-echo "${OSS_STATE_FILE:-<unset>}"
+oss state_path      # the manifest's answer; ignores the environment
+if [ -n "${OSS_STATE_FILE+set}" ]; then printf 'set: [%s]\n' "$OSS_STATE_FILE"; else printf 'unset\n'; fi
 ```
+
+**`${VAR+set}` and `printf`, not `echo "${VAR:-<unset>}"`.** Both halves of that
+shorter form lose information this check depends on, and both lose it toward a
+false `ok:`:
+
+- `${VAR:-<unset>}` cannot distinguish *unset* from the literal string `<unset>`
+  — they print identically. The resolver treats the literal as an active
+  **relative** override, so ceremonies would read and write `./<unset>` while the
+  check reported no override at all.
+- `echo` eats its own option-looking arguments: a value of `-n` or `-e` prints as
+  empty, so a live override reads as "not set".
+
+`${VAR+set}` tests **setness** without substituting, and `printf '%s'` prints any
+value literally. The brackets in `[%s]` make a trailing space or an empty value
+visible too.
 
 **Resolution first.** If `oss state_path` fails, that is
 `fail: state_path - the state path does not resolve to an absolute location (an
