@@ -79,9 +79,13 @@ OSS="$HERE/../bin/oss"
 # with the state-file argument omitted resolves its working directory through
 # `_oss_repo_root canonical`, which reads the pairing manifest off the walk-up
 # path from $PWD. `well_known_paths.project_state` is pointed at the SAME path as
-# $OSS_STATE_FILE so `_oss_resolve_state` stays silent - a DIFFERING routed path
-# makes it print an "overriding the manifest-routed ..." notice on stderr, which
-# t_capture's `2>&1` folds into every T_OUT and breaks the exact-value assertions.
+# $OSS_STATE_FILE so the fixture states one intent for the state leg.
+#
+# That agreement used to be load-bearing: a DIFFERING routed path made
+# `_oss_resolve_state` print an "overriding the manifest-routed ..." notice on
+# stderr, which t_capture's `2>&1` folded into every T_OUT and broke the
+# exact-value assertions. The notice is GONE (#171) — the resolver routes and no
+# longer diagnoses — so this is now a clarity choice, not a precondition.
 TMP="$(mktemp -d)"; export OSS_STATE_FILE="$TMP/state.json"
 mkdir -p "$TMP/.workspace" "$TMP/canon"
 cat > "$TMP/.workspace/pairing.json" <<EOF

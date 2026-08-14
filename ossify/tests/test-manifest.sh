@@ -97,39 +97,75 @@ t_capture "$OSS" manifest_get '.ai_workspace.root'
 t_assert_rc 2 "dispatcher: the removed manifest_get verb is unknown (rc 2)"
 cd "$HERE"
 
-# --- Final review M1: when OSS_STATE_FILE overrides a MANIFEST-ROUTED project,
-# say so. A stale export left by an unrelated session silently redirects every
-# read and write, and nothing in the output named the source. Three properties
-# are asserted because each one is separately load-bearing:
-#   (a) the notice never touches stdout — `_oss_resolve_state`'s stdout IS the
-#       state path, and every `oss get` consumer treats stdout as a value;
-#   (b) it names the env var AND the manifest path being overridden;
-#   (c) it stays silent when nothing is actually being overridden (the env var
-#       agrees with the manifest), so it does not become noise to tune out.
+# --- #171: `_oss_resolve_state` ROUTES, it does not diagnose.
+#
+# The override notice these lines used to assert is GONE. It compared
+# $OSS_STATE_FILE to the routed path as raw strings, so an equivalent spelling
+# tripped it on a healthy workspace. It is removed rather than canonicalized:
+# reporting belongs to the agent, and canonicalizing here would have made this
+# function depend on `_oss_canon_path`, which is slated for deletion.
+#
+# Asserted: stdout is EXACTLY the path in every precedence branch, and stderr is
+# empty in all three — overriding, agreeing, and manifest-less. The overriding
+# case is the one that regressed; the other two are the controls that would have
+# caught the original raw-compare bug had they been written as equality.
 cd "$TMP/ws"
 export OSS_STATE_FILE="$TMP/elsewhere/state.json"
-t_capture _oss_resolve_state 2>/dev/null
 OUT_ONLY="$(_oss_resolve_state 2>/dev/null)"
-t_assert_eq "$TMP/elsewhere/state.json" "$OUT_ONLY" "override notice stays OFF stdout (stdout is exactly the path)"
-ERR_ONLY="$(_oss_resolve_state 2>&1 >/dev/null)"
-t_assert_contains "$ERR_ONLY" "OSS_STATE_FILE" "override notice names the env var as the source"
-t_assert_contains "$ERR_ONLY" "$TMP/ws/.ossify/project-state.json" "override notice names the manifest-routed path being overridden"
+t_assert_eq "$TMP/elsewhere/state.json" "$OUT_ONLY" "env override: stdout is exactly the path"
+ERR_OVERRIDE="$(_oss_resolve_state 2>&1 >/dev/null)"
+t_assert_eq "" "$ERR_OVERRIDE" "#171: SILENT when the env var overrides the manifest (was a raw-compare notice)"
+
+# The equivalent-spelling case that #171 was filed for: same file, different
+# spelling. A raw string compare called this an override; it is not one, and now
+# nothing is printed either way.
+export OSS_STATE_FILE="$TMP/ws/./.ossify/project-state.json"
+ERR_EQUIV="$(_oss_resolve_state 2>&1 >/dev/null)"
+t_assert_eq "" "$ERR_EQUIV" "#171: SILENT for an equivalent spelling of the routed path"
+t_assert_eq "$TMP/ws/./.ossify/project-state.json" "$(_oss_resolve_state 2>/dev/null)" \
+  "#171: an equivalent spelling is still returned VERBATIM, not canonicalized"
 
 export OSS_STATE_FILE="$TMP/ws/.ossify/project-state.json"
 ERR_AGREE="$(_oss_resolve_state 2>&1 >/dev/null)"
-t_assert_eq "" "$ERR_AGREE" "no notice when the env var agrees with the manifest (nothing is being overridden)"
+t_assert_eq "" "$ERR_AGREE" "silent when the env var agrees with the manifest"
 unset OSS_STATE_FILE
 cd "$HERE"
 
-# ...and with no manifest anywhere on the walk-up path there is nothing to
-# override, so the env branch stays silent there too (this is also what keeps
-# the rest of the suite, which runs manifest-less, free of the notice).
 cd "$TMP"
 export OSS_STATE_FILE="/env/y.json"
 ERR_NOMANIFEST="$(_oss_resolve_state 2>&1 >/dev/null)"
-t_assert_eq "" "$ERR_NOMANIFEST" "no notice when there is no manifest to override"
+t_assert_eq "" "$ERR_NOMANIFEST" "silent when there is no manifest to override"
+t_assert_eq "/env/y.json" "$(_oss_resolve_state 2>/dev/null)" "manifest-less: env value still routed through"
 unset OSS_STATE_FILE
 cd "$HERE"
+
+# --- #165: refusing ${PLUGIN_DATA:...} must say UNSUPPORTED, not malformed.
+# The token is valid workspace-init vocabulary that ossify deliberately does not
+# resolve (#152 wontfix), so the generic "unresolved path" wording sent readers to
+# workspace-init's docs — where the token is legal — and away from the fix.
+ERR_PD="$(_oss_manifest_wellknown_guard '${PLUGIN_DATA:foo}/x' spec 'test' 2>&1 >/dev/null)"
+# NOT `t_assert_contains "$ERR_PD" "PLUGIN_DATA"` — that assertion is VACUOUS. The
+# generic arm echoes the offending path back, and the path itself contains the
+# literal "PLUGIN_DATA", so it passes with this fix reverted. Caught by mutation
+# testing. Discriminate on the generic arm's own word instead: the named arm must
+# NOT call a documented-but-unsupported token "unresolved".
+if [ "${ERR_PD#*unresolved}" != "$ERR_PD" ]; then PD_SAYS_UNRESOLVED=yes; else PD_SAYS_UNRESOLVED=no; fi
+t_assert_eq "no" "$PD_SAYS_UNRESOLVED" "#165: PLUGIN_DATA is NOT reported with the generic 'unresolved' wording"
+t_assert_contains "$ERR_PD" "does not resolve" "#165: refusal says ossify does not resolve it (a limit, not a typo)"
+t_assert_contains "$ERR_PD" 'ai_workspace.root' "#165: refusal names a supported token to use instead"
+
+# CONTROL for the new arm — it must not swallow the generic case. An unknown
+# token still gets the original wording, and must NOT be described as PLUGIN_DATA.
+ERR_OTHER="$(_oss_manifest_wellknown_guard '${NOPE:foo}/x' spec 'test' 2>&1 >/dev/null)"
+t_assert_contains "$ERR_OTHER" "unresolved" "#165 control: an unrelated token still gets the generic refusal"
+# Substring test via parameter expansion, NOT a `case` inside $( ) — the `)` that
+# closes a case pattern also closes the command substitution.
+if [ "${ERR_OTHER#*PLUGIN_DATA}" != "$ERR_OTHER" ]; then MENTIONS_PD=yes; else MENTIONS_PD=no; fi
+t_assert_eq "no" "$MENTIONS_PD" "#165 control: the generic refusal does NOT mention PLUGIN_DATA"
+# CONTROL: both arms still REFUSE. A friendlier message that started returning 0
+# would route a mutating verb at an unresolvable path.
+t_capture _oss_manifest_wellknown_guard '${PLUGIN_DATA:foo}/x' spec 'test'
+t_assert_rc 1 "#165 control: the PLUGIN_DATA arm still refuses (rc 1), it only reworded"
 
 # ---------------------------------------------------------------------------
 # The RELATIVE-path trap (Codex P2, PR #149). `_oss_manifest_resolve`

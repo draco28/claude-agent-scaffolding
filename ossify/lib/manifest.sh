@@ -106,9 +106,18 @@ _oss_manifest_resolve() { # $1=ai-root $2=string
 # happened to start in - two agents in two directories driving two different
 # files, which is precisely the failure a well-known path exists to prevent.
 # (Codex P2, PR #149.)
+# The `${PLUGIN_DATA:` arm is ordered BEFORE the generic token arm on purpose (#165).
+# That token is a documented member of workspace-init's shared manifest vocabulary
+# which ossify deliberately does not resolve (#152, wontfix). Reported through the
+# generic arm it reads as "you typed this wrong", so the obvious next move - checking
+# the token against workspace-init's docs, where it IS valid - leads away from the fix.
+# Naming it converts a confusing rejection into a documented limit; it does not fork
+# the vocabulary.
 _oss_manifest_wellknown_guard() { # $1=resolved $2=what $3=source ; rc 0 if usable
   case "$1" in
     '')      echo "oss: unresolved $2 path: <empty> (from '$3')" >&2; return 1 ;;
+    *'${PLUGIN_DATA:'*)
+             echo "oss: $2 path uses \${PLUGIN_DATA:...}, which ossify does not resolve - route it with \${ai_workspace.root}, \${canonical.root}, \${HOME}, \${USER}, or an absolute path (from '$3')" >&2; return 1 ;;
     *'${'*)  echo "oss: unresolved $2 path: '$1' (from '$3')" >&2; return 1 ;;
     /*)      return 0 ;;
     *)       echo "oss: $2 path is not absolute: '$1' (from '$3') - a well-known path that depends on the session's cwd is not well-known" >&2; return 1 ;;
@@ -168,26 +177,23 @@ oss_manifest_spec_path() {
 # Dispatcher glue: resolve the state path for a subcommand.
 # Precedence: explicit $1 > $OSS_STATE_FILE (test/override) > manifest-derived.
 #
-# The env branch names itself on STDERR when it is genuinely overriding a
-# manifest-routed project: a stale OSS_STATE_FILE exported by an unrelated
-# session silently redirects every read and every write, and nothing else in the
-# output says where the path came from.
+# ROUTING ONLY - it resolves, it does not diagnose (#171). This used to compare
+# $OSS_STATE_FILE against the manifest-routed path and print an "overriding the
+# manifest-routed ..." notice on stderr. That comparison was a RAW STRING compare,
+# so an equivalent spelling ($ws/./.ossify/project-state.json) cried wolf on a
+# healthy workspace - a read-out pointing at the wrong thing, which is the exact
+# failure the notice existed to prevent.
 #
-# Two boundaries are deliberate. The notice never goes to stdout — this
-# function's stdout IS the state path, and callers consume it as a value. And it
-# stays silent when there is no manifest, or when the manifest agrees: nothing is
-# being overridden in either case, and a notice on every call is noise the reader
-# learns to skip, which is the failure mode this is supposed to prevent.
+# REMOVED rather than canonicalized, for two reasons. It was read-and-report
+# embedded in the function that routes every mutating verb, and reporting is the
+# agent's job: a session can compare `oss state_path` against the manifest and say
+# so in context, which this function's 42 callers cannot. And canonicalizing would
+# have made this function - which STAYS deterministic - depend on `_oss_canon_path`,
+# which is scheduled for deletion alongside interop/doctor. The advisory fix would
+# have pinned the dying helper in place.
 _oss_resolve_state() { # [$1=explicit-path]
   if [ -n "${1:-}" ]; then echo "$1"; return 0; fi
-  if [ -n "${OSS_STATE_FILE:-}" ]; then
-    local _routed
-    _routed="$(oss_manifest_state_path 2>/dev/null)" || _routed=""
-    if [ -n "$_routed" ] && [ "$_routed" != "$OSS_STATE_FILE" ]; then
-      echo "oss: state path came from \$OSS_STATE_FILE ($OSS_STATE_FILE), overriding the manifest-routed $_routed" >&2
-    fi
-    echo "$OSS_STATE_FILE"; return 0
-  fi
+  if [ -n "${OSS_STATE_FILE:-}" ]; then echo "$OSS_STATE_FILE"; return 0; fi
   oss_manifest_state_path
 }
 
