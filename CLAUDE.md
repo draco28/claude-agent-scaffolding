@@ -103,7 +103,13 @@ next to the case that must now pass.
   is not evidence.
 - The Bash tool runs zsh; `run-all.sh` forces bash. An unmatched glob aborts the whole
   command line under zsh, and `shopt` does not exist.
-- BSD `date -v` must precede `-f`, or it is silently ignored.
+- BSD `date`: **every option must precede the operand.** `-v` and `-f` may appear in either
+  order — `date -j -f %Y-%m-%d -v+1d 2024-01-01 +%F` prints `2024-01-02` correctly, and so
+  does the `-v`-first spelling. What fails is an option placed *after* the date string:
+  `date -j -f %Y-%m-%d 2024-01-01 -v+1d +%F` silently drops **both** the adjustment and the
+  output format, printing the default `Mon Jan  1 …`. An earlier draft of this bullet claimed
+  `-v` must precede `-f`; that is not a real constraint, and chasing it reorders flags without
+  fixing the actual bug. Measured on Darwin 25.5.0.
 - Never compute a test's expected date with the lib's own command — that is a tautology.
 - `${CLAUDE_PLUGIN_ROOT}` is not exported into Bash-tool subprocesses.
 
