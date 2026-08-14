@@ -1,7 +1,15 @@
 # claude-agent-scaffolding
 
-A Claude Code **plugin marketplace**. Everything here ships to users via `/plugin install`.
-There is no application — the plugins *are* the product.
+A **plugin marketplace** published to three surfaces: Claude Code (`/plugin install`, from
+`.claude-plugin/marketplace.json`), Codex (`.agents/plugins/marketplace.json`, the v0
+dual-publish contract), and an OpenCode adapter bundle (`.opencode/`). There is no
+application — the plugins *are* the product.
+
+**A change to a plugin manifest or to packaging has to be carried to every surface that
+plugin ships on**, and CI enforces it rather than advising it: `tests/test-codex-dual-publish.sh`
+checks version and frontmatter parity across the two marketplaces, and the OpenCode adapter
+has both a unit suite and a live-loader integration test. `scaffold` is deliberately absent
+from the Codex v0 set — check the deferred list before assuming a plugin ships everywhere.
 
 Shipped: `workspace-init`, `scaffold-onboard`, `scaffold-dev`, `scaffold`, `ai-mentor`,
 `architect-critic`, `claude-security-audit`. In development: `ossify`.
@@ -108,8 +116,13 @@ next to the case that must now pass.
   rebased branches are never ancestors of `main`, so `merge-base --is-ancestor` reports them
   unmerged forever. `git diff origin/main origin/<branch>` fails the other way: it compares
   two endpoint trees, so any unrelated commit on `main` makes the diff nonempty for a branch
-  that is fully merged. Use `gh pr list --state merged --json headRefName` (authoritative),
-  or `git cherry origin/main origin/<branch>` to isolate the branch's own unmerged patches.
+  that is fully merged. Ask GitHub about the one branch you care about:
+  `gh pr list --state merged --head <branch> --json number,mergedAt`. **Do not enumerate and
+  grep** — `gh pr list` defaults to `--limit 30`, and this repo passed 56 merged PRs on
+  2026-08-14, so an unqualified listing silently omits the oldest and strands their branches.
+  `git cherry` is **not** a fallback here: against a squash merge it compares each topic
+  commit's patch-id against individual upstream commits, so every commit on a squashed branch
+  reports `+` — fully merged, reported unmerged.
 - `branches/main/protection` returns 404 — the gate is a *ruleset*, not branch protection.
 - Take reviewer thread counts from **GraphQL** (`reviewThreads.totalCount`); REST undercounts.
 
