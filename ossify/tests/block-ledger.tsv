@@ -45,14 +45,17 @@
 #   block unfindable and the failure read as "vacuous" rather than as wrong
 #   behaviour. Pick the anchor from the block's SCAFFOLDING, never from its FIX.
 #
-# Totals: 176 blocks - 61 operative (12 covered, 49 deferred), 115 illustrative.
+# Totals: 175 blocks - 60 operative (11 covered, 49 deferred), 115 illustrative.
 # (interop_check converted to prose on PR #182: doctor/SKILL.md lost its verb
 # call; references/interop-check.md gained the three resolution reads the
-# agent-performed check works from, all illustrative, plus `entry()` - the one
-# piece of real LOGIC the conversion kept, which is COVERED rather than
-# deferred. Converting 175 lines of bash to prose ADDED one executed block and
-# removed a verb: the judgement moved into prose and the single rule that has to
-# be exactly right moved into a test. That is the shape a conversion should have.)
+# agent-performed check works from. ALL illustrative - the conversion adds no
+# executed block, because it kept no logic to execute.
+#
+# It briefly did. Review pressure produced an `entry()` path normalizer in the
+# prose, covered by tests/test-interop-prose.sh; four rounds and seven findings
+# later both were deleted for a byte comparison. The state_path section records
+# why. A conversion that ends up ADDING mechanical precision has misread its own
+# brief - that is what the deleted bash was.)
 # (Was 160 blocks / 55 operative / 105 illustrative before v0.3's `doctor`.
 # rule-authoring.md's validate example went operative and then back: it briefly
 # became a quoted heredoc assigning `body` for the next line to consume, which
@@ -112,7 +115,6 @@ I	skills/doctor/references/state-inspection.md	1	worktree_orphans call shapes, o
 I	skills/doctor/references/spec-validation.md	2	a spec_path resolve and a bones-count get bound to an explicit state path
 D	skills/doctor/references/rule-authoring.md	1	#138	the harvest_dir memory-bank path composition
 I	skills/doctor/references/rule-authoring.md	2	a rules_types call and a single --file validate call; the validate example is illustrative again now that the body travels as a FILE rather than as an embedded heredoc
-O	skills/doctor/references/interop-check.md	deepest EXISTING	tests/test-interop-prose.sh	entry() - the directory-entry normalizer the state_path override comparison turns on. Resolve the deepest EXISTING ancestor, keep the final component VERBATIM. Both directions are pinned: symlinked-parent/interior-/./-/doubled-slash spellings must AGREE (else a healthy workspace fails), and a final-component symlink or HARD LINK must DIFFER (both are the same inode, so -ef passes them and `mv` then forks the history). Its rule was wrong in three consecutive rounds - #178 (-ef accepts a symlink, P1), #182 r1 (the symlink-only patch still accepts a hard link), #182 r2 (the lexical-only overcorrection fails a symlinked root and a pre-init workspace, #168's symptom) - which is why it is executed rather than declared as debt
 I	skills/doctor/references/interop-check.md	3	the resolution calls the agent-performed check reads FROM, now that the verb is gone: the two repo_root reads, the canonical git probe, and state_path vs $OSS_STATE_FILE. Each is a single call whose OUTPUT the prose interprets - the judgement is the prose, so executing these would test the fixture rather than the check
 D	skills/doctor/references/budget-check.md	2	#138	both budget probes now self-locate the ossify root from the `oss` dispatcher and consume it on the next line - operative by the stated rule. The two forms they replaced (a repo-relative path, then ${CLAUDE_PLUGIN_ROOT}) both failed SILENTLY, the second by expanding to empty and reading /tests/..., so a regression here looks exactly like a working command
 D	skills/close/SKILL.md	2	#138	the id-shape router and the manifest-refusal + doctor gate
@@ -183,7 +185,7 @@ H	skills/close/references/work-item-close.md	705326676-2373
 H	commands/doctor.md	729179949-141
 H	skills/doctor/SKILL.md	20286939-175
 H	skills/doctor/references/budget-check.md	582880737-316
-H	skills/doctor/references/interop-check.md	2401971703-656
+H	skills/doctor/references/interop-check.md	2017829305-277
 H	skills/doctor/references/rule-authoring.md	1710469119-263
 H	skills/doctor/references/spec-validation.md	2541080060-102
 H	skills/doctor/references/state-inspection.md	4289717881-174

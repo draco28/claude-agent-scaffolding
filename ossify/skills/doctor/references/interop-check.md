@@ -166,131 +166,52 @@ every ceremony in this session, so a check that reads only the manifest path
 certifies the workspace switch-ready while this session reads and *mutates*
 another project's state. That is the interop failure in its purest form.
 
-Judge it in this order, and the order matters:
+**The rule is deliberately blunt, and the bluntness is the design:**
 
-0. **Empty is not set.** If `$OSS_STATE_FILE` is exported but empty, there is no
-   override. `_oss_resolve_state` guards on `[ -n "${OSS_STATE_FILE:-}" ]`, so an
-   empty value falls through to the manifest exactly as an unset one does.
-   Convicting it is a false failure on a healthy workspace — skip to
-   `ok: state_path`.
-1. **Relative override.** Set, non-empty, and does not begin with `/` → that is
-   the finding, whether or not it points at the same file:
-   `fail: state_path - the $OSS_STATE_FILE override is relative ('<value>'); it
-   resolves against whichever directory each session starts in, so two sessions
-   would drive two different files.` The manifest's own routed values are held
-   to exactly this rule, and the override arm not being held to it was a real
-   defect — a relative override whose target happened to exist under the cwd got
-   promoted to an absolute path, compared equal, and printed `ok:` for precisely
-   the cwd-dependent configuration this check exists to reject.
-2. **Trailing `/` or `/.`** → fail; see the separator table below.
-3. **A different DIRECTORY ENTRY from `oss state_path`.** Normalize each path the
-   same way — resolve its **parent directory physically**, keep its **final
-   component verbatim** — then compare the results as strings:
+1. **Not set, or set but empty** → no override. `_oss_resolve_state` guards on
+   `[ -n "${OSS_STATE_FILE:-}" ]`, so an empty value falls through to the manifest
+   exactly as an unset one does. `ok: state_path - <routed>`.
+2. **Set and byte-identical to `oss state_path`** → `ok: state_path - <routed>`.
+3. **Anything else** → `fail: state_path - $OSS_STATE_FILE is set to '<env>' but
+   the manifest routes state to '<routed>'. If these name the same file, unset the
+   variable — the manifest already routes there. If they do not, this session's
+   ceremonies would read and WRITE another project's state.`
 
-   ```bash
-   entry() {  # deepest EXISTING ancestor resolved; the rest kept verbatim
-     local p="$1" tail="" d; d="$(dirname "$p")"
-     while [ ! -d "$d" ] && [ "$d" != "/" ] && [ "$d" != "." ]; do
-       tail="$(basename "$d")${tail:+/$tail}"; d="$(dirname "$d")"
-     done
-     printf '%s%s/%s' "$(cd -P "$d" && pwd -P)" "${tail:+/$tail}" "$(basename "$p")"
-   }
-   ```
+**Do not normalize the two paths before comparing them.** Not `/./`, not `//`,
+not symlinks, not `..`, not case. A byte comparison, and a failure whenever it
+does not match.
 
-   Different → `fail: state_path - $OSS_STATE_FILE overrides the manifest
-   (<env>, not <routed>); this session's ceremonies would read another project's
-   state`.
+**Why, in full, because the temptation to "improve" this is strong and it has
+already been costly.** An earlier revision of this file compared *directory
+entries*: resolve the deepest existing ancestor with `cd -P`, keep the final
+component verbatim. It was five lines and it looked obviously correct. Review
+found, in four consecutive rounds: `-ef` accepting a hard link that `mv` then
+forks; a lexical-only fallback failing a healthy workspace whose root is a
+symlink; a bare `cd` disagreeing with the kernel about `..` after a symlink — a
+false `ok:` while writes landed in another project; an unreadable ancestor
+returning an empty prefix; case-insensitive volumes calling one entry two; and a
+`.` component in a not-yet-existing tail. Every one was real. None was the last.
 
-   **The walk up to the deepest existing ancestor is why this works before
-   `oss init`.** A pre-init workspace has no `.ossify/` yet, which is exactly
-   when someone runs an interop check — and a plain `cd "$(dirname)"` cannot
-   resolve a parent that does not exist. Resolving only as far as something real
-   and re-appending the rest verbatim gives the symlinked and physical spellings
-   the same answer while the file is still absent. Without it, a healthy pre-init
-   workspace on a symlinked root reports a false cross-project override (#168's
-   reported symptom, which lived on this surface).
-4. Otherwise `ok: state_path - <routed>`.
+Path normalization is a **tarpit**, and this repo has now paid for it twice —
+PR #166 spent four rounds and five defects on a hand-rolled normalizer whose net
+product value was a hand-rolled normalizer, and this surface repeated it in prose.
+`CLAUDE.md` states the rule that both violated: *over-specifying mechanical
+precision in prose is its own failure — it drives review churn without buying
+correctness.*
 
-> **`cd -P`, not bare `cd`, and the `-P` is not decoration.** Bash's default `cd`
-> is *logical*: it processes `..` textually **before** resolving symlinks, while
-> `-P` resolves symlinks first. With a symlink followed by `..` the two disagree
-> about which file is named, and only `-P` agrees with the kernel. Measured — the
-> override below reads `OTHER` while a logical normalization calls it the routed
-> path:
->
-> ```
-> /ws/link/../state.json     where link -> /other/sub
->   kernel reads      : {"who":"OTHER"}
->   bare cd  + pwd -P : /ws/state.json      -> matches routed -> ok:   ← FALSE
->   cd -P    + pwd -P : /other/state.json   -> differs        -> fail: ← correct
-> ```
->
-> `pwd -P` alone does not save you: it reports the physical form of wherever `cd`
-> already landed, and by then the logical `..` has been applied.
->
-> **The two halves of that normalization are both load-bearing, and each one
-> failed on its own.**
->
-> **Resolve the parent, or a healthy workspace fails.** When `ai_workspace.root`
-> is itself a symlink, the routed path and the override can spell the same entry
-> two ways — `/tmp/link/.ossify/…` against `/private/tmp/real/.ossify/…`. A write
-> through either updates the same file, so reporting an override there is a false
-> alarm. Measured: purely lexical comparison fails exactly this case, and macOS
-> makes it ordinary (`/tmp` → `/private/tmp`). A trailing `/./` still must not be
-> collapsed — step 2 has already rejected those.
->
-> **Do NOT resolve the final component, or an alias passes.** The state file is a
-> **write target**: mutations commit with `mv "$tmp" "$sf"` (`lib/state.sh`), and
-> `mv` replaces the *directory entry* rather than following or preserving a link.
-> An override that is the same inode right now forks on the first write:
->
-> | Alias | `-L` | `-ef` | after one `mv` |
-> |---|---|---|---|
-> | symlink to routed | true | true | detached — routed file unchanged |
-> | **hard link** to routed | **false** | **true** | **forked — two live histories** |
->
-> **Never decide `ok:` from an inode test.** `-ef` says yes to both rows; `-L`
-> catches only the first. Keeping the basename verbatim rejects both with no
-> special case. (PR #178 shipped an `-ef` guard and it was a P1; #182 round 1
-> found the hard-link half a symlink-only patch still missed; #182 round 2 found
-> that a lexical-only overcorrection then failed healthy workspaces. The rule
-> that survives all three is: parent physical, basename verbatim.)
+**What the blunt rule costs, stated honestly:** a `fail:` on an override that is
+merely spelled differently — `$ws/./.ossify/…`, or a symlinked root. That is a
+**false failure, never a false OK**, and it is the safe direction: this check
+exists to stop a session silently driving another project. **And the remedy is
+correct in every one of those cases anyway** — if the two spellings name the same
+file, unsetting the variable loses nothing, because the manifest already routes
+there. An operator who follows the message is right whether or not the paths were
+equivalent, which is what makes the imprecision affordable.
 
-**Do not collapse a TRAILING `/` or `/.`, and do not collapse `..`.** Both change
-which file the path names, and both were live defects:
-
-| Spelling | `[ -f ]` | `jq` reads it |
-|---|---|---|
-| `s.json` | yes | ok |
-| `s.json/` | **no** | **fails ENOTDIR** |
-| `s.json/.` | **no** | **fails ENOTDIR** |
-
-A trailing separator asserts a *directory* and POSIX enforces it, so collapsing
-`<routed>/.` to `<routed>` reports `ok: state_path` for a path every state read
-then fails on — certifying a workspace as switch-ready while the session cannot
-read its state at all. That is exactly the defect PR #166 round 1 fixed in the
-deleted bash. `..` is not collapsible either: `a/b/..` is not `a` when `b` is a
-symlink.
-
-**Echo the raw spellings in the message.** The operator typed that string;
-showing them a normalized form they never typed makes the remedy harder to act
-on.
-
-**An inode test is banned from the VERDICT, not from the explanation.** Step 3
-decides pass or fail on directory entries alone — that part admits no `-ef`. Once
-it has already failed, you may compare inodes to work out *why*, and you have to:
-a hard link carries no pathname marker, so `-ef` is the only thing that separates
-"an alias of the routed file" from "a different project's state".
-
-So after a step-3 failure, check `[ "$OSS_STATE_FILE" -ef "$(oss state_path)" ]`:
-
-| `-ef` after a step-3 fail | What it is | Message |
-|---|---|---|
-| true | an alias — symlink or hard link | `fail: state_path - $OSS_STATE_FILE ('<env>') is an alias of the manifest-routed <routed>; the first write replaces its directory entry and the two paths fork into separate histories. Unset it rather than linking.` |
-| false | genuinely another file | the "overrides the manifest" wording from step 3 |
-
-Both are failures. The inode test only picks the remedy, and picking the wrong
-remedy sends the operator looking for a second project that does not exist.
+**Exact-equivalence detection belongs to #171**, which tracks making the override
+a refusal at resolution time across all ~42 callers rather than a warning on one
+surface. If that lands with a normalizer, this check should read its answer — not
+grow a second one.
 
 ### `agents_md`
 
