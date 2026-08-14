@@ -22,49 +22,16 @@ never be added back here.
 
 ## The one rule that matters most
 
-**Code that MUTATES DURABLE STATE may be deterministic. Code that READS AND REPORTS must be prose.**
+@docs/conventions/skill-first.md
 
-The consumer of these plugins is a frontier model. It does not need a runtime library to
-tell it what a path is or whether a file looks wrong — it can read the file. Every line of
-shell we ship to do that work is a line the model would have done better, and a line that
-can carry a bug.
+That file is the single source of truth for the determinism line — its scope, its evidence,
+and the decidable test that goes with it.
 
-| Deterministic is justified | Prose is correct |
-|---|---|
-| journal mutation, replay, locking | diagnostics ("read this, say what's wrong") |
-| exact identity — digests, hashes | verification ("run this, did it pass") |
-| real side effects — git, worktrees | extraction ("read these docs, pull out the lessons") |
-| monotonic ID minting | validation of prose the agent itself authored |
-| safety rails the agent must not argue past | anything heuristic or judgment-laden |
-
-**Measured, not asserted.** On this repo, new library bash has been ~29% of changed volume
-and ~57% of review findings — roughly 4x the defect density of prose. On PR #166 it was
-100%: four review rounds, five defects, every one in path-string handling, net product value
-a path normalizer. At the time of writing, **6 of 41 open issues are bugs in library code the
-skill-first direction marks for deletion** — 8 at the ceiling, and only if converting *both*
-`interop` and `doctor` also orphans the shared path helper they call.
-
-An earlier draft of this line claimed 15 of 38. That number came from a keyword grep over
-issue **titles**, and a per-issue read retired it: it swept in prose bugs, other plugins'
-bugs, and bugs in `manifest.sh` and `commands.sh` — 586 LOC the deterministic/prose sort
-never classified in either direction. The direction still rests on the defect-density
-measurement above; it does not rest on issue count.
-
-Before adding anything to a `lib/`, answer: *what breaks if a model does this by reading
-files instead?* If the answer is "nothing", write the prose.
-
-Compare the reference point: `superpowers` ships ~40 shell scripts and no runtime library.
-Every one is build/release/test tooling — `bump-version.sh`, `lint-shell.sh`, `run-test.sh`.
-None of it runs on a user's path, so none of it can produce a user-facing defect.
-
-## Skill-first
-
-Default to a skill (prose instructions the model follows). Reach for deterministic code only
-when the table above says so. Prefer agent/LLM-judge review over brittle deterministic gates
-for anything semantic; keep deterministic checks for mechanical facts only.
-
-Over-specifying mechanical precision in prose is its own failure — it drives review churn
-without buying correctness.
+It is imported rather than written here because the paired private AI workspace needs the
+same rule and **this file does not load there.** Claude Code walks *up* from the working
+directory; the two repos are siblings, so a session started in the workspace never sees this
+file. Both `CLAUDE.md` files import that one, which is what keeps the rule from drifting
+between them. Do not paraphrase it in either.
 
 ---
 
@@ -213,6 +180,13 @@ an agent per fixture, then a judge against `rubrics/<surface>.md`, writing
 it. Treat a green aggregate as valid only when the results files were regenerated after the
 change under test.
 
-`docs/conventions/` holds the byte-parity source of truth that parity test checks against —
-it is shipped convention, not process exhaust, which is why it is the only `docs/` content
-tracked here.
+`docs/conventions/` is the only `docs/` content tracked here, because it is shipped
+convention rather than process exhaust. Two different mechanisms live in it, and they are not
+interchangeable:
+
+- **`recommendation-policy.md`** is the byte-parity source of truth the parity test checks
+  against — copied into each adopting plugin because repo-root `docs/` does not ship on
+  `/plugin install`. Edit the root copy and re-copy; never hand-edit a plugin copy.
+- **`skill-first.md`** is imported by `CLAUDE.md` (here and in the paired workspace), not
+  copied. It governs how we build, so it never needs to reach a consumer's machine — which is
+  why it has no plugin copies and no parity test.
