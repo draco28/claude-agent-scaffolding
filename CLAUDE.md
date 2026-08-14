@@ -190,9 +190,15 @@ walked by hand (ai-mentor's five `tests/*.md`, required before a version bump). 
 says nothing about any of them, and a plugin's own runner can miss them too: `architect-critic/run-tests.sh`
 discovers only `tests/unit/` and `tests/integration/`, so its evaluator never runs from either.
 
-**Before bumping a plugin's version, read that plugin's own `tests/README.md` or `RUNBOOK.md`
-and do what it asks.** Do not infer the requirement from this file — it cannot stay current
-with every plugin's gate, and the attempt is what the deleted command list was.
+**Before bumping a plugin's version, list that plugin's `tests/` and `evals/` trees and compare
+them against what its own runner actually executes.** Whatever the runner does not execute is
+a gate you walk by hand.
+
+**Do not expect a consistent filename.** Across the seven shipped plugins the gate document is
+variously a `RUNBOOK.md`, a `tests/README.md`, or a directory of markdown fixtures — and two
+plugins have none at all. That is why this says *look* rather than naming a file to open:
+naming one is how the deleted command block started, and a pointer to a file that does not
+exist fails the same way a stale list does.
 
 ```bash
 bash ossify/tests/eval/lib/aggregate-scores.sh  # reads results/*.json — evaluates NOTHING
