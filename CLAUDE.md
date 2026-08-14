@@ -181,10 +181,4 @@ it. Treat a green aggregate as valid only when the results files were regenerate
 change under test.
 
 `docs/conventions/` is the only `docs/` content tracked here, because it is shipped convention
-rather than process exhaust.
-
-**How each file there reaches its consumer differs, and the file's own header states which.**
-Byte-parity copy under a test, `CLAUDE.md` import, and cited-source are all currently in use.
-Read the header rather than inferring from a neighbour — and do not enumerate the mechanisms
-here. A revision of this paragraph did, naming two of the three, and was wrong before it
-merged.
+rather than process exhaust. Delivery differs per file; each file's header states its own.

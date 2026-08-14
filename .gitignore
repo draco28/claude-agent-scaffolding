@@ -29,9 +29,7 @@ ai-mentor/state.json
 # authored, public -> private is impossible; this governs what ships forward.
 #
 # docs/conventions/ is deliberately EXCLUDED below: it is shipped convention, not
-# process exhaust. That is the whole reason — it does not depend on which files are
-# in there or how each one is delivered. Each file states its own delivery mechanism
-# in its header; do not restate them here or in CLAUDE.md.
+# process exhaust. Each file's header states how that file is delivered.
 docs/agent-driven-program/
 docs/superpowers/
 docs/archive/
