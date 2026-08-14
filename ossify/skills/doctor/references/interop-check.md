@@ -182,22 +182,36 @@ Judge it in this order, and the order matters:
    defect — a relative override whose target happened to exist under the cwd got
    promoted to an absolute path, compared equal, and printed `ok:` for precisely
    the cwd-dependent configuration this check exists to reject.
-2. **Symlink.** `[ -L "$OSS_STATE_FILE" ]` → **fail, even though it is the same
-   file right now.** See the write-target note below; this test comes *before*
-   any identity comparison, because every identity test answers yes here and the
-   answer is wrong.
-3. **Different file.** Absolute, not a symlink, and a different file from
-   `oss state_path`: `fail: state_path - $OSS_STATE_FILE overrides the manifest
-   (<env>, not <routed>); this session's ceremonies would read another project's
-   state`.
+2. **Trailing `/` or `/.`** → fail; see the separator table below.
+3. **A different PATHNAME from `oss state_path`**, after collapsing `//` and an
+   *interior* `/./` and nothing else: `fail: state_path - $OSS_STATE_FILE
+   overrides the manifest (<env>, not <routed>); this session's ceremonies would
+   read another project's state`.
 4. Otherwise `ok: state_path - <routed>`.
 
-**Two spellings can be one file.** `$ws/./.ossify/project-state.json` and
-`$ws/.ossify/project-state.json` are the same file, and reporting an override
-there is a false alarm on a healthy workspace — that was a real bug (#150). Once
-step 2 has excluded symlinks, `[ "$a" -ef "$b" ]` settles the existing-file case
-in one operator. When the state file does not exist yet, compare the pathnames
-after collapsing `//` and an *interior* `/./`.
+> **Compare PATHNAMES. Never `-ef`, and never any other inode test.** The state
+> file is a **write target**: mutations commit with `mv "$tmp" "$sf"`
+> (`lib/state.sh`), and `mv` replaces the *directory entry* rather than following
+> or preserving the link. So an override that is the same inode right now forks
+> into a second history on the very first write, while the routed path keeps its
+> old contents. Measured, for both alias kinds:
+>
+> | Alias | `-L` | `-ef` | after one `mv` |
+> |---|---|---|---|
+> | symlink to routed | true | true | detached — routed file unchanged |
+> | **hard link** to routed | **false** | **true** | **forked — two live histories** |
+>
+> A rule built on `-ef` says `ok:` to both. A rule built on `-L` catches only the
+> first. **Pathname comparison rejects both without a special case**, which is why
+> it is the rule here rather than a caveat attached to one. (PR #178 shipped an
+> `-ef` guard and it was a P1; PR #182 round 1 then found the hard-link half that
+> the symlink-only patch still missed. Fix the class, not the instance.)
+
+**Two spellings can still be one file.** `$ws/./.ossify/project-state.json` and
+`$ws/.ossify/project-state.json` name the same file, and reporting an override
+there is a false alarm on a healthy workspace — that was a real bug (#150).
+Collapsing `//` and an interior `/./` handles it, and needs no filesystem at all,
+so it works identically whether or not the state file exists yet.
 
 **Do not collapse a TRAILING `/` or `/.`, and do not collapse `..`.** Both change
 which file the path names, and both were live defects:
@@ -219,14 +233,12 @@ symlink.
 showing them a normalized form they never typed makes the remedy harder to act
 on.
 
-> **A symlinked `$OSS_STATE_FILE` is never safe, even when it is the same file
-> now** — which is why step 2 rejects it before any identity test runs.
-> Mutations commit with `mv "$tmp" "$sf"`, which replaces the directory *entry*
-> rather than following the link, so the first write detaches the alias into a
-> second history while the routed file keeps its old contents. `-ef` answers
-> *file* identity; a write target needs *pathname* identity, and `-ef` returns
-> true for precisely the alias that breaks. Say so and recommend removing the
-> link — never `ok:`. (PR #178, where a guard built on `-ef` alone was a P1.)
+**When the override is an alias, say which kind.** A symlink or hard link to the
+routed path fails step 3 on its pathname, which is correct — but the remedy is
+"remove the link and let the manifest route it", not "you are pointed at another
+project". Name it: `fail: state_path - $OSS_STATE_FILE ('<env>') is an alias of
+the manifest-routed <routed>; the first write replaces its directory entry and
+the two paths fork into separate histories. Unset it rather than linking.`
 
 ### `agents_md`
 
