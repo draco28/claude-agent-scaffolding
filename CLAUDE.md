@@ -183,10 +183,16 @@ others — it exercises none of their code, so an ossify-only run reports ALL GR
 scaffold-dev change that was never tested. Plus the repo-root `tests/` set, which catches
 cross-plugin parity breaks no single plugin suite can see.
 
-**The eval gates are NOT one command, and running an aggregator alone is a false green.**
-`ossify` and `architect-critic` each ship a session-driven LLM-judge harness under
-`tests/eval/` — read that harness's own `RUNBOOK.md`, because neither is wired into CI and
-neither runs itself.
+**Some gates do not run themselves, and CI does not run them either.** Several plugins ship
+validation that both `tests.yml` and the plugin's own `run-tests.sh` skip — session-driven
+LLM-judge harnesses under `tests/eval/` (ossify, architect-critic), behavioural checklists
+walked by hand (ai-mentor's five `tests/*.md`, required before a version bump). A green CI run
+says nothing about any of them, and a plugin's own runner can miss them too: `architect-critic/run-tests.sh`
+discovers only `tests/unit/` and `tests/integration/`, so its evaluator never runs from either.
+
+**Before bumping a plugin's version, read that plugin's own `tests/README.md` or `RUNBOOK.md`
+and do what it asks.** Do not infer the requirement from this file — it cannot stay current
+with every plugin's gate, and the attempt is what the deleted command list was.
 
 ```bash
 bash ossify/tests/eval/lib/aggregate-scores.sh  # reads results/*.json — evaluates NOTHING
