@@ -51,3 +51,8 @@ docs/wabash-reference-working-project.md
 
 # scaffold-onboard test fixtures (generated at test-run time)
 scaffold-onboard/tests/fixtures/
+
+# Local Claude Code session config and notes. Untracked AND ignored: this repo is
+# PUBLIC, and .claude/ has held third-party transcripts that a stray `git add .`
+# would have published. Process notes belong in the private AI workspace.
+.claude/
