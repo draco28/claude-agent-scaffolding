@@ -5,6 +5,12 @@
 > - **Scope:** Tool-agnostic product architecture and delivery decisions
 > - **Non-goal:** This document does not change current `scaffold-onboard` or
 >   `scaffold-dev` behavior. Plugin translation is a separate future change.
+> - **Delivery:** **cited source** — read where it is needed, never copied and
+>   never imported. It has no plugin copy and no parity test, so nothing breaks
+>   if it is edited; what depends on it is prose that cites it, currently
+>   `ossify/tests/eval/README.md` §Seed provenance, whose fixtures derive from
+>   this document's 10 acceptance scenarios. Re-check those fixtures if the
+>   scenarios change.
 
 ## 1. Operating principle
 

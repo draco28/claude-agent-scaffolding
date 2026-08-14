@@ -24,47 +24,26 @@ never be added back here.
 
 **Code that MUTATES DURABLE STATE may be deterministic. Code that READS AND REPORTS must be prose.**
 
-The consumer of these plugins is a frontier model. It does not need a runtime library to
-tell it what a path is or whether a file looks wrong — it can read the file. Every line of
-shell we ship to do that work is a line the model would have done better, and a line that
-can carry a bug.
+@docs/conventions/skill-first.md
 
-| Deterministic is justified | Prose is correct |
-|---|---|
-| journal mutation, replay, locking | diagnostics ("read this, say what's wrong") |
-| exact identity — digests, hashes | verification ("run this, did it pass") |
-| real side effects — git, worktrees | extraction ("read these docs, pull out the lessons") |
-| monotonic ID minting | validation of prose the agent itself authored |
-| safety rails the agent must not argue past | anything heuristic or judgment-laden |
+`docs/conventions/skill-first.md` is **authoritative** — its scope, its evidence, and the
+decidable test that goes with it. The headline above is stated inline only because the import
+above it is a Claude Code feature, not a property of this file: any other reader — an external
+review agent, `cat`, the GitHub web view — receives that line as literal text and would
+otherwise get no rule at all. **If the two ever disagree, the file wins.**
 
-**Measured, not asserted.** On this repo, new library bash has been ~29% of changed volume
-and ~57% of review findings — roughly 4x the defect density of prose. On PR #166 it was
-100%: four review rounds, five defects, every one in path-string handling, net product value
-a path normalizer. At the time of writing, **6 of 41 open issues are bugs in library code the
-skill-first direction marks for deletion** — 8 at the ceiling, and only if converting *both*
-`interop` and `doctor` also orphans the shared path helper they call.
+It lives there rather than here because the paired private AI workspace needs the same rule and
+**this file does not load there.** Claude Code walks *up* from the working directory; the two
+repos are siblings, so a session started in the workspace never sees this file. Its `CLAUDE.md`
+imports the same file by absolute path.
 
-An earlier draft of this line claimed 15 of 38. That number came from a keyword grep over
-issue **titles**, and a per-issue read retired it: it swept in prose bugs, other plugins'
-bugs, and bugs in `manifest.sh` and `commands.sh` — 586 LOC the deterministic/prose sort
-never classified in either direction. The direction still rests on the defect-density
-measurement above; it does not rest on issue count.
+That import is **external** — outside its working directory — so Claude Code gates it behind a
+one-time approval dialog per machine. Declining it, or hitting it non-interactively, disables
+the import permanently and **silently**: no error, no second prompt, just a session with no
+rule. If a workspace session seems not to know this rule, check `/context` for the file before
+assuming anything else.
 
-Before adding anything to a `lib/`, answer: *what breaks if a model does this by reading
-files instead?* If the answer is "nothing", write the prose.
-
-Compare the reference point: `superpowers` ships ~40 shell scripts and no runtime library.
-Every one is build/release/test tooling — `bump-version.sh`, `lint-shell.sh`, `run-test.sh`.
-None of it runs on a user's path, so none of it can produce a user-facing defect.
-
-## Skill-first
-
-Default to a skill (prose instructions the model follows). Reach for deterministic code only
-when the table above says so. Prefer agent/LLM-judge review over brittle deterministic gates
-for anything semantic; keep deterministic checks for mechanical facts only.
-
-Over-specifying mechanical precision in prose is its own failure — it drives review churn
-without buying correctness.
+Do not paraphrase the rule in either repo beyond the headline above.
 
 ---
 
@@ -213,6 +192,5 @@ an agent per fixture, then a judge against `rubrics/<surface>.md`, writing
 it. Treat a green aggregate as valid only when the results files were regenerated after the
 change under test.
 
-`docs/conventions/` holds the byte-parity source of truth that parity test checks against —
-it is shipped convention, not process exhaust, which is why it is the only `docs/` content
-tracked here.
+`docs/conventions/` is the only `docs/` content tracked here, because it is shipped convention
+rather than process exhaust. Delivery differs per file; each file's header states its own.
