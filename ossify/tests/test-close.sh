@@ -580,8 +580,11 @@ t_assert_rc 1 "the gate blocks at r10"
 t_assert_contains "$T_OUT" "f-active-at-r2${TAB}active${TAB}r2" "(f) an r2 expiry blocks at r10 - a STRING comparison drops exactly this row"
 t_assert_contains "$T_OUT" "f-renewed-to-r5${TAB}renewed${TAB}r5" "...and the r5 renewal is due by r10 too, so the r10 set is genuinely wider than the r2 set"
 
-# rc 0 = CLEAN, on a state with no outstanding fakes. Captured with stderr
-# dropped: OSS_STATE_FILE emits an override notice that t_capture would merge in.
+# rc 0 = CLEAN, on a state with no outstanding fakes. stderr is dropped defensively
+# so this assertion tests stdout alone. It used to be REQUIRED: OSS_STATE_FILE
+# emitted an override notice that t_capture would merge into T_OUT. That notice is
+# gone (#171) — _oss_resolve_state routes and no longer diagnoses — so the drop is
+# now belt-and-braces rather than load-bearing.
 CLEANST="$TMP/clean-state.json"; printf '%s\n' '{"schema_version":2,"fakes":[],"demo_ledger":[]}' > "$CLEANST"
 _CL_OUT="$(env "OSS_STATE_FILE=$CLEANST" bash "$OSS" expired_fakes r2 2>/dev/null)"; _CL_RC=$?
 t_assert_eq "0" "$_CL_RC" "an empty blocking set is rc 0 - CLEAN (so every rc 1 above fired for the stated reason)"
