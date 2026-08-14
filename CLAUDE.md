@@ -125,19 +125,32 @@ next to the case that must now pass.
   git hooks live in `.git/hooks/` and are **not tracked** — a fresh clone, a CI checkout, or
   any machine that never ran workspace-init has no filter at all. Do not rely on being
   stopped. If a commit *is* blocked, the message is wrong — never `--no-verify` past it.
-- **Determining whether a branch is merged: ask the PR, not the trees.** Squashed *and*
-  rebased branches are never ancestors of `main`, so `merge-base --is-ancestor` reports them
-  unmerged forever. `git diff origin/main origin/<branch>` fails the other way: it compares
-  two endpoint trees, so any unrelated commit on `main` makes the diff nonempty for a branch
-  that is fully merged. Ask GitHub about the one branch you care about:
-  `gh pr list --state merged --head <branch> --json number,mergedAt`. **Do not enumerate and
-  grep** — `gh pr list` defaults to `--limit 30`, and this repo passed 56 merged PRs on
-  2026-08-14, so an unqualified listing silently omits the oldest and strands their branches.
-  `git cherry` is **not** a fallback here: against a squash merge it compares each topic
-  commit's patch-id against individual upstream commits, so every commit on a squashed branch
-  reports `+` — fully merged, reported unmerged.
+- **Determining whether a branch is merged — see the block below.** This has been wrong four
+  times; do not improvise a fifth spelling.
 - `branches/main/protection` returns 404 — the gate is a *ruleset*, not branch protection.
 - Take reviewer thread counts from **GraphQL** (`reviewThreads.totalCount`); REST undercounts.
+
+### Is `origin/<branch>` merged?
+
+Two facts are needed, and every single-fact answer tried here has been wrong:
+
+```bash
+gh pr list --state merged --head <branch> --json number,mergedAt,headRefOid
+git ls-remote origin refs/heads/<branch>
+```
+
+**Merged iff a merged PR exists AND its `headRefOid` equals the branch tip.** If a merged PR
+comes back but the OIDs differ, the branch name was **reused** — the current incarnation is
+unmerged work, and deleting it destroys it.
+
+The four spellings that failed, so nobody re-derives one:
+
+| Spelling | Why it is wrong |
+|---|---|
+| `git merge-base --is-ancestor` | squashed *and* rebased branches are never ancestors — reports merged branches unmerged forever |
+| `git diff origin/main origin/<branch>` | compares endpoint trees, so any unrelated commit on `main` makes a fully-merged branch look unmerged |
+| `git cherry` | compares patch-ids per commit; against a squash merge every commit of a merged branch reports `+` |
+| `gh pr list --state merged` (unqualified) | `--limit` defaults to 30; this repo passed 56 merged PRs on 2026-08-14, so the oldest silently vanish |
 
 ## Reviewing and being reviewed
 
@@ -174,6 +187,10 @@ bash ossify/tests/test-block-ledger.sh           # shipped bash-block ledger
 bash tests/test-codex-dual-publish.sh            # Claude/Codex marketplace parity
 bash tests/test-recommendation-policy-parity.sh  # cross-plugin byte-parity
 node --test tests/test-opencode-runtime-adapter.mjs
+
+# The live loader needs the PINNED binary first — it asserts an exact version and
+# exits 1 on absent-or-different, which reads as your change breaking it.
+npm install --global opencode-ai@1.18.13
 bash tests/test-opencode-live.sh                 # OpenCode live loader
 ```
 
