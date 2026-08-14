@@ -287,7 +287,7 @@ t_assert_eq "plain"   "$(_oss_subst_literal 'plain' '${T}' 'Z')"    "subst: no o
 
 # --- _oss_canon_path: identity comparison for paths that may not exist -----
 # Moved here from doctor.sh, where it was reachable only by callers that had
-# already proved the file exists. `oss_interop_check` compares a path that
+# already proved the file exists. The interop check compared a path that
 # documents itself as possibly-absent, so the existence-only form silently
 # skipped normalization in exactly the case it was needed (#150).
 CP="$TMP/canon-fixture"
@@ -304,7 +304,9 @@ t_assert_eq "$(_oss_canon_path "$CP/dir/f")" "$(_oss_canon_path "$CP/./dir/f")" 
 t_assert_eq "$(_oss_canon_path "$CP/dir/f")" "$(_oss_canon_path "$CP//dir/f")" \
   "canon: a doubled slash on an existing file agrees too"
 
-# The new half. These are the spellings interop_check actually compares.
+# The new half. These are the spellings the interop check compared. That check
+# is prose now and its verb is gone, so doctor is the only caller left - see the
+# note on _oss_canon_path: it goes when doctor converts.
 t_assert_eq "$CP/dir/gone" "$(_oss_canon_path "$CP/./dir/gone")" \
   "canon: /./ is collapsed on a path that does NOT exist"
 t_assert_eq "$CP/dir/gone" "$(_oss_canon_path "$CP//dir//gone")" \
@@ -312,7 +314,7 @@ t_assert_eq "$CP/dir/gone" "$(_oss_canon_path "$CP//dir//gone")" \
 t_assert_eq "$CP/nodir/gone" "$(_oss_canon_path "$CP/./nodir/./gone")" \
   "canon: collapsing does not require the PARENT to exist either"
 t_assert_eq "$(_oss_canon_path "$CP/./dir/gone")" "$(_oss_canon_path "$CP/dir/gone")" \
-  "canon: the two spellings interop_check compares now agree while the file is absent"
+  "canon: the two spellings the interop check compared now agree while the file is absent"
 
 # A DELIBERATE limit, pinned so it is a decision rather than an oversight.
 # `a/b/..` is NOT `a` when `b` is a symlink, so resolving `..` textually would
@@ -341,7 +343,7 @@ t_assert_eq "/" "$(_oss_canon_path "/./")"  "canon: a /./ root collapses to the 
 
 # A TRAILING `/` or `.` is not decoration — it asserts the path names a
 # DIRECTORY, and POSIX enforces that: `jq f.json/` fails ENOTDIR and
-# `[ -f f.json/ ]` is false. Collapsing it made `interop_check` print
+# `[ -f f.json/ ]` is false. Collapsing it made the interop check print
 # `ok: state_path` for an $OSS_STATE_FILE that every state read then failed on —
 # the check certifying a workspace as switch-ready while the session could not
 # read its state at all. (Codex P2, PR #166 round 1.)

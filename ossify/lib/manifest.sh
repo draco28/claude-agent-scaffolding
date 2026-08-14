@@ -228,21 +228,31 @@ _oss_resolve_state() { # [$1=explicit-path]
   oss_manifest_state_path
 }
 
-# Canonicalize a path for IDENTITY comparison. Lives here rather than in
-# doctor.sh (its original home) because the two paths it exists to compare -
-# `_oss_resolve_state` above and `oss_manifest_state_path` - are both in this
-# file, and `oss_interop_check` needs it too.
+# Canonicalize a path for IDENTITY comparison.
+#
+# ONE CALLER LEFT, AND IT IS ON ITS WAY OUT. This was moved here from doctor.sh
+# (its original home) because the two paths it compares live in this file and
+# `interop_check` needed it too. `interop_check` is now prose and its verb is
+# gone, so the only remaining caller is `oss_cmd_doctor` — which is itself the
+# next conversion target. When `doctor` converts, this function has no callers
+# and goes with it, closing #151 and #168 without either being fixed. Do NOT add
+# a new caller: it would keep 81 lines of hand-rolled path handling alive past
+# the point anything needs it, and the class has already cost four review rounds
+# (PR #166). If you need write-target identity, compare pathnames; if you need
+# read identity on paths that exist, `[ a -ef b ]` is one operator.
 #
 # TWO HALVES, and the split is the point (#150).
 #
 # The LEXICAL half runs always. Collapsing `//` and `/./` cannot change which
 # file a path names, symlink or not, so it needs no filesystem and works on a
-# path that does not exist yet. That case is not hypothetical: unlike
-# `oss_cmd_doctor`, which returns early on `[ -f "$sf" ]` and therefore only
-# ever canonicalizes paths that exist, `oss_interop_check` compares a path whose
-# own resolver documents that the file may not exist yet. The existence-only
-# form skipped normalization in exactly the workspace where someone is still
-# wiring up their environment, so `$ws/./.ossify/…` read as another project.
+# path that does not exist yet. That mattered because `interop_check` compared a
+# path whose own resolver documents that the file may not exist yet, and the
+# existence-only form skipped normalization in exactly the workspace where
+# someone is still wiring up their environment, so `$ws/./.ossify/…` read as
+# another project. `oss_cmd_doctor` returns early on `[ -f "$sf" ]` and so only
+# ever canonicalizes paths that exist — meaning the lexical half now has no
+# caller that exercises its absent-path case. Kept rather than trimmed because
+# the whole function is scheduled for deletion; do not "simplify" it in place.
 #
 # `..` is deliberately NOT collapsed lexically: `a/b/..` is not `a` when `b` is
 # a symlink, which is precisely the case canonicalization exists to get right.
@@ -262,11 +272,12 @@ _oss_resolve_state() { # [$1=explicit-path]
 # same rule as `lead`, at the other end. `f.json/` does not name the same thing
 # as `f.json`: the trailing separator asserts a DIRECTORY and POSIX enforces it,
 # so `jq -e . f.json/` fails ENOTDIR and `[ -f f.json/ ]` is false. Collapsing it
-# made `oss_interop_check` print `ok: state_path` for an `$OSS_STATE_FILE` that
+# made the interop check print `ok: state_path` for an `$OSS_STATE_FILE` that
 # every state read then failed on - certifying a workspace as switch-ready while
 # the session could not read its state at all, which is precisely the condition
 # that check exists to catch. (Codex P2, PR #166 round 1, on this function's own
-# first version.)
+# first version. That check is prose now; the rule it earned still applies to
+# whoever compares paths next.)
 #
 # The constraint is carried by the FINAL component only; a `/./` in the middle is
 # identity-neutral and still collapses. And it is keyed on `$NF == "."` as well as
