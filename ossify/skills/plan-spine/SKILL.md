@@ -121,9 +121,11 @@ The probes resolve differently, and only the first is manifest-proof:
 `oss state_path` reads the manifest and nothing else, so an exported
 `$OSS_STATE_FILE` cannot satisfy it. `oss get` routes through `_oss_resolve_state`
 (precedence `explicit-arg > $OSS_STATE_FILE > manifest`) and *can* be — a stale
-export from an unrelated session makes probes 2 and 3 read *that* project. The
-resolver announces on stderr when the env var overrides the manifest; heed that
-line. `oss doctor` gives a full state read-out at any point.
+export from an unrelated session makes probes 2 and 3 read *that* project. **The
+resolver does not warn you** — it routes and stays silent. To find out, compare
+`oss state_path` (manifest only) against `oss get`'s target, or run
+`oss interop_check`, which reports the override explicitly. `oss doctor` gives a
+full state read-out at any point.
 
 ---
 

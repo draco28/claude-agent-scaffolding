@@ -76,8 +76,7 @@ TMP="$(mktemp -d)"; export OSS_STATE_FILE="$TMP/state.json"
 # stderr, which t_capture's `2>&1` folded into every T_OUT below and broke the
 # exact-value assertions. That notice is GONE (#171) — the resolver routes and no
 # longer diagnoses — so agreement is now a clarity choice, not a precondition for
-# these assertions to hold. ([GAP 2] still has no manifest on disk, which is now
-# simply a narrower fixture rather than an avoidance.)
+# these assertions to hold.
 mkdir -p "$TMP/.workspace" "$TMP/canon"
 cat > "$TMP/.workspace/pairing.json" <<EOF
 {"schema_version":"1.0","ai_workspace":{"root":"$TMP"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{"project_state":"\${ai_workspace.root}/state.json"}}

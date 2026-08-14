@@ -106,9 +106,17 @@ cd "$HERE"
 # function depend on `_oss_canon_path`, which is slated for deletion.
 #
 # Asserted: stdout is EXACTLY the path in every precedence branch, and stderr is
-# empty in all three — overriding, agreeing, and manifest-less. The overriding
-# case is the one that regressed; the other two are the controls that would have
-# caught the original raw-compare bug had they been written as equality.
+# empty in all four — overriding, equivalent-spelling, agreeing, manifest-less.
+#
+# WHICH of these can actually catch the bug, measured rather than assumed. Only
+# the EQUIVALENT-SPELLING case (ERR_EQUIV) is a real detector: it is the input
+# #171 was filed about. The agreeing and manifest-less cases were ALREADY written
+# as equality before this fix and stayed green straight through the defect — the
+# agreeing spelling compares equal even under a raw compare, and the manifest-less
+# branch never reaches the comparison at all. Re-adding the notice turns exactly
+# the overriding and equivalent-spelling assertions RED, and neither of the other
+# two, which is what "control" has to mean here: they pin the silent branches
+# against a future regression, they do not demonstrate detection of this one.
 cd "$TMP/ws"
 export OSS_STATE_FILE="$TMP/elsewhere/state.json"
 OUT_ONLY="$(_oss_resolve_state 2>/dev/null)"

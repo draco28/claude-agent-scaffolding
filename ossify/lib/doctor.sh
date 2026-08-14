@@ -214,8 +214,9 @@ oss_cmd_doctor() { # $1=state-file (optional; resolves via manifest/OSS_STATE_FI
       if orph="$(oss_worktree_orphans "$key" "$sf" 2>/dev/null)"; then
         if [ -n "$orph" ]; then
           # The remedy is PINNED to the inspected state, not just to the repo
-          # key. `_oss_resolve_state` puts `$OSS_STATE_FILE` ahead of the
-          # manifest route (manifest.sh:183-190), so a bare
+          # key. `_oss_resolve_state` (in lib/manifest.sh — named, not cited by
+          # line, because a line range goes stale on the next edit) puts
+          # `$OSS_STATE_FILE` ahead of the manifest route, so a bare
           # `oss worktree_orphans <key>` run by an operator with that variable
           # exported inspects a DIFFERENT project and prints nothing - directly
           # after a line promising it names the directories just found.
