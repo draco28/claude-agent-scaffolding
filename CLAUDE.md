@@ -79,8 +79,13 @@ next to the case that must now pass.
 - `bin/*` dispatchers run `set -euo pipefail`; tests source libs directly and do **not**.
   A lib change verified only by sourcing can still abort under the dispatcher — add a
   dispatcher-path test.
-- Under `set -o pipefail`, `… | grep -q` **fails on a true match** (SIGPIPE). Use one `awk`
-  pass with `index()`.
+- Under `set -o pipefail`, `… | grep -q` can fail **on a true match** — `grep -q` exits at the
+  first match and the producer takes SIGPIPE if it writes again. It fires intermittently,
+  which is worse than deterministic. Replace it with a single `awk` pass.
+  **When you do, preserve the predicate:** `index()` is a literal substring test, so it is not
+  equivalent to `grep -E`, `-w`, or `-x`. Pick the awk form that matches the original and
+  prove it on an input that separates them — the two predicates agreeing on your first fixture
+  is not evidence.
 - The Bash tool runs zsh; `run-all.sh` forces bash. An unmatched glob aborts the whole
   command line under zsh, and `shopt` does not exist.
 - BSD `date -v` must precede `-f`, or it is silently ignored.
@@ -94,11 +99,17 @@ next to the case that must now pass.
 - **Never squash.** Merge commits or rebase only. Enforced by ruleset `20492634`
   (`allowed_merge_methods = [merge, rebase]`), not just convention.
 - **Never push to `main` directly.** Branch + PR always.
-- **No `Co-Authored-By:` or `🤖 Generated with` trailers.** A `commit-msg` trace filter
-  rejects them. A blocked commit means the message is wrong — never `--no-verify` past it.
-- **Delete merged branches by CONTENT**, not by merge-base: squashed *and* rebased branches
-  are never ancestors of `main`, so `merge-base --is-ancestor` reports them unmerged forever.
-  Check `git diff origin/main origin/<branch>` is empty.
+- **No `Co-Authored-By:` or `🤖 Generated with` trailers.** This is a **policy you must
+  follow, not a guarantee the repo enforces.** A `commit-msg` trace filter blocks them, but
+  git hooks live in `.git/hooks/` and are **not tracked** — a fresh clone, a CI checkout, or
+  any machine that never ran workspace-init has no filter at all. Do not rely on being
+  stopped. If a commit *is* blocked, the message is wrong — never `--no-verify` past it.
+- **Determining whether a branch is merged: ask the PR, not the trees.** Squashed *and*
+  rebased branches are never ancestors of `main`, so `merge-base --is-ancestor` reports them
+  unmerged forever. `git diff origin/main origin/<branch>` fails the other way: it compares
+  two endpoint trees, so any unrelated commit on `main` makes the diff nonempty for a branch
+  that is fully merged. Use `gh pr list --state merged --json headRefName` (authoritative),
+  or `git cherry origin/main origin/<branch>` to isolate the branch's own unmerged patches.
 - `branches/main/protection` returns 404 — the gate is a *ruleset*, not branch protection.
 - Take reviewer thread counts from **GraphQL** (`reviewThreads.totalCount`); REST undercounts.
 
@@ -120,10 +131,24 @@ next to the case that must now pass.
 
 ```bash
 bash ossify/tests/run-all.sh                    # full ossify suite
-bash ossify/tests/eval/lib/aggregate-scores.sh  # LLM-judge eval gate
 bash ossify/tests/test-block-ledger.sh          # shipped bash-block ledger
 bash tests/test-recommendation-policy-parity.sh # cross-plugin byte-parity
 ```
+
+**The eval gate is NOT one command, and running the aggregator alone is a false green.**
+
+```bash
+bash ossify/tests/eval/lib/aggregate-scores.sh  # reads results/*.json — evaluates NOTHING
+```
+
+That script only summarises per-fixture JSON that a **prior Claude-Code session** wrote; its
+own header says "Run AFTER the eval run has written `results/*.json`." Run it after changing a
+skill or rubric and it re-reads the *committed* results and reports green, having evaluated
+none of the change. The evaluation itself is the session-driven pass in
+`ossify/tests/eval/RUNBOOK.md` (dispatch an agent per fixture, then a judge against
+`rubrics/<surface>.md`, writing `results/<surface>/<id>.json`) — `run-evals.sh` prints that
+instruction rather than performing it. Treat a green aggregate as valid only when the results
+files were regenerated after the change under test.
 
 `docs/conventions/` holds the byte-parity source of truth that parity test checks against —
 it is shipped convention, not process exhaust, which is why it is the only `docs/` content
