@@ -63,3 +63,14 @@ scaffold-onboard/tests/fixtures/
 # but every NEW file added beside them would have been silently skipped by `git add .`,
 # which is the same untracked-and-invisible failure this rule exists to prevent.
 /.claude/
+
+# ossify's own worktree directory. `oss_worktree_add` creates git worktrees under
+# `<repo>/.worktrees/<work-item-id>`, and this repo — which SHIPS ossify — was not
+# ignoring them. A `git add -A` here stages the worktree as a GITLINK (mode 160000):
+# a submodule pointer to a branch that exists only on one machine, which clones as
+# an empty directory and which nothing can resolve. Caught by doing exactly that on
+# PR #179 and having to unpick it.
+#
+# Anchored, for the same reason `/.claude/` is: an unanchored pattern would also
+# hide any `.worktrees` fixture a test creates under a plugin subtree.
+/.worktrees/

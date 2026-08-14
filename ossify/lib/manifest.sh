@@ -230,16 +230,25 @@ _oss_resolve_state() { # [$1=explicit-path]
 
 # Canonicalize a path for IDENTITY comparison.
 #
-# ONE CALLER LEFT, AND IT IS ON ITS WAY OUT. This was moved here from doctor.sh
-# (its original home) because the two paths it compares live in this file and
-# `interop_check` needed it too. `interop_check` is now prose and its verb is
-# gone, so the only remaining caller is `oss_cmd_doctor` — which is itself the
-# next conversion target. When `doctor` converts, this function has no callers
-# and goes with it, closing #151 and #168 without either being fixed. Do NOT add
-# a new caller: it would keep 81 lines of hand-rolled path handling alive past
-# the point anything needs it, and the class has already cost four review rounds
+# ONE PRODUCTION CALLER LEFT, AND IT IS ON ITS WAY OUT. This was moved here from
+# doctor.sh (its original home) because the two paths it compares live in this
+# file and `interop_check` needed it too. `interop_check` is now prose and its
+# verb is gone, so the only remaining production caller is `oss_cmd_doctor` —
+# itself the next conversion target.
+#
+# "No callers" is about SHIPPED code, not the tree: `tests/test-manifest.sh`
+# exercises this function directly in ~21 assertions. Deleting the function when
+# `doctor` converts means deleting that test section in the same change, or the
+# suite goes red — the conversion is function + tests together, the way
+# interop.sh and test-interop.sh went together. Closes #151 and #168 without
+# either being fixed.
+#
+# Do NOT add a new caller. It keeps hand-rolled path handling alive past the
+# point anything needs it, and the class has already cost four review rounds
 # (PR #166). If you need write-target identity, compare pathnames; if you need
-# read identity on paths that exist, `[ a -ef b ]` is one operator.
+# read identity on paths that exist, `[ a -ef b ]` is one operator — but see the
+# symlink caveat in doctor/references/interop-check.md before using it on
+# anything that gets written.
 #
 # TWO HALVES, and the split is the point (#150).
 #

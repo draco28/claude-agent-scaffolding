@@ -168,8 +168,13 @@ another project's state. That is the interop failure in its purest form.
 
 Judge it in this order, and the order matters:
 
-1. **Relative override.** If `$OSS_STATE_FILE` is set and does not begin with
-   `/`, that is the finding, whether or not it points at the same file:
+0. **Empty is not set.** If `$OSS_STATE_FILE` is exported but empty, there is no
+   override. `_oss_resolve_state` guards on `[ -n "${OSS_STATE_FILE:-}" ]`, so an
+   empty value falls through to the manifest exactly as an unset one does.
+   Convicting it is a false failure on a healthy workspace — skip to
+   `ok: state_path`.
+1. **Relative override.** Set, non-empty, and does not begin with `/` → that is
+   the finding, whether or not it points at the same file:
    `fail: state_path - the $OSS_STATE_FILE override is relative ('<value>'); it
    resolves against whichever directory each session starts in, so two sessions
    would drive two different files.` The manifest's own routed values are held
@@ -177,29 +182,51 @@ Judge it in this order, and the order matters:
    defect — a relative override whose target happened to exist under the cwd got
    promoted to an absolute path, compared equal, and printed `ok:` for precisely
    the cwd-dependent configuration this check exists to reject.
-2. **Different file.** Absolute, but a different file from `oss state_path`:
-   `fail: state_path - $OSS_STATE_FILE overrides the manifest (<env>, not
-   <routed>); this session's ceremonies would read another project's state`.
-3. Otherwise `ok: state_path - <routed>`.
+2. **Symlink.** `[ -L "$OSS_STATE_FILE" ]` → **fail, even though it is the same
+   file right now.** See the write-target note below; this test comes *before*
+   any identity comparison, because every identity test answers yes here and the
+   answer is wrong.
+3. **Different file.** Absolute, not a symlink, and a different file from
+   `oss state_path`: `fail: state_path - $OSS_STATE_FILE overrides the manifest
+   (<env>, not <routed>); this session's ceremonies would read another project's
+   state`.
+4. Otherwise `ok: state_path - <routed>`.
 
 **Two spellings can be one file.** `$ws/./.ossify/project-state.json` and
 `$ws/.ossify/project-state.json` are the same file, and reporting an override
-there is a false alarm on a healthy workspace — that was a real bug (#150).
-When both paths exist, `[ "$a" -ef "$b" ]` settles it in one operator, covering
-`/./`, `//` and symlinked directories. When the file does not exist yet, compare
-the pathnames after mentally collapsing `/./` and `//`; do not resolve symlinks
-in that case, and see the note below.
+there is a false alarm on a healthy workspace — that was a real bug (#150). Once
+step 2 has excluded symlinks, `[ "$a" -ef "$b" ]` settles the existing-file case
+in one operator. When the state file does not exist yet, compare the pathnames
+after collapsing `//` and an *interior* `/./`.
+
+**Do not collapse a TRAILING `/` or `/.`, and do not collapse `..`.** Both change
+which file the path names, and both were live defects:
+
+| Spelling | `[ -f ]` | `jq` reads it |
+|---|---|---|
+| `s.json` | yes | ok |
+| `s.json/` | **no** | **fails ENOTDIR** |
+| `s.json/.` | **no** | **fails ENOTDIR** |
+
+A trailing separator asserts a *directory* and POSIX enforces it, so collapsing
+`<routed>/.` to `<routed>` reports `ok: state_path` for a path every state read
+then fails on — certifying a workspace as switch-ready while the session cannot
+read its state at all. That is exactly the defect PR #166 round 1 fixed in the
+deleted bash. `..` is not collapsible either: `a/b/..` is not `a` when `b` is a
+symlink.
 
 **Echo the raw spellings in the message.** The operator typed that string;
 showing them a normalized form they never typed makes the remedy harder to act
 on.
 
-> **A symlinked `$OSS_STATE_FILE` is not safe just because it is the same file
-> now.** Mutations commit with `mv "$tmp" "$sf"`, which replaces the directory
-> *entry* rather than following the link, so the first write detaches the alias
-> into a second history. `-ef` answers file identity; a write target needs
-> pathname identity. If the override is a symlink to the routed path, say so and
-> recommend removing it — do not report `ok:`. (PR #178)
+> **A symlinked `$OSS_STATE_FILE` is never safe, even when it is the same file
+> now** — which is why step 2 rejects it before any identity test runs.
+> Mutations commit with `mv "$tmp" "$sf"`, which replaces the directory *entry*
+> rather than following the link, so the first write detaches the alias into a
+> second history while the routed file keeps its old contents. `-ef` answers
+> *file* identity; a write target needs *pathname* identity, and `-ef` returns
+> true for precisely the alias that breaks. Say so and recommend removing the
+> link — never `ok:`. (PR #178, where a guard built on `-ef` alone was a P1.)
 
 ### `agents_md`
 

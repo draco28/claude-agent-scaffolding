@@ -21,8 +21,15 @@ Now invoke the skill in-conversation:
 owns the routing (an optional surface token; empty runs the full sweep) → state
 inspection (`oss doctor`'s check lines, the remedy table, orphan worktrees) →
 lean-spec validation → machine-checkable-rule authoring → the Claude/Codex
-interop check → the budget check, and shells out to `oss` for every mechanical
-fact.
+interop check → the budget check.
+
+It shells out to `oss` for mechanical facts **where a verb exists**. The interop
+surface no longer has one: `interop_check` was 175 lines of bash that opened
+files and described them, and the skill performs that surface by reading — the
+manifest walk and parse, both roots as directories, a raw `git -C` probe on
+canonical, and the `AGENTS.md` scan. What stays mechanical there is path
+*resolution* (`oss repo_root`, `oss state_path`), because every mutating verb
+routes through it.
 
 With no argument it runs all five surfaces and reports all five. Unlike `/close`,
 nothing here halts on a failure and nothing here is a gate: `doctor` reports, and

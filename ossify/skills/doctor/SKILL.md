@@ -390,9 +390,7 @@ Named here rather than left to read as executed:
   check lines and their rc), `worktree_orphans` (the on-disk-minus-state
   difference — never whether an orphan is safe to delete), `rules_types` and
   `rules_validate` (block shape — never whether the rule is worth having),
-  `interop_check` (four presence-and-resolution facts — never whether a Codex
-  session would actually behave), `state_path`, `repo_root`, `manifest_require`,
-  `get` (arbitrary reads),
+  `state_path`, `repo_root`, `manifest_require`, `get` (arbitrary reads),
   `feature_list`, `critic_detect`, `state_restore` and `migrate` (**named to the
   user, not run by you**).
 - **`git`** is reached only as `git -C "<absolute path>"`. Resolve paths once
