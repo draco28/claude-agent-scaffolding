@@ -228,108 +228,18 @@ _oss_resolve_state() { # [$1=explicit-path]
   oss_manifest_state_path
 }
 
-# Canonicalize a path for IDENTITY comparison.
+# `_oss_canon_path` was DELETED here (PR #184), closing #151 and #168 without
+# either being fixed. It canonicalized a path for identity comparison and had
+# exactly two consumers: `oss_interop_check`, which became prose on PR #182, and
+# `oss_cmd_doctor`'s repo-vs-state worktree check, which became prose here. With
+# both gone it had no callers, so it left with them - function AND its ~21 direct
+# test assertions in tests/test-manifest.sh, together.
 #
-# ONE PRODUCTION CALLER LEFT, AND IT IS ON ITS WAY OUT. This was moved here from
-# doctor.sh (its original home) because the two paths it compares live in this
-# file and `interop_check` needed it too. `interop_check` is now prose and its
-# verb is gone, so the only remaining production caller is `oss_cmd_doctor` —
-# itself the next conversion target.
-#
-# "No callers" is about SHIPPED code, not the tree: `tests/test-manifest.sh`
-# exercises this function directly in ~21 assertions. Deleting the function when
-# `doctor` converts means deleting that test section in the same change, or the
-# suite goes red — the conversion is function + tests together, the way
-# interop.sh and test-interop.sh went together. Closes #151 and #168 without
-# either being fixed.
-#
-# Do NOT add a new caller. It keeps hand-rolled path handling alive past the
-# point anything needs it, and the class has already cost four review rounds
-# (PR #166). If you need write-target identity, compare pathnames; if you need
-# read identity on paths that exist, `[ a -ef b ]` is one operator — but see the
-# symlink caveat in doctor/references/interop-check.md before using it on
-# anything that gets written.
-#
-# TWO HALVES, and the split is the point (#150).
-#
-# The LEXICAL half runs always. Collapsing `//` and `/./` cannot change which
-# file a path names, symlink or not, so it needs no filesystem and works on a
-# path that does not exist yet. That mattered because `interop_check` compared a
-# path whose own resolver documents that the file may not exist yet, and the
-# existence-only form skipped normalization in exactly the workspace where
-# someone is still wiring up their environment, so `$ws/./.ossify/…` read as
-# another project. `oss_cmd_doctor` returns early on `[ -f "$sf" ]` and so only
-# ever canonicalizes paths that exist — meaning the lexical half now has no
-# caller that exercises its absent-path case. Kept rather than trimmed because
-# the whole function is scheduled for deletion; do not "simplify" it in place.
-#
-# `..` is deliberately NOT collapsed lexically: `a/b/..` is not `a` when `b` is
-# a symlink, which is precisely the case canonicalization exists to get right.
-# On a path that exists the PHYSICAL half below resolves `..` correctly through
-# the filesystem; on one that does not, it is left in place rather than resolved
-# wrongly. A future resolver that walks to the deepest existing ancestor may
-# improve on this - adding textual `..` collapsing would not.
-#
-# The PHYSICAL half is the original behaviour, unchanged: `cd` the directory and
-# `pwd -P`, which resolves directory symlinks and `..` together. Deliberately not
-# `realpath` (absent on stock macOS), and deliberately tolerant - a path whose
-# directory cannot be entered comes back lexically normalized rather than empty,
-# because the caller is comparing two spellings and an empty string would make
-# two DIFFERENT files look identical.
-#
-# A TRAILING `/` OR `.` IS PRESERVED, and that is not a special case - it is the
-# same rule as `lead`, at the other end. `f.json/` does not name the same thing
-# as `f.json`: the trailing separator asserts a DIRECTORY and POSIX enforces it,
-# so `jq -e . f.json/` fails ENOTDIR and `[ -f f.json/ ]` is false. Collapsing it
-# made the interop check print `ok: state_path` for an `$OSS_STATE_FILE` that
-# every state read then failed on - certifying a workspace as switch-ready while
-# the session could not read its state at all, which is precisely the condition
-# that check exists to catch. (Codex P2, PR #166 round 1, on this function's own
-# first version. That check is prose now; the rule it earned still applies to
-# whoever compares paths next.)
-#
-# The constraint is carried by the FINAL component only; a `/./` in the middle is
-# identity-neutral and still collapses. And it is keyed on `$NF == "."` as well as
-# a trailing slash, because `f.json/.` fails ENOTDIR identically while its final
-# component is `.` rather than empty - a rule phrased only about empty components
-# would leave that spelling broken.
-#
-# Consequence worth knowing before writing the next caller: the canonical form now
-# distinguishes `x` from `x/`. Both current callers compare FILE paths, where that
-# is what you want. For a target that exists AS a directory the physical half below
-# still collapses `d/` to `d`, so a directory's canonical form is existence-
-# dependent - harmless for identity comparison, since two spellings compared at the
-# same moment agree either way, but not something to rediscover.
-#
-# One awk pass rather than a loop of shell string surgery: rebuilding from the
-# `/`-split components makes "drop empty and `.` components, keep the ends" the
-# whole rule, and it keeps `&` and backslashes literal (this file has already
-# shipped one `&`-in-replacement defect, in `_oss_subst_literal`).
-_oss_canon_path() { # $1=path ; echoes the canonical form, or $1 lexically normalized
-  local p d b
-  [ -n "$1" ] || { printf '%s' ""; return 0; }
-  p="$(printf '%s\n' "$1" | awk -F/ '{
-    lead  = ($0 ~ /^\//) ? "/" : ""
-    trail = ($0 ~ /\/$/ || $NF == ".") ? "/" : ""
-    out = ""
-    for (i = 1; i <= NF; i++) {
-      if ($i == "" || $i == ".") continue
-      out = out (out == "" ? "" : "/") $i
-    }
-    if (out == "") { print (lead == "/") ? "/" : "."; next }
-    print lead out trail
-  }')"
-  # `/` is its own canonical form, and it is the one input the physical half
-  # gets wrong: `${d%/}` empties and `basename /` is `/`, so it would compose
-  # `//` - two spellings of the root that no longer compare equal to each other.
-  # Unreachable through a state path, which is why it survived in doctor.sh; this
-  # is a shared helper now and the next caller should not have to know that.
-  if [ "$p" = "/" ]; then printf '%s' "/"; return 0; fi
-  [ -e "$p" ] || { printf '%s' "$p"; return 0; }
-  d="$(cd "$(dirname -- "$p")" 2>/dev/null && pwd -P)" || { printf '%s' "$p"; return 0; }
-  b="$(basename -- "$p")"
-  printf '%s/%s' "${d%/}" "$b"
-}
+# Do not bring it back. Path normalization has cost this repo four review rounds
+# in the bash (PR #166) and seven findings across four more in the prose that
+# briefly replaced it (PR #182), and both times the net product value was a path
+# normalizer. If you need to compare two paths, prefer a blunt comparison that
+# fails SAFE and says what to do about it; see doctor/references/interop-check.md.
 
 oss_cmd_state_path() { oss_manifest_state_path; }   # `oss state_path` for skills/debug
 oss_cmd_spec_path()  { oss_manifest_spec_path; }    # `oss spec_path` for doctor's spec surface

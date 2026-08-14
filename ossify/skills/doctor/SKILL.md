@@ -133,38 +133,44 @@ Close with the read-out in §13.
 
 ## 4. State inspection
 
-The mechanical half is one command, and it is the same one `close`'s pre-flight
-runs:
+**Four checks are the verb's; the other four are yours.**
 
 ```bash
 oss doctor
 ```
 
-It emits one line per check, each tagged `ok:` / `warn:` / `fail:` / `skip:`,
-and returns **rc 0 unless a `fail:` line was printed**. `warn:` and `skip:`
-never touch the rc — that is a deliberate contract, not an accident, and §4's
-reference explains which findings are advisory and why.
+emits `state`, `schema`, `replay`, `shape` — one line each, tagged `ok:` /
+`fail:` / `skip:` — and returns **rc 0 unless a `fail:` line was printed**. Those
+four stayed deterministic because `close`'s pre-flight refuses to run until
+`schema` and `replay` are green, and replay rebuilds the state from its base
+snapshot to prove it: a rail in front of a mutation, not a read-out.
 
-Checks, in the order they print: `schema`, `lock`, `replay`, `shape`, then the
-rot-and-drift advisories — `ledger` (which can print two lines: pending
-amendments, and quarantined lines), `fakes`, `patches`, and `worktrees`.
+**Then you read the rest yourself** — `lock`, `ledger` (pending amendments,
+quarantined lines), `fakes`, `patches`, and `worktrees`. They were ~210 lines of
+bash that opened files and counted; they gated nothing, since every one emitted
+`warn:` or `skip:` and neither ever touches the rc. Use the same line grammar, and
+**say plainly at the end whether anything failed** — your half has no exit code.
 
-**`worktrees` is new in v0.3 and is the only check that reads the *repo* rather
-than the state file.** It reports directories under `<repo>/.worktrees/` that no
-work item claims. That matters because spine close removes worktrees by reading
-state, so a directory state does not know about is cleaned by no ceremony at
-all — it accumulates in the very repo whose cleanliness `close` then checks, and
-the first symptom is a close failing for a reason unrelated to the spine.
-Being repo-reading also makes it the only check that can be legitimately
-*unavailable*: with no pairing manifest there is no repo root to look in, and it
-emits `skip:` rather than falling silent.
+`references/state-inspection.md` carries the exact reads, the counts, and the one
+trap worth naming here: `jq`'s `length` works on strings too, so a corrupt field
+returns a plausible number at rc 0. Ask for the field's `type` before trusting a
+count.
 
-**When it runs, it prints one line per repository**, tagged
-`worktrees(<repo-key>)` — `canonical`, `ai_workspace`, `private_core`. A key the
-manifest does not configure, or whose root is not on this machine, still costs a
-`skip:` line. Read that literally: a repo reported as `ok:` was opened, and until
-#156 that was not true — doctor asked only about `canonical` and printed a clean
-`ok: worktrees - none orphaned` for projects whose `private_core` it had never
+**`worktrees` is the only one that reads the *repo* rather than the state file.**
+It reports directories under `<repo>/.worktrees/` that no work item claims. That
+matters because spine close removes worktrees by reading state, so a directory
+state does not know about is cleaned by no ceremony at all — it accumulates in
+the very repo whose cleanliness `close` then checks, and the first symptom is a
+close failing for a reason unrelated to the spine. Being repo-reading also makes
+it the only one that can be legitimately *unavailable*: with no pairing manifest
+there is no repo root to look in, so emit `skip:` rather than falling silent.
+
+**Print one line per repository**, tagged `worktrees(<repo-key>)` — the keys are
+`_oss_repo_root`'s enum, so read that rather than a list here. A key the manifest
+does not configure, or whose root is not on this machine, still costs a `skip:`
+line. Read that literally: a repo reported `ok:` was opened, and until #156 that
+was not true — the check asked only about `canonical` and printed a clean
+`ok: worktrees - none orphaned` for projects whose `private_core` had never been
 opened. Do not summarise the lines into one verdict; the whole point is that
 "clean" and "not looked at" stay distinguishable per repo.
 

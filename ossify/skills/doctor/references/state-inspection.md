@@ -1,53 +1,108 @@
 # State inspection
 
-The depth behind `doctor/SKILL.md` §4. `oss doctor` is the mechanical half; the
-judgment about what a line *means for this project today* is yours.
+The depth behind `doctor/SKILL.md` §4. **`oss doctor` is now four checks, not
+eight** — the ones a close blocks a mutation on. The other four are yours to
+read, and this file is how.
 
 ---
 
-## 1. The line grammar
+## 1. What the verb does, and what you do
 
-Every check prints exactly one line, tagged:
+`oss doctor` emits exactly four lines: `state`, `schema`, `replay`, `shape`.
+
+Those four stayed deterministic on purpose. `close/SKILL.md` §3 refuses to run
+until `schema` and `replay` are green, and **replay is not something to eyeball**
+— it rebuilds the state from its base snapshot by applying every journaled
+mutation in order and compares the result. That is exact-identity work, it is the
+only thing that can prove the live file still agrees with its own history, and no
+other verb exposes it. A rail in front of a mutation is not a read-out, whatever
+it is spelled with.
+
+**Everything else this surface reports, you read yourself** — a lock directory, a
+few counts, and a per-repo orphan comparison. Those were ~210 lines of bash that
+opened files and described them. They gated nothing: every one emitted `warn:` or
+`skip:`, and neither ever set rc.
+
+### The line grammar — use it for your lines too
 
 | Tag | Meaning | Touches rc? |
 |---|---|---|
 | `ok:` | ran, found nothing | no |
 | `warn:` | ran, found something advisory | **no** |
-| `fail:` | ran, found something broken | **yes — rc 1** |
+| `fail:` | ran, found something broken | **yes — the verb exits 1** |
 | `skip:` | could not run, and says so | **no** |
 
-Two properties are load-bearing and are asserted by tests rather than assumed:
+Two properties are load-bearing:
 
-- **A check that cannot run still emits a line.** `skip: replay - skipped
-  (schema check failed)` and `skip: worktrees(private_core) - skipped (not
-  configured in the pairing manifest…)` both exist because a *missing* line is
-  indistinguishable from a clean one. Never summarise a run in a way that drops
-  a `skip:`. This is not hypothetical: `worktrees` shipped in v0.3 asking only
-  about `canonical`, so a project with a configured `private_core` got a clean
-  read-out about a repo that was never opened (#156).
-- **`warn:` never changes the rc.** So `oss doctor` exiting 0 does **not** mean
-  "nothing to report" — it means "nothing broken". Read the lines, not the rc.
-  A close pre-flight that only checks the rc will happily proceed past four
-  outstanding warnings, which is correct behaviour and worth knowing.
+- **A check that cannot run still emits a line.** The verb prints
+  `skip: replay - skipped (schema check failed)` rather than dropping it, because
+  a *missing* line is indistinguishable from a clean one. **Hold your own lines to
+  the same rule** — if you cannot reach a repo, say `skip:` and why. This is not
+  hypothetical: the worktree check shipped in v0.3 asking only about `canonical`,
+  so a project with a configured `private_core` got a clean read-out about a repo
+  nobody had opened (#156).
+- **`warn:` never changes the rc.** `oss doctor` exiting 0 means "nothing broken",
+  not "nothing to report" — and it now says nothing at all about the four
+  advisory areas. A close pre-flight that checks only the rc is still correct;
+  it is deliberately not the whole picture.
 
 ---
 
-## 2. The checks, in print order
+## 2. The checks
+
+**The verb's four**, in print order:
 
 | Check | Reads | What it catches |
 |---|---|---|
+| `state` | the file | it is not there at all |
 | `schema` | state file | a `schema_version` this build cannot handle |
-| `lock` | `<state>.lock` dir | a held lock, or a stale one (>30 min) |
 | `replay` | journal | live state that disagrees with base + mutations |
 | `shape` | state file | any of the 16 required top-level keys missing |
-| `ledger` | `demo_ledger` | pending amendments; quarantined lines |
-| `fakes` | `fakes` | `active` **or** `renewed` fakes still outstanding |
-| `patches` | `patch_records` | out-of-spine work since the last spine close |
-| `worktrees` | **the repos** | directories no work item claims — one line per repo key (§4) |
 
 `replay` is gated on `schema`, because replaying against a version this build
-cannot read produces noise rather than a finding. That gating is why the `skip:`
+cannot read produces noise rather than a finding. That gating is why its `skip:`
 line exists.
+
+**Yours to read.** Each is a count or a directory check; report one line each in
+the same grammar. Run them after the verb, so a broken state fails first:
+
+```bash
+oss get '[.demo_ledger[] | select(((.pending_amendments // []) | length) > 0)] | length'
+oss get '[.demo_ledger[] | select(.status == "quarantined")] | length'
+oss get '[.fakes[] | select(.status == "active" or .status == "renewed")] | length'
+oss get '.patch_records | length'
+```
+
+| Yours | Reads | Report when |
+|---|---|---|
+| `lock` | `<state>.lock` dir | it exists — `warn:`, and say whether it is stale. A ceremony may be mid-mutation |
+| `ledger` | `demo_ledger` | pending amendments, or quarantined lines — each must be fixed or retired by the next release close |
+| `fakes` | `fakes` | any `active` **or** `renewed` fake is still outstanding. `renewed` counts: it is a deferral, not a resolution |
+| `worktrees` | **the repos** | see §4 — one line per repo key |
+
+**Check the TYPE before you trust the count — this one bites.** `jq`'s `length`
+is defined on strings and objects too, so a corrupt field returns a plausible
+number at rc 0 rather than an error:
+
+```bash
+oss get '.patch_records | type'     # must be "array"
+```
+
+Measured: with `.patch_records` set to the string `"oops"`,
+`oss get '.patch_records | length'` returns **4** — the character count — and
+exits 0. Take that at face value and you report `warn: patches - 4 out-of-spine
+patch record(s)` about a field that holds no records at all. The deleted bash
+guarded this with a `def _arr(f): … else error` wrapper on every count; you do it
+by asking for the type first.
+
+**A field that will not read as a list is `skip:`, not `ok:`** — and not `warn:`
+either. Say the field could not be read as a list. Reporting a count there is the
+same lie as omitting the line.
+
+**Where is `<state>.lock`?** Beside the state file: `"$(oss state_path).lock"`.
+It is a directory, and its mtime is how you tell stale from held — more than
+about half an hour old and no ceremony running means it was left behind. Do not
+remove it on a hunch; say what you found and let the operator decide.
 
 ---
 
@@ -111,9 +166,12 @@ exactly it, **or** when its basename is a work item's id — and only when that
 work item's `target_repo` is the repo being asked about, so a `private_core`
 item cannot claim a same-named directory sitting under the public root.
 
-**`oss doctor` runs the selector once per repo key** — `canonical`,
-`ai_workspace`, `private_core` — printing `ok:`/`warn:`/`skip: worktrees(<key>)`
-for each. A key the manifest does not configure gets the `skip:`, as does one
+**You run the selector once per repo key** — `canonical`, `ai_workspace`,
+`private_core` — and print `ok:`/`warn:`/`skip: worktrees(<key>)` for each.
+`oss doctor` used to do this and no longer does; the verb it called is unchanged
+and the keys are `_oss_repo_root`'s enum, so read that enum rather than trusting
+this list to stay current. **Every key costs a line**, including the ones this
+project does not configure. A key the manifest does not configure gets the `skip:`, as does one
 whose root does not exist on this machine **or cannot be traversed** — an
 unmounted volume and a checkout whose root denies `x` both land there. So does a
 state whose work-item claims could not be inspected, which is a
@@ -185,7 +243,7 @@ missing worktree; it is a targeted probe, not part of the sweep.
 
 ## 5. State-vs-repo drift that no verb can decide
 
-`oss doctor` compares the state file against itself and, for worktrees, against
+This surface compares the state file against itself and, for worktrees, against
 one `.worktrees/` directory per configured repo. The following are drift that
 only reading can find, and they
 belong in the read-out when the sweep gives you reason to look:

@@ -17,14 +17,11 @@ t_assert_rc 0 "doctor green on fresh state"
 t_assert_contains "$T_OUT" "ok: schema" "version check reported"
 t_assert_contains "$T_OUT" "ok: replay" "drift check reported"
 
-# EVERY advertised check emits a line on a HEALTHY state, not just the ones with
-# something to say. These three used to have a `warn:` arm and nothing else, so
-# on a clean project they printed nothing at all — and an omitted check is
-# indistinguishable from one that ran and found nothing, which is the whole
-# invariant the `skip:` arms exist to protect. (Codex P2, PR #149 round 2.)
-t_assert_contains "$T_OUT" "ok: ledger" "a clean ledger emits its own line rather than falling silent"
-t_assert_contains "$T_OUT" "ok: fakes" "a clean fakes check emits its own line"
-t_assert_contains "$T_OUT" "ok: patches" "a clean patches check emits its own line"
+# The ledger / fakes / patches / lock advisory checks, and the repo-vs-state
+# worktree comparison, are PROSE now (PR #184) - doctor was slimmed to the four
+# lines `close` gates a mutation on: state, schema, replay, shape. Their
+# assertions went with them. `oss_worktree_orphans` itself is unchanged and
+# stays covered directly in test-worktree.sh.
 
 jq '.schema_version = 99' "$S" > "$S.x" && mv "$S.x" "$S"
 t_capture "$OSS" doctor "$S"
@@ -108,122 +105,8 @@ t_assert_contains "$T_OUT" "drift detected" "replay's drift message reaches the 
 t_assert_contains "$T_OUT" "ok: shape" "shape still reports independently of the replay failure"
 rm -rf "$T5"
 
-# --- Step 4 doctor visibility: each warn: line must be provably reachable.
-# Seed a state carrying all three rot conditions: a pending amendment, a
-# quarantined line, and a RENEWED fake (not merely active - `renewed` is the
-# case the stale selector under-counted, and the one whose deadline already
-# moved once). IDs are captured from the minting calls rather than hardcoded,
-# so a counter change upstream cannot silently point an assertion at nothing.
-WTMP="$(mktemp -d)"; W="$WTMP/state.json"
-oss_state_init "$W" doctor-warn >/dev/null
-REL="$(oss_entity_add_release "$W" "mvp" "ship the core loop")"
-SP="$(oss_entity_add_spine "$W" "$REL" "order flow" flesh canonical)"
-L1="$(oss_ledger_add_auto "$W" "$SP" "line one" "bash -c 'exit 0'" "exit:0")"
-L2="$(oss_ledger_add_auto "$W" "$SP" "line two" "bash -c 'exit 0'" "exit:0")"
-
-# Assert the fixture actually seeded BEFORE asserting on doctor's output. A
-# seeding call that rc's nonzero creates no condition, and the warn: assertion
-# below then fails for a reason that has nothing to do with the selector under
-# test. This is the Task 2 trap verbatim: its scoping fixture amended against a
-# spine the file never created, the call rc-7'd, and the assertion passed while
-# testing nothing.
-if [ -n "$REL" ] && [ -n "$SP" ] && [ -n "$L1" ] && [ -n "$L2" ]; then
-  T_PASS=$((T_PASS+1))
-else
-  T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor-warn fixture did not seed (REL=$REL SP=$SP L1=$L1 L2=$L2)"
-fi
-
-oss_ledger_retire       "$W" "$L1" "$SP" "replaced by the new flow"        # -> pending_amendments[]
-oss_ledger_quarantine   "$W" "$L2" "flaky under load" "$REL"               # -> status quarantined
-# NOTE: channel (3rd arg) must be real|fake|deferred (registries.sh's
-# oss_reg_add_fake enum guard) - "fake" here, not a protocol name like "http".
-oss_reg_add_fake        "$W" "payment-gateway" "fake" "no vendor sandbox" "sandbox ships" "$REL" >/dev/null
-oss_reg_set_fake_status "$W" "payment-gateway" renewed "vendor slipped a quarter" "r2"
-
-# Codex P2 finding #2: doctor must surface out-of-spine patch records. The
-# patch-lane contract (spec §6.1) says these are doctor-visible.
-oss_ledger_add_patch "$W" abc1234 "typo in export path, no bone no gate no line"
-
-# Through the REAL dispatcher binary (set -euo pipefail), not a sourced call:
-# all three new warn: lines use the `[ "$n" -gt 0 ] && echo ...` bare-command
-# shape, which is exactly the form that dies under strict mode if the
-# errexit-exemption reasoning is wrong - a sourced-only call (this test file
-# never enables `set -e`) cannot catch that class of fault.
-t_capture "$OSS" doctor "$W"
-t_assert_contains "$T_OUT" "warn: ledger - 1 demo line(s) carry a pending amendment" "doctor surfaces a pending amendment"
-t_assert_contains "$T_OUT" "warn: ledger - 1 quarantined line(s)" "doctor surfaces a quarantined line"
-t_assert_contains "$T_OUT" "warn: fakes - 1 outstanding fake(s)" "doctor surfaces a RENEWED fake, not just an active one"
-t_assert_contains "$T_OUT" "warn: patches - 1 out-of-spine patch record(s)" "doctor surfaces patch-lane records"
-t_assert_rc 0 "the four warn: lines are advisory - they must not change doctor's rc"
-# The clean arms must NOT also fire for the same checks — a read-out carrying
-# both "1 quarantined line" and "no quarantined lines" is worse than either.
-case "$T_OUT" in
-  *"ok: ledger"*)  T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor printed both a ledger warning AND the ledger clean line" ;;
-  *) T_PASS=$((T_PASS+1)) ;;
-esac
-case "$T_OUT" in
-  *"ok: fakes"*)   T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor printed both a fakes warning AND the fakes clean line" ;;
-  *) T_PASS=$((T_PASS+1)) ;;
-esac
-
-# --- The ledger's TWO counters share one clean line, so it must not fire when
-# only ONE of them is dirty. A quarantine with no pending amendment is exactly
-# that case, and the naive `[ $pend -eq 0 ] && echo ok` would print the clean
-# line right underneath the quarantine warning. ---
-QT="$(mktemp -d)"; QS="$QT/state.json"
-oss_state_init "$QS" ledger-halfdirty >/dev/null
-QREL="$(oss_entity_add_release "$QS" "r" "g")"
-QSPN="$(oss_entity_add_spine "$QS" "$QREL" "s" flesh canonical)"
-QL="$(oss_ledger_add_auto "$QS" "$QSPN" "a line" "true" "exit:0")"
-oss_ledger_quarantine "$QS" "$QL" "flaky" "$QREL" >/dev/null
-t_capture "$OSS" doctor "$QS"
-t_assert_contains "$T_OUT" "warn: ledger - 1 quarantined" "half-dirty ledger warns"
-case "$T_OUT" in
-  *"ok: ledger"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: the ledger clean line fired while one of its two counters was dirty" ;;
-  *) T_PASS=$((T_PASS+1)) ;;
-esac
-rm -rf "$QT"
-
-# --- an UNREADABLE advisory field is `skip:`, never `ok:` -------------------
-# `jq … || echo 0` turned a failed query into a zero count. That was survivable
-# while a zero count printed nothing; once the clean arms landed, the same
-# fallback started ASSERTING "no pending amendments" over a field it had failed
-# to read. A check that cannot read its input has not found it clean.
-BT="$(mktemp -d)"; BS="$BT/state.json"
-oss_state_init "$BS" bad-shapes >/dev/null
-jq '.demo_ledger = "not-a-list" | .fakes = 7 | .patch_records = {"a":1}' "$BS" > "$BS.x" && mv "$BS.x" "$BS"
-t_capture "$OSS" doctor "$BS"
-t_assert_contains "$T_OUT" "skip: ledger - unavailable" "an unreadable demo_ledger is skipped, not called clean"
-t_assert_contains "$T_OUT" "skip: fakes - unavailable" "an unreadable fakes field is skipped, not called clean"
-t_assert_contains "$T_OUT" "skip: patches - unavailable" "an unreadable patch_records field is skipped, not called clean"
-for bad in "ok: ledger" "ok: fakes" "ok: patches"; do
-  case "$T_OUT" in
-    *"$bad"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor asserted '$bad' over a field it could not read" ;;
-    *) T_PASS=$((T_PASS+1)) ;;
-  esac
-done
 rm -rf "$BT"
 
-# --- v0.3 worktree drift, the SKIP arm. The worktree check is the only one here
-# that reads the REPO rather than the state file, so it is the only one that can
-# be legitimately unavailable: no pairing manifest means no canonical root to
-# look in. It must still emit a line. A check that falls silent when it cannot
-# run reads as a check that ran and found nothing - the exact failure the
-# `skip: replay` branch above already exists to prevent, and the reason this arm
-# is asserted rather than assumed.
-#
-# Run from a MANIFEST-FREE directory rather than wherever the suite happened to
-# be launched: `oss_manifest_discover` walks up from $PWD, so a repo that later
-# grows a pairing manifest would silently flip this assertion's arm.
-# The warn: and ok: arms need a real canonical repo with real worktree dirs and
-# live in test-worktree.sh, next to the selector they exercise.
-NOMAN="$(mktemp -d)"; PREVPWD="$PWD"
-cd "$NOMAN"
-t_capture "$OSS" doctor "$W"
-t_assert_contains "$T_OUT" "skip: worktrees - skipped" "doctor: the worktree check emits a skip line with no manifest, never silence"
-t_assert_rc 0 "doctor: an unavailable worktree check is advisory - skip: never sets rc"
-cd "$PREVPWD"; rm -rf "$NOMAN"
-rm -rf "$WTMP"
 
 rm -rf "$TMP"
 t_summary
