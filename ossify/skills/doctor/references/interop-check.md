@@ -183,35 +183,61 @@ Judge it in this order, and the order matters:
    promoted to an absolute path, compared equal, and printed `ok:` for precisely
    the cwd-dependent configuration this check exists to reject.
 2. **Trailing `/` or `/.`** → fail; see the separator table below.
-3. **A different PATHNAME from `oss state_path`**, after collapsing `//` and an
-   *interior* `/./` and nothing else: `fail: state_path - $OSS_STATE_FILE
-   overrides the manifest (<env>, not <routed>); this session's ceremonies would
-   read another project's state`.
+3. **A different DIRECTORY ENTRY from `oss state_path`.** Normalize each path the
+   same way — resolve its **parent directory physically**, keep its **final
+   component verbatim** — then compare the results as strings:
+
+   ```bash
+   entry() {  # deepest EXISTING ancestor resolved; the rest kept verbatim
+     local p="$1" tail="" d; d="$(dirname "$p")"
+     while [ ! -d "$d" ] && [ "$d" != "/" ] && [ "$d" != "." ]; do
+       tail="$(basename "$d")${tail:+/$tail}"; d="$(dirname "$d")"
+     done
+     printf '%s%s/%s' "$(cd "$d" && pwd -P)" "${tail:+/$tail}" "$(basename "$p")"
+   }
+   ```
+
+   Different → `fail: state_path - $OSS_STATE_FILE overrides the manifest
+   (<env>, not <routed>); this session's ceremonies would read another project's
+   state`.
+
+   **The walk up to the deepest existing ancestor is why this works before
+   `oss init`.** A pre-init workspace has no `.ossify/` yet, which is exactly
+   when someone runs an interop check — and a plain `cd "$(dirname)"` cannot
+   resolve a parent that does not exist. Resolving only as far as something real
+   and re-appending the rest verbatim gives the symlinked and physical spellings
+   the same answer while the file is still absent. Without it, a healthy pre-init
+   workspace on a symlinked root reports a false cross-project override (#168's
+   reported symptom, which lived on this surface).
 4. Otherwise `ok: state_path - <routed>`.
 
-> **Compare PATHNAMES. Never `-ef`, and never any other inode test.** The state
-> file is a **write target**: mutations commit with `mv "$tmp" "$sf"`
-> (`lib/state.sh`), and `mv` replaces the *directory entry* rather than following
-> or preserving the link. So an override that is the same inode right now forks
-> into a second history on the very first write, while the routed path keeps its
-> old contents. Measured, for both alias kinds:
+> **The two halves of that normalization are both load-bearing, and each one
+> failed on its own.**
+>
+> **Resolve the parent, or a healthy workspace fails.** When `ai_workspace.root`
+> is itself a symlink, the routed path and the override can spell the same entry
+> two ways — `/tmp/link/.ossify/…` against `/private/tmp/real/.ossify/…`. A write
+> through either updates the same file, so reporting an override there is a false
+> alarm. Measured: purely lexical comparison fails exactly this case, and macOS
+> makes it ordinary (`/tmp` → `/private/tmp`). A trailing `/./` still must not be
+> collapsed — step 2 has already rejected those.
+>
+> **Do NOT resolve the final component, or an alias passes.** The state file is a
+> **write target**: mutations commit with `mv "$tmp" "$sf"` (`lib/state.sh`), and
+> `mv` replaces the *directory entry* rather than following or preserving a link.
+> An override that is the same inode right now forks on the first write:
 >
 > | Alias | `-L` | `-ef` | after one `mv` |
 > |---|---|---|---|
 > | symlink to routed | true | true | detached — routed file unchanged |
 > | **hard link** to routed | **false** | **true** | **forked — two live histories** |
 >
-> A rule built on `-ef` says `ok:` to both. A rule built on `-L` catches only the
-> first. **Pathname comparison rejects both without a special case**, which is why
-> it is the rule here rather than a caveat attached to one. (PR #178 shipped an
-> `-ef` guard and it was a P1; PR #182 round 1 then found the hard-link half that
-> the symlink-only patch still missed. Fix the class, not the instance.)
-
-**Two spellings can still be one file.** `$ws/./.ossify/project-state.json` and
-`$ws/.ossify/project-state.json` name the same file, and reporting an override
-there is a false alarm on a healthy workspace — that was a real bug (#150).
-Collapsing `//` and an interior `/./` handles it, and needs no filesystem at all,
-so it works identically whether or not the state file exists yet.
+> **Never decide `ok:` from an inode test.** `-ef` says yes to both rows; `-L`
+> catches only the first. Keeping the basename verbatim rejects both with no
+> special case. (PR #178 shipped an `-ef` guard and it was a P1; #182 round 1
+> found the hard-link half a symlink-only patch still missed; #182 round 2 found
+> that a lexical-only overcorrection then failed healthy workspaces. The rule
+> that survives all three is: parent physical, basename verbatim.)
 
 **Do not collapse a TRAILING `/` or `/.`, and do not collapse `..`.** Both change
 which file the path names, and both were live defects:
@@ -233,12 +259,21 @@ symlink.
 showing them a normalized form they never typed makes the remedy harder to act
 on.
 
-**When the override is an alias, say which kind.** A symlink or hard link to the
-routed path fails step 3 on its pathname, which is correct — but the remedy is
-"remove the link and let the manifest route it", not "you are pointed at another
-project". Name it: `fail: state_path - $OSS_STATE_FILE ('<env>') is an alias of
-the manifest-routed <routed>; the first write replaces its directory entry and
-the two paths fork into separate histories. Unset it rather than linking.`
+**An inode test is banned from the VERDICT, not from the explanation.** Step 3
+decides pass or fail on directory entries alone — that part admits no `-ef`. Once
+it has already failed, you may compare inodes to work out *why*, and you have to:
+a hard link carries no pathname marker, so `-ef` is the only thing that separates
+"an alias of the routed file" from "a different project's state".
+
+So after a step-3 failure, check `[ "$OSS_STATE_FILE" -ef "$(oss state_path)" ]`:
+
+| `-ef` after a step-3 fail | What it is | Message |
+|---|---|---|
+| true | an alias — symlink or hard link | `fail: state_path - $OSS_STATE_FILE ('<env>') is an alias of the manifest-routed <routed>; the first write replaces its directory entry and the two paths fork into separate histories. Unset it rather than linking.` |
+| false | genuinely another file | the "overrides the manifest" wording from step 3 |
+
+Both are failures. The inode test only picks the remedy, and picking the wrong
+remedy sends the operator looking for a second project that does not exist.
 
 ### `agents_md`
 
