@@ -175,6 +175,25 @@ t_assert_eq "no" "$MENTIONS_PD" "#165 control: the generic refusal does NOT ment
 t_capture _oss_manifest_wellknown_guard '${PLUGIN_DATA:foo}/x' spec 'test'
 t_assert_rc 1 "#165 control: the PLUGIN_DATA arm still refuses (rc 1), it only reworded"
 
+# MALFORMED spellings are TYPOS, not supported vocabulary, so they must get the
+# GENERIC wording. workspace-init's grammar is ${PLUGIN_DATA:([a-zA-Z0-9_-]+)};
+# a prefix-substring test also swallowed these and told the operator the token was
+# a documented-but-unsupported one, which is the malformed-vs-unsupported call this
+# whole change exists to get right — backwards. (Codex P2, PR #178 round 1.)
+for BAD in '${PLUGIN_DATA:}/x' '${PLUGIN_DATA:foo/x' '${PLUGIN_DATA:foo.bar}/x'; do
+  BAD_ERR="$(_oss_manifest_wellknown_guard "$BAD" spec 'test' 2>&1 >/dev/null)"
+  t_assert_contains "$BAD_ERR" "unresolved" "#165: malformed '$BAD' gets the GENERIC unresolved wording"
+  if [ "${BAD_ERR#*does not resolve}" != "$BAD_ERR" ]; then BAD_CLAIMS_PD=yes; else BAD_CLAIMS_PD=no; fi
+  t_assert_eq "no" "$BAD_CLAIMS_PD" "#165: malformed '$BAD' is NOT called supported-but-unresolvable"
+done
+
+# ...and the complete grammar is still recognised in the forms workspace-init allows
+# (hyphens and underscores are legal plugin-name characters).
+for GOOD in '${PLUGIN_DATA:foo}/x' '${PLUGIN_DATA:my-plugin}/x' '${PLUGIN_DATA:my_plugin}/x'; do
+  GOOD_ERR="$(_oss_manifest_wellknown_guard "$GOOD" spec 'test' 2>&1 >/dev/null)"
+  t_assert_contains "$GOOD_ERR" "does not resolve" "#165: complete token '$GOOD' gets the unsupported-vocabulary wording"
+done
+
 # ---------------------------------------------------------------------------
 # The RELATIVE-path trap (Codex P2, PR #149). `_oss_manifest_resolve`
 # substitutes `${...}` tokens but never joins a bare relative value onto the

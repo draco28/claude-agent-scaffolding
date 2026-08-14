@@ -106,7 +106,24 @@ _oss_manifest_resolve() { # $1=ai-root $2=string
 # happened to start in - two agents in two directories driving two different
 # files, which is precisely the failure a well-known path exists to prevent.
 # (Codex P2, PR #149.)
-# The `${PLUGIN_DATA:` arm is ordered BEFORE the generic token arm on purpose (#165).
+# rc 0 if $1 holds a COMPLETE `${PLUGIN_DATA:<name>}` token (#165).
+#
+# The grammar is workspace-init's, copied deliberately rather than approximated:
+# `\$\{PLUGIN_DATA:([a-zA-Z0-9_-]+)\}` (workspace-init/lib/manifest.sh). A substring
+# glob on the `${PLUGIN_DATA:` prefix alone was the first spelling and it was wrong -
+# it also swallowed `${PLUGIN_DATA:}`, an unterminated `${PLUGIN_DATA:foo`, and
+# `${PLUGIN_DATA:foo.bar}`. Those are TYPOS, not supported vocabulary, so the
+# unsupported-token message made exactly the malformed-vs-unsupported distinction it
+# exists to draw, backwards. Anything failing this test falls through to the generic
+# unresolved-token arm, which is the correct answer for a typo.
+#
+# One helper, two call sites (here and `_oss_repo_root`), so the grammar cannot drift
+# between the two refusals the way the wording already did.
+_oss_is_plugin_data_token() { # $1=value ; rc 0 if it holds a complete PLUGIN_DATA token
+  [[ "$1" =~ \$\{PLUGIN_DATA:[a-zA-Z0-9_-]+\} ]]
+}
+
+# The PLUGIN_DATA branch is ordered BEFORE the generic token arm on purpose (#165).
 # That token is a documented member of workspace-init's shared manifest vocabulary
 # which ossify deliberately does not resolve (#152, wontfix). Reported through the
 # generic arm it reads as "you typed this wrong", so the obvious next move - checking
@@ -114,10 +131,12 @@ _oss_manifest_resolve() { # $1=ai-root $2=string
 # Naming it converts a confusing rejection into a documented limit; it does not fork
 # the vocabulary.
 _oss_manifest_wellknown_guard() { # $1=resolved $2=what $3=source ; rc 0 if usable
+  if _oss_is_plugin_data_token "$1"; then
+    echo "oss: $2 path uses \${PLUGIN_DATA:...}, which ossify does not resolve - route it with \${ai_workspace.root}, \${canonical.root}, \${HOME}, \${USER}, or an absolute path (from '$3')" >&2
+    return 1
+  fi
   case "$1" in
     '')      echo "oss: unresolved $2 path: <empty> (from '$3')" >&2; return 1 ;;
-    *'${PLUGIN_DATA:'*)
-             echo "oss: $2 path uses \${PLUGIN_DATA:...}, which ossify does not resolve - route it with \${ai_workspace.root}, \${canonical.root}, \${HOME}, \${USER}, or an absolute path (from '$3')" >&2; return 1 ;;
     *'${'*)  echo "oss: unresolved $2 path: '$1' (from '$3')" >&2; return 1 ;;
     /*)      return 0 ;;
     *)       echo "oss: $2 path is not absolute: '$1' (from '$3') - a well-known path that depends on the session's cwd is not well-known" >&2; return 1 ;;
