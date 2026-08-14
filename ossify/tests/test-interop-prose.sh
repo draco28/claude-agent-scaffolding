@@ -85,6 +85,24 @@ t_assert_eq "no" "$([ "$(entry "$TMP/hard-alias.json")" = "$(entry "$PHYSPELL")"
 t_assert_eq "no" "$([ "$(entry "$TMP/other/state.json")" = "$(entry "$PHYSPELL")" ] && echo yes || echo no)" \
   "a genuinely different project is a different entry"
 
+# --- SYMLINK FOLLOWED BY `..` : logical vs physical cd ----------------------
+# Bash's default `cd` is LOGICAL - it applies `..` textually before resolving
+# symlinks - so `<ws>/link/../state.json` normalizes to `<ws>/state.json` while
+# the kernel reads `<other>/state.json`. That is a FALSE ok: with every write
+# landing in another project. `pwd -P` does not save it: it reports the physical
+# form of wherever `cd` already went, and the logical `..` has been applied by
+# then. Only `cd -P` agrees with the kernel. (Codex P1, PR #182 round 3.)
+mkdir -p "$TMP/other/sub"
+echo '{"who":"OTHER"}' > "$TMP/other/state.json"
+ln -sfn "$TMP/other/sub" "$TMP/realws/link"
+TRAP="$TMP/ws/link/../state.json"
+t_assert_eq '{"who":"OTHER"}' "$(cat "$TRAP")" \
+  "fixture check: the kernel really does read the OTHER project at that spelling"
+t_assert_eq "no" "$([ "$(entry "$TRAP")" = "$(entry "$TMP/ws/state.json")" ] && echo yes || echo no)" \
+  "a symlink followed by .. resolves PHYSICALLY - a logical cd would emit a false ok: here"
+t_assert_eq "$(cd -P "$TMP/other" && pwd -P)/state.json" "$(entry "$TRAP")" \
+  "...and it resolves to the file the kernel actually reads"
+
 # --- PRE-INIT: the deepest-existing-ancestor walk (#168) --------------------
 # The case the check is most often run in, and the one a plain
 # `cd "$(dirname)"` cannot handle at all.

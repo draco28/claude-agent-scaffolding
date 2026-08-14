@@ -193,7 +193,7 @@ Judge it in this order, and the order matters:
      while [ ! -d "$d" ] && [ "$d" != "/" ] && [ "$d" != "." ]; do
        tail="$(basename "$d")${tail:+/$tail}"; d="$(dirname "$d")"
      done
-     printf '%s%s/%s' "$(cd "$d" && pwd -P)" "${tail:+/$tail}" "$(basename "$p")"
+     printf '%s%s/%s' "$(cd -P "$d" && pwd -P)" "${tail:+/$tail}" "$(basename "$p")"
    }
    ```
 
@@ -211,6 +211,23 @@ Judge it in this order, and the order matters:
    reported symptom, which lived on this surface).
 4. Otherwise `ok: state_path - <routed>`.
 
+> **`cd -P`, not bare `cd`, and the `-P` is not decoration.** Bash's default `cd`
+> is *logical*: it processes `..` textually **before** resolving symlinks, while
+> `-P` resolves symlinks first. With a symlink followed by `..` the two disagree
+> about which file is named, and only `-P` agrees with the kernel. Measured — the
+> override below reads `OTHER` while a logical normalization calls it the routed
+> path:
+>
+> ```
+> /ws/link/../state.json     where link -> /other/sub
+>   kernel reads      : {"who":"OTHER"}
+>   bare cd  + pwd -P : /ws/state.json      -> matches routed -> ok:   ← FALSE
+>   cd -P    + pwd -P : /other/state.json   -> differs        -> fail: ← correct
+> ```
+>
+> `pwd -P` alone does not save you: it reports the physical form of wherever `cd`
+> already landed, and by then the logical `..` has been applied.
+>
 > **The two halves of that normalization are both load-bearing, and each one
 > failed on its own.**
 >
