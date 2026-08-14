@@ -67,16 +67,14 @@ TMP="$(mktemp -d)"; export OSS_STATE_FILE="$TMP/state.json"
 # discoverable once we `cd "$TMP"`; $TMP/canon is the resolved canonical root
 # and must exist before the first demo_run call. well_known_paths.project_state
 # is pointed at the SAME path as $OSS_STATE_FILE (not the ".ossify/..."
-# convention default): _oss_resolve_state's env branch wins per precedence either
-# way, and the two are held in agreement so the fixture states one intent rather
-# than leaning on precedence to paper over a disagreement.
-#
-# This used to matter for a second, harder reason: a DIFFERING routed path made
-# _oss_resolve_state print an "overriding the manifest-routed ..." notice on
-# stderr, which t_capture's `2>&1` folded into every T_OUT below and broke the
-# exact-value assertions. That notice is GONE (#171) — the resolver routes and no
-# longer diagnoses — so agreement is now a clarity choice, not a precondition for
-# these assertions to hold.
+# convention default): _oss_resolve_state's env branch still wins per
+# precedence either way, but a DIFFERING manifest-routed path makes it print an
+# "overriding the manifest-routed ..." notice on stderr, which t_capture's
+# `2>&1` folds into every T_OUT below and breaks the exact-value assertions
+# ([GAP 2] deliberately has no manifest on disk for exactly this reason - this
+# task adds one only for the demo runner's WORKDIR leg, so it must agree with
+# $OSS_STATE_FILE on the state leg to stay silent, same as when no manifest
+# existed at all).
 mkdir -p "$TMP/.workspace" "$TMP/canon"
 cat > "$TMP/.workspace/pairing.json" <<EOF
 {"schema_version":"1.0","ai_workspace":{"root":"$TMP"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{"project_state":"\${ai_workspace.root}/state.json"}}

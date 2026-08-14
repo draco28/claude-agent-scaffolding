@@ -97,45 +97,43 @@ t_capture "$OSS" manifest_get '.ai_workspace.root'
 t_assert_rc 2 "dispatcher: the removed manifest_get verb is unknown (rc 2)"
 cd "$HERE"
 
-# --- #171: `_oss_resolve_state` ROUTES, it does not diagnose.
+# --- Final review M1: when OSS_STATE_FILE overrides a MANIFEST-ROUTED project,
+# say so. A stale export left by an unrelated session silently redirects every
+# read and write, and nothing in the output named the source. Three properties
+# are asserted because each one is separately load-bearing:
+#   (a) the notice never touches stdout — `_oss_resolve_state`'s stdout IS the
+#       state path, and every `oss get` consumer treats stdout as a value;
+#   (b) it names the env var AND the manifest path being overridden;
+#   (c) it stays silent when nothing is actually being overridden (the env var
+#       agrees with the manifest), so it does not become noise to tune out.
 #
-# The override notice these lines used to assert is GONE. It compared
-# $OSS_STATE_FILE to the routed path as raw strings, so an equivalent spelling
-# tripped it on a healthy workspace. It is removed rather than canonicalized:
-# reporting belongs to the agent, and canonicalizing here would have made this
-# function depend on `_oss_canon_path`, which is slated for deletion.
-#
-# Asserted: stdout is EXACTLY the path in every precedence branch, and stderr is
-# empty in all four — overriding, equivalent-spelling, agreeing, manifest-less.
-#
-# WHICH of these can actually catch the bug, measured rather than assumed. Only
-# the EQUIVALENT-SPELLING case (ERR_EQUIV) is a real detector: it is the input
-# #171 was filed about. The agreeing and manifest-less cases were ALREADY written
-# as equality before this fix and stayed green straight through the defect — the
-# agreeing spelling compares equal even under a raw compare, and the manifest-less
-# branch never reaches the comparison at all. Re-adding the notice turns exactly
-# the overriding and equivalent-spelling assertions RED, and neither of the other
-# two, which is what "control" has to mean here: they pin the silent branches
-# against a future regression, they do not demonstrate detection of this one.
+# #171 — the raw-compare false alarm on an equivalent spelling — is STILL OPEN
+# against these lines. Deleting the notice was tried on PR #178 and reverted; see
+# `_oss_resolve_state`'s header for why (it is a safety rail, and removing it cost
+# two P1s in one round). Do not add an equivalent-spelling assertion here expecting
+# silence until #171 lands a fix that refuses rather than warns.
 cd "$TMP/ws"
 export OSS_STATE_FILE="$TMP/elsewhere/state.json"
+t_capture _oss_resolve_state 2>/dev/null
 OUT_ONLY="$(_oss_resolve_state 2>/dev/null)"
-t_assert_eq "$TMP/elsewhere/state.json" "$OUT_ONLY" "env override: stdout is exactly the path"
-ERR_OVERRIDE="$(_oss_resolve_state 2>&1 >/dev/null)"
-t_assert_eq "" "$ERR_OVERRIDE" "#171: SILENT when the env var overrides the manifest (was a raw-compare notice)"
-
-# The equivalent-spelling case that #171 was filed for: same file, different
-# spelling. A raw string compare called this an override; it is not one, and now
-# nothing is printed either way.
-export OSS_STATE_FILE="$TMP/ws/./.ossify/project-state.json"
-ERR_EQUIV="$(_oss_resolve_state 2>&1 >/dev/null)"
-t_assert_eq "" "$ERR_EQUIV" "#171: SILENT for an equivalent spelling of the routed path"
-t_assert_eq "$TMP/ws/./.ossify/project-state.json" "$(_oss_resolve_state 2>/dev/null)" \
-  "#171: an equivalent spelling is still returned VERBATIM, not canonicalized"
+t_assert_eq "$TMP/elsewhere/state.json" "$OUT_ONLY" "override notice stays OFF stdout (stdout is exactly the path)"
+ERR_ONLY="$(_oss_resolve_state 2>&1 >/dev/null)"
+t_assert_contains "$ERR_ONLY" "OSS_STATE_FILE" "override notice names the env var as the source"
+t_assert_contains "$ERR_ONLY" "$TMP/ws/.ossify/project-state.json" "override notice names the manifest-routed path being overridden"
 
 export OSS_STATE_FILE="$TMP/ws/.ossify/project-state.json"
 ERR_AGREE="$(_oss_resolve_state 2>&1 >/dev/null)"
-t_assert_eq "" "$ERR_AGREE" "silent when the env var agrees with the manifest"
+t_assert_eq "" "$ERR_AGREE" "no notice when the env var agrees with the manifest (nothing is being overridden)"
+unset OSS_STATE_FILE
+cd "$HERE"
+
+# ...and with no manifest anywhere on the walk-up path there is nothing to
+# override, so the env branch stays silent there too (this is also what keeps
+# the rest of the suite, which runs manifest-less, free of the notice).
+cd "$TMP"
+export OSS_STATE_FILE="/env/y.json"
+ERR_NOMANIFEST="$(_oss_resolve_state 2>&1 >/dev/null)"
+t_assert_eq "" "$ERR_NOMANIFEST" "no notice when there is no manifest to override"
 unset OSS_STATE_FILE
 cd "$HERE"
 

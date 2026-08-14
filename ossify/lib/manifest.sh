@@ -196,23 +196,35 @@ oss_manifest_spec_path() {
 # Dispatcher glue: resolve the state path for a subcommand.
 # Precedence: explicit $1 > $OSS_STATE_FILE (test/override) > manifest-derived.
 #
-# ROUTING ONLY - it resolves, it does not diagnose (#171). This used to compare
-# $OSS_STATE_FILE against the manifest-routed path and print an "overriding the
-# manifest-routed ..." notice on stderr. That comparison was a RAW STRING compare,
-# so an equivalent spelling ($ws/./.ossify/project-state.json) cried wolf on a
-# healthy workspace - a read-out pointing at the wrong thing, which is the exact
-# failure the notice existed to prevent.
+# The env branch names itself on STDERR when it is genuinely overriding a
+# manifest-routed project: a stale OSS_STATE_FILE exported by an unrelated
+# session silently redirects every read and every write, and nothing else in the
+# output says where the path came from.
 #
-# REMOVED rather than canonicalized, for two reasons. It was read-and-report
-# embedded in the function that routes every mutating verb, and reporting is the
-# agent's job: a session can compare `oss state_path` against the manifest and say
-# so in context, which this function's 42 callers cannot. And canonicalizing would
-# have made this function - which STAYS deterministic - depend on `_oss_canon_path`,
-# which is scheduled for deletion alongside interop/doctor. The advisory fix would
-# have pinned the dying helper in place.
+# Two boundaries are deliberate. The notice never goes to stdout — this
+# function's stdout IS the state path, and callers consume it as a value. And it
+# stays silent when there is no manifest, or when the manifest agrees: nothing is
+# being overridden in either case, and a notice on every call is noise the reader
+# learns to skip, which is the failure mode this is supposed to prevent.
+#
+# #171 (the raw-compare false alarm) is NOT fixed here, deliberately. Removing this
+# notice was tried on PR #178 and reverted: it is a SAFETY RAIL, not a read-out, and
+# CLAUDE.md's own table puts "safety rails the agent must not argue past" on the
+# deterministic side. Deleting it produced two P1s in one review round — `-ef` in the
+# replacement guard accepted a symlinked override that `mv "$tmp" "$sf"` then
+# DETACHES into a second history, and `/start`, `/plan-release` and `/close` were
+# left with no diagnostic at all while calling bare mutating verbs. Any real fix has
+# to cover all 42 callers and refuse rather than warn; see #171.
 _oss_resolve_state() { # [$1=explicit-path]
   if [ -n "${1:-}" ]; then echo "$1"; return 0; fi
-  if [ -n "${OSS_STATE_FILE:-}" ]; then echo "$OSS_STATE_FILE"; return 0; fi
+  if [ -n "${OSS_STATE_FILE:-}" ]; then
+    local _routed
+    _routed="$(oss_manifest_state_path 2>/dev/null)" || _routed=""
+    if [ -n "$_routed" ] && [ "$_routed" != "$OSS_STATE_FILE" ]; then
+      echo "oss: state path came from \$OSS_STATE_FILE ($OSS_STATE_FILE), overriding the manifest-routed $_routed" >&2
+    fi
+    echo "$OSS_STATE_FILE"; return 0
+  fi
   oss_manifest_state_path
 }
 

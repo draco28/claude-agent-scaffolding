@@ -78,12 +78,6 @@ if ! oss state_path >/dev/null 2>&1; then
   printf '%s\n' "ossify requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first."
   exit 0
 fi
-routed="$(oss state_path)"
-if [ -n "${OSS_STATE_FILE:-}" ] && [ "$OSS_STATE_FILE" != "$routed" ] && ! [ "$OSS_STATE_FILE" -ef "$routed" ]; then
-  printf 'HALT: $OSS_STATE_FILE targets a different project than the manifest.\n  env:      %s\n  manifest: %s\n' "$OSS_STATE_FILE" "$routed"
-  printf 'Every read AND WRITE below would hit the env path. unset OSS_STATE_FILE, or pass the state file explicitly.\n'
-  exit 0
-fi
 bones="$(oss get '.bones | length' 2>/dev/null)" || bones=""
 rels="$(oss get '.releases | length' 2>/dev/null)" || rels=""
 printf 'bones=%s releases=%s\n' "${bones:-<no state>}" "${rels:-<no state>}"
@@ -127,12 +121,9 @@ The probes resolve differently, and only the first is manifest-proof:
 `oss state_path` reads the manifest and nothing else, so an exported
 `$OSS_STATE_FILE` cannot satisfy it. `oss get` routes through `_oss_resolve_state`
 (precedence `explicit-arg > $OSS_STATE_FILE > manifest`) and *can* be — a stale
-export from an unrelated session makes probes 2 and 3 read *that* project. **The
-resolver does not warn you** (#171) and `oss get` does not echo its target, so the
-guard above is a HALT, not advice — it is the only point the override is visible
-before anything is read or written. `-ef`, not a string compare: two spellings can
-be one file, and halting on an equivalent spelling is the false alarm #171 removed.
-`oss interop_check` reports the same override; `oss doctor` gives a state read-out.
+export from an unrelated session makes probes 2 and 3 read *that* project. The
+resolver announces on stderr when the env var overrides the manifest; heed that
+line. `oss doctor` gives a full state read-out at any point.
 
 ---
 
