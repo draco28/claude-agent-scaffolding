@@ -2,9 +2,16 @@
 
 > **Single source of truth.** This file is authored once at the marketplace root
 > (`docs/conventions/skill-first.md`) and imported by every `CLAUDE.md` that needs it,
-> including the paired private AI workspace's. **Edit here; never restate it elsewhere.**
-> A restatement in another file is the failure mode this file exists to prevent — the last
-> one replaced a decidable test with a judgment call.
+> including the paired private AI workspace's. Edit here.
+>
+> **One copy is sanctioned: the headline sentence, inline above each import.** `@` expansion
+> is a Claude Code feature, not a property of a file — Codex, `cat`, the GitHub web view, and
+> any session whose external import was silently declined all receive a bare path and no rule.
+> Those headlines exist for those readers. **Do not delete them, and do not extend them past
+> the one sentence.** Where a headline and this file disagree, this file wins.
+>
+> Nothing else restates the rule. A restatement is the failure mode this file exists to
+> prevent — the last one replaced a decidable test with a judgment call.
 
 ## What we are building, and why it constrains how
 
