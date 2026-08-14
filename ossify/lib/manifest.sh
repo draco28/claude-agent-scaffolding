@@ -209,8 +209,8 @@ oss_manifest_spec_path() {
 #
 # #171 (the raw-compare false alarm) is NOT fixed here, deliberately. Removing this
 # notice was tried on PR #178 and reverted: it is a SAFETY RAIL, not a read-out, and
-# CLAUDE.md's own table puts "safety rails the agent must not argue past" on the
-# deterministic side. Deleting it produced two P1s in one review round — `-ef` in the
+# docs/conventions/skill-first.md puts "safety rails the agent must not argue past"
+# on the deterministic side. Deleting it produced two P1s in one review round — `-ef` in the
 # replacement guard accepted a symlinked override that `mv "$tmp" "$sf"` then
 # DETACHES into a second history, and `/start`, `/plan-release` and `/close` were
 # left with no diagnostic at all while calling bare mutating verbs. Any real fix has

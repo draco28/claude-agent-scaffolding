@@ -28,9 +28,8 @@ ai-mentor/state.json
 # git history and is still readable there. Per the boundary doctrine this repo
 # authored, public -> private is impossible; this governs what ships forward.
 #
-# docs/conventions/ is deliberately EXCLUDED below: recommendation-policy.md is
-# the byte-parity source of truth that tests/test-recommendation-policy-parity.sh
-# checks three shipped plugins against, so it is shipped convention, not process.
+# docs/conventions/ is deliberately EXCLUDED below: it is shipped convention, not
+# process exhaust. Each file's header states how that file is delivered.
 docs/agent-driven-program/
 docs/superpowers/
 docs/archive/
