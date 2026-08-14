@@ -25,6 +25,36 @@ t_assert_rc 2 "an unconfigured repo key is rc 2, never a silent canonical defaul
 t_capture _oss_repo_root nonsense
 t_assert_rc 2 "an unknown repo key is rc 2"
 
+# --- #165, second half: a root field holding ${PLUGIN_DATA:...} must be refused
+# as UNSUPPORTED, not as malformed. The token is documented workspace-init
+# vocabulary ossify deliberately does not resolve (#152 wontfix), and the guard in
+# manifest.sh was fixed first; this is the same class on the adjacent refusal,
+# found by the pre-open sweep. Fixed here rather than deferred because worktree.sh
+# STAYS deterministic — unlike interop.sh, which converts to prose.
+cat > "$TMP/ws/.workspace/pairing.json" <<EOF
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"\${PLUGIN_DATA:ossify}/notes"},"well_known_paths":{}}
+EOF
+PD_ROOT_ERR="$(_oss_repo_root canonical 2>&1 >/dev/null)"
+t_capture _oss_repo_root canonical
+t_assert_rc 2 "#165: a \${PLUGIN_DATA:...} repo root is still REFUSED (rc 2), it only reworded"
+t_assert_contains "$PD_ROOT_ERR" "does not resolve" "#165: the root refusal says ossify does not resolve it"
+t_assert_contains "$PD_ROOT_ERR" 'ai_workspace.root' "#165: the root refusal names a supported token instead"
+# CONTROL — the new arm must not swallow the generic case, and must not claim
+# PLUGIN_DATA for a token that is not it.
+cat > "$TMP/ws/.workspace/pairing.json" <<EOF
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"\${NOPE:x}/notes"},"well_known_paths":{}}
+EOF
+OTHER_ROOT_ERR="$(_oss_repo_root canonical 2>&1 >/dev/null)"
+t_assert_contains "$OTHER_ROOT_ERR" "unresolved token" "#165 control: an unrelated token still gets the generic root refusal"
+if [ "${OTHER_ROOT_ERR#*PLUGIN_DATA}" != "$OTHER_ROOT_ERR" ]; then R_PD=yes; else R_PD=no; fi
+t_assert_eq "no" "$R_PD" "#165 control: the generic root refusal does NOT mention PLUGIN_DATA"
+# restore the fixture manifest for everything below
+cat > "$TMP/ws/.workspace/pairing.json" <<EOF
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP/ws"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{}}
+EOF
+t_capture _oss_repo_root canonical
+t_assert_eq "$TMP/canon" "$T_OUT" "fixture restored: canonical resolves again for the rest of the file"
+
 # spawn
 t_capture oss_worktree_add canonical r0.s1.w1 "add-ticket" "HEAD"
 t_assert_rc 0 "worktree_add ok"

@@ -29,6 +29,17 @@ _oss_repo_root() { # $1=repo-key
   # handing a caller a path that only looks absolute.
   local mroot; mroot="$(oss_manifest_discover)" || return 1
   root="$(_oss_manifest_resolve "$(dirname "$(dirname "$mroot")")" "$root")" || return 1
+  # Mirrors `_oss_manifest_wellknown_guard` (#165) and shares its grammar test, so
+  # the two refusals cannot drift the way their wording already did. Same reasoning:
+  # the token is documented workspace-init vocabulary that ossify deliberately does
+  # not resolve (#152), so the generic "unresolved token" wording reads as a typo and
+  # sends the operator to workspace-init's docs, where it is legal - away from the fix.
+  # A MALFORMED PLUGIN_DATA spelling is a typo and correctly falls through to the
+  # generic arm below.
+  if _oss_is_plugin_data_token "$root"; then
+    echo "oss: repo '$key' root uses \${PLUGIN_DATA:...}, which ossify does not resolve - route it with \${ai_workspace.root}, \${canonical.root}, \${HOME}, \${USER}, or an absolute path: '$root'" >&2
+    return 2
+  fi
   case "$root" in
     *'${'*) echo "oss: repo '$key' root has an unresolved token: '$root'" >&2; return 2 ;;
     /*) ;;

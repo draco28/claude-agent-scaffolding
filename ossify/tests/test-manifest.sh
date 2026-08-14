@@ -106,6 +106,12 @@ cd "$HERE"
 #   (b) it names the env var AND the manifest path being overridden;
 #   (c) it stays silent when nothing is actually being overridden (the env var
 #       agrees with the manifest), so it does not become noise to tune out.
+#
+# #171 — the raw-compare false alarm on an equivalent spelling — is STILL OPEN
+# against these lines. Deleting the notice was tried on PR #178 and reverted; see
+# `_oss_resolve_state`'s header for why (it is a safety rail, and removing it cost
+# two P1s in one round). Do not add an equivalent-spelling assertion here expecting
+# silence until #171 lands a fix that refuses rather than warns.
 cd "$TMP/ws"
 export OSS_STATE_FILE="$TMP/elsewhere/state.json"
 t_capture _oss_resolve_state 2>/dev/null
@@ -130,6 +136,61 @@ ERR_NOMANIFEST="$(_oss_resolve_state 2>&1 >/dev/null)"
 t_assert_eq "" "$ERR_NOMANIFEST" "no notice when there is no manifest to override"
 unset OSS_STATE_FILE
 cd "$HERE"
+
+cd "$TMP"
+export OSS_STATE_FILE="/env/y.json"
+ERR_NOMANIFEST="$(_oss_resolve_state 2>&1 >/dev/null)"
+t_assert_eq "" "$ERR_NOMANIFEST" "silent when there is no manifest to override"
+t_assert_eq "/env/y.json" "$(_oss_resolve_state 2>/dev/null)" "manifest-less: env value still routed through"
+unset OSS_STATE_FILE
+cd "$HERE"
+
+# --- #165: refusing ${PLUGIN_DATA:...} must say UNSUPPORTED, not malformed.
+# The token is valid workspace-init vocabulary that ossify deliberately does not
+# resolve (#152 wontfix), so the generic "unresolved path" wording sent readers to
+# workspace-init's docs — where the token is legal — and away from the fix.
+ERR_PD="$(_oss_manifest_wellknown_guard '${PLUGIN_DATA:foo}/x' spec 'test' 2>&1 >/dev/null)"
+# NOT `t_assert_contains "$ERR_PD" "PLUGIN_DATA"` — that assertion is VACUOUS. The
+# generic arm echoes the offending path back, and the path itself contains the
+# literal "PLUGIN_DATA", so it passes with this fix reverted. Caught by mutation
+# testing. Discriminate on the generic arm's own word instead: the named arm must
+# NOT call a documented-but-unsupported token "unresolved".
+if [ "${ERR_PD#*unresolved}" != "$ERR_PD" ]; then PD_SAYS_UNRESOLVED=yes; else PD_SAYS_UNRESOLVED=no; fi
+t_assert_eq "no" "$PD_SAYS_UNRESOLVED" "#165: PLUGIN_DATA is NOT reported with the generic 'unresolved' wording"
+t_assert_contains "$ERR_PD" "does not resolve" "#165: refusal says ossify does not resolve it (a limit, not a typo)"
+t_assert_contains "$ERR_PD" 'ai_workspace.root' "#165: refusal names a supported token to use instead"
+
+# CONTROL for the new arm — it must not swallow the generic case. An unknown
+# token still gets the original wording, and must NOT be described as PLUGIN_DATA.
+ERR_OTHER="$(_oss_manifest_wellknown_guard '${NOPE:foo}/x' spec 'test' 2>&1 >/dev/null)"
+t_assert_contains "$ERR_OTHER" "unresolved" "#165 control: an unrelated token still gets the generic refusal"
+# Substring test via parameter expansion, NOT a `case` inside $( ) — the `)` that
+# closes a case pattern also closes the command substitution.
+if [ "${ERR_OTHER#*PLUGIN_DATA}" != "$ERR_OTHER" ]; then MENTIONS_PD=yes; else MENTIONS_PD=no; fi
+t_assert_eq "no" "$MENTIONS_PD" "#165 control: the generic refusal does NOT mention PLUGIN_DATA"
+# CONTROL: both arms still REFUSE. A friendlier message that started returning 0
+# would route a mutating verb at an unresolvable path.
+t_capture _oss_manifest_wellknown_guard '${PLUGIN_DATA:foo}/x' spec 'test'
+t_assert_rc 1 "#165 control: the PLUGIN_DATA arm still refuses (rc 1), it only reworded"
+
+# MALFORMED spellings are TYPOS, not supported vocabulary, so they must get the
+# GENERIC wording. workspace-init's grammar is ${PLUGIN_DATA:([a-zA-Z0-9_-]+)};
+# a prefix-substring test also swallowed these and told the operator the token was
+# a documented-but-unsupported one, which is the malformed-vs-unsupported call this
+# whole change exists to get right — backwards. (Codex P2, PR #178 round 1.)
+for BAD in '${PLUGIN_DATA:}/x' '${PLUGIN_DATA:foo/x' '${PLUGIN_DATA:foo.bar}/x'; do
+  BAD_ERR="$(_oss_manifest_wellknown_guard "$BAD" spec 'test' 2>&1 >/dev/null)"
+  t_assert_contains "$BAD_ERR" "unresolved" "#165: malformed '$BAD' gets the GENERIC unresolved wording"
+  if [ "${BAD_ERR#*does not resolve}" != "$BAD_ERR" ]; then BAD_CLAIMS_PD=yes; else BAD_CLAIMS_PD=no; fi
+  t_assert_eq "no" "$BAD_CLAIMS_PD" "#165: malformed '$BAD' is NOT called supported-but-unresolvable"
+done
+
+# ...and the complete grammar is still recognised in the forms workspace-init allows
+# (hyphens and underscores are legal plugin-name characters).
+for GOOD in '${PLUGIN_DATA:foo}/x' '${PLUGIN_DATA:my-plugin}/x' '${PLUGIN_DATA:my_plugin}/x'; do
+  GOOD_ERR="$(_oss_manifest_wellknown_guard "$GOOD" spec 'test' 2>&1 >/dev/null)"
+  t_assert_contains "$GOOD_ERR" "does not resolve" "#165: complete token '$GOOD' gets the unsupported-vocabulary wording"
+done
 
 # ---------------------------------------------------------------------------
 # The RELATIVE-path trap (Codex P2, PR #149). `_oss_manifest_resolve`

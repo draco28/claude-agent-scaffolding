@@ -106,7 +106,35 @@ _oss_manifest_resolve() { # $1=ai-root $2=string
 # happened to start in - two agents in two directories driving two different
 # files, which is precisely the failure a well-known path exists to prevent.
 # (Codex P2, PR #149.)
+# rc 0 if $1 holds a COMPLETE `${PLUGIN_DATA:<name>}` token (#165).
+#
+# The grammar is workspace-init's, copied deliberately rather than approximated:
+# `\$\{PLUGIN_DATA:([a-zA-Z0-9_-]+)\}` (workspace-init/lib/manifest.sh). A substring
+# glob on the `${PLUGIN_DATA:` prefix alone was the first spelling and it was wrong -
+# it also swallowed `${PLUGIN_DATA:}`, an unterminated `${PLUGIN_DATA:foo`, and
+# `${PLUGIN_DATA:foo.bar}`. Those are TYPOS, not supported vocabulary, so the
+# unsupported-token message made exactly the malformed-vs-unsupported distinction it
+# exists to draw, backwards. Anything failing this test falls through to the generic
+# unresolved-token arm, which is the correct answer for a typo.
+#
+# One helper, two call sites (here and `_oss_repo_root`), so the grammar cannot drift
+# between the two refusals the way the wording already did.
+_oss_is_plugin_data_token() { # $1=value ; rc 0 if it holds a complete PLUGIN_DATA token
+  [[ "$1" =~ \$\{PLUGIN_DATA:[a-zA-Z0-9_-]+\} ]]
+}
+
+# The PLUGIN_DATA branch is ordered BEFORE the generic token arm on purpose (#165).
+# That token is a documented member of workspace-init's shared manifest vocabulary
+# which ossify deliberately does not resolve (#152, wontfix). Reported through the
+# generic arm it reads as "you typed this wrong", so the obvious next move - checking
+# the token against workspace-init's docs, where it IS valid - leads away from the fix.
+# Naming it converts a confusing rejection into a documented limit; it does not fork
+# the vocabulary.
 _oss_manifest_wellknown_guard() { # $1=resolved $2=what $3=source ; rc 0 if usable
+  if _oss_is_plugin_data_token "$1"; then
+    echo "oss: $2 path uses \${PLUGIN_DATA:...}, which ossify does not resolve - route it with \${ai_workspace.root}, \${canonical.root}, \${HOME}, \${USER}, or an absolute path (from '$3')" >&2
+    return 1
+  fi
   case "$1" in
     '')      echo "oss: unresolved $2 path: <empty> (from '$3')" >&2; return 1 ;;
     *'${'*)  echo "oss: unresolved $2 path: '$1' (from '$3')" >&2; return 1 ;;
@@ -178,6 +206,15 @@ oss_manifest_spec_path() {
 # stays silent when there is no manifest, or when the manifest agrees: nothing is
 # being overridden in either case, and a notice on every call is noise the reader
 # learns to skip, which is the failure mode this is supposed to prevent.
+#
+# #171 (the raw-compare false alarm) is NOT fixed here, deliberately. Removing this
+# notice was tried on PR #178 and reverted: it is a SAFETY RAIL, not a read-out, and
+# CLAUDE.md's own table puts "safety rails the agent must not argue past" on the
+# deterministic side. Deleting it produced two P1s in one review round — `-ef` in the
+# replacement guard accepted a symlinked override that `mv "$tmp" "$sf"` then
+# DETACHES into a second history, and `/start`, `/plan-release` and `/close` were
+# left with no diagnostic at all while calling bare mutating verbs. Any real fix has
+# to cover all 42 callers and refuse rather than warn; see #171.
 _oss_resolve_state() { # [$1=explicit-path]
   if [ -n "${1:-}" ]; then echo "$1"; return 0; fi
   if [ -n "${OSS_STATE_FILE:-}" ]; then
