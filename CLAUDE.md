@@ -180,13 +180,11 @@ an agent per fixture, then a judge against `rubrics/<surface>.md`, writing
 it. Treat a green aggregate as valid only when the results files were regenerated after the
 change under test.
 
-`docs/conventions/` is the only `docs/` content tracked here, because it is shipped
-convention rather than process exhaust. Two different mechanisms live in it, and they are not
-interchangeable:
+`docs/conventions/` is the only `docs/` content tracked here, because it is shipped convention
+rather than process exhaust.
 
-- **`recommendation-policy.md`** is the byte-parity source of truth the parity test checks
-  against — copied into each adopting plugin because repo-root `docs/` does not ship on
-  `/plugin install`. Edit the root copy and re-copy; never hand-edit a plugin copy.
-- **`skill-first.md`** is imported by `CLAUDE.md` (here and in the paired workspace), not
-  copied. It governs how we build, so it never needs to reach a consumer's machine — which is
-  why it has no plugin copies and no parity test.
+**How each file there reaches its consumer differs, and the file's own header states which.**
+Byte-parity copy under a test, `CLAUDE.md` import, and cited-source are all currently in use.
+Read the header rather than inferring from a neighbour — and do not enumerate the mechanisms
+here. A revision of this paragraph did, naming two of the three, and was wrong before it
+merged.
