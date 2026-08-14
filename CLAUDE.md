@@ -168,33 +168,25 @@ The four spellings that failed, so nobody re-derives one:
 
 ## Commands
 
-**Run the suite for the plugin you changed, plus the whole repo-root set.**
-`ossify/tests/run-all.sh` is not a proxy for the others — it exercises none of their code, so
-an ossify-only run reports green on a scaffold-dev change that was never tested.
+**`.github/workflows/tests.yml` is the authoritative list of what must pass.** Read it and run
+the steps that cover what you changed, including each step's `env:` and any install step above
+it — several fail or silently weaken without them.
 
-```bash
-# Per-plugin — CI runs every one of these (.github/workflows/tests.yml)
-bash workspace-init/run-tests.sh
-bash scaffold-onboard/run-tests.sh
-bash scaffold-dev/run-tests.sh
-bash architect-critic/run-tests.sh
-bash claude-security-audit/run-tests.sh          # CSA_SKIP_PERF=1 on shared runners (#71)
-bash ai-mentor/tests/test-frontmatter-lint.sh
-bash ossify/tests/run-all.sh                     # full ossify suite
-bash ossify/tests/test-block-ledger.sh           # shipped bash-block ledger
+This section deliberately does **not** restate that list. An earlier revision did, and drew a
+fresh "you omitted X" finding in three consecutive review rounds: a hand-maintained prose
+mirror of a machine-readable file drifts from it by construction, which is the same
+over-specification this file warns about above. The workflow is the source of truth; what
+follows is only what reading it will not tell you.
 
-# Repo-root, cross-plugin — these catch what no single plugin suite can see
-bash tests/test-codex-dual-publish.sh            # Claude/Codex marketplace parity
-bash tests/test-recommendation-policy-parity.sh  # cross-plugin byte-parity
-node --test tests/test-opencode-runtime-adapter.mjs
+**Run the suite for the plugin you changed.** `ossify/tests/run-all.sh` is not a proxy for the
+others — it exercises none of their code, so an ossify-only run reports ALL GREEN on a
+scaffold-dev change that was never tested. Plus the repo-root `tests/` set, which catches
+cross-plugin parity breaks no single plugin suite can see.
 
-# The live loader needs the PINNED binary first — it asserts an exact version and
-# exits 1 on absent-or-different, which reads as your change breaking it.
-npm install --global opencode-ai@1.18.13
-bash tests/test-opencode-live.sh                 # OpenCode live loader
-```
-
-**The eval gate is NOT one command, and running the aggregator alone is a false green.**
+**The eval gates are NOT one command, and running an aggregator alone is a false green.**
+`ossify` and `architect-critic` each ship a session-driven LLM-judge harness under
+`tests/eval/` — read that harness's own `RUNBOOK.md`, because neither is wired into CI and
+neither runs itself.
 
 ```bash
 bash ossify/tests/eval/lib/aggregate-scores.sh  # reads results/*.json — evaluates NOTHING
@@ -203,11 +195,11 @@ bash ossify/tests/eval/lib/aggregate-scores.sh  # reads results/*.json — evalu
 That script only summarises per-fixture JSON that a **prior Claude-Code session** wrote; its
 own header says "Run AFTER the eval run has written `results/*.json`." Run it after changing a
 skill or rubric and it re-reads the *committed* results and reports green, having evaluated
-none of the change. The evaluation itself is the session-driven pass in
-`ossify/tests/eval/RUNBOOK.md` (dispatch an agent per fixture, then a judge against
-`rubrics/<surface>.md`, writing `results/<surface>/<id>.json`) — `run-evals.sh` prints that
-instruction rather than performing it. Treat a green aggregate as valid only when the results
-files were regenerated after the change under test.
+none of the change. The evaluation itself is the session-driven pass in the RUNBOOK (dispatch
+an agent per fixture, then a judge against `rubrics/<surface>.md`, writing
+`results/<surface>/<id>.json`) — `run-evals.sh` prints that instruction rather than performing
+it. Treat a green aggregate as valid only when the results files were regenerated after the
+change under test.
 
 `docs/conventions/` holds the byte-parity source of truth that parity test checks against —
 it is shipped convention, not process exhaust, which is why it is the only `docs/` content
