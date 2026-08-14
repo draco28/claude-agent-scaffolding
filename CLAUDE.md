@@ -22,16 +22,28 @@ never be added back here.
 
 ## The one rule that matters most
 
+**Code that MUTATES DURABLE STATE may be deterministic. Code that READS AND REPORTS must be prose.**
+
 @docs/conventions/skill-first.md
 
-That file is the single source of truth for the determinism line — its scope, its evidence,
-and the decidable test that goes with it.
+`docs/conventions/skill-first.md` is **authoritative** — its scope, its evidence, and the
+decidable test that goes with it. The headline above is stated inline only because the import
+above it is a Claude Code feature, not a property of this file: any other reader — an external
+review agent, `cat`, the GitHub web view — receives that line as literal text and would
+otherwise get no rule at all. **If the two ever disagree, the file wins.**
 
-It is imported rather than written here because the paired private AI workspace needs the
-same rule and **this file does not load there.** Claude Code walks *up* from the working
-directory; the two repos are siblings, so a session started in the workspace never sees this
-file. Both `CLAUDE.md` files import that one, which is what keeps the rule from drifting
-between them. Do not paraphrase it in either.
+It lives there rather than here because the paired private AI workspace needs the same rule and
+**this file does not load there.** Claude Code walks *up* from the working directory; the two
+repos are siblings, so a session started in the workspace never sees this file. Its `CLAUDE.md`
+imports the same file by absolute path.
+
+That import is **external** — outside its working directory — so Claude Code gates it behind a
+one-time approval dialog per machine. Declining it, or hitting it non-interactively, disables
+the import permanently and **silently**: no error, no second prompt, just a session with no
+rule. If a workspace session seems not to know this rule, check `/context` for the file before
+assuming anything else.
+
+Do not paraphrase the rule in either repo beyond the headline above.
 
 ---
 
