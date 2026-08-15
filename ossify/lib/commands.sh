@@ -269,31 +269,16 @@ oss_cmd_demo_run() { # [$1=state-file] [$2=workdir]
 oss_cmd_demo_user_lines() { local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_user_lines "$sf" "${1:-}"; }
 oss_cmd_demo_record()     { _oss_need 4 demo_record "<work_item|spine|release> <id> <true|false> <line-count> [notes]" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_record_close "$sf" "$1" "$2" "$3" "$4" "${5:-}"; }
 
-# Machine-checkable rules (spec §9.1, `doctor`'s third surface). SHAPE ONLY -
-# these two verbs answer "is this block well-formed" and "which types exist".
-# Neither runs a rule against a codebase; the evaluator is a separate v0.3 item.
-# `${1:-}`/`${2:-}` rather than positionals so a missing argument is the lib's
-# own rc-2 usage error instead of a strict-mode unbound-variable abort.
-#
-# `--file` is the form prose must use for any body that came out of a
-# REPOSITORY. Passing the bytes as a shell argument is safe; embedding them in
-# shell SOURCE is not, and a heredoc does the latter - a block containing a line
-# equal to the delimiter ends the heredoc early and hands the rest to bash. A
-# quoted delimiter stops expansion INSIDE the heredoc; it cannot stop delimiter
-# injection. Reading the file here keeps untrusted bytes out of shell source
-# entirely: `$(cat …)` is quoted into a single argument and never re-parsed.
-# (Codex P1, PR #149 round 5.)
-oss_cmd_rules_types()    { oss_rules_types; }
-oss_cmd_rules_validate() { # <type> <block-body> | <type> --file <path>
-  _oss_need 2 rules_validate "<type> <block-body> | <type> --file <path>" "$@" || return 2
-  if [ "${2:-}" = "--file" ]; then
-    _oss_need 3 rules_validate "<type> --file <path>" "$@" || return 2
-    [ -f "${3:-}" ] || { echo "oss: rules_validate --file: no such file '${3:-}'" >&2; return 2; }
-    oss_rules_validate_block "${1:-}" "$(cat "${3}")"
-  else
-    oss_rules_validate_block "${1:-}" "${2:-}"
-  fi
-}
+# Machine-checkable rules (spec §9.1, `doctor`'s third surface) have NO verbs
+# since the skill-first conversion. Shape validation is performed by reading
+# against the field table in doctor/references/rule-authoring.md §3 — and with
+# the evaluator settled WONTFIX (2026-08-15), nothing in ossify consumes an
+# mcrule block mechanically: the work-item gate's Layer 3 agent read is this
+# stack's evaluation mechanism (what any other stack does with the shared
+# artifact is that stack's own contract). The old --file/heredoc
+# delimiter-injection hazard (Codex P1, PR #149 round 5) died with the verbs —
+# no rule body enters shell source at all now, and the prose keeps the
+# residual rule that one never does.
 
 # Claude/Codex interop (spec §9.1, `doctor`'s fourth surface) has NO verb. It was
 # 175 lines of bash that opened files and described what it found - diagnostics,

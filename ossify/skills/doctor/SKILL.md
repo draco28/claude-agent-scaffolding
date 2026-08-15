@@ -13,9 +13,11 @@ way they do not. It reports; the operator repairs.
 
 `oss` (the dispatcher over `lib/*.sh`) supplies the mechanical facts: whether the
 schema parses, whether the journal replays, which worktree directories no work
-item claims, whether a rule block is well-formed. The judgment — is this drift
-the record's fault or the repo's, is this rule the right rule for this project,
-is this warning worth acting on today — happens here, in your reasoning.
+item claims. Whether a rule block is well-formed is yours since the skill-first
+conversion — checked by reading against the reference's field table (§6). The
+judgment — is this drift the record's fault or the repo's, is this rule the
+right rule for this project, is this warning worth acting on today — happens
+here, in your reasoning.
 
 ---
 
@@ -31,7 +33,7 @@ Five surfaces:
 |---|---|---|
 | State inspection | Is the record intact, and does it still match the repo? | §4 |
 | Spec validation | Does the lean spec still satisfy its schema? | §5 |
-| Rule authoring | What should `03-code-patterns.md` mechanically enforce? | §6 |
+| Rule authoring | What rules should `03-code-patterns.md` document for the work-item gate to apply? | §6 |
 | Interop check | Can Claude *and* Codex both drive this workspace safely? | §7 |
 | Budget check | Does the front-loaded surface still cost what it claims? | §8 |
 
@@ -233,25 +235,25 @@ deliberately does not check — is in **`references/spec-validation.md`**.
 `## Machine-checkable rules` section — the heading present, no rules. Filling it
 is this surface's job, and it is the one place `doctor` writes on purpose.
 
-Four rule types, and the field sets are per-type rather than shared:
+Four rule types, and the field sets are per-type rather than shared — the
+reference's §3 table is the authoritative list; there is no verb behind it.
 
-```bash
-oss rules_types
-```
+Validate every block **before** appending it — by reading it against that
+table and the grammar (the reference's §5 checks, in their stated order). A
+failing check names the one wrong line, never just "invalid block". **Shape
+only**, and a rule body never enters a shell command: values are regexes full
+of `$`, backticks and parentheses, and in a sweep they come out of a
+repository file nobody here wrote.
 
-Validate every block **before** appending it — by writing the body to a file
-with the Write tool and passing `--file`, never by putting the bytes into a
-shell command. Rule values are regexes full of `$`, backticks and parentheses,
-and in a sweep they come out of a repository file nobody here wrote:
-interpolating one executes it, and a quoted heredoc is no defence because a body
-line equal to the delimiter ends the heredoc and the rest is parsed as shell.
-The reference has the exact form; use it verbatim.
-
-rc 0 = well-formed, rc 1 = not (stderr names the offending field *and* the
-type), rc 2 = usage. **Shape only.** Nothing here evaluates a rule against a
-codebase — the evaluator is a separate v0.3 item, and saying so is the point: a
-rule authored today is documented and validated, not yet enforced. Tell the user
-that rather than letting them infer enforcement from the ceremony.
+Ossify evaluates no rule against a codebase mechanically, and never will —
+**the evaluator is wontfix, settled 2026-08-15**: the work-item gate's Layer 3
+agent read is ossify's evaluation mechanism. Tell the user that: a rule
+authored today is documented, validated, and read by that gate at every
+close — "read", not "applied": a rule whose check needs a measurement the
+staged diff does not carry (`coverage_floor`'s threshold) is consulted, not
+measured, there. (That statement speaks for ossify; what a mid-migration
+project's legacy stack does with the shared artifact is that stack's own
+contract — the reference's §2 has the boundary.)
 
 **In a full sweep this surface is READ-ONLY** (§3). Authoring runs only on an
 explicit rule request.
@@ -337,7 +339,9 @@ Named here rather than left to read as executed:
   **phase 2**. `oss migrate` exists and moves a state file's schema version;
   the artifact-converting `migrate` *flow* does not ship in this release.
 - **Rule evaluation.** §6 authors and validates rule blocks. Running them
-  against a codebase is a separate v0.3 item.
+  against a codebase mechanically is **wontfix** (settled 2026-08-15): the
+  work-item gate's Layer 3 agent read is ossify's evaluation mechanism, and
+  no ossify evaluator will ship.
 - **Interop repair.** §7 checks; it does not add manifest keys or merge
   `AGENTS.md`. Spec §9.1 says *check*, and the repair half belongs to
   `scaffold-onboard`'s original — porting it would also mean porting a managed
@@ -377,8 +381,9 @@ Named here rather than left to read as executed:
   require one (§5).
 - **Appending a rule block without validating it first**, or inventing a field
   name a type does not define (§6).
-- **Telling the user an authored rule is enforced.** It is documented and
-  well-formed. The evaluator is not shipped (§6, §9).
+- **Telling the user an authored rule is mechanically enforced.** It is
+  documented, well-formed, and read by the work-item gate's agent — the
+  evaluator is wontfix (§6, §9).
 - **Editing `AGENTS.md` or the pairing manifest to make the interop check
   pass.** This surface checks; the user repairs (§7, §9).
 - **Demanding `routing.roadmap`, `routing.sprint_specs` or `.workspace/locks`.**
@@ -400,8 +405,7 @@ Named here rather than left to read as executed:
   this project.
 - **`oss`** handles mechanical facts only and holds no judgment: `doctor` (the
   check lines and their rc), `worktree_orphans` (the on-disk-minus-state
-  difference — never whether an orphan is safe to delete), `rules_types` and
-  `rules_validate` (block shape — never whether the rule is worth having),
+  difference — never whether an orphan is safe to delete),
   `state_path`, `repo_root`, `manifest_require`, `get` (arbitrary reads),
   `feature_list`, `critic_detect`, `state_restore` and `migrate` (**named to the
   user, not run by you**).

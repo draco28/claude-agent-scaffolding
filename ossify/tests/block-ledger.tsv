@@ -45,9 +45,11 @@
 #   block unfindable and the failure read as "vacuous" rather than as wrong
 #   behaviour. Pick the anchor from the block's SCAFFOLDING, never from its FIX.
 #
-# Totals: 175 blocks - 59 operative (11 covered, 48 deferred), 116 illustrative.
-# (the harvest conversion retired two more: impl-check.md's harvest_dir read
-# and rule-authoring.md's deferred path composition went with the verb.)
+# Totals: 172 blocks - 59 operative (11 covered, 48 deferred), 113 illustrative.
+# (the harvest conversion retired two: impl-check.md's harvest_dir read and
+# rule-authoring.md's deferred path composition; the rules conversion retired
+# three more: doctor/SKILL.md's rules_types call and rule-authoring.md's last
+# two — that file now ships zero bash blocks.)
 # (interop_check converted to prose on PR #182: doctor/SKILL.md lost its verb
 # call; references/interop-check.md gained the three resolution reads the
 # agent-performed check works from. ALL illustrative - the conversion adds no
@@ -121,10 +123,9 @@ D	commands/run-spine.md	1	#138	the $ARGUMENTS env-var bridge
 D	commands/start.md	1	#138	the $ARGUMENTS env-var bridge
 D	commands/work-item.md	1	#138	the $ARGUMENTS env-var bridge
 D	skills/doctor/SKILL.md	1	#138	the surface router - a broken parse silently runs the FULL SWEEP instead of the named surface, which reads as success rather than as a routing failure
-I	skills/doctor/SKILL.md	2	single-verb calls: doctor, rules_types (interop_check's block went with the verb - §7 is performed by reading now)
+I	skills/doctor/SKILL.md	1	a single doctor call (interop_check's block went with its verb - §7 is performed by reading; rules_types' block went the same way - §6's type table is the reference's §3 prose now)
 I	skills/doctor/references/state-inspection.md	3	the reads the agent-performed half works from, now that doctor emits only its four gate lines: the four advisory counts, the `| type` guard that must precede them (jq's length answers on strings too, so a corrupt field returns a plausible number at rc 0), and the worktree_orphans call shapes one per repo key (#156). Each is a single read whose OUTPUT the prose interprets - the judgement is the prose
 I	skills/doctor/references/spec-validation.md	2	a spec_path resolve and a bones-count get bound to an explicit state path
-I	skills/doctor/references/rule-authoring.md	2	a rules_types call and a single --file validate call; the validate example is illustrative again now that the body travels as a FILE rather than as an embedded heredoc (the harvest_dir path-composition block went with the verb - the bank path is prose-resolved per close/references/harvest.md §7 now)
 I	skills/doctor/references/interop-check.md	3	the resolution calls the agent-performed check reads FROM, now that the verb is gone: the two repo_root reads, the canonical git probe, and state_path vs $OSS_STATE_FILE. Each is a single call whose OUTPUT the prose interprets - the judgement is the prose, so executing these would test the fixture rather than the check
 D	skills/doctor/references/budget-check.md	2	#138	both budget probes now self-locate the ossify root from the `oss` dispatcher and consume it on the next line - operative by the stated rule. The two forms they replaced (a repo-relative path, then ${CLAUDE_PLUGIN_ROOT}) both failed SILENTLY, the second by expanding to empty and reading /tests/..., so a regression here looks exactly like a working command
 D	skills/close/SKILL.md	2	#138	the id-shape router and the manifest-refusal + doctor gate
@@ -193,10 +194,9 @@ H	skills/close/references/routing.md	948295148-232
 H	skills/close/references/spine-close.md	272077069-3589
 H	skills/close/references/work-item-close.md	705326676-2373
 H	commands/doctor.md	729179949-141
-H	skills/doctor/SKILL.md	20286939-175
+H	skills/doctor/SKILL.md	1682577931-138
 H	skills/doctor/references/budget-check.md	582880737-316
 H	skills/doctor/references/interop-check.md	383382278-345
-H	skills/doctor/references/rule-authoring.md	3769118018-127
 H	skills/doctor/references/spec-validation.md	2541080060-102
 H	skills/doctor/references/state-inspection.md	622871202-1192
 H	skills/plan-release/SKILL.md	84192511-1651
