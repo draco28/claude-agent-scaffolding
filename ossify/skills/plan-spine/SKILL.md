@@ -126,8 +126,8 @@ resolver announces on stderr when the env var overrides the manifest; heed that
 line. **`oss doctor` is the state GATE, not a full read-out** — four checks
 (`state`, `schema`, `replay`, `shape`). It says nothing about pending
 amendments, quarantined lines, outstanding fakes, patch records, a held lock or
-orphan worktrees; those are the `/doctor` skill's, and invoking this skill does
-not invoke it. Run `/doctor` when you want them.
+orphan worktrees; those are the `ossify:doctor` skill's, and invoking this skill does
+not invoke it. Invoke `ossify:doctor` when you want them.
 
 ---
 

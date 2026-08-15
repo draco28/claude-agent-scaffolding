@@ -209,10 +209,13 @@ New in v0.3, and the only check that reads the repository rather than the state
 file.
 
 ```bash
+# EVERY key in _oss_repo_root's enum, not a sample - the automatic loop that used
+# to cover them is gone, so an omitted key costs its line and #156 comes back.
+# READ the enum from lib/worktree.sh rather than trusting a list written here: a
+# transcribed copy is exactly the drift the deleted (12b) guard used to catch.
 # ALWAYS both arguments: the repo key AND the state this run is inspecting -
 # the same "$sf" the rest of the read-out uses (§2), never a fresh oss state_path.
-oss worktree_orphans canonical    "$sf"
-oss worktree_orphans private_core "$sf"
+oss worktree_orphans <key> "$sf"     # once per key in the enum
 ```
 
 **Pass the key every time — the verb does not make you.** Omitting it silently

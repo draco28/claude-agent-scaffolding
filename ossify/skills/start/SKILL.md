@@ -410,7 +410,7 @@ oss doctor
 **That is the gate, not a sweep** — `state`, `schema`, `replay`, `shape`, and
 nothing else. A fresh project has no ledger, fakes or patch records to report
 anyway, so the gate is the right check here; if you want the advisory surfaces
-(a held lock, orphan worktrees), say so and run **`/doctor`**, which is a
+(a held lock, orphan worktrees), say so and run the **`ossify:doctor`** skill, which is a
 different skill and is not invoked by running this one.
 
 Then close by naming the next step: **`/plan-release`** to plan Release 0 with

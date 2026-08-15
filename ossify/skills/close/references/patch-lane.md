@@ -157,7 +157,7 @@ record. A patch committed and never recorded is the lane's actual failure mode:
 the drift is real and invisible, and `doctor` cannot count what was never
 written.
 
-The one-liner is **self-declared and visible in the doctor read-out**. Write the second half —
+The one-liner is **self-declared and visible in the ossify:doctor read-out (NOT in bare `oss doctor`, which is the four-check gate)**. Write the second half —
 *why it took no spine* — as the three-part test's answer, not as a restatement of
 the diff. *"comment typo in the export path — no bone, no gate, no line observes
 it"* is a record; *"fix typo"* is a shrug that the next reader cannot audit.
