@@ -100,28 +100,58 @@ project. Here the job is to describe **the state `oss doctor` just gated**, so t
 read must follow doctor's own resolution. Do not harmonise them; the difference is
 the point.
 
-| Yours | Reads | Report when |
+| Yours | Reads | Emit |
 |---|---|---|
-| `lock` | `<state>.lock` dir | it exists — `warn:`, and say whether it is stale. A ceremony may be mid-mutation |
-| `ledger` | `demo_ledger` | pending amendments, or quarantined lines — each must be fixed or retired by the next release close |
-| `fakes` | `fakes` | any `active` **or** `renewed` fake is still outstanding. `renewed` counts: it is a deferral, not a resolution |
-| `patches` | `patch_records` | any out-of-spine patch record exists. The patch lane is *self-declared*, so this count is the only thing that makes accumulated out-of-band work visible at all — report it even at zero |
+| `lock` | `<state>.lock` dir | present → `warn: lock - held (a ceremony may be mid-mutation)`, or if the dir is **>30 min old**, `warn: lock - stale lock dir (>30min): rmdir '<state>.lock' if no ceremony is running`. Absent → `ok: lock - free` |
+| `ledger` | `demo_ledger` | **up to two `warn:` lines, counted separately** — see below |
+| `fakes` | `fakes` | count > 0 → `warn: fakes - N outstanding fake(s) carrying a replacement trigger and expiry release`. Zero → `ok: fakes - none outstanding` |
+| `patches` | `patch_records` | count > 0 → `warn: patches - N out-of-spine patch record(s) **since the last spine close**`. Zero → `ok: patches - none since the last spine close` |
 | `worktrees` | **the repos** | see §4 — one line per repo key |
 
-**Check the TYPE before you trust the count — this one bites.** `jq`'s `length`
-is defined on strings and objects too, so a corrupt field returns a plausible
-number at rc 0 rather than an error:
+**`ledger` is two counts sharing one clean line, and that shape matters.** Pending
+amendments and quarantined lines are counted and reported *independently*:
 
-```bash
-oss get '.patch_records | type'     # must be "array"
+- pending > 0 → `warn: ledger - N demo line(s) carry a pending amendment awaiting a
+  spine close ('oss ledger_unplan <line-id> <spine>' to drop one)` — **carry that
+  remedy**; it is the verb an operator needs and nothing else names it here.
+- quarantined > 0 → `warn: ledger - N quarantined line(s); each must be fixed or
+  retired by the next release close`
+- **`ok: ledger - no pending amendments, no quarantined lines` only when BOTH are
+  zero.** A clean line while one counter is dirty is the failure the deleted code
+  guarded against explicitly, and its test named it: *"the ledger clean line fired
+  while one of its two counters was dirty."*
+
+**Unreadable is `skip:`, never a count and never `ok:`.** All three, spelled out —
+note the check name is not the field name, so do not derive one from the other:
+
+```
+skip: ledger - unavailable (.demo_ledger could not be read as a countable list)
+skip: fakes - unavailable (.fakes could not be read as a countable list)
+skip: patches - unavailable (.patch_records could not be read as a countable list)
 ```
 
-Measured: with `.patch_records` set to the string `"oops"`,
-`oss get '.patch_records | length'` returns **4** — the character count — and
-exits 0. Take that at face value and you report `warn: patches - 4 out-of-spine
-patch record(s)` about a field that holds no records at all. The deleted bash
-guarded this with a `def _arr(f): … else error` wrapper on every count; you do it
-by asking for the type first.
+**Check the TYPE of every counted field before you trust any count — one guard,
+all three.** `jq`'s `length` is defined on strings and objects, and `[]` iterates
+an **object's values**, so a structurally corrupt field returns a plausible number
+at rc 0 rather than an error. Run this first and treat any non-`array` as `skip:`:
+
+```bash
+oss get '{ledger: (.demo_ledger|type), fakes: (.fakes|type), patches: (.patch_records|type)}' "$sf"
+```
+
+Measured, all three ways a corrupt field lies:
+
+| Corruption | The count query returns | rc |
+|---|---|---|
+| `.patch_records = "oops"` (string) | **4** — the character count | 0 |
+| `.demo_ledger = {…two entries…}` (object) | **2** — object values iterate | 0 |
+| `.fakes = {…one entry…}` (object) | **1** — same | 0 |
+
+Take any of those at face value and you report `warn: patches - 4 out-of-spine
+patch record(s)` or `warn: ledger - 2 quarantined line(s)` about fields holding no
+records at all. The deleted bash guarded this with a `def _arr(f): … else error`
+wrapper applied to **every** count, not to one of them; the single query above is
+that wrapper's replacement, and it has to cover the same three fields.
 
 **A field that will not read as a list is `skip:`, not `ok:`** — and not `warn:`
 either. Say the field could not be read as a list. Reporting a count there is the
