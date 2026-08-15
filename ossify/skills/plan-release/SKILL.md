@@ -100,8 +100,11 @@ probe from *that* project's state and report a false "onboarded". Passing `"$sp"
 both probes on the same project by construction. **Keep the argument.** Dropping
 it reintroduces a silent cross-project read that looks exactly like success.
 
-`oss doctor` is available at any point for a state read-out; run it if anything
-below looks inconsistent.
+`oss doctor` is available at any point, but it is the state **gate** — `state`,
+`schema`, `replay`, `shape` — not a read-out. It says nothing about pending
+amendments, quarantined lines, outstanding fakes, patch records, a held lock or
+orphan worktrees. Run it if the state itself looks inconsistent; invoke **`ossify:doctor`**
+if you want the advisory surfaces, which this skill does not invoke.
 
 ---
 

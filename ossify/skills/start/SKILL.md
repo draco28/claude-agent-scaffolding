@@ -401,11 +401,17 @@ retired 10-phase schema. Never emit fill-in markers; thin-and-true beats a `TODO
 Full derivation brief in `references/memory-bank-brief.md`; section schema in
 `references/lean-spec-schema.md`.
 
-Before handing off, run the state check and surface anything it reports:
+Before handing off, run the state gate and surface anything it reports:
 
 ```bash
 oss doctor
 ```
+
+**That is the gate, not a sweep** — `state`, `schema`, `replay`, `shape`, and
+nothing else. A fresh project has no ledger, fakes or patch records to report
+anyway, so the gate is the right check here; if you want the advisory surfaces
+(a held lock, orphan worktrees), say so and run the **`ossify:doctor`** skill, which is a
+different skill and is not invoked by running this one.
 
 Then close by naming the next step: **`/plan-release`** to plan Release 0 with
 the skeleton spine pre-seeded from the cut.

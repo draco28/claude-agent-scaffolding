@@ -104,7 +104,7 @@ fixed or retired by the next release close**. The `<release>` argument is what
 makes that enforceable — it is the parking ticket's date. Omit it and the next
 release close has no way to tell which quarantines are overdue.
 
-`oss doctor` surfaces outstanding quarantines as an advisory line — `warn: ledger
+the doctor surface reports outstanding quarantines as an advisory line — `warn: ledger
 - N quarantined line(s); each must be fixed or retired by the next release
 close`. It is a warning, not a failure: it never changes doctor's exit code, so a
 quarantine cannot block a ceremony that is otherwise healthy. For the lines
@@ -158,7 +158,7 @@ inconvenient stops being evidence about the product.
   saying which one is the same silent-coverage-loss footgun the list exists to
   prevent) and an unknown line, or a spine with nothing pending on that line, is
   rejected rc 7. Otherwise the amendment sits in state waiting for a close that
-  will never come — `oss doctor` surfaces that as `warn: ledger - N demo line(s)
+  will never come — the doctor surface reports that as `warn: ledger - N demo line(s)
   carry a pending amendment awaiting a spine close`, advisory only; read the
   entries with `oss get '[.demo_ledger[] | select((.pending_amendments // [])
   | length > 0)]'`. There is no `reactivate` for an

@@ -102,7 +102,8 @@ oss ledger_quarantine "<line-id>" "<why it is unrelated to this spine>" "<releas
 ```
 
 The runner then prints `SKIP <line-id> (quarantined) - <text>` and continues; the
-line stays in the ledger, stays visible in `oss doctor`, and is **still owed**.
+line stays in the ledger, stays visible in the doctor read-out, and is **still
+owed**.
 Spec §6.1 is explicit: a quarantined line must be **fixed or retired by the next
 release close**. The release is recorded on the quarantine precisely so the
 expiry has an anchor.

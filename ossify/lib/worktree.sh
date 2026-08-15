@@ -132,9 +132,11 @@ oss_worktree_resolve() { # $1=repo-key $2=work-item-id
 #
 # PURE SELECTOR: the finding is the OUTPUT, never the rc. rc 0 means the check
 # RAN, not that the tree is clean; a caller branching on rc reports every project
-# as orphan-free. That matches how `oss doctor` already treats quarantines, fakes
-# and patch records - counted, surfaced as `warn:`, never folded into the exit
-# code - and deliberately does NOT copy `oss touch_check`'s rc-0-is-a-hit
+# as orphan-free. That is the same polarity the doctor SURFACE uses for
+# quarantines, fakes and patch records - counted, surfaced as `warn:`, never
+# folded into an exit code. (Those were doctor.sh checks until PR #184 slimmed
+# the verb to its gate; they are skill prose now, and the polarity travelled with
+# them.) It deliberately does NOT copy `oss touch_check`'s rc-0-is-a-hit
 # polarity, which close/SKILL.md §7 already lists as a trap for exactly this
 # reason.
 oss_worktree_orphans() { # $1=repo-key [$2=state-file] ; echoes one abs path per orphan

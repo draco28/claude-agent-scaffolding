@@ -138,8 +138,12 @@ ai_root="$(oss repo_root ai_workspace)"
    anything. `doctor/references/state-inspection.md` §3, in this plugin, carries
    the full treatment.
 
-   `warn:` lines (a held lock, a pending amendment, an outstanding fake) are not
-   blockers here — they are inputs the spine and release layers act on.
+   **`oss doctor` no longer reports the advisories.** A held lock, a pending
+   amendment, an outstanding fake and out-of-spine patch records are read by the
+   `doctor` SKILL now, not by the verb this pre-flight shells out to — so they
+   will not appear here at all. They were never blockers; they are inputs the
+   spine and release layers act on, and those layers read them directly. Do not
+   wait for a `warn:` line from this command: it cannot emit one.
 3. **Resolve every path to an absolute one up front, and never `cd`.** The
    manifest walk starts at `$PWD` and the dispatcher re-runs it on every call that
    takes no explicit state path, so a `cd` mid-ceremony silently re-points the

@@ -19,7 +19,8 @@ Now invoke the skill in-conversation:
 
 **`Skill(ossify:doctor)`** — pass the parsed surface name, if any. The skill body
 owns the routing (an optional surface token; empty runs the full sweep) → state
-inspection (`oss doctor`'s check lines, the remedy table, orphan worktrees) →
+inspection (`oss doctor`'s four gate lines, the remedy table, then the advisory
+reads the skill performs itself — lock, ledger, fakes, patches, worktrees) →
 lean-spec validation → machine-checkable-rule authoring → the Claude/Codex
 interop check → the budget check.
 
