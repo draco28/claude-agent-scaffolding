@@ -71,17 +71,27 @@ line exists.
 the same grammar. Run them after the verb, so a broken state fails first:
 
 ```bash
-sf="$(oss state_path)"     # pin it once; every read below inspects THAT state
+# ONE path for the whole read-out, and pass it to doctor too.
+sf="${OSS_STATE_FILE:-$(oss state_path)}"
+oss doctor "$sf"           # the gate, on the SAME state the reads below use
 oss get '[.demo_ledger[] | select(((.pending_amendments // []) | length) > 0)] | length' "$sf"
 oss get '[.demo_ledger[] | select(.status == "quarantined")] | length' "$sf"
 oss get '[.fakes[] | select(.status == "active" or .status == "renewed")] | length' "$sf"
 oss get '.patch_records | length' "$sf"
 ```
 
-**Pass the state file.** `oss get` takes it as an optional second argument and
-otherwise resolves through `$OSS_STATE_FILE` first — so an operator with a stale
-export gets counts from another project while your read-out names this one. The
-deleted bash pinned every call for exactly this reason.
+**Resolve `sf` once, with `$OSS_STATE_FILE` first, and pass it to everything —
+including `oss doctor`.** `oss state_path` alone is **wrong** here: it returns the
+*manifest-routed* path and ignores the environment, while `oss doctor` resolves
+through `_oss_resolve_state`, which gives an exported `$OSS_STATE_FILE`
+precedence. Pin to `oss state_path` and your read-out mixes two projects — gate
+lines about the override, advisories about the manifest's project. Measured: with
+`OSS_STATE_FILE` pointing at another workspace, `oss doctor` reports `projB`
+while `oss get … "$(oss state_path)"` reports `projA`.
+
+Passing `"$sf"` to `oss doctor` as well is what makes this robust rather than a
+transcription of its precedence: one explicit path, used everywhere, so the two
+halves cannot diverge even if the resolver changes.
 
 | Yours | Reads | Report when |
 |---|---|---|
@@ -159,8 +169,8 @@ New in v0.3, and the only check that reads the repository rather than the state
 file.
 
 ```bash
-# ALWAYS both arguments: the repo key AND the state file this run is inspecting.
-sf="$(oss state_path)"
+# ALWAYS both arguments: the repo key AND the state this run is inspecting -
+# the same "$sf" the rest of the read-out uses (§2), never a fresh oss state_path.
 oss worktree_orphans canonical    "$sf"
 oss worktree_orphans private_core "$sf"
 ```

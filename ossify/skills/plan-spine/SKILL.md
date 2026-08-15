@@ -123,7 +123,11 @@ The probes resolve differently, and only the first is manifest-proof:
 (precedence `explicit-arg > $OSS_STATE_FILE > manifest`) and *can* be — a stale
 export from an unrelated session makes probes 2 and 3 read *that* project. The
 resolver announces on stderr when the env var overrides the manifest; heed that
-line. `oss doctor` gives a full state read-out at any point.
+line. **`oss doctor` is the state GATE, not a full read-out** — four checks
+(`state`, `schema`, `replay`, `shape`). It says nothing about pending
+amendments, quarantined lines, outstanding fakes, patch records, a held lock or
+orphan worktrees; those are the `/doctor` skill's, and invoking this skill does
+not invoke it. Run `/doctor` when you want them.
 
 ---
 
