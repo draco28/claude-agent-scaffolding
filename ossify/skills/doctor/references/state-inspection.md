@@ -93,6 +93,13 @@ Passing `"$sf"` to `oss doctor` as well is what makes this robust rather than a
 transcription of its precedence: one explicit path, used everywhere, so the two
 halves cannot diverge even if the resolver changes.
 
+**This is the opposite of what `spec-validation.md` §3 does, and both are right.**
+There, the bones-vs-spec comparison deliberately pins to `oss state_path`
+*regardless* of the override, because it is binding two different artifacts to one
+project. Here the job is to describe **the state `oss doctor` just gated**, so the
+read must follow doctor's own resolution. Do not harmonise them; the difference is
+the point.
+
 | Yours | Reads | Report when |
 |---|---|---|
 | `lock` | `<state>.lock` dir | it exists — `warn:`, and say whether it is stale. A ceremony may be mid-mutation |
@@ -120,7 +127,10 @@ by asking for the type first.
 either. Say the field could not be read as a list. Reporting a count there is the
 same lie as omitting the line.
 
-**Where is `<state>.lock`?** Beside the state file: `"$(oss state_path).lock"`.
+**Where is `<state>.lock`?** Beside the state file — `"$sf.lock"`, using the same
+`$sf` as every other read here. **Not** `"$(oss state_path).lock"`: that is the
+manifest-routed path, so under an override you would report the lock of a project
+the rest of the read-out is not describing.
 It is a directory, and its mtime is how you tell stale from held — more than
 about half an hour old and no ceremony running means it was left behind. Do not
 remove it on a hunch; say what you found and let the operator decide.

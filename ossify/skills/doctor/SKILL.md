@@ -186,7 +186,11 @@ An unkeyed line means the surface did not run at all, and it names why.
 both pinned; it does not any more, so the discipline is yours. Omitting the key
 silently defaults to `canonical` (the exact habit #156 punished), and omitting
 the state lets an exported `$OSS_STATE_FILE` answer about a different project.
-Pin it once with `sf="$(oss state_path)"` and pass `"$sf"` to every read.
+Pin it once with `sf="${OSS_STATE_FILE:-$(oss state_path)}"` — **override first**,
+matching what `oss doctor` itself resolves — and pass `"$sf"` to every read,
+including to `oss doctor`. Pinning to a bare `oss state_path` mixes projects: the
+gate would report the override while your advisories reported the manifest's
+project. `references/state-inspection.md` §2 carries the measurement.
 **It is a pure selector: the finding is its OUTPUT, and rc 0 means the check ran,
 not that the tree is clean.** Branch on the rc and you will report every project
 as orphan-free.
