@@ -110,5 +110,18 @@ case "$T_OUT" in
   *) T_PASS=$((T_PASS+1)) ;;
 esac
 
+# --- retired verbs stay retired --------------------------------------------
+# The skill-first conversions deleted these verbs together with the surfaces
+# they carried (rules_validate's --file shell-source path; harvest_apply's
+# write path; interop_check's 175-line read-out). A partial revert or a
+# copy-paste revival would reintroduce a surface the prose now says does not
+# exist — and the suite would stay green, because nothing else checks verb
+# ABSENCE. Same guard test-worktree.sh pins on worktree_list and
+# test-manifest.sh pins on manifest_get.
+for v in interop_check harvest_dir harvest_apply rules_types rules_validate; do
+  t_capture bash "$OSS" "$v"
+  t_assert_rc 2 "the retired '$v' verb is unknown to the dispatcher (rc 2)"
+done
+
 cd /; rm -rf "$TMP" "$TMP2"
 t_summary

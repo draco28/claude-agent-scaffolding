@@ -141,14 +141,14 @@ passes everything, and it reads as coverage. **A mechanical gate that silently
 passes is worse than an honest judgment call** — the first is trusted, the second
 is read.
 
-**Sequencing correction, v0.3.** This paragraph used to end *"a real evaluator
-arrives with rule authoring"*. Rule authoring has now arrived — `doctor` §6
-authors and shape-validates `mcrule` blocks — and **the evaluator has not**. The
-two shipped apart deliberately, so state the split rather than letting the older
-sentence imply enforcement: an authored rule is documented, validated, and read
-**here, by you**, on every work-item close. Nothing yet parses those blocks and
-runs them against a codebase. That remains a separate v0.3 item, and this layer
-stays agent judgment until it lands.
+**Settled, 2026-08-15: the evaluator is wontfix.** This paragraph used to end
+*"a real evaluator arrives with rule authoring"*, then *"that remains a
+separate v0.3 item"*. Neither is true any longer: no mechanical evaluator will
+ship, by decision rather than delay. An authored rule is documented, validated
+at authoring (`doctor` §6), and read **here, by you**, on every work-item
+close — this layer IS the evaluation mechanism, and the planned Layer 4 agent
+pass (#139) is its deepening, not its replacement. Nothing parses those blocks and
+runs them against a codebase, and nothing is waiting to.
 
 So: read the file, read the diff, and say what you find. If the project has no
 `03-code-patterns.md`, say that too — an absent rule file is a fact worth one

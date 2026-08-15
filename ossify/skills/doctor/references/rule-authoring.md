@@ -45,26 +45,32 @@ else.** Never `00-project-brief.md` through `08-governance.md`, never
 
 Two different things, and conflating them oversells what authoring buys:
 
-- **Today: `close`'s work-item gate, Layer 3, reads this file and judges.** An
+- **`close`'s work-item gate, Layer 3, reads this file and judges.** An
   authored rule *is* consulted on every work-item close — as a documented
   pattern an agent reads and applies, quoting it back verbatim in any finding
-  (`close/references/impl-check.md` §4).
-- **Not yet: mechanical evaluation.** Nothing parses the `mcrule` blocks and
-  runs them against a codebase. The evaluator is a separate v0.3 item.
+  (`close/references/impl-check.md` §4). That read **is** the evaluation
+  mechanism.
+- **Mechanical evaluation is WONTFIX — settled 2026-08-15.** Nothing parses the
+  `mcrule` blocks and runs them against a codebase, and nothing will: the
+  planned evaluator was retired by decision, its residue folding into the
+  planned Layer 4 agent pass (#139).
 
-So the honest line to the user is: *"this rule is now documented, validated, and
-read at every work-item gate; it is not yet mechanically evaluated."* Do not
-shorten that to "enforced" and do not shorten it to "not enforced" — the first
-oversells, the second would tell someone to skip authoring rules that Layer 3
-will genuinely apply.
+So the honest line to the user is: *"this rule is now documented, validated,
+and applied by the work-item gate's agent read at every close; there is no
+mechanical evaluator, by decision."* Do not shorten that to "enforced by
+tooling", and do not shorten it to "not enforced" — the first oversells the
+mechanism, the second would tell someone to skip authoring rules that Layer 3
+genuinely applies.
 
 ---
 
 ## 3. The four types
 
-```bash
-oss rules_types
-```
+The table below is the authoritative list — there is no verb behind it. The
+field sets are carried **verbatim** from scaffold-onboard's R2 mcrule grammar,
+and that is load-bearing: `03-code-patterns.md` is the same artifact in both
+stacks, a project mid-migration can hold rules authored by either, and a field
+set drifted by one name would make each stack misread the other's blocks.
 
 Field sets are **per type**, not shared. `coverage_floor` is the one type with
 no optional fields at all, which is the most common authoring mistake:
@@ -124,64 +130,53 @@ Worked examples, one per type:
     <!-- mcrule:end -->
 
 **Quote regex values in single quotes.** It protects `\b`, `\s`, `(` and friends
-from being eaten by an intermediate parser. The validator treats values as
-opaque — only the *key* is charset-checked — so a quoted regex passes through
-whole.
+from being eaten by an intermediate parser. Validation treats values as
+opaque (§5) — only the *key* is charset-checked — so a quoted regex passes
+through whole.
 
 ---
 
-## 5. Validation, before every write
+## 5. Validation, before every write — by reading, against §3 and §4
 
-**Never put a rule body into a shell command. Write it to a file with the Write
-tool, then validate the file.**
+There is no validator verb. **You are the validator**: check the composed block
+against §4's grammar and §3's field table before it lands in the file, and
+refuse the write until every check passes. **Shape only** — do not compile the
+regexes and do not evaluate anything. The checks, and the order is part of the
+contract:
 
-```bash
-oss rules_validate style_invariants --file /tmp/mcrule-candidate.txt
-```
+1. **Every non-blank line — leading whitespace stripped — is `key: value`,
+   split on the FIRST colon.** A value may itself contain colons: §4's own
+   `require_pattern: 'Args:\s+.*\s+Returns:'` is the canonical example, and
+   it is well-formed. Blank lines and indentation inside a block are
+   tolerated, not defects (§7.3 whitespace-normalises for idempotency, so
+   indented variants exist in the wild). A line of prose inside the block is
+   a MALFORMED line — report it as that, never as a missing field, or the
+   author is sent to the wrong problem.
+2. **The key charset is letters, digits and `_` only.** Values are OPAQUE:
+   real rules hold `$`, quotes, brackets, backslashes and glob metacharacters,
+   and none of that is the key's business.
+3. **Every field has a non-empty value.** `forbid:` with nothing after it is a
+   field that forbids nothing — an empty pattern's meaning is a decision
+   nobody made deliberately, so it does not validate.
+4. **The type is one of §3's four, every required field for that type is
+   present, and no field is unknown for that type.** An unknown field is an
+   error, not a shrug: a typo'd `forbid_patern` written today misleads every
+   future read of the block.
+5. **Check required fields before unknown fields.** A typo'd required field
+   then reports as *"requires `forbid_pattern`"* — handing the author the
+   correct spelling — rather than *"unknown field `forbid_patern`"*, which
+   only confirms what they typed.
 
-This is a security boundary, not a style preference, and it has bitten twice.
+On a failing check, name the one wrong line and the fix, then re-prompt — §6's
+loop rule applies.
 
-Rule values are regexes and path globs. They routinely contain `$`, backticks
-and parentheses, and — this is the part that matters — **in a sweep they come
-out of `03-code-patterns.md`, a repository file nobody in this session wrote.**
-
-Two ways the obvious approaches fail:
-
-- **Interpolating the body** — `oss rules_validate <type> "<block body>"` with
-  the text pasted in. A value containing `$(…)` or a backtick is executed by the
-  shell before `rules_validate` ever sees it. The single quotes §4 recommends
-  around regexes do not help: they sit inside the outer double-quoted argument,
-  so expansion has already finished by the time they are characters.
-- **A quoted heredoc** — `<<'MCRULE'`. A quoted delimiter stops expansion
-  *inside* the heredoc, but it cannot stop **delimiter injection**: a block
-  containing a line equal to `MCRULE` ends the heredoc early, and every byte
-  after it is parsed by bash as source. Choosing a more obscure delimiter is not
-  a fix, it is a smaller target.
-
-The common flaw is that both embed untrusted bytes into **shell source**.
-`--file` does not: the dispatcher reads the file itself and passes the contents
-as a single quoted argument, which is never re-parsed. Create the file with the
-**Write tool**, not with `cat`/`echo`/a heredoc — the point is that the bytes
-never appear in a command at all.
-
-| rc | Meaning | Do |
-|---|---|---|
-| 0 | well-formed | write it |
-| 1 | not well-formed | surface stderr **verbatim**, then re-prompt |
-| 2 | usage | your call was wrong, not the user's rule |
-
-It checks four things: every line is `key: value`, the key charset, the type is
-known, every required field is present, and no field is unknown for that type.
-**Shape only** — it does not compile regexes and does not evaluate anything.
-
-The unknown-field check is the one that earns its keep. A typo'd
-`forbid_patern` would otherwise author a block whose required field is absent —
-green at authoring time, and skipped by every future parser for the rest of the
-project's life.
-
-A typo in a *required* field reports as `requires field '<correct name>'`
-rather than `unknown field '<what you typed>'`. That ordering is deliberate: it
-hands the author the correct spelling instead of confirming their typo.
+**A rule body never enters a shell command.** The old verb path was deleted
+along with the injection hazard it existed to defend against (values holding
+`$(…)` and backticks reaching shell source — Codex P1, PR #149 round 5), but
+the residual rule outlives the verb: validation is a read, the append is the
+Write or Edit tool, and block bytes never appear inside any command you run —
+in a sweep they come out of `03-code-patterns.md`, a repository file nobody in
+this session wrote.
 
 ---
 
@@ -205,8 +200,8 @@ One rule per invocation:
 7. **Confirm** with the absolute path written and one line on what the rule now
    does — using §2's accurate phrasing.
 
-**On a failing validation, loop once.** Surface the validator's stderr verbatim
-plus a concrete suggestion, then re-prompt. If a second pass still fails, offer
+**On a failing validation, loop once.** Surface the failing check by name with
+the offending line, plus a concrete suggestion, then re-prompt. If a second pass still fails, offer
 the choice — hand-author the block per §4's grammar, or drop it for now — and
 never silently abort.
 
@@ -242,5 +237,6 @@ authored against a later version) must **survive** an authoring run untouched.
 
 If the *user* asks for an unsupported type, do not silently re-classify their
 ask into one of the four. Name the four, say the block can be hand-authored
-ahead of parser support per §4's grammar, and note it will not be recognised
-until parsers catch up.
+ahead of support per §4's grammar, and note that this build's ceremonies will
+preserve it as an opaque block — not apply it — unless a later revision of
+§3's table (here, or in the paired scaffold-onboard stack) picks the type up.
