@@ -105,7 +105,6 @@ t_assert_contains "$T_OUT" "drift detected" "replay's drift message reaches the 
 t_assert_contains "$T_OUT" "ok: shape" "shape still reports independently of the replay failure"
 rm -rf "$T5"
 
-rm -rf "$BT"
 
 
 rm -rf "$TMP"

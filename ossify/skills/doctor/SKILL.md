@@ -133,14 +133,16 @@ Close with the read-out in §13.
 
 ## 4. State inspection
 
-**Four checks are the verb's; the other four are yours.**
+**Four checks are the verb's; the other five are yours.**
 
 ```bash
 oss doctor
 ```
 
-emits `state`, `schema`, `replay`, `shape` — one line each, tagged `ok:` /
-`fail:` / `skip:` — and returns **rc 0 unless a `fail:` line was printed**. Those
+runs `state`, `schema`, `replay`, `shape`, tagged `ok:` / `fail:` / `skip:`, and
+returns **rc 0 unless a `fail:` line was printed**. A healthy run prints **three**
+lines: `state` has only a failure arm, because a missing file makes every later
+check moot. Read the tags, not the line count. Those
 four stayed deterministic because `close`'s pre-flight refuses to run until
 `schema` and `replay` are green, and replay rebuilds the state from its base
 snapshot to prove it: a rail in front of a mutation, not a read-out.
@@ -180,11 +182,11 @@ directory's manifest does not route to — and each emits a single **unkeyed**
 An unkeyed line means the surface did not run at all, and it names why.
 
 `oss worktree_orphans <repo-key> <state>` names the directories individually.
-**Echo doctor's warn line verbatim** — it pins both the repo key and the
-inspected state, and it is runnable as printed. Do not retype it from memory:
-omitting the key silently defaults to `canonical` (the exact habit #156
-punished), and omitting the state lets an exported `$OSS_STATE_FILE` answer
-about a different project.
+**Pass both arguments, every time.** doctor used to print this line for you with
+both pinned; it does not any more, so the discipline is yours. Omitting the key
+silently defaults to `canonical` (the exact habit #156 punished), and omitting
+the state lets an exported `$OSS_STATE_FILE` answer about a different project.
+Pin it once with `sf="$(oss state_path)"` and pass `"$sf"` to every read.
 **It is a pure selector: the finding is its OUTPUT, and rc 0 means the check ran,
 not that the tree is clean.** Branch on the rc and you will report every project
 as orphan-free.

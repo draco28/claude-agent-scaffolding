@@ -1,14 +1,18 @@
 # State inspection
 
 The depth behind `doctor/SKILL.md` §4. **`oss doctor` is now four checks, not
-eight** — the ones a close blocks a mutation on. The other four are yours to
+eight** — the ones a close blocks a mutation on. The other **five** are yours to
 read, and this file is how.
 
 ---
 
 ## 1. What the verb does, and what you do
 
-`oss doctor` emits exactly four lines: `state`, `schema`, `replay`, `shape`.
+`oss doctor` runs four checks: `state`, `schema`, `replay`, `shape`. A healthy run
+prints **three** lines — `schema`, `replay`, `shape`. `state` has only a failure
+arm: if the file is not there you get `fail: state` and nothing else, because
+every later check would read it. So do not count lines to decide whether a check
+ran; read the tags.
 
 Those four stayed deterministic on purpose. `close/SKILL.md` §3 refuses to run
 until `schema` and `replay` are green, and **replay is not something to eyeball**
@@ -67,17 +71,24 @@ line exists.
 the same grammar. Run them after the verb, so a broken state fails first:
 
 ```bash
-oss get '[.demo_ledger[] | select(((.pending_amendments // []) | length) > 0)] | length'
-oss get '[.demo_ledger[] | select(.status == "quarantined")] | length'
-oss get '[.fakes[] | select(.status == "active" or .status == "renewed")] | length'
-oss get '.patch_records | length'
+sf="$(oss state_path)"     # pin it once; every read below inspects THAT state
+oss get '[.demo_ledger[] | select(((.pending_amendments // []) | length) > 0)] | length' "$sf"
+oss get '[.demo_ledger[] | select(.status == "quarantined")] | length' "$sf"
+oss get '[.fakes[] | select(.status == "active" or .status == "renewed")] | length' "$sf"
+oss get '.patch_records | length' "$sf"
 ```
+
+**Pass the state file.** `oss get` takes it as an optional second argument and
+otherwise resolves through `$OSS_STATE_FILE` first — so an operator with a stale
+export gets counts from another project while your read-out names this one. The
+deleted bash pinned every call for exactly this reason.
 
 | Yours | Reads | Report when |
 |---|---|---|
 | `lock` | `<state>.lock` dir | it exists — `warn:`, and say whether it is stale. A ceremony may be mid-mutation |
 | `ledger` | `demo_ledger` | pending amendments, or quarantined lines — each must be fixed or retired by the next release close |
 | `fakes` | `fakes` | any `active` **or** `renewed` fake is still outstanding. `renewed` counts: it is a deferral, not a resolution |
+| `patches` | `patch_records` | any out-of-spine patch record exists. The patch lane is *self-declared*, so this count is the only thing that makes accumulated out-of-band work visible at all — report it even at zero |
 | `worktrees` | **the repos** | see §4 — one line per repo key |
 
 **Check the TYPE before you trust the count — this one bites.** `jq`'s `length`
@@ -148,8 +159,10 @@ New in v0.3, and the only check that reads the repository rather than the state
 file.
 
 ```bash
-oss worktree_orphans canonical          # ALWAYS pass the key explicitly
-oss worktree_orphans private_core       # doctor runs one of these per repo key
+# ALWAYS both arguments: the repo key AND the state file this run is inspecting.
+sf="$(oss state_path)"
+oss worktree_orphans canonical    "$sf"
+oss worktree_orphans private_core "$sf"
 ```
 
 **Pass the key every time — the verb does not make you.** Omitting it silently

@@ -363,9 +363,11 @@ t_capture "$OSS" worktree_orphans canonical "$OS"
 t_assert_rc 0 "dispatcher: worktree_orphans under strict mode is rc 0"
 t_assert_eq "$ORPH/canon/.worktrees/r9.s9.w9" "$T_OUT" "dispatcher: worktree_orphans reports the same single orphan"
 
-# (7) `oss doctor`'s worktree line, both arms, through the real binary. The warn
-# arm asserts the COUNT, so a check that reports the wrong number cannot pass by
-# merely printing the word "orphaned".
+# (7) was `oss doctor`'s worktree line, both arms, through the real binary. The
+# verb no longer emits it (PR #184 slimmed doctor to its gate), so those
+# assertions are gone; the selector itself is covered by (2)-(6) above and by the
+# dispatcher run immediately preceding. The teardown stays because later sections
+# assume a clean canonical .worktrees/.
 rm -rf "$ORPH/canon/.worktrees/r9.s9.w9"
 # This fixture's manifest configures `canonical` and `ai_workspace` and NOT
 # `private_core`. An unconfigured key must still cost a LINE. Omitting it is the
@@ -531,23 +533,14 @@ oss_entity_add_work_item "$PS" "$PSPN" "canonical work item" canonical >/dev/nul
 # root. Before the fix this run printed a clean worktree read-out and said
 # nothing whatsoever about private_core.
 mkdir -p "$PRIV/priv/.worktrees/r9.s9.w9"
-# The remedy line must name the repo it applies to. `oss worktree_orphans` takes
-# a repo key, so a remedy that omits it (or names canonical) sends the operator
-# to look in the wrong repository and find nothing.
-# The remedy must be runnable AS PRINTED. It carries the repo key — a remedy
-# naming the wrong repo sends the operator to search a clean repository — and
-# the INSPECTED STATE, because `_oss_resolve_state` puts `$OSS_STATE_FILE` ahead
-# of the manifest route (`manifest.sh:183-190`). Without the state argument, an
-# operator with that variable exported runs the printed command against a
-# different project and sees no paths, having just been told the command names
-# them. (Codex P2, PR #160 round 2.)
+# doctor used to PRINT a remedy here, pinned to both the repo key and the
+# inspected state, and this block ran it verbatim. The verb prints no remedy now,
+# so what survives is the property that remedy existed to guarantee, asserted
+# against the selector directly below: an explicit state argument beats an
+# exported $OSS_STATE_FILE. The pinning rule moved to prose - doctor/SKILL.md §4
+# and state-inspection.md §4 both say to pass key AND state on every call.
+# (Codex P2, PR #160 round 2, for the original.)
 # RUN IT rather than matching its spelling. The line claims the command names
-# the directories, so that claim is what gets tested — and doctor prints the
-# CANONICALIZED state path, so a string assertion built from the fixture's own
-# raw path would fail on a symlinked $TMPDIR while proving nothing about whether
-# the command works. Asserting a spelling re-derived from `_oss_canon_path`
-# would be worse: the expectation would come from the code under test.
-#
 # Executed with $OSS_STATE_FILE pointing at a path that does not exist — the
 # exact condition the finding describes. An UNPINNED command resolves to that
 # override and dies rc 1; a pinned one ignores it, because an explicit argument
@@ -558,15 +551,17 @@ mkdir -p "$PRIV/priv/.worktrees/r9.s9.w9"
 # prints no remedy now, so it exercises the same precedence directly. An
 # unpinned call resolves to the bogus override and dies rc 1.
 REMEDY_OUT="$( export OSS_STATE_FILE="$PRIV/no-such-state.json"; "$OSS" worktree_orphans private_core "$PS" 2>/dev/null )"; REMEDY_RC=$?
-t_assert_eq "0" "$REMEDY_RC" "orphans: an explicit state argument beats a stale $OSS_STATE_FILE"
+t_assert_eq "0" "$REMEDY_RC" "orphans: an explicit state argument beats a stale \$OSS_STATE_FILE"
 t_assert_eq "$PRIV/priv/.worktrees/r9.s9.w9" "$REMEDY_OUT" "orphans: ...and it names the orphan from the state it was GIVEN"
 
-# The private orphan must NOT also be attributed to canonical, and removing it
-# must return the private line to its own clean arm.
-case "$T_OUT" in
-  *"warn: worktrees(canonical)"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: a private_core orphan was reported against canonical" ;;
-  *) T_PASS=$((T_PASS+1)) ;;
-esac
+# The guard that sat here read doctor's `warn: worktrees(canonical)` line out of
+# $T_OUT; with doctor no longer emitting it the FAIL arm was unreachable and it
+# incremented T_PASS while checking nothing. DELETED rather than re-pointed at
+# the verb: canonical's .worktrees/ cannot contain a directory under the private
+# root, so a verb-level version would pass structurally and be a weak duplicate.
+# Cross-repo attribution is genuinely covered by (9), which plants a same-id
+# directory under the CANONICAL root and asserts a private_core item does not
+# claim it.
 rm -rf "$PRIV/priv/.worktrees/r9.s9.w9"
 
 # (12c) A CONFIGURED ROOT THAT DOES NOT EXIST HAS NOT BEEN INSPECTED.
@@ -593,10 +588,9 @@ t_assert_contains "$T_OUT" "does not exist" "orphans: the missing root names its
 # causes sends an operator to debug a healthy manifest while the corrupt state
 # that actually stopped the check goes unnamed. (Codex P2, PR #160 round 3 —
 # and a regression introduced by round 2's own message polish.)
-case "$T_OUT" in
-  *"ok: worktrees(private_core)"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: doctor reported an absent private_core as clean" ;;
-  *) T_PASS=$((T_PASS+1)) ;;
-esac
+# (The "absent root is not clean" guard that sat here read doctor's line out of
+# $T_OUT and is unreachable now that doctor emits none. The property it protected
+# is asserted directly above: rc 2 and "does not exist" from the verb itself.)
 # The other repos are unaffected — one missing root must not degrade the keys
 # that ARE inspectable, or a single unmounted volume blinds the whole surface.
 
