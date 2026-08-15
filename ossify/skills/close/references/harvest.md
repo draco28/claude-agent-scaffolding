@@ -1,8 +1,8 @@
 # Memory-bank harvest — spine close step 9
 
 Depth for `spine-close.md` §9 and SKILL.md §5. This is the **only copy** of the
-harvest ceremony: the payload shape, the two-file allowlist, the tagging
-convention and the one-call rule live here and nowhere else.
+harvest ceremony: the entry shape, the two-file allowlist, the tagging
+convention and the append rules live here and nowhere else.
 
 The harvest is a **core row in both classes** (spec §6.1) — bone and flesh differ
 in the depth of the optional rows, never in whether this one runs. What it does
@@ -33,9 +33,9 @@ are. Nothing in this release deletes a handoff at either scope.
 
 ## 2. Enumerate the inputs — this is the step that silently returns nothing
 
-A ceremony that cannot find its inputs refuses everything, authors an empty
-payload, and gets an honest `wrote 0` back. That reads exactly like "there was
-nothing to harvest". Resolve the paths deliberately.
+A ceremony that cannot find its inputs refuses everything, applies nothing, and
+reports an honest `wrote 0`. That reads exactly like "there was nothing to
+harvest". Resolve the paths deliberately.
 
 **The work items come from state:**
 
@@ -132,9 +132,10 @@ is not lost, and do not smuggle it into `09` as prose; a rule filed as a caveat
 reads as advice and is enforced by nobody.
 
 **Everything else in the bank is derived from the lean spec and is off limits.**
-`oss harvest_apply` rejects the **entire payload** at rc 2 if any item names a
-target outside `09-known-issues.md` / `10-decisions-log.md` — no partial write, no
-seeded empty file. That is a guard, not the plan: choose the target correctly.
+The apply (§7) refuses the **entire accepted set** if any item names a target
+outside `09-known-issues.md` / `10-decisions-log.md` — no partial write, no
+seeded empty file. That is a discipline, not a formality: choose the target
+correctly, and fix the set before touching any file.
 
 ---
 
@@ -162,52 +163,68 @@ candidates into one to make the list shorter.
 
 ---
 
-## 7. Apply the accepted array in ONE call
+## 7. Apply the accepted set — one pass, and you are the writer
+
+The harvest has no executable half. There is no `oss` verb here: you perform
+the appends yourself, and the rules the deleted code enforced at rc 2 are now
+yours to hold. Each accepted entry carries four things — its **source**
+(`report` or `handoff`), its **source id** (the work-item id or handoff
+filename), its **target file**, and its **text** (verbatim; a §6 edit means the
+user's words, not yours).
+
+**Where the bank is — this paragraph is the only copy; other surfaces route
+here.** Read the pairing manifest (walk up from the cwd to
+`.workspace/pairing.json`) and take `.well_known_paths.memory_bank`. The value
+workspace-init writes is TOKEN form — `${ai_workspace.root}/.claude/memory-bank`
+— and the route vocabulary is exactly the four tokens `_oss_manifest_resolve`
+(lib/manifest.sh) substitutes: `${ai_workspace.root}` and `${canonical.root}`
+expand from the manifest's own roots, `${HOME}` and `${USER}` from the
+environment. Expand them before using
+the route; when the key is absent, the bank is
+`<ai_workspace.root>/.claude/memory-bank` by convention. A route that is
+relative, or that still carries a `${...}` token outside that vocabulary (a
+`${PLUGIN_DATA:...}`, an abandoned `${private_core.root}`), is a **STOP**:
+surface it and write nowhere. Never compose the route against your
+own cwd — a cwd-composed path lands the writes in whichever repo you happen to
+be standing in, reads as success, and the real memory bank is never touched.
+
+**Validate the whole set before touching any file.** Every item must name an
+allowlisted target (§5), a source that is exactly `report` or `handoff`, a
+source id, and non-blank text. One bad item stops the whole set — no partial
+apply, no seeding, nothing written until every item passes. Fix the set (the
+target, usually) and apply the whole thing again; applying the valid items
+first is how one refusal becomes N partial states.
+
+**Seed a missing live file with its real structure, never a bare header.**
+`09-known-issues.md` opens `# Known issues` with the section
+`## Caveats and gotchas`; `10-decisions-log.md` opens `# Decisions log` with
+`## Decisions`; both carry a note that they are live files — grown by the
+harvest at every spine close, never regenerated from the spec. Never truncate
+a file that already exists.
+
+**Skip only the identical entry.** Before appending, read the target file. The
+same text already sitting under a harvest trailer is a duplicate — a prior run
+of this same harvest after a halt — so skip it and say so. An entry that merely
+*resembles* an existing one is a **new entry**: append it. Duplicates are
+visible and cheap; a lesson silently dropped because it "looked like" another
+is the exact failure this ceremony exists to prevent, and the user already
+filtered the set in §6.
+
+**Append**: a blank line, the text verbatim, then the provenance trailer:
 
 ```text
-oss harvest_apply '<payload-json>'
+<!-- ossify harvest: <source-id>, <YYYY-MM-DD (UTC)>; source: report|handoff -->
 ```
 
-The payload is a JSON array of items:
+(Entries written before the conversion also carry an `h:<hash>` field in the
+trailer. It fed the deleted byte-identity check; nothing reads it now. Leave
+the old trailers alone and do not add it to new ones.)
 
-```json
-[{"source": "report|handoff",
-  "source_id": "<work-item id or handoff filename>",
-  "target_file": "09-known-issues.md|10-decisions-log.md",
-  "text": "<markdown, may be multi-line>"}]
-```
-
-**One call, with everything accepted in it.** Whole-payload rejection is only
-meaningful over the whole payload; N calls turn one refusal into N partial states
-and give the user N count lines to reconcile.
-
-The rc contract, and each arm means something different:
-
-| rc | Meaning |
-|---|---|
-| **0** | at least one entry was written, **or** the payload was empty |
-| **1** | the payload was non-empty and **nothing** was written — every item was already there, or the memory-bank directory did not resolve |
-| **2** | the payload was **rejected** — bad shape, a `source` outside `report`/`handoff`, or a target outside the allowlist. Nothing was written and nothing was created |
-
-Both rc 0 and rc 1 echo `harvest: wrote <N>, skipped <M>` on stdout. **rc 1 is
-not a failure to fix by re-running** — an all-duplicate payload is the honest
-answer that this spine's suggestions are already in the bank. rc 2 *is* yours to
-fix: correct the payload and call again.
-
-Idempotency is an exact-entry match on a content hash carried in the provenance
-trailer each entry gets:
-
-```text
-<!-- ossify harvest: <source-id>, <date>; source: report|handoff; h:<hash> -->
-```
-
-so re-running the harvest after a halt cannot duplicate anything, and an entry
-whose text merely *resembles* an existing one is still a new entry.
-
-**`oss harvest_dir`** echoes the resolved memory-bank directory and is worth
-running first when a harvest reports a count you did not expect — it is
-manifest-routed, and it returns rc 1 rather than guessing when the routed path
-cannot be resolved.
+**Report `wrote <N>, skipped <M>` in the close summary.** An all-skipped apply
+is the honest answer that this spine's suggestions are already in the bank —
+not a failure to fix by re-running. And apply the whole accepted set in one
+sitting: interleaving appends with further accept/reject turns gives the user
+N count lines to reconcile instead of one.
 
 ---
 
@@ -217,11 +234,11 @@ Four buckets, one line each: **applied**, **applied-with-edit**,
 **left-in-handoff** (a rejection that the user wants kept where it is), and
 **dropped**.
 
-**They go in the harvest's own return and the close summary — not in the
-retrospective.** The retro is authored at **step 8** and is a completed artifact
-by the time this step starts; nothing here reopens it. Writing outcomes "into the
-retrospective" means editing a document the ceremony already finished, which is
-why this file names the destination instead of leaving it to be inferred.
+**They go in the close summary — not in the retrospective.** The retro is
+authored at **step 8** and is a completed artifact by the time this step
+starts; nothing here reopens it. Writing outcomes "into the retrospective"
+means editing a document the ceremony already finished, which is why this file
+names the destination instead of leaving it to be inferred.
 
 ---
 
@@ -237,11 +254,16 @@ why this file names the destination instead of leaving it to be inferred.
 - **Paraphrasing the `## 9.` heading** or accepting a renamed one (§4).
 - **Appending an enforceable pattern as prose** instead of recording the C2
   rule-authoring referral (§5).
-- **Naming any target outside the two live files.** The whole payload is
-  rejected, and the fix is the target, not a retry (§5).
+- **Naming any target outside the two live files.** The whole set stops
+  before any write, and the fix is the target, not a retry (§5).
 - **Dropping the `[report]` / `[handoff]` tag**, or moving it off the first line
   (§6).
-- **Calling `oss harvest_apply` once per candidate** (§7).
-- **Treating rc 1 as a failure to re-run** (§7).
+- **Applying the set piecemeal**, or applying the valid items of a set that
+  contains an invalid one (§7).
+- **Treating an all-skipped apply as a failure to re-run** (§7).
+- **Composing the bank route against the cwd**, or writing past an unresolved
+  `${...}` token (§7).
+- **Skipping an entry because it resembles one already in the bank** (§7) —
+  only the identical entry is a duplicate.
 - **Editing an accepted candidate's text on the user's behalf** (§6).
 - **Recording the outcomes into the retrospective** authored at step 8 (§8).

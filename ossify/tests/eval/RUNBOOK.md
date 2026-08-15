@@ -4,7 +4,7 @@ Executed by Claude Code in an interactive session. No API runner.
 
 ## Procedure (Claude executes)
 
-For each `surface` in `[posture-derivation, journey-line-floor, spine-class-declaration, bone-touch-check, critic-veto-interpretation, close-gate-integrity]`:
+For each `surface` in `[posture-derivation, journey-line-floor, spine-class-declaration, bone-touch-check, critic-veto-interpretation, close-gate-integrity, harvest-apply-integrity]`:
 
   For each `fixture.md` in `tests/eval/fixtures/<surface>/`:
 
@@ -18,6 +18,6 @@ After all surfaces: run `bash ossify/tests/eval/lib/aggregate-scores.sh` and rep
 
 ## Cost
 
-6 surfaces, 28 fixtures × 2 dispatches = 56 Agent dispatches per full run; 5-10 min. Re-run a single surface by deleting its `results/<surface>/*.json` and re-running.
+7 surfaces, 33 fixtures × 2 dispatches = 66 Agent dispatches per full run; 5-10 min. Re-run a single surface by deleting its `results/<surface>/*.json` and re-running.
 
 `aggregate-scores.sh` walks `fixtures/` and **fails on any fixture with no result JSON**, so a partial run cannot report a clean total.

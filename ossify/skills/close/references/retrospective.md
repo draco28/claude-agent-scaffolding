@@ -16,11 +16,12 @@ contract uses, for two reasons that are both about **readers**:
 
 **The memory-bank harvest does NOT read this file.** It enumerates exactly two
 inputs — each work item's `report.md` §9 and its `handoff.md` `## Clarifications`
-(`harvest.md` §2) — and `oss harvest_apply` validates the *whole* payload before
-touching the filesystem, rejecting at rc 2 on the first item whose `source` is
-outside the two-value enum. So a candidate harvested out of a retro does not
-just fail on its own: **it rejects the entire accepted set**, including every
-legitimate report-origin entry. Do not enumerate retro content as harvest input.
+(`harvest.md` §2) — and the apply validates the *whole* accepted set before
+touching the filesystem, refusing on the first item whose `source` is outside
+the two-value enum (`harvest.md` §7). So a candidate harvested out of a retro
+does not just fail on its own: **it stops the entire accepted set**, including
+every legitimate report-origin entry. Do not enumerate retro content as harvest
+input.
 
 Where it goes — beside the spine plan it closes, never in the worktree (which
 step 10 removes):

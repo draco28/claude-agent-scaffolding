@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The DISPATCHER SURFACE, not any one lib: every `oss <verb>` invoked with too
 # few arguments must answer with the rc-2 usage error the taxonomy defines
-# (lib/harvest.sh:44 — "1 generic, 2 usage, 3 lock, ...") and never with bash's
+# (lib/commands.sh's header note — "1 generic, 2 usage, 3 lock, ...") and never with bash's
 # raw `unbound variable` diagnostic at rc 1.
 #
 # WHY THIS FILE RUNS THE REAL DISPATCHER AND BUILDS A REAL PROJECT:

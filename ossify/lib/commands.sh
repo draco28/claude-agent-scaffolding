@@ -2,6 +2,9 @@
 # Dispatcher subcommands for the onboarding + planning skills. Thin wrappers:
 # resolve the state path (explicit > OSS_STATE_FILE > manifest) then delegate to
 # the tested lib functions. NO judgment logic here - that lives in the skills.
+#
+# Repo rc taxonomy (the cross-verb contract): 1 generic, 2 usage, 3 lock,
+# 4 apply-failure, 5 drift, 6 schema, 7 unknown-ref, 8 git/worktree.
 
 # Arity guard. `bin/oss` runs `set -euo pipefail`, so a wrapper that expands
 # `"$1"` when the caller passed nothing dies with bash's raw `unbound variable`
@@ -10,8 +13,7 @@
 #
 # Placed FIRST in each wrapper, so `"$1"` below it is provably safe and no
 # body needs changing. Where a lib function already validates its own input
-# (`oss_reg_touch_check` rejects a zero-path call at rc 2, `oss_harvest_apply`
-# is handed `"${1:-}"` on purpose so its own usage error fires) the wrapper
+# (`oss_reg_touch_check` rejects a zero-path call at rc 2) the wrapper
 # stays out of the way - the guard is for the expansion, not a second opinion.
 #
 # `$#` is counted AFTER the three fixed parameters are shifted off, so the
@@ -114,9 +116,10 @@ oss_cmd_get() { # $1=jq-expr [$2=state-file]
 oss_cmd_state_restore()  { local sf; sf="$(_oss_resolve_state "${1:-}")" || return $?; oss_state_restore "$sf"; }
 # `oss_cmd_manifest_get` was REMOVED in v0.2.0. Every manifest field already has
 # a dedicated resolver that this raw accessor bypassed: roots via `repo_root`,
-# `well_known_paths.project_state` via `oss_manifest_state_path`, and
-# `.memory_bank` via `harvest_dir`. Those resolvers substitute the
-# `${ai_workspace.root}` tokens; the raw read did not, so
+# and `well_known_paths.project_state` via `oss_manifest_state_path`.
+# (`.memory_bank` has no verb since the harvest conversion — the ceremony
+# resolves it in prose, close/references/harvest.md §7.) Those resolvers
+# substitute the `${ai_workspace.root}` tokens; the raw read did not, so
 # `manifest_get '.well_known_paths.project_state'` handed the caller a literal
 # unresolved token string. Zero prose consumers plus a wrong answer for the only
 # fields left to ask about. The LIB function `oss_manifest_get` stays - it is
@@ -265,17 +268,6 @@ oss_cmd_demo_run() { # [$1=state-file] [$2=workdir]
 }
 oss_cmd_demo_user_lines() { local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_user_lines "$sf" "${1:-}"; }
 oss_cmd_demo_record()     { _oss_need 4 demo_record "<work_item|spine|release> <id> <true|false> <line-count> [notes]" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_record_close "$sf" "$1" "$2" "$3" "$4" "${5:-}"; }
-
-# Memory-bank harvest (spec §6.1's core row), driven from spine close step 9.
-# `harvest_dir` takes no state and needs none - it resolves the memory bank from
-# the manifest alone. `harvest_apply` keeps the house state-first shape, and the
-# lib deliberately does not read it: the harvest writes to the memory bank, not
-# to state. `${1:-}` rather than `$1` so a missing payload is the lib's own rc-2
-# usage error instead of a strict-mode unbound-variable abort.
-oss_cmd_harvest_dir()   { oss_harvest_memory_bank_dir; }
-oss_cmd_harvest_apply() { # $1=payload-json
-  local sf; sf="$(_oss_resolve_state)" || return $?; oss_harvest_apply "$sf" "${1:-}"
-}
 
 # Machine-checkable rules (spec §9.1, `doctor`'s third surface). SHAPE ONLY -
 # these two verbs answer "is this block well-formed" and "which types exist".
