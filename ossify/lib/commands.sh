@@ -272,11 +272,13 @@ oss_cmd_demo_record()     { _oss_need 4 demo_record "<work_item|spine|release> <
 # Machine-checkable rules (spec §9.1, `doctor`'s third surface) have NO verbs
 # since the skill-first conversion. Shape validation is performed by reading
 # against the field table in doctor/references/rule-authoring.md §3 — and with
-# the evaluator settled WONTFIX (2026-08-15), nothing mechanical ever consumes
-# an mcrule block: the work-item gate's Layer 3 agent read is the evaluation
-# mechanism. The old --file/heredoc delimiter-injection hazard (Codex P1,
-# PR #149 round 5) died with the verbs — no rule body enters shell source at
-# all now, and the prose keeps the residual rule that one never does.
+# the evaluator settled WONTFIX (2026-08-15), nothing in ossify consumes an
+# mcrule block mechanically: the work-item gate's Layer 3 agent read is this
+# stack's evaluation mechanism (legacy scaffold-dev still applies the shared
+# artifact mechanically on spines it drives). The old --file/heredoc
+# delimiter-injection hazard (Codex P1, PR #149 round 5) died with the verbs —
+# no rule body enters shell source at all now, and the prose keeps the
+# residual rule that one never does.
 
 # Claude/Codex interop (spec §9.1, `doctor`'s fourth surface) has NO verb. It was
 # 175 lines of bash that opened files and described what it found - diagnostics,

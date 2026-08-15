@@ -143,12 +143,14 @@ is read.
 
 **Settled, 2026-08-15: the evaluator is wontfix.** This paragraph used to end
 *"a real evaluator arrives with rule authoring"*, then *"that remains a
-separate v0.3 item"*. Neither is true any longer: no mechanical evaluator will
+separate v0.3 item"*. Neither is true any longer: no ossify evaluator will
 ship, by decision rather than delay. An authored rule is documented, validated
 at authoring (`doctor` §6), and read **here, by you**, on every work-item
-close — this layer IS the evaluation mechanism, and the planned Layer 4 agent
-pass (#139) is its deepening, not its replacement. Nothing parses those blocks and
-runs them against a codebase, and nothing is waiting to.
+close — this layer IS ossify's evaluation mechanism, and the planned Layer 4
+agent pass (#139) is its deepening, not its replacement. Nothing in this stack
+parses those blocks and runs them against a codebase, and nothing is waiting
+to. (The legacy scaffold-dev stack still does, on spines it drives — its
+`implementation-checking` applies the same shared artifact mechanically.)
 
 So: read the file, read the diff, and say what you find. If the project has no
 `03-code-patterns.md`, say that too — an absent rule file is a fact worth one

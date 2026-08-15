@@ -243,10 +243,12 @@ only**, and a rule body never enters a shell command: values are regexes full
 of `$`, backticks and parentheses, and in a sweep they come out of a
 repository file nobody here wrote.
 
-Nothing evaluates a rule against a codebase mechanically, and nothing will —
+Ossify evaluates no rule against a codebase mechanically, and never will —
 **the evaluator is wontfix, settled 2026-08-15**: the work-item gate's Layer 3
-agent read is the evaluation mechanism. Tell the user that: a rule authored
-today is documented, validated, and applied by that read at every close.
+agent read is ossify's evaluation mechanism. Tell the user that: a rule
+authored today is documented, validated, and applied by that read at every
+close. (Only the legacy scaffold-dev stack still applies this shared artifact
+mechanically, on spines that stack drives — the reference's §2 has the split.)
 
 **In a full sweep this surface is READ-ONLY** (§3). Authoring runs only on an
 explicit rule request.
@@ -333,8 +335,8 @@ Named here rather than left to read as executed:
   the artifact-converting `migrate` *flow* does not ship in this release.
 - **Rule evaluation.** §6 authors and validates rule blocks. Running them
   against a codebase mechanically is **wontfix** (settled 2026-08-15): the
-  work-item gate's Layer 3 agent read is the evaluation mechanism, and no
-  evaluator will ship.
+  work-item gate's Layer 3 agent read is ossify's evaluation mechanism, and
+  no ossify evaluator will ship.
 - **Interop repair.** §7 checks; it does not add manifest keys or merge
   `AGENTS.md`. Spec §9.1 says *check*, and the repair half belongs to
   `scaffold-onboard`'s original — porting it would also mean porting a managed

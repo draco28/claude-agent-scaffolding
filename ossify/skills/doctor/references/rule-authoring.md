@@ -50,14 +50,18 @@ Two different things, and conflating them oversells what authoring buys:
   pattern an agent reads and applies, quoting it back verbatim in any finding
   (`close/references/impl-check.md` §4). That read **is** the evaluation
   mechanism.
-- **Mechanical evaluation is WONTFIX — settled 2026-08-15.** Nothing parses the
-  `mcrule` blocks and runs them against a codebase, and nothing will: the
-  planned evaluator was retired by decision, its residue folding into the
-  planned Layer 4 agent pass (#139).
+- **Mechanical evaluation is WONTFIX in ossify — settled 2026-08-15.** Ossify
+  ships nothing that parses `mcrule` blocks and runs them against a codebase,
+  and never will: the planned evaluator was retired by decision, its residue
+  folding into the planned Layer 4 agent pass (#139). (The legacy scaffold-dev
+  stack is the one exception the shared artifact allows for: its
+  `implementation-checking` skill still parses and mechanically applies this
+  same file on the spines that stack drives, so a mid-migration project keeps
+  that behaviour there — another reason §3's field parity is load-bearing.)
 
 So the honest line to the user is: *"this rule is now documented, validated,
-and applied by the work-item gate's agent read at every close; there is no
-mechanical evaluator, by decision."* Do not shorten that to "enforced by
+and applied by the work-item gate's agent read at every close; ossify ships
+no mechanical evaluator, by decision."* Do not shorten that to "enforced by
 tooling", and do not shorten it to "not enforced" — the first oversells the
 mechanism, the second would tell someone to skip authoring rules that Layer 3
 genuinely applies.
@@ -155,9 +159,11 @@ contract:
 2. **The key charset is letters, digits and `_` only.** Values are OPAQUE:
    real rules hold `$`, quotes, brackets, backslashes and glob metacharacters,
    and none of that is the key's business.
-3. **Every field has a non-empty value.** `forbid:` with nothing after it is a
-   field that forbids nothing — an empty pattern's meaning is a decision
-   nobody made deliberately, so it does not validate.
+3. **Every field has a non-empty value — and whitespace-only counts as
+   empty.** Trim the value after the colon before judging it: `forbid:` and
+   `forbid:   ` are the same absent constraint. A field that forbids nothing
+   is worse than useless — an empty pattern's meaning is a decision nobody
+   made deliberately — so neither validates.
 4. **The type is one of §3's four, every required field for that type is
    present, and no field is unknown for that type.** An unknown field is an
    error, not a shrug: a typo'd `forbid_patern` written today misleads every
