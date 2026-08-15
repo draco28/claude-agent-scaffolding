@@ -247,8 +247,9 @@ Ossify evaluates no rule against a codebase mechanically, and never will —
 **the evaluator is wontfix, settled 2026-08-15**: the work-item gate's Layer 3
 agent read is ossify's evaluation mechanism. Tell the user that: a rule
 authored today is documented, validated, and applied by that read at every
-close. (Only the legacy scaffold-dev stack still applies this shared artifact
-mechanically, on spines that stack drives — the reference's §2 has the split.)
+close. (That statement speaks for ossify; what a mid-migration project's
+legacy stack does with the shared artifact is that stack's own contract —
+the reference's §2 has the boundary.)
 
 **In a full sweep this surface is READ-ONLY** (§3). Authoring runs only on an
 explicit rule request.

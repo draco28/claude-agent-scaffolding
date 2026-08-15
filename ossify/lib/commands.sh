@@ -274,8 +274,8 @@ oss_cmd_demo_record()     { _oss_need 4 demo_record "<work_item|spine|release> <
 # against the field table in doctor/references/rule-authoring.md §3 — and with
 # the evaluator settled WONTFIX (2026-08-15), nothing in ossify consumes an
 # mcrule block mechanically: the work-item gate's Layer 3 agent read is this
-# stack's evaluation mechanism (legacy scaffold-dev still applies the shared
-# artifact mechanically on spines it drives). The old --file/heredoc
+# stack's evaluation mechanism (what any other stack does with the shared
+# artifact is that stack's own contract). The old --file/heredoc
 # delimiter-injection hazard (Codex P1, PR #149 round 5) died with the verbs —
 # no rule body enters shell source at all now, and the prose keeps the
 # residual rule that one never does.

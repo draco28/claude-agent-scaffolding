@@ -53,11 +53,11 @@ Two different things, and conflating them oversells what authoring buys:
 - **Mechanical evaluation is WONTFIX in ossify — settled 2026-08-15.** Ossify
   ships nothing that parses `mcrule` blocks and runs them against a codebase,
   and never will: the planned evaluator was retired by decision, its residue
-  folding into the planned Layer 4 agent pass (#139). (The legacy scaffold-dev
-  stack is the one exception the shared artifact allows for: its
-  `implementation-checking` skill still parses and mechanically applies this
-  same file on the spines that stack drives, so a mid-migration project keeps
-  that behaviour there — another reason §3's field parity is load-bearing.)
+  folding into the planned Layer 4 agent pass (#139). (This file speaks for
+  ossify only. Whether another stack consuming the shared artifact evaluates
+  it mechanically is that stack's own contract — a mid-migration project
+  should read the legacy stack's docs rather than be promised anything here,
+  which is one more reason §3's field parity is load-bearing.)
 
 So the honest line to the user is: *"this rule is now documented, validated,
 and applied by the work-item gate's agent read at every close; ossify ships

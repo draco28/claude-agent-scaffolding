@@ -149,8 +149,9 @@ at authoring (`doctor` §6), and read **here, by you**, on every work-item
 close — this layer IS ossify's evaluation mechanism, and the planned Layer 4
 agent pass (#139) is its deepening, not its replacement. Nothing in this stack
 parses those blocks and runs them against a codebase, and nothing is waiting
-to. (The legacy scaffold-dev stack still does, on spines it drives — its
-`implementation-checking` applies the same shared artifact mechanically.)
+to. (The predecessor stack's own claims are covered two paragraphs up: its
+documented evaluator is a phantom entry point, which is exactly why this
+layer is honest judgment instead.)
 
 So: read the file, read the diff, and say what you find. If the project has no
 `03-code-patterns.md`, say that too — an absent rule file is a fact worth one
