@@ -292,7 +292,7 @@ optional:**
   release.
 - **Roll up the memory-bank harvest totals — and note they are not persisted.**
   Each spine close ran a harvest (`harvest.md`), which reports accepted / edited
-  / rejected counts **into its return and the close summary only**: no state
+  / rejected counts **into the close summary only**: no state
   field holds them, and `harvest.md` §8 deliberately keeps them out of the spine
   retro. In the same session they are in scrollback; **in a later session they
   are gone**, and the honest entry is then "not recorded per spine — see each

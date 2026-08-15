@@ -89,7 +89,8 @@ work and not yours to review.
 Two sources, in this order:
 
 **1. The repo's own documented conventions.** `03-code-patterns.md` in the memory
-bank (`oss harvest_dir`) is the written set, and Layer 3 already checked the diff
+bank (manifest-routed — resolve it as `harvest.md` §7 does) is the written set,
+and Layer 3 already checked the diff
 against it at each work-item gate. Do not re-run that check — read the file for
 *context*, so your craft judgments do not contradict a rule the project made
 deliberately.

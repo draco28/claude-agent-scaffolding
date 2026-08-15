@@ -157,12 +157,10 @@ line, not a silent pass.
 ### Where the file is
 
 The memory bank, in the **AI workspace** — not the canonical repo, and not
-beside the code being reviewed:
-
-```bash
-bank="$(oss harvest_dir)"        # the memory-bank directory, manifest-routed
-patterns="$bank/03-code-patterns.md"
-```
+beside the code being reviewed. The bank is manifest-routed: resolve it exactly
+as `references/harvest.md` §7 does (the pairing manifest's
+`.well_known_paths.memory_bank`, token-expanded; a relative or unresolved route
+is a STOP), never against `$PWD`. The file is `<bank>/03-code-patterns.md`.
 
 `03-code-patterns.md` is one of the bank's live files, authored at onboarding
 from bones category 8 (`start/references/memory-bank-brief.md` §1) and grown by

@@ -48,4 +48,43 @@ for f in "$WI/SKILL.md" "$WI/references/pre-flight.md" "$WI/references/handoff-c
   fi
 done
 
+# ---------------------------------------------------------------------------
+# Memory-bank harvest contracts. The harvest has no verb since the conversion
+# (close/references/harvest.md §7 — "you are the writer"), which makes these
+# prose-only contracts the harvest's only mechanical surface. They were held
+# by the deleted test-harvest.sh section F; deleting the producer must not
+# delete the guard on what it guarded.
+# ---------------------------------------------------------------------------
+CLOSE="$HERE/../skills/close"
+
+# The §9 heading is matched by EXACT STRING at harvest time. If the contract
+# that pins it and the ceremony that greps it ever disagree, every report reads
+# as "no suggestions" and the harvest is silently empty at "wrote 0".
+_H9='## 9. Suggestions for memory bank'
+for f in "$WI/references/report-contract.md" "$CLOSE/references/harvest.md"; do
+  if grep -Fq -- "$_H9" "$f"; then
+    T_PASS=$((T_PASS+1))
+  else
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: $(basename "$f") does not carry the byte-exact heading '$_H9'"
+  fi
+done
+
+# Step 9 of the spine-close checklist must still route to the ceremony's only
+# copy — a step that names no reference is a caller that does not call.
+if grep -Fq -- 'references/harvest.md' "$CLOSE/references/spine-close.md"; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: spine-close.md step 9 does not route to 'references/harvest.md'"
+fi
+
+# The two-file allowlist the apply holds in prose must name the same two files
+# the ceremony tells the reader to choose between.
+for tok in '09-known-issues.md' '10-decisions-log.md'; do
+  if grep -Fq -- "$tok" "$CLOSE/references/harvest.md"; then
+    T_PASS=$((T_PASS+1))
+  else
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: harvest.md does not name the allowlisted target '$tok'"
+  fi
+done
+
 t_summary

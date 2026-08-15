@@ -241,7 +241,7 @@ oss_state_mutate() { # $1=state-file $2=op $3=payload-json [$4=mint-spec]
   # `fail: state - not found`, so the two disagreed about one condition and the
   # remedy sent the user in a circle. The fix is `oss init`, so say that.
   #
-  # rc 1 = generic/not-found per the taxonomy (see lib/harvest.sh:44) and per
+  # rc 1 = generic/not-found per the taxonomy (lib/commands.sh's header note) and per
   # `doctor`'s own arm for this exact condition - NOT rc 3, which means a lock
   # genuinely is held, and not rc 5, which means drift.
   #

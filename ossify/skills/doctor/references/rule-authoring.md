@@ -20,15 +20,15 @@ write has stopped being a health check.
 
 ## 1. The file, and how to find it
 
-```bash
-bank="$(oss harvest_dir)"        # the memory-bank directory, manifest-routed
-patterns="$bank/03-code-patterns.md"
-```
+The file is `<bank>/03-code-patterns.md`, where `<bank>` is the memory-bank
+directory.
 
 **Never hardcode `.claude/memory-bank/03-code-patterns.md` against `$PWD`.**
-The bank lives in the **AI workspace**, not beside the code, and `oss
-harvest_dir` is the resolver. A cwd-rooted path writes rules into whichever repo
-the session happened to start in.
+The bank lives in the **AI workspace**, not beside the code, and it is
+manifest-routed: resolve it exactly as `close/references/harvest.md` §7 does —
+the pairing manifest's `.well_known_paths.memory_bank`, token-expanded, with a
+relative or unresolved route a STOP, never a fallback to the cwd. A cwd-rooted
+path writes rules into whichever repo the session happened to start in.
 
 `03-code-patterns.md` ships from `/start` with the
 `## Machine-checkable rules` heading present and **no rules under it**

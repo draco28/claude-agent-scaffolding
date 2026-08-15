@@ -330,17 +330,13 @@ copy; do not invent a heading per spine.
 **Step 9 — memory-bank harvest, always before cleanup.** Enumerate this spine's
 work items, read each `report.md`'s `## 9. Suggestions for memory bank` and each
 per-work-item `handoff.md`, surface the candidates for accept/edit/reject, and
-apply the accepted set in **one** call:
-
-```text
-oss harvest_dir                        # where the bank IS - manifest-routed
-oss harvest_apply '<payload-json>'     # the accepted array, in ONE call
-```
+apply the accepted set in **one** pass. There is no `oss` verb for any of it:
+the bank is manifest-routed and you perform the appends yourself.
 
 The full ceremony — how the candidates are enumerated, the `[report]`/`[handoff]`
-tagging, the payload shape, the two-file allowlist, the rc contract (rc 2 rejects
-the **whole** payload before a single write; rc 1 is all-duplicates, not a
-failure to re-run) and where the outcomes are recorded — is in
+tagging, the entry shape, the two-file allowlist, where the bank is, the append
+rules (whole-set validation before a single write; an all-skipped apply is
+honest, not a failure to re-run) and where the outcomes are recorded — is in
 **`references/harvest.md`** §2 and §5-§8. It is the only copy.
 
 **Step 10 — worktree + branch cleanup, per work item, and only now:**

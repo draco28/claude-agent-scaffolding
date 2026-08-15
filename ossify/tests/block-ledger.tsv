@@ -45,7 +45,9 @@
 #   block unfindable and the failure read as "vacuous" rather than as wrong
 #   behaviour. Pick the anchor from the block's SCAFFOLDING, never from its FIX.
 #
-# Totals: 177 blocks - 60 operative (11 covered, 49 deferred), 117 illustrative.
+# Totals: 175 blocks - 59 operative (11 covered, 48 deferred), 116 illustrative.
+# (the harvest conversion retired two more: impl-check.md's harvest_dir read
+# and rule-authoring.md's deferred path composition went with the verb.)
 # (interop_check converted to prose on PR #182: doctor/SKILL.md lost its verb
 # call; references/interop-check.md gained the three resolution reads the
 # agent-performed check works from. ALL illustrative - the conversion adds no
@@ -108,7 +110,7 @@ O	skills/close/references/cumulative-demo.md	elapsed=	tests/test-close.sh	D1-D4:
 D	skills/close/references/cumulative-demo.md	2	#138	the quarantine innocence probe (reproduce at first parent) and the ledger-budget comparison
 I	skills/close/references/cumulative-demo.md	4	single-verb calls: demo_run, ledger_quarantine, budget read, demo_record
 O	skills/close/references/impl-check.md	while IFS=	tests/test-close.sh	the halt loop exits nonzero on the first failing AC and names the row
-I	skills/close/references/impl-check.md	3	single-verb calls: verify_acs, report_cross_check, harvest_dir
+I	skills/close/references/impl-check.md	2	single-verb calls: verify_acs, report_cross_check (the harvest_dir resolve went with the verb - the bank path is prose-resolved per close/references/harvest.md §7 now)
 O	skills/work-item/references/round-orchestration.md	checkout -q -b	tests/test-close.sh	W2: the cut runs clean under set -u with NOTHING injected, leaves canonical checked out on the spine branch, halts on an existing spine branch (W2b) and on a detached HEAD (W2c). It cuts from the branch canonical is PARKED ON - reading the planned base from SPINE.md is deferred to #133, and 07a0bd8 reverted an attempt at it. An earlier revision of this row claimed planned-base coverage, which is behaviour the block deliberately does not have
 D	skills/work-item/references/round-orchestration.md	4	#138	spine-dir resolution, per-item spec path derivation, target_repo worktree spawn, and the dirty-worktree halt
 D	commands/close.md	1	#138	the $ARGUMENTS env-var bridge - a positional-substitution regression here silently drops every argument
@@ -122,8 +124,7 @@ D	skills/doctor/SKILL.md	1	#138	the surface router - a broken parse silently run
 I	skills/doctor/SKILL.md	2	single-verb calls: doctor, rules_types (interop_check's block went with the verb - §7 is performed by reading now)
 I	skills/doctor/references/state-inspection.md	3	the reads the agent-performed half works from, now that doctor emits only its four gate lines: the four advisory counts, the `| type` guard that must precede them (jq's length answers on strings too, so a corrupt field returns a plausible number at rc 0), and the worktree_orphans call shapes one per repo key (#156). Each is a single read whose OUTPUT the prose interprets - the judgement is the prose
 I	skills/doctor/references/spec-validation.md	2	a spec_path resolve and a bones-count get bound to an explicit state path
-D	skills/doctor/references/rule-authoring.md	1	#138	the harvest_dir memory-bank path composition
-I	skills/doctor/references/rule-authoring.md	2	a rules_types call and a single --file validate call; the validate example is illustrative again now that the body travels as a FILE rather than as an embedded heredoc
+I	skills/doctor/references/rule-authoring.md	2	a rules_types call and a single --file validate call; the validate example is illustrative again now that the body travels as a FILE rather than as an embedded heredoc (the harvest_dir path-composition block went with the verb - the bank path is prose-resolved per close/references/harvest.md §7 now)
 I	skills/doctor/references/interop-check.md	3	the resolution calls the agent-performed check reads FROM, now that the verb is gone: the two repo_root reads, the canonical git probe, and state_path vs $OSS_STATE_FILE. Each is a single call whose OUTPUT the prose interprets - the judgement is the prose, so executing these would test the fixture rather than the check
 D	skills/doctor/references/budget-check.md	2	#138	both budget probes now self-locate the ossify root from the `oss` dispatcher and consume it on the next line - operative by the stated rule. The two forms they replaced (a repo-relative path, then ${CLAUDE_PLUGIN_ROOT}) both failed SILENTLY, the second by expanding to empty and reading /tests/..., so a regression here looks exactly like a working command
 D	skills/close/SKILL.md	2	#138	the id-shape router and the manifest-refusal + doctor gate
@@ -184,7 +185,7 @@ H	skills/close/references/code-review.md	720844539-461
 H	skills/close/references/cumulative-demo.md	2900123846-1889
 H	skills/close/references/fake-expiry.md	3542365026-715
 H	skills/close/references/harvest.md	172458535-649
-H	skills/close/references/impl-check.md	1195258010-972
+H	skills/close/references/impl-check.md	3364110005-836
 H	skills/close/references/patch-lane.md	1477508772-1735
 H	skills/close/references/release-close.md	4073251383-2284
 H	skills/close/references/retrospective.md	2875153190-110
@@ -195,7 +196,7 @@ H	commands/doctor.md	729179949-141
 H	skills/doctor/SKILL.md	20286939-175
 H	skills/doctor/references/budget-check.md	582880737-316
 H	skills/doctor/references/interop-check.md	383382278-345
-H	skills/doctor/references/rule-authoring.md	1710469119-263
+H	skills/doctor/references/rule-authoring.md	3769118018-127
 H	skills/doctor/references/spec-validation.md	2541080060-102
 H	skills/doctor/references/state-inspection.md	622871202-1192
 H	skills/plan-release/SKILL.md	84192511-1651
