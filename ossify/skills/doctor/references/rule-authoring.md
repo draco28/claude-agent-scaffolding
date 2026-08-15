@@ -60,8 +60,11 @@ Two different things, and conflating them oversells what authoring buys:
   which is one more reason §3's field parity is load-bearing.)
 
 So the honest line to the user is: *"this rule is now documented, validated,
-and applied by the work-item gate's agent read at every close; ossify ships
-no mechanical evaluator, by decision."* Do not shorten that to "enforced by
+and read by the work-item gate at every close; ossify ships no mechanical
+evaluator, by decision."* "Read", not "applied": the Layer 3 read judges the
+staged diff against pattern-shaped rules and quotes them in findings, but a
+rule needing a measurement the diff does not carry — `coverage_floor`'s
+threshold is the live case — is *consulted*, not measured, there. Do not shorten that to "enforced by
 tooling", and do not shorten it to "not enforced" — the first oversells the
 mechanism, the second would tell someone to skip authoring rules that Layer 3
 genuinely applies.

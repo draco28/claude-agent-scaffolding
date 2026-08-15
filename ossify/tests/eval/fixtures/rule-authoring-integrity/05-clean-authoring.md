@@ -1,7 +1,7 @@
 ---
 scenario_id: 05-clean-authoring
 expected_outcome: append
-expected_reason: every check passes by reading — the block appends after the last mcrule:end via the Write/Edit tool, idempotently, and the confirmation uses the honest applied-by-agent-read language with no evaluator promise
+expected_reason: every check passes by reading — the block appends after the last mcrule:end via the Write/Edit tool, idempotently, and the confirmation uses the honest read-at-every-close language (never upgraded to "applied" past what a diff read can measure) with no evaluator promise
 ---
 An explicit rule request: "forbid `requests` and `urllib3` inside async
 functions under `src/`." The session restates it as `banned_imports` with a

@@ -118,9 +118,16 @@ esac
 # exist — and the suite would stay green, because nothing else checks verb
 # ABSENCE. Same guard test-worktree.sh pins on worktree_list and
 # test-manifest.sh pins on manifest_get.
+#
+# BOTH assertions are load-bearing. rc 2 alone cannot prove absence: the exact
+# deleted wrappers open with `_oss_need … || return 2`, so a verbatim revert
+# answers rc 2 too — with a USAGE message. Only the dispatcher's own
+# "unknown subcommand" diagnostic separates "gone" from "revived and asking
+# for arguments". (Codex P2, PR #187 round 2.)
 for v in interop_check harvest_dir harvest_apply rules_types rules_validate; do
   t_capture bash "$OSS" "$v"
-  t_assert_rc 2 "the retired '$v' verb is unknown to the dispatcher (rc 2)"
+  t_assert_rc 2 "the retired '$v' verb answers rc 2"
+  t_assert_contains "$T_OUT" "unknown subcommand" "the retired '$v' verb is UNKNOWN to the dispatcher, not merely short of arguments"
 done
 
 cd /; rm -rf "$TMP" "$TMP2"

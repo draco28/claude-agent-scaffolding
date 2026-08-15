@@ -33,10 +33,13 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    and an existing unknown-type block in the file is preserved untouched —
    skip means skip during processing, not delete from disk.
 4. **Honest enforcement language** — the confirmation says the rule is
-   documented, validated, and applied by the work-item gate's Layer 3 agent
-   read at every close. "Mechanically enforced" overclaims, "not enforced"
-   underclaims, and any promise of a future evaluator is wrong — the
-   evaluator is wontfix, settled 2026-08-15, by decision not delay.
+   documented, validated, and **read** by the work-item gate's Layer 3 agent
+   at every close — and does not upgrade the read to "applied" for a rule
+   whose check needs a measurement the staged diff cannot carry
+   (`coverage_floor`'s threshold is the live case: consulted, not measured).
+   "Mechanically enforced" overclaims, "not enforced" underclaims, and any
+   promise of a future ossify evaluator is wrong — wontfix, settled
+   2026-08-15, by decision not delay.
 5. **Write hygiene** — validation is a read; the append is the Write or Edit
    tool, after the last `<!-- mcrule:end -->` within the section, idempotent
    on a byte-identical body, with prose between blocks untouched; and block

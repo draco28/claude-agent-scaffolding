@@ -13,9 +13,11 @@ way they do not. It reports; the operator repairs.
 
 `oss` (the dispatcher over `lib/*.sh`) supplies the mechanical facts: whether the
 schema parses, whether the journal replays, which worktree directories no work
-item claims, whether a rule block is well-formed. The judgment — is this drift
-the record's fault or the repo's, is this rule the right rule for this project,
-is this warning worth acting on today — happens here, in your reasoning.
+item claims. Whether a rule block is well-formed is yours since the skill-first
+conversion — checked by reading against the reference's field table (§6). The
+judgment — is this drift the record's fault or the repo's, is this rule the
+right rule for this project, is this warning worth acting on today — happens
+here, in your reasoning.
 
 ---
 
@@ -246,10 +248,12 @@ repository file nobody here wrote.
 Ossify evaluates no rule against a codebase mechanically, and never will —
 **the evaluator is wontfix, settled 2026-08-15**: the work-item gate's Layer 3
 agent read is ossify's evaluation mechanism. Tell the user that: a rule
-authored today is documented, validated, and applied by that read at every
-close. (That statement speaks for ossify; what a mid-migration project's
-legacy stack does with the shared artifact is that stack's own contract —
-the reference's §2 has the boundary.)
+authored today is documented, validated, and read by that gate at every
+close — "read", not "applied": a rule whose check needs a measurement the
+staged diff does not carry (`coverage_floor`'s threshold) is consulted, not
+measured, there. (That statement speaks for ossify; what a mid-migration
+project's legacy stack does with the shared artifact is that stack's own
+contract — the reference's §2 has the boundary.)
 
 **In a full sweep this surface is READ-ONLY** (§3). Authoring runs only on an
 explicit rule request.
@@ -378,8 +382,8 @@ Named here rather than left to read as executed:
 - **Appending a rule block without validating it first**, or inventing a field
   name a type does not define (§6).
 - **Telling the user an authored rule is mechanically enforced.** It is
-  documented, well-formed, and applied by the work-item gate's agent read —
-  the evaluator is wontfix (§6, §9).
+  documented, well-formed, and read by the work-item gate's agent — the
+  evaluator is wontfix (§6, §9).
 - **Editing `AGENTS.md` or the pairing manifest to make the interop check
   pass.** This surface checks; the user repairs (§7, §9).
 - **Demanding `routing.roadmap`, `routing.sprint_specs` or `.workspace/locks`.**
