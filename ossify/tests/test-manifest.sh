@@ -107,11 +107,11 @@ cd "$HERE"
 #   (c) it stays silent when nothing is actually being overridden (the env var
 #       agrees with the manifest), so it does not become noise to tune out.
 #
-# #171 — the raw-compare false alarm on an equivalent spelling — is STILL OPEN
-# against these lines. Deleting the notice was tried on PR #178 and reverted; see
-# `_oss_resolve_state`'s header for why (it is a safety rail, and removing it cost
-# two P1s in one round). Do not add an equivalent-spelling assertion here expecting
-# silence until #171 lands a fix that refuses rather than warns.
+# #171 SETTLED 2026-08-16: the rail stays blunt and self-describing. An equivalent
+# spelling STILL fires the notice — by design, and the notice's own text now says
+# so ("paths compared as written") — so the assertion below pins that firing plus
+# the self-description, not silence. See `_oss_resolve_state`'s header for the
+# walked-and-declined alternatives (canonicalization, -ef, refuse-not-warn).
 cd "$TMP/ws"
 export OSS_STATE_FILE="$TMP/elsewhere/state.json"
 t_capture _oss_resolve_state 2>/dev/null
@@ -124,6 +124,14 @@ t_assert_contains "$ERR_ONLY" "$TMP/ws/.ossify/project-state.json" "override not
 export OSS_STATE_FILE="$TMP/ws/.ossify/project-state.json"
 ERR_AGREE="$(_oss_resolve_state 2>&1 >/dev/null)"
 t_assert_eq "" "$ERR_AGREE" "no notice when the env var agrees with the manifest (nothing is being overridden)"
+
+# #171's pinned behaviour: an EQUIVALENT SPELLING of the manifest path still fires
+# the notice (raw-string compare is the rail's design), and the notice's own text
+# declares the bluntness so the reader is not misled into hunting real divergence.
+export OSS_STATE_FILE="$TMP/ws/./.ossify/project-state.json"
+ERR_EQUIV="$(_oss_resolve_state 2>&1 >/dev/null)"
+t_assert_contains "$ERR_EQUIV" "OSS_STATE_FILE" "equivalent spelling still fires the blunt notice (#171 settled: by design)"
+t_assert_contains "$ERR_EQUIV" "paths compared as written" "the notice self-describes its raw-string comparison (#171)"
 unset OSS_STATE_FILE
 cd "$HERE"
 

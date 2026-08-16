@@ -124,17 +124,20 @@ Distinguish the two failures — they have different causes and different fixes:
 The second is the one that happens to real projects, usually after a repo is
 renamed or moved.
 
-**`canonical` must also be a git repository.** Probe it:
+**`canonical` must also be a git work tree.** Probe it:
 
 ```bash
-git -C "$(oss repo_root canonical)" rev-parse --git-dir
+git -C "$(oss repo_root canonical)" rev-parse --is-inside-work-tree
 ```
 
-A canonical root that is an ordinary directory — `.git` removed, or the manifest
-hand-edited — passes a directory check and then fails the first ceremony that
+The probe must print `true` — rc 0 alone is not the pass. A canonical root that
+is an ordinary directory (`.git` removed, the manifest hand-edited) fails the
+probe outright; a **bare repository or a `.git` directory** answers rc 0 to
+weaker probes like `--git-dir` while still failing the first ceremony that
 touches it: `oss worktree_add` runs `git -C "$root" worktree add` immediately,
-and spine close runs merges and reachability checks against the same root. Line:
-`fail: canonical - resolved root is not a git repository: <path>`. (#153)
+and spine close runs merges and checkouts against the same root — all of which
+need a work tree, not merely a git directory. Line:
+`fail: canonical - resolved root is not a git work tree: <path>`. (#153, #183)
 
 **Do not apply the git probe to `ai_workspace`.** That workspace is legitimately
 allowed to be untracked, so the same probe there is a false failure. This is the

@@ -151,8 +151,10 @@ refuse the write until every check passes. **Shape only** — do not compile the
 regexes and do not evaluate anything. The checks, and the order is part of the
 contract:
 
-1. **Every non-blank line — leading whitespace stripped — is `key: value`,
-   split on the FIRST colon.** A value may itself contain colons: §4's own
+1. **Every non-blank line of the body — between the sentinels, which §4
+   validates separately and this check never sees — leading whitespace
+   stripped, is `key: value`, split on the FIRST colon.** A value may itself
+   contain colons: §4's own
    `require_pattern: 'Args:\s+.*\s+Returns:'` is the canonical example, and
    it is well-formed. Blank lines and indentation inside a block are
    tolerated, not defects (§7.3 whitespace-normalises for idempotency, so
@@ -176,8 +178,9 @@ contract:
    correct spelling — rather than *"unknown field `forbid_patern`"*, which
    only confirms what they typed.
 
-On a failing check, name the one wrong line and the fix, then re-prompt — §6's
-loop rule applies.
+On a failing check, name the one wrong line and the fix — or, for a missing
+required field, which has no line to point at, the field, its type, and the
+block it is missing from — then re-prompt; §6's loop rule applies.
 
 **A rule body never enters a shell command.** The old verb path was deleted
 along with the injection hazard it existed to defend against (values holding
