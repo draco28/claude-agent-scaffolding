@@ -178,9 +178,11 @@ contract:
    correct spelling — rather than *"unknown field `forbid_patern`"*, which
    only confirms what they typed.
 
-On a failing check, name the one wrong line and the fix — or, for a missing
-required field, which has no line to point at, the field, its type, and the
-block it is missing from — then re-prompt; §6's loop rule applies.
+On a failing check, name the one wrong line and the fix. A required field
+reported missing still has a line to quote when a typo'd key triggered it
+(check 5's case — quote that line); only a field genuinely absent from the
+block has none, and then the diagnostic names the field, its type, and the
+block it is missing from. Then re-prompt; §6's loop rule applies.
 
 **A rule body never enters a shell command.** The old verb path was deleted
 along with the injection hazard it existed to defend against (values holding

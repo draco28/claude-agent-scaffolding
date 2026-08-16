@@ -282,7 +282,8 @@ Emit the same line grammar as `oss doctor` — `ok:` / `fail:` per check — and
 since there is no exit code now, **state plainly at the end whether anything
 failed**. Checks, in order: the pairing manifest (and that it is *exactly one*
 JSON object), both repo roots resolving to real directories with `canonical`
-also being a git repository, the state path resolving and not silently
+also being a git **work tree** (a bare repository or a `.git` directory is not
+one and fails), the state path resolving and not silently
 overridden, and **`AGENTS.md` existing and naming ossify**. That last one is the
 check that is actually about Codex: `AGENTS.md` is the only file Codex reads for
 project instructions, so a workspace whose `AGENTS.md` never mentions ossify has

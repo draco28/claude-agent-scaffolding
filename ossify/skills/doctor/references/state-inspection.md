@@ -1,8 +1,8 @@
 # State inspection
 
-The depth behind `doctor/SKILL.md` §4. **`oss doctor` is now four checks, not
-eight** — the ones a close blocks a mutation on. The other **five** are yours to
-read, and this file is how.
+The depth behind `doctor/SKILL.md` §4. **`oss doctor` is now its four-check
+gate** — the ones a close blocks a mutation on. The other **five** advisory
+areas are yours to read, and this file is how.
 
 ---
 

@@ -211,8 +211,9 @@ oss_manifest_spec_path() {
 # the notice names raw-string comparison, so an equivalent spelling reads as the
 # rail's known bluntness rather than as real divergence. The alternatives were each
 # walked and declined: canonicalization is not coming back (deleted on PR #184 with
-# its own do-not-restore note below — path normalization cost this repo eleven
-# findings across two PRs); `-ef` is read-identity and this function's result feeds
+# its own do-not-restore note below — path normalization cost this repo four review
+# rounds on PR #166 and seven findings across four more rounds on PR #182); `-ef`
+# is read-identity and this function's result feeds
 # mutating verbs (the exact -ef-on-a-write-target mistake PR #178 paid two P1s for);
 # and a refuse-rather-than-warn redesign across all 42 callers would be new
 # deterministic gating semantics, which the 2026-08-15 freeze declines. Removing the
