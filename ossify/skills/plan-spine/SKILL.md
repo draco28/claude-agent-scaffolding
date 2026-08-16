@@ -186,7 +186,9 @@ A **risk-gate** hit additionally attaches that gate's control checklist
 (`oss get '.risk_gates'`) to the spine's close path as required work — harm is
 orthogonal to reversibility.
 
-Full worked example in `references/decomposition.md`.
+Full worked example in `references/decomposition.md`. Where the cut creates or
+splits a module boundary, `references/codebase-design.md` owns the
+interface-depth vocabulary.
 
 ---
 

@@ -181,8 +181,9 @@ Six steps, in **binding order**:
    means the work is not where the commit will look for it.
 4. **On green:** commit **in the worktree**, merge its branch into the spine
    branch canonical is parked on — reading the branch from `work_items[].branch`,
-   never re-deriving it from a slug you do not have — and set the work item
-   `complete` **last**, after the merge is verified landed. Spine close reads
+   never re-deriving it from a slug you do not have — halting on conflict
+   (resolution discipline: `references/merge-conflict-resolution.md`), and set
+   the work item `complete` **last**, after the merge is verified landed. Spine close reads
    `complete` as "this item's work is on the spine branch".
 5. **On any failure: halt**, surface the source-tagged errors, present the
    recovery menu, and **stop — no auto-select.**
@@ -216,7 +217,8 @@ steps, in **binding order**:
 1. **Every work item `complete`**, else refuse and **name the offender**. Test
    the *output* of the `oss get` — a `select` matching nothing exits 0.
 2. **Switch canonical back to its `base_branch`, then merge the spine branch in**,
-   halting on conflict. **Derive the spine branch with `oss branch_name` and
+   halting on conflict (at that halt, `references/merge-conflict-resolution.md`
+   is the resolution discipline — operator-sanctioned, never automatic). **Derive the spine branch with `oss branch_name` and
    assert HEAD matches it — never read it off HEAD**; then assert the switch-back
    actually moved HEAD, and check reachability after the merge. Each of those
    guards catches a distinct failure that is otherwise rc 0 all the way to a

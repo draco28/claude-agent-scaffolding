@@ -119,7 +119,11 @@ retires it. This is the section the next release close reads first.
 The durable lessons — what the estimate missed, which seam turned out to be the
 hard one, what a future spine on this surface should know. Prose, not bullets of
 process platitude. If nothing was learned, write that; it is a real finding about
-a spine that went exactly as planned.
+a spine that went exactly as planned. A lesson of the shape "we kept calling it
+X and meaning Y" is vocabulary drift — **record it here and carry the repair
+forward as planned work** (`start`'s `references/domain-modeling.md` owns the
+discipline); the close itself never edits canonical mid-ceremony, and step 8
+has no later step that would stage or verify such an edit.
 
 ### `## 9. Carried forward`
 
