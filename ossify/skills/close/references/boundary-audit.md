@@ -153,11 +153,15 @@ the file is already tracked — the note that removal alone does not untrack
 history; a leaked *secret* must be rotated, and a leaked *document* assessed as
 already disclosed.
 
-`fixtures-must-be: synthetic` is not pattern-matchable. **It is asked on every
-audited repo, whatever the posture** — non-synthetic fixture data is a privacy
-leak independent of any moat, by the same reasoning that makes even a
-fully-private project author this file. It is the one part of §5 that the
-trivially-clean arm does not cover.
+`fixtures-must-be: synthetic` is not pattern-matchable. **It is asked wherever
+this step reads a `PUBLIC_BOUNDARY.md` at all, whatever the posture** —
+non-synthetic fixture data is a privacy leak independent of any moat, by the
+same reasoning that makes even a fully-private project author the file, and it
+is the one part of §5 that the trivially-clean arm does not cover. So it is
+asked on a private canonical running hygiene notes, and **not** on the
+`ai_workspace` / `private_core` arm, which is the secrets scan alone: no
+`PUBLIC_BOUNDARY.md` is routed to those roles, so the rule has no home there.
+That is a named skip in the report, not a silent one.
 
 **Secrets scan — external tool, honest degradation.** Run
 `gitleaks detect --source <root> --no-banner` and fold its findings in (note
