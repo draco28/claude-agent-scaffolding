@@ -90,11 +90,12 @@ where the question came from:
 - a state-model choice that is load-bearing and hard to reverse → it is a
   **bone**: ADR with the variant chosen, the ones rejected, and why (SKILL
   §7);
-- a surface-level pattern choice → **record it now** on the journey-map step
-  it shapes (or in the feature-map entry it refines) — at `start` time the
+- a surface-level pattern choice → **record it now on the journey-map step
+  it shapes** — the map is the mutable authored artifact at `start` time; the
   spine spec that will build it does not exist yet, and a decision parked in
-  conversational memory does not survive to plan time. The spine spec
-  consumes that record when it is authored.
+  conversational memory does not survive to plan time. (The feature map
+  cannot hold it — entries are append-only with no decision field.) The
+  spine spec consumes the map's record when it is authored.
 
 One sentence of the record names the prototype's question and outcome, so a
 later reader knows the choice was *seen*, not asserted.

@@ -90,6 +90,10 @@ matters more than the merge commit:
   resolved tree before the status write** — the gate ran in the isolated
   worktree, *before* your resolution existed, and a mis-composed hunk passes
   reachability while failing the ACs;
+- for a spine merge, the same logic at spine scope: **re-run the ACs of
+  every work item whose files the resolution touched** — the cumulative demo
+  walks journeys, not the per-item AC suite, so a resolved hunk can drop an
+  item behaviour no demo line exercises;
 - for a spine merge, step 4's cumulative demo walks every accumulated line
   against the merged tree — a resolution that quietly dropped a side fails
   exactly there, which is the system working.

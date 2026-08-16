@@ -68,10 +68,11 @@ the port has three methods, not seven, and the adapter hides the retry
 logic.
 
 They are referenced together when a bone-class spine creates a boundary —
-and the debate belongs in the **spine spec**, where the interface is written
-down at plan time, not in review after the code exists. The ADR records the
-decision and its touch surface; the spec carries the interface the work
-items will build against.
+and the debate belongs at **plan time**, not in review after the code
+exists. The interface's written home under the current spec contract is the
+**providing work item's spec** (per-item spec text is authored at its
+round's start, so a same-round consumer's spec *cites* it — one home, no
+duplication); the ADR records the decision and its touch surface.
 
 ---
 
@@ -82,11 +83,12 @@ identification consumes it directly:
 
 - work items cut **along** seams do not share files, so rounds parallelize
   without the merge-conflict tax (`dag-rounds.md` §2's false-edge table);
-- an interface **fixed in the spine spec** lets a consumer item *code to*
-  the contract before the implementation lands — the edge drops only when
-  the consumer can **build and verify independently**; when it must compile
-  against A's landed artifact (the trait, the schema, the generated
-  package), the edge stays (`dag-rounds.md` §2's carve-out);
+- an interface **fixed in writing at plan time** (the providing item's spec,
+  §4) lets a consumer item *code to* the contract before the implementation
+  lands — the edge drops only when the consumer can **build and verify
+  independently**; when it must compile against A's landed artifact (the
+  trait, the schema, the generated package), the edge stays (`dag-rounds.md`
+  §2's carve-out);
 - a boundary that keeps generating cross-item edges is the DAG telling you
   the seam is in the wrong place — the same signal `dag-rounds.md` §5's
   cycle rule reads at item scale.
