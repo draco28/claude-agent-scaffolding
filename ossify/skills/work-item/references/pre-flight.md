@@ -188,5 +188,8 @@ worse than describing nothing: it produces an agent that reports "checked
 known issues — none found" on an index that was never going to hold them,
 which is a confident false negative.
 
-So: **every gap you surface is a fresh gap.** If the orchestrator already
-knows about it, the orchestrator says so on the re-dispatch.
+So: in an ossify-only repo, **every gap you surface is a fresh gap**, and if
+the orchestrator already knows about it, the orchestrator says so on the
+re-dispatch. Where another stack maintains the index — it exists and carries
+`[TD]` entries — the predecessor behaviour applies after all: read it, and
+surface a gap that is already a tracked deferral as *known*, not fresh.

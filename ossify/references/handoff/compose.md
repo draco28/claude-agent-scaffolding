@@ -17,15 +17,18 @@ evidence below still chooses the *directory* (precedent, then a `docs/` tree,
 then cwd), but tracked-vs-ignored and the commit are moot — say so in the same
 line (failure table). In a git repo, in rough priority order:
 
-1. **Does the repo already contain handoffs anywhere?** The strongest signal.
-   Match their directory, their naming, *and* their tracked/ignored status —
-   precedent is a decision the project already made.
-2. **Is there a `docs/` tree?** A `docs/handoffs/` (or the repo's nearest
+1. **Does the repo already contain session handoffs anywhere?** The strongest
+   signal. Match their directory, their naming, *and* their tracked/ignored
+   status — precedent is a decision the project already made. Precedent means
+   documents of this design's shape: a per-work-item execution artifact that
+   happens to be named `handoff.md` (ossify's `work-<id>/handoff.md`, or any
+   file whose content is a work order rather than session state) is NOT
+   precedent, never a target to overwrite, and not a resume candidate.
+2. **Monorepo with the work scoped to one package?** The package's own docs
+   tree beats the root — scope decides before the generic tree does.
+3. **Is there a `docs/` tree?** A `docs/handoffs/` (or the repo's nearest
    equivalent) is the natural home; tracked.
-3. **What does `.gitignore` say** about documents of this class?
-4. **Monorepo with the work scoped to one package?** The package's own docs
-   tree beats the root.
-5. **Is it a git repo at all?** If not, cwd — and say so.
+4. **What does `.gitignore` say** about documents of this class?
 
 Pick, then state where and why in one line. Never ask, never configure — a
 question about location is a question the evidence already answers.
@@ -53,7 +56,11 @@ approaches, the thing you'd tell a colleague at the door — is what §3 is for.
 
 For §2, the discipline is in `sections.md`: whole-claim-per-row, measured at
 authoring time at the ref cited, unverifiable claims marked. Write §2 last so
-every number is measured after the final edit, not before it.
+every number is measured after the final edit, not before it. **Claims name
+the pre-handoff ref**: the ceremony's own commit lands after measurement, so
+rows that count commits or cite HEAD state the measured SHA (or say
+"excluding this handoff's own commit") — a resume reading the handoff's
+commit as drift is reading the ceremony, not the work.
 
 ## 4. The read-out — stated before writing, embedded after
 
@@ -70,7 +77,7 @@ surfaced.
 
 | Situation | Behaviour |
 |---|---|
-| Not a git repo | Write to cwd, say so |
+| Not a git repo | The location evidence still applies (precedent → docs tree → cwd); tracked and the commit are moot — say so |
 | No precedent, no `docs/` tree | Repo root, say so |
 | Ambiguous location | Pick, state the reasoning in one line |
 | `.gitignore` absent or unclear | State the tracked/untracked choice made and why |

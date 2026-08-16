@@ -6,9 +6,13 @@ with genuinely nothing to say carries one line saying so, because an absent
 section and a forgotten one are indistinguishable to the reader.
 
 **File name:** match the repo's handoff naming precedent where one exists —
-precedent covers naming, not just location (`compose.md` §1). Absent
-precedent: `<date>-<topic>.md` (e.g. `2026-08-16-auth-cutover-half-done.md`).
-No ids, no scope prefixes, no naming regex — the date sorts, the topic tells.
+precedent covers naming, not just location (`compose.md` §1), and it wins
+even when it carries ids or prefixes. Absent precedent, the default is
+`<date>-<topic>.md` (e.g. `2026-08-16-auth-cutover-half-done.md`) — no ids,
+no scope prefixes, no naming regex; the date sorts, the topic tells. Where
+the chosen name carries no date, the header records the authored date —
+resume needs it for §3's age, and a gitignored file has no history to
+recover it from.
 
 ## Header — title and relations
 
