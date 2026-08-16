@@ -74,10 +74,11 @@ per term:
 The domain model deepens as the product does, and its maintenance moments are
 already in the lifecycle:
 
-- **Close-time retrospectives** are the scheduled pass: the spine retro's
+- **Bone-close retrospectives** are the scheduled pass: the full set's
   lessons section routes here (`close/references/retrospective.md` §8 — "we
-  kept calling it X and meaning Y" *is* vocabulary drift), and the release
-  close rolls those up.
+  kept calling it X and meaning Y" *is* vocabulary drift). The lean flesh
+  set deliberately has no lessons section, so between bone closes the §1
+  stumble trigger is the pass.
 - **A bone superseding** is the architectural cousin of a term changing —
   when a bone's revisit trigger fires, check its terms too; the decision and
   its vocabulary usually move together.

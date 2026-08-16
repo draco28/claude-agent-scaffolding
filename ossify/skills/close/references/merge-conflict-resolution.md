@@ -15,10 +15,11 @@ the framing under which work gets destroyed.
 
 ## 1. The two rules that survive everything below
 
-- **Never `git merge --abort`** (nor `rebase --abort` on the user's behalf).
-  Abort discards the resolution state irreversibly and re-parks the ceremony
-  behind the same conflict, minus everything learned. The shipped halt
-  already forbids it; it stays forbidden while resolving.
+- **Never `--abort` on your own initiative** — the same scope the shipped
+  halts pin (`work-item-close.md` §4, `spine-close.md` §3: never on the
+  user's behalf). Abort discards the in-progress resolution work and re-parks
+  the ceremony behind the same conflict, minus everything learned; whether
+  that price is worth paying is the operator's call, never the resolver's.
 - **Never resolve a side wholesale.** `--ours`/`--theirs`, or `-X` strategy
   options, answer a *file-shaped* question when the conflict is
   *intent-shaped*. The unit of resolution is the hunk, and the authority is
@@ -35,7 +36,7 @@ the sources, not the tea leaves:
 |---|---|
 | A work item in this spine | That item's **handoff** (`work-item/references/handoff-contract.md` — spine context, identifiers, ACs) and its `report.md` |
 | The spine itself, merging to base | The **spine spec** (`SPINE.md`) — what this spine set out to change |
-| The base branch since the spine cut | The merged PRs / spine records that landed there — `git log` names them; their specs say why |
+| The base branch since the spine cut | The merged PRs / spine records that landed there — `git log` names them; their specs say why. An out-of-spine change's source is its patch record (`patch-lane.md` §5) |
 | A registered architectural surface | The **bone ADR** whose touch surface the path sits in — a conflict inside a bone's surface is architecture, not text |
 
 A conflict between two work items in the same spine is resolved by reading
@@ -73,8 +74,9 @@ survived. The proof is the ceremony's own gates, which is why resumption
 matters more than the merge commit:
 
 - finish **this** step — the merge commit and its reachability check — then
-  continue forward; never re-run the layer (both merge docs pin this: the
-  work already landed on its branch, and a re-run reports the wrong problem);
+  continue forward; never re-run the layer (both merge docs pin the rule;
+  `work-item-close.md` §4 carries the why for its side — the commit already
+  landed on the work-item branch, and a re-run reports the wrong problem);
 - for a work-item merge, the item's AC commands are the intent check;
 - for a spine merge, step 4's cumulative demo walks every accumulated line
   against the merged tree — a resolution that quietly dropped a side fails
@@ -88,8 +90,9 @@ summary.
 
 ## 5. Anti-patterns
 
-- **`--abort` to get unstuck.** The work both sides did is still in the
-  tree; abort is the only move that can lose it.
+- **`--abort` to get unstuck.** Both sides' commits survive on their
+  branches, but every resolved hunk and the halt's context do not — and the
+  decision to pay that was never yours.
 - **Wholesale `--ours`/`--theirs`.** Somebody's spine just silently lost.
 - **Resolving from the diff alone.** Text that reads plausibly merged is not
   intent preserved — the two failure modes look identical in the editor.

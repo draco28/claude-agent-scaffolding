@@ -50,11 +50,15 @@ discard`**. They differ only in what the throwaway artifact is.
 - **Radically different variants, 2-4 of them.** Variants that differ by
   spacing and color are one variant with moods. If choosing between them
   feels easy, they were not different enough to need building.
-- **One shareable HTML file.** State and logic run in the browser; no
-  backend, no build step, no dependency on the product tree. A file the
-  decision-maker opens is the whole deliverable.
-- **One route, variants toggleable** — side-by-side comparison is the point,
-  and forcing the chooser to open four files kills it.
+- **One shareable throwaway artifact, in the product's own medium.** For a
+  web surface that is a single HTML file — state and logic in the browser,
+  no backend, no build step, no dependency on the product tree; a file the
+  decision-maker opens is the whole deliverable. A product whose surface is
+  a CLI or TUI prototypes in *that* medium — a driven mock the
+  decision-maker can run — under the same one-artifact, no-infrastructure
+  contract.
+- **Variants toggleable from one entry point** — side-by-side comparison is
+  the point, and forcing the chooser to open four artifacts kills it.
 - **A named decision-maker and a decision moment.** The prototype exists to
   be judged; unjudged, it is clutter with a deadline nobody set.
 - **`code_fate: discard`, non-negotiable.** Scratch location, never merged,
@@ -100,9 +104,9 @@ later reader knows the choice was *seen*, not asserted.
   needed never got built.
 - **Keeping it.** "It's already written, let's just tidy it up" — the exact
   laundering sentence §9a bans for spikes. Same ban, same reason.
-- **Backend creep.** The moment it needs a server, it has left this contract
-  — either the question was technical (spike) or the build is product work
-  (spine ceremony).
+- **Infrastructure creep.** The moment it needs a server, a database, or the
+  product's build, it has left this contract — either the question was
+  technical (spike) or the build is product work (spine ceremony).
 - **Deciding in prose what only eyes can decide.** "We discussed and chose
   the wizard" with nothing built is how a flow ships that nobody ever drove.
 - **Prototyping a falsifiable question.** If a check could have failed, the

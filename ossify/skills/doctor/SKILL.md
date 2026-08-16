@@ -348,7 +348,8 @@ Named here rather than left to read as executed:
   `AGENTS.md` section this stack does not yet define.
 - **Vocabulary maintenance.** A term drifting is a domain-model finding, not
   a state defect — the discipline is `start`'s `references/domain-modeling.md`,
-  exercised through the close-time retrospectives; nothing here scans for it.
+  exercised through the bone retro's lessons section and its own stumble
+  trigger; nothing here scans for it.
 - **Gates.** Nothing here blocks anything. `close` owns every blocking gate,
   and a `fail:` line from `doctor` is information for the operator, not a veto
   this skill enforces.
