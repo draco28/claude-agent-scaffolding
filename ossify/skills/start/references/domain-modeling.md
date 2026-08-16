@@ -74,9 +74,10 @@ per term:
 The domain model deepens as the product does, and its maintenance moments are
 already in the lifecycle:
 
-- **Release close** is the scheduled pass: the retrospective's
-  carried-forward findings often *are* vocabulary drift ("we kept calling it
-  X and meaning Y").
+- **Close-time retrospectives** are the scheduled pass: the spine retro's
+  lessons section routes here (`close/references/retrospective.md` §8 — "we
+  kept calling it X and meaning Y" *is* vocabulary drift), and the release
+  close rolls those up.
 - **A bone superseding** is the architectural cousin of a term changing —
   when a bone's revisit trigger fires, check its terms too; the decision and
   its vocabulary usually move together.
@@ -95,8 +96,9 @@ already in the lifecycle:
 - **The half rename.** Docs say the new word, code says the old one — every
   future reader now translates, forever, and some translate wrong.
 - **Settling a definition conflict by picking silently.** The other artifact's
-  users don't know they lost; surface it like any contested cut (SKILL §3's
-  escalation instinct applies to words too).
+  users don't know they lost; surface it like any contested cut
+  (`onboarding-question-subset.md` §3's escalate-don't-decide-silently rule
+  applies to words too).
 - **Treating the model as finished.** A domain model with no changes across
   three releases is not stable — it is unread.
 

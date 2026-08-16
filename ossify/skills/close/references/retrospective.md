@@ -119,7 +119,9 @@ retires it. This is the section the next release close reads first.
 The durable lessons — what the estimate missed, which seam turned out to be the
 hard one, what a future spine on this surface should know. Prose, not bullets of
 process platitude. If nothing was learned, write that; it is a real finding about
-a spine that went exactly as planned.
+a spine that went exactly as planned. A lesson of the shape "we kept calling it
+X and meaning Y" is vocabulary drift — domain-model work, per `start`'s
+`references/domain-modeling.md`.
 
 ### `## 9. Carried forward`
 

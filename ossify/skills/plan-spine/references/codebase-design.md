@@ -76,8 +76,8 @@ items will build against.
 
 ## 5. What this buys the DAG
 
-The seam decision is also a scheduling decision, and §5's edge tests consume
-it directly:
+The seam decision is also a scheduling decision, and SKILL.md §5's round
+identification consumes it directly:
 
 - work items cut **along** seams do not share files, so rounds parallelize
   without the merge-conflict tax (`dag-rounds.md` §2's false-edge table);
@@ -85,8 +85,8 @@ it directly:
   build against the contract before the implementation lands — the exact
   condition under which "B builds against A's interface" is *not* an edge;
 - a boundary that keeps generating cross-item edges is the DAG telling you
-  the seam is in the wrong place — the same signal §5's cycle rule reads at
-  item scale.
+  the seam is in the wrong place — the same signal `dag-rounds.md` §5's
+  cycle rule reads at item scale.
 
 ---
 

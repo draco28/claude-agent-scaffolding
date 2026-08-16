@@ -1,7 +1,7 @@
 # Merge-conflict resolution
 
-Depth for the two merge moments: work-item close step 3
-(`work-item-close.md` §4) and spine close step 2 (`spine-close.md` §5). Both
+Depth for the two merge moments: work-item close step 4
+(`work-item-close.md` §4) and spine close step 2 (`spine-close.md` §3). Both
 halt on conflict by contract — conflicted paths surfaced verbatim, the merge
 left in progress, no later step run — **and that halt is unchanged by this
 file.** The ceremony never resolves a conflict on its own initiative.
@@ -56,7 +56,8 @@ reading the spine spec against what landed on base since the cut.
      boundary. Take the superseding side and be able to cite why.
    - **Contradictory** — the sources genuinely disagree about what should be
      true. **Stop resolving. This is a plan defect surfacing as text**, the
-     same shape as `debugging.md` §3's AC-contradiction halt: picking a side
+     same shape as `work-item/references/debugging.md` §3's AC-contradiction
+     halt: picking a side
      silently makes the other side's tests wrong and defers the fight to
      someone with less context. Surface both intents, with their sources,
      and let the owner decide.
