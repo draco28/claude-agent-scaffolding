@@ -1,10 +1,11 @@
 # Release close — the outer layer
 
 Depth for SKILL.md §6 (spec §6.2, plus the two §6.1 contracts that only become
-enforceable at a release boundary). Seven steps in **binding order**: the
+enforceable at a release boundary). Eight steps in **binding order**: the
 walkthrough measures the set the amendments produced, the blocking findings are
-read against a product the walkthrough has already exercised, and the retro
-aggregates artifacts the spine closes wrote.
+read against a product the walkthrough has already exercised, the retro
+aggregates artifacts the spine closes wrote, and the boundary audit is the last
+refusal before anything is recorded.
 
 This layer is reached as `/close <release-id>` — `r1`, three characters, no dots
 (SKILL.md §2). Nothing routes here automatically: a spine close ends at its own
@@ -14,9 +15,10 @@ step 11 and never escalates.
 
 ## 1. What this release ships, and what it deliberately does not
 
-Spec §6.2 lists seven steps. **This release builds steps 1-4 and the two
-blocking §6.1 findings. Three of the spec's steps are not here**, and each is
-named rather than left to read as executed:
+Spec §6.2 lists seven steps; the companion boundary spec appends an eighth.
+**This ceremony runs steps 1-4, the two blocking §6.1 findings, and the
+companion's boundary audit. Three of the spec's steps are not here**, and each
+is named rather than left to read as executed:
 
 | Spec §6.2 step | Status here |
 |---|---|
@@ -27,17 +29,19 @@ named rather than left to read as executed:
 | **5. Docs increment (spec §8)** | **not shipped.** The trigger table lives in spec §8 and has no executable surface yet |
 | **6. Handoff cleanup for the closed release** | **not shipped.** `/ossify:handoff` authors session handoffs as a standalone utility, but it has no retention policy by design — handoffs accumulate and the user prunes — so there is nothing for a close to clean up; the same non-wiring `spine-close.md` §9 records for the spine boundary |
 | **7. Release tag / PR gate** | **not shipped.** The spine→release / release→main tier question is unsettled, and a PR gate written before it is settled would harden the wrong tier |
-| **8. Boundary audit (companion §6)** | **not shipped.** Plan D owns it; `PUBLIC_BOUNDARY.md`'s machine-checkable block is authored at onboarding but nothing executes it in this release. A release can close green without a secrets/boundary scan having run |
+| **8. Boundary audit (companion §6)** | **built — core scope** — §8, full depth in `references/boundary-audit.md`. Re-derived under the skill-first freeze: prose driving `git`/`gh`/`gitleaks` plus agent judgment, **canonical repo only, observed-visibility gated**, fail-closed. Confirmed findings block the close. The dimensions the companion names that this scope omits — the other repo arms, the semantic pass, history, submodules, the override record — are named in that file's own not-shipped table and land as their own PRs |
 
 A missing step and a step that silently does nothing are indistinguishable to
 every later reader, which is why they are a table rather than an omission.
 
-**The repo dimension is deliberately single-repo here.** The companion design
+**The repo dimension is single-repo for every step.** The companion design
 gives a release close a pin/publish step before the walkthrough for open-core
 postures, and one PR per touched repo at the gate. Neither is built; both attach
 to steps this file does not ship. Nothing below assumes one repo *forever* — the
-walkthrough and both blocking gates read state, not a checkout — but nothing
-below spins up a second repo's worktree either.
+walkthrough and both blocking gates read state, not a checkout — and the one
+step that does read a checkout, the boundary audit, reads **the canonical
+only** (`git -C`, never a worktree), with the other repos explicitly outside
+its shipped scope.
 
 ---
 
@@ -150,7 +154,7 @@ which is the entire point of a rotation.
 
 The gate, its rc contract, both of its arms and the two ways to unblock it are
 in **`references/fake-expiry.md`**. The branch this step runs — the shipped
-copy, executed from here (§9):
+copy (`fake-expiry.md` §2), executed from here:
 
 ```bash
 ef=0; fakes_due="$(oss expired_fakes "$rel")" || ef=$?
@@ -330,7 +334,38 @@ reads this key as its starting point.
 
 ---
 
-## 8. Step 7 — the state writes, and only after every step above reached the end
+## 8. Step 7 — the boundary audit, the last refusal
+
+**The canonical repo only, gated on observed visibility, fail-closed, and its
+confirmed findings block the close.** The whole step — the visibility gate and
+its two recorded deltas from the companion spec, the tracked-file audit
+against `PUBLIC_BOUNDARY.md`'s machine-checkable rules, the scan-first
+untracked sweep, and the high-stakes disposition where **nothing is ever
+auto-dispositioned to pass** — is in **`references/boundary-audit.md`**. Read
+it before running this step; its triage is a conversation with the user, not a
+checklist. The dimensions the companion names that this scope omits are named
+in that file's own not-shipped table and land as their own PRs.
+
+What matters for the ceremony's shape: this step runs **after** the
+feature-map re-groom, so a blocked close still walked, retro'd and re-groomed
+— all of that survives the halt as artifacts and planning input — and
+**before** §9, so a blocked release is never recorded closed. The only unblock
+this release is the fix; the accepted-disclosure override is not shipped
+(`boundary-audit.md` §5, §8).
+
+**A halt here is not free, and steps 1-6 are not free to repeat.** A re-close
+re-runs the full cumulative walkthrough — this ceremony's most expensive step —
+and two of the steps it re-runs already wrote state. `oss feature_add` appends
+**unconditionally**, so re-running §7 blind duplicates every feature it added:
+read `oss feature_list` first and add only what is missing. And
+`release-retrospective.md` is already on disk with a "what is still standing"
+section written before the finding existed — **amend it** so the boundary
+finding and its disposition join that section; never silently re-author it.
+The audit still has to run last, because a fix has to be re-audited.
+
+---
+
+## 9. Step 8 — the state writes, and only after every step above reached the end
 
 ```bash
 oss release_status "$rel" closed
@@ -353,12 +388,15 @@ looks read is how a later reader concludes a check exists.
 `release_status` accepts `planned|active|closed` — the release enum has **no
 `abandoned`**, unlike the spine enum §2 reads.
 
-**A halt anywhere above records nothing at all.** Neither of these lines runs
-after a refusal, a failed demo line, or either blocking finding.
+**A halt anywhere above stops the close record.** Neither of these lines runs
+after a refusal, a failed demo line, either blocking finding, or a confirmed
+boundary-audit finding — so nothing is ever recorded as closed. It does **not**
+mean nothing was written: §7's `feature_add` and `release_set_meta` already
+ran, which is what §8's re-close note is about.
 
 ---
 
-## 9. What has no executable surface
+## 10. What has no executable surface
 
 Stated plainly so nobody infers coverage that does not exist.
 
@@ -375,7 +413,7 @@ executed.
 
 ---
 
-## 10. Anti-patterns
+## 11. Anti-patterns
 
 - **Reading `abandoned` as `closed`** — or hard-halting on it and making the
   release uncloseable (§2).
@@ -400,4 +438,8 @@ executed.
   spine then looks retro-less (§6).
 - **Trusting `release_set_meta` silently.** A disallowed key is dropped at rc 0
   (§7).
-- **Writing `release_status closed` after any halt** (§8).
+- **Writing `release_status closed` after any halt** (§9) — a boundary-audit
+  halt included (§8).
+- **Auto-dispositioning a boundary-audit finding, or closing "with a leak
+  noted."** Every finding reaches the user; a confirmed one blocks until fixed
+  — the override is not shipped (§8, `boundary-audit.md` §5).
