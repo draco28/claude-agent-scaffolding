@@ -1,8 +1,8 @@
 # State inspection
 
-The depth behind `doctor/SKILL.md` §4. **`oss doctor` is now four checks, not
-eight** — the ones a close blocks a mutation on. The other **five** are yours to
-read, and this file is how.
+The depth behind `doctor/SKILL.md` §4. **`oss doctor` is now its four-check
+gate** — the ones a close blocks a mutation on. The other **five** advisory
+areas are yours to read, and this file is how.
 
 ---
 
@@ -46,7 +46,7 @@ Two properties are load-bearing:
   so a project with a configured `private_core` got a clean read-out about a repo
   nobody had opened (#156).
 - **`warn:` never changes the rc.** `oss doctor` exiting 0 means "nothing broken",
-  not "nothing to report" — and it now says nothing at all about the four
+  not "nothing to report" — and it now says nothing at all about the five
   advisory areas. A close pre-flight that checks only the rc is still correct;
   it is deliberately not the whole picture.
 
@@ -232,11 +232,10 @@ exactly it, **or** when its basename is a work item's id — and only when that
 work item's `target_repo` is the repo being asked about, so a `private_core`
 item cannot claim a same-named directory sitting under the public root.
 
-**You run the selector once per repo key** — `canonical`, `ai_workspace`,
-`private_core` — and print `ok:`/`warn:`/`skip: worktrees(<key>)` for each.
-`oss doctor` used to do this and no longer does; the verb it called is unchanged
-and the keys are `_oss_repo_root`'s enum, so read that enum rather than trusting
-this list to stay current. **Every key costs a line**, including the ones this
+**You run the selector once per repo key, and the keys are `_oss_repo_root`'s
+enum — read it from `lib/worktree.sh` at run time; no list here to go stale** —
+printing `ok:`/`warn:`/`skip: worktrees(<key>)` for each. `oss doctor` used to
+do this and no longer does; the verb it called is unchanged. **Every key costs a line**, including the ones this
 project does not configure. A key the manifest does not configure gets the `skip:`, as does one
 whose root does not exist on this machine **or cannot be traversed** — an
 unmounted volume and a checkout whose root denies `x` both land there. So does a

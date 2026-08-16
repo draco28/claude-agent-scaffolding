@@ -207,21 +207,26 @@ oss_manifest_spec_path() {
 # being overridden in either case, and a notice on every call is noise the reader
 # learns to skip, which is the failure mode this is supposed to prevent.
 #
-# #171 (the raw-compare false alarm) is NOT fixed here, deliberately. Removing this
-# notice was tried on PR #178 and reverted: it is a SAFETY RAIL, not a read-out, and
-# docs/conventions/skill-first.md puts "safety rails the agent must not argue past"
-# on the deterministic side. Deleting it produced two P1s in one review round — `-ef` in the
-# replacement guard accepted a symlinked override that `mv "$tmp" "$sf"` then
-# DETACHES into a second history, and `/start`, `/plan-release` and `/close` were
-# left with no diagnostic at all while calling bare mutating verbs. Any real fix has
-# to cover all 42 callers and refuse rather than warn; see #171.
+# #171 SETTLED 2026-08-16: the rail stays BLUNT and now says so in its own text —
+# the notice names raw-string comparison, so an equivalent spelling reads as the
+# rail's known bluntness rather than as real divergence. The alternatives were each
+# walked and declined: canonicalization is not coming back (deleted on PR #184 with
+# its own do-not-restore note below — path normalization cost this repo four review
+# rounds on PR #166 and seven findings across four more rounds on PR #182); `-ef`
+# is read-identity and this function's result feeds
+# mutating verbs (the exact -ef-on-a-write-target mistake PR #178 paid two P1s for);
+# and a refuse-rather-than-warn redesign across all 42 callers would be new
+# deterministic gating semantics, which the 2026-08-15 freeze declines. Removing the
+# notice entirely was tried on PR #178 and reverted: it is a SAFETY RAIL, not a
+# read-out, and docs/conventions/skill-first.md puts "safety rails the agent must
+# not argue past" on the deterministic side.
 _oss_resolve_state() { # [$1=explicit-path]
   if [ -n "${1:-}" ]; then echo "$1"; return 0; fi
   if [ -n "${OSS_STATE_FILE:-}" ]; then
     local _routed
     _routed="$(oss_manifest_state_path 2>/dev/null)" || _routed=""
     if [ -n "$_routed" ] && [ "$_routed" != "$OSS_STATE_FILE" ]; then
-      echo "oss: state path came from \$OSS_STATE_FILE ($OSS_STATE_FILE), overriding the manifest-routed $_routed" >&2
+      echo "oss: state path came from \$OSS_STATE_FILE ($OSS_STATE_FILE), overriding the manifest-routed $_routed (paths compared as written; an equivalent spelling of the same file also triggers this notice)" >&2
     fi
     echo "$OSS_STATE_FILE"; return 0
   fi

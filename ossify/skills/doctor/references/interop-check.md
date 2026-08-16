@@ -124,17 +124,21 @@ Distinguish the two failures — they have different causes and different fixes:
 The second is the one that happens to real projects, usually after a repo is
 renamed or moved.
 
-**`canonical` must also be a git repository.** Probe it:
+**`canonical` must also be a git work tree.** Probe it:
 
 ```bash
-git -C "$(oss repo_root canonical)" rev-parse --git-dir
+git -C "$(oss repo_root canonical)" rev-parse --is-inside-work-tree
 ```
 
-A canonical root that is an ordinary directory — `.git` removed, or the manifest
-hand-edited — passes a directory check and then fails the first ceremony that
-touches it: `oss worktree_add` runs `git -C "$root" worktree add` immediately,
-and spine close runs merges and reachability checks against the same root. Line:
-`fail: canonical - resolved root is not a git repository: <path>`. (#153)
+The probe must print `true` — rc 0 alone is not the pass. A canonical root that
+is an ordinary directory (`.git` removed, the manifest hand-edited) fails the
+probe outright; a **bare repository or a `.git` directory** answers rc 0 to
+weaker probes like `--git-dir` — and even *survives* `oss worktree_add`, since
+git happily adds worktrees from a bare repo — so the first break comes later
+and worse: spine close's checkouts and merges run against the root itself and
+need a work tree there. A probe that certifies switch-ready and defers the
+failure to mid-ceremony is the #153 shape one level in. Line:
+`fail: canonical - resolved root is not a git work tree: <path>`. (#153, #183)
 
 **Do not apply the git probe to `ai_workspace`.** That workspace is legitimately
 allowed to be untracked, so the same probe there is a false failure. This is the
@@ -223,10 +227,12 @@ file, unsetting the variable loses nothing, because the manifest already routes
 there. An operator who follows the message is right whether or not the paths were
 equivalent, which is what makes the imprecision affordable.
 
-**Exact-equivalence detection belongs to #171**, which tracks making the override
-a refusal at resolution time across all ~42 callers rather than a warning on one
-surface. If that lands with a normalizer, this check should read its answer — not
-grow a second one.
+**Exact-equivalence detection is settled, not pending (#171, 2026-08-16):** the
+resolution-time rail stays blunt and says so in its own text ("paths compared as
+written"). Canonicalization is not coming back, and the refuse-at-resolution
+redesign was declined under the freeze — see `_oss_resolve_state`'s header for
+the walked alternatives. This check inherits the same bluntness deliberately;
+do not grow a normalizer here either.
 
 ### `agents_md`
 
