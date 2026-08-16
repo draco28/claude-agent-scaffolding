@@ -1,10 +1,14 @@
 # The patch lane — out-of-spine work
 
 Depth for SKILL.md §6 (spec §6.1) — but **read this whenever work arrives with
-no open spine**: the lane is scope-less and runs *between* ceremonies, any time;
-SKILL.md §6 is where it is described, not the only moment it runs. The lane
-exists so that a typo fix does not need a spine, and it is bounded so that "it
-was only a typo" does not become the way real work escapes the ceremony.
+no open spine**: the lane is scope-less and runs *between* ceremonies, any time,
+after SKILL.md §3's common pre-flight (the lane mutates state too); SKILL.md §6
+is where it is described, not the only moment it runs. The documented lane
+commits to the **canonical** (§5 resolves `oss repo_root canonical`, and
+`patch_add` records no repository key) — an out-of-spine change in another repo
+is outside this lane's contract. The lane exists so that a typo fix does not
+need a spine, and it is bounded so that "it was only a typo" does not become
+the way real work escapes the ceremony.
 
 **The verb already exists.** `oss patch_add` has shipped since the ledger layer;
 what has never existed is the routing judgment that decides when to reach for it.
