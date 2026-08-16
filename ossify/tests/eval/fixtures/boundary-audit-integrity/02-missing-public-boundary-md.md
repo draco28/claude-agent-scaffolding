@@ -23,4 +23,6 @@ that matters." At triage the operator affirms that the file is indeed missing
 and declines to author it mid-close.
 
 State the audit's other inputs, so nothing below is left to infer: every
-tracked fixture in the canonical is synthetic.
+tracked fixture in the canonical is synthetic; the canonical's checkout is
+clean — HEAD is the release's audited ref with no staged or unstaged tracked
+changes.

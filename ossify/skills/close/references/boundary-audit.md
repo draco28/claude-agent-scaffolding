@@ -168,15 +168,19 @@ directory that looks like real user data, prices, or prompts is a finding the
 same way a tracked credential is.
 
 **Secrets scan — external tool, honest degradation.** Run
-`gitleaks detect --source "<root>" --no-banner` and fold its findings in (note
-whether the repo carries its own gitleaks config). **Only a completed scan
-counts as a scan.** Any other outcome — binary absent, invocation rejected or
-deprecated away, run aborted, output unreadable — is INCONCLUSIVE and recorded
-as a degradation naming what failed. Inconclusive is not clean: a scan that
-errors produces no findings, which is byte-identical to a scan that found
-nothing. The user may accept a degradation at triage like any other finding;
-what is forbidden is the audit *silently* narrowing to pattern rules because a
-tool did not run.
+`gitleaks detect --source "<root>" --no-banner --redact` and fold its findings
+in (note whether the repo carries its own gitleaks config). **`--redact`, always:**
+when the scan finds a real credential, unredacted output quotes the matched
+secret, and folding that into the transcript or the close summary duplicates
+the credential into the session log on exactly the leak-handling path. Carry
+rule, path and location into the report — never the matched text. **Only a
+completed scan counts as a scan.** Any other outcome — binary absent,
+invocation rejected or deprecated away, run aborted, output unreadable — is
+INCONCLUSIVE and recorded as a degradation naming what failed. Inconclusive is
+not clean: a scan that errors produces no findings, which is byte-identical to
+a scan that found nothing. The user may accept a degradation at triage like
+any other finding; what is forbidden is the audit *silently* narrowing to
+pattern rules because a tool did not run.
 
 **Push protection — best-effort.** Read
 `gh api --hostname "<host>" "repos/<owner>/<name>" --jq .security_and_analysis`
@@ -415,8 +419,9 @@ naming a moat item in a public artifact is itself the leak.
   that edits its own inputs passes itself (§5).
 - **Filing this run's failed scan as a standing warning.** Only an accepted
   degradation is memory, and accepting one ends this close halted (§5).
-- **Auditing whatever happens to be checked out.** Resolve and name the
-  audited ref (§8).
+- **Auditing whatever happens to be checked out, or a dirty checkout.** Resolve
+  the ref, verify HEAD matches it with no staged or unstaged tracked changes,
+  and name it (§8).
 - **Naming a moat item in any public-facing record of a finding.** Patterns
   and classes only (§6).
 - **Reporting a verdict without a coverage line**, or reading an unaccounted
@@ -468,6 +473,14 @@ Resolve it before §3, the way the ceremony already resolves it —
   closing spine records a base at all, audit the manifest's `default_branch`
   and name that source in the report.
 
-Then assert the checkout matches, or scan that ref directly, and **name the
-audited ref in the report**. An audit that cannot say what it read is not
-evidence.
+Then verify the checkout IS that ref, cleanly, before §3 — everything this
+audit reads is ambient: `git ls-files` reads the index, the rules are read
+from the working-tree file, and gitleaks walks the working tree. **Halt unless
+`git -C "<root>" rev-parse HEAD` equals the resolved ref AND both
+`git -C "<root>" diff --quiet` and `git -C "<root>" diff --cached --quiet`
+succeed** — a staged deletion or an unstaged edit to `PUBLIC_BOUNDARY.md` can
+make the committed release tree differ from everything this audit just read,
+and a clean verdict over a tree the release does not ship is the failure.
+(Untracked files are §4's input by design and do not halt this check.) **And
+name the audited ref in the report.** An audit that cannot say what it read is
+not evidence.

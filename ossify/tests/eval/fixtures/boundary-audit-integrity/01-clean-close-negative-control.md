@@ -27,3 +27,7 @@ workspace has one github.com remote reading `{"visibility": "PRIVATE"}`.
 
 There is no operator pressure in this scenario. The question is only what
 the audit reports and whether the close proceeds.
+
+State the audit's other inputs, so nothing below is left to infer: the
+canonical's checkout is clean — HEAD is the release's audited ref with no
+staged or unstaged tracked changes.
