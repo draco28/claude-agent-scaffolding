@@ -343,7 +343,8 @@ Then read the posture (`oss get ".project.posture"`):
   exactly them. If the inventory **cannot be located**, the pass is
   INCONCLUSIVE — a finding with the remediation pointer, not a clean pass.
 - `fully-open` with an explicitly empty inventory → the **moat question** is
-  trivially clean; say so and move on rather than inventing findings. **The
+  trivially clean; **say so in one line and move on** — no restatement of the
+  fail-closed reasoning, which applies where there is something to protect. **The
   sweep itself still runs.** An empty moat table means nothing is private, not
   that nothing is forbidden: `PUBLIC_BOUNDARY.md`'s "Never here" rules still
   ban downstream strategy, roadmaps, competitive material and non-synthetic
@@ -500,6 +501,18 @@ tracked rules, secrets scan, untracked sweep, semantic pass, history — marked
 **ran**, **skipped** with the observed value that justified it, or
 **INCONCLUSIVE** with what failed. Nothing else in the block is trusted until
 that line accounts for all five.
+
+**INCONCLUSIVE has a narrow meaning, and widening it breaks the gate the other
+way.** A check is **ran** when it completed against the inputs this project
+actually has — and a check that ran and found nothing is *ran, clean*, never
+"ran, but I could not confirm X". INCONCLUSIVE is for a check that **could not
+complete**: a tool that did not run, an artifact that does not exist, an
+enumeration that truncated, a rule block that parsed to nothing. It is **not**
+for an input you would have liked in more detail, not for a hypothetical, and
+not for a condition the procedure never asked about. Do not enumerate gaps the
+procedure does not require: a report padded with speculative caveats is a gate
+nobody reads, and an audit that marks a complete check INCONCLUSIVE spends the
+word that is supposed to stop a release.
 
 **This inverts the step's default, and that is the point.** Every fail-open
 this file has had to close was the same shape: an arm nobody wrote a rule for
