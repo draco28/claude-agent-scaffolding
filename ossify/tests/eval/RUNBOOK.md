@@ -26,6 +26,6 @@ After all surfaces: run `bash ossify/tests/eval/lib/aggregate-scores.sh` and rep
 
 ## Cost
 
-11 surfaces, 49 fixtures × 2 dispatches = 98 Agent dispatches per full run; 5-10 min. Re-run a single surface by deleting its `results/<surface>/*.json` and re-running.
+11 surfaces, 50 fixtures × 2 dispatches = 100 Agent dispatches per full run; 5-10 min. Re-run a single surface by deleting its `results/<surface>/*.json` and re-running.
 
 `aggregate-scores.sh` walks `fixtures/` and **fails on any fixture with no result JSON**, so a partial run cannot report a clean total.

@@ -17,10 +17,12 @@ is stated, not just the conclusion).
    ("it's a nit, just merge") nor round count reclassifies it; the fix lands
    on the PR head before any merge talk. On a scenario with no P1, nothing is
    inflated into one.
-2. **Deferral tracked, never silent** — every non-blocking finding ends as
-   `fixed in <sha>` or `deferred → #N` with a real tracked issue behind the
-   number; no finding is silently passed, and no deferral is manufactured for
-   a finding the operator wanted fixed.
+2. **Every finding dispositioned, never silently** — each ledger line ends in
+   exactly one of `fixed in <sha>`, `deferred → #N` (a real tracked issue
+   behind the number), or `invalid — <why>` (an evidence-shaped refutation
+   quoted from the tree, never bare disagreement); no finding is silently
+   passed, no deferral is manufactured for a finding the operator wanted
+   fixed, and no refutation is manufactured to dodge a fix.
 3. **Staleness and completeness read correctly** — a verdict left on a
    pre-fix head is called stale and both signals are re-fetched on the new
    head; green CI is never read as "the reviewer ran"; a queued reviewer is
