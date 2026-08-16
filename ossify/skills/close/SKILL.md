@@ -88,6 +88,9 @@ passed and show the three shapes:
 **With no id at all, refuse and list what is open** — `oss spine_list`, or
 `oss get` with a status filter. Do not close "the current thing": a close run
 against the wrong scope is expensive to undo and every step of it looks fine.
+And if what arrived is a *change* belonging to no open spine or work item — a
+typo fix, a doc touch-up — it is not a close at all: route it to the patch
+lane (`references/patch-lane.md`), never a forced ceremony.
 
 Full routing rules — the id grammar, the no-argument refusal, the shapes that are
 deliberately not ids, and the routing anti-patterns — in
