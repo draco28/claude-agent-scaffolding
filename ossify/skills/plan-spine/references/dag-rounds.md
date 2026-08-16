@@ -56,10 +56,11 @@ Common false edges:
 2. Test each proposed edge against §2, out loud, once each. Keep the survivors.
    What that sounds like, over one proposed edge:
 
-   > *"`w3` (order history view) depends on `w1` (order submission)?* Which §2
-   > test? Not the seam — the orders table lands in `w2`, not `w1`. Not
-   > verification — `w3`'s ACs seed rows directly. 'Users submit before they
-   > browse' is journey order, not build order. **Dropped.**"
+   > *"In another spine, `w6` (order history view) depends on `w4` (order
+   > submission)?* Which §2 test? Not the seam — the orders table lands in
+   > `w5`, not `w4`. Not verification — `w6`'s ACs seed rows directly. 'Users
+   > submit before they browse' is journey order, not build order.
+   > **Dropped.**"
 
 3. **Round 1 = every item with no surviving dependency.** If that set is empty,
    you have a cycle (§5).
