@@ -143,7 +143,9 @@ rc 0 all the way to a green close.**
 **A merge conflict halts with rc-8 semantics.** Surface the conflicted paths
 verbatim, leave the merge in progress for the human, and run **no** later step.
 Never `--abort` on the user's behalf, never auto-resolve, never `-X` a strategy
-option. Resuming means finishing *this* step and continuing, not re-running the
+option. If the operator says *resolve it*, the discipline is
+`merge-conflict-resolution.md` — hunk by hunk, by each side's recorded intent.
+Resuming means finishing *this* step and continuing, not re-running the
 layer.
 
 ---

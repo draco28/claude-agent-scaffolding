@@ -201,7 +201,9 @@ at release planning, a spine whose plan touches any registered surface
 auto-reclassifies to `bone`, independently of the critic. Write them at module
 granularity — `src/**` makes everything a bone; a single file misses the sibling.
 
-Full checklist in `references/bones-registry.md`.
+Full checklist in `references/bones-registry.md`. The terms a bone's decision
+defines are vocabulary with an owner — challenging and defining them is
+`references/domain-modeling.md`.
 
 ---
 
@@ -240,7 +242,10 @@ Silence is the defect, not the uncertainty. Record the outcome in the ADR:
 Smoke-test code never enters the project tree. Time-box the pass; a claim eating
 more than ~15 minutes is architectural uncertainty (→ §9a), not a fact check.
 
-Full protocol in `references/smoke-test-pass.md`.
+Full protocol in `references/smoke-test-pass.md`. A claim that needs *reading*
+rather than *running* — a comparison, a constraint, a behavioural fact no
+20-line script reaches — is research, not a smoke test:
+`references/research.md`.
 
 ---
 
@@ -265,7 +270,10 @@ money or destructive surfaces.
 Distinct from §9: a smoke test asks *"is this external fact true?"*; a spike
 asks *"can this architecture work at all?"*.
 
-Full contract in `references/spike-contract.md`.
+Full contract in `references/spike-contract.md`. When the uncertainty is
+*experiential* rather than technical — "which shape is right?" has no
+falsifier; someone must see it — the sibling contract is
+`references/prototype.md`.
 
 ---
 

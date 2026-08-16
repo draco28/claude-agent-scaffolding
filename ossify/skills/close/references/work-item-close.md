@@ -204,7 +204,9 @@ and the next spine close believes it.
 
 **A merge conflict halts.** Surface the conflicted paths verbatim and stop. Never
 auto-resolve, never `--abort` on the user's behalf, and never `-X` a strategy
-option to make it go away. Resuming after the human resolves means finishing
+option to make it go away. If the operator says *resolve it*, the discipline is
+`merge-conflict-resolution.md` — hunk by hunk, by each side's recorded intent.
+Resuming after the human resolves means finishing
 *this* step — the merge and its reachability check, then the status — not
 re-running the layer: the commit already landed on the work-item branch, so a
 re-run halts at step 3 with an empty index and reports the wrong problem.

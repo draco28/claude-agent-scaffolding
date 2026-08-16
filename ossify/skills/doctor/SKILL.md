@@ -346,6 +346,9 @@ Named here rather than left to read as executed:
   `AGENTS.md`. Spec §9.1 says *check*, and the repair half belongs to
   `scaffold-onboard`'s original — porting it would also mean porting a managed
   `AGENTS.md` section this stack does not yet define.
+- **Vocabulary maintenance.** A term drifting is a domain-model finding, not
+  a state defect — the discipline is `start`'s `references/domain-modeling.md`,
+  exercised at release closes; nothing here scans for it.
 - **Gates.** Nothing here blocks anything. `close` owns every blocking gate,
   and a `fail:` line from `doctor` is information for the operator, not a veto
   this skill enforces.

@@ -1,0 +1,107 @@
+# Merge-conflict resolution
+
+Depth for the two merge moments: work-item close step 3
+(`work-item-close.md` §4) and spine close step 2 (`spine-close.md` §5). Both
+halt on conflict by contract — conflicted paths surfaced verbatim, the merge
+left in progress, no later step run — **and that halt is unchanged by this
+file.** The ceremony never resolves a conflict on its own initiative.
+
+This file is what gets read **at** the halt, when the operator says *resolve
+it* rather than doing it themselves. Resolution is deliberate work with its
+own discipline, and "the merge is in progress, make it go away" is exactly
+the framing under which work gets destroyed.
+
+---
+
+## 1. The two rules that survive everything below
+
+- **Never `git merge --abort`** (nor `rebase --abort` on the user's behalf).
+  Abort discards the resolution state irreversibly and re-parks the ceremony
+  behind the same conflict, minus everything learned. The shipped halt
+  already forbids it; it stays forbidden while resolving.
+- **Never resolve a side wholesale.** `--ours`/`--theirs`, or `-X` strategy
+  options, answer a *file-shaped* question when the conflict is
+  *intent-shaped*. The unit of resolution is the hunk, and the authority is
+  each side's originating intent — never the diff text's plausibility.
+
+---
+
+## 2. Where intent lives
+
+Every conflicted side was put there by work that has a written source. Read
+the sources, not the tea leaves:
+
+| The side came from | Its intent lives in |
+|---|---|
+| A work item in this spine | That item's **handoff** (`work-item/references/handoff-contract.md` — spine context, identifiers, ACs) and its `report.md` |
+| The spine itself, merging to base | The **spine spec** (`SPINE.md`) — what this spine set out to change |
+| The base branch since the spine cut | The merged PRs / spine records that landed there — `git log` names them; their specs say why |
+| A registered architectural surface | The **bone ADR** whose touch surface the path sits in — a conflict inside a bone's surface is architecture, not text |
+
+A conflict between two work items in the same spine is resolved by reading
+both handoffs. A conflict between the spine branch and base is resolved by
+reading the spine spec against what landed on base since the cut.
+
+---
+
+## 3. The loop, per hunk
+
+1. **Read both sides' intent from §2's sources** — what was each side *for*?
+   Not "what does each side's text do."
+2. **Classify the pair:**
+   - **Independent** — both intents stand; the text merely collided. Compose
+     a resolution that preserves both. Most conflicts are this.
+   - **Overlapping** — one side supersedes the other, *and a source says
+     so*: the later spec amended the earlier behaviour, the ADR moved the
+     boundary. Take the superseding side and be able to cite why.
+   - **Contradictory** — the sources genuinely disagree about what should be
+     true. **Stop resolving. This is a plan defect surfacing as text**, the
+     same shape as `debugging.md` §3's AC-contradiction halt: picking a side
+     silently makes the other side's tests wrong and defers the fight to
+     someone with less context. Surface both intents, with their sources,
+     and let the owner decide.
+3. **Resolve the hunk, remove its markers, stage the file** when every hunk
+   in it is done.
+
+---
+
+## 4. After the hunks — verification, then the ceremony resumes
+
+A build that compiles proves the text merged; it does not prove intent
+survived. The proof is the ceremony's own gates, which is why resumption
+matters more than the merge commit:
+
+- finish **this** step — the merge commit and its reachability check — then
+  continue forward; never re-run the layer (both merge docs pin this: the
+  work already landed on its branch, and a re-run reports the wrong problem);
+- for a work-item merge, the item's AC commands are the intent check;
+- for a spine merge, step 4's cumulative demo walks every accumulated line
+  against the merged tree — a resolution that quietly dropped a side fails
+  exactly there, which is the system working.
+
+The resolution is part of the record: the merge commit carries it, and a
+contradictory-pair escalation that changed a spec belongs in the close
+summary.
+
+---
+
+## 5. Anti-patterns
+
+- **`--abort` to get unstuck.** The work both sides did is still in the
+  tree; abort is the only move that can lose it.
+- **Wholesale `--ours`/`--theirs`.** Somebody's spine just silently lost.
+- **Resolving from the diff alone.** Text that reads plausibly merged is not
+  intent preserved — the two failure modes look identical in the editor.
+- **Resolving a contradiction yourself.** You have no mandate; the sources
+  disagree and their owners do not know yet.
+- **Markers left in a "resolved" file.** The build catches `<<<<<<<` in code
+  and misses it in Markdown and config — grep before staging.
+- **"It builds" as the finish line.** The gates are the finish line; the
+  build is the entry fee.
+
+---
+
+*Prior art: mattpocock `resolving-merge-conflicts` (hunk-by-hunk by intent,
+never abort). Lineage, not source — this doc is ossify's own, and ossify's
+halt-first contract is stricter: resolution is operator-sanctioned, never the
+ceremony's own move.*

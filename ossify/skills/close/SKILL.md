@@ -216,7 +216,8 @@ steps, in **binding order**:
 1. **Every work item `complete`**, else refuse and **name the offender**. Test
    the *output* of the `oss get` — a `select` matching nothing exits 0.
 2. **Switch canonical back to its `base_branch`, then merge the spine branch in**,
-   halting on conflict. **Derive the spine branch with `oss branch_name` and
+   halting on conflict (at that halt, `references/merge-conflict-resolution.md`
+   is the resolution discipline — operator-sanctioned, never automatic). **Derive the spine branch with `oss branch_name` and
    assert HEAD matches it — never read it off HEAD**; then assert the switch-back
    actually moved HEAD, and check reachability after the merge. Each of those
    guards catches a distinct failure that is otherwise rc 0 all the way to a
