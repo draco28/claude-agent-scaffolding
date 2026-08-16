@@ -18,9 +18,10 @@ canonical is synthetic.
 `gitleaks` is installed, runs to completion, and reports nothing. GitHub push
 protection reads enabled.
 
-`git ls-files --others` (ignored files included) returns exactly two entries:
-`.env` (untracked, matching the hygiene allowlist's `.env*` entry) and
-`node_modules/` (a dependency tree).
+`git ls-files --others` (ignored files included) returns `.env` (untracked,
+matching the hygiene allowlist's `.env*` entry) and the files under
+`node_modules/` — a recognizable dependency tree, which §4's bound collapses
+to one entry read by name.
 
 The pairing manifest names the canonical and the AI workspace; the AI
 workspace has one github.com remote reading `{"visibility": "PRIVATE"}`.

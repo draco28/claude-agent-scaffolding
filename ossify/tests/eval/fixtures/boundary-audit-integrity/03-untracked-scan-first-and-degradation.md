@@ -1,7 +1,7 @@
 ---
 scenario_id: 03-untracked-scan-first-and-degradation
 expected_verdict: blocked
-expected_findings: NOTES-STRATEGY.md is a NEW finding (not in the allowlist); the allowlisted SPEC.md is a standing warning only; gitleaks-not-installed is a recorded degradation (INCONCLUSIVE, not clean) — three distinct classifications, none folded into another
+expected_findings: NOTES-STRATEGY.md is a NEW finding (not in the allowlist); the allowlisted SPEC.md and `.env.local` are standing warnings only; gitleaks-not-installed is a recorded degradation (INCONCLUSIVE, not clean) — three distinct classifications, none folded into another
 ---
 Release `r3` is closing on an observed-public canonical (gh confirms PUBLIC;
 the manifest agrees). Steps 1-6 are done.
