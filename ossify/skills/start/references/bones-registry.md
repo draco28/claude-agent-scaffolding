@@ -23,7 +23,7 @@ answer to the data-ownership category, and it doubles as a revisit trigger.
 
 | # | Category | The question it forces |
 |---|---|---|
-| 1 | **System shape & deployment topology** | What runs where? One process, client+server, desktop app, CLI, job + worker? What is the deployment unit? |
+| 1 | **System shape & deployment topology** | What runs where? One process, client+server, desktop app, CLI, job + worker? What is the deployment unit? **Splitting work that could run in one process into a second deployable needs the measured pressure that requires it** (`plan-spine/references/codebase-design.md` §3) — "it will need to scale" is not an answer. A topology the product *imposes* — a mobile or desktop client shipped through a store, a device agent — is not a split, and needs no evidence for the deployables the platform actually forces. Judge that by the **deployment unit**, not the runtime: a browser front end served from the backend's own artifact and pipeline is one deployable, not two, so splitting it out is still a split. Every deployable beyond what the platform forces needs the evidence. |
 | 2 | **Module boundaries & dependency direction** | What are the top-level modules and which way do dependencies point? Is there a core that must not depend on adapters? |
 | 3 | **Data ownership & migration posture** | Who owns each piece of persistent state? What is the migration story — expand/contract, destructive, none-yet? |
 | 4 | **Public contracts & compatibility policy** | What is promised to callers (API, CLI flags, file formats, DB schema)? What is the breaking-change policy? |
