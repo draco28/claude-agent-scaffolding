@@ -41,10 +41,14 @@ re-audited.
 
 ## 2. The repo set, and the visibility gate
 
-Build the repo set from the pairing manifest — the canonical
+Build the repo set from **every repository object the pairing manifest
+carries**, not from a fixed list of roles — the canonical
 (`oss repo_root canonical`), the AI workspace (`oss repo_root ai_workspace`),
-and any `private_core` the manifest names. Every repo in the manifest is in
-scope. **A repo's manifest role is structural** — workspace-init writes it, and
+any `private_core`, and the optional `tooling_repo` workspace-init emits when a
+project volunteers one. Enumerate the manifest's repo objects and audit each;
+hard-coding three roles is how a public tooling repo ends up holding tracked
+secrets while the release reports clean. A role this file states no policy for
+is audited on the `any` row of the table below. **A repo's manifest role is structural** — workspace-init writes it, and
 it is not the pending per-repo `visibility` field this section's first delta is
 about.
 
@@ -112,9 +116,9 @@ finding. Fail-closed: a repo you cannot prove private is treated as public.
 | Role | Observed | What runs |
 |---|---|---|
 | any | public (or undeterminable) | §3, §4, §5 in full; findings are **blocking** |
-| `canonical` | private | §3 only, as **non-blocking hygiene notes** — a missing `PUBLIC_BOUNDARY.md` is not a finding here. §4 and §5 skipped |
+| `canonical` | private | §3 only, as **non-blocking hygiene notes** — a missing `PUBLIC_BOUNDARY.md` is a hygiene finding here, not a blocking one. §4 and §5 skipped |
 | `ai_workspace`, `private_core` | private | §3's secrets scan only, as hygiene notes. §4 and §5 skipped |
-| `ai_workspace`, `private_core` | **public** | **blocking finding on its own** — these roles are private by construction; §3's secrets scan still runs, §4 and §5 skipped |
+| `ai_workspace`, `private_core` | **public** | **blocking finding on its own** — these roles are private by construction. **§3, §4 and §5 all run in full**: the repo is already exposed, and the visibility finding is overridable, so a skipped sweep means an accepted public workspace is never examined again |
 | `ai_workspace`, `private_core` | undeterminable | the undeterminable read is a finding, **and the role-appropriate §3 secrets scan still runs** as hygiene notes; §4 and §5 skipped |
 
 **Role-specific rows win over the `any` row.** An undeterminable read is
@@ -385,7 +389,15 @@ close**. Two unblocks, both real work:
 
 - **Fix before close** — untrack and rotate, rewrite the disclosing doc,
   resynthesize the fixture. Re-run the affected step afterward; a fix is
-  verified by the audit that re-examines it, not by the intention.
+  verified by the audit that re-examines it, not by the intention. **And a fix
+  that changes the repository invalidates the gates that ran before it**:
+  steps 2-4 walked a tree this fix has now altered, so re-run every gate whose
+  inputs the fix touched — at minimum the cumulative walkthrough when the fix
+  went anywhere the product reads (a resynthesized fixture, a deleted config, a
+  rewritten doc a demo line opens). Recording the release closed on a
+  walkthrough of the pre-fix tree certifies a product state that no longer
+  exists. A fix confined to the AI workspace, or to an untracked file nothing
+  loads, touches no gate's inputs and needs only this step re-run.
 - **Accepted-disclosure override** — the user records, in so many words, that
   this specific disclosure is accepted, with the reason. The close proceeds
   with the override named in the report.
@@ -403,7 +415,7 @@ close:
 
 - **It covers the exact surface recorded, and the row carries whatever makes
   "exact" checkable.** For a tracked file: the path plus a verifiable pin —
-  the content hash (`git -C "<root>" hash-object "<path>"`) and the commit the
+  the content hash (`git -C "<root>" hash-object -- "<path>"`) and the commit the
   audit read it at. For a surface that has no file — an untracked path, or an
   accepted degradation — whatever makes it re-identifiable instead: the path
   and its pattern, or the tool and the failure mode. Otherwise an override
@@ -476,8 +488,13 @@ silently does nothing is indistinguishable from a missing one
   forever at its blob URL, and nothing here looks. `gitleaks` covers *secrets*
   across history when it runs; the `never-tracked:` rules that catch
   **documents** have no history pass at all.
-- **Submodule contents.** `ls-files` returns one gitlink, `--others` does not
-  descend, gitleaks does not follow.
+- **Submodule contents, unless you audit them.** `ls-files` returns one
+  gitlink, `--others` does not descend, gitleaks does not follow. **An
+  observed-public repo tracking a submodule is not clean by default**: the
+  pinned tree is part of what the public sees, so audit each submodule at its
+  pinned commit (§3 and §4 against that checkout), or record the unaudited
+  submodule as an INCONCLUSIVE finding. A `clean` verdict over an unexamined
+  submodule is the same shape as a `clean` verdict over an unrun scan.
 - **Everything about the project that is not a git repo** — issues, wiki,
   releases, Pages, Actions artifacts, published packages.
 
@@ -504,8 +521,13 @@ Then assert the checkout matches, or scan that ref directly, and **name the
 audited ref for every repo in the report**. An audit that cannot say what it
 read is not evidence.
 
-**One fail-safe follows from the first bullet: the history gap is a standing
-finding until a history pass is recorded *for the current history*.** The
+**One fail-safe follows from the first bullet, and it is scoped to the repos
+whose history is actually exposed: the history gap is a standing finding, on
+every repo running the full public-audit arm, until a history pass is recorded
+*for the current history*.** A repo on a private arm — §3 only, or the secrets
+scan alone — owes no history pass: none of its history is public, and demanding
+one would block every dual-repo close on a full-history review of the AI
+workspace. The
 record is a **History passes** line in the private boundary inventory, beside
 the accepted disclosures — repo, the **commit it reviewed through**, and the
 date, written when the user confirms a full-history review was done.
