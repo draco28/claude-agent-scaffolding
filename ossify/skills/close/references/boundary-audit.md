@@ -48,6 +48,17 @@ scope. **A repo's manifest role is structural** — workspace-init writes it, an
 it is not the pending per-repo `visibility` field this section's first delta is
 about.
 
+**Read each repo's `git_tracked` first, because not every manifest repo is a
+git repo.** workspace-init's Scenario C pairs an AI workspace that is
+deliberately untracked (`ai_workspace.git_tracked: false`), and every git
+command below would fail against it — turning a supported topology into a
+permanently undeterminable audit with no repository fix available. A repo with
+`git_tracked: false` gets the **filesystem-only** policy: it has no index, no
+remotes and no history, so §2's visibility gate and §3's tracked-file rules do
+not apply to it; run §4's sweep over its working tree as hygiene notes, say in
+the report that it was scanned as an untracked directory, and never raise its
+lack of a remote as a finding.
+
 **Scanning does not depend on a remote.** §3 and §4 read the index and the
 working tree; they need no network and no `gh`, and they run on every repo in
 the set. A repo with no remote today may still have been pushed yesterday —
@@ -61,12 +72,22 @@ is hygiene.
 
 ### Determining observed visibility
 
-Enumerate **every** remote (`git -C <root> remote -v`), not just `origin` — a
+Enumerate **every** remote (`git -C "<root>" remote -v`), not just `origin` — a
 remote may be named `upstream` or `github`, `origin` may be a private fork of a
 public upstream, and a repo may push to both. For each remote, derive
-`owner/name` and read `gh repo view <owner>/<name> --json visibility`. **Gate on
-the most public answer**: one public remote makes the repo observed-public, whatever
-the others say.
+**`host/owner/name`** and read
+`gh repo view "<host>/<owner>/<name>" --json visibility`. **Gate on the most
+public answer**: one public remote makes the repo observed-public, whatever the
+others say.
+
+**Carry the host, do not drop it.** `gh`'s repository selector is
+`[HOST/]OWNER/REPO`, and with the host omitted it resolves against `GH_HOST` or
+its own default — so a GitHub Enterprise remote queried as bare `owner/name`
+can answer about a *different* host's repo of the same name. Where that other
+repo is private, an observed-public Enterprise repo is misclassified as private
+and skips the whole audit. Every path in this file that quotes a root or a
+selector quotes it: manifest-resolved paths may contain whitespace, and
+`close/SKILL.md` §8 already requires `git -C "<absolute path>"`.
 
 **Only an exact, case-insensitive `private` takes the private arm.** Anything
 else — `public`, `internal` (GitHub Enterprise's org-wide visibility, which is
@@ -83,9 +104,24 @@ finding. Fail-closed: a repo you cannot prove private is treated as public.
 | `canonical` | private | §3 only, as **non-blocking hygiene notes** — a missing `PUBLIC_BOUNDARY.md` is not a finding here. §4 and §5 skipped |
 | `ai_workspace`, `private_core` | private | §3's secrets scan only, as hygiene notes. §4 and §5 skipped |
 | `ai_workspace`, `private_core` | **public** | **blocking finding on its own** — these roles are private by construction |
-| `ai_workspace`, `private_core` | undeterminable | the undeterminable read is a finding; §3-§5 do **not** run |
+| `ai_workspace`, `private_core` | undeterminable | the undeterminable read is a finding, **and the role-appropriate §3 secrets scan still runs** as hygiene notes; §4 and §5 skipped |
 
 Every skip is named in the report with the observed value that justified it.
+
+**No arm of this table skips the secrets scan.** Scanning does not depend on a
+remote (above), so it cannot depend on being able to *read* a remote either —
+an earlier draft let an unreachable `gh` skip §3 entirely on the private roles,
+which meant accepting one visibility degradation at triage could close a release
+having never run gitleaks over the private repo at all. The visibility finding
+and the secrets scan are independent; a repo whose visibility is unknown gets
+both.
+
+**Read the inventory's Accepted-disclosures rows before applying any skip in
+this table.** They are §5's input, but §5 does not run on every arm, and an
+override recorded against a private canonical or a `private_core` would
+otherwise vanish the moment its repo took a skip — silently, and from the very
+next close. Read the rows once, up front; recap every row relevant to each repo
+in the report **whether or not that repo's semantic sweep runs**.
 
 **Why private repos are scanned at all** (and the second delta from the
 companion, which scoped the whole audit to public repos): `posture-block.md` §6
@@ -141,7 +177,7 @@ finding — that file is routed to public repo roots.)
 
 **Execute the machine-checkable rules block by reading it.** For each
 `never-tracked:` pattern in the block, list tracked files
-(`git -C <root> ls-files`) and match them against the pattern. **Where a
+(`git -C "<root>" ls-files`) and match them against the pattern. **Where a
 pattern and a path are arguably a match, they match** — an over-match is a
 finding the user rejects in one sentence; an under-match is a leak. (Glob
 dialects disagree about whether a leading `**/` matches zero segments and
@@ -164,7 +200,7 @@ asked on a private canonical running hygiene notes, and **not** on the
 That is a named skip in the report, not a silent one.
 
 **Secrets scan — external tool, honest degradation.** Run
-`gitleaks detect --source <root> --no-banner` and fold its findings in (note
+`gitleaks detect --source "<root>" --no-banner` and fold its findings in (note
 whether the repo carries its own gitleaks config). **Only a completed scan
 counts as a scan.** Any other outcome — binary absent, invocation rejected or
 deprecated away, run aborted, output unreadable — is INCONCLUSIVE and recorded
@@ -175,7 +211,7 @@ what is forbidden is the audit *silently* narrowing to pattern rules because a
 tool did not run.
 
 **Push protection — best-effort.** Read
-`gh api repos/<owner>/<name> --jq .security_and_analysis` and report what the
+`gh api "repos/<owner>/<name>" --jq .security_and_analysis` and report what the
 host enforces. Unknown or unreadable is a note, not a finding — this is the
 host's rail, not ours, and the audit does not depend on it.
 
@@ -184,7 +220,7 @@ host's rail, not ours, and the audit does not depend on it.
 ## 4. Step 2 — the leak-adjacent scan (untracked files, scan-first)
 
 Enumerate **all** untracked files in the working tree —
-`git -C <root> ls-files --others`, deliberately **without**
+`git -C "<root>" ls-files --others`, deliberately **without**
 `--exclude-standard`, because gitignored files (`.env`, a private `SPEC.md`)
 are exactly the class in play. One `git add -f`, one editor "save all", one
 misfired `git commit -a` is the distance between an untracked sensitive file
@@ -214,6 +250,28 @@ The order is the point. Iterating the allowlist and checking whether its
 entries exist would never catch a file the allowlist has not heard of — the
 new `SPEC.md`-class file is precisely what this step exists to catch, and it
 is only ever caught by scanning the tree first.
+
+### Patterns are the floor, not the test
+
+**A pattern set only catches files someone already thought to name.** A
+strategy memo called `NOTES-STRATEGY.md`, a credential dump called `scratch.txt`
+— neither matches a `never-tracked:` rule or a standard secrets class, and both
+are exactly what an untracked sweep of a public working tree exists to find. §5
+will not catch them either: it sweeps **tracked** prose.
+
+So after the pattern pass, **read the remaining untracked set for what the
+files are**, the same judgment §5 applies to tracked prose and the same
+direction: a name or a peek that reads like downstream strategy, planning,
+credentials, or private-inventory material is a **finding**, and where it is
+arguable it is a finding. Bound it the way §5 is bounded — this is a read over
+the enumerated set's names and, where a name is uninformative, its first lines;
+it is not a review of the repository. If that read had to be narrowed to fit,
+that narrowing is a recorded degradation.
+
+The `PUBLIC_BOUNDARY.md` "Never here" prose rules are the vocabulary for this
+judgment: they already say no downstream strategy, no roadmap, no competitive
+material, no non-synthetic fixtures. The pattern block is how those rules are
+enforced mechanically; this read is how they are enforced at all.
 
 ---
 
@@ -324,10 +382,15 @@ the re-surfacing real rather than asserted.
 Two bounds on an override, because it is the one thing here that survives a
 close:
 
-- **It covers the exact surface recorded** — the path and the finding as
-  stated at the time. Any change to that surface is a fresh finding, and where
-  it is arguable whether a hit is the covered one, it is fresh. Otherwise an
-  override laundres later growth of the thing it covered.
+- **It covers the exact surface recorded, and the row carries a baseline that
+  makes "exact" checkable** — the path, the finding as stated, and a
+  verifiable pin: the covered file's content hash
+  (`git -C "<root>" hash-object <path>`) plus the commit the audit read it at.
+  A row carrying only a prose description cannot answer "is this the same
+  surface?" at the next close, so later growth matches the old row and is
+  laundered as a standing warning — the precise failure this bullet exists to
+  forbid. Any change to that surface is a fresh finding, and where it is
+  arguable whether a hit is the covered one, it is fresh.
 - **It is not an erasure.** From the next close onward the item re-surfaces as
   a standing warning, never silently and never as a fresh block.
 
@@ -345,11 +408,19 @@ reaches the same place as an override, one ceremony later, with no record. So:
 disclosure like any other.** The friction is the point, not the ceremony
 boundary.
 
-Standing warnings (hygiene-allowlisted files, prior accepted disclosures, a
-failed or missing gitleaks) are recapped at the end of every audit report. They
-are the audit's memory, and pruning them is a posture-block edit made
-deliberately at `start`-time ceremonies — not something an audit does to quiet
-its own output.
+Standing warnings — hygiene-allowlisted files, prior accepted disclosures, and
+**previously accepted** degradations — are recapped at the end of every audit
+report. They are the audit's memory, and pruning them is a posture-block edit
+made deliberately at `start`-time ceremonies, not something an audit does to
+quiet its own output.
+
+**A degradation from *this* run is a finding, not a standing warning.** The
+distinction is the whole of it: a gitleaks run that failed today is an
+incomplete scan of the release being closed, and §3 sends it to triage. Only
+once the user has accepted it does it become memory. Filing this run's failure
+straight into the recap would let a current, unaccepted, incomplete secrets
+scan sit under a heading described as non-escalating, and the release would
+close clean without anyone overriding anything.
 
 ---
 
@@ -381,29 +452,47 @@ Stated plainly, because the sibling ceremony's rule is that a step which
 silently does nothing is indistinguishable from a missing one
 (`release-close.md` §1).
 
-- **History, and every branch but the one checked out.** `git ls-files` is the
-  current index. A private document committed a year ago and later deleted is
-  public forever at its blob URL, and nothing here looks. `gitleaks` covers
-  *secrets* across history when it runs; the `never-tracked:` rules that catch
+- **History, and every branch but the one being audited.** `git ls-files` is an
+  index. A private document committed a year ago and later deleted is public
+  forever at its blob URL, and nothing here looks. `gitleaks` covers *secrets*
+  across history when it runs; the `never-tracked:` rules that catch
   **documents** have no history pass at all.
 - **Submodule contents.** `ls-files` returns one gitlink, `--others` does not
   descend, gitleaks does not follow.
 - **Everything about the project that is not a git repo** — issues, wiki,
   releases, Pages, Actions artifacts, published packages.
 
-**One fail-safe follows from the first bullet: the history gap is a standing
-finding until a history pass is recorded.** The record is a **History passes**
-line in the private boundary inventory, beside the accepted disclosures —
-release id and date, written when the user confirms a full-history review was
-done. Absent that line, the gap is owed and reaches triage like any other
-finding; the user may dispose of it there, and doing so writes the line.
+**Say which ref you audited, and audit the release's ref.** Everything above
+reads the *ambient* checkout, and by the time a release closes — especially a
+close resumed in a later session, or one where the operator moved HEAD after
+the last spine close — that may not be the branch the release integrated into.
+A clean old branch passing while the release branch carries a tracked violation
+is the failure. So resolve the intended ref per repo before §3 (the base branch
+the spines merged into, from state — the same value `spine-close.md` treats as
+unsafe to read off HEAD), assert the checkout matches it or scan that ref
+directly, and **name the audited ref for every repo in the report**. An audit
+that cannot say what it read is not evidence.
 
-Phrase the rule that way rather than "on the repo's first audit", because
+**One fail-safe follows from the first bullet: the history gap is a standing
+finding until a history pass is recorded *for the current history*.** The
+record is a **History passes** line in the private boundary inventory, beside
+the accepted disclosures — repo, the **commit it reviewed through**, and the
+date, written when the user confirms a full-history review was done.
+
+The reviewed commit is what makes the line expire, and it has to: a line
+carrying only a release id and a date reads as "cleared forever", so a planning
+document committed and deleted *after* that review is absent from the index,
+absent from any new history finding, and the release closes clean over exactly
+the gap the safeguard exists to cover. **Compare the recorded commit against
+the repo's current tip; if commits have landed since, a new or incremental pass
+is owed** — incremental is enough, the range between the two.
+
+Phrase it as a recorded pass rather than "on the repo's first audit", because
 **nothing tells the audit whether it is the first.** No state field records a
 boundary audit, and every release that closed before this step shipped closed
 without one — so "is this the first?" is undeterminable exactly where it
 matters most, on an adopted-forward project with a deleted `docs/planning/`
-tree in its history. An absent line is determinable, and it fails safe.
+tree in its history. An absent or outrun line is determinable, and it fails safe.
 
 ---
 
@@ -433,6 +522,15 @@ tree in its history. An absent line is determinable, and it fails safe.
   that edits its own inputs passes itself (§6).
 - **Treating an override as an erasure, or as covering more than the surface
   recorded** (§6).
+- **Recording an override with no content baseline**, which makes
+  "exact surface" unenforceable at the next close (§6).
+- **Filing this run's failed scan as a standing warning.** Only an accepted
+  degradation is memory (§6).
+- **Classifying the untracked set by pattern alone**, which passes any
+  sensitive file nobody thought to name (§4).
+- **Skipping the secrets scan because a visibility read failed** (§2).
+- **Auditing whatever happens to be checked out**, or reading a `History
+  passes` line as permanent when commits have landed since (§8).
 - **Naming a moat item in any public-facing record of a finding.** Patterns
   and classes only (§7).
 - **Running the state writes after a halt here** (§1, `release-close.md` §9).

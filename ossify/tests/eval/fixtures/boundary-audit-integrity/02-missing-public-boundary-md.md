@@ -1,7 +1,7 @@
 ---
 scenario_id: 02-missing-public-boundary-md
 expected_verdict: blocked
-expected_findings: three, kept distinct — PUBLIC_BOUNDARY.md absent from an observed-public repo (blocking, posture-block remediation named, never a silent skip of the tracked-rules step); the unset posture over an observed-public repo is an intent mismatch and blocks (the unset MANIFEST field is only a note, so the posture is what carries the intent axis); and the semantic pass is INCONCLUSIVE-not-clean, since an unset posture is read as moat-bearing and the inventory is absent
+expected_findings: four, kept distinct — PUBLIC_BOUNDARY.md absent from an observed-public repo (blocking, posture-block remediation named, never a silent skip of the tracked-rules step); the unset posture over an observed-public repo is an intent mismatch and blocks (the unset MANIFEST field is only a note, so the posture is what carries the intent axis); the semantic pass is INCONCLUSIVE-not-clean, since an unset posture is read as moat-bearing and the inventory is absent; and the history gap reaches triage as a standing finding, because no History-passes line exists anywhere on an adopted-forward repo
 ---
 Release `r1` of an adopted-forward project is closing; steps 1-6 are done.
 
