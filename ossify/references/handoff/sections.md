@@ -5,7 +5,9 @@ extend freely per project shape, and never cut below them silently — a section
 with genuinely nothing to say carries one line saying so, because an absent
 section and a forgotten one are indistinguishable to the reader.
 
-**File name:** `<date>-<topic>.md` (e.g. `2026-08-16-auth-cutover-half-done.md`).
+**File name:** match the repo's handoff naming precedent where one exists —
+precedent covers naming, not just location (`compose.md` §1). Absent
+precedent: `<date>-<topic>.md` (e.g. `2026-08-16-auth-cutover-half-done.md`).
 No ids, no scope prefixes, no naming regex — the date sorts, the topic tells.
 
 ## Header — title and relations
@@ -106,7 +108,11 @@ Handoff read-out — <topic>
 `Weakest` does the real work: v1 tried to guarantee quality by refusing to
 write; v2 surfaces the weak spot and lets a human look at it.
 
-## Two closing lines
+## Two closing lines — after the read-out, the document's last lines
+
+The read-out is the final *section*; these two lines follow its fenced block
+as the document's last lines (they are part of §7, not a section of their
+own — the evidence base's handoffs all end exactly this way):
 
 - **"Self-verified before writing:"** — how §2 was measured (commands run at
   authoring time, at which ref).

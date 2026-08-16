@@ -12,7 +12,10 @@ goes, tracked or not, what enters it, and what gets said aloud.
 
 ## 1. Location — judged from evidence, stated in one line
 
-In rough priority order:
+Establish first whether this is a git repository at all. Without one, the
+evidence below still chooses the *directory* (precedent, then a `docs/` tree,
+then cwd), but tracked-vs-ignored and the commit are moot — say so in the same
+line (failure table). In a git repo, in rough priority order:
 
 1. **Does the repo already contain handoffs anywhere?** The strongest signal.
    Match their directory, their naming, *and* their tracked/ignored status —
