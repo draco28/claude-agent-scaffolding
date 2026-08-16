@@ -121,7 +121,9 @@ blind spot:
 
 The read-aloud test above catches the obvious abuse. It does not *establish*
 innocence, and the abuse it misses is the sincere one: an agent that genuinely
-believes the failure is unrelated and is wrong. There is a mechanical check:
+believes the failure is unrelated and is wrong. There is a mechanical check —
+run it from the same workdir the runner resolved (§1; a declared composition
+root when there is one — the blocks below show the canonical-root case):
 
 ```bash
 # Does the line fail WITHOUT this spine? Run it at the merge's first parent -

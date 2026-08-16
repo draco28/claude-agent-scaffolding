@@ -124,7 +124,8 @@ dispatch-and-resume job, which is the wrong shape for a synchronous close.
 
 ## 4. Absent — warn and skip
 
-Emit exactly one warning, then continue:
+Emit exactly one warning, then continue to the Release-0-minimums recap and the
+outputs block — the same destination every arm of §3 ends at:
 
 > architect-critic not installed — skipping spec-core audit. Install via
 > `/plugin install architect-critic` (v0.2+).

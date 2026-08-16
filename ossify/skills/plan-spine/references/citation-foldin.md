@@ -39,13 +39,15 @@ Guard the grep with `|| true` — a no-match must report a citation miss, not ab
 the check.
 
 **Run each check from the root the cited artifact lives in** — the relative
-paths above silently assume the ambient cwd is that root. Every §1 target
-resolves against the **canonical** (bone ADRs at `<canonical>/docs/adr/` per
-`bones-registry.md`, file paths and signatures in the product tree) — except
-that a work item carrying `target_repo` resolves its file paths in **that**
-repo. Resolve the root deliberately (`oss repo_root canonical`, or the
-`target_repo` name) rather than trusting the cwd: a check run from the wrong
-root reports a false citation miss — the path is fine, the cwd was not.
+paths above silently assume the ambient cwd is that root, and §1's targets
+span **both** repos. Each target's own contract names its home, so resolve
+from there, not from a remembered rule: product file paths and bone ADRs in
+the canonical (`bones-registry.md`; `oss repo_root canonical`), the lean spec
+wherever `oss spec_path` prints, release increment records under the AI
+workspace's `docs/specs/<release-id>/` (`release-md-emission.md` §1) — and a
+work item carrying `target_repo` resolves its file paths in **that** repo. A
+check run from the wrong root reports a false citation miss — the path is
+fine, the cwd was not.
 
 **Judgment** — does the cited section actually *say* what the spec claims it says?
 A path that exists and a section that denotes something else is the harder failure,
