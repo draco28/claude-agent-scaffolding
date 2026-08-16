@@ -477,8 +477,10 @@ violation is the failure.
 Resolve it before §3, the way the ceremony already resolves it —
 **`base_branch` is not in state**, so do not reach for `oss get`:
 
-- Consult the **`base_branch` recorded in the closing spines' `SPINE.md`**
-  spine-context sections (`spine-close.md` §3 recovers it the same way), with
+- Consult the **`base_branch` the closing spines' handoffs recorded** under
+  `## 2. Spine context` (`spine-close.md` §3 resolves it the same way —
+  handoff-primary, with `SPINE.md`'s spine-context section as the cross-check,
+  halting on disagreement), with
   the manifest's `canonical.default_branch` as a cross-check. Consult only the
   release's `closed` spines: an **`abandoned`** spine may never have run
   `/plan-spine` and so never wrote a `SPINE.md` — it contributes nothing, and
