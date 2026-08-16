@@ -82,9 +82,11 @@ identification consumes it directly:
 
 - work items cut **along** seams do not share files, so rounds parallelize
   without the merge-conflict tax (`dag-rounds.md` §2's false-edge table);
-- an interface **fixed in the spine spec** is what lets a consumer item
-  build against the contract before the implementation lands — the exact
-  condition under which "B builds against A's interface" is *not* an edge;
+- an interface **fixed in the spine spec** lets a consumer item *code to*
+  the contract before the implementation lands — the edge drops only when
+  the consumer can **build and verify independently**; when it must compile
+  against A's landed artifact (the trait, the schema, the generated
+  package), the edge stays (`dag-rounds.md` §2's carve-out);
 - a boundary that keeps generating cross-item edges is the DAG telling you
   the seam is in the wrong place — the same signal `dag-rounds.md` §5's
   cycle rule reads at item scale.

@@ -34,7 +34,7 @@ the sources, not the tea leaves:
 
 | The side came from | Its intent lives in |
 |---|---|
-| A work item in this spine | That item's **handoff** (`work-item/references/handoff-contract.md` — spine context, identifiers, ACs) and its `report.md` |
+| A work item in this spine | That item's **`spec.md`** — the binding ACs, reachable via the handoff's `spec_path` (the handoff's own AC section is non-binding by contract) — plus the handoff for spine context and `report.md` for what was actually done |
 | The spine itself, merging to base | The **spine spec** (`SPINE.md`) — what this spine set out to change |
 | The base branch since the spine cut | The merged PRs / spine records that landed there — `git log` names them; their specs say why. An out-of-spine change's source is its patch record (`patch-lane.md` §5b) |
 | A registered architectural surface | The **bone ADR** whose touch surface the path sits in — a conflict inside a bone's surface is architecture, not text |
@@ -65,6 +65,12 @@ reading the spine spec against what landed on base since the cut.
 3. **Resolve the hunk, remove its markers, stage the file** when every hunk
    in it is done.
 
+Not every conflict has a hunk. A **modify/delete**, a **binary add/add**, or
+a **submodule pointer** conflict is resolved by the same §2 intent reading —
+the disposition (keep, delete, recreate, or pick a side's artifact) is chosen
+*after* both intents are read and is cited like any hunk resolution. What
+stays banned is blind side-selection, not deliberate selection.
+
 ---
 
 ## 4. After the hunks — verification, then the ceremony resumes
@@ -80,7 +86,10 @@ matters more than the merge commit:
   layer (both merge docs pin the rule; `work-item-close.md` §4 carries the
   why for its side — the commit already landed on the work-item branch, and
   a re-run reports the wrong problem);
-- for a work-item merge, the item's AC commands are the intent check;
+- for a work-item merge, **re-run the item's AC commands against the
+  resolved tree before the status write** — the gate ran in the isolated
+  worktree, *before* your resolution existed, and a mis-composed hunk passes
+  reachability while failing the ACs;
 - for a spine merge, step 4's cumulative demo walks every accumulated line
   against the merged tree — a resolution that quietly dropped a side fails
   exactly there, which is the system working.

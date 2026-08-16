@@ -77,9 +77,10 @@ already in the lifecycle:
 
 - **Bone-close retrospectives** are the scheduled pass: the full set's
   lessons section routes here (`close/references/retrospective.md` §8 — "we
-  kept calling it X and meaning Y" *is* vocabulary drift). The lean flesh
-  set deliberately has no lessons section, so between bone closes the §1
-  stumble trigger is the pass.
+  kept calling it X and meaning Y" *is* vocabulary drift). The retro
+  **records and schedules**; the rename itself is planned work, never a
+  mid-close edit. The lean flesh set deliberately has no lessons section,
+  so between bone closes the §1 stumble trigger is the pass.
 - **A bone superseding** is the architectural cousin of a term changing —
   when a bone's revisit trigger fires, check its terms too; the decision and
   its vocabulary usually move together.
