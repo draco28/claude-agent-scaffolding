@@ -28,4 +28,4 @@ finding at the next release close.
 State the audit's other inputs: the manifest names canonical and the AI
 workspace; the AI workspace reads `{"visibility": "PRIVATE"}` on its one remote,
 manifest agreeing. Every tracked fixture is synthetic. The inventory's History
-passes line records a review at `r1`.
+passes line records a review through commit `c7d8e9f`, the canonical's current tip.

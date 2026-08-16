@@ -55,9 +55,20 @@ command below would fail against it — turning a supported topology into a
 permanently undeterminable audit with no repository fix available. A repo with
 `git_tracked: false` gets the **filesystem-only** policy: it has no index, no
 remotes and no history, so §2's visibility gate and §3's tracked-file rules do
-not apply to it; run §4's sweep over its working tree as hygiene notes, say in
-the report that it was scanned as an untracked directory, and never raise its
-lack of a remote as a finding.
+not apply to it. Run **§3's secrets scan** over its working tree as hygiene
+notes — the same thing every `ai_workspace` arm of the table below runs — with
+§4 and §5 skipped for the role as they are on every other arm. Say in the
+report that it was scanned as an untracked directory, and never raise its lack
+of a remote as a finding.
+
+**On that repo the scan needs `--no-git`, and a clean result needs checking.**
+`gitleaks detect` defaults to walking git history, and against a directory that
+is not a repo it exits **0** with `no leaks found` after `0 commits scanned` and
+`~0 bytes` — a pass that read nothing, on the repo that holds the moat by
+construction. Use
+`gitleaks detect --source "<root>" --no-banner --no-git`, and treat a run
+reporting zero bytes scanned against a root that has files as INCONCLUSIVE
+(§3): rc 0 and "no leaks found" are not evidence that a scan happened.
 
 **Scanning does not depend on a remote.** §3 and §4 read the index and the
 working tree; they need no network and no `gh`, and they run on every repo in
@@ -103,18 +114,20 @@ finding. Fail-closed: a repo you cannot prove private is treated as public.
 | any | public (or undeterminable) | §3, §4, §5 in full; findings are **blocking** |
 | `canonical` | private | §3 only, as **non-blocking hygiene notes** — a missing `PUBLIC_BOUNDARY.md` is not a finding here. §4 and §5 skipped |
 | `ai_workspace`, `private_core` | private | §3's secrets scan only, as hygiene notes. §4 and §5 skipped |
-| `ai_workspace`, `private_core` | **public** | **blocking finding on its own** — these roles are private by construction |
+| `ai_workspace`, `private_core` | **public** | **blocking finding on its own** — these roles are private by construction; §3's secrets scan still runs, §4 and §5 skipped |
 | `ai_workspace`, `private_core` | undeterminable | the undeterminable read is a finding, **and the role-appropriate §3 secrets scan still runs** as hygiene notes; §4 and §5 skipped |
+
+**Role-specific rows win over the `any` row.** An undeterminable read is
+audited as public (above), so an `ai_workspace` with unreadable visibility
+matches three rows at once; the role rows are the answer, and the `any` row
+governs `canonical` and anything the manifest adds later.
 
 Every skip is named in the report with the observed value that justified it.
 
 **No arm of this table skips the secrets scan.** Scanning does not depend on a
-remote (above), so it cannot depend on being able to *read* a remote either —
-an earlier draft let an unreachable `gh` skip §3 entirely on the private roles,
-which meant accepting one visibility degradation at triage could close a release
-having never run gitleaks over the private repo at all. The visibility finding
-and the secrets scan are independent; a repo whose visibility is unknown gets
-both.
+remote (above), so it cannot depend on being able to *read* a remote either.
+The visibility finding and the secrets scan are independent; a repo whose
+visibility is unknown gets both.
 
 **Read the inventory's Accepted-disclosures rows before applying any skip in
 this table.** They are §5's input, but §5 does not run on every arm, and an
@@ -211,7 +224,7 @@ what is forbidden is the audit *silently* narrowing to pattern rules because a
 tool did not run.
 
 **Push protection — best-effort.** Read
-`gh api "repos/<owner>/<name>" --jq .security_and_analysis` and report what the
+`gh api --hostname "<host>" "repos/<owner>/<name>" --jq .security_and_analysis` and report what the
 host enforces. Unknown or unreadable is a note, not a finding — this is the
 host's rail, not ours, and the audit does not depend on it.
 
@@ -263,10 +276,16 @@ So after the pattern pass, **read the remaining untracked set for what the
 files are**, the same judgment §5 applies to tracked prose and the same
 direction: a name or a peek that reads like downstream strategy, planning,
 credentials, or private-inventory material is a **finding**, and where it is
-arguable it is a finding. Bound it the way §5 is bounded — this is a read over
-the enumerated set's names and, where a name is uninformative, its first lines;
-it is not a review of the repository. If that read had to be narrowed to fit,
-that narrowing is a recorded degradation.
+arguable it is a finding.
+
+**Bounded, or it collides with the paragraph above.** Collapse each ignored
+*directory* to its own path and read the directory name, not its contents — a
+dependency or build tree is one entry, which is what keeps this compatible with
+"matched, not read". Read individual file names in full, and open first lines
+only where a name says nothing. Only a narrowing beyond that is a recorded
+degradation. (`--exclude-standard` is not the bound: fixture 03's
+`NOTES-STRATEGY.md` is gitignored, and excluding ignored files drops exactly
+the class this step exists to catch.)
 
 The `PUBLIC_BOUNDARY.md` "Never here" prose rules are the vocabulary for this
 judgment: they already say no downstream strategy, no roadmap, no competitive
@@ -382,15 +401,15 @@ the re-surfacing real rather than asserted.
 Two bounds on an override, because it is the one thing here that survives a
 close:
 
-- **It covers the exact surface recorded, and the row carries a baseline that
-  makes "exact" checkable** — the path, the finding as stated, and a
-  verifiable pin: the covered file's content hash
-  (`git -C "<root>" hash-object <path>`) plus the commit the audit read it at.
-  A row carrying only a prose description cannot answer "is this the same
-  surface?" at the next close, so later growth matches the old row and is
-  laundered as a standing warning — the precise failure this bullet exists to
-  forbid. Any change to that surface is a fresh finding, and where it is
-  arguable whether a hit is the covered one, it is fresh.
+- **It covers the exact surface recorded, and the row carries whatever makes
+  "exact" checkable.** For a tracked file: the path plus a verifiable pin —
+  the content hash (`git -C "<root>" hash-object "<path>"`) and the commit the
+  audit read it at. For a surface that has no file — an untracked path, or an
+  accepted degradation — whatever makes it re-identifiable instead: the path
+  and its pattern, or the tool and the failure mode. Otherwise an override
+  launders later growth of the thing it covered. Any change to the surface is
+  a fresh finding, and where it is arguable whether a hit is the covered one,
+  it is fresh.
 - **It is not an erasure.** From the next close onward the item re-surfaces as
   a standing warning, never silently and never as a fresh block.
 
@@ -426,7 +445,7 @@ close clean without anyone overriding anything.
 
 ## 7. The report
 
-One block per repo in the set — role, gate outcome (observed visibility per
+One block per repo in the set — role, **the audited ref**, gate outcome (observed visibility per
 remote, manifest and posture agreement, what ran and what was skipped),
 tracked-file hits, untracked hits split new-vs-standing, semantic findings,
 degradations — each finding carrying repo, class, the path or pattern, why it
@@ -467,11 +486,23 @@ reads the *ambient* checkout, and by the time a release closes — especially a
 close resumed in a later session, or one where the operator moved HEAD after
 the last spine close — that may not be the branch the release integrated into.
 A clean old branch passing while the release branch carries a tracked violation
-is the failure. So resolve the intended ref per repo before §3 (the base branch
-the spines merged into, from state — the same value `spine-close.md` treats as
-unsafe to read off HEAD), assert the checkout matches it or scan that ref
-directly, and **name the audited ref for every repo in the report**. An audit
-that cannot say what it read is not evidence.
+is the failure.
+
+Resolve it per repo before §3, the way the ceremony already resolves it —
+**`base_branch` is not in state**, so do not reach for `oss get`:
+
+- **canonical** — the `base_branch` recorded in the closing spines' `SPINE.md`
+  spine-context sections (`spine-close.md` §3 recovers it the same way), with
+  the manifest's `canonical.default_branch` as a cross-check. If the spines
+  disagree with each other, halt and name them rather than picking one.
+- **`ai_workspace` / `private_core`** — no spine records a base branch for
+  them; audit the checked-out branch and name it as such.
+- **a `git_tracked: false` repo** — no ref exists; report it as scanned from
+  the working tree.
+
+Then assert the checkout matches, or scan that ref directly, and **name the
+audited ref for every repo in the report**. An audit that cannot say what it
+read is not evidence.
 
 **One fail-safe follows from the first bullet: the history gap is a standing
 finding until a history pass is recorded *for the current history*.** The
@@ -479,13 +510,14 @@ record is a **History passes** line in the private boundary inventory, beside
 the accepted disclosures — repo, the **commit it reviewed through**, and the
 date, written when the user confirms a full-history review was done.
 
-The reviewed commit is what makes the line expire, and it has to: a line
-carrying only a release id and a date reads as "cleared forever", so a planning
-document committed and deleted *after* that review is absent from the index,
-absent from any new history finding, and the release closes clean over exactly
-the gap the safeguard exists to cover. **Compare the recorded commit against
-the repo's current tip; if commits have landed since, a new or incremental pass
-is owed** — incremental is enough, the range between the two.
+The reviewed commit is what makes the line expire. **Compare it against the
+repo's current tip; if commits have landed since, a new or incremental pass is
+owed** — incremental is enough, the range between the two. A line carrying only
+a release id and no commit predates this format and is **treated as absent**.
+
+**An absent or outrun line is a finding**: it reaches triage like any other,
+the user may dispose of it there, and doing so writes the line for the current
+tip.
 
 Phrase it as a recorded pass rather than "on the repo's first audit", because
 **nothing tells the audit whether it is the first.** No state field records a

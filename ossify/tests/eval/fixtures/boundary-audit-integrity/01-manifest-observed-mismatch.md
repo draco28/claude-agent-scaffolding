@@ -27,4 +27,4 @@ names exactly two repos, canonical and the AI workspace. The AI workspace has on
 github.com remote and `gh repo view` returns `{"visibility": "PRIVATE"}`; its
 manifest entry agrees. Every tracked fixture in the canonical is synthetic. The
 private boundary inventory's Accepted disclosures section is empty and its
-History passes line records a full-history review at `r1`.
+History passes line records a full-history review through commit `a1b2c3d`, which is the canonical's current tip.

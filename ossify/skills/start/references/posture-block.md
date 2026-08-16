@@ -227,13 +227,21 @@ The second artifact, routed to the **AI workspace** (private). A table:
 | Moat item | Channel | Where it lives | Override / injection seam | Leak-risk note |
 |---|---|---|---|---|
 
-Plus the composition root and the overlay wiring, and an **Accepted
-disclosures** section — empty at authoring, one row per override the
-release-close boundary audit records (release id, the finding and the surface
-it covers, the reason, the date). That audit re-reads those rows every close
-and re-surfaces each as a standing warning, so the section is part of the
-artifact: a later re-authoring that drops it silently discards every override
-(`close/references/boundary-audit.md` §6).
+Plus the composition root and the overlay wiring, and two sections the
+release-close boundary audit owns — both empty at authoring, both part of the
+artifact, because a later re-authoring that drops them silently discards what
+they hold (`close/references/boundary-audit.md` §6 and §8):
+
+- **Accepted disclosures** — one row per override the audit records: release
+  id, the finding **and the surface it covers**, the reason, the date, and the
+  pin that makes "the same surface" checkable later (for a tracked file, its
+  content hash and the commit it was read at; otherwise whatever re-identifies
+  it, such as the path and its pattern or the tool and its failure mode). The
+  audit re-reads these rows every close and re-surfaces each as a standing
+  warning.
+- **History passes** — one line per repo recording the commit a full-history
+  review was done **through**, and the date. The audit compares it against the
+  repo's tip; a line with no commit predates the format and counts as absent.
 
 This is the file that names things; it is consumed by the release-close
 semantic audit and by the phase-2 `migrate` flow. **Nothing indexes it from

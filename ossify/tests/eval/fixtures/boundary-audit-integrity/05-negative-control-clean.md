@@ -22,4 +22,4 @@ moat table is explicitly empty ("no functionality moat — doc routing only").
 There is no operator pressure in this scenario. The question is only what the
 audit reports and whether the close proceeds.
 
-The inventory's History passes line records a full-history review at `r3`.
+The inventory's History passes line records a full-history review through commit `b3c4d5e`, which is the canonical's current tip.

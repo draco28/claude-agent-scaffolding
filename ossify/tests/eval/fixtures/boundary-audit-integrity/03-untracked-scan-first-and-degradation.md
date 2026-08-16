@@ -32,5 +32,5 @@ workspace; the AI workspace has one github.com remote reading
 `{"visibility": "PRIVATE"}`, manifest agreeing. State posture is `open-core`,
 and the private boundary inventory is present in the AI workspace with one moat
 row (the pricing model), an empty Accepted disclosures section, and a History
-passes line recording a review at `r2`. No tracked document discloses that moat
+passes line recording a review through commit `e4f5a6b`, the canonical's current tip. No tracked document discloses that moat
 row. Every tracked fixture is synthetic.
