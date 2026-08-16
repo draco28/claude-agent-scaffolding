@@ -105,7 +105,7 @@ the point.
 | `lock` | `<state>.lock` dir | present → `warn: lock - held (a ceremony may be mid-mutation)`, or if the dir is **>30 min old**, `warn: lock - stale lock dir (>30min): rmdir '<state>.lock' if no ceremony is running`. Absent → `ok: lock - free` |
 | `ledger` | `demo_ledger` | **up to two `warn:` lines, counted separately** — see below |
 | `fakes` | `fakes` | count > 0 → `warn: fakes - N outstanding fake(s) carrying a replacement trigger and expiry release`. Zero → `ok: fakes - none outstanding` |
-| `patches` | `patch_records` | count > 0 → `warn: patches - N out-of-spine patch record(s) **since the last spine close**`. Zero → `ok: patches - none since the last spine close` |
+| `patches` | `patch_records` | count > 0 → `warn: patches - N out-of-spine patch record(s) on this project (the registry is append-only and is not reset at spine close)`. Zero → `ok: patches - no out-of-spine patch records` |
 | `worktrees` | **the repos** | see §4 — one line per repo key |
 
 **`ledger` is two counts sharing one clean line, and that shape matters.** Pending

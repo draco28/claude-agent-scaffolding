@@ -1,6 +1,6 @@
 ---
 name: doctor
-description: Diagnose an ossify project and name the remedy for what it finds — state health and state-vs-repo drift, rotting demo lines, unexpired fakes, patch records, orphan worktrees, lean-spec validation, machine-checkable-rule authoring, the Claude/Codex interop check, and the skill budgets. Use when the user says run doctor, check project health, validate the spec, add a project rule, check Codex interop, find orphan worktrees, or /doctor. Not the close gates (/close), not onboarding (/start), not /amend-spec.
+description: Diagnose an ossify project and name the remedy for what it finds — state health and state-vs-repo drift, rotting demo lines, unexpired fakes, patch records, orphan worktrees, lean-spec validation, machine-checkable-rule authoring, the Claude/Codex interop check, and the skill budgets. Use when the user says run doctor, check project health, validate the spec, add a project rule, check Codex interop, find orphan worktrees, or /ossify:doctor. Not the close gates (/close), not onboarding (/start), not /amend-spec.
 ---
 
 # doctor
@@ -54,7 +54,7 @@ the verb, let the user run it.
 
 **Trigger phrases (description-match):**
 
-- `/doctor [surface]` (slash command — see §12 for the `$ARGUMENTS` bridge)
+- `/ossify:doctor [surface]` (slash command — see §12 for the `$ARGUMENTS` bridge)
 - "run doctor", "check project health", "is my state healthy", "what's wrong
   with this project"
 - "validate the spec", "check my MASTER-SPEC"
@@ -80,10 +80,10 @@ the verb, let the user run it.
 
 `doctor` routes on **what the user asked for**, not on state. With no surface
 named, run the full sweep (§3) — that is the common case and the default for a
-bare `/doctor`.
+bare `/ossify:doctor`.
 
 ```bash
-surface="$(printf '%s' "${ARGS:-}" | tr '[:upper:]' '[:lower:]' | awk '{print $1}')"
+surface="<the surface token from $ARGUMENTS, lowercased; empty if none>"
 ```
 
 | `surface` | Go to |
@@ -120,7 +120,7 @@ already models this internally with `skip:` (see §4). Do the same at skill leve
 result. Silence is indistinguishable from a pass, and this skill exists to make
 that confusion impossible.
 
-**In a sweep, §6 runs read-only.** A bare `/doctor` carries no rule to author,
+**In a sweep, §6 runs read-only.** A bare `/ossify:doctor` carries no rule to author,
 so the sweep's rule verdict is an *inspection*: how many `mcrule` blocks
 `03-code-patterns.md` holds, whether each is well-formed, and whether any carry
 a type this build does not recognise. It never prompts for a rule and never
@@ -428,7 +428,7 @@ Named here rather than left to read as executed:
 
 ## 12. Slash-command interaction
 
-`/doctor [surface]` (`commands/doctor.md`) exports the raw argument string as
+`/ossify:doctor [surface]` (`commands/doctor.md`) exports the raw argument string as
 `$ARGUMENTS` through an env-var bridge. **Parse `$ARGUMENTS` in bash; never
 reference `$1` / `$2` / `$N`** — Claude Code substitutes positional tokens in
 command bodies at template-render time and silently corrupts them.

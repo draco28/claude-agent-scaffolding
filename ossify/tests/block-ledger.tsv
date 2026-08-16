@@ -101,7 +101,7 @@ O	skills/close/references/release-close.md	spines that are not closed	tests/test
 O	skills/close/references/release-close.md	expired_fakes	tests/test-close.sh	the fake-expiry gate blocks on fakes past their expiry release
 O	skills/close/references/release-close.md	expired_quarantines	tests/test-close.sh	the quarantine gate blocks on quarantines that have come due
 D	skills/close/references/release-close.md	1	#138	the ai_workspace path composition for the release retro is unexecuted
-I	skills/close/references/release-close.md	5	single-verb calls: demo_user_lines, ledger_retire, release goal read, feature_list, release_status
+I	skills/close/references/release-close.md	6	single-verb calls: demo_user_lines, ledger_retire, release goal read, feature_list, release_status, release_dir (the retro destination became a release_dir call - the verb is test-worktree.sh's)
 O	skills/close/references/patch-lane.md	touch_check	tests/test-close.sh	a patch touching a bone surface must escalate out of the patch lane
 D	skills/close/references/patch-lane.md	1	#138	the patch commit's branch placement block - CL-1 says the target branch is unspecified, so executing it needs the design decision first
 I	skills/close/references/patch-lane.md	1	single patch_add call with <placeholder> args
@@ -122,8 +122,7 @@ D	commands/plan-spine.md	1	#138	the $ARGUMENTS env-var bridge
 D	commands/run-spine.md	1	#138	the $ARGUMENTS env-var bridge
 D	commands/start.md	1	#138	the $ARGUMENTS env-var bridge
 D	commands/work-item.md	1	#138	the $ARGUMENTS env-var bridge
-D	skills/doctor/SKILL.md	1	#138	the surface router - a broken parse silently runs the FULL SWEEP instead of the named surface, which reads as success rather than as a routing failure
-I	skills/doctor/SKILL.md	1	a single doctor call (interop_check's block went with its verb - §7 is performed by reading; rules_types' block went the same way - §6's type table is the reference's §3 prose now)
+I	skills/doctor/SKILL.md	2	a single doctor call (interop_check's block went with its verb - §7 is performed by reading; rules_types' block went the same way - §6's type table is the reference's §3 prose now) and the surface-token placeholder assignment (the broken $ARGS parse became the family's prose-placeholder form - there is no parse logic left to cover; §12 owns $ARGUMENTS)
 I	skills/doctor/references/state-inspection.md	3	the reads the agent-performed half works from, now that doctor emits only its four gate lines: the four advisory counts, the `| type` guard that must precede them (jq's length answers on strings too, so a corrupt field returns a plausible number at rc 0), and the worktree_orphans call shapes one per repo key (#156). Each is a single read whose OUTPUT the prose interprets - the judgement is the prose
 I	skills/doctor/references/spec-validation.md	2	a spec_path resolve and a bones-count get bound to an explicit state path
 I	skills/doctor/references/interop-check.md	3	the resolution calls the agent-performed check reads FROM, now that the verb is gone: the two repo_root reads, the canonical git probe, and state_path vs $OSS_STATE_FILE. Each is a single call whose OUTPUT the prose interprets - the judgement is the prose, so executing these would test the fixture rather than the check
@@ -182,24 +181,24 @@ H	commands/run-spine.md	2545938813-144
 H	commands/start.md	3557017349-140
 H	commands/work-item.md	2378584622-144
 H	skills/close/SKILL.md	2598283696-409
-H	skills/close/references/code-review.md	720844539-461
+H	skills/close/references/code-review.md	477087775-527
 H	skills/close/references/cumulative-demo.md	2900123846-1889
 H	skills/close/references/fake-expiry.md	3542365026-715
-H	skills/close/references/harvest.md	172458535-649
+H	skills/close/references/harvest.md	1726645723-663
 H	skills/close/references/impl-check.md	3364110005-836
 H	skills/close/references/patch-lane.md	1477508772-1735
-H	skills/close/references/release-close.md	4073251383-2284
+H	skills/close/references/release-close.md	1221290336-2451
 H	skills/close/references/retrospective.md	2875153190-110
 H	skills/close/references/routing.md	948295148-232
 H	skills/close/references/spine-close.md	272077069-3589
-H	skills/close/references/work-item-close.md	705326676-2373
+H	skills/close/references/work-item-close.md	575441835-2387
 H	commands/doctor.md	729179949-141
-H	skills/doctor/SKILL.md	1682577931-138
+H	skills/doctor/SKILL.md	630905567-126
 H	skills/doctor/references/budget-check.md	582880737-316
 H	skills/doctor/references/interop-check.md	3672515018-357
 H	skills/doctor/references/spec-validation.md	2541080060-102
 H	skills/doctor/references/state-inspection.md	622871202-1192
-H	skills/plan-release/SKILL.md	84192511-1651
+H	skills/plan-release/SKILL.md	3612913632-1965
 H	skills/plan-release/references/bone-touch-judge.md	3236126632-1199
 H	skills/plan-release/references/class-declaration.md	119880498-302
 H	skills/plan-release/references/critic-veto.md	3621408746-561
@@ -208,10 +207,10 @@ H	skills/plan-release/references/real-use-findings.md	2699050376-489
 H	skills/plan-release/references/release-md-emission.md	3198314590-173
 H	skills/plan-release/references/rolling-wave.md	767614811-211
 H	skills/plan-release/references/spine-sequencing-dag.md	3469132072-141
-H	skills/plan-spine/SKILL.md	626125531-2077
+H	skills/plan-spine/SKILL.md	592471900-2423
 H	skills/plan-spine/references/citation-foldin.md	3602525984-347
-H	skills/plan-spine/references/cross-repo.md	3070393376-705
-H	skills/plan-spine/references/decomposition.md	2952607208-543
+H	skills/plan-spine/references/cross-repo.md	522633753-880
+H	skills/plan-spine/references/decomposition.md	1060876370-667
 H	skills/plan-spine/references/demo-amendments.md	3004605912-329
 H	skills/plan-spine/references/demo-authoring.md	11800694-1544
 H	skills/plan-spine/references/fake-ledger-discipline.md	3569334562-372
@@ -227,5 +226,5 @@ H	skills/work-item/references/debugging.md	2424723308-562
 H	skills/work-item/references/handoff-contract.md	797876821-82
 H	skills/work-item/references/pre-flight.md	713514376-609
 H	skills/work-item/references/report-contract.md	4244866935-82
-H	skills/work-item/references/round-orchestration.md	755575531-3086
+H	skills/work-item/references/round-orchestration.md	3801057396-3100
 H	skills/work-item/references/tdd-loop.md	3273402540-842

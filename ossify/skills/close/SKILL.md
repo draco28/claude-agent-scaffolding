@@ -376,7 +376,7 @@ exists; what that file adds is when to reach for it.
   recovery path to *offer*, whether a deviation is acceptable.
 - **`oss`** handles mechanical facts only, and holds no judgment: `id_parse`
   (the id's shape), `manifest_require`, `doctor`, `state_restore`, `state_path`,
-  `repo_root`, `spine_dir`, `spine_list`, `branch_name`, `get`, `verify_acs` (AC parsing),
+  `repo_root`, `release_dir`, `spine_dir`, `spine_list`, `branch_name`, `get`, `verify_acs` (AC parsing),
   `verify_step` (the expectation predicate, including the vacuous-green guard),
   `report_cross_check`, `work_item_status`, `worktree_resolve`,
   `worktree_remove`, `ledger_apply_pending`, `ledger_quarantine`,
@@ -434,7 +434,7 @@ It carries, in this order:
    the step reported it (`[AC]`, `[report cross-check]`, `[rule]`).
 3. **Anything a step told you to record here.** Several steps route their output
    to the summary rather than to a file: `harvest.md` §2's missing-report gaps,
-   §5's C2 referrals, and §8's harvest outcomes. If a step says "record it in the
+   §5's rule-authoring referrals, and §8's harvest outcomes. If a step says "record it in the
    close summary," this is where it lands.
 4. **What the operator must do next**, if anything.
 

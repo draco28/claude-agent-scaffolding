@@ -53,11 +53,11 @@ state holds a spine slug, so the spine directory is recovered exactly as
 which is the part that matters:
 
 ```bash
-ai_root="$(oss repo_root ai_workspace)"
 parts="$(oss id_parse "$spine_id")" || parts=""
 rel_id="r$(printf '%s\n' "$parts" | awk '{print $2}')"
+rel_dir="$(oss release_dir "$rel_id")"   # ABSOLUTE, ai_workspace-rooted
 
-matches="$(find "$ai_root/docs/specs/$rel_id" -maxdepth 1 -type d -name "$spine_id-*" 2>/dev/null)"
+matches="$(find "$rel_dir" -maxdepth 1 -type d -name "$spine_id-*" 2>/dev/null)"
 n="$(printf '%s\n' "$matches" | grep -c . || true)"
 [ "$n" -eq 1 ] || { echo "close: expected exactly one spine dir for $spine_id, found $n - halt"; exit 1; }
 spine_dir_abs="$matches"
@@ -128,10 +128,10 @@ on-demand (`start/references/memory-bank-brief.md` §1). Both are LIVE files —
 dev-authored, never regenerated from the spec.
 
 **An enforceable pattern is never a raw append.** It belongs in the
-machine-checkable rules surface, and **rule authoring is deferred to Plan C2** —
-this release ships none. Record the referral in the close summary so the pattern
-is not lost, and do not smuggle it into `09` as prose; a rule filed as a caveat
-reads as advice and is enforced by nobody.
+machine-checkable rules surface, and authoring one is `/ossify:doctor`'s
+surface (`doctor/SKILL.md` §6). Record the referral in the close summary and
+hand the pattern there; do not smuggle it into `09` as prose; a rule filed as a
+caveat reads as advice and is enforced by nobody.
 
 **Everything else in the bank is derived from the lean spec and is off limits.**
 The apply (§7) refuses the **entire accepted set** if any item names a target
@@ -254,8 +254,8 @@ names the destination instead of leaving it to be inferred.
   ambiguous glob instead of halting (§2).
 - **Hunting for session handoffs.** They are not harvest inputs (§3).
 - **Paraphrasing the `## 9.` heading** or accepting a renamed one (§4).
-- **Appending an enforceable pattern as prose** instead of recording the C2
-  rule-authoring referral (§5).
+- **Appending an enforceable pattern as prose** instead of routing it to the
+  machine-checkable rules surface (`doctor/SKILL.md` §6) (§5).
 - **Naming any target outside the two live files.** The whole set stops
   before any write, and the fix is the target, not a retry (§5).
 - **Dropping the `[report]` / `[handoff]` tag**, or moving it off the first line

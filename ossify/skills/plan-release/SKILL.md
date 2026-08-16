@@ -75,6 +75,12 @@ if ! sp="$(oss state_path 2>/dev/null)"; then
   printf '%s\n' "ossify requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first."
   exit 0
 fi
+# Later bare verbs resolve state alone and would honor this override —
+# refuse it: the whole ceremony binds to the manifest's project.
+if [ -n "${OSS_STATE_FILE:-}" ]; then
+  printf '%s\n' "plan-release plans the manifest's project; OSS_STATE_FILE='${OSS_STATE_FILE}' is set - unset it and re-run."
+  exit 0
+fi
 bones="$(oss get '.bones | length' "$sp" 2>/dev/null)" || bones=""
 printf 'bones=%s\n' "${bones:-<no state>}"
 ```
@@ -196,10 +202,16 @@ oss release_set_meta "$rel" '{"ledger_budget":"600s"}'
 
 Ask the user for the number; propose one if they have none (a few minutes is a
 sane starting budget for a young ledger). Then check it against reality —
-`oss ledger_active_auto` lists the `auto:` lines the ledger already carries, and
-`oss demo_run` reports what they actually cost. If the current ledger plus this
-release's expected contributions will not fit the budget, decide now, out loud,
-which of the three it is:
+`oss ledger_active_auto` lists the `auto:` lines the ledger already carries;
+`oss demo_run` emits no timing of its own, so time it **capturing the runner's
+rc** — `start=$(date +%s); demo_rc=0; oss demo_run || demo_rc=$?; elapsed=$(( $(date +%s) - start ))` —
+a nonzero `demo_rc` is a failing ledger line, and the budget conversation happens
+with that fact on the table, not after it (under `errexit` the bare form aborts
+before `elapsed` is assigned; without it the assignment quietly swallows the
+failure). The full block, including the re-raise, is `close`'s
+`references/cumulative-demo.md` §5. If the current ledger plus this release's
+expected contributions will not fit
+the budget, decide now, out loud, which of the three it is:
 
 - **prune** — retire or supersede lines that no longer earn their runtime
   (`plan-spine` records the amendment; `close` applies it);

@@ -1,11 +1,1 @@
-{
-  "scores": {
-    "verdict_correct": 5,
-    "touch_match": 5,
-    "independent": 5,
-    "no_false_positive": 5,
-    "risk_gate": 5
-  },
-  "pass": true,
-  "notes": "Verdict `auto-bone` matches the fixture key; the output correctly derives the hit from glob semantics (`src/domain/**` as a prefix wildcard matching `src/domain/order.rs`, rc 0 = matched, stdout `bone ADR-0002` per bone-touch-judge.md \u00a72-\u00a73), records both the `class_set` + `veto_add \u2026 auto-bone` calls with the exact \u00a72 rationale shape `bone-touch: ADR-0002 (src/domain/**)` plus the one-line user notification (\u00a74.1), asserts critic-independence with the correct \u00a71/\u00a77 framing (only fix is correcting the registry surface, never a user override), and shows discrimination rather than over-firing \u2014 it declines to attach the risk-gate control checklist because stdout says `bone`, not `risk_gate`, while accurately describing the \u00a74.2 parallel (`.risk_gates \u2026 .controls`, paper env / human confirm / kill switch / audit trail / progressive exposure), and it correctly declines to trip rung 1 absent positive evidence of a missing journey and stops the ladder at rung 2."
-}
+{"scores": {"verdict_correct": 5, "touch_match": 5, "independent": 5, "no_false_positive": 5, "risk_gate": 5}, "pass": true, "notes": "HIT on the src/domain/** glob correctly triggers auto-bone with both class_set and veto_add, fires regardless of a clean critic with undo only at the registry owner, and \u00a77c remains an independent judge; no risk-gate surface applies here."}

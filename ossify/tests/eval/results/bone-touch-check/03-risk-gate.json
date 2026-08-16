@@ -1,11 +1,1 @@
-{
-  "scores": {
-    "verdict_correct": 5,
-    "touch_match": 5,
-    "independent": 5,
-    "no_false_positive": 5,
-    "risk_gate": 5
-  },
-  "pass": true,
-  "notes": "Verdict `auto-bone` matches the fixture's expected_verdict; the output derives it correctly (glob `src/exec/**` as prefix wildcard matching `src/exec/router.rs`, rc 0 = matched with the `risk_gate live-order-execution` stdout line, and rc 1/rc 2 correctly distinguished per bone-touch-judge.md \u00a72-\u00a73), states independence from the critic explicitly plus the non-overridable/fix-the-registry rule (\u00a71, \u00a77), and \u2014 the criterion this fixture actually targets \u2014 attaches BOTH halves of \u00a74.2: class escalation and the gate's four controls as required close-path work items, with the verbatim `class_set` + `veto_add` pair, the `oss get '.risk_gates[]\u2026'` controls fetch, the harm-orthogonal-to-reversibility principle, and the \u00a77 anti-pattern against doing only one half; it also correctly matches \u00a76 worked-verdicts row 3. The clean/no-false-positive path is not exercised by this fixture, but the output is fully consistent with it (it grounds the reclassification in a real glob match and names rc 1 as clean rather than collapsing branches). No unsupported or fabricated reasoning found."
-}
+{"scores": {"verdict_correct": 5, "touch_match": 5, "independent": 5, "no_false_positive": 5, "risk_gate": 5}, "pass": true, "notes": "HIT on the src/exec/** gate surface escalates to bone via class_set and attaches the gate's control checklist as required work via veto_add, with neither half skippable and controls tracked through decomposition and close, independent of the critic."}

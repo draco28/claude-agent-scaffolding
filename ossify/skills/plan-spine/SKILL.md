@@ -22,15 +22,9 @@ Do not stuff reasoning steps inside `bash -c '...'` wrappers.
 Where it sits: `start` (spec-core onboarding) → `plan-release` (spines, classes,
 exit criteria, DAG) → **`plan-spine`** (you are here) → execution → `close`.
 
-This skill re-anchors the predecessor stack's `planning-vertical-slice` with four
-deliberate changes — changes, not omissions:
-
-| Then | Now | Why |
-|---|---|---|
-| 4-5 work items, anti-microscope floor | **1-5 items**; a thin spine of 1-3 is legitimate and expected | Item count follows decomposition. Class is the only declared classification — there is no size or weight axis to defend a count against |
-| All specs authored upfront | **Per-round spec authoring** where the DAG allows; the critic still sees the full spine plan | Round 3's spec written before round 1 lands is written twice |
-| grill-me offered at three gates for every slice | **Offered for bone spines only** (plus any fix-up replan) | Ceremony scaled to what the spine moves |
-| Demo criteria declared at roadmap time | **Authored here**, under the journey-line floor (§8) | Roadmap time has no implementation context; a demo line written then is a wish |
+This skill re-anchors the predecessor stack's `planning-vertical-slice`;
+where it differs (the 1-5 item bound, per-round specs, the grill-me gate,
+demo timing) the difference is stated at the point it applies.
 
 When invoked, work §3 through §9 below in order — each numbered block is one step
 of the conversation. **This skill plans; it does not execute:** worktree spin-up,
@@ -74,12 +68,18 @@ libs break. Use `oss help` for discovery.
 **Three probes, all fail-fast.**
 
 ```bash
-if ! oss state_path >/dev/null 2>&1; then
+if ! sp="$(oss state_path 2>/dev/null)"; then
   printf '%s\n' "ossify requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first."
   exit 0
 fi
-bones="$(oss get '.bones | length' 2>/dev/null)" || bones=""
-rels="$(oss get '.releases | length' 2>/dev/null)" || rels=""
+# Later bare verbs resolve state alone and would honor this override —
+# refuse it: the whole ceremony binds to the manifest's project.
+if [ -n "${OSS_STATE_FILE:-}" ]; then
+  printf '%s\n' "plan-spine plans the manifest's project; OSS_STATE_FILE='${OSS_STATE_FILE}' is set - unset it and re-run."
+  exit 0
+fi
+bones="$(oss get '.bones | length' "$sp" 2>/dev/null)" || bones=""
+rels="$(oss get '.releases | length' "$sp" 2>/dev/null)" || rels=""
 printf 'bones=%s releases=%s\n' "${bones:-<no state>}" "${rels:-<no state>}"
 ```
 
@@ -100,9 +100,9 @@ the user's intent from a name:
 
 ```bash
 spine="<spine-id from $ARGUMENTS>"
-class="$(oss get ".spines[] | select(.id == \"$spine\") | .class")"
-rel="$(oss get ".spines[] | select(.id == \"$spine\") | .release")"
-name="$(oss get ".spines[] | select(.id == \"$spine\") | .name")"
+class="$(oss get ".spines[] | select(.id == \"$spine\") | .class" "$sp")"
+rel="$(oss get ".spines[] | select(.id == \"$spine\") | .release" "$sp")"
+name="$(oss get ".spines[] | select(.id == \"$spine\") | .name" "$sp")"
 if [ -z "$class" ]; then
   printf '%s\n' "No spine '$spine'. Planned spines:"; oss spine_list; exit 0
 fi
@@ -120,10 +120,12 @@ here re-derives it. `rel` is the spine's release (§8 reads its ledger budget).
 The probes resolve differently, and only the first is manifest-proof:
 `oss state_path` reads the manifest and nothing else, so an exported
 `$OSS_STATE_FILE` cannot satisfy it. `oss get` routes through `_oss_resolve_state`
-(precedence `explicit-arg > $OSS_STATE_FILE > manifest`) and *can* be — a stale
-export from an unrelated session makes probes 2 and 3 read *that* project. The
-resolver announces on stderr when the env var overrides the manifest; heed that
-line. **`oss doctor` is the state GATE, not a full read-out** — four checks
+(precedence `explicit-arg > $OSS_STATE_FILE > manifest`) and *can* be satisfied
+by one — a stale
+export from an unrelated session makes probes 2 and 3 read *that* project, which
+is why the pre-flight refuses a set `OSS_STATE_FILE` outright — passing the bound
+`$sp` to the `oss get` calls above is defense in depth, not the whole guard, because
+every later verb resolves state on its own. **`oss doctor` is the state GATE, not a full read-out** — four checks
 (`state`, `schema`, `replay`, `shape`). It says nothing about pending
 amendments, quarantined lines, outstanding fakes, patch records, a held lock or
 orphan worktrees; those are the `ossify:doctor` skill's, and invoking this skill does
@@ -151,7 +153,9 @@ oss work_item_add "$spine" "<title>" [target_repo]      # prints r1.s2.w1, …
 ```
 
 `target_repo` defaults to `canonical`; pass the private-side repo (e.g.
-`private_core`) for an item that lands there. **Each work item targets exactly one
+`private_core`) for an item that lands there — only `canonical` executes this
+release (`round-orchestration.md` §3, in the work-item skill, halts otherwise).
+**Each work item targets exactly one
 repo** — an item that spans two repos is two items. Full rules in
 `references/cross-repo.md`. An unknown spine id exits **7** and writes nothing.
 
@@ -477,12 +481,10 @@ infer a spine from a name when the id missed (§3).
   journey or an inspection, whether an enabler's consumer is committed and in
   range, whether a deepening pass's evidence is evidence, whether Release 0's
   golden-journey line really drives the journey, and whether a fake is admissible.
-- **`oss`** (the dispatcher over `lib/*.sh`) handles mechanical state only:
-  `work_item_add`, `ledger_add_auto`, `ledger_add_user`, `ledger_active_auto`,
-  `ledger_supersede`, `ledger_retire`, `ledger_unplan`, `fake_add`,
-  `fake_status`, `feature_add`, `touch_check`, `class_set`, `spine_list`, `get`,
-  `critic_detect`, `state_path`, `doctor`. It holds no judgment —
-  `ledger_add_user`'s prefix check is a typo guard, not the journey-line floor.
+- **`oss`** (the dispatcher over `lib/*.sh`) handles mechanical state only —
+  every verb this skill and its references call is in `oss help`; none of them
+  holds judgment. `ledger_add_user`'s
+  prefix check is a typo guard, not the journey-line floor.
 - **`ai-mentor:grill-me`** and **`architect-critic:critiquing-spec`** are invoked
   as unmodified peer skills, bare and plugin-qualified. Neither gains a new
   interface here.

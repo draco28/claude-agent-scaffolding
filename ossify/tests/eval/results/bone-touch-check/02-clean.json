@@ -1,11 +1,1 @@
-{
-  "scores": {
-    "verdict_correct": 5,
-    "touch_match": 5,
-    "independent": 5,
-    "no_false_positive": 5,
-    "risk_gate": 5
-  },
-  "pass": true,
-  "notes": "Output returns `clean` matching the fixture's expected_verdict, and every citation checks out against the real skill files (bone-touch-judge.md \u00a72 rc contract with the rc-1-vs-rc-2 distinction, \u00a75 no-hit \"change nothing\", \u00a76 worked-verdicts row 2, class-declaration.md \u00a72 flesh reason shape and Rung 2/Rung 4 ladder positions, SKILL.md \u00a77b/\u00a77c which both exist): it applies prefix-wildcard glob semantics correctly to show src/ui/ and docs/ miss `src/domain/**, src/port.rs`, takes no false-positive action (no class_set, no veto_add, no RELEASE.md note, explicitly names ceremony inflation), asserts critic-independence in both directions while correctly noting \u00a77c could still push flesh\u2192bone as a separate judge, and \u2014 though this fixture never fires a risk gate \u2014 states the \u00a74.2 controls checklist accurately (paper/sandbox env, human confirm, kill switch, audit trail, progressive exposure) and correctly explains why it does not attach here."
-}
+{"scores": {"verdict_correct": 5, "touch_match": 5, "independent": 5, "no_false_positive": 5, "risk_gate": 5}, "pass": true, "notes": "Paths under src/ui/ and docs/ overlap no registered glob, so rc-1 clean with no class_set, veto_add, or notes is the correct zero-ceremony result and the spine keeps its declared class."}

@@ -23,9 +23,9 @@ authored, under:
 # /run-spine hands you ONLY the spine id. The release id and the slug are not
 # arguments — derive one, recover the other, exactly as close does (Route B in
 # `close/references/work-item-close.md` §1, inlined in `harvest.md` §2).
-ai_root="$(oss repo_root ai_workspace)"
 rel_id="r$(oss id_parse "$spine_id" | awk '{print $2}')"       # r1.s2 -> r1
-matches="$(find "$ai_root/docs/specs/$rel_id" -maxdepth 1 -type d -name "$spine_id-*" 2>/dev/null)"
+rel_dir="$(oss release_dir "$rel_id")"   # ABSOLUTE, ai_workspace-rooted
+matches="$(find "$rel_dir" -maxdepth 1 -type d -name "$spine_id-*" 2>/dev/null)"
 n="$(printf '%s\n' "$matches" | grep -c . || true)"
 [ "$n" -eq 1 ] || { echo "halt: expected exactly one spine dir for $spine_id, found $n"; exit 1; }
 spine_dir_abs="$matches"
@@ -126,15 +126,17 @@ Until it lands, halting with the branch named beats a lane that half-restarts.
 **`base_branch` is taken from HEAD in this release, and that is a known
 limitation — park canonical on the intended base before you run the lane.**
 `plan-spine` authors the planned base into `SPINE.md`'s spine-context section at
-planning time (`spec-authoring.md` §1), and that is where it *should* come from:
-deriving it from HEAD cuts the spine from whatever branch the session happened to
-be parked on, and spine close then merges back into that same unintended branch
-with every branch and reachability guard passing. **Nothing reads it out of
-`SPINE.md` today** — no lane, no close step, and no `oss` verb — because the
-spine-context section is prose, not `key: value` lines, so a reliable read means
-specifying that format first. Issue 133 owns both. Record the value in every
-handoff (`handoff-contract.md` §2) so spine close can still recover it, and if it
-cannot be resolved there, that close **halts**.
+planning time (`spec-authoring.md` §1). **Close reads both** —
+`close/references/spine-close.md` §3 takes the handoffs' recorded
+`base_branch:` lines (what the lane ACTUALLY cut from) as primary with
+`SPINE.md`'s planned base as the cross-check, halting on disagreement, and
+`code-review.md` reuses the ceremony's resolved value. This lane does not read
+either source: it takes HEAD (issue 133). **That asymmetry is the hazard.** If
+canonical was parked anywhere but the planned base when you ran, the spine is
+cut from one branch and merged into another, and every guard downstream passes.
+Park canonical on the intended base before you run the lane, and cross-check
+the handoff's recorded `base_branch` (`handoff-contract.md` §2) against
+`SPINE.md`'s before the first dispatch — a mismatch is a halt, not a note.
 
 **The slug is not in state.** Spines store `name`, work items store `title`;
 neither is a kebab slug, and nothing persists one. `plan-spine` minted the spine
