@@ -30,4 +30,5 @@ the audit reports and whether the close proceeds.
 
 State the audit's other inputs, so nothing below is left to infer: the
 canonical's checkout is clean — HEAD is the release's audited ref with no
-staged or unstaged tracked changes.
+staged or unstaged tracked changes — and the canonical carries no
+`.gitleaks.toml` of its own.

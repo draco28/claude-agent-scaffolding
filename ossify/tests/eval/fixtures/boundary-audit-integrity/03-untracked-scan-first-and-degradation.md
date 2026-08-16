@@ -32,4 +32,5 @@ manifest names the canonical and the AI workspace; the AI workspace has one
 github.com remote reading `{"visibility": "PRIVATE"}`, manifest agreeing.
 State posture is `open-core`. Every tracked fixture in the canonical is
 synthetic; the canonical's checkout is clean — HEAD is the release's audited
-ref with no staged or unstaged tracked changes.
+ref with no staged or unstaged tracked changes — and the canonical carries no
+`.gitleaks.toml` of its own.

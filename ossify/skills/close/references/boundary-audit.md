@@ -169,15 +169,20 @@ same way a tracked credential is.
 
 **Secrets scan — external tool, honest degradation.** Run
 `gitleaks detect --source "<root>" --no-banner --redact` and fold its findings
-in (note whether the repo carries its own gitleaks config). **`--redact`, always:**
-when the scan finds a real credential, unredacted output quotes the matched
-secret, and folding that into the transcript or the close summary duplicates
-the credential into the session log on exactly the leak-handling path. Carry
-rule, path and location into the report — never the matched text. **Only a
-completed scan counts as a scan.** Any other outcome — binary absent,
-invocation rejected or deprecated away, run aborted, output unreadable — is
-INCONCLUSIVE and recorded as a degradation naming what failed. Inconclusive is
-not clean: a scan that errors produces no findings, which is byte-identical to
+in. **`--redact`, always:** when the scan finds a real credential, unredacted
+output quotes the matched secret, and folding that into the transcript or the
+close summary duplicates the credential into the session log on exactly the
+leak-handling path. Carry rule, path and location into the report — never the
+matched text. **And read the repo's own `.gitleaks.toml` before trusting a
+clean result** — gitleaks auto-loads it from the scanned source, so an
+allowlist entry broad enough to cover ordinary source files, or the default
+rules switched off, is a **finding in its own right**: the scan completed
+against rules the repo itself weakened, and that is not a clean scan of the
+release. **Only a completed scan counts as a scan.** Any other outcome —
+binary absent, invocation rejected or deprecated away, run aborted, output
+unreadable — is INCONCLUSIVE and recorded as a degradation naming what failed.
+Inconclusive is not clean: a scan that errors produces no findings, which is
+byte-identical to
 a scan that found nothing. The user may accept a degradation at triage like
 any other finding; what is forbidden is the audit *silently* narrowing to
 pattern rules because a tool did not run.
@@ -250,7 +255,11 @@ entry nobody opens — an ignored directory is collapsed only when it is
 recognizably a dependency or build tree, and **where that is arguable it is
 not one: enumerate it.** Read individual file names in full, and where a name
 says nothing, open the file and read it — a stray working note is small, and
-a file too large to read is itself the recorded degradation.
+a file too large to read is itself the recorded degradation. **But if what it
+holds is a credential or a secret, the finding is the file's PRESENCE, never
+its content**: name the class, close the file, and quote nothing — the §3
+redaction rule reaches this read too, and a transcript that acquires the
+secret while hunting it is the leak happening twice.
 (`--exclude-standard` is not the bound: fixture 03's `NOTES-STRATEGY.md` is
 gitignored, and excluding ignored files drops exactly the class this step
 exists to catch.)
@@ -475,8 +484,10 @@ Resolve it before §3, the way the ceremony already resolves it —
 
 Then verify the checkout IS that ref, cleanly, before §3 — everything this
 audit reads is ambient: `git ls-files` reads the index, the rules are read
-from the working-tree file, and gitleaks walks the working tree. **Halt unless
-`git -C "<root>" rev-parse HEAD` equals the resolved ref AND both
+from the working-tree file, and gitleaks walks the working tree. **Halt
+unless `git -C "<root>" rev-parse "$audited_ref"` equals
+`git -C "<root>" rev-parse HEAD`** — compare the two RESOLVED object ids,
+never a branch name against a commit id, which are never equal — **and both
 `git -C "<root>" diff --quiet` and `git -C "<root>" diff --cached --quiet`
 succeed** — a staged deletion or an unstaged edit to `PUBLIC_BOUNDARY.md` can
 make the committed release tree differ from everything this audit just read,
