@@ -90,10 +90,12 @@ routes three things there; that section is what they route to.)
 **Only the per-work-item `handoff.md`** — the one the execution lane writes at
 `<ai-workspace>/docs/specs/<release-id>/<spine-id>-<spine-slug>/work-<wi-id>/handoff.md`
 (`work-item/references/handoff-contract.md`). Session handoffs are a different
-artifact belonging to a `/handoff` redesign, and **this release ships no handoff
-authoring at either scope** (`spine-close.md` §9). Scope the read to the
-per-work-item files and do not go looking for session handoffs; there are none,
-and a sweep that expects them reports an empty harvest as a finding.
+artifact — the standalone `/ossify:handoff` utility authors them wherever the
+host repo's evidence says they live, outside any ceremony. Scope the read to
+the per-work-item files and do not go looking for session handoffs: **they are
+not harvest inputs at either scope** (`spine-close.md` §9), they have no fixed
+location for a sweep to enumerate, and a sweep that expects them mis-reports an
+empty harvest as a finding.
 
 Inside a handoff, the durable candidates are the appended **`## Clarifications`**
 — the mid-flight answers to spec ambiguity (`handoff-contract.md` §3). The
@@ -250,7 +252,7 @@ names the destination instead of leaving it to be inferred.
   `oss get`'s rc instead of its output (§2).
 - **Re-globbing the spine directory per work item**, or `head -1`-ing an
   ambiguous glob instead of halting (§2).
-- **Hunting for session handoffs.** This release authors none (§3).
+- **Hunting for session handoffs.** They are not harvest inputs (§3).
 - **Paraphrasing the `## 9.` heading** or accepting a renamed one (§4).
 - **Appending an enforceable pattern as prose** instead of recording the C2
   rule-authoring referral (§5).

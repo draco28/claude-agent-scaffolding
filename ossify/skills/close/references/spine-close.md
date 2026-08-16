@@ -369,10 +369,12 @@ oss demo_record spine "$spine_id" "<true|false>" "<line-count>" "<notes>"
 `demo_record` takes `passed` as the literal `true` or `false` and rejects
 anything else at rc 2.
 
-**The session-handoff half of spec §6.1's "handoff / state updates" row is
-deferred to a later release.** Offering `/handoff` at the spine boundary depends
-on a redesign of that skill, and this release ships no handoff authoring. Saying
-so beats leaving the row looking complete.
+**The session-handoff half of spec §6.1's "handoff / state updates" row stays
+unwired.** `/ossify:handoff` exists as a standalone utility, but offering it at
+the spine boundary is a deliberate non-wiring: handoff belongs to no ceremony —
+a session handoff is written when context runs out, not because a spine closed
+— and its design left close-wiring an open call. Saying so beats leaving the
+row looking complete.
 
 ---
 
