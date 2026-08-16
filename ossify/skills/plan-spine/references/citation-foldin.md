@@ -38,13 +38,14 @@ grep -n 'fn submit_order' src/app/orders.rs || true       # the signature is sti
 Guard the grep with `|| true` — a no-match must report a citation miss, not abort
 the check.
 
-**Run each check from the root the citation belongs to** — the relative paths
-above silently assume the canonical root. In the dual-repo world a citation's
-prefix names its repo: `docs/` paths resolve in the AI workspace, `src/` /
-`lib/` / `tests/` paths in the canonical, and a work item carrying
-`target_repo` resolves its paths in **that** repo (`oss repo_root <name>` gives
-the absolute root). A check run from the wrong root reports a false citation
-miss — the path is fine, the cwd was not.
+**Run each check from the root the cited artifact lives in** — the relative
+paths above silently assume the ambient cwd is that root. Every §1 target
+resolves against the **canonical** (bone ADRs at `<canonical>/docs/adr/` per
+`bones-registry.md`, file paths and signatures in the product tree) — except
+that a work item carrying `target_repo` resolves its file paths in **that**
+repo. Resolve the root deliberately (`oss repo_root canonical`, or the
+`target_repo` name) rather than trusting the cwd: a check run from the wrong
+root reports a false citation miss — the path is fine, the cwd was not.
 
 **Judgment** — does the cited section actually *say* what the spec claims it says?
 A path that exists and a section that denotes something else is the harder failure,

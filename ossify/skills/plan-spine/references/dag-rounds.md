@@ -46,7 +46,7 @@ Common false edges:
 | "both items edit `main.rs`" | A merge conflict to sequence at execution, not a planning edge |
 | "do the risky one first" | A legitimate ordering choice *among round-1 items*, not an edge |
 | "both touch the same bone" | Only an edge if one *changes* the bone the other depends on |
-| "B builds against A's interface" | An edge only if the interface itself is not fixed yet — a contract agreed in the spec exists before any code lands, and B can build against it |
+| "B builds against A's interface" | An edge only if B cannot **build or verify** without A's landed artifact. Coding to a contract fixed in the spec is not an edge; needing A's port to *compile* — the cross-repo case, §6 — is |
 
 ---
 
