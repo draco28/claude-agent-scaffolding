@@ -59,10 +59,14 @@ fixtures; do not improvise them here.
 
 ### Determining observed visibility
 
-Enumerate **every** remote (`git -C "<root>" remote -v`), not just `origin` — a
-remote may be named `upstream` or `github`, `origin` may be a private fork of a
-public upstream, and a repo may push to both. For each remote, derive
-**`host/owner/name`** and read
+Enumerate **every** remote, redacted — `git -C "<root>" remote -v | sed -E 's#(https?://)[^/@]+@#\1***@#g'` — not just
+`origin`: a remote may be named `upstream` or `github`, `origin` may be a
+private fork of a public upstream, and a repo may push to both. The redaction
+is not cosmetic: an HTTPS remote can carry its credential inline
+(`https://<token>@github.com/...`), and printing that bare puts the token
+into the transcript before the audit has even started — the §3 rule reaches
+the enumeration too. For each remote, derive
+**`host/owner/name`** from the redacted form and read
 `gh repo view "<host>/<owner>/<name>" --json visibility`. **Gate on the most
 public answer**: one public remote makes the repo observed-public, whatever the
 others say.
@@ -297,9 +301,8 @@ A finding the user affirms is **confirmed**, and confirmed findings **block the
 close**. The unblock is real work:
 
 - **Fix before close** — untrack and rotate, rewrite the disclosing doc,
-  resynthesize the fixture, remove the stray file. Re-run the affected step
-  afterward; a fix is verified by the audit that re-examines it, not by the
-  intention. **And a fix that changes the repository invalidates the gates
+  resynthesize the fixture, remove the stray file. **And a fix that changes
+  the repository invalidates the gates
   that ran before it**: the cumulative walkthrough (step 2) exercised a
   product this fix has now altered, so re-run every gate whose inputs the fix
   touched — at minimum the cumulative walkthrough when the fix went anywhere
@@ -307,8 +310,11 @@ close**. The unblock is real work:
   fixture, a deleted config, a rewritten doc a demo line opens). Recording the
   release closed on a walkthrough of the pre-fix tree certifies a product
   state that no longer exists. A fix confined to the AI workspace, or to an
-  untracked file nothing loads, touches no gate's inputs and needs only this
-  step re-run.
+  untracked file nothing loads, touches no gate's inputs — but it still
+  re-enters through the §1 re-close, because the halt was terminal and no
+  gate is skipped by shortcut: what such a fix buys is that the re-run gates
+  re-verify an unchanged input, not that they are bypassed. The audit itself
+  always re-runs — a fix is verified by the audit that re-examines it.
 
 **The hygiene allowlist is not editable mid-audit.** An audit that edits its
 own inputs passes itself. An allowlist entry added in response to a finding is
