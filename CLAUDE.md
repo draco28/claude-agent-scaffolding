@@ -97,8 +97,15 @@ next to the case that must now pass.
   `boundary-audit` branch and captured a full environment dump — unpushed, so nothing
   escaped, but on a pushed branch that is a credential-shaped leak into public history.
   An unquoted heredoc expands them too. Write the message to a file and use
-  `git commit -F <file>`. To repair: `--amend -F <file>`, then
-  `git reflog expire --expire-unreachable=now --all && git gc --prune=now`.
+  `git commit -F <file>`. **Repair depends entirely on whether it was pushed.**
+  Unpushed: `--amend -F <file>`, then
+  `git reflog expire --expire-unreachable=now --all && git gc --prune=now` —
+  unreachable objects are never pushed, so that is the whole fix. **Pushed: the
+  local rewrite fixes nothing on its own.** The object stays reachable on the
+  remote (and in any fork, PR ref, or clone) until the branch is force-pushed
+  and GitHub is asked to purge the ref, and **any credential the expansion
+  exposed must be treated as compromised and rotated immediately** — rewriting
+  history does not un-disclose a secret that was published.
 
 ---
 

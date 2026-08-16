@@ -80,14 +80,28 @@ a seam cut cleanly today can be deployed separately later at far lower cost
 than an unwind.
 
 When the evidence is absent, **say so and keep the single deployable**; the
-split becomes a feature-map entry with the evidence that would admit it as
-its trigger, not a rejection to re-litigate. When the evidence exists, name
-it in the spine spec — the split is a system-shape decision, so it is
-`bone`-class (`class-declaration.md` rung 3, category 1), and the evidence
-is what its ADR records as the decision's grounds. A bone ADR that records
-*that* a service was extracted without recording *what pressure* required it
-leaves the next reader no way to tell a measured split from a speculative
-one.
+split becomes a feature-map entry, not a rejection to re-litigate. **The map
+has no trigger field** — `oss feature_add` takes exactly `name`, `value`,
+`class_guess`, `source`, it is append-only, and there is no update verb, so a
+fifth argument is silently dropped. Encode both halves in the `value` line —
+*"<the value the split unlocks> — admitted when <the evidence>"* — because a
+condition recorded nowhere is a deferral that cannot be evaluated at the next
+re-groom, and a `value` overwritten by the condition loses the thing the field
+is for.
+
+When the evidence exists, name it in the spine spec — the split is a
+system-shape decision, so it is `bone`-class (`class-declaration.md` rung 3,
+category 1), and the evidence is what its ADR records as the decision's
+grounds. A bone ADR that records *that* a service was extracted without
+recording *what pressure* required it leaves the next reader no way to tell a
+measured split from a speculative one.
+
+**This file is not the only gate, and must not be the only place the bar
+lives.** It loads when decomposition creates or splits a module boundary
+(§1) — so an extraction that moves an *existing* seam into its own deployable,
+changing nothing about the interface, never reaches this page. That path runs
+through release selection and the class ladder, which is why
+`class-declaration.md` rung 3 carries the bar as well.
 
 ---
 

@@ -94,6 +94,19 @@ surface is how the registry rots.
 Rung 3 catches what rung 2 cannot: a spine that creates a bone in files nobody has
 registered yet, because the bone does not exist until this spine lands.
 
+**One category carries an admission bar, not just a label: `system shape &
+deployment topology`.** Classifying a service extraction `bone` says how much
+ceremony it gets, not whether it is allowed — so a spine that moves existing
+work into a second deployable can pass this ladder and be selected on nothing
+but intent. It is admitted only on **measured pressure**: evidence that this
+seam specifically needs independent deployment, scaling, security isolation,
+failure containment, or separate ownership. An anticipated pressure is not
+evidence, and the ADR records the evidence as the decision's grounds. The full
+bar, and the deferral path when the evidence is absent, is
+`plan-spine/references/codebase-design.md` §3 — this rung is the other place it
+has to be enforced, because a split that changes no module interface never
+reaches that file.
+
 ### Rung 4 — otherwise, flesh
 
 Entirely on existing bones. **Do not inflate it.** Bone ceremony on a genuine
