@@ -389,6 +389,11 @@ exists; what that file adds is when to reach for it.
 - **`git`** is reached only as `git -C "<absolute path>"` (§3). The commit
   boundary is yours and the implementer's never; the merge target comes from
   state, never from a slug.
+- **`gh` and `gitleaks`** enter at §6 step 7 only, and each has its own failure
+  semantics rather than a shared one: a visibility read `gh` cannot answer means
+  the repo is audited **as public**; a `gitleaks` scan that does not complete
+  makes the secrets half **INCONCLUSIVE**, never clean. Both in
+  `references/boundary-audit.md` §2-§3.
 - **Peer entry skills:** `start` owns spec-core and the bones registry;
   `plan-release` owns spine selection, exit criteria and the class declaration;
   `plan-spine` owns decomposition, specs and demo-line authoring; `work-item`

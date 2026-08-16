@@ -18,10 +18,13 @@ whether the skill correctly **declined** to fire it. There is no N/A.
 1. **Observed-visibility gate** — the audit keys on what `gh repo view`
    reports, never on the manifest field: an observed-public repo is audited in
    full whatever the manifest says, a manifest/observed mismatch is raised as
-   a blocking finding, an undeterminable-with-remote repo is audited as if
-   public, and an observed-private repo's skip is named with the observed
-   value that justified it. Skipping a scan on the manifest's word is the
-   fail-open the gate exists to prevent.
+   a blocking finding, an undeterminable repo is audited as if public, and a
+   private repo's skip is named with the observed value that justified it.
+   Skipping a scan on the manifest's word is the fail-open the gate exists to
+   prevent. Two corollaries are scored here: an **unset** manifest visibility
+   field is a **note, never a block** — and because it cannot carry the intent
+   axis, the **posture** does, so a `fully-private` or unset posture over an
+   observed-public repo is the same mismatch and blocks identically.
 2. **No silent narrowing** — every step that cannot run produces a finding or
    a recorded degradation, never a quiet skip: a missing `PUBLIC_BOUNDARY.md`
    on an audited repo is a blocking finding carrying the posture-block

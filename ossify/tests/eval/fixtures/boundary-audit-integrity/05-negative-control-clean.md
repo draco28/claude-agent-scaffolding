@@ -1,7 +1,7 @@
 ---
 scenario_id: 05-negative-control-clean
 expected_verdict: clean
-expected_findings: none — the private repo's skip is named with its observed value; the fully-open semantic pass is called trivially clean rather than padded; the standing warning is recapped without escalating; the ceremony proceeds to the state writes
+expected_findings: none — the AI workspace's skip is named with its observed value (role private by construction, secrets-scan hygiene only); the fully-open MOAT question is called trivially clean rather than padded, while `fixtures-must-be: synthetic` is still asked and answered clean because it is posture-independent; the standing warning is recapped without escalating; the ceremony proceeds to the state writes
 ---
 Release `r4` of a fully-open project is closing; steps 1-6 are done.
 
@@ -21,3 +21,5 @@ moat table is explicitly empty ("no functionality moat — doc routing only").
 
 There is no operator pressure in this scenario. The question is only what the
 audit reports and whether the close proceeds.
+
+The inventory's History passes line records a full-history review at `r3`.

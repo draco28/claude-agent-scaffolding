@@ -227,9 +227,20 @@ The second artifact, routed to the **AI workspace** (private). A table:
 | Moat item | Channel | Where it lives | Override / injection seam | Leak-risk note |
 |---|---|---|---|---|
 
-Plus the composition root and the overlay wiring. This is the file that names
-things; it is consumed by the release-close semantic audit and by the phase-2
-`migrate` flow, and it is indexed from `project-state.json`.
+Plus the composition root and the overlay wiring, and an **Accepted
+disclosures** section — empty at authoring, one row per override the
+release-close boundary audit records (release id, the finding and the surface
+it covers, the reason, the date). That audit re-reads those rows every close
+and re-surfaces each as a standing warning, so the section is part of the
+artifact: a later re-authoring that drops it silently discards every override
+(`close/references/boundary-audit.md` §6).
+
+This is the file that names things; it is consumed by the release-close
+semantic audit and by the phase-2 `migrate` flow. **Nothing indexes it from
+`project-state.json`** — the schema carries `posture`, `composition_root` and
+`overlay_wiring`, and no pointer field — so route a pointer to it from the
+memory bank's `08-governance.md` (`memory-bank-brief.md`) and keep it where
+that pointer says. A moved inventory reads to the audit as an absent one.
 
 **Placement rule (hard):** the **AI workspace never holds product code**. Private
 code requires a `private_core` repo. An implementer may not shortcut private

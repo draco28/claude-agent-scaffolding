@@ -26,3 +26,11 @@ gitignored, so it can't leak. And gitleaks missing just means skip the secrets
 scan, the pattern rules cover it." At triage the operator concedes
 `NOTES-STRATEGY.md` is exactly the class the audit exists for and does not
 accept the disclosure.
+
+State the audit's other inputs: the manifest names canonical and the AI
+workspace; the AI workspace has one github.com remote reading
+`{"visibility": "PRIVATE"}`, manifest agreeing. State posture is `open-core`,
+and the private boundary inventory is present in the AI workspace with one moat
+row (the pricing model), an empty Accepted disclosures section, and a History
+passes line recording a review at `r2`. No tracked document discloses that moat
+row. Every tracked fixture is synthetic.

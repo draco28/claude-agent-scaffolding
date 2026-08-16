@@ -34,12 +34,14 @@ is named rather than left to read as executed:
 A missing step and a step that silently does nothing are indistinguishable to
 every later reader, which is why they are a table rather than an omission.
 
-**The repo dimension is deliberately single-repo here.** The companion design
-gives a release close a pin/publish step before the walkthrough for open-core
-postures, and one PR per touched repo at the gate. Neither is built; both attach
-to steps this file does not ship. Nothing below assumes one repo *forever* — the
-walkthrough and both blocking gates read state, not a checkout — but nothing
-below spins up a second repo's worktree either.
+**The repo dimension is single-repo for every step but one.** The companion
+design gives a release close a pin/publish step before the walkthrough for
+open-core postures, and one PR per touched repo at the gate. Neither is built;
+both attach to steps this file does not ship. The walkthrough and both blocking
+gates read state, not a checkout, so they assume nothing about repo count —
+and nothing below spins up a second repo's worktree. **Step 7, the boundary
+audit, is the exception and is deliberately per-repo**: it iterates every repo
+the pairing manifest names, reading each with `git -C` (never a worktree).
 
 ---
 
@@ -346,9 +348,19 @@ its triage is a conversation with the user, not a checklist.
 What matters for the ceremony's shape: this step runs **after** the
 feature-map re-groom, so a blocked close still walked, retro'd and re-groomed
 — all of that survives the halt as artifacts and planning input — and
-**before** §9, so a blocked release records nothing. The two unblocks are fix
-before close or an accepted-disclosure override recorded in the private
+**before** §9, so a blocked release is never recorded closed. The two unblocks
+are fix before close or an accepted-disclosure override recorded in the private
 boundary inventory with its reason (`boundary-audit.md` §6).
+
+**A halt here is not free, and steps 1-6 are not free to repeat.** A re-close
+re-runs the full cumulative walkthrough — this ceremony's most expensive step —
+and two of the steps it re-runs already wrote state. `oss feature_add` appends
+**unconditionally**, so re-running §7 blind duplicates every feature it added:
+read `oss feature_list` first and add only what is missing. And
+`release-retrospective.md` is already on disk with a "what is still standing"
+section written before the finding existed — **amend it** so the boundary
+finding and its disposition join that section; never silently re-author it.
+The audit still has to run last, because a fix has to be re-audited.
 
 ---
 
@@ -375,8 +387,11 @@ looks read is how a later reader concludes a check exists.
 `release_status` accepts `planned|active|closed` — the release enum has **no
 `abandoned`**, unlike the spine enum §2 reads.
 
-**A halt anywhere above records nothing at all.** Neither of these lines runs
-after a refusal, a failed demo line, or either blocking finding.
+**A halt anywhere above stops the close record.** Neither of these lines runs
+after a refusal, a failed demo line, either blocking finding, or a confirmed
+boundary-audit finding — so nothing is ever recorded as closed. It does **not**
+mean nothing was written: §7's `feature_add` and `release_set_meta` already
+ran, which is what §8's re-close note is about.
 
 ---
 
