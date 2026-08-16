@@ -103,10 +103,14 @@ work-item close against the wrong work item succeeds — the gate runs, a commit
 lands, a branch merges — and nothing reports a problem until a later ceremony
 finds a spine it cannot reconcile.
 
-One disposition is not a refusal: if what arrived is a *change* belonging to no
-open spine or work item — a typo fix, a doc touch-up — it is not a close at
-all. Route it to the patch lane (`references/patch-lane.md`), never a forced
-ceremony (SKILL.md §2 states the same rule at the routing table).
+One disposition is not a refusal: a **canonical** change belonging to no open
+spine or work item — a typo fix, a doc touch-up — is not a close at all. Run
+SKILL.md §3's pre-flight (the lane reads the registries and mutates state
+too), then route it to the patch lane (`references/patch-lane.md`), never a
+forced ceremony. An AI-workspace edit needs no lane — no ceremony governs
+that repo; an out-of-spine change in any other product repo has no documented
+lane — surface it rather than improvising one. (SKILL.md §2 states the same
+rule at the routing table.)
 
 `oss get` is `jq -r` without `-e`: a `select` matching nothing exits **0** with
 an empty string. Test the *output*, not the rc, whenever you resolve an id
