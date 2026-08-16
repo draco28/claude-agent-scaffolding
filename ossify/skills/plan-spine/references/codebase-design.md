@@ -82,8 +82,8 @@ than an unwind.
 When the evidence is absent, **say so and keep the single deployable**; the
 split becomes a feature-map entry, not a rejection to re-litigate. **The map
 has no trigger field** — `oss feature_add` takes exactly `name`, `value`,
-`class_guess`, `source`, it is append-only, and there is no update verb, so a
-fifth argument is silently dropped. Encode both halves in the `value` line —
+`class_guess`, `source` — a fifth argument is accepted and silently dropped —
+and there is no update verb to add one later. Encode both halves in the `value` line —
 *"<the value the split unlocks> — admitted when <the evidence>"* — because a
 condition recorded nowhere is a deferral that cannot be evaluated at the next
 re-groom, and a `value` overwritten by the condition loses the thing the field
@@ -97,11 +97,15 @@ recording *what pressure* required it leaves the next reader no way to tell a
 measured split from a speculative one.
 
 **This file is not the only gate, and must not be the only place the bar
-lives.** It loads when decomposition creates or splits a module boundary
-(§1) — so an extraction that moves an *existing* seam into its own deployable,
-changing nothing about the interface, never reaches this page. That path runs
-through release selection and the class ladder, which is why
-`class-declaration.md` rung 3 carries the bar as well.
+lives** — because it is the *later* one. §1's first bullet does fire on a
+service extraction (a service that did not exist before this spine is a new
+boundary), but this page loads at **spine decomposition**, and `plan-release`
+has already selected the spine and declared its class by then: SKILL.md §1's
+pipeline is `plan-release` → `plan-spine`. By the time an extraction reaches
+this paragraph the release has committed to it, and the bar is arguing against
+a decision already made. So it also lives at
+`plan-release/references/class-declaration.md` rung 3, which runs first and is
+where a split is actually admitted or deferred.
 
 ---
 

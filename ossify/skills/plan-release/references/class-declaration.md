@@ -103,9 +103,14 @@ seam specifically needs independent deployment, scaling, security isolation,
 failure containment, or separate ownership. An anticipated pressure is not
 evidence, and the ADR records the evidence as the decision's grounds. The full
 bar, and the deferral path when the evidence is absent, is
-`plan-spine/references/codebase-design.md` §3 — this rung is the other place it
-has to be enforced, because a split that changes no module interface never
-reaches that file.
+`plan-spine/references/codebase-design.md` §3 — and **this rung is where it
+binds**, because this runs at release planning and that file loads later, at
+spine decomposition, when the release has already committed to the spine.
+
+Record the evidence in the rationale, not only in the ADR: for this case §2's
+string takes a trailing `; pressure: <the measured evidence>`. Without it a
+declarer who follows §2 records a reason indistinguishable from a speculative
+split's, which is the gap the ADR was supposed to close.
 
 ### Rung 4 — otherwise, flesh
 

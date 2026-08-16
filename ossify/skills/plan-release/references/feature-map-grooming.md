@@ -14,7 +14,7 @@ at each groom rather than in state (§2). Each entry:
 | Field | Meaning |
 |---|---|
 | `name` | short, the action ("save a named strategy") |
-| `value` | one line: why the actor wants it |
+| `value` | one line: why the actor wants it. A deferred entry may carry a trailing `— admitted when <condition>`, because there is no trigger field to hold it (§2) |
 | `class_guess` | `bone` or `flesh` — a **guess**, made before any plan existed |
 | `source` | `journey-map` · `spec` · `release-retro` · `deferral` · `real-use` · `fake-replacement` · `feature-map-return` |
 
@@ -41,6 +41,10 @@ real-use findings (`references/real-use-findings.md`), deferrals filed during
 execution, fake-ledger replacement triggers that have fired, retro follow-ups, and
 any internal-enabler that returned because its consumer was dropped. Nothing that
 surfaced in the last release should be living only in someone's memory.
+
+**Check any entry whose `value` carries an `admitted when` clause** against what
+has since happened — that clause is how a deferred item records the evidence
+that would admit it, and an unread condition is a deferral nobody ever revisits.
 
 **Pass 2 — rank against *this* release's goal.** Not global priority — fit. The
 question is *"does this move the promise this release is making?"*, and the
