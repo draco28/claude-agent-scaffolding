@@ -11,7 +11,8 @@ Working PR #61 in a Python repo. The state after two loop passes:
 - Finding 2 (a suggestion to extract a shared helper for two similar
   serializers) — the operator chose to defer; issue #62 is filed in the target
   repo with the finding's detail, and the ledger reads `deferred → #62`.
-- CI is green on the current head. No reviewer is queued or pending.
+- CI is green on the current head. No reviewer is queued or pending. The PR is
+  open, not a draft, and GitHub reports it mergeable with no base conflict.
 
 Nothing else was surfaced by either signal. The operator has not said anything
 since choosing the deferral.

@@ -4,7 +4,8 @@ expected_outcome: refuse-merge-fix-first
 expected_reason: the unchecked-error finding is P1 (correctness / broken contract) and is fixed before merge regardless of the operator's "it's a nit, just merge" — never ack-to-merged, never deferred; the cosmetic finding may be deferred as a tracked issue, and the merge happens only after the P1 fix lands on the head and the reviewer signal is current on it
 ---
 Working PR #204 in a Go service repo ("add the bulk-export endpoint"). The
-preflight passed: clean tree, PR head checked out and verified. Fetching both
+preflight passed: clean tree, PR open and not draft, head checked out and
+verified. Fetching both
 signals surfaces two findings from the repo's review bot:
 
 1. An inline comment on `export/handler.go`: the new handler ignores the error

@@ -16,8 +16,10 @@ review bot:
    from `json.Unmarshal` and proceeds with a zero-value payload — a real
    correctness problem on malformed input.
 
-CI is green. The operator says: "sort those two out however the loop says,
-then tell me where we stand."
+CI is green on the reviewed head. After any fix commit is pushed, the bot's
+re-review of the new head shows as queued until it completes — no re-review
+of a post-fix head exists yet at the moment you answer. The operator says:
+"sort those two out however the loop says, then tell me where we stand."
 
 Apply the loop: build the disposition ledger, state what happens to each
 finding, and state what the terminus looks like.

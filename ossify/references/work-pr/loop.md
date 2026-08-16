@@ -9,11 +9,18 @@ lane works on any repository `gh` can reach.
 
 ## 1. Preflight — resolve the target, stop early, stop loudly
 
-- **The repo:** the one you are in, unless `--repo-root DIR` says otherwise.
-  Not inside a git repo and no flag → say so and stop; this is the one gap
-  judgment cannot bridge.
-- **The PR exists:** `gh pr view <PR>` before anything else; a typo'd number
-  fails here, not three steps in.
+- **The repo:** the one you are in, unless `--repo-root DIR` says otherwise —
+  and with `--repo-root`, **every** `git`/`gh` command below runs against that
+  directory (run them from it, or `git -C <dir>` / `gh --repo <owner>/<repo>`):
+  a bare `gh` in the invoking repo resolves the PR number against the wrong
+  repository, and if both repos have that number, even the head verification
+  checks the wrong one against itself. Not inside a git repo and no flag → say
+  so and stop; this is the one gap judgment cannot bridge.
+- **The PR exists and is OPEN:** `gh pr view <PR> --json state,isDraft`
+  before anything else; a typo'd number fails here, not three steps in — and
+  a closed or merged PR stops here too, because `gh pr view` succeeds on
+  those and the loop would otherwise edit and push a branch nothing can
+  merge. A draft is surfaced (workable, not mergeable) rather than stopped.
 - **Clean tree:** a dirty target repo means someone's work is in the blast
   radius of your fixes — say what is dirty and stop until the operator
   commits, stashes, or cleans. Never stash on their behalf.
@@ -81,7 +88,13 @@ In one place, give the operator:
 
 - the full disposition ledger,
 - CI state and per-reviewer status (ran / skipped / pending / stale),
-- a mergeability verdict: clean to merge, or exactly what still blocks.
+- a mergeability verdict: clean to merge, or exactly what still blocks —
+  **grounded in GitHub's own answer, fetched here** (`gh pr view --json
+  mergeable,mergeStateStatus,isDraft`): a draft, a conflict with the base, a
+  branch the ruleset calls BEHIND, or a blocked review state each falsifies
+  "clean to merge" however green CI and the reviewers look, and discovering
+  that only after the operator acks is the loop soliciting an impossible
+  merge.
 
 Then **ask**: merge, wait, or leave open. Merge only on explicit ack, and the
 ack covers **the head the ledger describes**: pass the reviewed OID
