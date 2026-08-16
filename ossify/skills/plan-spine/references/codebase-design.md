@@ -55,6 +55,40 @@ looks — the ordering is interface too.
    confessing it leaks — and that test will break on every refactor the
    seam was supposed to make safe.
 
+### A module boundary is not a deployment boundary
+
+The three tests above decide where a **seam** falls. They say nothing about
+whether the two sides run in the same process, and they must not be read as
+if they did: every one of them is satisfied by a deep module inside a single
+deployable. Splitting a seam into a **separately deployed** service — its own
+process, image, pipeline and on-call surface — is a different decision with
+its own bar:
+
+> **Default to a modular single deployable. Extract a service only on
+> measured pressure** — evidence that this seam specifically needs
+> independent deployment, independent scaling, security isolation, failure
+> containment, or separate ownership. Absent that evidence, cut the seam and
+> keep it in-process.
+
+"Measured" means a number or an incident someone can point at: the profile
+showing this component is the bottleneck, the load figure it cannot meet
+in-process, the compliance boundary that forbids co-location, the outage
+where its failure took the rest down, the second team that now owns it.
+**An anticipated one does not count** — "it will need to scale
+independently" is the architecture astrology this bar exists to refuse, and
+a seam cut cleanly today can be deployed separately later at far lower cost
+than an unwind.
+
+When the evidence is absent, **say so and keep the single deployable**; the
+split becomes a feature-map entry with the evidence that would admit it as
+its trigger, not a rejection to re-litigate. When the evidence exists, name
+it in the spine spec — the split is a system-shape decision, so it is
+`bone`-class (`class-declaration.md` rung 3, category 1), and the evidence
+is what its ADR records as the decision's grounds. A bone ADR that records
+*that* a service was extracted without recording *what pressure* required it
+leaves the next reader no way to tell a measured split from a speculative
+one.
+
 ---
 
 ## 4. Relationship to bones — decision versus craft
@@ -106,6 +140,9 @@ identification consumes it directly:
   "handlers module" is the horizontal build at module scale — the same
   failure the skeleton cut exists to prevent (`start`'s foundation-phase
   smell, recut vertically).
+- **Extracting a service on an anticipated load.** Premature distribution
+  buys an operational surface now against a bottleneck nobody has measured;
+  the seam is the win, the separate deployable is the bill (§3).
 - **Deepening a module no journey needs.** Interface polish on a module
   nothing exercises is gold-plating; the journey-line floor owns "needed".
 - **Debating the boundary in code review.** By then the interface has
