@@ -32,9 +32,13 @@ Reviewers leave findings in two places, and each alone misses what the other
 carries:
 
 - the **review + conversation stream** — review summaries, CI rollup, top-level
-  comments (`gh pr view`, `gh pr checks`, review listings);
+  comments (`gh pr view --comments`, `gh pr checks`, review listings — the
+  `--comments` flag matters: the bare view omits top-level comments, and a
+  finding that lives only there would silently miss the ledger);
 - the **inline line-level comments** — where review bots put nearly everything
-  (`gh api repos/{owner}/{repo}/pulls/{n}/comments`, or the equivalent).
+  (`gh api --paginate repos/{owner}/{repo}/pulls/{n}/comments`, or the
+  equivalent — paginated, because a second page of findings that never loads
+  is a ledger hole wearing a clean look).
 
 Read both, then build the **disposition ledger**: one line per finding, every
 line ending in exactly one of `fixed in <sha>` / `deferred → #N` /
@@ -79,11 +83,17 @@ In one place, give the operator:
 - CI state and per-reviewer status (ran / skipped / pending / stale),
 - a mergeability verdict: clean to merge, or exactly what still blocks.
 
-Then **ask**: merge, wait, or leave open. Merge only on explicit ack
-(`gh pr merge` with the repo's merge convention — ask if the convention is not
-evident from the repo's history or settings). Never auto-merge over an
-unresolved P1, a stale or incomplete reviewer signal, or a red gate. If the
-operator leaves it open, report the PR URL and stop — the loop does not poll.
+Then **ask**: merge, wait, or leave open. Merge only on explicit ack, and the
+ack covers **the head the ledger describes**: pass the reviewed OID
+(`gh pr merge --match-head-commit <oid>`, with the repo's merge convention —
+ask if the convention is not evident from the repo's history or settings), so
+a head that moved between the report and the answer refuses and re-enters §2
+instead of merging unreviewed commits. On a branch governed by a merge queue,
+required checks must be **finished** before accepting the ack — with checks
+still pending, `gh pr merge` does not merge, it *enables auto-merge*, and this
+lane never auto-merges. Never merge over an unresolved P1, a stale or
+incomplete reviewer signal, or a red gate. If the operator leaves it open,
+report the PR URL and stop — the loop does not poll.
 
 ## Anti-patterns
 
