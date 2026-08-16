@@ -56,7 +56,7 @@
 # CLOSE RECORDS: this arc runs FOUR close ceremonies (one work item pair, two
 # spines, one release) and ends with THREE close records. The work-item close
 # layer writes NONE - `work-item-close.md` contains no `demo_record` call, and
-# only `spine-close.md` §9 and `release-close.md` §8 write one. That is
+# only `spine-close.md` §9 and `release-close.md` §9 write one. That is
 # deliberate (`demo_record_close`'s scope enum carries `work_item`, but C1 only
 # ever records `spine` and `release`), so the tail asserts the BREAKDOWN by
 # scope - work_item 0, spine 2, release 1 - rather than "one record per close",
