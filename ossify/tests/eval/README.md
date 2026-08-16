@@ -16,6 +16,8 @@ fixtures + the local gate; Plan D consolidates them into THE ship gate.
 | `close-gate-integrity` | `close` | halt on a failed line; mid-flight reclassification; the fake-expiry blocking finding; quarantine vs retire; and declining to fire any of them on a clean close |
 | `harvest-apply-integrity` | `close` | the converted apply prose (`harvest.md` §5/§7): whole-set refusal before any write; STOP on an unresolvable bank route; identical-vs-resembling duplicate discrimination; and applying cleanly when nothing warrants any of them |
 | `rule-authoring-integrity` | `doctor` | the converted validation prose (`rule-authoring.md` §3/§5): shape verdicts by reading (typo'd required field names the CORRECT spelling; empty values refused; per-type field sets exact); unknown types declined not re-classified, existing ones preserved; honest applied-by-agent-read enforcement language (evaluator wontfix); and appending cleanly when everything passes |
+| `handoff-compose` | — command-routed (`references/handoff/compose.md` + `sections.md`; no SKILL.md) | location judged from repo evidence and stated; tracked-vs-ignored with the survivability tradeoff said aloud; reference-over-duplication (a paste request declined); checkable claim\|check rows; and calling a lean §3 correct on a trivial handoff instead of padding it |
+| `handoff-resume` | — command-routed (`references/handoff/resume.md` + `sections.md`; no SKILL.md) | drift detected with was→now and read correctly (progress vs environmental); no invented drift (age is context; a modified-but-existing reference is not drift); a missing reference reported with its successor, never fatal |
 
 ## Fixture format
 
@@ -27,8 +29,9 @@ negative-control fixture (expected: the safe/clean answer).
 
 ## Rubric format
 
-`rubrics/<surface>.md` lists 5 criteria (6 where a surface has an extra
-binding constraint, e.g. `journey-line-floor`'s before/after-evidence floor);
+`rubrics/<surface>.md` lists that surface's criteria — the count is per-surface
+(3 to 6; each rubric is its own authority, e.g. `journey-line-floor` carries an
+extra binding constraint and `handoff-resume` needs only three);
 the judge scores each 1-5;
 **pass = ≥4 on every criterion**; the rubric's last line pins the JSON output
 contract. `lib/aggregate-scores.sh` reads only `.pass`/`.notes`, so it is

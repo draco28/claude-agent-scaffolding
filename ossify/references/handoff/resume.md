@@ -9,8 +9,10 @@ drift report, not a reason to stop.
 
 - **A path was given** → that handoff.
 - **No argument** → the most recent handoff found by the same evidence logic
-  compose uses (existing handoff directories first, then the `docs/` tree),
-  most recent by the filename date. Say which was picked.
+  compose uses (existing handoff directories first, then the `docs/` tree) —
+  most recent by the filename date, and where the repo's naming carries no
+  date, by the file history (`git log -1` per candidate). Say which was picked
+  and by which rule.
 - **Target not found** → list the candidates found and where; let the operator
   pick. If several handoffs declare COMPOSES-WITH relations, the newest is the
   entry point — its header says what else to read.
