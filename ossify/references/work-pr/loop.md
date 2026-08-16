@@ -101,11 +101,15 @@ ack covers **the head the ledger describes**: pass the reviewed OID
 (`gh pr merge --match-head-commit <oid>`, with the repo's merge convention —
 ask if the convention is not evident from the repo's history or settings), so
 a head that moved between the report and the answer refuses and re-enters §2
-instead of merging unreviewed commits. On a branch governed by a merge queue,
-required checks must be **finished** before accepting the ack — with checks
-still pending, `gh pr merge` does not merge, it *enables auto-merge*, and this
-lane never auto-merges. Never merge over an unresolved P1, a stale or
-incomplete reviewer signal, or a red gate. If the operator leaves it open,
+instead of merging unreviewed commits. The pin guards **commits, not
+verdicts** — a blocking review or a red CI rerun can land on the *same* head
+while the operator considers the ask — so after the ack and immediately
+before merging, re-fetch both finding signals and the checks once more;
+anything newly blocking re-enters §2 instead of merging. On a branch governed
+by a merge queue, required checks must be **finished** before accepting the
+ack — with checks still pending, `gh pr merge` does not merge, it *enables
+auto-merge*, and this lane never auto-merges. Never merge over an unresolved
+P1, a stale or incomplete reviewer signal, or a red gate. If the operator leaves it open,
 report the PR URL and stop — the loop does not poll.
 
 ## Anti-patterns
