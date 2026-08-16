@@ -264,7 +264,7 @@ write, in one pass) — is in **`references/harvest.md`**. Also the only copy.
 ## 6. Release close
 
 The outermost scope (spec §6.2, plus the two §6.1 contracts that only become
-enforceable at a release boundary). Seven steps, in **binding order**:
+enforceable at a release boundary). Eight steps, in **binding order**:
 
 1. **Every spine `closed`**, else refuse and **name the offender with its
    status**. Test the *output* of the `oss get` — a `select` matching nothing
@@ -285,8 +285,14 @@ enforceable at a release boundary). Seven steps, in **binding order**:
    naming the spine, if any lacks `retrospective.md`.**
 6. **Feature-map re-groom + next-release sketch** — the rolling-wave crank, via
    `oss feature_list` and `oss release_set_meta`.
-7. **State updates**: `oss release_status <rel> closed` and
-   `oss demo_record release <rel> <passed> <line-count> "<notes>"`.
+7. **The boundary audit** (companion §6, re-derived under the skill-first
+   freeze) — per-repo, **observed**-visibility gated, fail-closed: the tracked
+   rules of `PUBLIC_BOUNDARY.md`, the scan-first untracked sweep, the semantic
+   moat pass. **Never auto-dispositioned; confirmed findings block the close.**
+   The whole step is **`references/boundary-audit.md`**.
+8. **State updates**: `oss release_status <rel> closed` and
+   `oss demo_record release <rel> <passed> <line-count> "<notes>"` — never
+   after a halt in any step above.
 
 **Both blocking gates are rc 0 = CLEAN / 1 = BLOCKING / 2 = could-not-check —
 the opposite polarity from `oss touch_check`, where rc 0 is a hit.** Copying the
