@@ -179,12 +179,17 @@ was this not done?"*, read the memory bank's `tech-debt.md` index and, if the ga
 is already a tracked deferral, surface it as *known* rather than as a fresh
 blocker.
 
-It is omitted here because the file it reads does not exist yet. That index is
-maintained by `/defer`, and `/defer` does not ship in this plugin yet. Describing a
-read that resolves to nothing would be worse than describing nothing: it produces
-an agent that reports "checked known issues — none found" on a file that was never
-written, which is a confident false negative.
+It is omitted here because nothing in this plugin writes that index. Ossify
+seeds `tech-debt.md` empty at onboarding and ships no `/defer` — a settled
+decision, not a pending gap — so in an ossify-only repo the index stays empty
+however much is actually deferred, and a read of it cannot distinguish "no
+known deferrals" from "index nothing writes". Describing that read would be
+worse than describing nothing: it produces an agent that reports "checked
+known issues — none found" on an index that was never going to hold them,
+which is a confident false negative.
 
-So: **every gap you surface in this version is a fresh gap.** If the orchestrator
-already knows about it, the orchestrator says so on the re-dispatch. When the
-deferral index ships, this section is where recall gets wired in.
+So: in an ossify-only repo, **every gap you surface is a fresh gap**, and if
+the orchestrator already knows about it, the orchestrator says so on the
+re-dispatch. Where another stack maintains the index — it exists and carries
+`[TD]` entries — the predecessor behaviour applies after all: read it, and
+surface a gap that is already a tracked deferral as *known*, not fresh.

@@ -295,10 +295,10 @@ gates exist to block. rc 2 halts in both; it is never folded into clean.
 
 **Three of spec §6.2's steps are deliberately not shipped** and are named as
 such rather than left to read as executed: the **docs increment** (§8's trigger
-table), **handoff cleanup** for the closed release (it depends on the `/handoff`
-redesign — this release ships no handoff authoring at either scope), and the
-**release tag / PR gate** (the spine→release / release→main tier question is
-unsettled).
+table), **handoff cleanup** for the closed release (session handoffs are
+`/ossify:handoff`'s, a standalone utility with no retention policy by design —
+handoffs accumulate and the user prunes), and the **release tag / PR gate**
+(the spine→release / release→main tier question is unsettled).
 
 Full step detail — the two-arm spine gate, the walkthrough's scoping and its
 derived feature grouping, both blocking gates' branch blocks, the retro's

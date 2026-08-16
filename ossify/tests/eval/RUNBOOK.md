@@ -4,11 +4,18 @@ Executed by Claude Code in an interactive session. No API runner.
 
 ## Procedure (Claude executes)
 
-For each `surface` in `[posture-derivation, journey-line-floor, spine-class-declaration, bone-touch-check, critic-veto-interpretation, close-gate-integrity, harvest-apply-integrity, rule-authoring-integrity]`:
+For each `surface` in `[posture-derivation, journey-line-floor, spine-class-declaration, bone-touch-check, critic-veto-interpretation, close-gate-integrity, harvest-apply-integrity, rule-authoring-integrity, handoff-compose, handoff-resume]`:
 
   For each `fixture.md` in `tests/eval/fixtures/<surface>/`:
 
   1. **Apply the judgment.** Dispatch `Agent` (general-purpose): "Read the owning skill's SKILL.md + the relevant `references/*.md` for `<surface>` end-to-end. Apply ONLY that skill's documented decision procedure to this fixture scenario (paste body). Output the judgment the skill would produce (e.g. the derived posture+channel, the accept/reject verdict + reason, the declared class, the veto disposition, or — for `close-gate-integrity` — what the ceremony does next and what it records). Do not improvise beyond the skill body." Capture the output.
+
+  **The two `handoff-*` surfaces have no SKILL.md** — the handoff utility is
+  command-routed, not skill-routed. Their owning prose is
+  `ossify/references/handoff/` (`compose.md` + `sections.md` for
+  `handoff-compose`; `resume.md` + `sections.md` for `handoff-resume`) plus
+  the command wrappers `ossify/commands/handoff.md` /
+  `ossify/commands/handoff-resume.md`; point the invoke agent there instead.
 
   **Paste the fixture BODY ONLY — strip the frontmatter.** The frontmatter is the answer key. The judge in step 2 sees the whole fixture; the invoke agent must not. And **whoever authored a surface's fixtures has read its keys and cannot serve as its invoke agent** — dispatch fresh agents for both steps.
 
@@ -18,6 +25,6 @@ After all surfaces: run `bash ossify/tests/eval/lib/aggregate-scores.sh` and rep
 
 ## Cost
 
-8 surfaces, 38 fixtures × 2 dispatches = 76 Agent dispatches per full run; 5-10 min. Re-run a single surface by deleting its `results/<surface>/*.json` and re-running.
+10 surfaces, 46 fixtures × 2 dispatches = 92 Agent dispatches per full run; 5-10 min. Re-run a single surface by deleting its `results/<surface>/*.json` and re-running.
 
 `aggregate-scores.sh` walks `fixtures/` and **fails on any fixture with no result JSON**, so a partial run cannot report a clean total.
