@@ -264,7 +264,8 @@ holds is a credential or a secret, the finding is the file's PRESENCE, never
 its content**: name the class, close the file, and quote nothing — the §3
 redaction rule reaches this read too, and a transcript that acquires the
 secret while hunting it is the leak happening twice.
-(`--exclude-standard` is not the bound: fixture 03's `NOTES-STRATEGY.md` is
+(`--exclude-standard` is not the bound: the untracked-sweep fixture's
+`NOTES-STRATEGY.md` is
 gitignored, and excluding ignored files drops exactly the class this step
 exists to catch.)
 
@@ -456,7 +457,7 @@ silently does nothing is indistinguishable from a missing one
 | **The other repo arms** — the AI workspace, a `private_core`, a `tooling_repo` | **not shipped.** This release audits the canonical only. Those repos are not scanned and their observed visibility is not checked either; the report says so in one line — scope, not a finding, not silence. The per-repo iteration lands as its own PR with its own fixtures |
 | **The semantic pass** — tracked prose that *describes* a moat item | **not shipped.** A README that discloses a moat item's identity and mechanism passes this audit today. The sweep over the private boundary inventory is a later PR |
 | **History, and every branch but the audited ref** | **not shipped.** A private document committed a year ago and later deleted is public forever at its blob URL, and nothing here looks. `gitleaks` still covers *secrets* across history when it completes — the tool's own behavior, not this audit's rule. The recorded History-passes line is a later PR |
-| **Uncommitted modifications to tracked files** | **not shipped.** The rules match paths (`ls-files`), gitleaks reads committed history, and the sweep reads untracked paths only — a secret pasted into a tracked file and left uncommitted is invisible to every shipped check. A working-tree diff pass is a later PR |
+| **Uncommitted modifications to tracked files** | **not shipped.** The rules match paths (`ls-files`), gitleaks reads committed history, and the sweep reads untracked paths only — a secret pasted into a tracked file and left uncommitted is never READ by the three checks, though §8's clean-tree gate halts on its presence before they run. A working-tree diff pass that reads it is a later PR |
 | **Submodule contents** | **not shipped.** `ls-files` returns one gitlink, `--others` does not descend, gitleaks does not follow. A tracked submodule is named in the report as outside this audit's coverage — never read as clean by default |
 | **Accepted-disclosure overrides** | **not shipped.** The third verdict, the inventory row, and the exact-surface pin arrive with the disposition PR. Until then a confirmed finding has exactly one unblock: the fix (§5) |
 | **Everything about the project that is not a git repo** | permanent scope, not a cut: issues, wiki, releases, Pages, Actions artifacts, published packages |
