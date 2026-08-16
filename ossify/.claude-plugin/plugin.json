@@ -1,5 +1,5 @@
 {
   "name": "ossify",
-  "version": "0.2.0",
-  "description": "Experimental OpenCode opt-in for a skeleton-first lifecycle from Release 0 through MVP and v1. The v0.x engine, six entry skills, and close ceremonies are packaged through the root bundle's explicit allowlist; /run-spine drives a planned spine's rounds end to end and /doctor diagnoses a project's state, spec, rules, interop and budgets. Ossify remains outside stable Claude and Codex marketplaces until Plan D's consolidated eval and pilot gate."
+  "version": "0.3.0",
+  "description": "Experimental OpenCode opt-in for a skeleton-first lifecycle from Release 0 through MVP and v1. The v0.x engine, six entry skills, and close ceremonies are packaged through the root bundle's explicit allowlist; /run-spine drives a planned spine's rounds end to end, /doctor diagnoses a project's state, spec, rules, interop and budgets, and the two standalone utilities /ossify:handoff + /ossify:handoff-resume compose and re-verify generic session handoffs in any repository. Ossify remains outside stable Claude and Codex marketplaces until Plan D's consolidated eval and pilot gate."
 }

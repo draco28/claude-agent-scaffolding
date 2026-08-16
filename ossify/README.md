@@ -1,9 +1,11 @@
 # ossify (experimental v0.x)
 
 Skeleton-first lifecycle plugin: Release 0 → MVP → v1, driven by bone and flesh
-spines against a cumulative demo ledger. Five entry skills (`start`,
-`plan-release`, `plan-spine`, `work-item`, `close`) plus `/run-spine`, which
-drives a planned spine's rounds end to end.
+spines against a cumulative demo ledger. Six entry skills (`start`,
+`plan-release`, `plan-spine`, `work-item`, `close`, `doctor`) plus `/run-spine`,
+which drives a planned spine's rounds end to end, and two standalone utilities
+— `/ossify:handoff` and `/ossify:handoff-resume` — generic session handoff
+that works in any repository, ossify-initialised or not.
 
 Ossify's experimental installability begins only after an immutable bundle tag
 is published. At that point it requires the root OpenCode bundle's explicit

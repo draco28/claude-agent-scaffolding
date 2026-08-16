@@ -1,0 +1,1 @@
+{"scores":{"drift_detected":5,"no_false_drift":5,"missing_reference_reported":5},"pass":true,"notes":"All four drifts named with was→now and read as expected progress (superseded steps skipped, resume at step 3), age surfaced as context not drift and the modified-but-existing reference reported as resolving existence-only, with reasoning stated throughout."}
