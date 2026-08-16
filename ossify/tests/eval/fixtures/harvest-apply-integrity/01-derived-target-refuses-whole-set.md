@@ -1,7 +1,7 @@
 ---
 scenario_id: 01-derived-target-refuses-whole-set
 expected_outcome: refuse-whole-set
-expected_reason: one item targets a spec-derived file, so the whole set stops before any write; the fix is the set (re-target or record the C2 referral), then one pass
+expected_reason: one item targets a spec-derived file, so the whole set stops before any write; the fix is the set (re-target or record the rule-authoring referral), then one pass
 ---
 Spine close step 9 in release `r2`. The candidate list was surfaced and the
 user accepted three entries:

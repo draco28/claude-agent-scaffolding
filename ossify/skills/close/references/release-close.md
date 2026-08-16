@@ -255,12 +255,14 @@ refusal that looks exactly like a real finding.
 The release retro itself lands beside them, in the release directory — the
 **parent** of what `spine_dir` returns:
 
-```text
-<ai-workspace>/docs/specs/<release-id>/release-retrospective.md
+```bash
+rel_dir="$(oss release_dir "$rel")"   # ABSOLUTE, ai_workspace-rooted
+# e.g. docs/specs/r0/ — the retro is "$rel_dir/release-retrospective.md"
 ```
 
-There is no dispatcher verb for the release directory; compose it from
-`oss repo_root ai_workspace` and that shape.
+`oss release_dir` resolves the manifest root for you, so the
+`docs/specs/r0/` in the comment above is relative to that resolved root —
+a workspace **shape** is never something to paste into a command.
 
 **What it aggregates**, drawing on the sections `retrospective.md` pins so this
 is a roll-up and not a re-interview: what the release set out to do against what

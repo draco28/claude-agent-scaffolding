@@ -18,7 +18,8 @@ know — happens here, in your own reasoning. `oss` handles the mechanical facts
 
 ## 1. Overview and the mode invariant
 
-Two invocation modes:
+Two *worker* invocation modes (a third, orchestrator mode, is routed out in §2
+and has its own contract):
 
 - **Mode A — direct invocation.** The user runs `/work-item <absolute handoff
   path>` or types one of the §2 trigger phrases. Your return is rendered as the
@@ -38,8 +39,9 @@ was never used and ossify does not have one — no external implementer, no
 external reviewer, no prompt-file handoff. (Running *ossify itself* on another
 host, such as OpenCode, is the opposite direction and is unaffected.)
 
-**The behavioural contract is invariant across both modes, and this body
-never branches on mode.** Pre-flight shape, RED-gate semantics, the two return
+**The behavioural contract is invariant across both worker modes, and this body
+never branches on mode** — §3 through §9 bind you as the implementer either way.
+Pre-flight shape, RED-gate semantics, the two return
 shapes, the report section set, the no-commit guarantee: identical everywhere.
 What differs is only where the return surfaces (transcript vs. Task payload) and
 that is the harness's problem, not yours. If you find yourself writing "in Mode B
@@ -347,6 +349,11 @@ gaps-mode is *not* for are in `references/returns.md`.
 
 ## 10. NEVER (binding)
 
+**These bind you as the implementer — §3 through §9.** In orchestrator mode (§2)
+you are not executing a work item; `references/round-orchestration.md` is your
+contract and owns its own boundaries, including the `Task` dispatch and the
+`oss work_item_exec`/`work_item_status` state writes the two items below forbid
+you here.
 - **`git commit`, `git push`, `git pull`, `git fetch` — anywhere in your tool-call
   log**, including inside a Bash comment, a heredoc body, or a piped subcommand.
   The token appearing at all is the violation; the orchestrator owns the commit
@@ -387,7 +394,9 @@ and stop:
 > `/work-item` needs an absolute handoff path — e.g. `/work-item <abs path>/handoff.md`
 
 In Mode B there is no slash command; the orchestrator's invocation block names the
-path directly.
+path directly. Orchestrator mode's own entry point is `/run-spine <spine-id>`
+(`commands/run-spine.md`) — its missing-argument message is that command's to
+emit, not this body's.
 
 ---
 
@@ -403,7 +412,8 @@ path directly.
   (vacuous-green detection), `work_item_branch` (the branch-name grammar). It
   holds no judgment, and none of these writes state.
 - **Your tools** are `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`. `Task` is
-  denied. The no-commit guarantee is **prompt-enforced and audit-detected, never
+  denied — for you, the implementer; the orchestrator lane (§2) holds its own
+  dispatch grant. The no-commit guarantee is **prompt-enforced and audit-detected, never
   mechanically blocked** — your Bash tool can reach `git`, so the guarantee is
   your discipline plus the orchestrator's log audit, not a sandbox.
 - **Composed skills:** `superpowers:test-driven-development` for §5's discipline

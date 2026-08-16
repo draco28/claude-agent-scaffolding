@@ -196,10 +196,12 @@ oss release_set_meta "$rel" '{"ledger_budget":"600s"}'
 
 Ask the user for the number; propose one if they have none (a few minutes is a
 sane starting budget for a young ledger). Then check it against reality —
-`oss ledger_active_auto` lists the `auto:` lines the ledger already carries, and
-`oss demo_run` reports what they actually cost. If the current ledger plus this
-release's expected contributions will not fit the budget, decide now, out loud,
-which of the three it is:
+`oss ledger_active_auto` lists the `auto:` lines the ledger already carries;
+`oss demo_run` emits no timing of its own, so time it —
+`start=$(date +%s); oss demo_run; elapsed=$(( $(date +%s) - start ))` — the same
+measurement `close`'s `references/cumulative-demo.md` §5 runs at every close.
+If the current ledger plus this release's expected contributions will not fit
+the budget, decide now, out loud, which of the three it is:
 
 - **prune** — retire or supersede lines that no longer earn their runtime
   (`plan-spine` records the amendment; `close` applies it);

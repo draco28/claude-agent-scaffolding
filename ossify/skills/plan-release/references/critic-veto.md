@@ -58,10 +58,13 @@ fresh-frame adversary.
 `RELEASE.md` is the single `--spec` artifact; the registry and the spine plans go
 into the conversation alongside it, not into the flag.
 
-**Absent critic:** `oss critic_detect` echoes `v0.2` (rc 0) or `absent` (rc 1).
-On `absent`, warn once and continue with the class ladder and the bone-touch judge
-— those two are not optional and do not depend on the critic. Do not stall, do not
-retry, do not treat the missing critic as a pass *or* as a veto.
+**Absent critic:** `oss critic_detect` echoes the highest installed version it
+finds — `v0.2`, `v0.3`, or later (rc 0) — or `absent` (rc 1). Branch on
+`absent`; never on the literal string `v0.2` (`start/references/critic-moment.md`
+§3 step 3). On `absent`, warn once and continue with the class ladder and the
+bone-touch judge — those two are not optional and do not depend on the critic.
+Do not stall, do not retry, do not treat the missing critic as a pass *or* as a
+veto.
 
 ---
 

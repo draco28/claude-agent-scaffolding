@@ -74,12 +74,12 @@ libs break. Use `oss help` for discovery.
 **Three probes, all fail-fast.**
 
 ```bash
-if ! oss state_path >/dev/null 2>&1; then
+if ! sp="$(oss state_path 2>/dev/null)"; then
   printf '%s\n' "ossify requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first."
   exit 0
 fi
-bones="$(oss get '.bones | length' 2>/dev/null)" || bones=""
-rels="$(oss get '.releases | length' 2>/dev/null)" || rels=""
+bones="$(oss get '.bones | length' "$sp" 2>/dev/null)" || bones=""
+rels="$(oss get '.releases | length' "$sp" 2>/dev/null)" || rels=""
 printf 'bones=%s releases=%s\n' "${bones:-<no state>}" "${rels:-<no state>}"
 ```
 
@@ -100,9 +100,9 @@ the user's intent from a name:
 
 ```bash
 spine="<spine-id from $ARGUMENTS>"
-class="$(oss get ".spines[] | select(.id == \"$spine\") | .class")"
-rel="$(oss get ".spines[] | select(.id == \"$spine\") | .release")"
-name="$(oss get ".spines[] | select(.id == \"$spine\") | .name")"
+class="$(oss get ".spines[] | select(.id == \"$spine\") | .class" "$sp")"
+rel="$(oss get ".spines[] | select(.id == \"$spine\") | .release" "$sp")"
+name="$(oss get ".spines[] | select(.id == \"$spine\") | .name" "$sp")"
 if [ -z "$class" ]; then
   printf '%s\n' "No spine '$spine'. Planned spines:"; oss spine_list; exit 0
 fi
@@ -121,9 +121,9 @@ The probes resolve differently, and only the first is manifest-proof:
 `oss state_path` reads the manifest and nothing else, so an exported
 `$OSS_STATE_FILE` cannot satisfy it. `oss get` routes through `_oss_resolve_state`
 (precedence `explicit-arg > $OSS_STATE_FILE > manifest`) and *can* be — a stale
-export from an unrelated session makes probes 2 and 3 read *that* project. The
-resolver announces on stderr when the env var overrides the manifest; heed that
-line. **`oss doctor` is the state GATE, not a full read-out** — four checks
+export from an unrelated session makes probes 2 and 3 read *that* project, which
+is why every `oss get` above passes the bound `$sp` as its explicit argument
+rather than calling bare. **`oss doctor` is the state GATE, not a full read-out** — four checks
 (`state`, `schema`, `replay`, `shape`). It says nothing about pending
 amendments, quarantined lines, outstanding fakes, patch records, a held lock or
 orphan worktrees; those are the `ossify:doctor` skill's, and invoking this skill does
@@ -151,7 +151,9 @@ oss work_item_add "$spine" "<title>" [target_repo]      # prints r1.s2.w1, …
 ```
 
 `target_repo` defaults to `canonical`; pass the private-side repo (e.g.
-`private_core`) for an item that lands there. **Each work item targets exactly one
+`private_core`) for an item that lands there — noting that only `canonical`
+executes in this release (`references/round-orchestration.md` §3, in the
+work-item skill, halts any other value). **Each work item targets exactly one
 repo** — an item that spans two repos is two items. Full rules in
 `references/cross-repo.md`. An unknown spine id exits **7** and writes nothing.
 

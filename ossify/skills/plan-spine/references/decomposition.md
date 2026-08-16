@@ -67,7 +67,7 @@ deliver another. That seam is the spine boundary you are looking for.
 
 ```bash
 w1="$(oss work_item_add "$spine" "order-ticket form + validation")"
-w2="$(oss work_item_add "$spine" "paper-fill adapter" private_core)"
+w2="$(oss work_item_add "$spine" "paper-fill adapter" private_core)"   # NOT DISPATCHABLE — only canonical executes in this release (cross-repo.md's banner); shown for the field's shape only
 ```
 
 Each call prints the minted id (`r1.s2.w1`, …); capture it. An unknown spine id

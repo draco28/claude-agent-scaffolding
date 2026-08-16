@@ -96,7 +96,9 @@ workspace beside the planning docs.
 index reference — `ADR-0002` is `adr-0002-hexagonal-core-with-six-port-traits.md`.
 
 The `adr-` prefix is **not** cosmetic: it is the form `scaffold-dev`'s ADR skill
-writes and `scaffold-onboard` seeds (`adr-0001-record-architecture-decisions.md`).
+writes (`adr-NNNN-kebab.md`); `scaffold-onboard`'s seed is the unprefixed
+`0001-record-architecture-decisions.md` — which is exactly why the numbering
+scan below reads both forms.
 A project migrating to ossify already has that series, and the whole reason bone
 ADRs live in the canonical repo is to join it rather than start a rival one.
 

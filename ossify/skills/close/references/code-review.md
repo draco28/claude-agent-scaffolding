@@ -63,8 +63,9 @@ contaminated by the other.
 ```bash
 canonical="$(oss repo_root canonical)"
 # $base_branch and $spine_branch are ALREADY RESOLVED by the ceremony — step 2
-# recovers base_branch from SPINE.md with its own halt-on-failure, and derives
-# the spine branch with `oss branch_name` (spine-close.md §3). Reuse them.
+# resolves base_branch from the handoffs' recorded value with SPINE.md's planned
+# base as the cross-check, halting on disagreement, and derives the spine branch
+# with `oss branch_name` (spine-close.md §3). Reuse them.
 git -C "$canonical" diff --stat "$base_branch...$spine_branch"   # scope first
 git -C "$canonical" diff "$base_branch...$spine_branch"          # the review surface
 ```

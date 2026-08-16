@@ -73,12 +73,12 @@ is recovered by globbing the spine directory, exactly as the execution lane
 recovers it for the spine branch.
 
 ```bash
-ai_root="$(oss repo_root ai_workspace)"
 parts="$(oss id_parse "$wi")" || parts=""
 rel_id="r$(printf '%s\n' "$parts" | awk '{print $2}')"
 spine_id="$rel_id.s$(printf '%s\n' "$parts" | awk '{print $3}')"
+rel_dir="$(oss release_dir "$rel_id")"   # ABSOLUTE, ai_workspace-rooted
 
-matches="$(find "$ai_root/docs/specs/$rel_id" -maxdepth 1 -type d -name "$spine_id-*" 2>/dev/null)"
+matches="$(find "$rel_dir" -maxdepth 1 -type d -name "$spine_id-*" 2>/dev/null)"
 n="$(printf '%s\n' "$matches" | grep -c . || true)"
 [ "$n" -eq 1 ] || { echo "close: expected exactly one spine dir for $spine_id, found $n - halt"; exit 1; }
 

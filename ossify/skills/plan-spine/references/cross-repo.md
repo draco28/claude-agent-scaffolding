@@ -3,6 +3,11 @@
 Depth for SKILL.md §4/§5. A spine may span repos; **each work item targets exactly
 one repo.**
 
+**Not executable in this release.** Only `target_repo: canonical` runs —
+`work-item/references/round-orchestration.md` §3 halts any other value by name
+("only canonical executes in this release"). Plan cross-repo spines against
+this file for when the field ships; do not dispatch one today.
+
 ---
 
 ## 1. The field
@@ -78,7 +83,8 @@ what the plan must contain:
   # The override is staged in the worktree the ITEM executes in, not in
   # canonical - read the path the execution lane journaled for that item.
   wt="$(oss get '.work_items[] | select(.id=="<wi-id>") | .worktree_path')"
-  [ -n "$wt" ] || { echo "no worktree_path recorded for that item - cannot check"; exit 1; }
+  [ -n "$wt" ] && [ "$wt" != "null" ] && [ -d "$wt" ] \
+    || { echo "no worktree recorded for that item - cannot check"; exit 1; }
   git -C "$wt" diff --cached --name-only \
     | grep -E '(Cargo\.toml|package\.json|go\.mod|pyproject\.toml|requirements[^/]*\.txt|setup\.(py|cfg))$' \
     || true
@@ -93,8 +99,11 @@ what the plan must contain:
   (`pyproject.toml`, `requirements*.txt`, `setup.py` / `setup.cfg`) were not.
 - **The spine-close cumulative demo builds the composition *with* the override**,
   against both repos' post-merge state. So an `auto:` line that builds the
-  composition is legitimate and will pass mid-flight — and the *release*-close
-  pin/publish step is what proves it also works against real pinned dependencies.
+  composition is legitimate and will pass mid-flight. **Nothing yet proves it
+  against real pinned dependencies** — the companion design's release-close
+  pin/publish step is not built (`close/references/release-close.md` §1). Until
+  it is, a composition-building `auto:` line is evidence about the override,
+  not about the published artifact.
 
 Spinning the multi-repo worktrees up is the execution engine's job, not this
 skill's. Plan the rounds so it is possible; do not attempt it here.
@@ -112,7 +121,9 @@ execution engine cannot do:
 - A merge conflict in **either** repo **halts the whole spine** at the last
   cross-repo-consistent round. Halt-and-surface; there is no automated cross-repo
   rollback.
-- The release PR gate emits **one PR per touched repo**.
+- **Not shipped:** the companion design's one-PR-per-touched-repo release gate
+  (`close/references/release-close.md` §1). Plan on the assumption a release
+  close covers one repo.
 
 The consequence for planning: **keep the number of cross-repo round boundaries
 small.** Every alternation between repos is another point where a conflict halts
