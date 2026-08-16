@@ -13,8 +13,8 @@ agrees.
 The canonical's `PUBLIC_BOUNDARY.md` exists with the standard secrets rules
 and a one-entry hygiene allowlist (`.env*`, untracked). `git ls-files` matches
 no `never-tracked:` rule. `git ls-files --others` returns exactly `.env` —
-allowlisted. `gitleaks` is installed, a repo config is present, and the scan
-reports nothing. Push protection reads enabled.
+allowlisted. `gitleaks` is installed, a repo config is present, and a completed scan
+reports nothing on **both** repos — the AI workspace's private arm included. Push protection reads enabled.
 
 State posture is `fully-open`; the private boundary inventory exists and its
 moat table is explicitly empty ("no functionality moat — doc routing only").

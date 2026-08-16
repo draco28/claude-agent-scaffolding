@@ -121,6 +121,14 @@ finding. Fail-closed: a repo you cannot prove private is treated as public.
 | `ai_workspace`, `private_core` | **public** | **blocking finding on its own** — these roles are private by construction. **§3, §4 and §5 all run in full**: the repo is already exposed, and the visibility finding is overridable, so a skipped sweep means an accepted public workspace is never examined again |
 | `ai_workspace`, `private_core` | undeterminable | the undeterminable read is a finding, **and the role-appropriate §3 secrets scan still runs** as hygiene notes; §4 and §5 skipped |
 
+**A role with no row of its own takes the `canonical` policy.** The optional
+`tooling_repo` is the live case: observed private, it matches neither the `any`
+row (public/undeterminable only) nor the two private-by-construction role rows,
+and would otherwise have no defined checks at all despite this section claiming
+every manifest repo is audited. It is a product-adjacent repo, not a moat
+holder, so it audits like a canonical — §3 as hygiene notes when private, the
+full §3-§5 when public.
+
 **Role-specific rows win over the `any` row.** An undeterminable read is
 audited as public (above), so an `ai_workspace` with unreadable visibility
 matches three rows at once; the role rows are the answer, and the `any` row
@@ -185,7 +193,12 @@ flipped public — the commonest shape there is — passes every scan and closes
 
 ## 3. Step 1 — the tracked-file audit
 
-**`PUBLIC_BOUNDARY.md` must exist at the audited repo's root.** An
+**`PUBLIC_BOUNDARY.md` must exist at the audited repo's root — and be
+tracked.** An authored-but-unstaged file is read locally while the public repo
+still ships no boundary policy, and its filename matches no sensitive-path
+class, so §4 will not catch the omission either. Confirm it appears in
+`git -C "<root>" ls-files`; present-but-untracked is the same finding as
+absent, named as such. An
 observed-public repo without one is a **blocking finding** with the remediation
 named — author it via `start`'s posture block (`posture-block.md` §6) — never a
 silent skip. The v1 draft's defect was exactly a missing artifact reading as a
@@ -200,6 +213,13 @@ finding the user rejects in one sentence; an under-match is a leak. (Glob
 dialects disagree about whether a leading `**/` matches zero segments and
 whether a trailing `/**` matches the directory itself; that disagreement is not
 worth resolving in prose, and resolving it the safe way costs nothing.)
+
+**An empty or malformed block is INCONCLUSIVE, not clean.** Iterating zero
+`never-tracked:` entries performs zero checks and reports nothing, which is
+indistinguishable from a repo that passed them — so before matching, confirm
+the block parses and still carries the standard secrets rules; a block that is
+empty, unparseable, or missing a rule the template ships is a recorded
+degradation with the same weight as a failed scan.
 
 Any tracked match is a finding: the file, the rule it violates, and — because
 the file is already tracked — the note that removal alone does not untrack
@@ -323,7 +343,13 @@ Then read the posture (`oss get ".project.posture"`):
   exactly them. If the inventory **cannot be located**, the pass is
   INCONCLUSIVE — a finding with the remediation pointer, not a clean pass.
 - `fully-open` with an explicitly empty inventory → the **moat question** is
-  trivially clean; say so and move on rather than inventing findings. (The
+  trivially clean; say so and move on rather than inventing findings. **The
+  sweep itself still runs.** An empty moat table means nothing is private, not
+  that nothing is forbidden: `PUBLIC_BOUNDARY.md`'s "Never here" rules still
+  ban downstream strategy, roadmaps, competitive material and non-synthetic
+  fixtures, and a tracked memo violating them matches no `never-tracked:` path
+  and passes gitleaks. So sweep the tracked doc set against those rules, with
+  the moat rows simply absent from the comparison. (The
   `fixtures-must-be: synthetic` question is asked regardless — §3.)
 
 ### The three rules, first match wins
@@ -457,7 +483,8 @@ close clean without anyone overriding anything.
 
 ## 7. The report
 
-One block per repo in the set — role, **the audited ref**, gate outcome (observed visibility per
+One block per repo in the set — role, **the audited ref**, **the coverage
+line** (below), gate outcome (observed visibility per
 remote, manifest and posture agreement, what ran and what was skipped),
 tracked-file hits, untracked hits split new-vs-standing, semantic findings,
 degradations — each finding carrying repo, class, the path or pattern, why it
@@ -465,6 +492,23 @@ is a finding, and its remediation. Then the triage conversation, finding by
 finding. Then the verdict, one of exactly three: **clean**, **blocked**
 (naming each confirmed finding), or **proceeding with overrides** (naming each
 override and its reason).
+
+### The coverage line, and why it is not optional
+
+Every repo block opens with a **coverage read-out**: each of the five checks —
+tracked rules, secrets scan, untracked sweep, semantic pass, history — marked
+**ran**, **skipped** with the observed value that justified it, or
+**INCONCLUSIVE** with what failed. Nothing else in the block is trusted until
+that line accounts for all five.
+
+**This inverts the step's default, and that is the point.** Every fail-open
+this file has had to close was the same shape: an arm nobody wrote a rule for
+reported clean, because the report only ever said what was *found*, never what
+was *looked at*. A verdict is assembled from the coverage line, so a check with
+no recorded outcome is INCONCLUSIVE by construction rather than by someone
+having anticipated it — and **INCONCLUSIVE is never clean**, at any scale, for
+any reason. A new role, a new manifest field, a tool that changes its flags:
+each surfaces as an unaccounted check rather than as silence.
 
 **The report's home is the close summary** (`close/SKILL.md` §10) — it is the
 ceremony's final message, not a file. The durable records are the inventory's
@@ -532,8 +576,11 @@ record is a **History passes** line in the private boundary inventory, beside
 the accepted disclosures — repo, the **commit it reviewed through**, and the
 date, written when the user confirms a full-history review was done.
 
-The reviewed commit is what makes the line expire. **Compare it against the
-repo's current tip; if commits have landed since, a new or incremental pass is
+The reviewed commit is what makes the line expire. **Compare it against every
+public ref, not just the audited one** — a sensitive document committed to
+another public branch or tag leaves the audited tip untouched, and the index
+and semantic sweeps only ever read the release ref, so nothing else would see
+it. **Compare it against the repo's tips; if commits have landed since, a new or incremental pass is
 owed** — incremental is enough, the range between the two. A line carrying only
 a release id and no commit predates this format and is **treated as absent**.
 
@@ -587,4 +634,11 @@ tree in its history. An absent or outrun line is determinable, and it fails safe
   passes` line as permanent when commits have landed since (§8).
 - **Naming a moat item in any public-facing record of a finding.** Patterns
   and classes only (§7).
+- **Reporting a verdict without a coverage line**, or reading an unaccounted
+  check as clean rather than INCONCLUSIVE (§7).
+- **Treating an empty machine-checkable block as a pass** — zero rules run is
+  zero checks, not zero violations (§3).
+- **Reading an untracked `PUBLIC_BOUNDARY.md` as present** (§3).
+- **Expiring a history pass against the audited ref alone**, when another
+  public branch or tag can carry what the release ref never saw (§8).
 - **Running the state writes after a halt here** (§1, `release-close.md` §9).
