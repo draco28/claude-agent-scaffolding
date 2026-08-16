@@ -1,11 +1,1 @@
-{
-  "scores": {
-    "class_correct": 5,
-    "horizontal_caught": 5,
-    "flesh_bone_reclassified": 5,
-    "no_over_ceremony": 5,
-    "rationale_cited": 5
-  },
-  "pass": true,
-  "notes": "Output declares `internal-enabler` matching the fixture's expected_class, catches the horizontal build at rung 1 on positive evidence (artifact-existence demo, no actor) and explicitly overrules the declared `flesh`, keeps class verdict and admission as two separate \u00a74 judgments, mints no spine id and adds no bone ceremony, and cites the governing rules verbatim (rung-1 journey gate, \u00a72 enabler rationale shape, \"silence is not a named consumer\", \u00a73 row-1 archetype, \u00a75 exit-2 guard); the two unexercised criteria (bone-touch reclassification, flesh non-inflation) are consistently handled \u2014 it correctly states rungs 2-4 are not revisited after rung 1 fires and restates touch_check's rc 0=hit / 1=clean / 2\u2260clean semantics accurately per `/Users/draco/projects/claude-agent-scaffolding/ossify/skills/plan-release/references/bone-touch-judge.md`."
-}
+{"scores":{"class_correct":5,"horizontal_caught":5,"flesh_bone_reclassified":5,"no_over_ceremony":5,"rationale_cited":5},"pass":true,"notes":"Output correctly classifies the horizontal persistence build as internal-enabler via the rung-1 journey gate, keeps admission as a separate named-consumer judgment, and cites the governing rules throughout; bone-touch and over-ceremony criteria are unexercised with nothing contradicting them."}

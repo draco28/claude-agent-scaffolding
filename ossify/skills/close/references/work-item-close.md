@@ -238,7 +238,7 @@ costs and different blast radii.
 It happens at **spine close, as the last step**, and the reason is the branch —
 not the report.
 
-`oss_worktree_remove` runs `git branch -d` and **refuses an unmerged branch at
+`oss worktree_remove` runs `git branch -d` and **refuses an unmerged branch at
 rc 8**. Cleanup can therefore only succeed after step 4's merge has landed;
 running it here, before the merge, converts a recoverable state into a halt and
 leaves the work reachable only from a branch the ceremony has already tried to

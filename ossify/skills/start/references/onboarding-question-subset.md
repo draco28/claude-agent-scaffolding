@@ -37,9 +37,12 @@ about decisions*, not as a 54-item questionnaire.
 | **Quality / eval strategy** (coverage targets, eval suites, load testing) | Release close docs increments; the trigger table | Quality bars for unwritten code are aspirational |
 | **Operations & support** (runbooks, on-call, SLOs, support path) | Triggered: "someone other than the author uses it" → onboarding/quickstart + runbook; "v1" → release/rollback + SLO baseline | Solo-scale products need none of it at Release 0 |
 | **Exhaustive FR/NFR** | Release-close docs increments | See `references/lean-spec-schema.md` §3 |
+| **Strategy** (legacy Phase 2: target weeks-to-MVP, milestone pacing) | Cut outright — no trigger | Timeboxes for unplanned releases are prophecy; pacing emerges from the release cadence. Cut deliberately, not lost in the port |
 
 Moving a question does **not** delete it. Each has a named trigger; the docs
-trigger table (spec §8) fires them.
+trigger table (spec §8) fires them. The Strategy row is the one deliberate
+exception: per §4, a question with no trigger does not come back, and that is
+the correct outcome.
 
 ---
 

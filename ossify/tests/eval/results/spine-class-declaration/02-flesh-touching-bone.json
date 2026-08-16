@@ -1,11 +1,1 @@
-{
-  "scores": {
-    "class_correct": 5,
-    "horizontal_caught": 5,
-    "flesh_bone_reclassified": 5,
-    "no_over_ceremony": 5,
-    "rationale_cited": 5
-  },
-  "pass": true,
-  "notes": "Output declares `bone`, matching the fixture's expected_class, and reaches it by the correct rung-2 bone-touch path with accurate rc semantics (rc 0 = HIT, rc 2 explicitly flagged as not-clean), correct ladder-stop behavior, both required `class_set` + `veto_add auto-bone` calls plus the \u00a74.1 user notification, the \u00a72 rationale shape verbatim, and the \u00a71/\u00a77 critic-independence and no-override rules; it also correctly declines to over-trip the rung-1 journey gate (naming the trader actor-to-outcome journey and the \"architecture present \u2260 enabler\" caveat) and correctly notes no risk-gate controls attach since only a bone line matched \u2014 no manufactured extra ceremony; the `<ADR-ref>` placeholder is appropriate since the fixture names no ADR id, and the \"Admitted: YES\" framing, while answering an unasked question, correctly reasons that the \u00a74 admission gate applies only to an internal-enabler verdict."
-}
+{"scores":{"class_correct":5,"horizontal_caught":5,"flesh_bone_reclassified":5,"no_over_ceremony":5,"rationale_cited":5},"pass":true,"notes":"Output correctly forces flesh-to-bone via the Rung 2 touch-surface hit on src/domain/port.rs, cites the deciding rule and recording steps, and nothing contradicts the unexercised criteria."}

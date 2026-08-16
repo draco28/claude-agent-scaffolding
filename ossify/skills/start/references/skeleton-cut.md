@@ -62,6 +62,9 @@ silently disagree with it.**
 
 **Thinnest** and **coherent** are both binding. Thin without coherent gives a
 layer (a database with no way to reach it). Coherent without thin gives an MVP.
+The cut is never "minimal" — it *is* the minimum; what varies is how much of the
+journey map it was derived from (`references/journey-map.md` §6: one core
+journey is enough).
 
 ---
 
@@ -117,15 +120,7 @@ release; do not call `oss release_add` from this skill.
 
 ---
 
-## 6. Release-0 minimum
-
-The cut is never "minimal" — it *is* the minimum. What varies is how much of the
-journey map it was derived from (see `references/journey-map.md` §6: one core
-journey is enough).
-
----
-
-## 7. Anti-patterns
+## 6. Anti-patterns
 
 - **Naming the cut "the MVP".** See §1.
 - **A cut with no user-visible surface.** "Release 0 is the domain model" is the

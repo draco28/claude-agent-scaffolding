@@ -175,9 +175,8 @@ scheduled in the **current or next release** — the one-release-ahead cap.
 - If the consuming spine is later **dropped**, the internal spine returns to the
   feature map too. The dependency runs both ways.
 
-Admission is scored separately from class (the `journey-line-floor` surface owns
-the consumer rule; `plan-spine` enforces the demo-line floors). Do not merge them
-into one verdict.
+Admission is scored separately from class — `plan-spine` enforces the consumer
+rule along with the demo-line floors. Do not merge them into one verdict.
 
 ---
 

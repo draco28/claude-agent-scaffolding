@@ -1,12 +1,1 @@
-{
-  "scores": {
-    "verdict_correct": 5,
-    "inspector_caught": 5,
-    "verb_outcome": 5,
-    "consumer_rule": 5,
-    "no_false_reject": 5,
-    "before_after_evidence": 5
-  },
-  "pass": true,
-  "notes": "Output returns ACCEPT matching expected_verdict, justifies it on the \u00a73.1 actor/value test plus a per-shape negation of the \u00a73.2 bans (showing it would catch inspector phrasing), explicitly invokes \u00a73.3/\u00a78 to avoid the false-reject failure mode on \"see it appear\", correctly and specifically marks F3/F4/F6 as n/a per \u00a72's n/a rules, and disclaims the \u00a73.5 rc-0 backstop as not being the verdict \u2014 no unsupported reasoning and no rubric criterion contradicted."
-}
+{"scores":{"verdict_correct":5,"inspector_caught":5,"verb_outcome":5,"consumer_rule":5,"no_false_reject":5,"before_after_evidence":5},"pass":true,"notes":"Correct ACCEPT with sound F2 reasoning that isolates the action verb from the outcome-half 'see/appear' wording, explicitly avoiding the false-reject trap; unexercised criteria are uncontradicted."}
