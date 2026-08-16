@@ -70,10 +70,12 @@ its own bar:
 > containment, or separate ownership. Absent that evidence, cut the seam and
 > keep it in-process.
 
-"Measured" means a number or an incident someone can point at: the profile
-showing this component is the bottleneck, the load figure it cannot meet
-in-process, the compliance boundary that forbids co-location, the outage
-where its failure took the rest down, the second team that now owns it.
+"Measured" means evidence that already exists and someone can point at —
+not always a number. A profile showing this component is the bottleneck, a
+load figure it cannot meet in-process, an outage where its failure took the
+rest down; equally an enacted compliance rule that forbids co-location, or an
+ownership transfer that has actually happened. The test is that it is
+contemporaneous and checkable, not that it is numeric.
 **An anticipated one does not count** — "it will need to scale
 independently" is the architecture astrology this bar exists to refuse, and
 a seam cut cleanly today can be deployed separately later at far lower cost
