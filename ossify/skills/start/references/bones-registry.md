@@ -84,8 +84,8 @@ mechanical checks read.
 ### Authoring the ADR file
 
 `oss bone_add` writes **the index row only**. Nothing writes the ADR file, and
-ossify ships no `/adr` utility in this release — so until one lands in v0.3,
-**this is the convention**:
+ossify ships no `/adr` utility — that is a settled decision, not a pending
+gap — so **this section is the convention, permanently**:
 
 **Where:** `<canonical>/docs/adr/` — resolve it with
 `canonical="$(oss repo_root canonical)"`. Bones are decisions about the

@@ -179,8 +179,9 @@ was this not done?"*, read the memory bank's `tech-debt.md` index and, if the ga
 is already a tracked deferral, surface it as *known* rather than as a fresh
 blocker.
 
-It is omitted here because the file it reads does not exist yet. That index is
-maintained by `/defer`, and `/defer` does not ship in this plugin yet. Describing a
+It is omitted here because the file it reads does not exist. That index is
+maintained by `/defer`, which this plugin does not ship — a settled decision,
+not a pending gap. Describing a
 read that resolves to nothing would be worse than describing nothing: it produces
 an agent that reports "checked known issues — none found" on a file that was never
 written, which is a confident false negative.
