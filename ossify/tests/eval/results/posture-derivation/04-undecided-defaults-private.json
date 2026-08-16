@@ -2,10 +2,10 @@
   "scores": {
     "posture_correct": 5,
     "intent_over_facts": 5,
-    "channel_mapping": 5,
-    "default_private": 5,
-    "rationale_cited": 5
+    "channel_correct": 5,
+    "undecided_private": 5,
+    "moat_mapped": 5
   },
   "pass": true,
-  "notes": "Output matches the answer key exactly (fully-private / repo-private) and shows the reasoning rather than asserting it: it cites P1 verbatim as the default-private fail-safe, states that P2/P3 are never reached, and explicitly rejects both \"fully-open because the code looks harmless\" and \"defer the question\" with the correct asymmetry rationale (private\u2192public = one ceremony, public\u2192private = impossible), which is consistent with the intent-over-facts criterion this fixture does not directly exercise (no facts/intent conflict exists here). The channel derivation is the strongest part: it declares the moat inventory empty without inventing items (\u00a73), then walks C0\u2192C3 in order and correctly resolves the one genuine trap \u2014 that an empty inventory does NOT trigger C0, because C0 is scoped to a fully-open no-functionality-moat project while C3 explicitly claims \"nothing has been enumerated because the posture came from the P1 fail-safe\" \u2014 landing on repo-private with \"the whole repo is the boundary.\" Verified against ossify/skills/start/references/posture-block.md \u00a72/\u00a73/\u00a74/\u00a79/\u00a710/\u00a711 and worked example D; every downstream claim checks out (PUBLIC_BOUNDARY.md still authored since hygiene is visibility-independent, bone in category 9 with a revenue-seeded revisit trigger, no overlay_set since there is no seam, no private_core note since the channel is not private-package, composition_root left unset by default, inventory kept in the private AI workspace). No fabricated rule IDs or hallucinated section refs."
+  "notes": "Exact match to the answer key on both axes (fully-private via the P1 default-private fail-safe, repo-private via C3), with the empty moat inventory stated rather than invented and the C0-vs-C3 trap correctly resolved — C0 is scoped to a fully-open project with no functionality moat, not to an inventory left unenumerated by the fail-safe."
 }
