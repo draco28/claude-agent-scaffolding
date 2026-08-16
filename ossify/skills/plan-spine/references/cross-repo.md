@@ -83,6 +83,8 @@ what the plan must contain:
   # The override is staged in the worktree the ITEM executes in, not in
   # canonical - read the path the execution lane journaled for that item.
   wt="$(oss get '.work_items[] | select(.id=="<wi-id>") | .worktree_path')"
+  # oss get is jq -r: an absent or JSON-null field prints the four bytes
+  # `null`, which is non-empty and passes a bare [ -n ] test.
   [ -n "$wt" ] && [ "$wt" != "null" ] && [ -d "$wt" ] \
     || { echo "no worktree recorded for that item - cannot check"; exit 1; }
   git -C "$wt" diff --cached --name-only \

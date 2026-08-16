@@ -75,7 +75,7 @@ fi
 # Later bare verbs resolve state alone and would honor this override —
 # refuse it: the whole ceremony binds to the manifest's project.
 if [ -n "${OSS_STATE_FILE:-}" ]; then
-  printf '%s\n' "plan-spine plans the manifest's project; OSS_STATE_FILE='${OSS_STATE_FILE}' is set - unset it and re-run. Halt."
+  printf '%s\n' "plan-spine plans the manifest's project; OSS_STATE_FILE='${OSS_STATE_FILE}' is set - unset it and re-run."
   exit 0
 fi
 bones="$(oss get '.bones | length' "$sp" 2>/dev/null)" || bones=""
@@ -120,7 +120,8 @@ here re-derives it. `rel` is the spine's release (§8 reads its ledger budget).
 The probes resolve differently, and only the first is manifest-proof:
 `oss state_path` reads the manifest and nothing else, so an exported
 `$OSS_STATE_FILE` cannot satisfy it. `oss get` routes through `_oss_resolve_state`
-(precedence `explicit-arg > $OSS_STATE_FILE > manifest`) and *can* be — a stale
+(precedence `explicit-arg > $OSS_STATE_FILE > manifest`) and *can* be satisfied
+by one — a stale
 export from an unrelated session makes probes 2 and 3 read *that* project, which
 is why the pre-flight refuses a set `OSS_STATE_FILE` outright — passing the bound
 `$sp` to the `oss get` calls above is defense in depth, not the whole guard, because
@@ -482,8 +483,8 @@ infer a spine from a name when the id missed (§3).
   golden-journey line really drives the journey, and whether a fake is admissible.
 - **`oss`** (the dispatcher over `lib/*.sh`) handles mechanical state only —
   every verb this skill and its references call is in `oss help`; none of them
-  holds judgment — but
-  `ledger_add_user`'s prefix check is a typo guard, not the journey-line floor.
+  holds judgment. `ledger_add_user`'s
+  prefix check is a typo guard, not the journey-line floor.
 - **`ai-mentor:grill-me`** and **`architect-critic:critiquing-spec`** are invoked
   as unmodified peer skills, bare and plugin-qualified. Neither gains a new
   interface here.

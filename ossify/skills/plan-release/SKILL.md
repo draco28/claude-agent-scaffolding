@@ -78,7 +78,7 @@ fi
 # Later bare verbs resolve state alone and would honor this override —
 # refuse it: the whole ceremony binds to the manifest's project.
 if [ -n "${OSS_STATE_FILE:-}" ]; then
-  printf '%s\n' "plan-release plans the manifest's project; OSS_STATE_FILE='${OSS_STATE_FILE}' is set - unset it and re-run. Halt."
+  printf '%s\n' "plan-release plans the manifest's project; OSS_STATE_FILE='${OSS_STATE_FILE}' is set - unset it and re-run."
   exit 0
 fi
 bones="$(oss get '.bones | length' "$sp" 2>/dev/null)" || bones=""
