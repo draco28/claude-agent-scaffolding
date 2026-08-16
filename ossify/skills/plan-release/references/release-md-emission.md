@@ -104,10 +104,13 @@ closes.
 _No detail beyond this — rolling wave._
 ```
 
-Render the **dispositions** block from `veto_dispositions` in state
-(`oss get '.veto_dispositions'`) plus the class-override reasons
-(`oss get '.class_overrides'`). It is the part a reader six months later actually
-needs: not just what class each spine has, but which judge decided it.
+Render the **dispositions** block from `veto_dispositions` in state, plus the
+class-override reasons from `class_overrides`. **Both arrays are global across
+all releases** — filter by this release's spine-id prefix or prior releases'
+records leak into this document:
+`oss get '.veto_dispositions | map(select(.spine | startswith("<release-id>.")))'`
+(same shape for `.class_overrides`). It is the part a reader six months later
+actually needs: not just what class each spine has, but which judge decided it.
 
 ---
 

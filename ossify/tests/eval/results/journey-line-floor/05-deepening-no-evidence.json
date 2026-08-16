@@ -1,12 +1,1 @@
-{
-  "scores": {
-    "verdict_correct": 5,
-    "inspector_caught": 4,
-    "verb_outcome": 4,
-    "consumer_rule": 4,
-    "no_false_reject": 5,
-    "before_after_evidence": 5
-  },
-  "pass": true,
-  "notes": "Output REJECTs on F4 matching expected_verdict/reason, reproduces the \u00a72 read-out verbatim in format, and states all three \u00a75 parts (before number + producing command, after bound, re-measuring auto: line with the threshold inside the command since `expected` has no comparison form) plus the correct \"REJECT \u21d2 no ledger_add_* call\" consequence and accurate citations (demo-authoring \u00a72/\u00a75/\u00a78, SKILL.md \u00a78b/\u00a711 \u2014 all verified against the files); the inspector/verb-outcome/consumer criteria are unexercised by this fixture but the output is consistent with them (F3 correctly n/a for a user-facing spine, F2 flagged as owing a `user:` journey line, no line falsely rejected), and it correctly notes F4 becomes legitimately n/a if the speed claim is dropped \u2014 guarding the no-false-reject direction; minor deductions only for the slightly ambiguous F3 note (\"not an admitted internal spine\" reads two ways) and generous F1/F5 passes on re-proposed pre-existing lines."
-}
+{"scores":{"verdict_correct":5,"inspector_caught":4,"verb_outcome":4,"consumer_rule":4,"no_false_reject":4,"before_after_evidence":5},"pass":true,"notes":"Correct REJECT on F4 with the before-number/after-bound/auto-re-measure requirement spelled out; the unexercised criteria are consistent though not demonstrated (scored 4, not 5)."}

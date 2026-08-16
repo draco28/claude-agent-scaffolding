@@ -34,8 +34,8 @@ Passing no argument at spine close silently turns a spine gate into a release
 walkthrough — the run gets longer and longer, and the release gate stops being
 the first place anyone notices a regression in an older journey.
 
-Both halves run against **canonical post-merge state**, which is why the demo is
-step 4 and the merge is step 2. The runner resolves its working directory itself:
+Both halves run against **composition-root post-merge state**, which is why the
+demo is step 4 and the merge is step 2. The runner resolves its working directory itself:
 the declared composition root when the project has one, the canonical repo root
 otherwise. Do not `cd` to help it — the manifest walk starts at `$PWD` and a `cd`
 re-points every later state read (SKILL.md §3).
@@ -121,7 +121,9 @@ blind spot:
 
 The read-aloud test above catches the obvious abuse. It does not *establish*
 innocence, and the abuse it misses is the sincere one: an agent that genuinely
-believes the failure is unrelated and is wrong. There is a mechanical check:
+believes the failure is unrelated and is wrong. There is a mechanical check —
+run it from the same workdir the runner resolved (§1; a declared composition
+root when there is one — the blocks below show the canonical-root case):
 
 ```bash
 # Does the line fail WITHOUT this spine? Run it at the merge's first parent -

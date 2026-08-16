@@ -133,6 +133,9 @@ a journey line, whatever verb it opens with.
   not the API surface itself** — see below.
 - **The passive dodge** — "the report is available to the user". No actor
   performs anything; nothing is observed.
+- **An outcome with no falsifiable shape** — "place a paper trade → it works".
+  "It works" cannot fail; a real outcome half names the observable that would be
+  *absent* if the feature were broken ("…and see the fill land in the blotter").
 
 ### 3.2b Headless products — the user is a consumer, not a person
 
@@ -188,6 +191,7 @@ nobody can actually walk.
 | "search for a customer by partial name and see matching records ranked by recency" | **ACCEPT** | Verb + observable outcome, both halves present |
 | "resume an interrupted upload and see it finish from where it stopped" | **ACCEPT** | The visible "finish" is the evidence; the action is resuming |
 | "cancel a working order from the order book and see it drop out of the working list" | **ACCEPT** | The action is cancelling; the visible list is the evidence it worked. Rejecting this because "see" and "drop out" occur is the false-reject failure mode |
+| "review the generated trade summary and approve or override it before it submits" | **ACCEPT** | Here the review *is* the value — a decision gate the user came to perform, ending in an approved or overridden order. Contrast "review the generated schema" (§3.5): a review that ends in nothing but having looked is inspection |
 
 ### 3.5 The mechanical backstop and its exact scope
 
@@ -287,8 +291,9 @@ feature map too. The dependency runs both ways.
 
 A pass claiming a measured quality must state, in its demo contribution:
 
-1. the **before** number, measured on the pre-spine build, with the command that
-   produced it;
+1. the **before** number, measured on the pre-spine build **during planning** —
+   a number written down without running the command is a guess, not a
+   baseline — with the command that produced it;
 2. the **after** target, as a bound (not a hope);
 3. an `auto:` line that **re-measures and fails when the bound is missed**.
 
@@ -325,9 +330,9 @@ oss ledger_add_auto "$spine" "<text>" "<command>" "exit:0|contains:<str>"
 
 `<expected>` is validated as `exit:<n>` or `contains:<str>`; anything else exits
 **2** and writes nothing. The command must be runnable from the composition root
-against **canonical post-merge state** — not from a worktree, not with a developer's
-local env var, not with a manual setup step in someone's head. If setup is
-required, the command performs it.
+against **composition-root post-merge state** — not from a worktree, not with a
+developer's local env var, not with a manual setup step in someone's head. If
+setup is required, the command performs it.
 
 **A line that can't state its command doesn't enter the ledger.** "We'll figure
 out how to test this later" is a rejected line, not a recorded one.
@@ -364,7 +369,7 @@ oss ledger_active_auto | jq -r '.[] | "\(.id)\t\(.source_spine)\t\(.text)"'
 ```
 
 **What counts.** One command, runnable from the composition root against
-canonical post-merge state, that exercises the whole journey — entry point,
+composition-root post-merge state, that exercises the whole journey — entry point,
 through the layers the journey crosses, to the observable outcome — and exits
 non-zero if any leg breaks:
 

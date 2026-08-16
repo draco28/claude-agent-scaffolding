@@ -46,6 +46,7 @@ Common false edges:
 | "both items edit `main.rs`" | A merge conflict to sequence at execution, not a planning edge |
 | "do the risky one first" | A legitimate ordering choice *among round-1 items*, not an edge |
 | "both touch the same bone" | Only an edge if one *changes* the bone the other depends on |
+| "B builds against A's interface" | Not an edge when the interface is already **fixed in the spec** — B codes to the contract. Still an edge when B needs A's landed artifact to compile (the cross-repo case, §6), or when A still *owns the interface's design* (the third test — building B first means building it twice) |
 
 ---
 
@@ -53,6 +54,14 @@ Common false edges:
 
 1. List the items and their declared dependencies (§4).
 2. Test each proposed edge against §2, out loud, once each. Keep the survivors.
+   What that sounds like, over one proposed edge:
+
+   > *"In another spine, `w6` (order history view) depends on `w4` (order
+   > submission)?* Which §2 test? Not the seam — the orders table lands in
+   > `w5`, not `w4`. Not verification — `w6`'s ACs seed rows directly. 'Users
+   > submit before they browse' is journey order, not build order.
+   > **Dropped.**"
+
 3. **Round 1 = every item with no surviving dependency.** If that set is empty,
    you have a cycle (§5).
 4. Layer the rest: an item joins the first round after all its dependencies.
@@ -91,14 +100,10 @@ nobody can see later.
 ## 6. Cross-repo ordering
 
 A cross-repo dependency is a **real edge** by §2's first test — the private
-adapter cannot compile against a port that does not exist yet:
-
-> Round 1: `w1` public port change (`canonical`)
-> Round 2: `w2` private adapter implementing it (`private_core`)
-
-The reverse order is not a preference, it is a build failure. Mid-spine the public
-change exists only on a local spine branch, which is why the private side needs a
-worktree-scoped local dependency override — mechanics in `cross-repo.md`.
+adapter cannot compile against a port that does not exist yet. The worked
+ordering example and the general rule (contract-owning repo first) live in
+`cross-repo.md` §2; the build mechanics — the worktree-scoped local dependency
+override the private side needs mid-spine — in `cross-repo.md` §3.
 
 ---
 

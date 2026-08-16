@@ -82,7 +82,8 @@ dropped its entry from that registry in v0.2 (ac settlement #1).
    a message opening *"Audit complete for …"* listing the challenges that stood.
    React to what it actually returned, not to what you expected.
 
-5. **Disposition-triage** the standing challenges (§5).
+5. **Disposition-triage** the standing challenges (§5), then continue to the
+   Release-0-minimums recap and the outputs block.
 
 ---
 
@@ -119,13 +120,12 @@ and all travel the same way — in the args string. `start` uses none of them:
 `--async` in particular would turn this advisory moment into a
 dispatch-and-resume job, which is the wrong shape for a synchronous close.
 
-6. Continue to the Release-0-minimums recap and the outputs block.
-
 ---
 
 ## 4. Absent — warn and skip
 
-Emit exactly one warning, then continue:
+Emit exactly one warning, then continue to the Release-0-minimums recap and the
+outputs block — the same destination every arm of §3 ends at:
 
 > architect-critic not installed — skipping spec-core audit. Install via
 > `/plugin install architect-critic` (v0.2+).
@@ -165,7 +165,7 @@ is recorded and the flow continues. The critic's findings do not gate
 
 ---
 
-## 6. What NOT to do
+## 6. Anti-patterns
 
 - **Do not gate on the critic.** Advisory. Always.
 - **Do not fire more than once.** One `close` audit per spec-core close. Per-block

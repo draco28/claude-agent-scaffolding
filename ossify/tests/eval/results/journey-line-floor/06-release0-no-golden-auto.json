@@ -1,12 +1,1 @@
-{
-  "scores": {
-    "verdict_correct": 5,
-    "inspector_caught": 5,
-    "verb_outcome": 5,
-    "consumer_rule": 5,
-    "no_false_reject": 5,
-    "before_after_evidence": 5
-  },
-  "pass": true,
-  "notes": "Output rejects with exactly the fixture's expected reason (Release 0 contributes no automated golden-journey line); its quoted rules check out against the real skill files \u2014 \u00a77's per-layer-auto: REJECT row, the \"user: walkthrough does not substitute\" clause, and the named-owner escape hatch it correctly closes (\"silence is not a named owner\") \u2014 it blocks the ledger_add on REJECT, and its remediation states a single command from entry point to the actor's observable outcome (verb + outcome). The two unexercised criteria (F3 consumer rule, F4 measured-quality before/after) are each marked n/a with a correct scope reason rather than mis-fired, and nothing legitimate is rejected (the user: walkthrough and per-layer lines are kept, subject to ledger_budget)."
-}
+{"scores":{"verdict_correct":5,"inspector_caught":4,"verb_outcome":5,"consumer_rule":4,"no_false_reject":5,"before_after_evidence":4},"pass":true,"notes":"Correct F6 reject with the per-layer assertions named as the rejected shape and the user: walkthrough retained rather than falsely rejected; the unexercised consumer-rule, inspector and before/after criteria are consistent though not demonstrated (scored 4, not 5)."}

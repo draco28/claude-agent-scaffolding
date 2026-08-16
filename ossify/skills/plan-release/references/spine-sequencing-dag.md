@@ -117,6 +117,12 @@ usually means in practice. Common false pattern: **all** bone spines first,
 because it feels orderly. That is a foundation phase re-derived from good
 intentions.
 
+One pairing is mandatory, not judgment: an admitted `internal-enabler` exists
+only because a named committed consumer admitted it (`class-declaration.md` §4).
+When that consumer is in the same release, the DAG **carries the
+enabler-to-consumer edge** — omitting it lets the consumer legitimately start
+before the thing it consumes exists.
+
 Do note the practical asymmetry when ordering *among roots*: a bone spine carries
 full ceremony (grill gates, external adversary at close), so starting it early
 means its ceremony overlaps other work rather than blocking the release's tail.

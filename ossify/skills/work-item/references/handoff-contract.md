@@ -40,7 +40,9 @@ does not know the boundary exists, and the rest of it is then equally suspect.
 
 ## 2. The twelve sections
 
-Headings exactly as written, in this order.
+Headings exactly as written, in this order — twelve sections, of which §8 (the
+non-binding AC reference copy) is the one that may be omitted entirely (see its
+entry).
 
 ### `## 1. How to use this handoff`
 

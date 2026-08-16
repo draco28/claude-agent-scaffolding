@@ -119,9 +119,10 @@ implementation from this spec alone?"*
 - **No** → a gap, phrased as a concrete question someone can answer in a sentence.
 
 This is a **shallow** scan for blockers, not a spec review. Literal markers help
-as a first pass (`TBD`, `decide later`, `unclear`, `or similar`, a bare `?`), but
-the real signal is structural: an AC referencing a name the spec never defines, a
-threshold with no value, a comparison with no baseline.
+as a first pass (`TBD`, `decide later`, `unclear`, `or similar`, a bare `?` left
+as the entire resolution of a decision point — not every prose question mark),
+but the real signal is structural: an AC referencing a name the spec never
+defines, a threshold with no value, a comparison with no baseline.
 
 Each gap entry carries three fields, and all three are load-bearing:
 
@@ -163,7 +164,8 @@ into the RED gate.
 The announcement is worse than noise. In Mode B it lands in the orchestrator's
 transcript as a status update it did not ask for and cannot act on; in Mode A it
 trains the user to skim your output. The evidence that pre-flight ran is the
-tool-call log — two Reads and two `git -C` probes, in order.
+tool-call log — two Reads, the `oss verify_acs` parse with its row-shape check,
+and two `git -C` probes, in order.
 
 ---
 

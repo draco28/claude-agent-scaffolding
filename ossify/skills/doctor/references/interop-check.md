@@ -132,7 +132,7 @@ git -C "$(oss repo_root canonical)" rev-parse --git-dir
 
 A canonical root that is an ordinary directory — `.git` removed, or the manifest
 hand-edited — passes a directory check and then fails the first ceremony that
-touches it: `oss_worktree_add` runs `git -C "$root" worktree add` immediately,
+touches it: `oss worktree_add` runs `git -C "$root" worktree add` immediately,
 and spine close runs merges and reachability checks against the same root. Line:
 `fail: canonical - resolved root is not a git repository: <path>`. (#153)
 

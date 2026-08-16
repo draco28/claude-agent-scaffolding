@@ -65,7 +65,10 @@ cannot find comes back named, and the gate stops there. An AC you deferred,
 skipped under a recorded override, or only partially satisfied must therefore be
 **named explicitly, with its severity**, not quietly dropped — a dropped AC does
 not read as "deferred", it reads as "the report is incomplete", and it halts the
-close.
+close. The severity rides in that AC's **Status cell**, in the contract's own
+vocabulary (`returns.md`: exactly `blocking` or `nice-to-have`) — `skipped
+(blocking)`, `partial (nice-to-have)` — and the fuller account goes in
+`## 8. Blockers and advisories`.
 
 ---
 
