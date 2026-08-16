@@ -1,7 +1,7 @@
 ---
 description: Compose a session handoff — judge where it lives from repo evidence, write the six-section core, state the read-out first; never refuses
 argument-hint: "[topic]"
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep
+allowed-tools: Bash(bash:*), Bash(git:*), Bash(gh:*), Bash(test:*), Bash(ls:*), Bash(mkdir:*), Bash(date:*), Read, Write, Edit, Glob, Grep
 ---
 
 Topic, if one was given: $ARGUMENTS

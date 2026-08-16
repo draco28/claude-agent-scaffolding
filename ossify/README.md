@@ -2,8 +2,8 @@
 
 Skeleton-first lifecycle plugin: Release 0 → MVP → v1, driven by bone and flesh
 spines against a cumulative demo ledger. Six entry skills (`start`,
-`plan-release`, `plan-spine`, `work-item`, `close`, `doctor`) plus `/run-spine`,
-which drives a planned spine's rounds end to end, and two standalone utilities
+`plan-release`, `plan-spine`, `work-item`, `close`, `doctor`) plus
+`/ossify:run-spine`, which drives a planned spine's rounds end to end, and two standalone utilities
 — `/ossify:handoff` and `/ossify:handoff-resume` — generic session handoff
 that works in any repository, ossify-initialised or not. The utilities are a
 Claude Code command surface: the OpenCode bundle exposes the entry skills only
