@@ -17,8 +17,9 @@ small tax that compounds — until a work item ships the wrong behaviour because
 
 - **At onboarding**, alongside the journey map (SKILL §5) and the bones
   registry (SKILL §7) — the moment the vocabulary is being minted anyway.
-- **At release closes**, when the product's understanding moved: a term
-  changed meaning, a new concept emerged, an old one split or died.
+- **At close time**, when the product's understanding moved: a term changed
+  meaning, a new concept emerged, an old one split or died (§4 names the
+  mechanism — the bone retro's lessons section is the scheduled pass).
 - **Whenever a conversation stumbles** — "wait, what do we mean by X?" asked
   twice about the same X is this file's trigger, not a coincidence.
 

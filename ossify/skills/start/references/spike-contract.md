@@ -21,12 +21,17 @@ Signals that the bar is met:
 - The core product hypothesis itself is technical ("is this even possible with
   today's models?").
 
-Signals that the bar is **not** met — do a smoke test instead
-(`references/smoke-test-pass.md`):
+Signals that the bar is **not** met — a cheaper sibling owns the question:
 
-- You need to confirm a crate name, a version, an API signature, a platform fact.
-- You are "just not sure it'll be fast enough" with no bone depending on it.
-- You want to try a library you find interesting.
+- You need to confirm a crate name, a version, an API signature, a platform
+  fact → a smoke test (`references/smoke-test-pass.md`).
+- The question is read-shaped — a comparison, a constraint, an external
+  behaviour no script reaches → research (`references/research.md`).
+- The uncertainty is *experiential* — "which shape is right?" has no
+  falsifier; someone must see it → a prototype (`references/prototype.md`).
+- You are "just not sure it'll be fast enough" with no bone depending on it,
+  or you want to try a library you find interesting → neither a spike nor a
+  sibling; drop it.
 
 Offer it **explicitly**, as a question with a cost attached, and accept "no" as
 the default answer. Most projects should not need a spike.

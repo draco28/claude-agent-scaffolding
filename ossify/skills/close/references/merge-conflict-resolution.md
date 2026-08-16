@@ -36,7 +36,7 @@ the sources, not the tea leaves:
 |---|---|
 | A work item in this spine | That item's **handoff** (`work-item/references/handoff-contract.md` — spine context, identifiers, ACs) and its `report.md` |
 | The spine itself, merging to base | The **spine spec** (`SPINE.md`) — what this spine set out to change |
-| The base branch since the spine cut | The merged PRs / spine records that landed there — `git log` names them; their specs say why. An out-of-spine change's source is its patch record (`patch-lane.md` §5) |
+| The base branch since the spine cut | The merged PRs / spine records that landed there — `git log` names them; their specs say why. An out-of-spine change's source is its patch record (`patch-lane.md` §5b) |
 | A registered architectural surface | The **bone ADR** whose touch surface the path sits in — a conflict inside a bone's surface is architecture, not text |
 
 A conflict between two work items in the same spine is resolved by reading
@@ -73,10 +73,13 @@ A build that compiles proves the text merged; it does not prove intent
 survived. The proof is the ceremony's own gates, which is why resumption
 matters more than the merge commit:
 
-- finish **this** step — the merge commit and its reachability check — then
-  continue forward; never re-run the layer (both merge docs pin the rule;
-  `work-item-close.md` §4 carries the why for its side — the commit already
-  landed on the work-item branch, and a re-run reports the wrong problem);
+- finish **this** step, whole — the merge commit, its reachability check,
+  and on the work-item side the `complete` status write, **last** (its step 4
+  ends there; a resolver who skips it leaves the item `active` and the next
+  spine close halts naming it) — then continue forward; never re-run the
+  layer (both merge docs pin the rule; `work-item-close.md` §4 carries the
+  why for its side — the commit already landed on the work-item branch, and
+  a re-run reports the wrong problem);
 - for a work-item merge, the item's AC commands are the intent check;
 - for a spine merge, step 4's cumulative demo walks every accumulated line
   against the merged tree — a resolution that quietly dropped a side fails

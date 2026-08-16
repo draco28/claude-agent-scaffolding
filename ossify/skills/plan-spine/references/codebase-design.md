@@ -61,7 +61,8 @@ looks — the ordering is interface too.
 
 A **bone** records the load-bearing *decision*: "hexagonal architecture",
 "one queue per tenant" — an ADR with a touch surface and a revisit trigger
-(`plan-release/references/class-declaration.md`). This file is the craft
+(the bone contract: `start`'s `references/bones-registry.md`; the class
+ladder that consumes it: `plan-release/references/class-declaration.md`). This file is the craft
 *inside* that decision: the bone says a port exists; codebase-design says
 the port has three methods, not seven, and the adapter hides the retry
 logic.

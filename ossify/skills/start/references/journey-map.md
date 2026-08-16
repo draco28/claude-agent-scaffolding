@@ -53,9 +53,9 @@ The same actor-action + observable-evidence discipline is re-enforced later by
 the **demo-line floor** at spine planning (spec §5.3, owned by `plan-spine`).
 Getting the grammar right here means the demo ledger nearly writes itself.
 
-The map's actor and action terms are **owned vocabulary** — this table is
-their definition of record, and challenging or sharpening them is
-`references/domain-modeling.md`.
+The map's actor and action terms are **owned vocabulary** — the authored
+map's actor/action/evidence columns are their definition of record, and
+challenging or sharpening them is `references/domain-modeling.md`.
 
 ---
 

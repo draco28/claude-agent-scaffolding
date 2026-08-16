@@ -244,7 +244,7 @@ more than ~15 minutes is architectural uncertainty (→ §9a), not a fact check.
 
 Full protocol in `references/smoke-test-pass.md`. A claim that needs *reading*
 rather than *running* — a comparison, a constraint, a behavioural fact no
-20-line script reaches — is research, not a smoke test:
+20-50-line script reaches — is research, not a smoke test:
 `references/research.md`.
 
 ---

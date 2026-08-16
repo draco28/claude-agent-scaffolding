@@ -46,9 +46,11 @@ For each claim, in a **throwaway worktree** (never the project tree):
    heading: the claim, the date, and the concrete evidence (`serde_json 1.0.x,
    from_str::<Value> compiles`).
 
-Time-box the whole pass. If a single claim eats more than ~15 minutes, it is not
-a smoke test — it is architectural uncertainty, and it should become a spike
-(§5) or an explicit `unverified` mark (§3).
+Time-box the whole pass. If a single claim eats more than ~15 minutes, it is
+not a smoke test — reclassify it: a claim that needs *reading* rather than
+running (a comparison, a constraint, a rate limit) is research
+(`references/research.md`); genuine architectural uncertainty is a spike (§5);
+a claim neither can settle now is an explicit `unverified` mark (§3).
 
 ---
 

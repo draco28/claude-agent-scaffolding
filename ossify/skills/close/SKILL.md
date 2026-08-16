@@ -181,8 +181,9 @@ Six steps, in **binding order**:
    means the work is not where the commit will look for it.
 4. **On green:** commit **in the worktree**, merge its branch into the spine
    branch canonical is parked on — reading the branch from `work_items[].branch`,
-   never re-deriving it from a slug you do not have — and set the work item
-   `complete` **last**, after the merge is verified landed. Spine close reads
+   never re-deriving it from a slug you do not have — halting on conflict
+   (resolution discipline: `references/merge-conflict-resolution.md`), and set
+   the work item `complete` **last**, after the merge is verified landed. Spine close reads
    `complete` as "this item's work is on the spine branch".
 5. **On any failure: halt**, surface the source-tagged errors, present the
    recovery menu, and **stop — no auto-select.**
