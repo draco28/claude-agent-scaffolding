@@ -35,7 +35,7 @@ closed after the finding is fixed, or not at all. (The full design's second
 unblock, the accepted-disclosure override, is not shipped — §8.)
 
 **A halt here is not free, and saying so is part of the step.** Steps 1-6 ran
-already, and two of them wrote state: `oss feature_add` appends
+already, and step 6 wrote state twice: `oss feature_add` appends
 **unconditionally** — no dedupe, no id — and `oss release_set_meta` has stored
 a `next_sketch` for a release that is now not closing. So on a re-close after
 a boundary-audit halt: read `oss feature_list` first and add only what is
@@ -117,9 +117,12 @@ today the field is unset in every real project and the mismatch rule above
 would never fire. **So the posture is the second intent source, and it is
 always present:** read `oss get ".project.posture"`. A **`fully-private` or
 unset posture over an observed-public repo is the same mismatch** and blocks
-identically. Without this, a default-private project whose canonical was
-flipped public — the commonest shape there is — passes every scan and closes
-`clean` with its entire codebase public.
+identically. **And a posture that is not one of the four values reads as
+unset** — `posture_set` does not validate its argument, so a slip like
+`private` must not silently re-enable the hole this rule closes. Without
+this, a default-private project whose canonical was flipped public — the
+commonest shape there is — passes every scan and closes `clean` with its
+entire codebase public.
 
 ---
 
@@ -148,8 +151,9 @@ worth resolving in prose, and resolving it the safe way costs nothing.)
 `never-tracked:` entries performs zero checks and reports nothing, which is
 indistinguishable from a repo that passed them — so before matching, confirm
 the block parses and still carries the standard secrets rules; a block that is
-empty, unparseable, or missing a rule the template ships is a recorded
-degradation with the same weight as a failed scan.
+empty, unparseable, **carrying a directive this step cannot execute**, or
+missing a rule the template ships is a recorded degradation with the same
+weight as a failed scan.
 
 Any tracked match is a finding: the file, the rule it violates, and — because
 the file is already tracked — the note that removal alone does not untrack
@@ -240,11 +244,12 @@ untracked directory keeps its file names in the read.** A generically named
 is exactly how a credentials file called `scratch.txt` comes to sit inside an
 entry nobody opens — an ignored directory is collapsed only when it is
 recognizably a dependency or build tree, and **where that is arguable it is
-not one: enumerate it.** Read individual file names in full, and open first
-lines only where a name says nothing. Only a narrowing beyond that is a
-recorded degradation. (`--exclude-standard` is not the bound: fixture 03's
-`NOTES-STRATEGY.md` is gitignored, and excluding ignored files drops exactly
-the class this step exists to catch.)
+not one: enumerate it.** Read individual file names in full, and where a name
+says nothing, open the file and read it — a stray working note is small, and
+a file too large to read is itself the recorded degradation.
+(`--exclude-standard` is not the bound: fixture 03's `NOTES-STRATEGY.md` is
+gitignored, and excluding ignored files drops exactly the class this step
+exists to catch.)
 
 The `PUBLIC_BOUNDARY.md` "Never here" prose rules are the vocabulary for this
 judgment: they already say no downstream strategy, no roadmap, no competitive
@@ -282,9 +287,10 @@ close**. The unblock is real work:
   resynthesize the fixture, remove the stray file. Re-run the affected step
   afterward; a fix is verified by the audit that re-examines it, not by the
   intention. **And a fix that changes the repository invalidates the gates
-  that ran before it**: steps 2-4 walked a tree this fix has now altered, so
-  re-run every gate whose inputs the fix touched — at minimum the cumulative
-  walkthrough when the fix went anywhere the product reads (a resynthesized
+  that ran before it**: the cumulative walkthrough (step 2) exercised a
+  product this fix has now altered, so re-run every gate whose inputs the fix
+  touched — at minimum the cumulative walkthrough when the fix went anywhere
+  the product reads (a resynthesized
   fixture, a deleted config, a rewritten doc a demo line opens). Recording the
   release closed on a walkthrough of the pre-fix tree certifies a product
   state that no longer exists. A fix confined to the AI workspace, or to an
@@ -383,6 +389,9 @@ naming a moat item in a public artifact is itself the leak.
   public (§2).
 - **Letting an unset manifest field disable the intent axis.** The posture is
   the second source and is always present (§2).
+- **Reading a non-enum posture as carrying intent.** A posture that is not
+  one of the four values reads as unset — `posture_set` does not validate its
+  argument (§2).
 - **Skipping a scan because the repo has no remote.** The remote decides
   exposure, not whether to look (§2).
 - **Reading "gitleaks did not complete" as clean.** Only a completed scan is
@@ -424,9 +433,10 @@ silently does nothing is indistinguishable from a missing one
 
 | Dimension | Status |
 |---|---|
-| **The other repo arms** — the AI workspace, a `private_core`, a `tooling_repo` | **not shipped.** This release audits the canonical only. Those repos are not scanned; the report says so in one line — scope, not a finding, not silence. The per-repo iteration lands as its own PR with its own fixtures |
+| **The other repo arms** — the AI workspace, a `private_core`, a `tooling_repo` | **not shipped.** This release audits the canonical only. Those repos are not scanned and their observed visibility is not checked either; the report says so in one line — scope, not a finding, not silence. The per-repo iteration lands as its own PR with its own fixtures |
 | **The semantic pass** — tracked prose that *describes* a moat item | **not shipped.** A README that discloses a moat item's identity and mechanism passes this audit today. The sweep over the private boundary inventory is a later PR |
 | **History, and every branch but the audited ref** | **not shipped.** A private document committed a year ago and later deleted is public forever at its blob URL, and nothing here looks. `gitleaks` still covers *secrets* across history when it completes — the tool's own behavior, not this audit's rule. The recorded History-passes line is a later PR |
+| **Uncommitted modifications to tracked files** | **not shipped.** The rules match paths (`ls-files`), gitleaks reads committed history, and the sweep reads untracked paths only — a secret pasted into a tracked file and left uncommitted is invisible to every shipped check. A working-tree diff pass is a later PR |
 | **Submodule contents** | **not shipped.** `ls-files` returns one gitlink, `--others` does not descend, gitleaks does not follow. A tracked submodule is named in the report as outside this audit's coverage — never read as clean by default |
 | **Accepted-disclosure overrides** | **not shipped.** The third verdict, the inventory row, and the exact-surface pin arrive with the disposition PR. Until then a confirmed finding has exactly one unblock: the fix (§5) |
 | **Everything about the project that is not a git repo** | permanent scope, not a cut: issues, wiki, releases, Pages, Actions artifacts, published packages |
@@ -452,9 +462,11 @@ Resolve it before §3, the way the ceremony already resolves it —
   release's `closed` spines: an **`abandoned`** spine may never have run
   `/plan-spine` and so never wrote a `SPINE.md` — it contributes nothing, and
   its silence is not an error. If the recorded bases disagree with each other,
-  halt and name them rather than picking one; if no closing spine records a
-  base at all, audit the manifest's `default_branch` and name that source in
-  the report.
+  halt and name them rather than picking one; if they agree with each other
+  but contradict the manifest's `default_branch`, halt and name both readings
+  — that is drift or a typo, and the audit does not pick silently; if no
+  closing spine records a base at all, audit the manifest's `default_branch`
+  and name that source in the report.
 
 Then assert the checkout matches, or scan that ref directly, and **name the
 audited ref in the report**. An audit that cannot say what it read is not
