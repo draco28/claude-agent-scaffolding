@@ -55,13 +55,7 @@ If `git rev-parse` fails (not in a git repo), try `$PWD/.claude/architect-critic
 
 **Source 4 — Memory-bank patterns** (`project` filter includes these; `all` includes these)
 
-Only available if scaffold-onboard is installed. Probe the filesystem:
-
-```bash
-SCAFFOLD_INSTALLED="$(ls ~/.claude/plugins/*/scaffold-onboard/skills/ 2>/dev/null | head -1)"
-```
-
-If `SCAFFOLD_INSTALLED` is non-empty, load `$(git rev-parse --show-toplevel 2>/dev/null)/.claude/memory-bank/patterns.md` if it exists. These entries render under `## Memory-bank patterns` and count as project-source for filter purposes.
+Opt-in via environment variable, not install-probed: this source is included only when `$ARCHITECT_CRITIC_MEMORY_BANK_PATH` is set and names a readable file — every `- ` bullet in it becomes a synthetic principle (`source=memory-bank`, no `principle_id`). Point it at whatever bank file holds patterns worth auditing through (for a scaffold-onboard-derived bank, e.g. `02-system-patterns.md` or `03-code-patterns.md`). These entries render under `## Memory-bank patterns` and count as project-source for filter purposes. `ac_principles_merge` (`lib/principles.sh`) implements this same source-4 rule — the env var's target file is the only memory-bank input it reads.
 
 ---
 
@@ -75,7 +69,7 @@ arc principles_load_user_global
 
 This strips header lines (lines starting with `# `), strips trailing `[promoted ...]` annotations, and emits one active principle per line. Hold the output in your working context.
 
-For the shipped defaults and project-scoped file, read them directly with the Read tool (they use `<!-- source: ... -->` HTML comments that you parse — see Step 5 below). For memory-bank patterns, read the file directly if it exists.
+For the shipped defaults and project-scoped file, read them directly with the Read tool (they use `<!-- source: ... -->` HTML comments that you parse — see Step 6 below). For memory-bank patterns, read the file at `$ARCHITECT_CRITIC_MEMORY_BANK_PATH` if the variable is set and the file exists.
 
 **Duplicate handling.** Normalize for comparison: trim, lowercase, collapse spaces. Project-scoped wins over user-global on conflict; annotate the winner `(overrides user-global)`. Drop the duplicate silently. Display order: shipped → user → project → memory-bank.
 
@@ -88,7 +82,7 @@ For the shipped defaults and project-scoped file, read them directly with the Re
 | `all` | shipped + user + project + memory-bank |
 | `shipped` | shipped only |
 | `user` | user-global only |
-| `project` | project-scoped + memory-bank (both live in the repo) |
+| `project` | project-scoped + memory-bank |
 
 Apply the filter after the merge. Do not re-read files; just drop sections not matched by the filter before rendering.
 
@@ -116,36 +110,37 @@ Render as markdown in your turn message. Group by source heading. Omit any secti
 
 ### `<!-- source: ... -->` HTML comment contract
 
-The shipped `templates/principles.md` and any project/user principles files may annotate lines with inline HTML comments:
+The shipped `templates/principles.md` and any project/user principles files annotate entries with a block comment on the line **before** the bullet — the format `promoting-principle` Step 5 writes and `ac_principles_parse_meta` (`lib/principles.sh`, the parsing authority) reads. It matches the comment line, then reads forward to the next `- ` line:
 
 ```
-- **Ghost Notes principle**: what is absent...  <!-- source: shipped-default -->
-- **Prefer explicit over implicit** <!-- source: user-promoted, promoted: 2026-05-22 -->
-- **Use 2-space indent** <!-- source: project, promoted: 2026-05-20 -->
+<!-- source: shipped-default, principle_id: pp-ghost-notes -->
+- **Ghost Notes principle**: what is absent...
+<!-- source: user-promoted, promoted_at: 2026-05-24T12:34:56Z, principle_id: pp-1f2e3d4c5b6a7980 -->
+- **Prefer explicit over implicit**
 ```
 
-Parse the comment values:
-- `source: shipped-default` → place under `## Shipped defaults`
-- `source: user-promoted, promoted: DATE` → `## Your principles (user-promoted)`, append `— promoted DATE`
-- `source: project, promoted: DATE` → `## Project principles`, append `— promoted DATE`
+Route each entry by its `source` key:
+- `shipped-default` → place under `## Shipped defaults`
+- `user-promoted` → `## Your principles (user-promoted)`, append `— promoted <date>` from `promoted_at`
+- `project` → `## Project principles`, append `— promoted <date>` from `promoted_at`
 
-Strip the HTML comment from display text. This is the contract Phase 3.2 (auto-promotion write path) relies on. `ac_principles_load_user_global` strips `[promoted ...]` bracket annotations for the merge step; HTML comments are preserved in raw files for display here.
+Strip the HTML comment from display text — it is file metadata, not content. This is the contract Phase 3.2 (auto-promotion write path) relies on. `ac_principles_load_user_global` strips `[promoted ...]` bracket annotations for the merge step; HTML comments are preserved in raw files and stripped here at display time.
 
 ### Rendered format
 
 ```
 ## Shipped defaults
-- **Ghost Notes principle**: what is absent from the spec is often more important than what is present <!-- source: shipped-default -->
-- **CORE protocol**: Curiosity → Objectivity → Reassurance → Empathy <!-- source: shipped-default -->
+- **Ghost Notes principle**: what is absent from the spec is often more important than what is present
+- **CORE protocol**: Curiosity → Objectivity → Reassurance → Empathy
 
 ## Your principles (user-promoted)
-- **Prefer explicit over implicit configuration** — promoted 2026-05-22 <!-- source: user-promoted -->
+- **Prefer explicit over implicit configuration** — promoted 2026-05-22
 
 ## Project principles
-- **Use 2-space indent** — promoted 2026-05-20 <!-- source: project -->
+- **Use 2-space indent** — promoted 2026-05-20
 
 ## Memory-bank patterns
-- **Avoid mutable shared state across async boundaries** (from .claude/memory-bank/patterns.md)
+- **Avoid mutable shared state across async boundaries** (from the memory-bank source)
 
 ## Suppressed candidates (won't auto-promote until expiry)
 - "Use camelCase for variables" — suppressed 2026-05-01, expires 2026-05-31 (reason_score 4)
@@ -173,7 +168,7 @@ Suppose:
 - Shipped `templates/principles.md` has Ghost Notes + CORE.
 - `~/.claude/architect-critic/principles.md` has one user-promoted principle: *"Prefer explicit over implicit configuration"* (promoted 2026-05-22).
 - `.claude/architect-critic/principles.md` has one project principle: *"Use 2-space indent for all YAML/JSON config"* (promoted 2026-05-20).
-- scaffold-onboard is not installed (no memory-bank source).
+- `ARCHITECT_CRITIC_MEMORY_BANK_PATH` is unset (no memory-bank source).
 - `state.json` has one active suppression: *"Use camelCase for variables"* (suppressed 2026-05-01, expires 2026-05-31, reason_score 4).
 
 With `--source all` (default), the rendered output is:
@@ -181,14 +176,14 @@ With `--source all` (default), the rendered output is:
 ---
 
 ## Shipped defaults
-- **Ghost Notes principle**: what is absent from the spec is often more important than what is present <!-- source: shipped-default -->
-- **CORE protocol**: Curiosity → Objectivity → Reassurance → Empathy as the tone for every challenge raised <!-- source: shipped-default -->
+- **Ghost Notes principle**: what is absent from the spec is often more important than what is present
+- **CORE protocol**: Curiosity → Objectivity → Reassurance → Empathy as the tone for every challenge raised
 
 ## Your principles (user-promoted)
-- **Prefer explicit over implicit configuration** — promoted 2026-05-22 <!-- source: user-promoted -->
+- **Prefer explicit over implicit configuration** — promoted 2026-05-22
 
 ## Project principles
-- **Use 2-space indent for all YAML/JSON config** — promoted 2026-05-20 <!-- source: project -->
+- **Use 2-space indent for all YAML/JSON config** — promoted 2026-05-20
 
 ## Suppressed candidates (won't auto-promote until expiry)
 - "Use camelCase for variables" — suppressed 2026-05-01, expires 2026-05-31 (reason_score 4)
@@ -201,26 +196,8 @@ With `--source shipped`, only the shipped section renders. With `--source user` 
 
 ## Tool boundary and Phase 3.2 contract
 
-All file I/O (principles files, state.json, scaffold-onboard probe) runs in Bash. Merge logic and display assembly run in your working context. The render is your turn message as plain markdown — not bash stdout, not a tool-call trace. Do not mutate any file. This skill is read-only.
+All file I/O (principles files, state.json, the memory-bank env-var file) runs in Bash. Merge logic and display assembly run in your working context. The render is your turn message as plain markdown — not bash stdout, not a tool-call trace. Do not mutate any file. This skill is read-only.
 
-The following documents the comment format so Phase 3.2 (auto-promotion write path in `critiquing-spec` + `promoting-principle`) can round-trip correctly.
+The comment format so Phase 3.2 (auto-promotion write path in `critiquing-spec` + `promoting-principle`) can round-trip correctly is the block format §6 documents: a `<!-- source: ..., promoted_at: ..., principle_id: ... -->` comment line, then the `- ` bullet. The writer of record is `promoting-principle` Step 5 — do not re-specify its output here; when `listing-principles` reads a file back, §6's routing rules apply unchanged, and the stripped text goes to `ac_principles_load_user_global` for the merge step (that function strips `[promoted ...]` bracket annotations; HTML comments were already stripped at display time).
 
-When `lib/promotion.sh` or `promoting-principle` writes a new principle to a principles.md file, it appends a line of this form:
-
-```
-- <principle text>  <!-- source: user-promoted, promoted: YYYY-MM-DD -->
-```
-
-or for project-scoped:
-
-```
-- <principle text>  <!-- source: project, promoted: YYYY-MM-DD -->
-```
-
-When `listing-principles` reads a file back:
-1. Strip the HTML comment from the display text.
-2. Parse `source:` to determine which heading the entry belongs under.
-3. Parse `promoted: DATE` to render the `— promoted DATE` annotation.
-4. Pass the stripped text to `ac_principles_load_user_global` for the merge step (that function already strips `[promoted ...]` bracket annotations; it does not strip HTML comments — so callers of `ac_principles_load_user_global` get the comment-free merge result when the file uses bracket-style annotations, and the HTML comment path is handled here at display time).
-
-**Backward compatibility.** v0.1.x files use bracket annotations `[promoted DATE source:SCOPE]` instead of HTML comments. Recognize both forms and render both as `— promoted DATE`. HTML comments are the v0.2 canonical form; brackets are accepted for graceful migration.
+**Backward compatibility.** v0.1.x files use bracket annotations `[promoted DATE source:SCOPE]` instead of HTML comments. Recognize both forms and render both as `— promoted DATE`. Block HTML comments are the canonical form; brackets are accepted for graceful migration.

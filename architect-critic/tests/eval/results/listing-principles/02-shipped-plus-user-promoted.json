@@ -1,1 +1,1 @@
-{"scores": {"shipped_defaults": 5, "source_tags": 5, "suppression_surfaced": 5, "source_filter": 5, "override_annotated": 5}, "pass": true, "notes": "shipped + 2 user-promoted with bracket annotations rendered cleanly"}
+{"scores": {"shipped_defaults": 5, "source_tags": 5, "suppression_surfaced": 5, "source_filter": 5, "override_annotated": 5}, "pass": true, "notes": "Output renders all four shipped defaults followed by a distinctly tagged user-promoted section with promotion timestamps preserved; no suppression, --source filter, or override scenarios apply to this fixture."}
