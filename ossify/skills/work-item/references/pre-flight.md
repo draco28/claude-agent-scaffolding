@@ -171,27 +171,13 @@ and two `git -C` probes, in order.
 
 ---
 
-## 4. Deliberately not checked in this version
+## 4. Deliberately not checked: blocker recall
 
-**Blocker recall is omitted, and this section exists so that omission is visible
-rather than silent.**
-
-The predecessor behaviour: before filing a gap that reads like *"X is missing, why
-was this not done?"*, read the memory bank's `tech-debt.md` index and, if the gap
-is already a tracked deferral, surface it as *known* rather than as a fresh
-blocker.
-
-It is omitted here because nothing in this plugin writes that index. Ossify
-seeds `tech-debt.md` empty at onboarding and ships no `/defer` — a settled
-decision, not a pending gap — so in an ossify-only repo the index stays empty
-however much is actually deferred, and a read of it cannot distinguish "no
-known deferrals" from "index nothing writes". Describing that read would be
-worse than describing nothing: it produces an agent that reports "checked
-known issues — none found" on an index that was never going to hold them,
-which is a confident false negative.
-
-So: in an ossify-only repo, **every gap you surface is a fresh gap**, and if
-the orchestrator already knows about it, the orchestrator says so on the
-re-dispatch. Where another stack maintains the index — it exists and carries
-`[TD]` entries — the predecessor behaviour applies after all: read it, and
-surface a gap that is already a tracked deferral as *known*, not fresh.
+In an ossify-only repo, **every gap you surface is a fresh gap.** Ossify seeds
+the memory bank's `tech-debt.md` empty and ships no writer for it
+(`start/references/memory-bank-brief.md`), so reading it cannot distinguish "no
+known deferrals" from "index nothing writes" — and reporting "checked known
+issues, none found" off an empty index is a confident false negative. If the
+orchestrator already knows about a gap, it says so on the re-dispatch. **Where
+another stack maintains the index** — it exists and carries `[TD]` entries —
+read it and surface an already-tracked deferral as *known*, not fresh.

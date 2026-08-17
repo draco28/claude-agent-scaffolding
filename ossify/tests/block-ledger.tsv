@@ -109,7 +109,7 @@ O	skills/close/references/work-item-close.md	abbrev-ref	tests/test-close.sh	W1: 
 D	skills/close/references/work-item-close.md	4	#138	path resolution, the spec-exists halt, the staged-changes read, and the Route A/B close sequence
 I	skills/close/references/work-item-close.md	1	a single <placeholder> assignment showing the report path's origin
 O	skills/close/references/cumulative-demo.md	elapsed=	tests/test-close.sh	D1-D4: the demo measurement block preserves the runner's rc instead of flattening it
-D	skills/close/references/cumulative-demo.md	2	#138	the quarantine innocence probe (reproduce at first parent) and the ledger-budget comparison
+D	skills/close/references/cumulative-demo.md	1	#138	the ledger-budget comparison (the rc-only innocence-probe block was consolidated into the diff-the-output block)
 I	skills/close/references/cumulative-demo.md	4	single-verb calls: demo_run, ledger_quarantine, budget read, demo_record
 O	skills/close/references/impl-check.md	while IFS=	tests/test-close.sh	the halt loop exits nonzero on the first failing AC and names the row
 I	skills/close/references/impl-check.md	2	single-verb calls: verify_acs, report_cross_check (the harvest_dir resolve went with the verb - the bank path is prose-resolved per close/references/harvest.md §7 now)
@@ -182,7 +182,7 @@ H	commands/start.md	3557017349-140
 H	commands/work-item.md	2378584622-144
 H	skills/close/SKILL.md	2598283696-409
 H	skills/close/references/code-review.md	477087775-527
-H	skills/close/references/cumulative-demo.md	2900123846-1889
+H	skills/close/references/cumulative-demo.md	2610898515-1543
 H	skills/close/references/fake-expiry.md	3542365026-715
 H	skills/close/references/harvest.md	1726645723-663
 H	skills/close/references/impl-check.md	3364110005-836

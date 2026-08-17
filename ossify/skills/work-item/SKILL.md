@@ -33,11 +33,10 @@ and has its own contract):
   binding contract; `agents/implementer-agent.md` is the registration that points
   at it. The dispatcher is **not** `plan-spine` — that skill plans and says so in
   its own body; it authors your spec and the spine's demo lines and stops there.
+
 **ossify dispatches work to no other agent.** `ossify:implementer-agent` is the
-only worker. The deprecated stack also carried an external-agent worker path; it
-was never used and ossify does not have one — no external implementer, no
-external reviewer, no prompt-file handoff. (Running *ossify itself* on another
-host, such as OpenCode, is the opposite direction and is unaffected.)
+only worker — no external implementer, no external reviewer, no prompt-file
+handoff.
 
 **The behavioural contract is invariant across both worker modes, and this body
 never branches on mode** — §3 through §9 bind you as the implementer either way.
@@ -165,12 +164,7 @@ deliberately *not* checked in this version are in `references/pre-flight.md`.
 the RED gate are one gate in two steps: §4 runs only on the success path out of
 §3, and it can still stop the run. **Once §4 passes, the only terminal mode is
 `complete`** — a mid-run surprise goes in the report, not into a late gaps return
-(§10).
-
-The boundary is where it is because of what a late gaps return costs: after §5
-starts, earlier ACs are already implemented, so returning gaps-mode strands that
-work with no report explaining it. Nothing is staged before §4 finishes, which is
-exactly why the gate can still exit there and not after.
+(§10) — the reasoning is in `references/returns.md` §4.
 
 ---
 

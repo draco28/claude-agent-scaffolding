@@ -349,17 +349,8 @@ honest, not a failure to re-run) and where the outcomes are recorded — is in
 oss worktree_remove "$(oss get ".work_items[] | select(.id==\"$wi\") | .target_repo")" "$wi"
 ```
 
-**Cleanup is last because of the branch, not the report.** `oss worktree_remove`
-runs `git branch -d` and **refuses an unmerged branch at rc 8**, so it can only
-succeed once step 2's merge has landed. Running it earlier converts a recoverable
-state into a halt and leaves the work reachable only from a branch the ceremony
-already tried to delete. It also refuses a **dirty** worktree at rc 8 rather than
-forcing — an rc 8 here is a real signal, never something to force past.
-
-(`report.md` is **not** in the worktree. It lives beside `spec.md` in the work
-item's docs directory under the ai-workspace, which worktree removal never
-touches — `work-item/SKILL.md` §7. The harvest's ordering constraint is its own,
-and it is not this one.)
+**Cleanup is last because of the branch, not the report** — the full ordering
+argument, and the false one it is often confused with, are in `harvest.md` §1.
 
 **Step 11 — state updates:**
 

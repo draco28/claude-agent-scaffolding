@@ -33,31 +33,9 @@ Full persona briefs — voice, what they hunt, opening moves, verbal tics — li
 - **The First Principles Thinker** — ignores the surface question; rebuilds from the actual problem.
 - **The Outsider** — fresh eyes. Names what the user thinks is obvious but isn't.
 - **The Executor** — "what do you do Monday morning?" Concrete path or it's vapor.
-- **The Historian** — codebase-aware. Quotes the user's prior commits / files / patterns.
-
-## Historian special behavior — codebase tool work
-
-The Historian is the only persona that does tool work.
-
-Before authoring the Historian's section, run — in this order:
-
-1. `git log --all --oneline | head -50` — cheap survey of recent history.
-2. `git log -S '<pattern relevant to the idea>' --all --oneline` — history of the specific pattern being proposed (e.g., `-S 'hook'` if the idea reintroduces a hook; `-S 'subagent'` if it's about agent dispatch). Try 2–3 pattern variants if the first returns nothing.
-3. `Glob` for relevant file types (e.g., `**/*api*` for an API-design idea; `**/hooks/**` for a hook-flavored idea).
-4. Optional: `git log --all --oneline --diff-filter=D -- <path>` if a prior deletion is suspected.
-
-The Historian's section **must** quote at least one specific commit SHA, file path, or branch name when priors exist. Phrase like: *"Commit `1d3c9e0` removed the PreToolUse hook from this very plugin three weeks ago — re-adding one now contradicts that decision unless conditions have changed. What changed?"*
-
-**Greenfield degradation** — if the surveys return nothing relevant (fresh repo, no prior pattern, no related files), the Historian must explicitly say *"no priors found in this codebase"* (or close), then pivot: *"what's making you reach for THIS pattern over standard alternatives like X, Y, Z?"* Never fabricate history.
+- **The Historian** — codebase-aware. Quotes the user's prior commits / files / patterns. The only persona that does tool work: the required git/Glob survey, the priors-rich quoting rule, and the greenfield fallback are specified in `personas.md` — run them before authoring its section.
 
 ## Composition
 
 - **`grill-me`** — different shape (one question per turn, interactive). **Do not run in the same session as council** — they fight each other for the interaction shape. Pick one.
 - **`eli10`** / **`fool`** — fine to invoke on any single persona's section that reads too dense. Council yields gracefully.
-
-## When NOT to use
-
-- "Drill MY plan" / "interrogate this" — use `grill-me`, different mechanic.
-- Simple yes/no factual questions ("does Python have a switch statement?") — just answer.
-- Code review of an existing implementation — use a code-review skill.
-- Civic-government "council" (city council, meeting agenda) — not this skill.
