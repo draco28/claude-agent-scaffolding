@@ -7,10 +7,11 @@ description: "Adversarial audit of a written spec or plan. Triggers on phrases l
 
 You are the architect-critic. You have been invoked because the user wants an adversarial audit of a written artifact (spec, plan, design doc, RFC). Your job is to surface unstated assumptions, missing failure modes, and viable alternatives the author has not considered — and then run a structured rebuttal cycle so the author either concedes (and the spec strengthens) or rebuts (and you record what stood).
 
-This skill body is the centerpiece of architect-critic v0.2. Everything that requires judgment lives here — you read these instructions, then act. Bash helpers under `lib/` do the bookkeeping (state file appends, similarity dedup, principle file merges); they never do the thinking.
+This skill body is the centerpiece of the architect-critic plugin. Everything that requires judgment lives here — you read these instructions, then act. Bash helpers under `lib/` do the bookkeeping (state file appends, similarity dedup, principle file merges); they never do the thinking.
 
-You may be invoked two ways:
+You may be invoked three ways:
 - **Slash command:** `/critique [path] [--close] [--neutral] [--model NAME] [--principles PATH] [--scope project|user]`. The wrapper at `commands/critique.md` exports the raw arg string as `$ARCHITECT_CRITIC_ARGS` (env-var bridge per [[feedback_slash_command_dollar_n_bug]] — `$1`/`$2` get template-substituted by Claude Code at render time and silently corrupt bash locals, so never reference bare positionals).
+- **Skill() call from a peer skill:** `Skill(architect-critic:critiquing-spec, target=…, [phase_id=…,] depth=…, artifact_path=…)` — the channel scaffold-onboard's critic moments use (`scaffold-onboard/skills/onboarding-project/references/critic-moments.md` §1). These arrive as invocation arguments, not `$ARCHITECT_CRITIC_ARGS`: `artifact_path` is this channel's Step-1 path source, and `target`/`phase_id` feed the Step-10 closing line. `depth` names the caller's intent (`premise-audit`/`close`); no shipped step parses it — close-depth comes only from `--close` in `$ARCHITECT_CRITIC_ARGS`.
 - **Natural language:** *"audit this spec"*, *"critique the X plan"*, *"adversarial review of Y"*, *"challenge the spec"*, *"deep audit"*, *"fresh-frame review"*, *"close review"*.
 
 Walk these ten steps in order. Do not skip steps. Do not bash-orchestrate the judgment work.
@@ -26,6 +27,8 @@ You need the absolute path of the artifact to audit. Try sources in this exact o
 - Extract `--spec PATH` if present, else the first positional argument.
 - Strip a leading `@` if present (Claude Code uses `@path` to load file content into context — fs access wants the bare path).
 - If the resolved path exists and is readable, use it.
+
+**1a-skill. Skill() invocation argument.** If the invocation arrived as the `Skill()` call above with an `artifact_path` argument, use that path under the same rules (readable file wins; strip a leading `@` if present).
 
 **1b. Workspace-init manifest fast-path.** If no CLI path, look for the workspace-init manifest in this order and read its `well_known_paths.master_spec` field if present:
 - `.claude/manifest.json` (project-scoped)
@@ -59,9 +62,9 @@ Once you have a path: `Read` the artifact end-to-end. Hold its contents in your 
 Principles are the lens you audit through. Merge sources in this exact order, last-wins on duplicates (normalized text comparison — trim, lowercase, collapse whitespace).
 
 1. **Shipped defaults** — `${CLAUDE_PLUGIN_ROOT}/templates/principles.md`. Always loaded. Contains the **Ghost Notes principle** (what is absent from the spec is often more important than what is present) and the **CORE protocol** (Curiosity → Objectivity → Reassurance → Empathy as the tone for every challenge raised).
-2. **User-global** — `~/.claude/architect-critic/principles.md`. The user's promoted principles across all projects.
+2. **User-global** — the user's promoted principles across all projects, at the path `arc principles_user_path` resolves (honors a `CLAUDE_PLUGIN_DATA` override; default `~/.claude/architect-critic/principles.md`).
 3. **Project-scoped** — `<repo>/.claude/architect-critic/principles.md` if it exists. Project-specific principles override user-global on conflict.
-4. **Memory-bank patterns** — only if scaffold-onboard is installed. Probe the filesystem for `~/.claude/plugins/*/scaffold-onboard/skills/` (any of the marketplace install paths). If found, load any `principles*.md` or `patterns*.md` files it ships and merge them as additional principles.
+4. **Memory-bank patterns** — included only when `$ARCHITECT_CRITIC_MEMORY_BANK_PATH` points at a readable file; every `- ` bullet in it becomes a principle. `arc principles_merge` handles all four sources; it is authoritative for resolution order.
 
 Run the `arc` dispatcher to do the file merge (the dispatcher is on `$PATH` because Claude Code adds each plugin's `bin/` automatically; its bash shebang forces a bash runtime for the lib regardless of the calling shell — required because Claude Code's Bash tool runs zsh by default on macOS and bare `source` of these libs crashes with `BASH_SOURCE[0]: parameter not set`):
 ```bash
@@ -485,7 +488,7 @@ Auto-promotion candidates from this audit:
 
 Wait for the user's pick per candidate. Pass their decision to the real verbs: promote → `arc promotion_promote <fingerprint> <basis>` (`lib/promotion.sh` records the promotion in state; the chosen scope's `principles.md` write is `promoting-principle` Step 5's); dismiss → `arc promotion_apply_suppression <fingerprint> <reason_score>` (suppression window is 30/90 days, selected from `reason_score`). There is no single `ac_promotion_apply` — the promote and suppress paths are separate functions.
 
-**On the "candidates pile" from Step 8.** Challenges that stood after rebuttal (score ≤3) get fingerprinted and added to the candidates pile for *future* cross-run analysis — they don't auto-promote on this run, but they raise the recurrence count for next time. This is the v0.2 FULL auto-promotion model per [[project_architect_critic_v01_settlements]] — three recurrences across runs trigger the promotion offer.
+**On the "candidates pile" from Step 8.** Challenges that stood after rebuttal (score ≤3) get fingerprinted and added to the candidates pile for *future* cross-run analysis — they don't auto-promote on this run, but they raise the recurrence count for next time. This is the FULL auto-promotion model per [[project_architect_critic_v01_settlements]] — three recurrences across runs trigger the promotion offer.
 
 ---
 
@@ -516,7 +519,7 @@ Audit complete for <target>[ phase_id=<N>]. <K> challenges stood:
 
 **The closing line is what consumers parse for standing challenges.** `<target>` is the invocation's `target` argument when the caller passed one (invocation arguments, like `artifact_path` — not env vars; scaffold-onboard's critic moments pass `target=` and `phase_id=` — `scaffold-onboard/skills/onboarding-project/references/critic-moments.md` §1); otherwise `<target>` is the artifact path and the ` phase_id=<N>` segment is omitted. `<K>` is the candidates-pile count — the same number as `Candidates piled` — and the bullets are exactly those challenges, one per line, verbatim. When K=0 the closing line is `Audit complete for <target>. 0 challenges stood — recap is solid.` with no bullets.
 
-This is the structured handoff. Consumer plugins (scaffold-onboard v0.2, scaffold-dev v0.1) parse the summary out of conversation context — there is **no file IPC** for the cross-plugin handoff, only the conversation transcript. Keep the format stable so consumers' regexes work.
+This is the structured handoff. Consumer plugins (scaffold-onboard, ossify) parse the summary out of conversation context — there is **no file IPC** for the cross-plugin handoff, only the conversation transcript. Keep the format stable so consumers' regexes work.
 
 **Stability contract for downstream consumers.** The following tokens MUST appear verbatim (case-sensitive) for consumers to parse correctly:
 - The literal string `Audit complete for ` followed by the target (or the artifact path when no target was passed) — opening the summary and closing it.
@@ -524,7 +527,7 @@ This is the structured handoff. Consumer plugins (scaffold-onboard v0.2, scaffol
 - Field labels `Adversaries used`, `Challenges`, `Concessions`, `Auto-applied`, `Escalated`, `Deferred`, `Candidates piled`, `Principles`, `Elapsed` with `:` separator and exactly two spaces of indentation.
 - The integer counts must be bare (no commas, no units inline — the unit goes outside the number, e.g. `seconds` after `Elapsed`).
 
-If you change this format, bump architect-critic minor version and coordinate with scaffold-onboard / scaffold-dev maintainers — their regexes will break otherwise. Per [[feedback_v01_full_over_minimal]], the v0.2 contract is design-locked and ships as-is; consumers parse against it.
+If you change this format, bump architect-critic minor version and coordinate with scaffold-onboard / ossify maintainers — their regexes will break otherwise. Per [[feedback_v01_full_over_minimal]], this contract is design-locked and ships as-is; consumers parse against it.
 
 **What you do NOT emit:** raw JSON dumps, internal request IDs (the user doesn't care about `crit-20260524T...`), tool-call traces, principle file paths. Keep the summary human-readable. The full audit artifacts live in state.json for `/critique-list` to retrieve later.
 
@@ -547,4 +550,4 @@ A few invariants to keep clear, since this skill straddles a markdown/bash bound
 - **Codex** is a fresh-frame adversary, not a judge. Its output is one of two input streams to the consolidator. You still mediate the rebuttal cycle.
 - **The user** is the final authority — exercised directly on every escalated challenge, and by standing delegation (the policy's *Disposition triage* section) on challenges that clear the escalation predicate; the `⚡` digest keeps every delegated disposition auditable, and `reopen` / `--walk` revoke it. You never auto-promote without consent, and escalated classes never auto-apply.
 
-When in doubt, prefer doing the work in conversation over delegating to bash. The v0.1.x architecture got this wrong; v0.2 corrects it. If you find yourself reaching for `bash -c` to wrap a reasoning step, stop — that work belongs here.
+When in doubt, prefer doing the work in conversation over delegating to bash. An earlier architecture got this wrong; this one corrects it. If you find yourself reaching for `bash -c` to wrap a reasoning step, stop — that work belongs here.

@@ -25,7 +25,7 @@ conditions, joined by an **or**, and they are not the same kind of thing:
 
 **`replacement_trigger` is free text.** `oss fake_add` stores whatever its fourth
 argument was — *"when the vendor ships a sandbox"*, *"the first live order"*,
-*"the first user who isn't me"* (`registries.sh:23-24`). No selector can evaluate
+*"the first user who isn't me"* (`oss_reg_add_fake` in `lib/registries.sh`). No selector can evaluate
 whether that has happened. Running only the mechanical arm and reporting "fake
 gate: clean" drops half of a spec row while sounding complete; running only the
 judgment arm loses the one part of it a machine can be trusted with.

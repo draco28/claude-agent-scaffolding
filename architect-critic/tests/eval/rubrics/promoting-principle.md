@@ -2,11 +2,11 @@
 
 For each fixture, judge the SKILL OUTPUT against this rubric. Score each criterion 1-5. Pass = all criteria >=4.
 
-This skill appends a principle to the user-global or project-scoped principles file, validates uniqueness against active (non-commented) principles, tags the entry with source and timestamp, and records the promotion in state.json. When invoked during an active critiquing-spec run with a challenge fingerprint in context, it auto-links the promotion to that challenge in state.json.
+This skill appends a principle to the user-global or project-scoped principles file, validates uniqueness against active (non-commented) principles, tags the entry with source and timestamp, and records the promotion in state.json. The challenge link the v0.2 design sketched is not shipped: a promotion made during an active critiquing-spec run records no `linked_challenge` and the skill must not claim state-side linking.
 
 ## Criteria
 
-1. **Principle appended to correct file (scope honored)** — Without --scope project, the principle goes to the user-global principles.md only. With --scope project, it goes to .claude/memory-bank/03-code-patterns.md only; user-global is untouched. If the target file does not exist, it is created.
+1. **Principle appended to correct file (scope honored)** — Without --scope project, the principle goes to the user-global principles.md only. With --scope project, it goes to .claude/architect-critic/principles.md only; user-global is untouched. If the target file does not exist, it is created.
    - 5: Principle written to the correct file; other file unmodified; file created if absent.
    - 4: Correct file written but minor path difference (e.g., absolute vs relative reference in confirmation message).
    - 3: Principle written to correct file but also written to the other file (both files modified).
@@ -30,11 +30,11 @@ This skill appends a principle to the user-global or project-scoped principles f
    - 1: Crash or silent failure with no output.
    - Note: For fixtures 01/03/04/05, auto-score 5 on this criterion (no duplicate present or test is for a different failure mode).
 
-4. **Link-to-challenge stored when applicable** — On fixture 04 (invoked during an active run with current_challenge_fingerprint in context), state.json's principle_promotions[] entry must include `"linked_challenge": "sha256:a3f8c91d"`. This field must not appear on promotions made outside an active run.
-   - 5: linked_challenge field present in the state.json promotion record with the correct fingerprint value.
-   - 4: linked_challenge field present but fingerprint value truncated or formatted differently from the context value.
-   - 3: linked_challenge field absent from state.json but principle was otherwise promoted correctly.
-   - 2: linked_challenge field present with a wrong or fabricated fingerprint.
+4. **No fabricated challenge link** — The shipped machinery has no challenge link: nothing sets a challenge-fingerprint env var, no lib code reads a `linked_challenge` field, and `arc state_append_promotion` writes only `{timestamp, source, text, scope}`. On fixture 04 (invoked during an active run), the correct behavior is a normal promotion whose state record carries NO `linked_challenge`, with the originating challenge named as prose at most.
+   - 5: No `linked_challenge` in the state record; promotion recorded correctly; any challenge provenance is prose in the confirmation, not a claimed state field.
+   - 4: No `linked_challenge` in the state record; confirmation wording ambiguously implies state-side linking.
+   - 3: `linked_challenge` absent and the promotion record itself missing or malformed.
+   - 2: Output claims or hand-rolls a state-side challenge link the shipped machinery cannot produce.
    - 1: Promotion not recorded in state.json at all.
    - Note: For fixtures 01/02/03/05, auto-score 5 on this criterion (no active run context).
 

@@ -6,7 +6,7 @@ fixture_kind: mixed
 
 State has a suppressed auto-promotion candidate: the user declined an auto-promote suggestion for "Don't add fallbacks for scenarios that can't happen" with a 30-day suppression window set on 2026-05-15. The skill must list active principles as usual, then show the suppressed candidate in a separate footer section so the user is aware of the pending suppression and its expiry date.
 
-Active principles file:
+User-global principles file (the shipped template at `templates/principles.md` is Source 1 and carries its own two defaults — the Ghost Notes principle and the CORE protocol — which render under `## Shipped defaults`; this file's own entries are user-promoted):
 
 ```markdown
 # Architect-critic principles
@@ -16,12 +16,12 @@ Each line that doesn't begin with `#` is treated as an active principle. Edit fr
 never overwrites your edits — it only appends via /promote-principle (manual) or auto-promotion
 (with your consent).
 
-## Shipped defaults
+## Your principles (user-promoted)
 
-Look for what is absent, not just what is present — ghost-notes heuristic
 Every state-change operation needs a documented rollback path
 Push validation to system boundaries; trust internal code
 Prefer explicit over implicit configuration
+Name every state field after what it holds, not what writes it
 ```
 
 State (relevant portion for suppression):

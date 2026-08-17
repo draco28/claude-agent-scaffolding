@@ -40,7 +40,7 @@ Contains two load-bearing defaults: the **Ghost Notes principle** (what is absen
 **Source 2 — User-global** (`user`)
 
 ```bash
-USER_PATH="${HOME}/.claude/architect-critic/principles.md"
+USER_PATH="$(arc principles_user_path)"
 ```
 
 If this file does not exist, skip this source silently (no "file not found" error in output). If it exists but is empty after stripping headers and blank lines, omit the section header.
@@ -93,7 +93,7 @@ Apply the filter after the merge. Do not re-read files; just drop sections not m
 Read `auto_promote_suppressions[]` from `state.json`:
 
 ```bash
-STATE_FILE="${HOME}/.claude/architect-critic/state.json"
+STATE_FILE="$(arc state_path)"
 SUPPRESSIONS="$(jq -c '.auto_promote_suppressions // []' "$STATE_FILE" 2>/dev/null || echo '[]')"
 NOW_ISO="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 ```
@@ -119,10 +119,9 @@ The shipped `templates/principles.md` and any project/user principles files anno
 - **Prefer explicit over implicit**
 ```
 
-Route each entry by its `source` key:
+Route each entry by its `source` key and the file it was read from:
 - `shipped-default` → place under `## Shipped defaults`
-- `user-promoted` → `## Your principles (user-promoted)`, append `— promoted <date>` from `promoted_at`
-- `project` → `## Project principles`, append `— promoted <date>` from `promoted_at`
+- `user-promoted` → the file decides: read from the user-global file → `## Your principles (user-promoted)`; read from the project file → `## Project principles`. Append `— promoted <date>` from `promoted_at` either way. **No shipped writer emits a `source: project` tag** — `promoting-principle` Step 5 tags every promotion `user-promoted`, including project-scope appends.
 
 Strip the HTML comment from display text — it is file metadata, not content. This is the contract Phase 3.2 (auto-promotion write path) relies on. `ac_principles_load_user_global` strips `[promoted ...]` bracket annotations for the merge step; HTML comments are preserved in raw files and stripped here at display time.
 

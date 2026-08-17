@@ -33,8 +33,8 @@ only in the conversation** — and two ceremonies read it back later:
 
 | Consumer | Reads |
 |---|---|
-| `close/references/spine-close.md:70` | `base_branch`, from the spine-context section |
-| `close/references/spine-close.md:270` | the whole file, as the architect-critic `--spec` target |
+| `close/references/spine-close.md` §3 (step 2) | `base_branch`, from the spine-context section |
+| `close/references/spine-close.md` §7 (architect-critic) | the whole file, as the architect-critic `--spec` target |
 | §6 of this file | the same, for the planning-time adversarial pass |
 
 Skipped, both fail in the same shape: the critic audits a path that does not

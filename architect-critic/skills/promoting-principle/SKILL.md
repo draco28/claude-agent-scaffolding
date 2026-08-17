@@ -71,7 +71,7 @@ Determine the target `principles.md` path based on scope.
 **`user` scope:**
 
 ```bash
-USER_PRINCIPLES="${HOME}/.claude/architect-critic/principles.md"
+USER_PRINCIPLES="$(arc principles_user_path)"
 ```
 
 If this file does not exist, create it by copying the shipped-defaults header from the plugin template:
@@ -179,50 +179,22 @@ Initialize state via the `arc` dispatcher (`architect-critic/bin/arc`, on `$PATH
 arc state_init
 ```
 
-Then append via `jq`:
+Then append the promotion record with the dispatcher:
 
 ```bash
-STATE_FILE="${HOME}/.claude/architect-critic/state.json"
-NOW_ISO="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-
-jq --arg pid "$PRINCIPLE_ID" \
-   --arg txt "$PRINCIPLE_TEXT" \
-   --arg ts  "$NOW_ISO" \
-   --arg scp "$SCOPE" \
-   '.principle_promotions += [{
-      "principle_id": $pid,
-      "text":         $txt,
-      "source":       "user-promoted",
-      "promoted_at":  $ts,
-      "scope":        $scp,
-      "promotion_basis": "user-vote"
-   }]' "$STATE_FILE" > "${STATE_FILE}.tmp" \
-&& mv "${STATE_FILE}.tmp" "$STATE_FILE"
+arc state_append_promotion manual "$PRINCIPLE_TEXT" "$SCOPE"
 ```
 
-If `ac_state_record_promotion` is available in the v0.2 `lib/state.sh` as a named function, call it instead — it handles locking. Fall back to the raw `jq` snippet above if the function is absent (graceful degradation during phased build).
+`ac_state_append_promotion` (`lib/state.sh`) acquires the state lock, stamps the
+UTC timestamp itself, and appends `{timestamp, source, text, scope}` to
+`.principle_promotions`. Do not hand-roll a `jq` write here — an unlocked raw
+write is the exact path this verb exists to keep closed.
 
 ---
 
-## Step 7: Auto-link to active challenge (if applicable)
+## Step 7: Auto-link to active challenge — not shipped
 
-Check whether the skill was invoked from inside a `critiquing-spec` rebuttal cycle. The env var `ARCHITECT_CRITIC_CURRENT_CHALLENGE_FINGERPRINT` is set by the critic when a specific challenge is selected for resolution.
-
-```bash
-CHALLENGE_FP="${ARCHITECT_CRITIC_CURRENT_CHALLENGE_FINGERPRINT:-}"
-```
-
-If `CHALLENGE_FP` is non-empty, add `linked_challenge` to the state.json entry you just wrote:
-
-```bash
-jq --arg pid "$PRINCIPLE_ID" \
-   --arg fp  "$CHALLENGE_FP" \
-   '(.principle_promotions[] | select(.principle_id == $pid)) += {"linked_challenge": $fp}' \
-   "$STATE_FILE" > "${STATE_FILE}.tmp" \
-&& mv "${STATE_FILE}.tmp" "$STATE_FILE"
-```
-
-This fingerprint link enables the auto-promotion machinery (Phase 3) to dedup: if the same challenge recurs and auto-promotion fires, it will detect the existing user-promoted principle via `linked_challenge` and skip duplicate promotion.
+The design sketched a challenge link: `critiquing-spec` would export `ARCHITECT_CRITIC_CURRENT_CHALLENGE_FINGERPRINT` during a rebuttal cycle, and the promotion record would carry `linked_challenge` for auto-promotion dedup. **None of that machinery ships** — nothing in the plugin sets that env var, no lib code reads a `linked_challenge` field, and the record `arc state_append_promotion` writes (`{timestamp, source, text, scope}`) carries no id to link on. Do not hand-roll a `jq` amend to force one — an unlocked raw write is exactly the path Step 6's verb exists to keep closed. If the user wants the provenance, name the originating challenge in your confirmation message as prose.
 
 ---
 
@@ -258,7 +230,7 @@ User types: `/promote-principle "Avoid implicit coupling between modules that sh
 4. Uniqueness check: no existing principle normalizes to a Jaccard ≥ 0.85 match.
 5. Entry appended under `## Your principles (user-promoted)`.
 6. `state.json` updated: one entry added to `principle_promotions[]`.
-7. `ARCHITECT_CRITIC_CURRENT_CHALLENGE_FINGERPRINT` not set; skip linking.
+7. No challenge link written — the link machinery is not shipped (Step 7).
 8. Output:
 
 ```
@@ -322,13 +294,11 @@ Promoted: 'All schema migrations must be reversible.'
 
 ---
 
-### Example 4 — Auto-link to challenge (invoked during critiquing-spec rebuttal)
+### Example 4 — Invoked during a critiquing-spec rebuttal
 
-The user accepts a challenge from a `critiquing-spec` run. The critic set `ARCHITECT_CRITIC_CURRENT_CHALLENGE_FINGERPRINT=7f3a2c9b...`. User types: *"Record this as a principle: always include a rollback path in migration specs."*
+The user accepts a challenge from a `critiquing-spec` run and types: *"Record this as a principle: always include a rollback path in migration specs."*
 
-Steps 1–6 run normally. In Step 7, `CHALLENGE_FP` is non-empty (`7f3a2c9b...`). The state.json entry is updated with `"linked_challenge": "7f3a2c9b..."`.
-
-Output:
+Steps 1–6 run normally; Step 7 adds nothing to state (the challenge link is not shipped). The originating challenge can be named in the confirmation as prose — the only provenance the shipped machinery carries:
 
 ```
 Promoted: 'always include a rollback path in migration specs'
@@ -336,7 +306,7 @@ Promoted: 'always include a rollback path in migration specs'
   Scope:        user
   Principle ID: pp-2b8e00f3c4a91d67
   Promoted at:  2026-05-24T14:40:00Z
-  Linked challenge: 7f3a2c9b... (will dedup future auto-promotions for this pattern)
+  From challenge: the rollback-path challenge of this audit (prose provenance — no linked_challenge field exists in state)
 ```
 
 ---

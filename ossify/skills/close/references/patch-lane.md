@@ -163,10 +163,14 @@ record. A patch committed and never recorded is the lane's actual failure mode:
 the drift is real and invisible, and `doctor` cannot count what was never
 written.
 
-The one-liner is **self-declared and visible in the ossify:doctor read-out (NOT in bare `oss doctor`, which is the four-check gate)**. Write the second half —
-*why it took no spine* — as the three-part test's answer, not as a restatement of
-the diff. *"comment typo in the export path — no bone, no gate, no line observes
-it"* is a record; *"fix typo"* is a shrug that the next reader cannot audit.
+The one-liner is **self-declared**. The ossify:doctor read-out surfaces only a
+**count** of patch records (`doctor/references/state-inspection.md` §2; bare
+`oss doctor` is the four-check gate and shows none) — the one-liner itself is read
+by whoever runs `oss get '[.patch_records[] | {commit, text, at}]'`, so write it
+so that read is auditable. Write the second half — *why it took no spine* — as
+the three-part test's answer, not as a restatement of the diff. *"comment typo in
+the export path — no bone, no gate, no line observes it"* is a record; *"fix
+typo"* is a shrug that the next reader cannot audit.
 
 There is **no approval step and no ceremony** here, by design. The lane's
 integrity rests entirely on the routing judgment being made honestly before the

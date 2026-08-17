@@ -25,9 +25,12 @@ For each fixture, judge the SKILL OUTPUT against this rubric. Score each criteri
    - 4: Applied without naming the principle.
    - 1: Did not look for absent data.
 
-5. **No false positives on the negative-control fixture (04)** — On `04-spec-with-no-gaps.md`, the critic surfaces nothing OR only `alternative`-severity items. Premise/gap challenges on this fixture = score 1.
-   - 5: Nothing surfaced, OR only alternatives.
-   - 1: Spurious premise/gap challenges.
+5. **No fabrication on the negative-control fixture (04)** — On `04-spec-with-no-gaps.md`, the spec is complete: no unstated premise, no missing failure mode. The skill's documented norm is to generate 3–10 candidate challenges per audit and let the rebuttal cycle filter them, so honest candidate premise/gap *questions* are not automatic failures — the failure mode this control guards against is fabrication and overclaiming.
+   - 5: Nothing surfaced, OR only `alternative`-severity items.
+   - 4: Premise/gap candidates present, but every one is anchored to real spec text, correctly severity-labeled, curiosity-framed, and not asserted as an established defect.
+   - 3: Candidates present and mostly anchored, but one is asserted as an established defect or stretches spec text to manufacture a requirement.
+   - 2: Challenges asserted as established spec defects, or anchored to requirements the spec never states.
+   - 1: Hallucinated findings wholesale (challenges about content absent from the spec).
 
 ## Output format
 

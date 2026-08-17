@@ -118,7 +118,8 @@ off.
 invocation that stopped — a gap returned, a round deferred, a session interrupted
 — leaves the branch cut, per-item worktrees on disk, and item status journaled.
 Reusing the branch alone buys exactly one step: `oss worktree_add` returns **rc 8**
-for every item already spawned (`lib/worktree.sh:50`), and nothing routes
+for every item already spawned (`oss_worktree_add`'s already-exists guard in
+`lib/worktree.sh`), and nothing routes
 completed or active items to close or to redispatch from their recorded state.
 Resuming means reconciling all four at once — that is issue 133, not this block.
 Until it lands, halting with the branch named beats a lane that half-restarts.

@@ -1,6 +1,6 @@
 ---
 name: doctor
-description: Diagnose an ossify project and name the remedy for what it finds — state health and state-vs-repo drift, rotting demo lines, unexpired fakes, patch records, orphan worktrees, lean-spec validation, machine-checkable-rule authoring, the Claude/Codex interop check, and the skill budgets. Use when the user says run doctor, check project health, validate the spec, add a project rule, check Codex interop, find orphan worktrees, or /ossify:doctor. Not the close gates (/close), not onboarding (/start), not /amend-spec.
+description: Diagnose an ossify project and name the remedy for what it finds — state health and state-vs-repo drift, rotting demo lines, outstanding fakes, patch records, orphan worktrees, lean-spec validation, machine-checkable-rule authoring, the Claude/Codex interop check, and the skill budgets. Use when the user says run doctor, check project health, validate the spec, add a project rule, check Codex interop, find orphan worktrees, or /ossify:doctor. Not the close gates (/close), not onboarding (/start).
 ---
 
 # doctor
@@ -67,8 +67,9 @@ the verb, let the user run it.
 
 - The user wants to **run a gate** — the work-item gate, the cumulative demo, a
   release's blocking findings. Those are `/close`, and they halt; you do not.
-- The user wants to **author or amend the spec itself**. Authoring is `/start`,
-  amending is `/amend-spec`. You validate what exists and never edit it.
+- The user wants to **author or amend the spec itself**. Authoring is `/start`;
+  amending an existing spec is not this surface's job — you validate what exists
+  and never edit it.
 - The user wants to **plan, decompose, or execute** anything. Those are
   `/plan-release`, `/plan-spine`, `/work-item`.
 - The user asks to **fix** a finding you reported. Name the verb and let them

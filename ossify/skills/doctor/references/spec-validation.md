@@ -127,8 +127,9 @@ One line per finding, and every line carries three things:
 1. **Where** — the section number and, when the file gives you one, the line.
 2. **What** — the rule that failed, in the schema's own words.
 3. **The remediation** — the concrete next move, naming a command literally
-   where one exists (`/amend-spec` for a content change, `/start` when there is
-   no spec at all).
+   where one exists (`/start` when there is no spec at all; for a content change,
+   ossify ships no `/amend-spec` command — name the section and the edit, and say
+   the amend flow is ceremony-routed prose).
 
 A finding without a remediation is a complaint. If you cannot name the next
 move, you have not finished diagnosing.

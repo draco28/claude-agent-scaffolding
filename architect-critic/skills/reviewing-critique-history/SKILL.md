@@ -13,10 +13,10 @@ This skill is intentionally narrow: read, format, display. No judgment, no rebut
 
 ## Step 1: Resolve the state.json path
 
-The canonical location is `~/.claude/architect-critic/state.json`. Expand `~` to the actual home directory — the Bash tool does not always expand tilde in arguments.
+Resolve the state file through the dispatcher, never a hardcoded path — `ac_state_path` resolves `ac_data_dir` (which honors a `CLAUDE_PLUGIN_DATA` override) and appends `state.json`, so this read path always matches the write path other skills use.
 
 ```bash
-STATE_FILE="${HOME}/.claude/architect-critic/state.json"
+STATE_FILE="$(arc state_path)"
 ```
 
 If the file does not exist at that path, stop here and output:
@@ -38,7 +38,7 @@ LIMIT="$(printf "%s" "${ARCHITECT_CRITIC_ARGS:-}" | sed -nE "s|.*--limit[= ]+([0
 [[ -z "$LIMIT" ]] && LIMIT=10
 ```
 
-Valid range: 1–100. If the user passes `--limit 0` or a negative value, treat as default (10). If they pass `--limit 200`, cap at 100 and note it.
+Valid range: 1–20 — `ac_state_append_run` trims `recent_runs[]` to the last 20 on every append, so a larger limit returns the same rows. Values above 20 are capped at 20 and noted; `--limit 0` or a negative value resets to the default (10).
 
 ---
 
@@ -99,7 +99,7 @@ Use Bash for the relative-time conversion if you need it, but keep the computati
 
 If `TOTAL > LIMIT`, prepend a one-line note before the table:
 
-> Showing 10 of 23 total runs. Use `--limit N` to see more.
+> Showing 10 of 17 total runs. Use `--limit N` to see more.
 
 If `TOTAL <= LIMIT`, no annotation needed.
 
@@ -205,11 +205,11 @@ Coupled to these `recent_runs[]` and `external_runs[]` fields in schema v3. If `
 | `challenge_count` | integer | Bare count |
 | `concessions` | integer | v2 addition |
 | `skill_invoked` | string | v2 addition |
-| `codex_timeout` | boolean (optional) | Present only when codex timed out |
+| `codex_timeout` | boolean (optional) | Present only on pre-v0.2 records; the current write path does not set it |
 
 **Removed in v2 — do not reference:** `in_flight` (top-level, async dropped), `cost_usd` (per-run, dropped).
 
-If `schema_version == 1`, emit: "Warning: state.json is schema v1. Run `/critique` once to migrate." Then render with missing v2 fields blank.
+If `schema_version == 1`, emit: "state.json is schema v1 (pre-v0.2). Run `arc migration_check_v01_state` to see what the v0.1→v0.2 migration will do — `/critique` will not upgrade a v1 file." Then render with missing v2 fields blank.
 
 ---
 
