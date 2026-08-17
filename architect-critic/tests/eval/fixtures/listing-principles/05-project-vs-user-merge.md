@@ -21,7 +21,7 @@ never overwrites your edits — it only appends via /promote-principle (manual) 
 Prefer explicit over implicit configuration [promoted 2026-05-01 source:manual]
 ```
 
-Project-scoped patterns file (`.claude/memory-bank/03-code-patterns.md`):
+Project-scoped principles file (`.claude/architect-critic/principles.md`):
 
 ```markdown
 # Code patterns — pulse-hive

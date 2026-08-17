@@ -58,7 +58,7 @@ Once you have a path: `Read` the artifact end-to-end. Hold its contents in your 
 
 Principles are the lens you audit through. Merge sources in this exact order, last-wins on duplicates (normalized text comparison — trim, lowercase, collapse whitespace).
 
-1. **Shipped defaults** — `${PLUGIN_DIR}/templates/principles.md`. Always loaded. Contains the **Ghost Notes principle** (what is absent from the spec is often more important than what is present) and the **CORE protocol** (Curiosity → Objectivity → Reassurance → Empathy as the tone for every challenge raised).
+1. **Shipped defaults** — `${CLAUDE_PLUGIN_ROOT}/templates/principles.md`. Always loaded. Contains the **Ghost Notes principle** (what is absent from the spec is often more important than what is present) and the **CORE protocol** (Curiosity → Objectivity → Reassurance → Empathy as the tone for every challenge raised).
 2. **User-global** — `~/.claude/architect-critic/principles.md`. The user's promoted principles across all projects.
 3. **Project-scoped** — `<repo>/.claude/architect-critic/principles.md` if it exists. Project-specific principles override user-global on conflict.
 4. **Memory-bank patterns** — only if scaffold-onboard is installed. Probe the filesystem for `~/.claude/plugins/*/scaffold-onboard/skills/` (any of the marketplace install paths). If found, load any `principles*.md` or `patterns*.md` files it ships and merge them as additional principles.
@@ -265,7 +265,7 @@ Then invoke codex via the Bash tool with this exact pattern:
 ```bash
 codex exec \
   --json \
-  --output-schema "${PLUGIN_DIR}/templates/output-schema.json" \
+  --output-schema "${CLAUDE_PLUGIN_ROOT}/templates/output-schema.json" \
   --output-last-message "${TMP}/codex-audit-${REQ_ID}.json" \
   --ignore-user-config --ignore-rules \
   --skip-git-repo-check \
@@ -292,7 +292,7 @@ Then invoke Claude Code via the shell with this pattern, using the same `ADVERSA
 ```bash
 claude --print \
   --output-format json \
-  --json-schema "$(cat "${PLUGIN_DIR}/templates/output-schema.json")" \
+  --json-schema "$(cat "${CLAUDE_PLUGIN_ROOT}/templates/output-schema.json")" \
   --permission-mode dontAsk \
   --no-session-persistence \
   "$ADVERSARIAL_PROMPT"
@@ -360,7 +360,7 @@ Final list: 3 challenges, one cross-confirmed at premise level (surface first in
 This step is the heart of the user experience. It is also the bug #4 fix: **never use bash `read` to capture user input here.** Bash `read` blocks on stdin, which doesn't exist in non-TTY Claude Code sessions (subagent, hooks, headless), and the rebuttal cycle silently skips. Use Claude's native turn handling instead — you ask, the user replies in the next turn, you process.
 
 **Recommend-by-default (#93).** Per the recommendation policy
-(`${PLUGIN_DIR}/templates/recommendation-policy.md`), each challenge you surface
+(`${CLAUDE_PLUGIN_ROOT}/templates/recommendation-policy.md`), each challenge you surface
 carries **one recommended disposition** — your honest, CORE-toned lean on how the
 user should dispose of it (`accept`, `rebut`, or `defer`) plus a one-line
 rationale, grounded in the artifact (Step 1) and principles (Step 2) and cited
@@ -371,7 +371,7 @@ doesn't ground it, say *"(general best practice)"*. When `neutral_mode=true`
 (Step 3, `--neutral`), omit the recommended-disposition line and present each
 challenge neutrally.
 
-**Step 8.0 — Triage (disposition triage, pulse360#15).** Skip this step when `walk_mode=true` or `neutral_mode=true` — then every challenge is walked below. Otherwise, before walking anything, initialize `AUTO_APPLIED_COUNT=0`, `ESCALATED_COUNT=0`, `DEFERRED_CHALLENGES_JSON=[]`, and `DEFERRED_COUNT=0`, then classify every challenge in the consolidated list against the escalation predicate in the policy's *Disposition triage* section (`${PLUGIN_DIR}/templates/recommendation-policy.md`): UNGROUNDED / VISION/SCOPE-TOUCHING / ONE-WAY DOOR / TOP SEVERITY (`premise` is this surface's top class) / CONTESTED (recommended disposition is `rebut`, or the two adversaries disagree on the finding).
+**Step 8.0 — Triage (disposition triage, pulse360#15).** Skip this step when `walk_mode=true` or `neutral_mode=true` — then every challenge is walked below. Otherwise, before walking anything, initialize `AUTO_APPLIED_COUNT=0`, `ESCALATED_COUNT=0`, `DEFERRED_CHALLENGES_JSON=[]`, and `DEFERRED_COUNT=0`, then classify every challenge in the consolidated list against the escalation predicate in the policy's *Disposition triage* section (`${CLAUDE_PLUGIN_ROOT}/templates/recommendation-policy.md`): UNGROUNDED / VISION/SCOPE-TOUCHING / ONE-WAY DOOR / TOP SEVERITY (`premise` is this surface's top class) / CONTESTED (recommended disposition is `rebut`, or the two adversaries disagree on the finding).
 
 - **Clears the predicate** → apply the recommended disposition now, incrementing `AUTO_APPLIED_COUNT`: `accept` → mark as concession; `defer` → append `{index,text,severity,rationale}` to `DEFERRED_CHALLENGES_JSON` and increment `DEFERRED_COUNT`.
 - **Trips the predicate** → add to the escalated list, incrementing `ESCALATED_COUNT`.
@@ -483,7 +483,7 @@ Auto-promotion candidates from this audit:
   2. "..."
 ```
 
-Wait for the user's pick per candidate. Pass their decision to `lib/promotion.sh:ac_promotion_apply` (promotes to the chosen scope's `principles.md`, or appends to `auto_promote_suppressions[]` with a 30-day TTL if dismissed).
+Wait for the user's pick per candidate. Pass their decision to the real verbs: promote → `arc promotion_promote <fingerprint> <basis>` (`lib/promotion.sh` records the promotion in state; the chosen scope's `principles.md` write is `promoting-principle` Step 5's); dismiss → `arc promotion_apply_suppression <fingerprint> <reason_score>` (suppression window is 30/90 days, selected from `reason_score`). There is no single `ac_promotion_apply` — the promote and suppress paths are separate functions.
 
 **On the "candidates pile" from Step 8.** Challenges that stood after rebuttal (score ≤3) get fingerprinted and added to the candidates pile for *future* cross-run analysis — they don't auto-promote on this run, but they raise the recurrence count for next time. This is the v0.2 FULL auto-promotion model per [[project_architect_critic_v01_settlements]] — three recurrences across runs trigger the promotion offer.
 
@@ -494,7 +494,7 @@ Wait for the user's pick per candidate. Pass their decision to `lib/promotion.sh
 Final turn message, plain prose. Format:
 
 ```
-Audit complete for <artifact path>.
+Audit complete for <target>.
 
   Adversaries used : <claude | claude + codex>
   Challenges       : <N> total (<X> premise, <Y> gap, <Z> alternative)
@@ -507,14 +507,20 @@ Audit complete for <artifact path>.
   Elapsed          : <S> seconds
 
 <If promotion candidates surfaced: prompt for promote decision here>
+
+Audit complete for <target>[ phase_id=<N>]. <K> challenges stood:
+- <one bullet per challenge that stood, verbatim>
 ```
 
 `<M>` (Escalated) is `ESCALATED_COUNT`: challenges that tripped the escalation predicate and were walked individually in Step 8. Under `--walk`/`--neutral`, Step 8.0 triage does not run, so `<M>` reads `0` even though every one of the `<N>` challenges was walked (sequential mode, not the predicate) — read `Escalated : 0` in those modes as "triage skipped," not "nothing was walked."
 
+**The closing line is what consumers parse for standing challenges.** `<target>` is the invocation's `target` argument when the caller passed one (invocation arguments, like `artifact_path` — not env vars; scaffold-onboard's critic moments pass `target=` and `phase_id=` — `scaffold-onboard/skills/onboarding-project/references/critic-moments.md` §1); otherwise `<target>` is the artifact path and the ` phase_id=<N>` segment is omitted. `<K>` is the candidates-pile count — the same number as `Candidates piled` — and the bullets are exactly those challenges, one per line, verbatim. When K=0 the closing line is `Audit complete for <target>. 0 challenges stood — recap is solid.` with no bullets.
+
 This is the structured handoff. Consumer plugins (scaffold-onboard v0.2, scaffold-dev v0.1) parse the summary out of conversation context — there is **no file IPC** for the cross-plugin handoff, only the conversation transcript. Keep the format stable so consumers' regexes work.
 
 **Stability contract for downstream consumers.** The following tokens MUST appear verbatim (case-sensitive) for consumers to parse correctly:
-- The literal string `Audit complete for ` followed by the artifact path.
+- The literal string `Audit complete for ` followed by the target (or the artifact path when no target was passed) — opening the summary and closing it.
+- The closing line `Audit complete for <target>[ phase_id=<N>]. <K> challenges stood:` followed immediately by one `- ` bullet per standing challenge — or `Audit complete for <target>. 0 challenges stood — recap is solid.` when none stood. scaffold-onboard parses this line for the standing-challenges list (`critic-moments.md` §5); its ` phase_id=<N>` segment appears only when the invocation passed one.
 - Field labels `Adversaries used`, `Challenges`, `Concessions`, `Auto-applied`, `Escalated`, `Deferred`, `Candidates piled`, `Principles`, `Elapsed` with `:` separator and exactly two spaces of indentation.
 - The integer counts must be bare (no commas, no units inline — the unit goes outside the number, e.g. `seconds` after `Elapsed`).
 
