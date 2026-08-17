@@ -62,7 +62,7 @@ Once you have a path: `Read` the artifact end-to-end. Hold its contents in your 
 Principles are the lens you audit through. Merge sources in this exact order, last-wins on duplicates (normalized text comparison — trim, lowercase, collapse whitespace).
 
 1. **Shipped defaults** — `${CLAUDE_PLUGIN_ROOT}/templates/principles.md`. Always loaded. Contains the **Ghost Notes principle** (what is absent from the spec is often more important than what is present) and the **CORE protocol** (Curiosity → Objectivity → Reassurance → Empathy as the tone for every challenge raised).
-2. **User-global** — the user's promoted principles across all projects, at the path `arc principles_user_path` resolves (honors a `CLAUDE_PLUGIN_DATA` override; default `~/.claude/architect-critic/principles.md`).
+2. **User-global** — the user's promoted principles across all projects, at the path `arc principles_user_path` resolves (`~/.claude/architect-critic/principles.md`, under `$HOME` — unlike `arc state_path`, this one does not consult `CLAUDE_PLUGIN_DATA`).
 3. **Project-scoped** — `<repo>/.claude/architect-critic/principles.md` if it exists. Project-specific principles override user-global on conflict.
 4. **Memory-bank patterns** — included only when `$ARCHITECT_CRITIC_MEMORY_BANK_PATH` points at a readable file; every `- ` bullet in it becomes a principle. `arc principles_merge` handles all four sources; it is authoritative for resolution order.
 
@@ -519,7 +519,7 @@ Audit complete for <target>[ phase_id=<N>]. <K> challenges stood:
 
 **The closing line is what consumers parse for standing challenges.** `<target>` is the invocation's `target` argument when the caller passed one (invocation arguments, like `artifact_path` — not env vars; scaffold-onboard's critic moments pass `target=` and `phase_id=` — `scaffold-onboard/skills/onboarding-project/references/critic-moments.md` §1); otherwise `<target>` is the artifact path and the ` phase_id=<N>` segment is omitted. `<K>` is the candidates-pile count — the same number as `Candidates piled` — and the bullets are exactly those challenges, one per line, verbatim. When K=0 the closing line is `Audit complete for <target>. 0 challenges stood — recap is solid.` with no bullets.
 
-This is the structured handoff. Consumer plugins (scaffold-onboard, ossify) parse the summary out of conversation context — there is **no file IPC** for the cross-plugin handoff, only the conversation transcript. Keep the format stable so consumers' regexes work.
+This is the structured handoff. Consumer plugins (scaffold-onboard, scaffold-dev, ossify) parse or compose the summary out of conversation context — there is **no file IPC** for the cross-plugin handoff, only the conversation transcript. Keep the format stable so consumers' regexes work.
 
 **Stability contract for downstream consumers.** The following tokens MUST appear verbatim (case-sensitive) for consumers to parse correctly:
 - The literal string `Audit complete for ` followed by the target (or the artifact path when no target was passed) — opening the summary and closing it.
@@ -527,7 +527,7 @@ This is the structured handoff. Consumer plugins (scaffold-onboard, ossify) pars
 - Field labels `Adversaries used`, `Challenges`, `Concessions`, `Auto-applied`, `Escalated`, `Deferred`, `Candidates piled`, `Principles`, `Elapsed` with `:` separator and exactly two spaces of indentation.
 - The integer counts must be bare (no commas, no units inline — the unit goes outside the number, e.g. `seconds` after `Elapsed`).
 
-If you change this format, bump architect-critic minor version and coordinate with scaffold-onboard / ossify maintainers — their regexes will break otherwise. Per [[feedback_v01_full_over_minimal]], this contract is design-locked and ships as-is; consumers parse against it.
+If you change this format, bump architect-critic minor version and coordinate with scaffold-onboard / scaffold-dev / ossify maintainers — their regexes will break otherwise. Per [[feedback_v01_full_over_minimal]], this contract is design-locked and ships as-is; consumers parse against it.
 
 **What you do NOT emit:** raw JSON dumps, internal request IDs (the user doesn't care about `crit-20260524T...`), tool-call traces, principle file paths. Keep the summary human-readable. The full audit artifacts live in state.json for `/critique-list` to retrieve later.
 
