@@ -519,15 +519,15 @@ Audit complete for <target>[ phase_id=<N>]. <K> challenges stood:
 
 **The closing line is what consumers parse for standing challenges.** `<target>` is the invocation's `target` argument when the caller passed one (invocation arguments, like `artifact_path` — not env vars; scaffold-onboard's critic moments pass `target=` and `phase_id=` — `scaffold-onboard/skills/onboarding-project/references/critic-moments.md` §1); otherwise `<target>` is the artifact path and the ` phase_id=<N>` segment is omitted. `<K>` is the candidates-pile count — the same number as `Candidates piled` — and the bullets are exactly those challenges, one per line, verbatim. When K=0 the closing line is `Audit complete for <target>. 0 challenges stood — recap is solid.` with no bullets.
 
-This is the structured handoff. Consumer plugins (scaffold-onboard, scaffold-dev, ossify) parse or compose the summary out of conversation context — there is **no file IPC** for the cross-plugin handoff, only the conversation transcript. Keep the format stable so consumers' regexes work.
+This is the structured handoff. Consumer plugins (scaffold-onboard, scaffold-dev, ossify) parse or compose the summary out of conversation context — there is **no file IPC** for the cross-plugin handoff, only the conversation transcript. Keep the format stable so the parsers keep parsing and the composers keep emitting a parseable shape.
 
-**Stability contract for downstream consumers.** The following tokens MUST appear verbatim (case-sensitive) for consumers to parse correctly:
+**Stability contract for downstream consumers.** The following tokens MUST appear verbatim (case-sensitive) — the parsing consumers read them and the composing consumers must embed them:
 - The literal string `Audit complete for ` followed by the target (or the artifact path when no target was passed) — opening the summary and closing it.
 - The closing line `Audit complete for <target>[ phase_id=<N>]. <K> challenges stood:` followed immediately by one `- ` bullet per standing challenge — or `Audit complete for <target>. 0 challenges stood — recap is solid.` when none stood. scaffold-onboard parses this line for the standing-challenges list (`critic-moments.md` §5); its ` phase_id=<N>` segment appears only when the invocation passed one.
 - Field labels `Adversaries used`, `Challenges`, `Concessions`, `Auto-applied`, `Escalated`, `Deferred`, `Candidates piled`, `Principles`, `Elapsed` with `:` separator and exactly two spaces of indentation.
 - The integer counts must be bare (no commas, no units inline — the unit goes outside the number, e.g. `seconds` after `Elapsed`).
 
-If you change this format, bump architect-critic minor version and coordinate with scaffold-onboard / scaffold-dev / ossify maintainers — their regexes will break otherwise. Per [[feedback_v01_full_over_minimal]], this contract is design-locked and ships as-is; consumers parse against it.
+If you change this format, bump architect-critic minor version and coordinate with scaffold-onboard / scaffold-dev / ossify maintainers — their parsers and composers will break otherwise. Per [[feedback_v01_full_over_minimal]], this contract is design-locked and ships as-is; consumers parse against it.
 
 **What you do NOT emit:** raw JSON dumps, internal request IDs (the user doesn't care about `crit-20260524T...`), tool-call traces, principle file paths. Keep the summary human-readable. The full audit artifacts live in state.json for `/critique-list` to retrieve later.
 
