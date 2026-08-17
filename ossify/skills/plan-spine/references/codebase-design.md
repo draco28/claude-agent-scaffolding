@@ -92,7 +92,7 @@ re-groom, and a `value` overwritten by the condition loses the thing the field
 is for.
 
 When the evidence exists, name it in the spine spec — the split is a
-system-shape decision, so it is `bone`-class (`class-declaration.md` rung 3,
+system-shape decision, so it is `bone`-class (`plan-release/references/class-declaration.md` rung 3,
 category 1), and the evidence is what its ADR records as the decision's
 grounds. A bone ADR that records *that* a service was extracted without
 recording *what pressure* required it leaves the next reader no way to tell a

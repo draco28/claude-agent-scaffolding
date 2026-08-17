@@ -116,7 +116,7 @@ fields are pending"), not a block.
 
 **But an unset field must not silently disable the intent axis**, which is the
 hole that delta would otherwise open: workspace-init does not write those
-fields yet (`posture-block.md` §9 — recorded as intent, written later), so
+fields yet (`start/references/posture-block.md` §9 — recorded as intent, written later), so
 today the field is unset in every real project and the mismatch rule above
 would never fire. **So the posture is the second intent source, and it is
 always present:** read `oss get ".project.posture"`. A **`fully-private` or
@@ -139,7 +139,7 @@ class, so §4 will not catch the omission either. Confirm it appears in
 `git -C "<root>" ls-files`; present-but-untracked is the same finding as
 absent, named as such. An observed-public repo without one is a **blocking
 finding** with the remediation named — author it via `start`'s posture block
-(`posture-block.md` §6) — never a silent skip. The v1 draft's defect was
+(`start/references/posture-block.md` §6) — never a silent skip. The v1 draft's defect was
 exactly a missing artifact reading as a clean pass.
 
 **Execute the machine-checkable rules block by reading it.** For each
@@ -167,7 +167,7 @@ already disclosed.
 `fixtures-must-be: synthetic` is not pattern-matchable. **It is asked wherever
 this step reads a `PUBLIC_BOUNDARY.md` at all** — non-synthetic fixture data is
 a privacy leak independent of any moat, by the same reasoning that makes even
-a fully-private project author the file (`posture-block.md` §6). A fixture
+a fully-private project author the file (`start/references/posture-block.md` §6). A fixture
 directory that looks like real user data, prices, or prompts is a finding the
 same way a tracked credential is.
 
@@ -319,7 +319,7 @@ close**. The unblock is real work:
 
 **The hygiene allowlist is not editable mid-audit.** An audit that edits its
 own inputs passes itself. An allowlist entry added in response to a finding is
-a `posture-block.md` edit made deliberately outside the audit — the halt
+a `start/references/posture-block.md` edit made deliberately outside the audit — the halt
 records the triage, the entry is authored at `start`-time, and the re-close
 sees the file as the standing warning it now is. When the override record
 ships, that path takes a row like any other acceptance; until then it is the

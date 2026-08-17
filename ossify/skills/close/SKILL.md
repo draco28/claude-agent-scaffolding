@@ -422,8 +422,8 @@ open, and stop (§2).
 
 **The close summary is this ceremony's final assistant message** — the last thing
 you emit when the scope's steps are done. It is a message, **not a file**: this
-release ships no close-summary artifact, the same deferral §8 records for handoff
-authoring. The durable records are `retrospective.md`, `report.md`, and the state
+release ships no close-summary artifact, the same non-wiring §6 records for handoff
+cleanup. The durable records are `retrospective.md`, `report.md`, and the state
 writes; the summary is how a human reads the run without opening them.
 
 It carries, in this order:

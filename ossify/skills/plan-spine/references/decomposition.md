@@ -33,11 +33,11 @@ is two spines.** The bound is a scope signal, not a formatting rule, and 6 is no
 "5 with an exception".
 
 **Take it back to `plan-release`.** Split the spine along the *journey* — the
-same cut `feature-map-grooming.md` §3 uses on an over-large candidate — and let
+same cut `plan-release/references/feature-map-grooming.md` §3 uses on an over-large candidate — and let
 each half be declared, classed, and DAG-positioned in its own right. Both halves
 must still cross the product end to end; a split that leaves one half unable to
 reach an outcome has produced an `internal-enabler`, which is a different
-conversation (`class-declaration.md` §4).
+conversation (`plan-release/references/class-declaration.md` §4).
 
 What **not** to do, in order of how tempting each is:
 

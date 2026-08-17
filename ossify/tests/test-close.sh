@@ -451,7 +451,8 @@ case "$T_OUT" in
   *) T_PASS=$((T_PASS+1));;
 esac
 
-# E6. touch_check's four exit codes, read straight off the dispatcher.
+# E6. touch_check's three exit codes across four cases (zero paths, hit,
+# clean, unreadable registry), read straight off the dispatcher.
 t_capture bash "$OSS" touch_check
 t_assert_rc 2 "touch_check with ZERO paths is rc 2 (could-not-check), NOT rc 1 (clean)"
 t_assert_contains "$T_OUT" "needs at least one path" "...saying why"

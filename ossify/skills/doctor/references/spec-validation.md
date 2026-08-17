@@ -41,7 +41,7 @@ be wrong. Name `/start` as the next step.
 
 ## 2. The seven required sections
 
-In this order, per `lean-spec-schema.md` §1:
+In this order, per `start/references/lean-spec-schema.md` §1:
 
 | # | Section | Present-and-non-empty is required |
 |---|---|---|
@@ -58,11 +58,11 @@ migrated from the 10-phase schema may carry both; report neither as a finding.
 
 **No FR/NFR ID table is required, and its absence is not an error.** This is the
 single most likely false positive, because every reviewer trained on the
-predecessor stack expects one. `lean-spec-schema.md` §3 records that exhaustive
+predecessor stack expects one. `start/references/lean-spec-schema.md` §3 records that exhaustive
 enumeration is *deliberately* dropped and grown at release closes instead. Do
 not report it, and do not "helpfully" suggest adding one.
 
-**A thin section is not an invalid section.** `lean-spec-schema.md` §4 sets
+**A thin section is not an invalid section.** `start/references/lean-spec-schema.md` §4 sets
 genuinely low Release-0 floors — a three-line feature map, one core journey, most
 bone categories answered `not-applicable` with a revisit trigger. A spec-core
 close that produced a five-line feature map and four `not-applicable` bones is a
@@ -141,7 +141,7 @@ move, you have not finished diagnosing.
 Named so a reader hitting the gap finds a note rather than silence:
 
 - **Prose quality.** The vision is narrative and *nothing sequences by it*
-  (`lean-spec-schema.md` §2). There is no rule to validate it against.
+  (`start/references/lean-spec-schema.md` §2). There is no rule to validate it against.
 - **Whether the journey map is the *right* journey.** That is a `/start`
   conversation and, later, a release-close re-groom.
 - **Citation resolution.** Whether a spec's file paths and REQ-IDs still resolve

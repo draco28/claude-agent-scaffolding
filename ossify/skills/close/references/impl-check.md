@@ -103,8 +103,10 @@ directions bite:
   the output must show zero tests. A non-runner that merely prints a zero-tests
   phrase is not vacuous.
 
-`user:` rows are not parsed here at all. They are journey lines for the
-cumulative demo, walked by a human at spine and release close.
+`user:` rows are not parsed here at all — and no ossify gate parses them
+anywhere. The human-walked half of acceptance lives in the demo ledger
+(`oss ledger_add_user`, keyed by spine), walked at the cumulative demo; a
+spec's `user:` line is documentation for the implementer only.
 
 ---
 

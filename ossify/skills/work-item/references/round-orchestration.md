@@ -22,7 +22,7 @@ authored, under:
 ```bash
 # /run-spine hands you ONLY the spine id. The release id and the slug are not
 # arguments — derive one, recover the other, exactly as close does (Route B in
-# `close/references/work-item-close.md` §1, inlined in `harvest.md` §2).
+# `close/references/work-item-close.md` §1, inlined in `close/references/harvest.md` §2).
 rel_id="r$(oss id_parse "$spine_id" | awk '{print $2}')"       # r1.s2 -> r1
 rel_dir="$(oss release_dir "$rel_id")"   # ABSOLUTE, ai_workspace-rooted
 matches="$(find "$rel_dir" -maxdepth 1 -type d -name "$spine_id-*" 2>/dev/null)"
@@ -56,7 +56,7 @@ Read them from there. Two ways to get this wrong, both silent:
 - **Not re-derived here.** The rounds are planning output. If reality disagrees
   with the plan, that is a replan — go back to `plan-spine`, re-record, and come
   back. Improvising a new order at execution time produces a spine that is wrong
-  in a way nobody can see later (`dag-rounds.md` §7).
+  in a way nobody can see later (`plan-spine/references/dag-rounds.md` §7).
 
 **No state field holds the work-item rounds.** `work_items[]` carries
 `{spine, title, target_repo, status, created_at}`, plus the
@@ -127,11 +127,11 @@ Until it lands, halting with the branch named beats a lane that half-restarts.
 **`base_branch` is taken from HEAD in this release, and that is a known
 limitation — park canonical on the intended base before you run the lane.**
 `plan-spine` authors the planned base into `SPINE.md`'s spine-context section at
-planning time (`spec-authoring.md` §1). **Close reads both** —
+planning time (`plan-spine/references/spec-authoring.md` §1). **Close reads both** —
 `close/references/spine-close.md` §3 takes the handoffs' recorded
 `base_branch:` lines (what the lane ACTUALLY cut from) as primary with
 `SPINE.md`'s planned base as the cross-check, halting on disagreement, and
-`code-review.md` reuses the ceremony's resolved value. This lane does not read
+`close/references/code-review.md` reuses the ceremony's resolved value. This lane does not read
 either source: it takes HEAD (issue 133). **That asymmetry is the hazard.** If
 canonical was parked anywhere but the planned base when you ran, the spine is
 cut from one branch and merged into another, and every guard downstream passes.

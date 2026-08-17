@@ -53,13 +53,13 @@ spec="$(dirname "$report")/spec.md"
 
 Route A gives you the paths and nothing else. Step 4 additionally needs the
 **spine branch**, which a round-flow caller already holds — it cut and checked it
-out before round 1 (`round-orchestration.md` §2). A standalone caller has neither,
+out before round 1 (`work-item/references/round-orchestration.md` §2). A standalone caller has neither,
 and recovers both from Route B.
 
 ### Route B — standalone
 
 Reconstruct from the id alone. The directory shape is the one the execution lane
-writes the handoff into (`round-orchestration.md` §4) — the two must stay
+writes the handoff into (`work-item/references/round-orchestration.md` §4) — the two must stay
 byte-identical, because a drift between them has no runtime signal:
 
 ```text
@@ -138,7 +138,7 @@ staged="$(git -C "$wt" diff --cached --name-only)"
 ```
 
 The implementer also reports `stage_status` — `all_staged`, `partial`, or `none`
-(`returns.md` §2):
+(`work-item/references/returns.md` §2):
 
 | `stage_status` | Action |
 |---|---|

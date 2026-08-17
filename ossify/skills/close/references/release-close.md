@@ -298,8 +298,9 @@ optional:**
   the record others will read; one wrong pattern stated confidently outlives the
   release.
 - **Roll up the memory-bank harvest totals — and note they are not persisted.**
-  Each spine close ran a harvest (`harvest.md`), which reports accepted / edited
-  / rejected counts **into the close summary only**: no state
+  Each spine close ran a harvest (`harvest.md`), which reports its four buckets
+  — **applied / applied-with-edit / left-in-handoff / dropped** — **into the
+  close summary only**: no state
   field holds them, and `harvest.md` §8 deliberately keeps them out of the spine
   retro. In the same session they are in scrollback; **in a later session they
   are gone**, and the honest entry is then "not recorded per spine — see each
@@ -316,7 +317,7 @@ than only an accounting one.
 
 ```bash
 oss feature_list                                    # the map, as JSON
-oss feature_add "<name>" "<the value it unlocks>" "<bone|flesh>" release-close
+oss feature_add "<name>" "<the value it unlocks>" "<bone|flesh>" release-retro
 oss release_set_meta "$rel" '{"next_sketch":{"goal":"<one line>","candidates":["<spine>","<spine>"]}}'
 ```
 

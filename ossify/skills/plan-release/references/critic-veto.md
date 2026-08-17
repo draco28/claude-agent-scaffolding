@@ -203,7 +203,8 @@ fail-closed default applies and the spine is planned as `bone`.
 
 The `veto_add … escalate` record does not close the escalation, and it does not
 move the class. It records that a finding *was* escalated. Until a `class_set`
-call runs, the spine keeps whatever the ladder declared in §3 — and for a hedged
+call runs, the spine keeps whatever the class ladder declared
+(`references/class-declaration.md` §1 / SKILL.md §7a) — and for a hedged
 boundary finding that is very often `flesh`, the exact opposite of the fail-closed
 default §4.5 just promised. Every escalation therefore ends in one of three calls:
 

@@ -51,7 +51,8 @@ implementer dispatch, verification, and merge belong to the execution engine
 - The project was never onboarded — that is `/start`.
 - The user wants to close a spine or run the cumulative demo — that is `close`.
 - The named spine already has work items and the user did not explicitly ask for
-  a replan. Ask first: *"Replan `<spine-id>` from scratch, or amend it?"*
+  a replan. Ask: *"Author a later round's specs (§6), fix up a failed round (§7),
+  or replan from scratch?"*
 
 ---
 
@@ -154,7 +155,7 @@ oss work_item_add "$spine" "<title>" [target_repo]      # prints r1.s2.w1, …
 
 `target_repo` defaults to `canonical`; pass the private-side repo (e.g.
 `private_core`) for an item that lands there — only `canonical` executes this
-release (`round-orchestration.md` §3, in the work-item skill, halts otherwise).
+release (`work-item/references/round-orchestration.md` §3, in the work-item skill, halts otherwise).
 **Each work item targets exactly one
 repo** — an item that spans two repos is two items. Full rules in
 `references/cross-repo.md`. An unknown spine id exits **7** and writes nothing.
@@ -211,6 +212,7 @@ method in `references/dag-rounds.md`, repo dimension in `references/cross-repo.m
 **Draft `SPINE.md` now; finish it at §9.** Nothing in state holds the rounds.
 Context/decomposition/rounds settle here, but **Demo contribution and Fakes are
 not decided until §8-§9** — so complete it there (`spec-authoring.md` §1).
+
 ---
 
 ## 6. Spec authoring
