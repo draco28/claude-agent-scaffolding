@@ -86,7 +86,9 @@ two ceremonies later at the close gate, where recovery option 1 ("re-dispatch
 the implementer — the default when the code is wrong") points at code that was
 never the problem.
 
-`user:` lines belong to the cumulative demo and are `close`'s to run. Skip them.
+`user:` lines are documentation for the implementer only — no ossify gate parses
+a `user:` AC. The human-walked half lives in the demo ledger (`close`'s to run,
+keyed by spine). Skip them here.
 
 ### Gate 3 — the worktree is real, clean, and on the declared branch
 

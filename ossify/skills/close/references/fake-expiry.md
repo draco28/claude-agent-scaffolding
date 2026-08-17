@@ -131,7 +131,7 @@ Walk them one at a time. **Read each `replacement_trigger` verbatim**, out loud,
 and ask the one question it was written to make answerable: *has this happened
 yet?* A trigger is condition-shaped by construction — *"the first real strategy
 iteration"*, *"the first live order"*, *"the first user who isn't me"*
-(`fake-ledger-discipline.md` §2) — so the answer is usually a fact about the
+(`plan-spine/references/fake-ledger-discipline.md` §2) — so the answer is usually a fact about the
 release that just closed, and the release walkthrough (§3 of
 `release-close.md`) is where you just watched it either happen or not.
 
@@ -185,11 +185,11 @@ resolved.
 **Renew, explicitly** — with a **new expiry release** and a stated reason. The
 reason is the whole content of the act: what the real one would cost, and why
 that cost still buys nothing yet. "No time" is not a reason
-(`fake-ledger-discipline.md` §1).
+(`plan-spine/references/fake-ledger-discipline.md` §1).
 
 > **`renewed` with no fifth argument does not move the deadline.** It is a status
 > annotation: `expiry_release` stays exactly what it was
-> (`fake-ledger-discipline.md` §3), so the fake arrives at the *next* close still
+> (`plan-spine/references/fake-ledger-discipline.md` §3), so the fake arrives at the *next* close still
 > due, still blocking, now carrying `status == "renewed"` — which this gate
 > selects on precisely so that call cannot become an escape. **A renewal without
 > a new expiry does not unblock the close.** Pass the fifth argument.

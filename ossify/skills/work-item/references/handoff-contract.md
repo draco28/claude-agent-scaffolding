@@ -61,7 +61,14 @@ one-paragraph statement of what the spine is for. Then two branch facts:
 
 `base_branch` is carried here because **no state field holds it** and spine close
 needs it to switch back before merging. Copy it into every handoff in the spine,
-including re-dispatches.
+including re-dispatches. **This is the branch the spine was actually cut from;
+`SPINE.md`'s spine-context section holds the branch it was *planned* to be cut
+from. They can differ** — the lane takes HEAD, not the plan
+(`round-orchestration.md` §2) — and spine close reads **this field first**,
+cross-checking against `SPINE.md`'s planned base and halting on disagreement
+(`close/references/spine-close.md` §3). A value copied from the plan instead of
+the worktree hides the very mismatch that halt exists to catch. Record the
+observed one here; it is the evidence.
 
 ### `## 3. Work item identifiers`
 
@@ -229,6 +236,8 @@ are both evidence, and the retrospective reads them.
 
 - **Omitting `spec_path`** because the spec is "obviously" beside the handoff.
   Gate 1 does not infer paths; every dispatch returns gaps and no work starts.
+- **Copying `SPINE.md`'s planned base into `base_branch`** instead of reading the
+  worktree's actual base. The cross-check then compares a value against itself.
 - **Paraphrasing the return shapes** in §10 instead of copying them. Same
   deadlock, harder to see.
 - **A §8 titled as authoritative.** Second source of truth, silently drifting.

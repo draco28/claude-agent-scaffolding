@@ -73,11 +73,11 @@ produces findings and a decision per finding, not a halt.
 The two facts this step needs are not in state and are recovered, not guessed:
 
 - **The spine slug** from the spine directory's name, exactly as the execution
-  lane recovers it (`round-orchestration.md` §2). Nothing persists a slug.
+  lane recovers it (`work-item/references/round-orchestration.md` §2). Nothing persists a slug.
 - **`base_branch`** from the handoffs' `## 2. Spine context` `base_branch:` lines
-  (`handoff-contract.md` §2) — the lane records there the branch canonical was
+  (`work-item/references/handoff-contract.md` §2) — the lane records there the branch canonical was
   ACTUALLY on when it cut the spine branch — with `SPINE.md`'s spine-context
-  section (`spec-authoring.md` §1), where `plan-spine` authored the planned base
+  section (`plan-spine/references/spec-authoring.md` §1), where `plan-spine` authored the planned base
   at planning time, as the cross-check. **If the two disagree, halt and name
   both** — the lane cuts from HEAD (issue 133), so a planned base that never
   matched the cut base is exactly the wrong-merge hazard. **If it cannot be
@@ -393,8 +393,9 @@ orderings have no automated coverage in this release.
 
 The mechanical seams **are** covered in `tests/test-close.sh`: the derived-branch
 assertion, the `base_branch` guards, the switch-back's HEAD assertion, the
-first-parent changed-path computation, and all four of `touch_check`'s exit
-codes.
+first-parent changed-path computation, and all three of `touch_check`'s exit
+codes across the four cases `tests/test-close.sh` E6 drives: zero paths, a hit,
+clean, and an unreadable registry.
 
 ---
 

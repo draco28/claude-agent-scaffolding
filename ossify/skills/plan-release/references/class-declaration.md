@@ -64,8 +64,8 @@ and gets back a confirmed order id"*, is a journey.
 Getting this wrong on a headless project mis-trips `internal-enabler` on **every
 legitimate spine**, because every one of them lands at an API rather than a
 screen — and an internal-enabler cannot claim product value, so the whole product
-becomes unable to demonstrate any. `demo-authoring.md` §3.2 states the same rule
-for demo lines; the two must agree.
+becomes unable to demonstrate any. `plan-spine/references/demo-authoring.md`
+§3.2b states the same rule for demo lines; the two must agree.
 
 ### Rung 2 — the bone-touch judge (mechanical)
 

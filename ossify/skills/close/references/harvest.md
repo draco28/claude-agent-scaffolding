@@ -98,7 +98,7 @@ location for a sweep to enumerate, and a sweep that expects them mis-reports an
 empty harvest as a finding.
 
 Inside a handoff, the durable candidates are the appended **`## Clarifications`**
-— the mid-flight answers to spec ambiguity (`handoff-contract.md` §3). The
+— the mid-flight answers to spec ambiguity (`work-item/references/handoff-contract.md` §3). The
 retrospective reads those too, for a different purpose: the retro is this spine's
 story, the memory bank is what the *next* spine needs to not re-learn.
 
@@ -222,7 +222,9 @@ filtered the set in §6.
 trailer. It fed the deleted byte-identity check; nothing reads it now. Leave
 the old trailers alone and do not add it to new ones.)
 
-**Report `wrote <N>, skipped <M>` in the close summary.** An all-skipped apply
+**Report `wrote <N>, skipped <M>` in the close summary** — the write-side subset
+of §8's four buckets (`applied` + `applied-with-edit` = wrote; identical-entry
+skips = skipped). An all-skipped apply
 is the honest answer that this spine's suggestions are already in the bank —
 not a failure to fix by re-running. And apply the whole accepted set in one
 sitting: interleaving appends with further accept/reject turns gives the user

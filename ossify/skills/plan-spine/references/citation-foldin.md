@@ -44,9 +44,9 @@ span **both** repos. Each target's own contract names its home, so resolve
 from there, not from a remembered rule: file paths and signatures in the work
 item's declared `target_repo` when it carries one, the canonical otherwise
 (`oss repo_root <name>`); bone ADRs always in the canonical
-(`bones-registry.md`); the lean spec wherever `oss spec_path` prints; release
+(`start/references/bones-registry.md`); the lean spec wherever `oss spec_path` prints; release
 increment records under the AI workspace's `docs/specs/<release-id>/`
-(`release-md-emission.md` §1). A check run from the wrong root reports a false
+(`plan-release/references/release-md-emission.md` §1). A check run from the wrong root reports a false
 citation miss — the path is fine, the cwd was not.
 
 **Judgment** — does the cited section actually *say* what the spec claims it says?

@@ -473,10 +473,9 @@ state and is awkward to change later.
   journey line, where the skeleton cut falls, whether a category is genuinely
   `not-applicable`, whether an uncertainty deserves a spike, which posture the
   intent signal supports, how to triage a critic challenge.
-- **`oss`** (the dispatcher over `lib/*.sh`) handles mechanical state only:
-  `init`, `posture_set`, `overlay_set`, `composition_set`, `bone_add`,
-  `risk_gate_add`, `feature_add`, `touch_check`, `critic_detect`, `state_path`,
-  `doctor`. It holds no judgment and never should.
+- **`oss`** (the dispatcher over `lib/*.sh`) handles mechanical state only —
+  the verbs `oss help` lists: state CRUD, registry adds, and probes. It holds
+  no judgment and never should.
 - **`architect-critic:critiquing-spec`** is invoked as a peer skill; it runs its
   own rebuttal loop and returns a summary. You do not mediate its internals.
 - **Peer entry skills:** `plan-release` owns Release 0, spine classes, and the

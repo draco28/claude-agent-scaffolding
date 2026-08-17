@@ -45,7 +45,9 @@ Pinned sections, in this order:
 ```text
 # <spine-id> — <spine name>
 
-## Spine context          class (bone|flesh|internal-enabler), target repo,
+## Spine context          class (`bone`|`flesh` as recorded in state; add `—
+                          [internal] (admitted, consumer <spine-id>)` when the
+                          spine's name carries the marker), target repo,
                           base_branch, the bones this spine rides
 ## Decomposition          the 1-5 work items, one line each: id, title, target repo
 ## Rounds                 Round 1: w1, w2 (parallel) / Round 2: w3 (depends on w1)
@@ -84,7 +86,7 @@ reaches the worker as a spec with zero ACs:
 ```text
 - [ ] AC-<N> auto: `<command>` → expected: exit <n>
 - [ ] AC-<N> auto: `<command>` → expected: output contains <string>
-- [ ] AC-<N> user: <a step a human performs>
+- [ ] AC-<N> user: <a step a human performs>  — documentation for the implementer only; not parsed, not gated
 ```
 
 Five parts, each load-bearing:
@@ -93,7 +95,7 @@ Five parts, each load-bearing:
 |---|---|---|
 | `- [ ] ` | A markdown checkbox, exactly this | `- AC-1` or `* [ ] AC-1` yields **no row at all** |
 | `AC-<N>` | The label, numbered | No row |
-| `auto:` | The marker | No row — `user:` lines are the cumulative demo's, and `close` runs those |
+| `auto:` | The marker | No row. **And no ossify gate runs a `user:` AC either** — the human-walked half lives in the demo ledger (SKILL.md §8), keyed by spine, never read out of a spec |
 | `` `<command>` `` | **Backticked** | The AC is skipped with a stderr warning |
 | `→ expected: ` | U+2192, then the literal word | An ASCII `->`, or a missing `expected:`, lands the whole tail in the expectation field: a row is emitted and it is **unusable** |
 
@@ -191,9 +193,10 @@ mandatory re-verification after any bone change — in `citation-foldin.md`.
 If the user wants the plan audited before build, run architect-critic **against
 the spine plan** (`SPINE.md` plus the specs that exist), after the plan settles.
 
-1. **Probe:** `oss critic_detect`. On `absent`, warn once — *"architect-critic not
-   installed — skipping the spine-plan audit. Install via `/plugin install
-   architect-critic` (v0.2+)."* — and continue. Never block on it.
+1. **Probe:** `oss critic_detect || true` — it prints `absent` and returns **rc 1**
+   on that arm, so an unguarded call aborts under `set -e`. On `absent`, warn once —
+   *"architect-critic not installed — skipping the spine-plan audit. Install via
+   `/plugin install architect-critic` (v0.2+)."* — and continue. Never block on it.
 2. **Invoke** via the env-var bridge. This is architect-critic's **only**
    invocation contract:
 

@@ -180,8 +180,10 @@ Runs on the success path out of §3, before any implementation. Its job: prove t
 work item is genuinely unstarted, so completing it is a real RED→GREEN flip rather
 than a no-op or an implementation with tests written afterwards.
 
-Classify each AC first (your judgment): *command-bearing*, or *not runnable* (a
-pure deletion AC, a documentation AC). Then, per command-bearing AC:
+Every row `oss verify_acs` returned carries a command — a spec line without one
+was already a Gate 2 gap. So run the probe on all of them, in declared order. An
+AC whose command is a non-invocable probe (a `test -f`, a `! grep`) is not a
+special case; the rc table below covers it. Per AC:
 
 ```bash
 oss redgate "<worktree-abs>" "<command>" "<expectation>"

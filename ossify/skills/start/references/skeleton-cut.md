@@ -42,7 +42,7 @@ silently disagree with it.**
    is depth for SKILL.md **§6**, and §5's "Harvest before moving on" step
    committed every non-`skeleton` step to the feature map before §6 began. The
    map is **append-only** — `oss feature_add` has no remove or update sibling
-   (`feature-map-grooming.md` §2) — so a promotion here cannot retract the entry
+   (`plan-release/references/feature-map-grooming.md` §2) — so a promotion here cannot retract the entry
    that already exists. The pre-harvest check belongs one station earlier and
    lives there: `journey-map.md` §3, "before you leave this block".
 
@@ -54,7 +54,7 @@ silently disagree with it.**
      map entry is already committed and **stays**. Do not hand-edit state to
      remove it. Say so now, and let the next groom prune it with a reason —
      "shipped in Release 0" — which is the supported way an entry leaves
-     contention (`feature-map-grooming.md` §2 pass 4). Unsaid, release planning
+     contention (`plan-release/references/feature-map-grooming.md` §2 pass 4). Unsaid, release planning
      sees Release-0 work in the candidate list and may plan it twice.
 4. Read the marked path back as one sentence: *"At Release 0 close, a `<actor>`
    can `<action>` and `<observable outcome>`."* If you cannot say that sentence

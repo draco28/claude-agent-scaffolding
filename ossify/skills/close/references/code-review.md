@@ -162,7 +162,7 @@ negotiable. What it produces is a decision for the operator, on each finding:
 
 - **fix now**, before the merge — the default when the finding is small and the
   spine is still open;
-- **file it** (`oss feature_add "<name>" "<value>" flesh release-close`) — when it
+- **file it** (`oss feature_add "<name>" "<value>" "<bone|flesh>" feature-map-return`) — when it
   is real but not this spine's job;
 - **accept it**, recorded in the retro's §8 with the reason.
 
