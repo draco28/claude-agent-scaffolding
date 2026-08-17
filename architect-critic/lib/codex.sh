@@ -6,9 +6,9 @@
 #     Returns 0 if `codex` binary is on PATH, 1 otherwise.
 #
 #   ac_codex_run_audit <prompt> <output_dir> [--model NAME] [--timeout SECS]
-#     Runs codex in v0.2 invocation shape (per SPEC §5.1 step 6):
+#     Runs codex in the v0.2 invocation shape (per SPEC §5.1 step 6):
 #         codex exec --json \
-#           --output-schema "${PLUGIN_DIR}/templates/output-schema.json" \
+#           --output-schema "${CLAUDE_PLUGIN_ROOT}/templates/output-schema.json" \
 #           --output-last-message "${output_dir}/codex-audit-${REQ_ID}.json" \
 #           --ignore-user-config --ignore-rules \
 #           --skip-git-repo-check \

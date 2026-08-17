@@ -42,8 +42,8 @@ line nobody authors is a guarantee nobody keeps.
 So check it here, at every spine on a public-routed posture:
 
 **Give the line a durable marker, and match on that — not on its wording.**
-There is no `kind` field on a ledger line in v0.2, so the marker is a **required
-text prefix**: the line's `text` begins with `[community-edition]`.
+A ledger line has no `kind` field (`lib/ledger.sh`'s `add_demo_line` payload), so the
+marker is a **required text prefix**: the line's `text` begins with `[community-edition]`.
 
 ```bash
 posture="$(oss get '.project.posture')"
@@ -72,8 +72,8 @@ spine, forever. The prefix is exact, greppable, and visible in `demo_run`'s
 output, which is what makes it auditable later.
 
 Author it once; later spines find it and move on. It is a standing line, so it
-never belongs to a single spine's contribution and never counts toward F1. (If
-v0.3's records work adds a typed field, that field supersedes the prefix.)
+never belongs to a single spine's contribution and never counts toward F1. (If a
+typed field is ever added, it supersedes the prefix.)
 
 ---
 

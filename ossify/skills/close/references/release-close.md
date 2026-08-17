@@ -124,7 +124,8 @@ pruned.
 Spec §6.1 groups the release walkthrough by feature. **Demo-ledger lines carry no
 feature field** — `oss ledger_add_user` writes
 `{type,text,outcome,source_spine,status,status_reason,status_by,at}` and nothing
-else (`ledger.sh:35-39`). There is no `.feature` to `group_by`, and a block of
+else (the payload `oss_ledger_add_user` builds in `lib/ledger.sh`). There is no
+`.feature` to `group_by`, and a block of
 prose implying one would send every reader looking for a lookup that does not
 exist.
 

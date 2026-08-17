@@ -2,7 +2,7 @@
 
 Four mid-grill diagnostics. Each fires **only** when its cue appears in a user answer, not on every question. Name the trap, deliver the reframe, then resume grilling on the tighter frame.
 
-Source: `.claude/ghost-notes.md` principles #3/#4/#5 + `.claude/manifest-transcript.md` traps #1/#3.
+Source: internal cognitive-discipline notes (ghost-notes principles #3/#4/#5; manifest-transcript traps #1/#3).
 
 ---
 
@@ -17,8 +17,6 @@ Source: `.claude/ghost-notes.md` principles #3/#4/#5 + `.claude/manifest-transcr
 **Example response** —
 > Pause — you're answering three questions at once: (1) cache eviction policy, (2) auth-offline behavior, (3) queue-rate-limiter coupling. Let's split them. Which one, if you resolved it cleanly, would make the other two easier? We'll grill that first.
 
-Source: `.claude/manifest-transcript.md` trap #1.
-
 ---
 
 ## 2. widening-confidence-interval
@@ -31,8 +29,6 @@ Source: `.claude/manifest-transcript.md` trap #1.
 
 **Example response** —
 > You're chasing 100% confidence on a 60/40 call. That confidence isn't reachable here — the inputs don't support it. Pick the 60 with an interval of [40%, 80%] confidence. Commit. The signal you need to revise will arrive faster from a live decision than from more deliberation. Which way is the 60?
-
-Source: `.claude/manifest-transcript.md` trap #3.
 
 ---
 
@@ -47,8 +43,6 @@ Source: `.claude/manifest-transcript.md` trap #3.
 **Example response** —
 > Granted — reversible. But even if you rip it out in 6 months, you've spent those months writing other code *around* it. So: what does this codebase become if this pattern is in it for 18 months? What does it teach the next person reading the repo? Is that codebase one you'd want to inherit?
 
-Source: `.claude/ghost-notes.md` principle #5 (identity question).
-
 ---
 
 ## 4. widening-time-horizon
@@ -61,5 +55,3 @@ Source: `.claude/ghost-notes.md` principle #5 (identity question).
 
 **Example response** —
 > Velocity over what window — the next 90 days, the next 18 months, or the next 5 years? Those answers conflict. 90-day velocity rewards copy-paste; 18-month velocity rewards abstractions you'll re-use; 5-year velocity rewards documentation and migration paths. Pick one, then we'll re-grill the choice against that horizon.
-
-Source: `.claude/ghost-notes.md` principle #4 (time horizon advantage).

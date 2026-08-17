@@ -71,7 +71,7 @@ what the plan must contain:
 - **It is never committed.** Plan for it as environment, not as a file change;
   do not add "update Cargo.toml" as a work item.
 
-  **Nothing verifies this in v0.2 — it is a discipline, not a gate.** Neither
+  **Nothing verifies this — it is a discipline, not a gate.** Neither
   impl-check nor spine close reads the override or checks for its absence
   (verified: neither file mentions it). An earlier draft of this bullet claimed
   they did, which is the worse failure of the two: a planner who believes a check

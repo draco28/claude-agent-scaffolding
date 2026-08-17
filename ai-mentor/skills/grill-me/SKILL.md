@@ -19,7 +19,7 @@ Derive it from available context, in order: a referenced issue/PR (read it), the
 
 ## Posture: CORE protocol
 
-**Curiosity → Objectivity → Reassurance → Empathy** (from `.claude/ghost-notes.md` principle #3).
+**Curiosity → Objectivity → Reassurance → Empathy** (from the internal ghost-notes discipline, principle #3).
 
 Senior peer, not teacher or adversary. Direct over diplomatic. Genuinely curious, not gotcha. Stay on one branch until it resolves. Weak answer → follow-up; strong answer → "good, next branch?".
 
@@ -77,4 +77,4 @@ On exit, post a summary with four sections: **Locked decisions** (choice + brief
 
 ## Source provenance
 
-Cognitive-discipline content from `.claude/ghost-notes.md` (principle #3 CORE, #4 time horizon, #5 identity) + `.claude/manifest-transcript.md` (trap #1 separating concerns, #3 widening confidence interval). CORE acronym is our framing — the transcript teaches the sequence without acronymizing.
+Cognitive-discipline content from the internal ghost-notes notes (principle #3 CORE, #4 time horizon, #5 identity) + the internal manifest-transcript notes (trap #1 separating concerns, #3 widening confidence interval). CORE acronym is our framing — the transcript teaches the sequence without acronymizing.

@@ -6,7 +6,7 @@
 
 ## 1. Source
 
-The 3-timelines framing originates from the **"Hidden Rules of Success" transcript, principle #4** — captured in `.claude/ghost-notes.md` (lines 90-122) and the `project_thinking_discipline_content` auto-memory, then integrated into scaffold-onboard v0.2 per HANDOFF §3.5 (2026-05-22 spec-review pass).
+The 3-timelines framing originates from the **"Hidden Rules of Success" transcript, principle #4** — captured in the internal ghost-notes notes (lines 90-122) and the `project_thinking_discipline_content` auto-memory, then integrated into scaffold-onboard v0.2 per HANDOFF §3.5 (2026-05-22 spec-review pass).
 
 The principle compresses to three success orientations:
 
