@@ -150,6 +150,26 @@ option. If the operator says *resolve it*, the discipline is
 Resuming means finishing *this* step and continuing, not re-running the
 layer.
 
+**Resuming a halted spine close.** A halt at steps 4-11 leaves step 2's merge
+already landed, and re-invoking `/close <spine-id>` fails step 2's HEAD
+assertion with a message that misdiagnoses the resume as a branch error. Key
+the resume on an observable instead — the spine tip already being contained in
+HEAD:
+
+```bash
+mb="$(git -C "$canonical" merge-base "$spine_branch" HEAD)"
+[ "$mb" = "$(git -C "$canonical" rev-parse "$spine_branch")" ] \
+  && echo "step 2 already landed - skip to the first unfinished step"
+```
+
+rc 0 means the merge is in: skip step 2 and resume at the first unfinished step,
+saying which. Restart properties, one line each: the demo (§5) re-runs whole;
+the touch check (§6) re-runs from the recorded `$merge_sha`; the critic (§7)
+re-runs; the retro (§8) is **amended, never re-authored** (the same rule
+`release-close.md` §8 states); the harvest is idempotent by `harvest.md` §7's
+skip-identical rule, and cleanup is idempotent (both §9). Issue #133 is the
+execution-lane counterpart, not a substitute for this.
+
 ---
 
 ## 4. Step 3 — apply the pending demo amendments

@@ -21,7 +21,7 @@ oss fake_add "<boundary>" "<real|fake|deferred>" "<reason>" "<replacement trigge
 | **channel** | `real` \| `fake` \| `deferred` — validated; anything else exits **2** |
 | **reason** | Why the real thing is out of scope *for this spine*. Not "no time" — what the real one would have cost and why that cost does not buy anything yet |
 | **replacement trigger** | The **condition** that makes the real one due. Never a date |
-| **expiry release** | The release by which it must be replaced or **explicitly renewed** |
+| **expiry release** | The release by which it must be replaced or **explicitly renewed**. A release id (`r0`, `r1`, …) — `fake_add` does not check the shape, and anything else BLOCKS the release close as `unparseable-expiry` (`close/references/fake-expiry.md` §3) |
 
 The three channels: **`real`** records a boundary deliberately built real (useful
 when a previous spine faked it and this one replaced it); **`fake`** is a shell

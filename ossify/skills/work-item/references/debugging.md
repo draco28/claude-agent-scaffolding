@@ -148,6 +148,17 @@ Where the test goes: **with the code it protects**, not in a scratch file. It is
 part of the work item's diff and it is what stops the next spine reintroducing
 the bug.
 
+### 2.7 When to stop
+
+You have no iteration counter — the cap is the orchestrator's
+(`round-orchestration.md` §6). Your bound is progress: **if two consecutive
+passes through 2.3→2.5 end with the same failure and no disproved hypothesis,
+stop debugging this AC.** Record the reproduction, the hypotheses you disproved,
+and the last failure verbatim in `## 8. Blockers and advisories`, mark the AC
+`fail` in the report's AC table, and move to the next AC in declared order. The
+run still ends `complete` — an honest fail the orchestrator can route beats a
+session spent on one AC.
+
 ---
 
 ## 3. The structural-surprise boundary — stub, work around, or halt

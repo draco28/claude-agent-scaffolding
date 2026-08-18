@@ -244,7 +244,9 @@ Discipline:
 message does not match its AC, a fix that reddens something else, a failure that
 returns after you fixed it, or a gate that halts on an AC that passed locally. It
 carries the diagnosis loop (reproduce reliably → minimize → hypothesize →
-instrument → fix → regression-test) and the three worked structural-surprise
+instrument → fix → regression-test), **§2.7's when-to-stop bound** (two
+consecutive no-progress passes end the debugging, honestly), and the three worked
+structural-surprise
 cases behind the rule above: when to build the missing helper, when to adapt, and
 when to halt. **Not** for an ordinary "not built yet" RED — that is the loop
 above, and reaching for a diagnosis loop there costs an afternoon.
@@ -303,10 +305,12 @@ git -C "<worktree-abs>" add -A
 
 Then classify, for the return's `stage_status`:
 
-- **`all_staged`** — the add succeeded and `git -C "<worktree-abs>" diff --cached`
-  is non-empty.
-- **`partial`** — some paths staged, others not (an ignore rule, a permissions
-  error). Rare; name what was left out in the report.
+- **`all_staged`** — the add succeeded, `git -C "<worktree-abs>" diff --cached`
+  is non-empty, **and** `git -C "<worktree-abs>" status --porcelain` shows no
+  unstaged or untracked residue.
+- **`partial`** — `diff --cached` is non-empty but `status --porcelain` still
+  shows unstaged or untracked lines (an ignore rule, a permissions error). Rare;
+  name every residual path in the report.
 - **`none`** — nothing staged. Also rare, and usually means the loop produced no
   edits at all — say so in the report's blockers-and-advisories section rather
   than returning a clean-looking `complete`.

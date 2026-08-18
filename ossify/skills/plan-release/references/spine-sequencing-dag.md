@@ -74,8 +74,9 @@ oss release_set_meta "$rel" '{"spine_dag":[["r1.s1",[]],["r1.s2",["r1.s1"]],["r1
 
 ## 4. Deriving the order
 
-1. **List the spines** the release selected (`oss spine_list`, filtered to this
-   release).
+1. **List the spines** the release selected
+   (`oss get '.spines | map(select(.release == "'"$rel"'")) | map(.id)'` —
+   `spine_list` itself returns every spine in the project).
 2. **For each pair, ask §1's test.** Record only the edges that pass.
 3. **Find the roots** — spines with `[]`. The release starts with all of them; if
    there are none, you have a cycle (§5).
@@ -97,7 +98,9 @@ the wrong place.
 
 Fix it by re-cutting, not by deleting an edge to make the graph acyclic:
 
-- **Merge** them into one spine if the journey is genuinely one journey; or
+- **Merge** them into one spine if the journey is genuinely one journey — and
+  `oss spine_status "<orphaned-sid>" abandoned` the half that no longer exists;
+  or
 - **Re-cut** so the shared seam lands entirely inside the first spine; or
 - **Extract** the shared seam — and if the extraction has no actor-to-outcome
   journey of its own, it is an `internal-enabler` and must pass the admission rule

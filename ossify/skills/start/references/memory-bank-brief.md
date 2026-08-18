@@ -18,12 +18,12 @@ slot-fill.
 | `index.md` | **Tier 0** | This table |
 | `00-project-brief.md` | **Tier 0** | Vision narrative + skeleton cut (§1, §3) |
 | `01-product-context.md` | branch | Journey map (§2) — actors, flows, ubiquitous language |
-| `02-system-patterns.md` | branch | Bones categories 1, 2, 4, 6, 7 + posture bone |
+| `02-system-patterns.md` | branch | Bones categories 1, 2, 3, 4, 6, 7 + posture bone |
 | `03-code-patterns.md` | branch | Bones category 8 (stack) + the **machine-checkable rules** section (seeded empty) |
 | `04-tech-context.md` | branch | Bones category 8 + the verified/unverified claims from the smoke-test pass |
 | `05-active-context.md` | **Tier 0 · LIVE** | Current position: "spec-core closed; Release 0 not yet planned" |
 | `06-progress.md` | branch · LIVE | One dated entry: spec-core close |
-| `07-constraints.md` | branch | Risk gates + bones category 9 (cross-cutting constraints) |
+| `07-constraints.md` | branch | Risk gates + bones categories 5, 9 (trust boundaries; cross-cutting constraints) |
 | `08-governance.md` | branch | Pointers: bones ADR dir, `PUBLIC_BOUNDARY.md`, private inventory, `project-state.json` |
 | `09-known-issues.md` | **Tier 0 · LIVE** | **Unverified claims** from the smoke-test pass; any spike `inconclusive` result |
 | `10-decisions-log.md` | on-demand · LIVE | Bones-registry index (one line per bone, with its revisit trigger) |

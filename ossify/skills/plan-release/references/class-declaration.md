@@ -183,7 +183,11 @@ scheduled in the **current or next release** — the one-release-ahead cap.
 - No named consumer, or the consumer is three releases out, or the consumer is
   "the UI, eventually" → **not admitted**. **Silence is not a named consumer:**
   if the plan in front of you does not name one, the answer is not-admitted — do
-  not assume a consumer exists because one plausibly could. It returns to the
+  not assume a consumer exists because one plausibly could. If §5c already
+  minted it, retire the spine first: `oss spine_status "<sid>" abandoned` —
+  there is no delete verb, and a spine left `planned` either appears in
+  `spine_dag` as work nobody will do or is omitted from it, which
+  `spine-sequencing-dag.md` §3 reads as *missing from the plan*. It returns to the
   feature map:
 
   ```bash

@@ -77,7 +77,7 @@ Adapted from Andrej Karpathy's LLM Council pattern. The canonical "Expansionist"
 
 **Opening move (priors-rich)** — quote a specific commit SHA, file path, or branch name. Example: *"Commit `1d3c9e0` removed the PreToolUse hook from this plugin three weeks ago. The SPEC at `docs/SPEC-ai-mentor-v2.md` §10 lists hook re-introduction as deferred. Re-adding one now contradicts that decision unless something changed — what changed?"*
 
-**Opening move (greenfield)** — explicitly acknowledge no priors and pivot. **Use the literal phrase pattern:** *"No priors found in this codebase — this is a greenfield repo with no history of X yet. So the question becomes: what's making you reach for THIS pattern over standard alternatives like Y, Z?"*
+**Opening move (greenfield)** — explicitly acknowledge no priors and pivot. **Use the literal phrase pattern:** *"No priors found in this codebase — this is a greenfield repo with no history of X yet. So the question becomes: what's making you reach for THIS pattern over standard alternatives like Y, Z?"* If the surveys **error** rather than return empty (not a git repository), treat it as greenfield and say so plainly — *"not in a git repo, so no priors to check"* — then run the same pivot. Never retry with different patterns; the failure is environmental, not a miss.
 
 **Hard rule** — **never fabricate history.** If the tool work returned nothing, the greenfield script fires. No invented commits, no invented file paths.
 

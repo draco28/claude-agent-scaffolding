@@ -75,8 +75,11 @@ Emit the table directly as markdown in your turn message. Do not use bash `print
 | `adversaries_used` | `adversaries_used` | array → `claude` or `claude+codex` |
 | `challenge_count` | `challenge_count` | integer |
 | `concessions` | `concessions` | integer |
+| `auto-applied?` | `auto_applied_count` | integer; column rendered only when at least one row is non-zero |
+| `escalated?` | `escalated_count` | integer; same conditional rule |
+| `deferred?` | `deferred_count` | integer; same conditional rule |
 | `skill_invoked` | `skill_invoked` | string, e.g. `critiquing-spec` |
-| `timeout?` | `codex_timeout` | `*` if `true`, blank otherwise |
+| `timeout?` | `codex_timeout` | `*` if `true`, blank otherwise — same conditional rule as above |
 
 **`completed_at` formatting.** Convert ISO8601 to a human-friendly relative string using the same logic the slash-command wrapper uses:
 
@@ -143,6 +146,10 @@ Suppose state.json contains this schema v3 state (3 completed runs and one backg
       "adversaries_used": ["claude", "codex"],
       "challenge_count": 9,
       "concessions": 4,
+      "auto_applied_count": 2,
+      "escalated_count": 1,
+      "deferred_count": 1,
+      "deferred_challenges": ["scale rollout beyond first tenant"],
       "skill_invoked": "critiquing-spec",
       "elapsed_ms": 118000,
       "codex_timeout": false
@@ -204,6 +211,8 @@ Coupled to these `recent_runs[]` and `external_runs[]` fields in schema v3. If `
 | `adversaries_used` | string array | Joined with `+` |
 | `challenge_count` | integer | Bare count |
 | `concessions` | integer | v2 addition |
+| `auto_applied_count` / `escalated_count` / `deferred_count` | integers | v3 addition; `0` on runs recorded before triage |
+| `deferred_challenges` | array | v3 addition; `[]` on pre-triage runs |
 | `skill_invoked` | string | v2 addition |
 | `codex_timeout` | boolean (optional) | Present only on pre-v0.2 records; the current write path does not set it |
 

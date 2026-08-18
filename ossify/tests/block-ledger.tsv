@@ -95,7 +95,7 @@
 O	skills/close/references/spine-close.md	work items that are not complete	tests/test-close.sh	the open-work-item gate refuses to close a spine with incomplete items
 O	skills/close/references/spine-close.md	is-ancestor	tests/test-close.sh	the merge guard: the spine tip must actually reach the base branch
 O	skills/close/references/spine-close.md	touch_check	tests/test-close.sh	bone-touch at close re-classifies the spine rather than trusting the plan
-D	skills/close/references/spine-close.md	2	#138	the architect-critic ARGS bridge (export form, quoting, absolute --spec), and `oss critic_detect || true` - the `|| true` is rc-handling, not decoration: rc 1 means "not installed, carry on" and removing the guard aborts the whole close ceremony under set -e
+D	skills/close/references/spine-close.md	3	#138	the architect-critic ARGS bridge (export form, quoting, absolute --spec), and `oss critic_detect || true` - the `|| true` is rc-handling, not decoration: rc 1 means "not installed, carry on" and removing the guard aborts the whole close ceremony under set -e + the resume containment probe (audit #47, operative, unexecuted)
 I	skills/close/references/spine-close.md	5	single-verb calls with <placeholder> args: ledger_apply_pending, class_set, risk-gate read, worktree_remove, spine_status
 O	skills/close/references/release-close.md	spines that are not closed	tests/test-close.sh	the release gate blocks on any spine still open
 O	skills/close/references/release-close.md	expired_fakes	tests/test-close.sh	the fake-expiry gate blocks on fakes past their expiry release
@@ -136,7 +136,7 @@ D	skills/close/references/routing.md	1	#138	the id_parse scope router - shares i
 I	skills/close/references/routing.md	1	a single spine_list call
 I	skills/close/references/retrospective.md	1	a single quarantine read
 D	skills/plan-release/SKILL.md	3	#138	the state-absent refusal, the touch_check rc-capture, and the release_add capture whose $rel feeds spine_add and release_set_meta
-I	skills/plan-release/SKILL.md	7	single-verb calls with <placeholder> args: release_set_meta x4, feature_add, release_add, class_set, the critic ARGS export
+I	skills/plan-release/SKILL.md	8	single-verb calls with <placeholder> args: release_set_meta x4, feature_add, release_add, class_set, the critic ARGS export, the release_dir resolve+mkdir
 D	skills/plan-release/references/bone-touch-judge.md	2	#138	the two-branch if that folds rc 2 into clean, and the rc-capture form that does not - REL-9 flags the first as a copy trap
 I	skills/plan-release/references/bone-touch-judge.md	3	single-verb calls: class_set x2 and a risk-gate controls read
 D	skills/plan-release/references/class-declaration.md	1	#138	sid=$(oss spine_add ...) consumed by class_set - assigned then consumed, the same rule that reclassified release-md-emission.md
@@ -190,7 +190,7 @@ H	skills/close/references/patch-lane.md	1477508772-1735
 H	skills/close/references/release-close.md	3882829569-2451
 H	skills/close/references/retrospective.md	2875153190-110
 H	skills/close/references/routing.md	948295148-232
-H	skills/close/references/spine-close.md	272077069-3589
+H	skills/close/references/spine-close.md	251174316-3806
 H	skills/close/references/work-item-close.md	575441835-2387
 H	commands/doctor.md	729179949-141
 H	skills/doctor/SKILL.md	630905567-126
@@ -198,7 +198,7 @@ H	skills/doctor/references/budget-check.md	582880737-316
 H	skills/doctor/references/interop-check.md	3672515018-357
 H	skills/doctor/references/spec-validation.md	2541080060-102
 H	skills/doctor/references/state-inspection.md	622871202-1192
-H	skills/plan-release/SKILL.md	3612913632-1965
+H	skills/plan-release/SKILL.md	1589553138-2187
 H	skills/plan-release/references/bone-touch-judge.md	3236126632-1199
 H	skills/plan-release/references/class-declaration.md	119880498-302
 H	skills/plan-release/references/critic-veto.md	3621408746-561
