@@ -39,6 +39,13 @@ must still cross the product end to end; a split that leaves one half unable to
 reach an outcome has produced an `internal-enabler`, which is a different
 conversation (`plan-release/references/class-declaration.md` §4).
 
+Concretely, on the spine already in state: `oss spine_status <spine> abandoned`,
+then `oss spine_add` each half at `plan-release` with its own class and DAG
+position; carry any ledger line already planned against the old spine with
+`oss ledger_unplan <line-id> <old-spine>` first (`demo-amendments.md` §6). The old spine stays in
+state, abandoned, so the release close can report it
+(`close/references/release-close.md` §2 names abandoned spines explicitly).
+
 What **not** to do, in order of how tempting each is:
 
 - **Do not merge two items to reach five.** The count is now legal and the plan

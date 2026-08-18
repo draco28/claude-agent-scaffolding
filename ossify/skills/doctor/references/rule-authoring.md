@@ -29,6 +29,12 @@ manifest-routed: resolve it exactly as `close/references/harvest.md` §7 does �
 the pairing manifest's `.well_known_paths.memory_bank`, token-expanded, with a
 relative or unresolved route a STOP, never a fallback to the cwd. A cwd-rooted
 path writes rules into whichever repo the session happened to start in.
+When the lane cannot run at all, emit its line anyway — never drop it silently:
+`skip: rules - no pairing manifest, so the memory bank cannot be located`
+(remedy `/init-workspace` or `/pair-workspace`); `skip: rules - memory-bank
+route '<value>' is not absolute` (the STOP case, surfaced not written around);
+`skip: rules - no 03-code-patterns.md at <path>; /start seeds it with an empty
+section`.
 
 `03-code-patterns.md` ships from `/start` with the
 `## Machine-checkable rules` heading present and **no rules under it**

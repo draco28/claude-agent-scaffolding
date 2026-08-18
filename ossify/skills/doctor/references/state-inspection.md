@@ -174,12 +174,18 @@ The remedy differs by line, and the wrong one loops the operator:
 
 | `doctor` line | Remedy |
 |---|---|
+| no tagged line, nonzero rc, refusal on stderr | echo the refusal verbatim; remedy is `/init-workspace` (new workspace) or `/pair-workspace` (existing canonical) — the manifest is missing, and no check ran |
 | `fail: replay` | **`oss state_restore`** — rebuilds live state from base + journal |
 | `fail: shape` | **`oss state_restore`** — a required key is missing; same rebuild |
 | `fail: schema`, version **below** this build | **`oss migrate`** — the state predates this build |
 | `fail: schema`, version **above** this build | **upgrade ossify.** `migrate` accepts v1/v2 only; there is no downgrade |
 | `fail: state` | **`oss init <name>`** — this project was never initialised |
 | `warn: lock` (stale) | `rmdir '<state>.lock'`, **only** if no ceremony is running |
+
+The rc rule SKILL.md §3 states — rc 0 unless a `fail:` line printed — holds only
+once the state path resolves. A resolution refusal exits 1 with **no** check
+line at all, and the surface emits `skip: state - no pairing manifest, so no
+state file could be resolved`.
 
 **The table is a starting point keyed on the tag, and the tag is not the whole
 finding.** Read the rest of doctor's line before recommending anything — the

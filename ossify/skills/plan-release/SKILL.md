@@ -123,7 +123,7 @@ is asked.
 |---|---|---|
 | **Feature map** | `oss feature_list` | may be three lines — legitimate |
 | **Bones registry + risk gates** (touch surfaces) | `oss get '.bones'` / `oss get '.risk_gates'` | seeded by `/start` |
-| **Previous release retro** | the closed release's retrospective | **n/a** |
+| **Previous release retro** | the closed release's retrospective | `oss release_dir "<prev>"` → `release-retrospective.md` |
 | **Real-use findings since the last release** | **ask the user — mandatory** | **n/a** |
 
 **Real-use findings are a mandatory input, not a nicety.** What broke, what
@@ -168,13 +168,20 @@ At close, a <actor> can <action> and <observable outcome>.
 
 Never "the persistence layer exists", never "the API is complete". If a criterion
 cannot be said in that sentence, it is not an exit criterion — it is an
-implementation note.
+implementation note. The banned shapes are `plan-spine/references/demo-authoring.md`
+§3.2's, verbatim — artifact existence, protocol-level evidence, the passive dodge,
+an outcome with no falsifiable shape — and §3.2b's headless carve-out applies here
+too: a consumer reaching a value through a real API surface is a journey. Re-read
+the criteria after §7a lands: a spine the ladder verdicts `internal-enabler`
+cannot claim product value in any of them
+(`references/class-declaration.md` §4), and this is the last cheap moment to
+strike it.
 
 **5c. Create the release and its spines.**
 
 ```bash
 rel="$(oss release_add "<name>" "<goal phrased as what a user can do at close>")"
-oss spine_add "$rel" "<spine name>" "<bone|flesh>"        # prints the spine id
+sid="$(oss spine_add "$rel" "<spine name>" "<bone|flesh>")"   # one per spine; keep each id
 oss release_set_meta "$rel" '{"exit_criteria":["At close, a trader can …"]}'
 ```
 
@@ -361,8 +368,9 @@ Full input contract, the veto-grade test, and the three ESCALATE triggers in
 
 Create the release spec directory and write `RELEASE.md` into it:
 
-```text
-<ai-workspace>/docs/specs/<release-id>/RELEASE.md      # e.g. docs/specs/r0/RELEASE.md
+```bash
+rel_dir="$(oss release_dir "$rel")"   # ABSOLUTE, manifest-rooted — never paste the <ai-workspace> shape
+mkdir -p "$rel_dir"                   # e.g. docs/specs/r0/RELEASE.md lives here
 ```
 
 The directory name is the release id **verbatim** — ossify's ID grammar has one
@@ -454,10 +462,8 @@ that cites it.
   the release, how an exit criterion is phrased, whether an edge in the DAG is
   real, whether a spine has an actor-to-outcome journey, whether a critic finding
   is veto-grade, and whether it is clear or ambiguous/contradictory/stale.
-- **`oss`** (the dispatcher over `lib/*.sh`) handles mechanical state only:
-  `feature_list`, `feature_add`, `release_add`, `spine_add`, `class_set`,
-  `veto_add`, `release_set_meta`, `touch_check`, `spine_list`, `get`,
-  `ledger_active_auto`, `demo_run`, `critic_detect`, `state_path`, `doctor`. It
+- **`oss`** (the dispatcher over `lib/*.sh`) handles mechanical state only —
+  the verbs `oss help` lists: state CRUD, registry adds, and probes. It
   holds no judgment and never should — `touch_check` matches globs, it does not
   decide what the match means.
 - **`architect-critic:critiquing-spec`** is invoked as an unmodified peer skill.

@@ -42,7 +42,10 @@ Five surfaces:
 `plan-release` requires an onboarded project; `close` refuses without a green
 `oss doctor`. This skill **never refuses for the condition it exists to report**.
 An uninitialised project, a corrupt state file, a missing manifest — each is a
-*finding*, reported with its remedy, not a reason to stop. The one thing you may
+*finding*, reported with its remedy, not a reason to stop. When a missing
+manifest is the cause of more than one surface's skip, name it once at the top
+of the read-out and mark the rest derived, so the sweep does not lead with three
+consequences of one cause. The one thing you may
 refuse is a request to *change* something you were not asked to change.
 
 **`doctor` reports; it does not mutate state.** Four of the five surfaces are
@@ -442,7 +445,10 @@ file: `doctor` writes no report artifact.
 It carries, in this order:
 
 1. **Each surface with its verdict** — including the ones that were skipped, and
-   why. Five lines for a full sweep, always five.
+   why. The five lines are roll-ups: each is followed by that surface's own
+   tagged lines verbatim. A `skip:` inside a surface never rolls up to `ok:` —
+   the roll-up says `partial` and names which check did not run — and the
+   `worktrees(<key>)` lines are never merged.
 2. **Findings, worst first**, each with the remedy verb named literally. A
    `fail:` outranks a `warn:`; a `warn:` that blocks a close outranks one that
    does not.
