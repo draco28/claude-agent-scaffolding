@@ -294,12 +294,18 @@ enforceable at a release boundary). Eight steps, in **binding order**:
 6. **Feature-map re-groom + next-release sketch** — the rolling-wave crank, via
    `oss feature_list` and `oss release_set_meta`.
 7. **The boundary audit** (companion §6, re-derived under the skill-first
-   freeze) — **the canonical repo only, gated on observed visibility**,
-   fail-closed: the tracked rules of `PUBLIC_BOUNDARY.md`, the secrets scan,
-   and the scan-first untracked sweep. Every other dimension — the other repo
-   arms, the semantic pass, history, submodules, the override record — is
+   freeze) — **every repository object the pairing manifest carries, each
+   gated on its observed visibility with per-role arms**, fail-closed: the
+   tracked rules of `PUBLIC_BOUNDARY.md`, the secrets scan, and the scan-first
+   untracked sweep. The remaining dimensions — the semantic pass, history,
+   uncommitted tracked modifications, submodules, the override record — are
    named in the audit's own not-shipped table. **Never auto-dispositioned;
-   confirmed findings block the close.** The whole step is
+   confirmed findings block the close** (per-role arms govern what runs —
+   the hygiene-note arms record non-blocking notes and skip the disposition,
+   save for the recorded-remote exposure finding and a secrets-class hit,
+   which block on every arm, and unaccepted degradations, which bar a clean
+   verdict).
+   The whole step is
    **`references/boundary-audit.md`**.
 8. **State updates**: `oss release_status <rel> closed` and
    `oss demo_record release <rel> <passed> <line-count> "<notes>"` — never
@@ -402,7 +408,8 @@ exists; what that file adds is when to reach for it.
   state, never from a slug.
 - **`gh` and `gitleaks`** enter at §6 step 7 only, and each has its own failure
   semantics rather than a shared one: a visibility read `gh` cannot answer means
-  the repo is audited **as public**; a `gitleaks` scan that does not complete
+  the repo is audited **as public**; a `gitleaks` scan that does not complete —
+  or completes but reads nothing it was pointed at —
   makes the secrets half **INCONCLUSIVE**, never clean. Both in
   `references/boundary-audit.md` §2-§3.
 - **Peer entry skills:** `start` owns spec-core and the bones registry;

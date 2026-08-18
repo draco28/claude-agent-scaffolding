@@ -177,17 +177,27 @@ mandatory citation re-verification.
 enumerating every private asset is self-defeating — that was the v1 draft's
 defect. Rules, patterns, and prose only.
 
+**Routing:** one file per public-facing repo root — the canonical always,
+and any product-adjacent repo the pairing carries (`tooling_repo`) at its own
+root when the project volunteers one; never the AI workspace or a
+`private_core`, which hold the moat by design. Even a fully-private project
+authors the file (hygiene is independent of visibility), so "public-facing"
+names where the file lives, not the repo's observed visibility.
+
 Three blocks:
 
 ```markdown
 # PUBLIC_BOUNDARY.md
 
 ## Machine-checkable rules
-<!-- Executed against the canonical repo's tracked files by the release-close
-     boundary audit (close/references/boundary-audit.md) at every release close
-     where the canonical is observed-public — the agent reads each rule and
-     matches it against git ls-files. Authored at onboarding so the file exists
-     from day one. -->
+<!-- Executed by the release-close boundary audit
+     (close/references/boundary-audit.md) at every release close — wherever a
+     PUBLIC_BOUNDARY.md is read: this repo's own tracked file list on any
+     arm, with a private repo running them as non-blocking hygiene notes; the
+     AI-workspace/private-core roles read no boundary file on any arm and are
+     never blocked on its absence. The agent reads each rule
+     and matches it against git ls-files. Authored at onboarding so the file
+     exists from day one. -->
 never-tracked: **/.env, **/.env.*, **/*.pem, **/*.key, **/id_rsa*
 never-tracked: **/secrets/**, **/credentials.json
 never-tracked: **/SPEC.md, docs/planning/**
@@ -211,7 +221,7 @@ fixtures-must-be: synthetic
 
 The machine-checkable block is what the release-close boundary audit
 **executes** (`close/references/boundary-audit.md` §3) — the agent reads each
-rule and matches it against the canonical's tracked file list, from any
+rule and matches it against this repo's tracked file list, from any
 checkout, with no private context needed. Author it at onboarding so the first
 release close has something to read.
 
