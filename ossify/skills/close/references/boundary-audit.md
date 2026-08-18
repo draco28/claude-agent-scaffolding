@@ -34,17 +34,10 @@ never run. A release therefore cannot be closed "with a leak noted" — it is
 closed after the finding is fixed, or not at all. (The full design's second
 unblock, the accepted-disclosure override, is not shipped — §8.)
 
-**A halt here is not free, and saying so is part of the step.** Steps 1-6 ran
-already, and step 6 wrote state twice: `oss feature_add` appends
-**unconditionally** — no dedupe, no id — and `oss release_set_meta` has stored
-a `next_sketch` for a release that is now not closing. So on a re-close after
-a boundary-audit halt: read `oss feature_list` first and add only what is
-missing, and **amend** the existing `release-retrospective.md` rather than
-re-authoring it — the boundary finding and its disposition join its "what is
-still standing" section. The full cumulative walkthrough re-runs too, which is
-the ceremony's most expensive step; that cost is real and is the price of the
-audit being able to run last, which it must, because a fix has to be
-re-audited.
+**A halt here is not free, and saying so is part of the step.** The re-close is
+not free and steps 1-6 are not free to repeat — `release-close.md` §8 owns that
+accounting (the unconditional `feature_add`, the stored `next_sketch`, the
+amended-not-re-authored retro, the re-run walkthrough); read it before you halt.
 
 ---
 

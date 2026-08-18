@@ -263,24 +263,9 @@ Everything below is the **synchronous** path (the default, unchanged).
 
 > *"Invoking codex for adversarial fresh-frame audit. This typically takes 30–90 seconds."*
 
-Then invoke codex via the Bash tool with this exact pattern:
-
-```bash
-codex exec \
-  --json \
-  --output-schema "${CLAUDE_PLUGIN_ROOT}/templates/output-schema.json" \
-  --output-last-message "${TMP}/codex-audit-${REQ_ID}.json" \
-  --ignore-user-config --ignore-rules \
-  --skip-git-repo-check \
-  ${MODEL_OVERRIDE:+-c model=\"$MODEL_OVERRIDE\"} \
-  "${ADVERSARIAL_PROMPT}"
-```
-
-The invocation is **synchronous** (no background mode, no async polling — those were v0.1 complexity we cut). Default timeout: 5 minutes, configurable via env var `ARCHITECT_CRITIC_CODEX_TIMEOUT_S`.
-
 `ADVERSARIAL_PROMPT` is a string you construct that includes: (a) the full artifact content, (b) the merged principles, (c) instructions to produce the same JSON schema as Step 5, (d) explicit instruction to be adversarial — *"surface the strongest single-paragraph counter-arguments to this spec; do not be polite, do not soften, do not assume the author is correct"*.
 
-The implementation lives at `lib/codex.sh:ac_codex_run_audit` — you can call that helper rather than re-constructing the invocation inline. Signature: `ac_codex_run_audit <prompt> <output_dir> [--model NAME] [--timeout SECS]`. The helper computes its own `REQ_ID` and writes the parsed JSON to stdout; the raw `--output-last-message` file lands in `<output_dir>/codex-audit-<req-id>.json`.
+The implementation lives at `lib/codex.sh:ac_codex_run_audit` — call the helper rather than re-constructing the invocation inline. Signature: `ac_codex_run_audit <prompt> <output_dir> [--model NAME] [--timeout SECS]`. The helper computes its own `REQ_ID`, resolves the schema through `_ac_codex_schema_path`, and writes the parsed JSON to stdout; the raw `--output-last-message` file lands in `<output_dir>/codex-audit-<req-id>.json`. The invocation is **synchronous** (no background mode, no async polling); default timeout 5 minutes, configurable via env var `ARCHITECT_CRITIC_CODEX_TIMEOUT_S`.
 
 ```bash
 arc codex_run_audit "$ADVERSARIAL_PROMPT" "$TMP" ${MODEL_OVERRIDE:+--model "$MODEL_OVERRIDE"}
@@ -449,8 +434,6 @@ arc state_append_run \
   --skill-invoked critiquing-spec \
   --elapsed-ms "$ELAPSED_MS"
 ```
-
-The legacy positional form (`arc state_append_run "$REQUEST_ID" "$DEPTH" "$ADVERSARIES_JSON" "$CHALLENGE_COUNT" "$CONCESSIONS" critiquing-spec "$ELAPSED_MS"`) is still accepted but has **no deferred slots** — it records `deferred_count=0` and drops any deferred challenges; the positional form records `auto_applied_count=0` / `escalated_count=0` as well. Use the flag form above whenever `DEFERRED_COUNT > 0`.
 
 `--adversaries` accepts either a JSON array such as `["claude","codex"]` or a CSV string such as `claude,codex`.
 

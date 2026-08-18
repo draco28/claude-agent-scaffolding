@@ -123,15 +123,16 @@ The read-aloud test above catches the obvious abuse. It does not *establish*
 innocence, and the abuse it misses is the sincere one: an agent that genuinely
 believes the failure is unrelated and is wrong. There is a mechanical check —
 run it from the same workdir the runner resolved (§1; a declared composition
-root when there is one — the blocks below show the canonical-root case):
+root when there is one — the block below shows the canonical-root case):
 
 ```bash
-# Does the line fail WITHOUT this spine? Run it at the merge's first parent -
-# the canonical tree as it stood before this spine landed.
+# same command, both trees, and diff the OUTPUT before believing the rc
 cmd="$(oss get ".demo_ledger[] | select(.id==\"<line-id>\") | .command")"
+( cd "$canonical" && bash -c "$cmd" ) > /tmp/oss-head.txt 2>&1; echo "head rc=$?"
 git -C "$canonical" checkout --detach "$merge_sha^1"
-( cd "$canonical" && bash -c "$cmd" ); echo "rc=$?"
-git -C "$canonical" checkout -                            # back to where you were
+( cd "$canonical" && bash -c "$cmd" ) > /tmp/oss-parent.txt 2>&1; echo "parent rc=$?"
+git -C "$canonical" checkout -
+diff /tmp/oss-head.txt /tmp/oss-parent.txt
 ```
 
 - **Passes at the first parent** → **this spine broke it.** Not a quarantine
@@ -146,16 +147,8 @@ spine introduced the demo line, its command, or the file that command runs, then
 at `$merge_sha^1` that command is *absent* — it fails with "no such file",
 "unknown subcommand", an import error. Read as a bare nonzero rc that is
 indistinguishable from "already broken", and a regression this spine caused gets
-quarantined and closes green. Compare the **failure**, not the exit code:
-
-```bash
-# same command, both trees, and diff the OUTPUT before believing the rc
-( cd "$canonical" && bash -c "$cmd" ) > /tmp/oss-head.txt 2>&1; echo "head rc=$?"
-git -C "$canonical" checkout --detach "$merge_sha^1"
-( cd "$canonical" && bash -c "$cmd" ) > /tmp/oss-parent.txt 2>&1; echo "parent rc=$?"
-git -C "$canonical" checkout -
-diff /tmp/oss-head.txt /tmp/oss-parent.txt
-```
+quarantined and closes green. Compare the **failure**, not the exit code — the
+block above diffs both outputs for exactly that reason.
 
 If the parent's output says the command or its target does not exist, the parent
 run was never **invocable** and the check has not run. You are back to judgment

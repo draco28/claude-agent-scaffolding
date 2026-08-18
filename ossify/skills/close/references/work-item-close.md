@@ -240,12 +240,6 @@ costs and different blast radii.
 It happens at **spine close, as the last step**, and the reason is the branch —
 not the report.
 
-`oss worktree_remove` runs `git branch -d` and **refuses an unmerged branch at
-rc 8**. Cleanup can therefore only succeed after step 4's merge has landed;
-running it here, before the merge, converts a recoverable state into a halt and
-leaves the work reachable only from a branch the ceremony has already tried to
-delete.
-
-(`report.md` is *not* in the worktree — it lives next to `spec.md` in the work
-item's docs directory under the ai-workspace, which worktree removal never
-touches. The harvest reads it from there, and its ordering constraint is its own.)
+`oss worktree_remove` refuses an unmerged branch at **rc 8**, so cleanup can
+only succeed after step 4's merge — the full ordering argument, and the false
+one it is often confused with, are in `harvest.md` §1.

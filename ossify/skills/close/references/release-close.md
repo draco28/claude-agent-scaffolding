@@ -361,11 +361,13 @@ this release is the fix; the accepted-disclosure override is not shipped
 re-runs the full cumulative walkthrough — this ceremony's most expensive step —
 and two of the steps it re-runs already wrote state. `oss feature_add` appends
 **unconditionally**, so re-running §7 blind duplicates every feature it added:
-read `oss feature_list` first and add only what is missing. And
-`release-retrospective.md` is already on disk with a "what is still standing"
-section written before the finding existed — **amend it** so the boundary
-finding and its disposition join that section; never silently re-author it.
-The audit still has to run last, because a fix has to be re-audited.
+read `oss feature_list` first and add only what is missing; and `oss
+release_set_meta` has already stored a `next_sketch` for a release that is now
+not closing. And `release-retrospective.md` is already on disk with a "what is
+still standing" section written before the finding existed — **amend it** so the
+boundary finding and its disposition join that section; never silently
+re-author it. The audit still has to run last, because a fix has to be
+re-audited.
 
 ---
 

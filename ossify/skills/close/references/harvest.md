@@ -22,7 +22,9 @@ branch cleanup. The harvest runs **before cleanup, always**.
 worktree.** They do not: `report.md` and `handoff.md` sit beside `spec.md` in the
 work item's docs directory under the AI workspace (`work-item/SKILL.md` §7), which
 worktree removal never touches. `oss worktree_remove` runs `git branch -d`, refuses
-an unmerged branch at rc 8, and once it succeeds the branch is gone — so every step
+an unmerged branch at rc 8 and a **dirty** worktree at rc 8 rather than forcing
+(an rc 8 there is a real signal, never something to force past), and once it
+succeeds the branch is gone — so every step
 that might still need to **halt** must run first. That is the whole ordering
 argument; do not restate the false one.
 

@@ -162,22 +162,18 @@ returns a plausible number at rc 0. Ask for the field's `type` before trusting a
 count.
 
 **`worktrees` is the only one that reads the *repo* rather than the state file.**
-It reports directories under `<repo>/.worktrees/` that no work item claims. That
-matters because spine close removes worktrees by reading state, so a directory
-state does not know about is cleaned by no ceremony at all — it accumulates in
-the very repo whose cleanliness `close` then checks, and the first symptom is a
-close failing for a reason unrelated to the spine. Being repo-reading also makes
+It reports directories under `<repo>/.worktrees/` that no work item claims — why
+that matters at all (spine close removes worktrees by reading state) is
+`references/state-inspection.md` §4's account. Being repo-reading also makes
 it the only one that can be legitimately *unavailable*: with no pairing manifest
 there is no repo root to look in, so emit `skip:` rather than falling silent.
 
 **Print one line per repository**, tagged `worktrees(<repo-key>)` — the keys are
 `_oss_repo_root`'s enum, so read that rather than a list here. A key the manifest
 does not configure, or whose root is not on this machine, still costs a `skip:`
-line. Read that literally: a repo reported `ok:` was opened, and until #156 that
-was not true — the check asked only about `canonical` and printed a clean
-`ok: worktrees - none orphaned` for projects whose `private_core` had never been
-opened. Do not summarise the lines into one verdict; the whole point is that
-"clean" and "not looked at" stay distinguishable per repo.
+line. Do not summarise the lines into one verdict; the whole point is that
+"clean" and "not looked at" stay distinguishable per repo (the #156 history that
+made this literal is in `references/state-inspection.md` §4).
 
 Two gates sit *before* the per-key loop — red state health, and a state this
 directory's manifest does not route to — and each emits a single **unkeyed**
@@ -191,9 +187,8 @@ silently defaults to `canonical` (the exact habit #156 punished), and omitting
 the state lets an exported `$OSS_STATE_FILE` answer about a different project.
 Pin it once with `sf="${OSS_STATE_FILE:-$(oss state_path)}"` — **override first**,
 matching what `oss doctor` itself resolves — and pass `"$sf"` to every read,
-including to `oss doctor`. Pinning to a bare `oss state_path` mixes projects: the
-gate would report the override while your advisories reported the manifest's
-project. `references/state-inspection.md` §2 carries the measurement.
+including to `oss doctor`. `references/state-inspection.md` §2 carries the
+measurement, and the why-override-first account with it.
 **It is a pure selector: the finding is its OUTPUT, and rc 0 means the check ran,
 not that the tree is clean.** Branch on the rc and you will report every project
 as orphan-free.

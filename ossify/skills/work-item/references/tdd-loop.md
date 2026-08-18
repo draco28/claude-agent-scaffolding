@@ -125,10 +125,9 @@ causes actually fit:
   a different working directory, or a different fixture state than your test. Read
   both side by side; the difference is the finding.
 
-**Do not return gaps-mode here.** By this point earlier ACs are implemented, so a
-gaps-mode return strands that work with no report explaining it — the exact
-failure `returns.md` §4 names, and out of bounds anyway: gaps-mode is a gate-phase
-exit (SKILL.md §3 + §4) and the loop is past it. Instead: stop, diagnose which of
+**Do not return gaps-mode here.** It is out of bounds: gaps-mode is a gate-phase
+exit (SKILL.md §3 + §4) and the loop is past it — `returns.md` §4 carries the
+reasoning. Instead: stop, diagnose which of
 the two it is, record the finding in `## 8. Blockers and advisories`, then proceed
 or halt under the structural-surprise rule (SKILL.md §5). A first-run green you
 have diagnosed and written down is an honest result; one you routed into a late
