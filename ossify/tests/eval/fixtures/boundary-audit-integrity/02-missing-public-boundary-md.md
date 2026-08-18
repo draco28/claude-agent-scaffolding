@@ -1,7 +1,7 @@
 ---
 scenario_id: 02-missing-public-boundary-md
 expected_verdict: blocked
-expected_findings: two, kept distinct — PUBLIC_BOUNDARY.md absent from an observed-public repo (blocking, posture-block remediation named, never a silent skip of the tracked-rules step, and gitleaks-clean is not a substitute); the unset posture over an observed-public repo is an intent mismatch and blocks (the unset MANIFEST field is only a note, so the posture is what carries the intent axis)
+expected_findings: three, kept distinct — PUBLIC_BOUNDARY.md absent from an observed-public repo (blocking, posture-block remediation named, never a silent skip of the tracked-rules step, and gitleaks-clean is not a substitute); the unset posture over an observed-public repo is an intent mismatch and blocks (the unset MANIFEST field is only a note, so the posture is what carries the intent axis); the untracked sweep's classification half is recorded degraded on the absent policy input — the pattern pass still ran, but with no allowlist "no allowlisted hits" is not a classification this run produced, and the degradation is named rather than folded into the missing-file finding
 ---
 Release `r1` of an adopted-forward project is closing; steps 1-6 are done.
 
@@ -10,9 +10,11 @@ The canonical repo has `origin` on github.com, and `gh repo view` returns
 was ever completed: state carries `posture: null`, and there is **no**
 `PUBLIC_BOUNDARY.md` anywhere in the repo.
 
-`gitleaks` is installed and reports nothing tracked. Untracked files: only
-`node_modules/` noise. The manifest has no visibility field. The pairing
-manifest names the canonical and the AI workspace; the AI workspace has one
+`gitleaks` is installed and reports nothing tracked — including the AI
+workspace's own run, which completes and reports nothing as hygiene notes.
+Untracked files: only `node_modules/` noise. The manifest has no visibility
+field. The pairing manifest names the canonical and the AI workspace; the AI
+workspace has one
 github.com remote and `gh repo view` returns `{"visibility": "PRIVATE"}`, its
 manifest entry agreeing.
 

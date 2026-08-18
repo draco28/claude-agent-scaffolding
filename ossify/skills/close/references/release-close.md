@@ -29,19 +29,23 @@ is named rather than left to read as executed:
 | **5. Docs increment (spec §8)** | **not shipped.** The trigger table lives in spec §8 and has no executable surface yet |
 | **6. Handoff cleanup for the closed release** | **not shipped.** `/ossify:handoff` authors session handoffs as a standalone utility, but it has no retention policy by design — handoffs accumulate and the user prunes — so there is nothing for a close to clean up; the same non-wiring `spine-close.md` §9 records for the spine boundary |
 | **7. Release tag / PR gate** | **not shipped.** The spine→release / release→main tier question is unsettled, and a PR gate written before it is settled would harden the wrong tier |
-| **8. Boundary audit (companion §6)** | **built — core scope** — §8, full depth in `references/boundary-audit.md`. Re-derived under the skill-first freeze: prose driving `git`/`gh`/`gitleaks` plus agent judgment, **canonical repo only, observed-visibility gated**, fail-closed. Confirmed findings block the close. The dimensions the companion names that this scope omits — the other repo arms, the semantic pass, history, submodules, the override record — are named in that file's own not-shipped table and land as their own PRs |
+| **8. Boundary audit (companion §6)** | **built — core scope over the full repo set** — §8, full depth in `references/boundary-audit.md`. Re-derived under the skill-first freeze: prose driving `git`/`gh`/`gitleaks` plus agent judgment, **every manifest repo object audited with per-role arms, observed-visibility gated**, fail-closed. Confirmed findings block the close. The dimensions this scope still omits — the semantic pass, history, uncommitted tracked modifications, submodules, the override record — are named in that file's own not-shipped table and land as their own PRs |
 
 A missing step and a step that silently does nothing are indistinguishable to
 every later reader, which is why they are a table rather than an omission.
 
-**The repo dimension is single-repo for every step.** The companion design
+**The repo dimension is single-repo for every step but the audit.** The
+companion design
 gives a release close a pin/publish step before the walkthrough for open-core
 postures, and one PR per touched repo at the gate. Neither is built; both attach
 to steps this file does not ship. Nothing below assumes one repo *forever* — the
 walkthrough and both blocking gates read state, not a checkout — and the one
-step that does read a checkout, the boundary audit, reads **the canonical
-only** (`git -C`, never a worktree), with the other repos explicitly outside
-its shipped scope.
+step that does read checkouts, the boundary audit, reads **every repository
+object the pairing manifest carries**, each with per-role arms (git repos via
+`git -C`, never a worktree; a plain non-repo root via its filesystem-only
+policy, determined per the audit's own §2 whatever the manifest field says);
+the audit's own §8 names what remains outside its shipped
+scope.
 
 ---
 
@@ -340,8 +344,9 @@ reads this key as its starting point.
 
 ## 8. Step 7 — the boundary audit, the last refusal
 
-**The canonical repo only, gated on observed visibility, fail-closed, and its
-confirmed findings block the close.** The whole step — the visibility gate and
+**Every repository object the pairing manifest carries, each gated on its
+observed visibility with per-role arms, fail-closed, and confirmed findings
+block the close.** The whole step — the repo set and its visibility gate and
 its two recorded deltas from the companion spec, the tracked-file audit
 against `PUBLIC_BOUNDARY.md`'s machine-checkable rules, the scan-first
 untracked sweep, and the high-stakes disposition where **nothing is ever

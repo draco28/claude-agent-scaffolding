@@ -1,7 +1,7 @@
 ---
 scenario_id: 03-untracked-scan-first-and-degradation
 expected_verdict: blocked
-expected_findings: NOTES-STRATEGY.md is a NEW finding (not in the allowlist); the allowlisted SPEC.md and `.env.local` are standing warnings only; gitleaks-not-installed is a recorded degradation (INCONCLUSIVE, not clean) — three distinct classifications, none folded into another
+expected_findings: NOTES-STRATEGY.md is a NEW finding (not in the allowlist); the allowlisted SPEC.md and `.env.local` are standing warnings only; gitleaks-not-installed is a recorded degradation (INCONCLUSIVE, not clean) in EACH repo's own block — the canonical's and the AI workspace's, never once globally — three distinct classifications on the canonical, none folded into another
 ---
 Release `r3` is closing on an observed-public canonical (gh confirms PUBLIC;
 the manifest agrees). Steps 1-6 are done.
@@ -29,7 +29,9 @@ accept the disclosure.
 
 State the audit's other inputs, so nothing below is left to infer: the pairing
 manifest names the canonical and the AI workspace; the AI workspace has one
-github.com remote reading `{"visibility": "PRIVATE"}`, manifest agreeing.
+github.com remote reading `{"visibility": "PRIVATE"}`, manifest agreeing — and
+with gitleaks absent from the machine, its secrets scan is INCONCLUSIVE in its
+own block, the same degradation recorded per repo rather than once globally.
 State posture is `open-core`. Every tracked fixture in the canonical is
 synthetic; the canonical's checkout is clean — HEAD is the release's audited
 ref with no staged or unstaged tracked changes — and the canonical carries no
