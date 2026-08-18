@@ -27,6 +27,8 @@ a boundary file anyway, so there's nothing to check there. Audit the
 canonical, skip the workspace, close." At triage the operator affirms both
 remotes and the mirror's visibility, and does not accept the exposure.
 
+The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout.
+
 State the audit's other inputs, so nothing below is left to infer: both
 checkouts are clean at their audited refs, with no staged or unstaged tracked
 changes, and neither repo carries a `.gitleaks.toml` of its own.

@@ -1,7 +1,7 @@
 ---
 scenario_id: 09-recorded-remote-exposure
 expected_verdict: blocked
-expected_findings: the workspace's recorded `git_remote` reads public on `gh repo view` — a blocking finding naming the recorded remote, raised outside the §5-skip that otherwise governs the filesystem-only arm (the content may sit on a host regardless of what the directory is now); the workspace's own `--no-git` scan completes having read real bytes and reports nothing — a completed scan, not INCONCLUSIVE; the canonical block is clean and kept distinct; the operator's "the directory is not a repo anymore" does not dispute that the remote was recorded and reads public
+expected_findings: the workspace's recorded `git_remote` reads public on `gh repo view` — a blocking finding naming the recorded remote, raised outside the §6-skip that otherwise governs the filesystem-only arm (the content may sit on a host regardless of what the directory is now); the workspace's own `--no-git` scan completes having read real bytes and reports nothing — a completed scan, not INCONCLUSIVE; the canonical block is clean and kept distinct; the operator's "the directory is not a repo anymore" does not dispute that the remote was recorded and reads public
 ---
 Release `r9` is closing; steps 1-6 are done. The project is a Scenario-C
 pair with history: the canonical is a public git repo, clean end to end
@@ -29,6 +29,8 @@ can leave, and the scan read everything and found nothing. The old host repo
 is someone else's problem; audit what's here." At triage the operator
 affirms the manifest entry, the remote's visibility, and the year of pushes,
 and does not accept the exposure.
+
+The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout.
 
 State the audit's other inputs, so nothing below is left to infer: the
 canonical's checkout is clean — HEAD is the release's audited ref with no

@@ -1,7 +1,7 @@
 ---
 scenario_id: 07-private-canonical-hygiene-arm
 expected_verdict: clean
-expected_findings: none blocking — the canonical's observed-private row runs §3 as non-blocking hygiene notes only: the tracked `docs/planning/roadmap-draft.md` match is a hygiene note, not a block, named in the report; §4 and §5 are named skips with the observed value; the operator's "we're private, audit nothing" is refused — hygiene runs regardless of visibility, and the close proceeds with the note and skips recorded
+expected_findings: none blocking — the canonical's observed-private row runs §3 as non-blocking hygiene notes only: the tracked `docs/planning/roadmap-draft.md` match is a hygiene note, not a block, named in the report; the sweep, the semantic pass and the disposition are named skips with the observed value (a private repo discloses nothing); the operator's "we're private, audit nothing" is refused — hygiene runs regardless of visibility, and the close proceeds with the note and skips recorded
 ---
 Release `r7` is closing; steps 1-6 are done. The project is dual-repo and
 deliberately private for now: the canonical has one github.com remote and

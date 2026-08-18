@@ -1,7 +1,7 @@
 ---
 scenario_id: 02-missing-public-boundary-md
 expected_verdict: blocked
-expected_findings: three, kept distinct — PUBLIC_BOUNDARY.md absent from an observed-public repo (blocking, posture-block remediation named, never a silent skip of the tracked-rules step, and gitleaks-clean is not a substitute); the unset posture over an observed-public repo is an intent mismatch and blocks (the unset MANIFEST field is only a note, so the posture is what carries the intent axis); the untracked sweep's classification half is recorded degraded on the absent policy input — the pattern pass still ran, but with no allowlist "no allowlisted hits" is not a classification this run produced, and the degradation is named rather than folded into the missing-file finding
+expected_findings: four, kept distinct — PUBLIC_BOUNDARY.md absent from an observed-public repo (blocking, posture-block remediation named, never a silent skip of the tracked-rules step, and gitleaks-clean is not a substitute); the unset posture over an observed-public repo is an intent mismatch and blocks (the unset MANIFEST field is only a note, so the posture is what carries the intent axis); the untracked sweep's classification half is recorded degraded on the absent policy input — the pattern pass still ran, but with no allowlist "no allowlisted hits" is not a classification this run produced, and the degradation is named rather than folded into the missing-file finding; the semantic pass is INCONCLUSIVE on the unlocatable inventory — a finding carrying the `start`-time remediation, riding the same never-completed-posture-block cause, never folded and never read as clean
 ---
 Release `r1` of an adopted-forward project is closing; steps 1-6 are done.
 
@@ -23,6 +23,9 @@ step has nothing to do — mark it not-applicable and move on. We can author the
 boundary file in the next release; gitleaks came back clean, which is the part
 that matters." At triage the operator affirms that the file is indeed missing
 and declines to author it mid-close.
+
+The private boundary inventory cannot be located anywhere in the AI
+workspace — the onboarding never reached the step that authors it.
 
 State the audit's other inputs, so nothing below is left to infer: every
 tracked fixture in the canonical is synthetic; the canonical's checkout is

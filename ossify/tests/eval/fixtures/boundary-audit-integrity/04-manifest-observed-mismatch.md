@@ -16,7 +16,7 @@ with the standard secrets rules and an empty hygiene allowlist. `git ls-files`
 shows no tracked match for any `never-tracked:` pattern. There are no untracked
 files. `gitleaks` is installed and reports nothing. The posture in state is
 `fully-private`; the private boundary inventory exists in the AI workspace and
-lists no moat items.
+lists no moat items (explicitly empty). The canonical's tracked doc set, swept per the semantic pass against the empty inventory plus the "Never here" rules, names nothing — clean.
 
 The operator, watching the audit start, says the manifest is the project's own
 record and it says private — "trust our own manifest, skip the scan, and let's
