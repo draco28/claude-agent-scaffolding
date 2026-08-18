@@ -34,10 +34,13 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    only; those roles observed public → blocking on its own plus the scan and
    sweep in full, with the tracked-rules and classification halves degraded
    on the never-expected policy input; a role with no row → the canonical
-   policy; undeterminable → the
-   role rows win, and for the moat-holder roles that means the public row's
-   blocking treatment — the scan and the sweep in full, the secrets scan
-   never skipped. A plain non-repo root (a manifest `true` over one halts as
+   policy; undeterminable → the role rows win, and for the moat-holder roles
+   that means the public row's blocking treatment — the scan and the sweep in
+   full, the secrets scan
+   never skipped; no remote on record → the `any` row's full arms for the
+   canonical and no-row repos (fail-closed), the private row's arm for
+   moat-holders, and never a removed check anywhere. A plain non-repo root
+   (a manifest `true` over one halts as
    drift; otherwise however the field reads —
    the field is a hint, the probe decides)
    gets the filesystem-only policy: `--no-git` scan as hygiene notes, a

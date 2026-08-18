@@ -302,8 +302,8 @@ enforceable at a release boundary). Eight steps, in **binding order**:
    named in the audit's own not-shipped table. **Never auto-dispositioned;
    confirmed findings block the close** (per-role arms govern what runs —
    the hygiene-note arms record non-blocking notes and skip the disposition,
-   save the recorded-remote exposure finding, a secrets-class hit, which
-   block on every arm, and unaccepted degradations, which bar a clean
+   save for the recorded-remote exposure finding and a secrets-class hit,
+   which block on every arm, and unaccepted degradations, which bar a clean
    verdict).
    The whole step is
    **`references/boundary-audit.md`**.

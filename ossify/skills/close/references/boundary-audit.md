@@ -132,7 +132,9 @@ finding, and the report says so as a scoping note ("no remote on record"),
 never as an impossibility claim: a de-gitted workspace can have been pushed
 before pairing, and the filesystem-only arm's limits are what the coverage
 line names. Run **§3's
-secrets scan** over its working tree as hygiene notes — with
+secrets scan** over its working tree as hygiene notes — with the
+secrets-class carve-out the table carries, a secrets hit blocks on every
+arm — via
 `gitleaks detect --source "<root>" --no-banner --redact --no-git`. **The
 `--no-git` flag is load-bearing:** `gitleaks detect` defaults to walking git
 history, and against a directory that is not a repo the default invocation
@@ -177,8 +179,10 @@ selector quotes it: manifest-resolved paths may contain whitespace, and
 `close/SKILL.md` §8 already requires `git -C "<absolute path>"`.
 
 **The gate's answer decides which row of the arms table a repo takes — and
-the `any` row's full §3-§5 runs on an exact, case-insensitive `public` or an
-indeterminate read; the role rows govern their roles as written below.**
+the `any` row's full §3-§5 runs on an exact, case-insensitive `public`, an
+indeterminate read, or (for the canonical and no-row repos only) no remote
+on record (§2's fail-closed routing); the
+role rows govern their roles as written below.**
 Anything indeterminate — `internal` (GitHub Enterprise's
 org-wide visibility, which is on the wrong side of this gate), an
 unrecognised value, an empty result, a non-GitHub host, `gh` unauthenticated,
@@ -190,20 +194,27 @@ prove private is treated as public.
 
 | Role | Observed | What runs |
 |---|---|---|
-| any | public (or undeterminable) | §3, §4, §5 in full; findings are **blocking** |
+| any | public (or undeterminable, or — for the canonical and no-row repos only — no remote on record, §2) | §3, §4, §5 in full; findings are **blocking** |
 | `canonical` | private | §3 only, as **non-blocking hygiene notes for the document and strategy classes** — a missing `PUBLIC_BOUNDARY.md` is a hygiene finding here, not a blocking one. **A secrets-class hit blocks on every arm:** a tracked credential or a live secret the scan found is a rotation question, not a visibility question. §4 and §5 skipped |
 | `ai_workspace`, `private_core` | private | §3's secrets scan only, as hygiene notes — with the same secrets-class carve-out: a secrets hit blocks. §4 and §5 skipped |
 | `ai_workspace`, `private_core` | **public** | **blocking finding on its own** — these roles are private by construction. **The secrets scan and §4's sweep run in full, and §5 runs** (the tracked-rules half degrades on the never-expected policy input — §3): the repo is already exposed, and a skipped sweep means an exposed workspace is never examined |
 | `ai_workspace`, `private_core` | undeterminable | the undeterminable read of an **on-record** remote is a **blocking finding on its own** — a repo you cannot prove private is treated as public, so this row is the public row above: the scan and the sweep run in full (the tracked-rules half degrades on the never-expected policy input — §3), and §5 runs. A moat-holder with **no remote on record at all** cannot be read undeterminable — it takes the private row's arm with the no-remote rule below |
 
-**No remote on record — enumerated or recorded (§2) — changes no arm's
-checks.** The row still runs its secrets scan and, where the row runs it,
+**No remote on record — enumerated or recorded (§2) — never removes a
+check.** The row the repo takes still runs its secrets scan and, where that
+row runs it,
 §4's sweep: absence of a remote narrows the *exposure* claim, never the
-scan, and the scoping note says so in the block.
+scan, and the scoping note says so in the block. What the absence decides is
+only *which row* a canonical or no-row repo takes: such a repo with no
+remote on record takes the `any` row's full arms — fail-closed, a repo you
+cannot read private is audited as public — with the scoping note carrying
+the exposure narrowing; a moat-holder with no remote on record keeps the
+private row's arm, per its own row above; and a plain non-repo root never
+takes the `any` row at all — §2's topology rules govern first.
 
 **A role with no row of its own takes the `canonical` policy.** The optional
 `tooling_repo` is the live case: observed private, it matches neither the `any`
-row (public/undeterminable only) nor the two private-by-construction role
+row (public, undeterminable, or no-remote-on-record only) nor the two private-by-construction role
 rows, and would otherwise have no defined checks at all despite this section
 claiming every manifest repo is audited. It is a product-adjacent repo, not a
 moat holder, so it audits like a canonical — §3 as hygiene notes when private,
@@ -382,9 +393,10 @@ it.
 
 ## 4. Step 2 — the leak-adjacent scan (untracked files, scan-first)
 
-This step runs on every repo whose §2 row runs it — the observed-public and
-undeterminable repos on the `any` row (including a no-row repo on the
-canonical policy), and a public or undeterminable `ai_workspace`/
+This step runs on every repo whose §2 row runs it — the observed-public,
+undeterminable, and no-remote-on-record repos on the `any` row (including a
+no-row repo on the canonical policy), and a public or undeterminable
+`ai_workspace`/
 `private_core` on its role row (the exposed-workspace arm) — and on no
 other.
 
