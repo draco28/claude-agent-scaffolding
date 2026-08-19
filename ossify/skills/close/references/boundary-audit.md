@@ -10,12 +10,13 @@ deterministic runtime code exists anywhere in it. Two deliberate deltas from
 the companion's §6 text are recorded inline (both in §2), each with the reason
 it is safe.
 
-**This release ships the audit's core scope — the tracked-file audit and the
-untracked sweep — over the full repo set: every repository object the pairing
+**This release ships the audit's core scope — the tracked-file audit, the
+untracked sweep, and the semantic pass — over the full repo set: every
+repository object the pairing
 manifest carries, each gated on its observed visibility with per-role arms
-(§2).** Every other dimension the companion names — the semantic pass, history,
+(§2).** Every other dimension the companion names — history,
 uncommitted tracked modifications, submodules, the override record — is
-deliberately absent, and §8's table names each one rather than leaving it to
+deliberately absent, and §9's table names each one rather than leaving it to
 read as executed. A dimension nobody wrote a rule for reporting clean is the
 one failure shape this file exists to prevent; scope cuts get the same
 treatment.
@@ -34,7 +35,7 @@ refuse the close. A confirmed finding halts the ceremony, and the halt reaches
 the close record: `oss release_status <rel> closed` and the `demo_record` line
 never run. A release therefore cannot be closed "with a leak noted" — it is
 closed after the finding is fixed, or not at all. (The full design's second
-unblock, the accepted-disclosure override, is not shipped — §8.)
+unblock, the accepted-disclosure override, is not shipped — §9.)
 
 **A halt here is not free, and saying so is part of the step.** The re-close is
 not free and steps 1-6 are not free to repeat — `release-close.md` §8 owns that
@@ -109,7 +110,7 @@ absent or agreeing with the
 probe — a repo
 that is not a git
 repo gets the **filesystem-only**
-policy — except the canonical itself, where §8 halts the close instead: the
+policy — except the canonical itself, where §9 halts the close instead: the
 product repository has nothing to audit. The policy means: no index, no
 remotes and no history, so this section's
 visibility gate and §3's tracked-file rules do not apply to it. **An
@@ -121,7 +122,7 @@ untracked. Read that recorded remote with `gh repo view` (a `gh` read needs
 no local git): public or undeterminable is a **blocking finding** naming the
 recorded remote — the content may sit on a host regardless of what the
 directory is now, and this one finding blocks the close on its own, outside
-the §5-skip that otherwise governs the filesystem-only arm; private is a
+the §6-skip that otherwise governs the filesystem-only arm; private is a
 note. And the recorded-remote read is not only for plain non-repo roots: for
 **every** repo in the set, any `git_remote` the manifest carries that the
 local enumeration did not list is read the same way — a removed local remote
@@ -145,11 +146,13 @@ construction; `--no-git` is what makes the scan read the working tree.
 quotes the matched secret into the transcript on the exact leak-handling
 path.) And whichever invocation produced it, a run reporting zero bytes
 scanned against a root that has files is INCONCLUSIVE (§3): rc 0 and
-"no leaks found" are not evidence that a scan happened. §4 and §5 are skipped
+"no leaks found" are not evidence that a scan happened. §4, §5 and §6 are skipped
 for the role — §4 because an untracked sweep enumerates the complement of an
 index this repo does not have (a directory-tree judgment read over an
 untracked workspace is named future scope in the report, never silently
-clean), §5 with it. Say in the report that it
+clean); §5 because the semantic pass sweeps a tracked doc set this repo
+does not have, and the moat holder is excluded from the pass by §2's own
+rule; §6 with them. Say in the report that it
 was scanned as an untracked directory. Its lack of a *local* remote is never
 a finding — the exposure question for this repo is the recorded
 `git_remote` above, where one exists.
@@ -179,7 +182,7 @@ selector quotes it: manifest-resolved paths may contain whitespace, and
 `close/SKILL.md` §8 already requires `git -C "<absolute path>"`.
 
 **The gate's answer decides which row of the arms table a repo takes — and
-the `any` row's full §3-§5 runs on an exact, case-insensitive `public`, an
+the `any` row's full §3-§6 runs on an exact, case-insensitive `public`, an
 indeterminate read, or (for the canonical and no-row repos only) no remote
 on record (§2's fail-closed routing); the
 role rows govern their roles as written below.**
@@ -194,11 +197,11 @@ prove private is treated as public.
 
 | Role | Observed | What runs |
 |---|---|---|
-| any | public (or undeterminable, or — for the canonical and no-row repos only — no remote on record, §2) | §3, §4, §5 in full; findings are **blocking** |
-| `canonical` | private | §3 only, as **non-blocking hygiene notes for the document and strategy classes** — a missing `PUBLIC_BOUNDARY.md` is a hygiene finding here, not a blocking one. **A secrets-class hit blocks on every arm:** a tracked credential or a live secret the scan found is a rotation question, not a visibility question. §4 and §5 skipped |
-| `ai_workspace`, `private_core` | private | §3's secrets scan only, as hygiene notes — with the same secrets-class carve-out: a secrets hit blocks. §4 and §5 skipped |
-| `ai_workspace`, `private_core` | **public** | **blocking finding on its own** — these roles are private by construction. **The secrets scan and §4's sweep run in full, and §5 runs** (the tracked-rules half degrades on the never-expected policy input — §3): the repo is already exposed, and a skipped sweep means an exposed workspace is never examined |
-| `ai_workspace`, `private_core` | undeterminable | the undeterminable read of an **on-record** remote is a **blocking finding on its own** — a repo you cannot prove private is treated as public, so this row is the public row above: the scan and the sweep run in full (the tracked-rules half degrades on the never-expected policy input — §3), and §5 runs. A moat-holder with **no remote on record at all** cannot be read undeterminable — it takes the private row's arm with the no-remote rule below |
+| any | public (or undeterminable, or — for the canonical and no-row repos only — no remote on record, §2) | §3, §4, §5 in full, findings **blocking**; §6 runs |
+| `canonical` | private | §3 only, as **non-blocking hygiene notes for the document and strategy classes** — a missing `PUBLIC_BOUNDARY.md` is a hygiene finding here, not a blocking one. **A secrets-class hit blocks on every arm:** a tracked credential or a live secret the scan found is a rotation question, not a visibility question. §4, §5 and §6 skipped (the semantic pass: a private repo discloses nothing — named skip) |
+| `ai_workspace`, `private_core` | private | §3's secrets scan only, as hygiene notes — with the same secrets-class carve-out: a secrets hit blocks. §4, §5 and §6 skipped (the semantic pass: a private repo discloses nothing — named skip) |
+| `ai_workspace`, `private_core` | **public** | **blocking finding on its own** — these roles are private by construction. **The secrets scan and §4's sweep run in full, and §6 runs — §5's semantic pass never runs on the moat holders (§5)** (the tracked-rules half degrades on the never-expected policy input — §3): the repo is already exposed, and a skipped sweep means an exposed workspace is never examined |
+| `ai_workspace`, `private_core` | undeterminable | the undeterminable read of an **on-record** remote is a **blocking finding on its own** — a repo you cannot prove private is treated as public, so this row is the public row above: the scan and the sweep run in full, and §6 runs — §5 never runs on the moat holders (the tracked-rules half degrades on the never-expected policy input — §3). A moat-holder with **no remote on record at all** cannot be read undeterminable — it takes the private row's arm with the no-remote rule below |
 
 **No remote on record — enumerated or recorded (§2) — never removes a
 check.** The row the repo takes still runs its secrets scan and, where that
@@ -218,7 +221,7 @@ row (public, undeterminable, or no-remote-on-record only) nor the two private-by
 rows, and would otherwise have no defined checks at all despite this section
 claiming every manifest repo is audited. It is a product-adjacent repo, not a
 moat holder, so it audits like a canonical — §3 as hygiene notes when private,
-the full §3-§5 when public.
+the full §3-§6 when public.
 
 **Role-specific rows win over the `any` row.** An undeterminable read is
 audited as public (above), so an `ai_workspace` with unreadable visibility
@@ -246,8 +249,7 @@ the moat by design. §3's `never-tracked:` document rules have nothing to read
 there — `start` routes `PUBLIC_BOUNDARY.md` to public-facing repo roots only,
 so on these roles the rules half degrades on the never-expected input (public
 arm) or is skipped outright (private arm), never a missing-file block — and
-the semantic pass, when
-it ships (§8), will not run against the repo that holds the moat inventory
+§5's semantic pass never runs against the repo that holds the moat inventory
 either — every finding there would be expected, which is indistinguishable
 from a real one.
 
@@ -300,7 +302,7 @@ appears in `git -C "<root>" ls-files`; present-but-untracked is the same
 finding as absent, named as such. And confirm the tracked entry's mode in
 `git -C "<root>" ls-files -s -- PUBLIC_BOUNDARY.md` is a regular file's —
 `100644` or `100755`. A `120000` entry is a symlink, and a `160000` entry is
-a gitlink: each passes `ls-files` and both of §8's `diff --quiet` checks
+a gitlink: each passes `ls-files` and both of §9's `diff --quiet` checks
 while committing a path or a commit pointer instead of the policy itself. A
 gitlink is always a **finding naming its shape**, with the same
 `start/references/posture-block.md` §6 authoring
@@ -488,7 +490,95 @@ enforced mechanically; this read is how they are enforced at all.
 
 ---
 
-## 5. Disposition — high-stakes, never auto
+## 5. Step 3 — the semantic pass (agent judgment)
+
+The question no pattern can ask: **does anything tracked in the repo
+*describe* a moat item, even without containing it?** This step runs on the
+repos whose §2 row runs it — the `any`-row repos, observed-public,
+undeterminable, or no-remote-on-record — and on no other: the moat-holder
+roles never run it (they hold the inventory; every finding there would be
+expected, which is indistinguishable from a real one — §2), and the
+private-canonical hygiene arm skips it as a named skip (nothing is disclosed
+from a private repo).
+
+**Read the private boundary inventory first** (`posture-block.md` §7 — the
+AI-workspace artifact naming moat items, channels and seams, indexed from
+`project-state.json`). The inventory is the
+comparison set for everything below; **if it cannot be located, this step is
+INCONCLUSIVE** — a finding with the `start`-time remediation pointer, not a
+clean pass.
+
+Then read the posture (`oss get ".project.posture"`):
+
+- Posture implies protected value (`open-core`, `source-available`, a
+  `fully-private` project with declared overlay seams) **or is
+  unset/unrecognised** → the pass runs in full. A `fully-private` posture
+  with an **explicitly empty** inventory takes the fully-open shape below:
+  the moat question trivially clean, the "Never here" sweep still runs. An unset posture is read as
+  moat-bearing (§2's fail-safe reads an undecided posture as private); a
+  project that never completed its posture block is the population most
+  likely to leak, and treating "not in the protected list" as "nothing to
+  protect" fails open on exactly them.
+- A protected-value posture over an **explicitly empty** inventory takes the
+  same shape — the moat rows are simply absent from the comparison, and the
+  "Never here" sweep still runs.
+- `fully-open` with an explicitly empty inventory → the **moat question** is
+  trivially clean; say so in one line and move on. **The sweep itself still
+  runs.** An empty moat table means nothing is private, not that nothing is
+  forbidden: `PUBLIC_BOUNDARY.md`'s "Never here" rules still ban downstream
+  strategy, roadmaps, competitive material and non-synthetic fixtures, and a
+  tracked memo violating them matches no `never-tracked:` path and passes
+  gitleaks. So sweep the tracked doc set against those rules, with the moat
+  rows simply absent from the comparison. (`fixtures-must-be: synthetic` is
+  asked wherever §3 reads a `PUBLIC_BOUNDARY.md` — §3.)
+
+### The three rules, first match wins
+
+Sweep the tracked doc set — READMEs, docs, design comments, specs, and
+fixture directories — against the inventory's moat rows. **If the sweep had
+to be narrowed to fit, that narrowing is a recorded degradation**, the same
+class as a failed gitleaks run.
+
+- **S1 — the prose names a moat item's identity *and* enough mechanism that
+  a reader could reconstruct or evaluate it → finding.** A README explaining
+  the rationale and structure of an algorithm whose implementation is
+  private-packaged; a roadmap section naming unreleased strategy; a comment
+  reconstructing a private spec in miniature; a tracked fixture that looks
+  like real user data, prices, or prompts.
+- **S2 — it names the identity only, no mechanism → note.** "Ranking is
+  handled by a proprietary component" discloses that the component exists,
+  which the port already does.
+- **S3 — neither → clean.**
+
+**Where S1 and S2 are arguable, it is S1.** An over-raised finding costs the
+user one sentence at triage; an unraised disclosure is permanent. This is
+the same fail-closed direction `posture-block.md` §2 states for an ambiguous
+posture, and it applies at the one step of this audit that is pure judgment.
+
+Whatever the posture, the rows above exhaust the routing: a `fully-private`
+posture over a **non-empty** inventory runs the pass in full (the moat is
+enumerated — posture-block §4's C3 shape is not an exemption), and a
+`fully-open` posture over a non-empty inventory is a contradiction the
+`start` ceremony owes an answer for — recorded as a finding naming the
+contradiction, never silently swept either way.
+
+Describing is disclosing. The test is whether a competent reader of the
+repo alone ends up knowing a thing the inventory says stays private — not
+whether any private file is literally present, and not whether the author
+intended it.
+
+**Worked example (S1).** Posture `open-core`; the inventory's one row reads
+"ranking/decay intelligence — channel `private-package` — the public repo
+holds the ranking port, the private crate implements it". The public README
+gains a "How ranking works" section containing no code, which walks the
+decay curve's shape, names the three signals the ranker weighs and in which
+order, and explains why recency is dampened after day 30. **S1**: identity
+plus mechanism, reconstructable. "It contains no code" is not the test and
+does not clear it.
+
+---
+
+## 6. Disposition — high-stakes, never auto
 
 **No finding from this audit is ever auto-dispositioned to pass.** State the
 contrast, because the nearest precedent points the other way: spine-close
@@ -505,21 +595,21 @@ not match, the file is not what the name suggests — and the report records the
 fact that refutes it. **If the user concedes the fact and accepts the
 exposure, that acceptance is not a rejection**, and this release has no record
 to write it into: the accepted-disclosure override, its inventory row and the
-third verdict it licenses are not shipped (§8). Say so plainly at triage. A
+third verdict it licenses are not shipped (§9). Say so plainly at triage. A
 close that proceeds on an acceptance with nowhere to live is exactly the
 "closed with a leak noted" this step exists to prevent — the halt stands until
 the finding is fixed or the close is abandoned.
 
 A finding the user affirms is **confirmed**, and confirmed findings **block the
-close** — on every arm whose row runs §5. The arms that skip §5 never reach
+close** — on every arm whose row runs §6. The arms that skip §6 never reach
 this paragraph — every private row and the
 plain non-repo policy; their
 findings are recorded as the non-blocking notes or the degradations their
 rows name — with the exceptions §2 carves: the recorded-`git_remote`
 exposure finding blocks on its own wherever it fires, and a secrets-class
 hit blocks on every arm. And a degradation on a
-§5-skipping arm, while never a §5 confirmed finding, still governs the
-verdict through §6: INCONCLUSIVE is never clean, so an unaccepted
+§6-skipping arm, while never a §6 confirmed finding, still governs the
+verdict through §7: INCONCLUSIVE is never clean, so an unaccepted
 degradation halts the close exactly as an acceptance here would. The unblock
 is real work:
 
@@ -565,26 +655,28 @@ deciding anything.
 
 ---
 
-## 6. The report
+## 7. The report
 
-One block per repo in the set — role, **the audited ref** (§8), **the coverage
+One block per repo in the set — role, **the audited ref** (§9), **the coverage
 line** (below), gate outcome (observed visibility per
 remote, manifest and posture agreement, what ran and what was skipped),
-tracked-file hits, untracked hits split new-vs-standing, degradations — each
+tracked-file hits, semantic findings (S1 findings and S2 notes — §5),
+untracked hits split new-vs-standing, degradations — each
 finding carrying repo, class,
 the path or pattern, why it is a finding, and its remediation. Then the triage
 conversation, finding by finding. Then the verdict, one of exactly two:
 **clean**, or **blocked** (naming each confirmed finding). The full design's
-third verdict, *proceeding with overrides*, is not shipped (§8) — do not
+third verdict, *proceeding with overrides*, is not shipped (§9) — do not
 invent it, and do not let a blocked close borrow its shape.
 
 ### The coverage line, and why it is not optional
 
-Every report block opens with a **coverage read-out**: each of the three
-checks — tracked rules, secrets scan, untracked sweep — marked **ran**,
+Every report block opens with a **coverage read-out**: each of the four
+checks — tracked rules, secrets scan, untracked sweep, semantic pass — marked
+**ran**,
 **skipped** with the observed value that justified it, or **INCONCLUSIVE**
 with what failed. Nothing else in the block is trusted until that line
-accounts for all three.
+accounts for all four.
 
 **INCONCLUSIVE has a narrow meaning, and widening it breaks the gate the other
 way.** A check is **ran** when it completed against the inputs this project
@@ -609,8 +701,8 @@ scale, for any reason. A tool that changes its flags, a boundary file that
 lost a rule: each surfaces as an unaccounted check rather than as silence.
 
 **And the report states its scope.** One line — the repo set with each repo's
-observed visibility and arm, the three shipped checks, the not-shipped
-dimensions named by class (§8) — so
+observed visibility and arm, the four shipped checks, the not-shipped
+dimensions named by class (§9) — so
 a `clean` verdict is never read as more coverage than this release ships.
 Every skip is named in the report with the observed value that justified it.
 
@@ -625,7 +717,7 @@ naming a moat item in a public artifact is itself the leak.
 
 ---
 
-## 7. Anti-patterns
+## 8. Anti-patterns
 
 - **Trusting the manifest over observation.** A repo the manifest calls
   private and `gh` reports public gets audited as public and raises the
@@ -654,6 +746,14 @@ naming a moat item in a public artifact is itself the leak.
   not a regular tracked file of the same repo (§3).
 - **Reading a policy-absent sweep's pattern pass as a classified one.** No
   allowlist, no classification — the half is degraded (§4).
+- **Reading an S1-shaped disclosure as an S2 note.** Where the mechanism is
+  arguable, it is S1 — describing is disclosing, and "it contains no code"
+  is not the test (§5).
+- **Skipping the semantic pass on a fully-open posture.** An empty moat
+  table cleans the moat question; the "Never here" rules sweep still
+  runs (§5).
+- **Treating an unlocatable inventory as a clean semantic pass.**
+  INCONCLUSIVE, with the `start`-time remediation pointer (§5).
 - **Reading "gitleaks did not complete" as clean.** Only a completed scan is
   a scan (§3).
 - **Treating an empty machine-checkable block as a pass** — zero rules run is
@@ -668,27 +768,27 @@ naming a moat item in a public artifact is itself the leak.
   which hides whatever sits inside a generically named `cache/` or `notes/`
   (§4).
 - **Auto-dispositioning a finding.** The spine-close triage rule does not
-  reach this step; every finding is the user's (§5).
+  reach this step; every finding is the user's (§6).
 - **Improvising the unshipped override** — proceeding on an acceptance with
-  no record, or inventing the third verdict (§5, §6).
+  no record, or inventing the third verdict (§6, §7).
 - **Editing the hygiene allowlist mid-audit to reclassify a hit.** An audit
-  that edits its own inputs passes itself (§5).
+  that edits its own inputs passes itself (§6).
 - **Filing this run's failed scan as a standing warning.** Only an accepted
-  degradation is memory, and accepting one ends this close halted (§5).
+  degradation is memory, and accepting one ends this close halted (§6).
 - **Auditing whatever happens to be checked out on the canonical, or a dirty
-  checkout.** Resolve the release's ref per §8, verify HEAD matches it with no
+  checkout.** Resolve the release's ref per §9, verify HEAD matches it with no
   staged or unstaged tracked changes, and name it. (The role repos' audited
-  ref IS their checked-out branch, named as such — §8; the anti-pattern is
+  ref IS their checked-out branch, named as such — §9; the anti-pattern is
   auditing an unresolveable ref, not the role rule.)
 - **Naming a moat item in any public-facing record of a finding.** Patterns
-  and classes only (§6).
+  and classes only (§7).
 - **Reporting a verdict without a coverage line**, or reading an unaccounted
-  check as clean rather than INCONCLUSIVE (§6).
+  check as clean rather than INCONCLUSIVE (§7).
 - **Running the state writes after a halt here** (§1, `release-close.md` §9).
 
 ---
 
-## 8. What this audit does not cover — the not-shipped table
+## 9. What this audit does not cover — the not-shipped table
 
 Stated as a table, because the sibling ceremony's rule is that a step which
 silently does nothing is indistinguishable from a missing one
@@ -696,14 +796,13 @@ silently does nothing is indistinguishable from a missing one
 
 | Dimension | Status |
 |---|---|
-| **The semantic pass** — tracked prose that *describes* a moat item | **not shipped.** A README that discloses a moat item's identity and mechanism passes this audit today. The sweep over the private boundary inventory is a later PR |
 | **History, and every branch but the audited ref** | **not shipped.** A private document committed a year ago and later deleted is public forever at its blob URL, and nothing here looks. `gitleaks` still covers *secrets* across history when it completes — the tool's own behavior, not this audit's rule. The recorded History-passes line is a later PR |
-| **Uncommitted modifications to tracked files** | **not shipped.** The rules match paths (`ls-files`), gitleaks reads committed history, and the sweep reads untracked paths only — a secret pasted into a tracked file and left uncommitted is never READ by the three checks, though §8's clean-tree gate halts on its presence before they run, wherever that gate reaches the repo (arms that read the index or a tracked policy file; the secrets-scan-only arms are exempt). A working-tree diff pass that reads it is a later PR |
+| **Uncommitted modifications to tracked files** | **not shipped.** The rules match paths (`ls-files`), gitleaks reads committed history, and the sweep reads untracked paths only — a secret pasted into a tracked file and left uncommitted is never READ by the three mechanical checks (§5's semantic sweep reads the working tree's tracked prose, but it hunts moat descriptions, not secrets), though §9's clean-tree gate halts on its presence before they run, wherever that gate reaches the repo (arms that read the index or a tracked policy file; the secrets-scan-only arms are exempt). A working-tree diff pass that reads it is a later PR |
 | **Submodule contents** | **not shipped.** `ls-files` returns one gitlink, `--others` does not descend, gitleaks does not follow. A tracked submodule is named in the report as outside this audit's coverage — never read as clean by default |
-| **Accepted-disclosure overrides** | **not shipped.** The third verdict, the inventory row, and the exact-surface pin arrive with the disposition PR. Until then a confirmed finding has exactly one unblock: the fix (§5) |
+| **Accepted-disclosure overrides** | **not shipped.** The third verdict, the inventory row, and the exact-surface pin arrive with the disposition PR. Until then a confirmed finding has exactly one unblock: the fix (§6) |
 | **Everything about the project that is not a git repo** | permanent scope, not a cut: issues, wiki, releases, Pages, Actions artifacts, published packages |
 
-Each row is named by class in the report's scope line (§6), so a `clean`
+Each row is named by class in the report's scope line (§7), so a `clean`
 verdict never implies more coverage than this table ships. The rows leave this
 table one PR at a time, each with its own fixtures — never by quiet expansion
 inside this file.

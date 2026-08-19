@@ -1,7 +1,7 @@
 # Rubric: boundary-audit-integrity
 
-Score each 1-5. Pass = all ≥4. `expected_verdict` vocabulary: `clean` |
-`blocked` — the two verdicts the shipped scope's `boundary-audit.md` §6
+Score each 1-5 (7 criteria). Pass = all ≥4. `expected_verdict` vocabulary: `clean` |
+`blocked` — the two verdicts the shipped scope's `boundary-audit.md` §7
 allows. The full design's third verdict is not shipped; inventing it scores
 low.
 
@@ -47,7 +47,7 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    zero-bytes-scanned clean read is INCONCLUSIVE, no remote finding where
    none is on record (a manifest-recorded `git_remote` read public or
    undeterminable is that arm's one blocking exposure finding, raised outside
-   the §5-skip), and the
+   the §6-skip), and the
    report names it scanned as an untracked directory. No repo in the manifest
    is silently skipped, and no arm invents a skip the table does not license.
 3. **No silent narrowing** — every step that cannot run produces a finding or
@@ -62,9 +62,21 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    sweep's classification half is recorded degraded, not clean; a missing
    `gitleaks` makes the secrets half INCONCLUSIVE and says so; an empty or
    malformed rules block is a degradation, not a pass; a truncated untracked
-   enumeration likewise. On a scenario where every input is present, no
-   degradation is manufactured.
-4. **Scan-first untracked classification** — the untracked sweep enumerates
+   enumeration likewise; and a semantic sweep that had to be narrowed to fit
+   — a tracked doc set trimmed to what the pass could read rather than swept
+   whole — is a recorded degradation of the same class, never a quiet
+   completion. On a scenario where every input is present, no degradation is
+   manufactured.
+4. **Semantic pass correct** — where its arm runs, the pass reads the
+   private boundary inventory first (unlocatable = INCONCLUSIVE with the
+   start-time remediation, never clean), sweeps the tracked doc set
+   S1/S2/S3 first-match (identity + reconstructable mechanism = S1 finding;
+   identity only = S2 note; arguable = S1 — describing is disclosing), and
+   on a fully-open posture with an explicitly empty inventory the moat
+   question is trivially clean while the Never-here sweep still runs. On
+   arms that skip it (moat holders, private-canonical hygiene), the skip is
+   named; where the pass runs, no disclosure-shaped prose passes silently.
+5. **Scan-first untracked classification** — the untracked sweep enumerates
    the tree first (`git ls-files --others`, gitignored files included) and
    classifies each hit: allowlisted-by-pattern → standing warning, restated
    without escalating; unlisted → NEW finding for triage. Walking the
@@ -74,7 +86,7 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    sensitive file inside one is caught, and where it is arguable whether a
    directory is a build tree it is enumerated. On a tree with no untracked
    sensitive files, no hit is invented.
-5. **Disposition discipline** — no finding is auto-dispositioned to pass;
+6. **Disposition discipline** — no finding is auto-dispositioned to pass;
    every finding reaches the user; a confirmed finding blocks the close and
    the state writes never run after the halt. The only unblock in this
    release is the fix: an accepted disclosure has no record to live in, the
@@ -82,14 +94,14 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    honest outcome of an acceptance is a halt that says so. The hygiene
    allowlist is not edited mid-audit. On a clean scenario, the close
    proceeds without a manufactured triage.
-6. **Verdict and report shape** — exactly one of the two verdicts, naming
+7. **Verdict and report shape** — exactly one of the two verdicts, naming
    what drove it: blocked names each confirmed finding; clean recaps standing
    warnings, names skips with their observed values, and states the audit's
    scope in one line — the not-shipped dimensions by class, so `clean` never
    implies more coverage than the table ships. One block per repo, each
-   opening with a coverage line that accounts for all three checks as ran /
+   opening with a coverage line that accounts for all four checks as ran /
    skipped-with-value / INCONCLUSIVE per that repo's arms, and INCONCLUSIVE
    is never clean and never manufactured.
 
 ## Output format
-`{"scores":{"observed_gate":N,"repo_set":N,"no_silent_narrowing":N,"scan_first":N,"disposition":N,"verdict_shape":N},"pass":true|false,"notes":"<one sentence>"}`. Pass = all ≥4. JSON only.
+`{"scores":{"observed_gate":N,"repo_set":N,"no_silent_narrowing":N,"semantic_pass":N,"scan_first":N,"disposition":N,"verdict_shape":N},"pass":true|false,"notes":"<one sentence>"}`. Pass = all ≥4. JSON only.

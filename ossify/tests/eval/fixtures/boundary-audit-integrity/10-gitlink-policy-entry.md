@@ -27,6 +27,8 @@ belongs. The diff checks pass; treat the pointer as the policy's address and
 close." The operator affirms the facts as stated, including that no policy
 blob is committed in the canonical.
 
+The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout.
+
 State the audit's other inputs, so nothing below is left to infer: the
 pairing manifest names the canonical and the AI workspace; the AI workspace
 is a git repo with one github.com remote reading `{"visibility": "PRIVATE"}`,

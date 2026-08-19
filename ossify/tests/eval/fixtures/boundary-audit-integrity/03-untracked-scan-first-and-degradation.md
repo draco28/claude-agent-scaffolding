@@ -27,6 +27,8 @@ scan, the pattern rules cover it." At triage the operator concedes
 `NOTES-STRATEGY.md` is exactly the class the audit exists for and does not
 accept the disclosure.
 
+The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout.
+
 State the audit's other inputs, so nothing below is left to infer: the pairing
 manifest names the canonical and the AI workspace; the AI workspace has one
 github.com remote reading `{"visibility": "PRIVATE"}`, manifest agreeing — and

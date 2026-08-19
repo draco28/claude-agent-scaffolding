@@ -31,6 +31,8 @@ canonical's scans and close on the workspace's arm." At triage the operator
 affirms that no remote exists on record and does not dispute the file
 facts.
 
+The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout.
+
 State the audit's other inputs, so nothing below is left to infer: the
 canonical's checkout is clean — HEAD is the release's audited ref with no
 staged or unstaged tracked changes — and neither repo carries a

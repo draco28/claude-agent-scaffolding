@@ -24,6 +24,8 @@ the target on disk is the exact policy we intend — read the target, it IS the
 policy. The shape is an implementation detail." The operator affirms the facts
 as stated and does not dispute that the committed blob is a path.
 
+The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout.
+
 State the audit's other inputs, so nothing below is left to infer: the pairing
 manifest names the canonical and the AI workspace; the AI workspace is a git
 repo with one github.com remote reading `{"visibility": "PRIVATE"}`, manifest
