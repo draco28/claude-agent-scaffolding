@@ -454,4 +454,4 @@ executed.
   halt included (§8).
 - **Auto-dispositioning a boundary-audit finding, or closing "with a leak
   noted."** Every finding reaches the user; a confirmed one blocks until fixed
-  — the override is not shipped (§9, `boundary-audit.md` §6).
+  — the override is not shipped (`boundary-audit.md` §6, §9).

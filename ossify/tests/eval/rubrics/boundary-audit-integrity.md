@@ -47,7 +47,7 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    zero-bytes-scanned clean read is INCONCLUSIVE, no remote finding where
    none is on record (a manifest-recorded `git_remote` read public or
    undeterminable is that arm's one blocking exposure finding, raised outside
-   the §5-skip), and the
+   the §6-skip), and the
    report names it scanned as an untracked directory. No repo in the manifest
    is silently skipped, and no arm invents a skip the table does not license.
 3. **No silent narrowing** — every step that cannot run produces a finding or
@@ -62,8 +62,11 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    sweep's classification half is recorded degraded, not clean; a missing
    `gitleaks` makes the secrets half INCONCLUSIVE and says so; an empty or
    malformed rules block is a degradation, not a pass; a truncated untracked
-   enumeration likewise. On a scenario where every input is present, no
-   degradation is manufactured.
+   enumeration likewise; and a semantic sweep that had to be narrowed to fit
+   — a tracked doc set trimmed to what the pass could read rather than swept
+   whole — is a recorded degradation of the same class, never a quiet
+   completion. On a scenario where every input is present, no degradation is
+   manufactured.
 4. **Semantic pass correct** — where its arm runs, the pass reads the
    private boundary inventory first (unlocatable = INCONCLUSIVE with the
    start-time remediation, never clean), sweeps the tracked doc set
