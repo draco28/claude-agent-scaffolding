@@ -34,8 +34,9 @@ sketch, **before the state writes** — the audit is the last thing that can
 refuse the close. A confirmed finding halts the ceremony, and the halt reaches
 the close record: `oss release_status <rel> closed` and the `demo_record` line
 never run. A release therefore cannot be closed "with a leak noted" — it is
-closed after the finding is fixed, or not at all. (The full design's second
-unblock, the accepted-disclosure override, is not shipped — §9.)
+closed after the finding is fixed, or the disclosure is accepted on the record
+§6 requires — never on a note in the summary. (The second unblock, the
+accepted-disclosure override, ships with its record and its bounds — §6.)
 
 **A halt here is not free, and saying so is part of the step.** The re-close is
 not free and steps 1-6 are not free to repeat — `release-close.md` §8 owns that
@@ -508,6 +509,16 @@ comparison set for everything below; **if it cannot be located, this step is
 INCONCLUSIVE** — a finding with the `start`-time remediation pointer, not a
 clean pass.
 
+**Read its Accepted disclosures rows in the same pass** (§6 — release id, the
+finding and the surface it covers, reason, date). Each row is a **standing
+warning** this close restates, never a fresh block and never silence: a prior
+acceptance is not an erasure. Match a row to a hit **only on the surface the
+row pins** — the path plus its content hash and the commit read at, or for a
+fileless surface the path-and-pattern or the tool-and-failure-mode. **Where it
+is arguable whether a hit is the covered one, it is a fresh finding.** A row
+that pins nothing checkable covers nothing: report it as a standing warning
+whose scope cannot be verified, and treat the hit as fresh.
+
 Then read the posture (`oss get ".project.posture"`):
 
 - Posture implies protected value (`open-core`, `source-available`, a
@@ -593,12 +604,10 @@ public → private is impossible once history is out.
 by contradicting what it asserts — the path is not tracked, the pattern does
 not match, the file is not what the name suggests — and the report records the
 fact that refutes it. **If the user concedes the fact and accepts the
-exposure, that acceptance is not a rejection**, and this release has no record
-to write it into: the accepted-disclosure override, its inventory row and the
-third verdict it licenses are not shipped (§9). Say so plainly at triage. A
-close that proceeds on an acceptance with nowhere to live is exactly the
-"closed with a leak noted" this step exists to prevent — the halt stands until
-the finding is fixed or the close is abandoned.
+exposure, that is an accepted-disclosure override, not a rejection**, and it
+takes the override's record. Without that record the gate reduces to the user
+saying "no": one word, no trace, and a report byte-identical to a close where
+nothing was found. Say which of the two happened, plainly, at triage.
 
 A finding the user affirms is **confirmed**, and confirmed findings **block the
 close** — on every arm whose row runs §6. The arms that skip §6 never reach
@@ -610,8 +619,8 @@ exposure finding blocks on its own wherever it fires, and a secrets-class
 hit blocks on every arm. And a degradation on a
 §6-skipping arm, while never a §6 confirmed finding, still governs the
 verdict through §7: INCONCLUSIVE is never clean, so an unaccepted
-degradation halts the close exactly as an acceptance here would. The unblock
-is real work:
+degradation halts the close unless it is accepted on the record below. Two
+unblocks, both real work:
 
 - **Fix before close** — untrack and rotate, rewrite the disclosing doc,
   resynthesize the fixture, remove the stray file. **And a fix that changes
@@ -628,17 +637,56 @@ is real work:
   gate is skipped by shortcut: what such a fix buys is that the re-run gates
   re-verify an unchanged input, not that they are bypassed. The audit itself
   always re-runs — a fix is verified by the audit that re-examines it.
+- **Accepted-disclosure override** — the user records, in so many words, that
+  this specific disclosure is accepted, with the reason. The close proceeds
+  with the override named in the report, and the verdict says so (§7).
+
+**Where the override is recorded — delta from companion §6, recorded:** the
+companion routes overrides to `project-state.json`. No state verb carries such
+a record and the freeze forbids adding one, so the record lands in the
+**private boundary inventory** as an **Accepted disclosures** row — release id,
+the finding *and the surface it covers*, reason, date — creating that section
+if the inventory has none (`start/references/posture-block.md` §7). §5 reads
+those rows every close, which is what makes the re-surfacing real rather than
+asserted.
+
+**Be honest about what this record is and is not.** `project-state.json` is
+verb-written, atomically mutated, journalled and doctor-checked; a row in a
+private markdown file is none of those, and deleting it is undetectable by
+construction. What the inventory buys instead is *discoverability* — §5 re-reads
+it every close — and the close summary carries the second copy. That trade is
+the reason for the delta, not a claim to have matched the state field.
+
+Two bounds on an override, because it is the one thing here that survives a
+close:
+
+- **It covers the exact surface recorded, and the row carries whatever makes
+  "exact" checkable.** For a tracked file: the path plus a verifiable pin —
+  the content hash (`git -C "<root>" hash-object -- "<path>"`) and the commit
+  the audit read it at. For a surface that has no file — an untracked path, or
+  an accepted degradation — whatever makes it re-identifiable instead: the path
+  and its pattern, or the tool and the failure mode. Otherwise an override
+  launders later growth of the thing it covered. **Any change to the surface is
+  a fresh finding, and where it is arguable whether a hit is the covered one,
+  it is fresh.**
+- **It is not an erasure.** From the next close onward the item re-surfaces as
+  a standing warning, never silently and never as a fresh block.
 
 **The hygiene allowlist is not editable mid-audit.** An audit that edits its
 own inputs passes itself. An allowlist entry added in response to a finding is
 a `start/references/posture-block.md` edit made deliberately outside the audit — the halt
 records the triage, the entry is authored at `start`-time, and the re-close
-sees the file as the standing warning it now is. When the override record
-ships, that path takes a row like any other acceptance; until then it is the
-one honest route from a confirmed hygiene finding to a closeable release, and
-it runs through a halt, not around one.
+sees the file as the standing warning it now is.
 
-Standing warnings — hygiene-allowlisted files — are recapped at the end of
+**Allowlisting is not a cheaper override.** Adding a pattern to the hygiene
+allowlist in response to a finding reclassifies it to a standing warning and
+reaches the same place as an override, one ceremony later, with no record. So:
+**an allowlist entry added in response to a finding is recorded as an accepted
+disclosure like any other.** The friction is the point, not the ceremony
+boundary.
+
+Standing warnings — hygiene-allowlisted files, prior accepted disclosures, and
+**previously accepted** degradations — are recapped at the end of
 every audit report. They are the audit's memory, and pruning them is a
 posture-block edit made deliberately at `start`-time ceremonies, not something
 an audit does to quiet its own output.
@@ -646,9 +694,8 @@ an audit does to quiet its own output.
 **A degradation from *this* run is a finding, not a standing warning.** The
 distinction is the whole of it: a gitleaks run that failed today is an
 incomplete scan of the release being closed, and §3 sends it to triage. Only
-once the user has accepted it does it become memory — and with the override
-record not shipped, accepting a degradation ends this close halted exactly as
-a confirmed exposure does. Filing this run's failure straight into the recap
+once the user has accepted it — on the override record above — does it become
+memory. Filing this run's failure straight into the recap
 would let a current, unaccepted, incomplete secrets scan sit under a heading
 described as non-escalating, and the release would close clean without anyone
 deciding anything.
@@ -664,10 +711,12 @@ tracked-file hits, semantic findings (S1 findings and S2 notes — §5),
 untracked hits split new-vs-standing, degradations — each
 finding carrying repo, class,
 the path or pattern, why it is a finding, and its remediation. Then the triage
-conversation, finding by finding. Then the verdict, one of exactly two:
-**clean**, or **blocked** (naming each confirmed finding). The full design's
-third verdict, *proceeding with overrides*, is not shipped (§9) — do not
-invent it, and do not let a blocked close borrow its shape.
+conversation, finding by finding. Then the verdict, one of exactly three:
+**clean**, **blocked** (naming each confirmed finding), or **proceeding with
+overrides** — every accepted disclosure named with the surface it covers and
+its reason, and the inventory row it was written to (§6). A close with an
+override is not a clean close and never reports as one: the third verdict
+exists precisely so that "we accepted something" cannot hide inside `clean`.
 
 ### The coverage line, and why it is not optional
 
@@ -707,8 +756,9 @@ a `clean` verdict is never read as more coverage than this release ships.
 Every skip is named in the report with the observed value that justified it.
 
 **The report's home is the close summary** (`close/SKILL.md` §10) — it is the
-ceremony's final message, not a file. The durable record this audit writes is
-none, this release; the inventory rows arrive with the overrides dimension.
+ceremony's final message, not a file. The one durable record this audit writes
+is the **Accepted disclosures** row an override adds to the private boundary
+inventory (§6) — nothing else here outlives the summary.
 
 If any part of a finding must be written where the public can read it (a
 release note, a public issue), it is described by **pattern and class only**
@@ -769,8 +819,13 @@ naming a moat item in a public artifact is itself the leak.
   (§4).
 - **Auto-dispositioning a finding.** The spine-close triage rule does not
   reach this step; every finding is the user's (§6).
-- **Improvising the unshipped override** — proceeding on an acceptance with
-  no record, or inventing the third verdict (§6, §7).
+- **Proceeding on an acceptance without writing its row** — an override with
+  no inventory record is the user saying "no" with no trace (§6).
+- **Reporting an overridden close as `clean`.** The third verdict exists so
+  that an acceptance cannot hide inside a clean verdict (§7).
+- **Writing an override row that does not pin its surface** — no hash, no
+  commit, no pattern — so later growth of the covered thing is laundered by
+  the old acceptance (§6).
 - **Editing the hygiene allowlist mid-audit to reclassify a hit.** An audit
   that edits its own inputs passes itself (§6).
 - **Filing this run's failed scan as a standing warning.** Only an accepted
@@ -799,7 +854,6 @@ silently does nothing is indistinguishable from a missing one
 | **History, and every branch but the audited ref** | **not shipped.** A private document committed a year ago and later deleted is public forever at its blob URL, and nothing here looks. `gitleaks` still covers *secrets* across history when it completes — the tool's own behavior, not this audit's rule. The recorded History-passes line is a later PR |
 | **Uncommitted modifications to tracked files** | **not shipped.** The rules match paths (`ls-files`), gitleaks reads committed history, and the sweep reads untracked paths only — a secret pasted into a tracked file and left uncommitted is never READ by the three mechanical checks (§5's semantic sweep reads the working tree's tracked prose, but it hunts moat descriptions, not secrets), though §9's clean-tree gate halts on its presence before they run, wherever that gate reaches the repo (arms that read the index or a tracked policy file; the secrets-scan-only arms are exempt). A working-tree diff pass that reads it is a later PR |
 | **Submodule contents** | **not shipped.** `ls-files` returns one gitlink, `--others` does not descend, gitleaks does not follow. A tracked submodule is named in the report as outside this audit's coverage — never read as clean by default |
-| **Accepted-disclosure overrides** | **not shipped.** The third verdict, the inventory row, and the exact-surface pin arrive with the disposition PR. Until then a confirmed finding has exactly one unblock: the fix (§6) |
 | **Everything about the project that is not a git repo** | permanent scope, not a cut: issues, wiki, releases, Pages, Actions artifacts, published packages |
 
 Each row is named by class in the report's scope line (§7), so a `clean`

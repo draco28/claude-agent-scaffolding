@@ -246,6 +246,35 @@ things; it is consumed by the release-close semantic audit and by the phase-2
 code requires a `private_core` repo. An implementer may not shortcut private
 crates into the `-internal` docs repo.
 
+### Accepted disclosures
+
+A second table in the same file, **written by the release-close boundary audit,
+not at `start`-time** (`close/references/boundary-audit.md` §6). It does not
+exist until the first override is accepted; the audit creates it then.
+
+| Release | Finding | Surface covered (pinned) | Reason | Date |
+|---|---|---|---|---|
+
+**The surface column is the load-bearing one.** It carries whatever makes
+"exact" checkable — for a tracked file, the path plus its content hash
+(`git -C "<root>" hash-object -- "<path>"`) and the commit the audit read it
+at; for a surface with no file, the path and its pattern, or the tool and the
+failure mode. A row that pins nothing covers nothing: the audit reports it as a
+standing warning whose scope cannot be verified and treats the matching hit as
+fresh.
+
+**Two properties this table has by design, and one it does not.** Every row
+**re-surfaces as a standing warning** at every later close — an acceptance is
+not an erasure — and **any change to the pinned surface is a fresh finding**,
+so an override cannot launder later growth of the thing it covered. What it is
+*not* is state: unlike `project-state.json` this file is not verb-written,
+atomically mutated, journalled or doctor-checked, and deleting a row is
+undetectable by construction. What it buys is discoverability — the audit
+re-reads it every close — with the close summary as the second copy.
+
+**Pruning is a deliberate `start`-time edit**, never something an audit does to
+quiet its own output.
+
 ---
 
 ## 8. Stack packaging patterns (for `private-package`)
