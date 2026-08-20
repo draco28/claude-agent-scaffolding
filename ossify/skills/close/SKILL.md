@@ -300,9 +300,10 @@ enforceable at a release boundary). Eight steps, in **binding order**:
    untracked sweep, the semantic pass over tracked prose against the
    private boundary inventory, the recorded history pass and the working-tree
    pass over uncommitted tracked modifications, and the accepted-disclosure
-   override with its inventory record. The dimensions still absent — submodule
-   contents, and divergence on public refs other than the audited one after a
-   recorded history pass — are
+   override with its inventory record, each tracked submodule's pinned tree
+   audited by that same arm. The dimension still absent — divergence on
+   public refs other than the audited one after a
+   recorded history pass — is
    named in the audit's own not-shipped table. **Never auto-dispositioned;
    confirmed findings block the close** (per-role arms govern what runs —
    the hygiene-note arms record non-blocking notes and skip the disposition,

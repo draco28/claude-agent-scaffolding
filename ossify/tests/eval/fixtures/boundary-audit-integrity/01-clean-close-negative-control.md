@@ -38,3 +38,6 @@ State the audit's other inputs, so nothing below is left to infer: the
 canonical's checkout is clean — HEAD is the release's audited ref with no
 staged or unstaged tracked changes — the AI workspace's checkout is clean at
 its own branch, and the canonical carries no `.gitleaks.toml` of its own.
+
+No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
+and no tracked entry is a gitlink.

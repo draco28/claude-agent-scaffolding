@@ -191,13 +191,11 @@ Three blocks:
 
 ## Machine-checkable rules
 <!-- Executed by the release-close boundary audit
-     (close/references/boundary-audit.md) at every release close — wherever a
-     PUBLIC_BOUNDARY.md is read: this repo's own tracked file list on any
-     arm, with a private repo running them as non-blocking hygiene notes; the
-     AI-workspace/private-core roles read no boundary file on any arm and are
-     never blocked on its absence. The agent reads each rule
-     and matches it against git ls-files. Authored at onboarding so the file
-     exists from day one. -->
+     (close/references/boundary-audit.md) at every release close. That file
+     is authoritative for which repos run these rules, which trees they are
+     matched against, and what each arm does with a finding — do not restate
+     any of it here. Authored at onboarding so the file exists from day
+     one. -->
 never-tracked: **/.env, **/.env.*, **/*.pem, **/*.key, **/id_rsa*
 never-tracked: **/secrets/**, **/credentials.json
 never-tracked: **/SPEC.md, docs/planning/**
@@ -220,10 +218,10 @@ fixtures-must-be: synthetic
 ```
 
 The machine-checkable block is what the release-close boundary audit
-**executes** (`close/references/boundary-audit.md` §3) — the agent reads each
-rule and matches it against this repo's tracked file list, from any
-checkout, with no private context needed. Author it at onboarding so the first
-release close has something to read.
+**executes** (`close/references/boundary-audit.md` §3) — that file states which
+trees each rule is matched against and on which repos, and this file does not
+restate it. Author it at onboarding so the first release close has something to
+read.
 
 **Even a fully-private project authors this file** with the standard secrets
 rules (companion §2 decision #5: hygiene is independent of visibility). That is

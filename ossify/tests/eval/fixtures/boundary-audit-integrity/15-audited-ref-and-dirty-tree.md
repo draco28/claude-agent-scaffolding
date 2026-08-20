@@ -44,6 +44,9 @@ holds the ranking port, the private crate implements it"), and its
 **History passes** table records the canonical through commit `f0e1d2c`,
 which is the current tip of `main`.
 
+No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
+and no tracked entry is a gitlink.
+
 The operator's position: "the spike branch is `main` plus two perf commits — a
 superset, so auditing it audits more, not less. The dirty files are a
 debugging line I will revert and a boundary-file tidy-up I will finish after

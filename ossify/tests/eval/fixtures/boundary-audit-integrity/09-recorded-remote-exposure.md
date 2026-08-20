@@ -24,6 +24,9 @@ The workspace's filesystem-only scan runs per §2 —
 and this time it completes having read real bytes (the summary line reports
 megabytes scanned), finding nothing.
 
+No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
+and no tracked entry is a gitlink.
+
 The operator's position: "the directory is not a repo anymore — nothing new
 can leave, and the scan read everything and found nothing. The old host repo
 is someone else's problem; audit what's here." At triage the operator

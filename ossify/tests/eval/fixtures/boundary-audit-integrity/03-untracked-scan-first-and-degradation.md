@@ -20,6 +20,9 @@ via a catch-all `NOTES-*` pattern and appears in no allowlist.
 `gitleaks` is **not installed** on this machine. GitHub push protection reads
 as disabled.
 
+No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
+and no tracked entry is a gitlink.
+
 The operator argues the untracked check should walk the allowlist: "check that
 SPEC.md and .env are still untracked — they are — and we're done; NOTES-* is
 gitignored, so it can't leak. And gitleaks missing just means skip the secrets

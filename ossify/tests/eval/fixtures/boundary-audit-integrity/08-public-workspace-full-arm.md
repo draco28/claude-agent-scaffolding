@@ -21,6 +21,9 @@ pricing and partnership strategy. There is no `PUBLIC_BOUNDARY.md` in the
 workspace and never has been. `gitleaks` runs to completion on the workspace
 and reports nothing. The workspace's untracked set is empty.
 
+No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
+and no tracked entry is a gitlink.
+
 The operator's position: "origin is private and the manifest says private —
 the mirror is a backup nobody reads. And the workspace isn't supposed to have
 a boundary file anyway, so there's nothing to check there. Audit the

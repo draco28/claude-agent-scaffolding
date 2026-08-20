@@ -14,9 +14,10 @@ it is safe.
 two corpus passes §3 adds to it, the secrets scan, the untracked sweep, and the
 semantic pass — over the full repo set: every
 repository object the pairing
-manifest carries, each gated on its observed visibility with per-role arms
-(§2).** What is still deliberately absent — **submodule contents**, and
-divergence on a public ref other than the one audited after a recorded history
+manifest carries, each gated on its observed visibility with per-role arms,
+and each tracked submodule's pinned tree audited by that same arm
+(§2).** What is still deliberately absent — divergence on a public ref other
+than the one audited after a recorded history
 pass — §9's table names rather than leaving it to read as executed. A dimension nobody wrote a rule for reporting clean is the
 one failure shape this file exists to prevent; scope cuts get the same
 treatment.
@@ -242,6 +243,72 @@ cannot see an uncommitted edit. A clean tree there needs no scan: the pass is
 ran-clean off the two diff checks, exactly as §3 states. Both are named in
 every block's coverage line whatever they did.
 
+**A tracked submodule is another tree this table's arms read, and it is not a
+new row either.** A repo tracking one is **not clean by default**. What a
+superproject publishes is the **pin** — a URL and a commit id — and whether
+that commit's tree is readable turns on the submodule repository's own
+visibility. **This audit does not read that visibility and raises no finding
+about it**: the pinned tree is read *as if readable*, which is why the repo is
+not clean by default, while the arm that classifies what the read finds is the
+**superproject's**, exactly as the table above assigns it.
+
+Nothing the audit runs over the superproject establishes anything about that
+tree. The index carries the submodule as a single gitlink, so the document
+rules match a commit pointer rather than the tree it names; the untracked sweep
+cannot descend at all (`--recurse-submodules` is not a supported mode for
+`--others` — git refuses it outright); and the secrets scan in git mode reads
+the superproject's own history, where the submodule is that same pointer. Two
+reads *do* reach inside — `ls-files --recurse-submodules` and the `--no-git`
+scan — but both read the submodule **as it is checked out**, never the commit
+the superproject pins, and after a default clone that is an **empty directory
+both of them report clean over, with no error**. §9's release-tree gate does
+not catch that either: an uninitialized submodule leaves both `diff --quiet`
+checks succeeding, so the tree reads clean. That silence is the failure shape
+this file exists to prevent.
+
+**So the descent rides the arm: whichever reads of tracked content a repo's arm
+runs — §3's document rules, §3's secrets read, §5's semantic pass — run against
+each submodule that repo pins, at the pinned commit, and what they find takes
+that arm's blocking-or-hygiene status.** A half that degrades on the
+superproject degrades the same way on the pin. **§4 descends too on the arms
+that run it at all, but over the submodule's working tree rather than the
+pin**: an untracked set is a property
+of a checkout and not of a commit, and what §4 audits — the distance between an
+untracked sensitive file and a tracked one, on the machine this close runs
+on — a vendored checkout has exactly like any other tree. **And a submodule
+that itself pins submodules is read the same way, at every level.**
+
+**A read of a checkout is evidence about the pin only where the checkout is
+established to be at the pinned commit.** A submodule that is not audited, or
+whose checkout nothing establishes to be at the pin — an uninitialized one, or
+one on an arm §9's release-tree gate does not reach — leaves the checks that
+could not read its pinned tree **INCONCLUSIVE for that repo** (§7), named with
+the submodule's path and the commit pinned: a clean read over an unexamined
+tree is the same shape as a clean read over an unrun scan. §4's sweep is
+untouched by this — it never claimed the pin.
+
+The **superproject's** `PUBLIC_BOUNDARY.md` is the policy for those reads — it
+is the superproject that publishes the pin — so §3's missing-file finding does
+not fire against a submodule checkout, whether or not that submodule carries a
+boundary file of its own. Its `never-tracked:` patterns are matched against the
+submodule's paths **under both anchorings**, relative to the submodule root and
+relative to the superproject, with §3's rule that an arguable match **is** a
+match governing the result; a finding names the superproject-relative path. The
+block's non-pattern-matchable directives (`fixtures-must-be:`) are asked of the
+repo whose policy it is and are not re-asked of a pinned tree. Where a repo's
+arm reads no tracked content, no descent is owed and the block says so with the
+arm that justified it.
+
+**The two corpus passes do not descend.** They are owed per repo in the
+manifest set: a submodule's own history is the submodule repository's exposure
+rather than the pin's, so a submodule never adds a **History passes** row of
+its own — and where that repository is not itself in the manifest set, its
+history is §9's own not-shipped dimension. **A submodule that is itself a repo
+in the manifest set is audited once, on its own arm** — the superproject's
+block records the pin and does not audit it a second time under another repo's
+policy. The descent adds **no entry to the coverage line**: it is those same
+checks, run against another tree.
+
 **No arm of this table skips the secrets scan.** Scanning does not depend on a
 remote (below), so it cannot depend on being able to *read* a remote either.
 The visibility finding and the secrets scan are independent; a repo whose
@@ -419,7 +486,8 @@ records what it reported, and a run that did not complete is INCONCLUSIVE
 exactly as above. What has no history pass at all is everything
 that reads **one ref**: the `never-tracked:` **document** rules, which only ever
 match paths in an index, and **§5's semantic sweep**, which reads the audited
-ref's tracked prose — so a moat-describing README section committed and later
+ref's tracked prose and each pinned submodule tree (§2) — so a moat-describing
+README section committed and later
 deleted, or living on a branch the release never merged, is as invisible as a
 deleted planning tree.
 
@@ -686,6 +754,7 @@ enforced mechanically; this read is how they are enforced at all.
 The question no pattern can ask: **does anything tracked in the repo
 *describe* a moat item, even without containing it?** It reads the audited ref
 and no other — history and every other ref are the history pass's corpus (§3),
+and, where the repo pins submodules, each pinned tree too (§2's descent),
 which does not restate this pass's judgment and is not restated here. This step
 runs on the
 repos whose §2 row runs it — the `any`-row repos, observed-public,
@@ -897,7 +966,8 @@ deciding anything.
 
 ## 7. The report
 
-One block per repo in the set — role, **the audited ref** (§9), **the coverage
+One block per repo in the set — role, **the audited ref** (§9) and **the
+commit each tracked submodule is pinned at** (§2), **the coverage
 line** (below), gate outcome (observed visibility per
 remote, manifest and posture agreement, what ran and what was skipped),
 tracked-file hits, semantic findings (S1 findings and S2 notes — §5),
@@ -928,7 +998,9 @@ actually has — and a check that ran and found nothing is *ran, clean*, never
 "ran, but I could not confirm X". INCONCLUSIVE is for a check that **could not
 complete**: a tool that did not run, a tool that completed but read nothing it
 was pointed at, an artifact that does not exist, an enumeration that
-truncated, a rule block that parsed to nothing. It is **not**
+truncated, a rule block that parsed to nothing, a corpus the check was
+required to cover and could not read — an unaudited submodule's pinned tree
+(§2). It is **not**
 for an input you would have liked in more detail, not for a hypothetical, and
 not for a condition the procedure never asked about. Do not enumerate gaps the
 procedure does not require: a report padded with speculative caveats is a gate
@@ -989,6 +1061,11 @@ naming a moat item in a public artifact is itself the leak.
   filesystem-only policy exists because no index, remotes, or history exist
   there — `--no-git` is the scan, and a zero-byte clean read against a root
   that has files is INCONCLUSIVE (§2).
+- **Reading a superproject's clean checks as evidence about a pinned tree.**
+  The index carries one gitlink, the git-mode scan reads a history in which the
+  submodule is that pointer, and an uninitialized submodule is an empty
+  directory every read reports clean over — that silence is INCONCLUSIVE, not a
+  clean submodule (§2).
 - **Reading a symlinked policy file's unshipped target.** The committed blob
   is a path, not a policy — the shape is the finding wherever the target is
   not a regular tracked file of the same repo (§3).
@@ -1059,7 +1136,7 @@ silently does nothing is indistinguishable from a missing one
 | Dimension | Status |
 |---|---|
 | **Public refs other than the audited one, after a recorded history pass** | **not shipped.** §3's recorded review covers the repo at the commit it reviewed through, and the currency check compares one ref — the one this close audits. A document committed to an unmerged branch, a tag, or a `refs/pull/N/head` after that commit leaves the audited ref untouched and raises nothing. The per-tip comparison that would catch it was tried and cut: no fetch brings PR-ref objects down by default (an explicit refspec does, which is one more thing to get right per repo) and fork or squash-merged heads are ancestors of nothing, so the check would read INCONCLUSIVE on every repo with a pull request in it, and a gate that can never read current is not a gate. The report names the refs it did not compare; the row leaves this table when a pass persists a reviewed tip **per ref** rather than one commit |
-| **Submodule contents** | **not shipped.** `ls-files` returns one gitlink, `--others` does not descend, gitleaks does not follow. A tracked submodule is named in the report as outside this audit's coverage — never read as clean by default |
+| **A pinned submodule repository's own history and other refs, where that repository is not itself in the manifest set** | **not shipped.** §2's descent reads the pinned *tree*. A document committed to that repository and later deleted, or living on another of its refs, is that repository's own exposure and nothing here reaches it — the history pass is owed per repo in the manifest set, and a submodule that IS in the set gets its own arm and its own row. The report names the pinned repositories whose history it did not read; the row leaves this table when the repo set can carry a repository the manifest does not name |
 | **Everything about the project that is not a git repo** | permanent scope, not a cut: issues, wiki, releases, Pages, Actions artifacts, published packages |
 
 Each row is named by class in the report's scope line (§7), so a `clean`

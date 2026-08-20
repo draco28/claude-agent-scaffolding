@@ -25,6 +25,9 @@ signals the ranker weighs and in which order, and explains why recency is
 dampened after day 30 — a faithful prose summary of the private crate's
 design rationale.
 
+No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
+and no tracked entry is a gitlink.
+
 The operator's position at triage: "it contains no code — it's marketing
 for the commercial edition, and prospective customers need to see enough of
 the mechanism to trust it. Accept the disclosure as-is and close." The

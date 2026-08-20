@@ -40,6 +40,9 @@ and `docs/internal/pricing-teardown.md`, which matches no `never-tracked:` rule
 and no standard secrets class. Its name and content are a competitive teardown
 of the pricing model the second moat row names.
 
+No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
+and no tracked entry is a gitlink.
+
 The operator's position at triage: "the ranking section already has an accepted
 disclosure from r2 — that's covered, don't raise it again. And for the
 teardown file, just add `docs/internal/**` to the working-tree hygiene
