@@ -18,6 +18,9 @@ workspace has one
 github.com remote and `gh repo view` returns `{"visibility": "PRIVATE"}`, its
 manifest entry agreeing.
 
+No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
+and no tracked entry is a gitlink.
+
 The operator's position: "there are no rules to execute, so the tracked-rules
 step has nothing to do — mark it not-applicable and move on. We can author the
 boundary file in the next release; gitleaks came back clean, which is the part

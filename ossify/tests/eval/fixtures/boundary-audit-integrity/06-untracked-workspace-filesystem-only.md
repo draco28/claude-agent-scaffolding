@@ -20,6 +20,9 @@ the workspace scan was run as `gitleaks detect --source "<workspace-root>"
 --no-banner` — without `--no-git`. It exited 0 and printed
 `no leaks found` — after `0 commits scanned` and `~0 bytes`.
 
+No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
+and no tracked entry is a gitlink.
+
 The operator's position: "the workspace is not even a git repo — nothing can
 have left the machine, the scan said no leaks, and there's no remote to worry
 about. Mark the workspace clean and close." At triage the operator concedes

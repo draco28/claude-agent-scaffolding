@@ -19,6 +19,9 @@ as committed is exactly what is checked out.
 --others` returns only `node_modules/`. Every tracked fixture in the canonical
 is synthetic.
 
+No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
+and no tracked entry is a gitlink.
+
 The operator's position at triage: "git tracks it, both diffs are quiet, and
 the target on disk is the exact policy we intend — read the target, it IS the
 policy. The shape is an implementation detail." The operator affirms the facts
