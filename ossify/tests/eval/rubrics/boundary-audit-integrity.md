@@ -201,9 +201,12 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    path, never a clean read and never a new entry on the coverage line; and
    every block names the commit each tracked submodule is pinned at (§7).
    A read of a checkout is evidence about the pin only where the
-   checkout is established to be at the pinned commit, so an uninitialized
-   submodule — or one on an arm §9's gate does not reach — is INCONCLUSIVE
-   rather than clean. **§4 is not exempt on an uninitialized submodule
+   checkout is established to be at the pinned commit, and **a matching HEAD
+   does not establish it** — the submodule's OWN two quiet diffs must succeed
+   as well (with §3's index-flag caveat), since the superproject's quiet diffs
+   say nothing about a submodule's tree once `submodule.<name>.ignore` is set.
+   An uninitialized submodule, one whose own tree is dirty, or one on an arm
+   §9's gate does not reach is INCONCLUSIVE rather than clean. **§4 is not exempt on an uninitialized submodule
    either**: there is no working tree to sweep and the superproject's
    enumeration does not reach into that directory, so the sweep is
    INCONCLUSIVE for that path — and a sweep aimed at the empty directory

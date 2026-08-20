@@ -17,9 +17,9 @@ repository object the pairing
 manifest carries, each gated on its observed visibility with per-role arms,
 and each tracked submodule's pinned tree audited by that same arm
 (§2).** What is still deliberately absent — divergence on a public ref other
-than the one audited after a recorded history pass, and every superseded submodule pin
-together with a non-manifest pinned submodule repository's own history — §9's
-table names rather than leaving it to read as executed. A dimension nobody wrote a rule for reporting clean is the
+than the one audited after a recorded history pass, and every submodule pin but the audited
+ref's together with a non-manifest pinned submodule repository's own
+history — §9's table names rather than leaving it to read as executed. A dimension nobody wrote a rule for reporting clean is the
 one failure shape this file exists to prevent; scope cuts get the same
 treatment.
 
@@ -280,7 +280,17 @@ on — which a vendored checkout has like any other tree. **And a submodule
 that itself pins submodules is read the same way, at every level.**
 
 **A read of a checkout is evidence about the pin only where the checkout is
-established to be at the pinned commit.** A submodule that is not audited, or
+established to be at the pinned commit — and a matching HEAD does not
+establish it.** A submodule whose HEAD equals the pin can still have tracked
+content modified or deleted in its own index or working copy, and the read
+then reports on that altered tree rather than on the pin. So the submodule's
+**own** `diff --quiet` and `diff --cached --quiet` must succeed too, under the
+same caveat §3 carries: an `assume-unchanged` or `skip-worktree` path there
+makes them succeed over a tree that differs, and where either flag is present
+they clear nothing. **The superproject's quiet diffs are not evidence about a
+submodule's tree at all** — `submodule.<name>.ignore` silences them, so a
+superproject can read clean, and `status` report nothing, while the submodule
+holds deletions the pinned tree does not.** A submodule that is not audited, or
 whose checkout nothing establishes to be at the pin — an uninitialized one, or
 one on an arm §9's release-tree gate does not reach — leaves the checks that
 could not read its pinned tree **INCONCLUSIVE for that repo** (§7), named with
@@ -1164,7 +1174,7 @@ silently does nothing is indistinguishable from a missing one
 | Dimension | Status |
 |---|---|
 | **Public refs other than the audited one, after a recorded history pass** | **not shipped.** §3's recorded review covers the repo at the commit it reviewed through, and the currency check compares one ref — the one this close audits. A document committed to an unmerged branch, a tag, or a `refs/pull/N/head` after that commit leaves the audited ref untouched and raises nothing. The per-tip comparison that would catch it was tried and cut: no fetch brings PR-ref objects down by default (an explicit refspec does, which is one more thing to get right per repo) and fork or squash-merged heads are ancestors of nothing, so the check would read INCONCLUSIVE on every repo with a pull request in it, and a gate that can never read current is not a gate. The report names the refs it did not compare; the row leaves this table when a pass persists a reviewed tip **per ref** rather than one commit |
-| **Every superseded submodule pin, and a non-manifest pinned submodule repository's own history and other refs** | **not shipped.** §2's descent reads the tree at the pin the release publishes **now**. Two gaps follow and both are named here rather than left to read as executed. **Superseded pins:** a superproject that once pinned a commit and later advanced the pin published that older tree, and nothing reaches it — the superproject's history pass sees the gitlink values change and does not descend, and a manifest-listed submodule's own history pass runs under **that repository's** policy, which need not carry the rule the superproject forbids the path by. So a path forbidden only by the superproject, published through a pin since advanced, is covered by neither. **Non-manifest histories:** a document committed to a pinned repository the manifest does not name and later deleted, or living on another of its refs, is that repository's own exposure. Inspecting every historically published pin under the publishing superproject's policy is the read that would close the first gap; it is not shipped, and the report names the pinned repositories whose history it did not read |
+| **Every submodule pin except the one the audited ref carries, and a non-manifest pinned submodule repository's own history and other refs** | **not shipped.** §2's descent reads the tree at **the pin the audited ref carries**, and no other. Two gaps follow and both are named here rather than left to read as executed. **Every other pin:** a pin the superproject has since advanced past, and a pin still live on another public ref — a branch or tag that carries a different gitlink today — publish trees nothing here reaches. The superproject's history pass sees gitlink values and does not descend; a manifest-listed submodule's own history pass runs under **that repository's** policy, which need not carry the rule the superproject forbids the path by; and the refs row above covers changes made to other refs *after* a recorded pass, not a pin that has sat on one since before it. So a path forbidden only by the superproject stays covered by neither, whether the pin carrying it was superseded or is current on a ref this close does not audit. **Non-manifest histories:** a document committed to a pinned repository the manifest does not name and later deleted, or living on another of its refs, is that repository's own exposure. Reading every pin the repository has published, on every live ref, under the publishing superproject's policy is what would close the first gap; it is not shipped, and the report names the pinned repositories and refs it did not read |
 | **Everything about the project that is not a git repo** | permanent scope, not a cut: issues, wiki, releases, Pages, Actions artifacts, published packages |
 
 Each row is named by class in the report's scope line (§7), so a `clean`

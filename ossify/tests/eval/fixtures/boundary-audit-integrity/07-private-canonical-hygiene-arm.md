@@ -20,7 +20,11 @@ untracked files. Every tracked fixture in the canonical is synthetic.
 The canonical tracks one submodule. `.gitmodules` names `vendor/internal-proto`
 and `git ls-files -s` records it as a single `160000` entry pinned at
 `9f2c4a1`. It is populated, and `git -C vendor/internal-proto rev-parse HEAD`
-prints `9f2c4a1` — the checkout is exactly the commit the superproject pins.
+prints `9f2c4a1`, and its own `git -C vendor/internal-proto diff --quiet` and
+`git -C vendor/internal-proto diff --cached --quiet` both succeed with no
+`assume-unchanged` or `skip-worktree` path among its tracked files — so the
+checkout is established to be the tree the superproject pins, not merely at
+its commit.
 Its tracked files include `docs/planning/2027-plan.md`; it carries no
 `PUBLIC_BOUNDARY.md` of its own at its root. Its own working tree holds no
 untracked files at all, and none of its tracked files contains a credential,
