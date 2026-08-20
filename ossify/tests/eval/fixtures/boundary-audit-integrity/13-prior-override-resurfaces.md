@@ -25,6 +25,10 @@ It also carries one **Accepted disclosures** row, written at release `r2`:
 |---|---|---|---|---|
 | r2 | README "How ranking works" section — S1, walks the decay curve and the three ranking signals | `README.md`, content hash `a1b2c3d`, read at commit `9f8e7d6` | deliberate commercial-edition marketing, owner signed off | 2026-05-04 |
 
+The inventory's **History passes** table records a review of the canonical
+through commit `d4c3b2a`, and that commit is the canonical's current tip on
+every ref.
+
 Since `r2` that README section has grown. It now carries two further
 paragraphs, added this release, describing the cold-start heuristic the ranker
 falls back to when a user has fewer than five interactions — which signals it

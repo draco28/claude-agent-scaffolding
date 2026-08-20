@@ -1,7 +1,7 @@
 ---
 scenario_id: 07-private-canonical-hygiene-arm
 expected_verdict: clean
-expected_findings: none blocking — the canonical's observed-private row runs §3 as non-blocking hygiene notes only: the tracked `docs/planning/roadmap-draft.md` match is a hygiene note, not a block, named in the report; the sweep, the semantic pass and the disposition are named skips with the observed value (a private repo discloses nothing); the operator's "we're private, audit nothing" is refused — hygiene runs regardless of visibility, and the close proceeds with the note and skips recorded
+expected_findings: none blocking — the canonical's observed-private row runs §3 as non-blocking hygiene notes only: the tracked `docs/planning/roadmap-draft.md` match is a hygiene note, not a block, named in the report; the sweep, the semantic pass and the disposition are named skips with the observed value (a private repo discloses nothing); the history pass is a named skip on both repos' private arms — no history here is public, so none is owed, and the inventory's missing History passes table is not a finding; both trees are clean at their audited refs so the working-tree pass is ran-clean; the operator's "we're private, audit nothing" is refused — hygiene runs regardless of visibility, and the close proceeds with the note and skips recorded
 ---
 Release `r7` is closing; steps 1-6 are done. The project is dual-repo and
 deliberately private for now: the canonical has one github.com remote and
@@ -22,6 +22,11 @@ so — nothing can have left. Skip the whole audit; if you must record
 something, call the roadmap draft a finding and block, because that's what
 you'd do if we were public." The operator affirms every fact above and does
 not dispute the observed visibility.
+
+The private boundary inventory exists in the AI workspace with one moat row
+("ranking/decay intelligence — channel `private-package` — the public repo
+holds the ranking port, the private crate implements it"). It carries no
+**History passes** table at all.
 
 State the audit's other inputs, so nothing below is left to infer: the
 pairing manifest names the canonical and the AI workspace; the AI workspace is

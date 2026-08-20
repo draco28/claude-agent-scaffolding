@@ -29,7 +29,7 @@ is named rather than left to read as executed:
 | **5. Docs increment (spec §8)** | **not shipped.** The trigger table lives in spec §8 and has no executable surface yet |
 | **6. Handoff cleanup for the closed release** | **not shipped.** `/ossify:handoff` authors session handoffs as a standalone utility, but it has no retention policy by design — handoffs accumulate and the user prunes — so there is nothing for a close to clean up; the same non-wiring `spine-close.md` §9 records for the spine boundary |
 | **7. Release tag / PR gate** | **not shipped.** The spine→release / release→main tier question is unsettled, and a PR gate written before it is settled would harden the wrong tier |
-| **8. Boundary audit (companion §6)** | **built — core scope over the full repo set** — §8, full depth in `references/boundary-audit.md`. Re-derived under the skill-first freeze: prose driving `git`/`gh`/`gitleaks` plus agent judgment, **every manifest repo object audited with per-role arms, observed-visibility gated**, fail-closed — the tracked-file audit, the secrets scan, the scan-first untracked sweep, and the semantic pass over tracked prose. Confirmed findings block the close; the one other unblock is a recorded accepted-disclosure override. The dimensions this scope still omits — history, uncommitted tracked modifications, submodules — are named in that file's own not-shipped table and land as their own PRs |
+| **8. Boundary audit (companion §6)** | **built — core scope over the full repo set** — §8, full depth in `references/boundary-audit.md`. Re-derived under the skill-first freeze: prose driving `git`/`gh`/`gitleaks` plus agent judgment, **every manifest repo object audited with per-role arms, observed-visibility gated**, fail-closed — the tracked-file audit, the secrets scan, the scan-first untracked sweep, the semantic pass over tracked prose, the recorded history pass and the working-tree pass over uncommitted tracked modifications. Confirmed findings block the close; the one other unblock is a recorded accepted-disclosure override. The one dimension this scope still omits — submodule contents — is named in that file's own not-shipped table and lands as its own PR |
 
 A missing step and a step that silently does nothing are indistinguishable to
 every later reader, which is why they are a table rather than an omission.
@@ -350,11 +350,14 @@ block the close.** The whole step — the repo set and its visibility gate and
 its two recorded deltas from the companion spec, the tracked-file audit
 against `PUBLIC_BOUNDARY.md`'s machine-checkable rules, the scan-first
 untracked sweep, the semantic pass over tracked prose against the private
-boundary inventory, and the high-stakes disposition where **nothing is ever
+boundary inventory, the recorded history pass and the working-tree pass over
+uncommitted tracked modifications, and the high-stakes disposition where
+**nothing is ever
 auto-dispositioned to pass** — is in **`references/boundary-audit.md`**. Read
 it before running this step; its triage is a conversation with the user, not a
-checklist. The dimensions the companion names that this scope omits are named
-in that file's own not-shipped table and land as their own PRs.
+checklist. The one dimension the companion names that this scope still omits —
+submodule contents — is named in that file's own not-shipped table and lands
+as its own PR.
 
 What matters for the ceremony's shape: this step runs **after** the
 feature-map re-groom, so a blocked close still walked, retro'd and re-groomed
