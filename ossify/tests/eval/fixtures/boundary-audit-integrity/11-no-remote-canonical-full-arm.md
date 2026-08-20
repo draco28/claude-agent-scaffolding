@@ -36,7 +36,20 @@ facts.
 
 The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout. Its **History passes** table records a review of the canonical through commit `5e4d3c2`, and that commit is the canonical's current tip on every ref.
 
-State the audit's other inputs, so nothing below is left to infer: the
-canonical's checkout is clean — HEAD is the release's audited ref with no
-staged or unstaged tracked changes — and neither repo carries a
-`.gitleaks.toml` of its own.
+State the audit's other inputs, so nothing below is left to infer: the closing spines' handoffs record `base_branch: main` under
+`## 2. Spine context`, the manifest's `canonical.default_branch` reads
+`main`, and `git rev-parse HEAD` and `git rev-parse main` print the same
+object id; the canonical's checkout carries no staged or
+unstaged tracked changes; the AI workspace's checkout is clean at
+its own branch `main` with no staged or unstaged tracked changes of its own, and
+neither repo carries a `.gitleaks.toml` of its own.
+
+Clone and index state, stated so nothing above infers it: both repos are full
+clones — `git rev-parse --is-shallow-repository` prints `false` for each, and
+every remote branch the AI workspace has is fetched (the canonical has no
+remote to fetch from) — and `git ls-files -v` marks no tracked path in
+either with `assume-unchanged` or `skip-worktree`.
+
+Inventory, manifest and allowlist state, stated so nothing above infers it:
+the private boundary inventory carries no **Accepted disclosures** section; no
+manifest object records a `git_remote` beyond the one named above.

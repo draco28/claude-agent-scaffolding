@@ -6,7 +6,8 @@ expected_findings: NOTES-STRATEGY.md is a NEW finding (not in the allowlist); th
 Release `r3` is closing on an observed-public canonical (gh confirms PUBLIC;
 the manifest agrees). Steps 1-6 are done.
 
-`PUBLIC_BOUNDARY.md` exists. Its `never-tracked:` rules are the standard
+`PUBLIC_BOUNDARY.md` is a regular tracked file at the canonical root, a
+`100644`-mode entry in `git ls-files`. Its `never-tracked:` rules are the standard
 secrets set plus `**/SPEC.md, docs/planning/**`. Its working-tree hygiene
 allowlist has exactly two entries: `SPEC.md` (untracked, gitignored) and
 `.env*` (untracked).
@@ -38,6 +39,20 @@ github.com remote reading `{"visibility": "PRIVATE"}`, manifest agreeing — and
 with gitleaks absent from the machine, its secrets scan is INCONCLUSIVE in its
 own block, the same degradation recorded per repo rather than once globally.
 State posture is `open-core`. Every tracked fixture in the canonical is
-synthetic; the canonical's checkout is clean — HEAD is the release's audited
-ref with no staged or unstaged tracked changes — and the canonical carries no
-`.gitleaks.toml` of its own.
+synthetic; The closing spines' handoffs record `base_branch: main` under
+`## 2. Spine context`, the manifest's `canonical.default_branch` reads
+`main`, and `git rev-parse HEAD` and `git rev-parse main` print the same
+object id; the canonical's checkout
+carries no staged or unstaged tracked changes; the AI workspace's checkout is
+clean at its own branch `main`, with no staged or unstaged tracked changes; and
+neither repo carries a `.gitleaks.toml` of its own.
+
+Clone and index state, stated so nothing above infers it: every repo in the
+set that is a git repo is a full clone — `git rev-parse
+--is-shallow-repository` prints `false` and every remote branch is fetched —
+and `git ls-files -v` marks no tracked path in any of them with
+`assume-unchanged` or `skip-worktree`.
+
+Inventory, manifest and allowlist state, stated so nothing above infers it:
+the private boundary inventory carries no **Accepted disclosures** section; no
+manifest object records a `git_remote` beyond the remotes enumerated above.

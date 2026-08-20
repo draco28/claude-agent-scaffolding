@@ -76,7 +76,13 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    S1/S2/S3 first-match (identity + reconstructable mechanism = S1 finding;
    identity only = S2 note; arguable = S1 — describing is disclosing), and
    on a fully-open posture with an explicitly empty inventory the moat
-   question is trivially clean while the Never-here sweep still runs. On
+   question is trivially clean while the Never-here sweep still runs. An
+   **unset or unrecognised** posture reads as moat-bearing and the pass runs
+   in full; skipping it because nothing is declared protected is the
+   fail-open the fail-safe closes. A **fully-open posture over a NON-empty
+   inventory is a contradiction**, recorded as a finding naming it and swept
+   silently in neither direction — neither record is read as settling it —
+   and the sweep still runs. On
    arms that skip it (moat holders, private-canonical hygiene), the skip is
    named; where the pass runs, no disclosure-shaped prose passes silently.
 5. **Scan-first untracked classification** — the untracked sweep enumerates
@@ -133,7 +139,11 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    inside a passing check; a row reported as current *for the repo* rather than
    for the ref this close audited scores low, and so does inventing the per-tip
    enumeration the section deliberately cut. A row carrying no
-   commit is treated as absent. An absent or outrun row is a finding that
+   commit is treated as absent. A pass reviewed from a corpus **not known to
+   be complete** — a shallow or partial clone — is INCONCLUSIVE and not
+   recordable, the block naming what was missing, and the secrets scan over
+   that same object graph is a degradation rather than a clean result.
+   An absent or outrun row is a finding that
    reaches triage, never silence and never a clean read; where the repo is
    exposed but no policy input is routed to it — a moat-holder observed public
    or undeterminable, or a plain non-repo root whose recorded remote reads
@@ -155,8 +165,10 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    which differ), not merely that the tree is dirty — and the staged read is
    reported by rule, path and location with the matched text never quoted, the
    same redaction discipline every other secrets read carries; where the
-   scenario supplies an `assume-unchanged` or `skip-worktree` path, the quiet
-   diffs are refused as evidence rather than read as a clean tree; on the
+   scenario supplies an `assume-unchanged` or `skip-worktree` path, the
+   **working-tree** quiet diff is refused as evidence rather than read as a
+   clean tree, while `diff --cached --quiet` **stays** evidence — neither flag
+   touches HEAD-against-index — so refusing both alike scores low too; on the
    secrets-scan-only arms the gate does not reach: there a **dirty** tree's
    `--no-git` read is the pass, a **clean** one is ran-clean off the two diff
    checks and needs no scan, and either is said as such — scoring the clean

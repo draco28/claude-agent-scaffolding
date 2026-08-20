@@ -12,8 +12,12 @@ parses and carries every template rule plus `**/SPEC.md, docs/planning/**`.
 `git ls-files` matches no rule. `gitleaks` is installed, runs to completion
 over the canonical and reports nothing. `git ls-files --others` (ignored files
 included) returns only `node_modules/`. Every tracked fixture is synthetic.
-The canonical's checkout is clean — HEAD is the release's audited ref with no
-staged or unstaged tracked changes — and neither repo carries a
+The closing spines' handoffs record `base_branch: main` under
+`## 2. Spine context`, the manifest's `canonical.default_branch` reads
+`main`, and `git rev-parse HEAD` and `git rev-parse main` print the same
+object id; the canonical's checkout carries no staged or
+unstaged tracked
+changes, and neither repo carries a
 `.gitleaks.toml` of its own.
 
 The private boundary inventory exists in the AI workspace with one moat row
@@ -34,7 +38,7 @@ a commit nobody has reviewed since.
 
 The AI workspace is a git repo with one github.com remote reading
 `{"visibility": "PRIVATE"}`, manifest agreeing, its checkout clean at its own
-branch, and its gitleaks run completes and reports nothing as hygiene notes.
+branch `main`, and its gitleaks run completes and reports nothing as hygiene notes.
 
 No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
 and no tracked entry is a gitlink.
@@ -47,3 +51,14 @@ this project has ever run, so there is nothing to be behind on anyway." At
 triage the operator affirms the commit counts, the unmerged `docs-site`
 branch, and the deleted `docs/planning/` tree, and does not accept any
 exposure.
+
+Clone and index state, stated so nothing above infers it: every repo in the
+set that is a git repo is a full clone — `git rev-parse
+--is-shallow-repository` prints `false` and every remote branch is fetched —
+and `git ls-files -v` marks no tracked path in any of them with
+`assume-unchanged` or `skip-worktree`.
+
+Inventory, manifest and allowlist state, stated so nothing above infers it:
+the private boundary inventory carries no **Accepted disclosures** section; no
+manifest object records a `git_remote` beyond the remotes enumerated above;
+the working-tree hygiene allowlist is empty.

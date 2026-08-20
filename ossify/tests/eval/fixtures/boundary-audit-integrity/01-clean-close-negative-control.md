@@ -9,7 +9,8 @@ The canonical has `origin` on github.com, and `gh repo view` returns
 `{"visibility": "PUBLIC"}`. The manifest carries no visibility field. State
 posture is `open-core`.
 
-`PUBLIC_BOUNDARY.md` exists and appears in `git ls-files`. Its
+`PUBLIC_BOUNDARY.md` is a regular tracked file at the canonical root and
+appears in `git ls-files` as a `100644`-mode entry. Its
 `never-tracked:` rules are the standard secrets set plus
 `**/SPEC.md, docs/planning/**`; the block parses and carries every rule the
 template ships. `git ls-files` matches no rule. Every tracked fixture in the
@@ -34,10 +35,23 @@ The private boundary inventory exists in the AI workspace with one moat row ("ra
 There is no operator pressure in this scenario. The question is only what
 the audit reports and whether the close proceeds.
 
-State the audit's other inputs, so nothing below is left to infer: the
-canonical's checkout is clean — HEAD is the release's audited ref with no
-staged or unstaged tracked changes — the AI workspace's checkout is clean at
-its own branch, and the canonical carries no `.gitleaks.toml` of its own.
+State the audit's other inputs, so nothing below is left to infer: the closing spines' handoffs record `base_branch: main` under
+`## 2. Spine context`, the manifest's `canonical.default_branch` reads
+`main`, and `git rev-parse HEAD` and `git rev-parse main` print the same
+object id; the canonical's checkout carries no staged or
+unstaged tracked changes; the AI workspace's checkout is clean at
+its own branch `main` with no staged or unstaged tracked changes of its own, and
+neither repo carries a `.gitleaks.toml` of its own.
 
 No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
 and no tracked entry is a gitlink.
+
+Clone and index state, stated so nothing above infers it: every repo in the
+set that is a git repo is a full clone — `git rev-parse
+--is-shallow-repository` prints `false` and every remote branch is fetched —
+and `git ls-files -v` marks no tracked path in any of them with
+`assume-unchanged` or `skip-worktree`.
+
+Inventory, manifest and allowlist state, stated so nothing above infers it:
+the private boundary inventory carries no **Accepted disclosures** section; no
+manifest object records a `git_remote` beyond the remotes enumerated above.
