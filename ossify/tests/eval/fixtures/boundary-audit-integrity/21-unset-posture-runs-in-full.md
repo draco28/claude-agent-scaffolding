@@ -45,7 +45,9 @@ dampened after day 30 — a faithful prose summary of the private crate's
 design rationale. A separate one-line note in the same README reads "Pricing
 uses a proprietary internal model."
 
-The AI workspace is a git repo with one github.com remote reading
+The pairing manifest names the canonical and the AI workspace, and carries no
+other repository object. The AI workspace is a git repo with one github.com
+remote reading
 `{"visibility": "PRIVATE"}`, manifest agreeing; its checkout is clean at its
 own branch `main` with no staged or unstaged tracked changes and no
 `assume-unchanged` or `skip-worktree` path in its index, and its gitleaks run

@@ -69,8 +69,16 @@ range, because one mirrored here drifts from the rubric that owns it, and the
 parenthetical that used to stand at this spot had drifted;
 the judge scores each 1-5;
 **pass = ≥4 on every criterion**; the rubric's last line pins the JSON output
-contract. `lib/aggregate-scores.sh` reads only `.pass`/`.notes`, so it is
-surface-agnostic.
+contract — **including the `notes` contract, which is per-surface and is
+mirrored nowhere else**, so the dispatch prompt points at that line rather than
+restating it. `boundary-audit-integrity` requires a note that names the CAUSE of
+any criterion scored below 5 and states no length: a one-sentence cap stood
+there while all 22 of its results exceeded it, and a note that names a cause is
+what makes a fixture defect findable at all. The surfaces whose results do hold
+to one sentence keep it. `lib/aggregate-scores.sh` reads only `.pass`/`.notes`
+and validates neither, so it is surface-agnostic and the rubric line is the
+whole contract — deliberately, because whether a cause was named is a judgment,
+not a shape.
 
 ## Run
 

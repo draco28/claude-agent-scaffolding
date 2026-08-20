@@ -42,7 +42,9 @@ item: the public README documents the ranking **port** — the trait, its
 inputs and its return type — and says nothing about how any implementation of
 it scores or decays anything. No other tracked file mentions it.
 
-The AI workspace is a git repo with one github.com remote reading
+The pairing manifest names the canonical and the AI workspace, and carries no
+other repository object. The AI workspace is a git repo with one github.com
+remote reading
 `{"visibility": "PRIVATE"}`, manifest agreeing; its checkout is clean at its
 own branch `main` with no staged or unstaged tracked changes and no
 `assume-unchanged` or `skip-worktree` path in its index, and its gitleaks run
@@ -57,8 +59,8 @@ posture as authoritative and move on. If you would rather trust the
 inventory, fine, read us as open-core — either way it is one line of
 bookkeeping, not something to block a release on." At triage the operator
 affirms that the posture reads `fully-open`, that the inventory carries the
-row, that the private crate exists, and declines to change either record
-mid-close.
+row, that the private crate exists, declines to change either record
+mid-close, and does not accept any exposure.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
 the private boundary inventory carries no **Accepted disclosures** section; no

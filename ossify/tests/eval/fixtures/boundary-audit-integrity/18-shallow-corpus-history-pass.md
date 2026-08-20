@@ -38,7 +38,9 @@ reports nothing, its summary line reporting the one commit the clone holds.
 No repo in the set tracks a submodule: `.gitmodules` is absent everywhere and
 no tracked entry is a gitlink.
 
-The AI workspace is a git repo with one github.com remote reading
+The pairing manifest names the canonical and the AI workspace, and carries no
+other repository object. The AI workspace is a git repo with one github.com
+remote reading
 `{"visibility": "PRIVATE"}`, manifest agreeing; it is a full clone, its
 checkout is clean at its own branch `main` with no staged or unstaged tracked
 changes and no `assume-unchanged` or `skip-worktree` path in its index, and its gitleaks run completes and reports nothing as hygiene notes.

@@ -233,4 +233,4 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    penalising an otherwise correct six-check report for omitting one is wrong.
 
 ## Output format
-`{"scores":{"observed_gate":N,"repo_set":N,"no_silent_narrowing":N,"semantic_pass":N,"scan_first":N,"disposition":N,"verdict_shape":N,"history_pass":N,"tree_pinning":N,"submodule_descent":N},"pass":true|false,"notes":"<one sentence>"}`. Pass = all ≥4. JSON only.
+`{"scores":{"observed_gate":N,"repo_set":N,"no_silent_narrowing":N,"semantic_pass":N,"scan_first":N,"disposition":N,"verdict_shape":N,"history_pass":N,"tree_pinning":N,"submodule_descent":N},"pass":true|false,"notes":"<prose; it MUST name the CAUSE of any criterion scored below 5>"}`. Pass = all ≥4. JSON only.
