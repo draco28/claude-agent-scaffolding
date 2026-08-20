@@ -17,8 +17,9 @@ repository object the pairing
 manifest carries, each gated on its observed visibility with per-role arms,
 and each tracked submodule's pinned tree audited by that same arm
 (§2).** What is still deliberately absent — divergence on a public ref other
-than the one audited after a recorded history
-pass — §9's table names rather than leaving it to read as executed. A dimension nobody wrote a rule for reporting clean is the
+than the one audited after a recorded history pass, and a pinned submodule
+repository's own history where that repository is not itself in the manifest
+set — §9's table names rather than leaving it to read as executed. A dimension nobody wrote a rule for reporting clean is the
 one failure shape this file exists to prevent; scope cuts get the same
 treatment.
 
@@ -304,10 +305,16 @@ manifest set: a submodule's own history is the submodule repository's exposure
 rather than the pin's, so a submodule never adds a **History passes** row of
 its own — and where that repository is not itself in the manifest set, its
 history is §9's own not-shipped dimension. **A submodule that is itself a repo
-in the manifest set is audited once, on its own arm** — the superproject's
-block records the pin and does not audit it a second time under another repo's
-policy. The descent adds **no entry to the coverage line**: it is those same
-checks, run against another tree.
+in the manifest set gets its own arm, and the superproject's pinned-tree read
+is owed as well unless both the commit and the governing policy are
+identical.** That repo's own arm
+audits its **checked-out** ref (§9), which need not be the commit this
+superproject pins, and two superprojects may pin different commits; dropping
+the pinned-tree read on the strength of the other block can leave the tree
+actually published the one nobody examined. Where the two coincide, the
+superproject's block records the pin and points at that repo's own block
+rather than repeating the read. The descent adds **no entry to the coverage
+line**: it is those same checks, run against another tree.
 
 **No arm of this table skips the secrets scan.** Scanning does not depend on a
 remote (below), so it cannot depend on being able to *read* a remote either.

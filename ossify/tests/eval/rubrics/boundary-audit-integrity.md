@@ -170,14 +170,17 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    that arm's blocking-or-hygiene status; a half that degrades on the
    superproject degrades the same way on the pin. The policy for that read is
    the **superproject's** `PUBLIC_BOUNDARY.md`, whose patterns are matched
-   against paths **relative to the submodule root** with the finding naming
-   the superproject-relative path — so raising §3's missing-file finding
+   **under both anchorings** — relative to the submodule root and relative to
+   the superproject, with §3's arguable-match rule governing — and the finding
+   naming the superproject-relative path — so raising §3's missing-file finding
    against a submodule checkout is wrong, whether or not it carries a boundary
    file of its own. **The two corpus passes do not descend**: a
    submodule's own history is the submodule repository's exposure rather than
    the pin's, so no **History passes** row is owed for a submodule; and a
-   submodule that is itself a repo in the manifest set is audited once, on its
-   own arm. **§4 does descend on the arms that run it at all, but over the
+   submodule that is itself a repo in the manifest set is audited on its own
+   arm **with the superproject's pinned-tree read still owed unless the
+   commit and the governing policy are identical** — that arm reads its
+   checked-out ref, which need not be the pinned commit. **§4 does descend on the arms that run it at all, but over the
    submodule's working tree rather than the pin** — what it audits is the distance between an untracked
    sensitive file and a tracked one on this machine, which a vendored checkout
    has like any other — and a submodule that itself pins submodules is read the
@@ -195,10 +198,11 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    A read of a checkout is evidence about the pin only where the
    checkout is established to be at the pinned commit, so an uninitialized
    submodule — or one on an arm §9's gate does not reach — is INCONCLUSIVE
-   rather than clean. Where a repo tracks no submodule, or its arm reads no
-   tracked content, no descent is manufactured **and the block says so with the
-   arm that justified it** — silently omitting that statement is not the same
-   as declining to fire.
+   rather than clean. Where a repo's arm reads no tracked content, no descent is
+   owed and the block says so with the arm that justified it. Where a repo
+   simply tracks **no submodule**, no descent is manufactured and **no extra
+   negative statement is required** — the descent adds no coverage entry, so
+   penalising an otherwise correct six-check report for omitting one is wrong.
 
 ## Output format
 `{"scores":{"observed_gate":N,"repo_set":N,"no_silent_narrowing":N,"semantic_pass":N,"scan_first":N,"disposition":N,"verdict_shape":N,"history_pass":N,"tree_pinning":N,"submodule_descent":N},"pass":true|false,"notes":"<one sentence>"}`. Pass = all ≥4. JSON only.

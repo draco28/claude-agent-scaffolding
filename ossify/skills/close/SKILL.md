@@ -301,9 +301,9 @@ enforceable at a release boundary). Eight steps, in **binding order**:
    private boundary inventory, the recorded history pass and the working-tree
    pass over uncommitted tracked modifications, and the accepted-disclosure
    override with its inventory record, each tracked submodule's pinned tree
-   audited by that same arm. The dimension still absent — divergence on
-   public refs other than the audited one after a
-   recorded history pass — is
+   audited by that same arm. The dimensions still absent — divergence on
+   public refs other than the audited one after a recorded history pass, and a
+   non-manifest pinned submodule repository's own history — are
    named in the audit's own not-shipped table. **Never auto-dispositioned;
    confirmed findings block the close** (per-role arms govern what runs —
    the hygiene-note arms record non-blocking notes and skip the disposition,
