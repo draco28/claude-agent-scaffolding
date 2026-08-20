@@ -297,10 +297,12 @@ enforceable at a release boundary). Eight steps, in **binding order**:
    freeze) — **every repository object the pairing manifest carries, each
    gated on its observed visibility with per-role arms**, fail-closed: the
    tracked rules of `PUBLIC_BOUNDARY.md`, the secrets scan, the scan-first
-   untracked sweep, and the semantic pass over tracked prose against the
-   private boundary inventory, and the accepted-disclosure override with its
-   inventory record. The remaining dimensions — history,
-   uncommitted tracked modifications, submodules — are
+   untracked sweep, the semantic pass over tracked prose against the
+   private boundary inventory, the recorded history pass and the working-tree
+   pass over uncommitted tracked modifications, and the accepted-disclosure
+   override with its inventory record. The dimensions still absent — submodule
+   contents, and divergence on public refs other than the audited one after a
+   recorded history pass — are
    named in the audit's own not-shipped table. **Never auto-dispositioned;
    confirmed findings block the close** (per-role arms govern what runs —
    the hygiene-note arms record non-blocking notes and skip the disposition,

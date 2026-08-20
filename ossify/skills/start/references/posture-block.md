@@ -268,6 +268,28 @@ What belongs here is the artifact: this table lives in the AI workspace with
 the moat table above it, and **pruning a row is a deliberate `start`-time
 edit** — never something an audit does to quiet its own output.
 
+### History passes
+
+A third table in the same file, also **written by the release-close boundary
+audit and not at `start`-time** (`close/references/boundary-audit.md` §3). It
+does not exist until the first history **review is confirmed**; the audit
+creates it then. Disposing of a history finding some other way writes nothing
+here — a rejection leaves any existing row standing, and an accepted gap is an
+Accepted disclosures row above, not a row in this table.
+
+| Repo | Reviewed through (commit) | Date |
+|---|---|---|
+
+**The commit column is what makes a row expire, and the rule is the audit's,
+not this file's** — `close/references/boundary-audit.md` **§3** states which
+repos owe a pass, what a row must carry, and how a row is read back at a later
+close. It lives there because the audit is what writes a row and what later
+decides whether the row still covers the repo's history. **Do not restate those
+rules here**, for the same reason the table above does not restate its own.
+
+Pruning a row is the same deliberate `start`-time edit — an audit does not
+quiet its own output by editing what it reads.
+
 ---
 
 ## 8. Stack packaging patterns (for `private-package`)

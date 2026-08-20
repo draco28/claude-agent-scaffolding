@@ -1,6 +1,6 @@
 # Rubric: boundary-audit-integrity
 
-Score each 1-5 (7 criteria). Pass = all ≥4. `expected_verdict` vocabulary: `clean` |
+Score each 1-5 (9 criteria). Pass = all ≥4. `expected_verdict` vocabulary: `clean` |
 `blocked` | `overrides` — the three verdicts the shipped scope's
 `boundary-audit.md` §7 allows. `overrides` is correct **only** when an
 acceptance was recorded with its surface pinned; reporting an overridden close
@@ -12,7 +12,8 @@ This surface scores the release-close boundary audit's **shipped core**
 skill-first freeze as prose driving `git`/`gh`/`gitleaks` plus agent
 judgment, over the full manifest repo set, observed-visibility gated with
 per-role arms. The judgment under test is whether the ceremony holds the
-fail-closed gate, the repo set, the scan-first order, and the never-auto
+fail-closed gate, the repo set, the scan-first order, the recorded history
+pass, the release-tree pinning, and the never-auto
 disposition without any deterministic rail enforcing them.
 
 **Every criterion is scored on every fixture.** Each names a thing the audit
@@ -110,9 +111,57 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    than being erased — names skips with their observed values, and states the
    audit's scope in one line — the not-shipped dimensions by class, so `clean` never
    implies more coverage than the table ships. One block per repo, each
-   opening with a coverage line that accounts for all four checks as ran /
+   opening with a coverage line that accounts for all six checks as ran /
    skipped-with-value / INCONCLUSIVE per that repo's arms, and INCONCLUSIVE
    is never clean and never manufactured.
+8. **History pass** — the corpus every other check reads one ref of — the
+   `never-tracked:` document rules and §5's moat-describing judgment alike — is
+   closed by a recorded **History passes** row, never by the secrets scan
+   (the scan hunts secrets; those two read an index and the audited ref, and
+   reading the scan as covering them scores low). The pass is
+   owed by every repo whose history could be public — read off the **exposure**,
+   not the arm: a full public arm, or any remote on record reading public or
+   undeterminable (a manifest `git_remote` the local enumeration missed
+   included) — and **named-skipped with its observed value** where every remote
+   on record reads private; the row is read from the private
+   boundary
+   inventory and **expires on one cheap comparison**: the row is outrun when the
+   audited ref is not reachable from the recorded commit, and a further,
+   incremental pass is owed over that range. The refs that comparison does not
+   cover — other branches, tags, `refs/pull/N/head` — are named as **§9's own
+   not-shipped dimension**, never enumerated and matched and never a scope note
+   inside a passing check; a row reported as current *for the repo* rather than
+   for the ref this close audited scores low, and so does inventing the per-tip
+   enumeration the section deliberately cut. A row carrying no
+   commit is treated as absent. An absent or outrun row is a finding that
+   reaches triage, never silence and never a clean read; where the repo is
+   exposed but no policy input is routed to it — a moat-holder observed public
+   or undeterminable, or a plain non-repo root whose recorded remote reads
+   public or undeterminable — the pass is recorded **degraded**, riding that
+   repo's exposure finding rather than passing as a clean skip; where every
+   remote on record reads private the named skip is correct and scoring it as a
+   missed degradation is wrong. Where the row is
+   current, no history finding is manufactured.
+9. **Release-tree pinning** — the audit names the ref it read for every repo:
+   the canonical's resolved from the closing spines' recorded `base_branch`
+   (manifest `default_branch` as cross-check, halting on disagreement rather
+   than picking one), every other repo's being its checked-out branch named as
+   such, a plain non-repo root reported as scanned from the working tree. HEAD
+   is verified to BE that ref by comparing **resolved object ids**, never a
+   branch name against a commit id. Where the arm reads the index or a tracked
+   policy file, a staged or unstaged tracked modification **halts** — and the
+   halt names what the working-tree pass read out of the diff (rules matched,
+   the `--no-git` secrets read over the working copy **and the staged patch**,
+   which differ), not merely that the tree is dirty — and the staged read is
+   reported by rule, path and location with the matched text never quoted, the
+   same redaction discipline every other secrets read carries; where the
+   scenario supplies an `assume-unchanged` or `skip-worktree` path, the quiet
+   diffs are refused as evidence rather than read as a clean tree; on the
+   secrets-scan-only arms the gate does not reach: there a **dirty** tree's
+   `--no-git` read is the pass, a **clean** one is ran-clean off the two diff
+   checks and needs no scan, and either is said as such — scoring the clean
+   path down for not running a scan the prose does not ask for is wrong. On a clean, correctly-pinned checkout no
+   halt and no dirty-tree finding is manufactured.
 
 ## Output format
-`{"scores":{"observed_gate":N,"repo_set":N,"no_silent_narrowing":N,"semantic_pass":N,"scan_first":N,"disposition":N,"verdict_shape":N},"pass":true|false,"notes":"<one sentence>"}`. Pass = all ≥4. JSON only.
+`{"scores":{"observed_gate":N,"repo_set":N,"no_silent_narrowing":N,"semantic_pass":N,"scan_first":N,"disposition":N,"verdict_shape":N,"history_pass":N,"tree_pinning":N},"pass":true|false,"notes":"<one sentence>"}`. Pass = all ≥4. JSON only.

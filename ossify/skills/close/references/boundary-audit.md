@@ -10,14 +10,14 @@ deterministic runtime code exists anywhere in it. Two deliberate deltas from
 the companion's §6 text are recorded inline (both in §2), each with the reason
 it is safe.
 
-**This release ships the audit's core scope — the tracked-file audit, the
-untracked sweep, and the semantic pass — over the full repo set: every
+**This release ships the audit's core scope — the tracked-file audit with the
+two corpus passes §3 adds to it, the secrets scan, the untracked sweep, and the
+semantic pass — over the full repo set: every
 repository object the pairing
 manifest carries, each gated on its observed visibility with per-role arms
-(§2).** Every other dimension the companion names — history,
-uncommitted tracked modifications, submodules, the override record — is
-deliberately absent, and §9's table names each one rather than leaving it to
-read as executed. A dimension nobody wrote a rule for reporting clean is the
+(§2).** What is still deliberately absent — **submodule contents**, and
+divergence on a public ref other than the one audited after a recorded history
+pass — §9's table names rather than leaving it to read as executed. A dimension nobody wrote a rule for reporting clean is the
 one failure shape this file exists to prevent; scope cuts get the same
 treatment.
 
@@ -231,6 +231,17 @@ governs `canonical` and anything the manifest adds later.
 
 Every skip is named in the report with the observed value that justified it.
 
+**The two corpus passes §3 adds are routed by this table too, and neither is a
+new row.** The **history pass** is owed off the exposure rather than the arm
+(§3). The **working-tree pass** runs on every arm that has an index: on the arms
+that read the index or a tracked policy file it runs at §9's gate, and on the
+secrets-scan-only arms, **where the tree is dirty**, it is the `--no-git` read
+§3 prescribes — that invocation is part of this table's arm for those roles
+whenever it is reached, alongside the history scan, because the history scan
+cannot see an uncommitted edit. A clean tree there needs no scan: the pass is
+ran-clean off the two diff checks, exactly as §3 states. Both are named in
+every block's coverage line whatever they did.
+
 **No arm of this table skips the secrets scan.** Scanning does not depend on a
 remote (below), so it cannot depend on being able to *read* a remote either.
 The visibility finding and the secrets scan are independent; a repo whose
@@ -392,6 +403,185 @@ and report what the host enforces. Unknown or unreadable is a note, not a
 finding — this is the host's rail, not ours, and the audit does not depend on
 it.
 
+### The history pass — the document rules over a corpus the index cannot show
+
+`git ls-files` is an index: it shows the audited ref's tree and nothing else. A
+private document committed a year ago and later deleted is public forever at its
+blob URL, and a document sitting on another public branch never reaches the
+audited ref at all. Neither is visible to the rules above.
+
+**The secrets half of that gap belongs to the tool, not to this step.**
+`gitleaks detect` as invoked above reads committed history — on the build
+measured here (8.30.1) it reached commits outside the audited ref's ancestry as
+well as inside it — but **this step neither promises that nor leans on it**:
+what the scan covers is whatever a completed run covers, the coverage line
+records what it reported, and a run that did not complete is INCONCLUSIVE
+exactly as above. What has no history pass at all is everything
+that reads **one ref**: the `never-tracked:` **document** rules, which only ever
+match paths in an index, and **§5's semantic sweep**, which reads the audited
+ref's tracked prose — so a moat-describing README section committed and later
+deleted, or living on a branch the release never merged, is as invisible as a
+deleted planning tree.
+
+**A review reaches only the objects the clone has.** A shallow or partial clone
+makes "every commit" mean the local object graph and nothing more — a `--depth 1`
+clone simply does not contain the deleted planning tree this pass exists to find,
+and `--single-branch` does not contain the other branches — while the row it
+writes would read current forever. **A pass reviewed from a corpus that is not
+known to be complete is INCONCLUSIVE, not recordable**, and the block says what
+was missing. How completeness is established is the reviewer's business and
+varies by clone and host; what this step fixes is that an unestablished corpus
+never becomes a recorded row. The same applies to §3's secrets scan on such a
+clone: it walks the same object graph, so a completed run over an incomplete one
+is a degradation, not a clean result.
+
+**Both are closed by a recorded pass, not by a scan.** Reading every commit of
+a repo's history for documents the rules ban and prose that describes a moat item
+is a human-scale review, not something this step performs mid-close. **The review
+covers both corpora** — §3's `never-tracked:` rules and §5's S1/S2/S3 judgment —
+over history and every ref. A review that covered only one of them is not a
+pass and gets no row — the table has three columns and no field to say which
+half was read, and a half-read row that looked whole is worse than an absent
+one.
+The record is a **History passes** row in
+the private boundary inventory (`start/references/posture-block.md` §7): the
+repo, the **commit it reviewed through**, and the date — written when the user
+confirms the review this finding asked for, which is a full-history review the
+first time and the range since the recorded commit on every refresh.
+
+**The pass is owed by every repo whose history could be public — read that off
+the exposure, not off the arm.** Any repo on a full public arm owes one (§2's
+`any` row, and the moat-holder roles observed public or undeterminable), and so
+does any repo carrying a remote on record that reads **public or
+undeterminable** — including a manifest `git_remote` the local enumeration never
+listed, whose history sits on that host whatever the local arm says. A repo that **has** remotes on record and whose every one of them reads private
+owes none: none of its history is public, and demanding one would block every dual-repo close on a full-history
+review of the AI workspace. A repo with **no** remote on record takes whatever
+arm §2 gives it and owes what that arm owes — on the `any` row, a pass: absence
+of a remote narrows the exposure claim and never removes a check (§2). Name
+every skip with the observed value that justified it, like all the others.
+On an arm that runs but where no `PUBLIC_BOUNDARY.md` is ever routed — the
+moat-holder roles (§2) — there are no document rules to run over history either:
+record the pass **degraded on the never-expected policy input**, riding the
+exposure finding that put the repo on that arm, never clean.
+
+**The reviewed commit is what makes a row expire.** A sensitive document
+committed to another public branch or tag leaves the audited tip untouched, and
+both the index rules and §5's sweep only ever read the release ref, so nothing
+else here would see it — which is why the review the row records covers the repo
+and not one branch.
+**What the row covers is what the recorded commit reaches, and nothing else** —
+and the check that it is still current is deliberately **one cheap local
+comparison, not an enumeration**. Ask whether the ref this close audited is
+reachable from the recorded commit:
+`git -C "<root>" merge-base --is-ancestor "<audited ref>" "<recorded>"`. **If it
+is not, commits have landed since and a further pass is owed — incremental is
+enough**, the range between the two.
+
+**That comparison covers one ref, and the rest is a scope cut with a row of its
+own.** A row is **current for the ref this close audited and is reported that
+way, never as "current for the repo"** — a document committed to another public
+branch, a tag, or a `refs/pull/N/head` *after* the recorded review leaves the
+audited ref an ancestor of the recorded commit, so this check stays quiet and
+**nothing here detects it**. That is not a scope note inside a passing check: it
+is **§9's own row**, named by class in the report's scope line like every other
+dimension this release does not ship, so a `clean` verdict never stands in for
+it.
+
+A row carrying only a release id and no commit predates this format and is
+**treated as absent**.
+
+**A plain non-repo root (§2) has no local history to review and no commit to
+record** — the pass is a **named skip** for that role, exactly as §4, §5 and §6
+are. **Except where a recorded `git_remote` reads public or undeterminable** (§2 —
+the read that makes it a blocking exposure finding; a recorded remote reading
+private is a note and changes nothing here): that repo's history sits on the
+host whatever the directory is now, it is the blob-URL-forever class this
+section opens with, and no local read can reach it. There the pass is a
+**degradation riding that exposure finding**, never a clean skip — the same
+treatment, and for the same reason, as the moat-holder arm above.
+
+**An absent or outrun row is a finding.** It reaches triage like any other, and
+the two unblocks are §6's: **the fix** is the review itself — the user confirms
+it was done and the row is written for the commit it reached — and accepting the gap
+instead is an **override**, taking the override's record like any other
+acceptance. Nothing here is a third unblock.
+
+**The rule keys on a recorded pass rather than on "the repo's first audit"**
+because
+**nothing tells this step whether it is the first**: no state field records a
+boundary audit, and every release that closed before this step shipped closed
+without one — so "is this the first?" is undeterminable exactly where it matters
+most, on an adopted-forward project with a deleted `docs/planning/` tree in its
+history. Absent-or-outrun is determinable, and it fails safe.
+
+### The working-tree pass — uncommitted modifications to tracked files
+
+The rules above match paths from `git ls-files`, the secrets scan reads committed
+history, and §4's sweep enumerates the index's complement — so a secret pasted
+into a tracked file and left uncommitted is read by none of them. (§5's semantic
+pass does read the working tree's tracked prose, but it hunts moat descriptions,
+not secrets.) **This pass runs at §9's pre-flight gate, before the reads above.**
+
+**Start from whether there is anything to read** — `git -C "<root>" diff --quiet`
+and `git -C "<root>" diff --cached --quiet`. Both succeeding means the repo has no
+uncommitted tracked modifications and the pass is **ran, clean**; there is nothing
+here to narrow and nothing to manufacture.
+
+**The first answer is evidence only when nothing in the index suppresses it.**
+A path marked `assume-unchanged` or `skip-worktree` makes `diff --quiet` succeed
+over a working copy that differs — `git -C "<root>" ls-files -v` marks the first
+lowercase (`h`) and the second `S`. **If any tracked path carries either flag,
+that check proves nothing about the working tree**: run the reads below anyway
+and name the flagged paths in the block. (`diff --cached --quiet` compares HEAD
+against the index and neither flag touches it, so it stays evidence.) A clean
+answer produced by a flag whose whole purpose is to stop git looking is the
+fail-open this section exists to prevent. A plain non-repo root (§2) has no index
+and no tracked set, so the pass is a **named skip** like this section's other index reads.
+
+**When either fails, the read is the same on every arm — three inputs, because
+no two of them see the same thing:**
+
+- the **paths**, `git -C "<root>" diff --name-only` and
+  `git -C "<root>" diff --cached --name-only`, matched against the
+  `never-tracked:` rules the way tracked paths are matched above;
+- the **working tree**, `gitleaks detect --source "<root>" --no-banner --redact
+  --no-git`, for the secrets classes — `--no-git` is what reads the tree instead
+  of the history, the same role §2 states it for on a filesystem-only root. It
+  reads the whole tree — tracked, untracked **and gitignored alike**, minus
+  whatever the tool's own config skips — which is both wider than this
+  dimension's own question and as expensive as the tree is big: say so in the
+  block rather than reporting a narrower read than the one that ran;
+- the **staged patch**, because the scan above reads the working copy and the
+  index can differ from it. A secret staged and then edited back out of the
+  working tree is in **neither** that scan nor the committed history, and
+  committing to clear this gate is exactly what would put it into history.
+  **This read is not optional on any arm** — it is the only one that sees the
+  index. **There is no redacting form of this read**, and that is not a gap to
+  paper over: a patch is content, and reading content is what this pass is for,
+  the same way §5 reads tracked prose. What §3's redaction rule forbids is
+  carrying a matched secret **onward** — so the block names the rule, the path
+  and the location, and the matched text never reaches the report or the close
+  summary. The scan above redacts at its source because it can; here the
+  discipline is at the report.
+
+**What differs by arm is what happens after the read, not what is read:**
+
+- **On every arm that reads the index or a tracked policy file**, §9's clean-tree
+  gate halts on exactly this condition — **and the gate reads before it halts**,
+  so the halt names what is in the diff rather than merely that a diff exists.
+  Hits are classified by the arm exactly as this section's other hits are
+  (blocking on a public arm, a hygiene note on the private canonical's). A dirty
+  tree the operator commits and re-runs is read by the rules above at the new
+  tip; a dirty tree carrying a violation is a finding the operator sees at the
+  halt instead of a lap later.
+- **On the secrets-scan-only arms** — the moat-holder roles observed private,
+  which §9's gate does not reach because they make no release-tree claim — the
+  same three reads **are** this pass, under the secrets-class carve-out §2
+  carries: the history scan cannot see an uncommitted or staged edit, and these
+  are the reads that can. No `PUBLIC_BOUNDARY.md` is routed to those roles (§2),
+  so the document half is a named skip there, never a missing-file finding.
+
 ---
 
 ## 4. Step 2 — the leak-adjacent scan (untracked files, scan-first)
@@ -494,7 +684,10 @@ enforced mechanically; this read is how they are enforced at all.
 ## 5. Step 3 — the semantic pass (agent judgment)
 
 The question no pattern can ask: **does anything tracked in the repo
-*describe* a moat item, even without containing it?** This step runs on the
+*describe* a moat item, even without containing it?** It reads the audited ref
+and no other — history and every other ref are the history pass's corpus (§3),
+which does not restate this pass's judgment and is not restated here. This step
+runs on the
 repos whose §2 row runs it — the `any`-row repos, observed-public,
 undeterminable, or no-remote-on-record — and on no other: the moat-holder
 roles never run it (they hold the inventory; every finding there would be
@@ -708,7 +901,8 @@ One block per repo in the set — role, **the audited ref** (§9), **the coverag
 line** (below), gate outcome (observed visibility per
 remote, manifest and posture agreement, what ran and what was skipped),
 tracked-file hits, semantic findings (S1 findings and S2 notes — §5),
-untracked hits split new-vs-standing, degradations — each
+untracked hits split new-vs-standing, history and working-tree findings (§3),
+degradations — each
 finding carrying repo, class,
 the path or pattern, why it is a finding, and its remediation. Then the triage
 conversation, finding by finding. Then the verdict, one of exactly three:
@@ -720,12 +914,13 @@ exists precisely so that "we accepted something" cannot hide inside `clean`.
 
 ### The coverage line, and why it is not optional
 
-Every report block opens with a **coverage read-out**: each of the four
-checks — tracked rules, secrets scan, untracked sweep, semantic pass — marked
+Every report block opens with a **coverage read-out**: each of the six
+checks — tracked rules, secrets scan, untracked sweep, semantic pass, history
+pass, working-tree pass — marked
 **ran**,
 **skipped** with the observed value that justified it, or **INCONCLUSIVE**
 with what failed. Nothing else in the block is trusted until that line
-accounts for all four.
+accounts for all six.
 
 **INCONCLUSIVE has a narrow meaning, and widening it breaks the gate the other
 way.** A check is **ran** when it completed against the inputs this project
@@ -750,15 +945,18 @@ scale, for any reason. A tool that changes its flags, a boundary file that
 lost a rule: each surfaces as an unaccounted check rather than as silence.
 
 **And the report states its scope.** One line — the repo set with each repo's
-observed visibility and arm, the four shipped checks, the not-shipped
+observed visibility and arm, the six shipped checks, the not-shipped
 dimensions named by class (§9) — so
 a `clean` verdict is never read as more coverage than this release ships.
 Every skip is named in the report with the observed value that justified it.
 
 **The report's home is the close summary** (`close/SKILL.md` §10) — it is the
-ceremony's final message, not a file. The one durable record this audit writes
-is the **Accepted disclosures** row an override adds to the private boundary
-inventory (§6) — nothing else here outlives the summary.
+ceremony's final message, not a file. The two durable records this audit writes
+are both rows in the private boundary inventory: the **Accepted disclosures**
+row an override adds (§6), and the **History passes** row a **confirmed history
+review** writes (§3 — a rejected history finding writes no row at all, and an accepted one
+writes the Accepted disclosures row above rather than a second History passes
+row) — nothing else here outlives the summary.
 
 If any part of a finding must be written where the public can read it (a
 release note, a public issue), it is described by **pattern and class only**
@@ -835,6 +1033,15 @@ naming a moat item in a public artifact is itself the leak.
   staged or unstaged tracked changes, and name it. (The role repos' audited
   ref IS their checked-out branch, named as such — §9; the anti-pattern is
   auditing an unresolveable ref, not the role rule.)
+- **Reading a `History passes` row as permanent.** The commit it reviewed
+  through is what expires it, and commits land between releases (§3).
+- **Expiring a history pass against the audited ref alone**, when another
+  public branch or tag can carry what the release ref never saw (§3).
+- **Reading the secrets scan as covering the document rules across history.**
+  It covers secrets; the `never-tracked:` document rules only ever match an
+  index (§3).
+- **Halting on a dirty tree without reading it.** The gate names what is in the
+  diff, not merely that a diff exists (§3's working-tree pass, §9's gate).
 - **Naming a moat item in any public-facing record of a finding.** Patterns
   and classes only (§7).
 - **Reporting a verdict without a coverage line**, or reading an unaccounted
@@ -851,8 +1058,7 @@ silently does nothing is indistinguishable from a missing one
 
 | Dimension | Status |
 |---|---|
-| **History, and every branch but the audited ref** | **not shipped.** A private document committed a year ago and later deleted is public forever at its blob URL, and nothing here looks. `gitleaks` still covers *secrets* across history when it completes — the tool's own behavior, not this audit's rule. The recorded History-passes line is a later PR |
-| **Uncommitted modifications to tracked files** | **not shipped.** The rules match paths (`ls-files`), gitleaks reads committed history, and the sweep reads untracked paths only — a secret pasted into a tracked file and left uncommitted is never READ by the three mechanical checks (§5's semantic sweep reads the working tree's tracked prose, but it hunts moat descriptions, not secrets), though §9's clean-tree gate halts on its presence before they run, wherever that gate reaches the repo (arms that read the index or a tracked policy file; the secrets-scan-only arms are exempt). A working-tree diff pass that reads it is a later PR |
+| **Public refs other than the audited one, after a recorded history pass** | **not shipped.** §3's recorded review covers the repo at the commit it reviewed through, and the currency check compares one ref — the one this close audits. A document committed to an unmerged branch, a tag, or a `refs/pull/N/head` after that commit leaves the audited ref untouched and raises nothing. The per-tip comparison that would catch it was tried and cut: no fetch brings PR-ref objects down by default (an explicit refspec does, which is one more thing to get right per repo) and fork or squash-merged heads are ancestors of nothing, so the check would read INCONCLUSIVE on every repo with a pull request in it, and a gate that can never read current is not a gate. The report names the refs it did not compare; the row leaves this table when a pass persists a reviewed tip **per ref** rather than one commit |
 | **Submodule contents** | **not shipped.** `ls-files` returns one gitlink, `--others` does not descend, gitleaks does not follow. A tracked submodule is named in the report as outside this audit's coverage — never read as clean by default |
 | **Everything about the project that is not a git repo** | permanent scope, not a cut: issues, wiki, releases, Pages, Actions artifacts, published packages |
 
@@ -911,7 +1117,13 @@ in full or as hygiene notes — both
 must succeed** — a staged deletion or an unstaged edit to `PUBLIC_BOUNDARY.md`
 can make the committed release tree differ from everything this audit just
 read, and a clean verdict over a tree the release does not ship is the
-failure. A repo on a
+failure. **And the quiet answers license this gate only under §3's caveat:** a
+tracked path marked `assume-unchanged` or `skip-worktree` makes
+`diff --quiet` succeed over a working copy that differs, so where either flag
+is present that check does not clear the tree here either. **The gate reads
+before it halts:** §3's working-tree pass states what to read out of the diff,
+how a hit is classified, and when the quiet checks are evidence; this gate does
+not restate any of it. A repo on a
 secrets-scan-only arm makes no release-tree claim — on a git repo, gitleaks
 reads committed history and neither the index nor the working tree, so an
 unstaged edit is invisible to the scan and no divergence claim exists; its

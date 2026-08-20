@@ -34,6 +34,8 @@ record it, the operator gives the reason as "deliberate commercial-edition
 marketing, signed off by the owner."
 
 The private boundary inventory carries no Accepted disclosures section yet.
+Its **History passes** table records a review of the canonical through commit
+`8a7b6c5`, and that commit is the canonical's current tip on every ref.
 
 State the audit's other inputs, so nothing below is left to infer: the
 pairing manifest names the canonical and the AI workspace; the AI workspace

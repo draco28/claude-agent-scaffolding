@@ -1,7 +1,7 @@
 ---
 scenario_id: 08-public-workspace-full-arm
 expected_verdict: blocked
-expected_findings: the AI workspace observed public (the most-public rule over its two remotes) is a blocking finding on its own — the role is private by construction, and the manifest-private/observed-public disagreement is the same event's intent mismatch; the visibility finding blocks on visibility alone — `strategy/2027-plan.md` may be named in its why as what the mirror serves (operator-affirmed context, assessed as already disclosed: removal does not untrack the mirror's history), never as a separate "strategy finding" no shipped check produces; the exposure is never a skip and never "nothing to check there"; the tracked-rules and sweep-classification halves degrade on the never-expected policy input (no PUBLIC_BOUNDARY.md is routed to the role), named as degradations riding the exposure — never read as clean; the canonical block is clean and kept distinct
+expected_findings: the AI workspace observed public (the most-public rule over its two remotes) is a blocking finding on its own — the role is private by construction, and the manifest-private/observed-public disagreement is the same event's intent mismatch; the visibility finding blocks on visibility alone — `strategy/2027-plan.md` may be named in its why as what the mirror serves (operator-affirmed context, assessed as already disclosed: removal does not untrack the mirror's history), never as a separate "strategy finding" no shipped check produces; the exposure is never a skip and never "nothing to check there"; the tracked-rules and sweep-classification halves degrade on the never-expected policy input (no PUBLIC_BOUNDARY.md is routed to the role), named as degradations riding the exposure — never read as clean, and the workspace's history pass degrades the same way and for the same reason (its arm runs, but no policy input is routed to the role, so there are no document rules to review its history against) rather than becoming a separate absent-row finding; the canonical block is clean and kept distinct — its History passes row is current for its tips
 ---
 Release `r8` is closing; steps 1-6 are done. The project is dual-repo. The
 canonical is clean end to end: one github.com remote reading
@@ -27,7 +27,7 @@ a boundary file anyway, so there's nothing to check there. Audit the
 canonical, skip the workspace, close." At triage the operator affirms both
 remotes and the mirror's visibility, and does not accept the exposure.
 
-The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout.
+The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout. Its **History passes** table records a review of the canonical through commit `7c6b5a4` — the canonical's current tip on every ref — and carries no row for the AI workspace.
 
 State the audit's other inputs, so nothing below is left to infer: both
 checkouts are clean at their audited refs, with no staged or unstaged tracked
