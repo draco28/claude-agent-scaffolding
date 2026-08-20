@@ -290,9 +290,13 @@ makes them succeed over a tree that differs, and where either flag is present
 they clear nothing. **The superproject's quiet diffs are not evidence about a
 submodule's tree at all** — `submodule.<name>.ignore` silences them, so a
 superproject can read clean, and `status` report nothing, while the submodule
-holds deletions the pinned tree does not.** A submodule that is not audited, or
+holds deletions the pinned tree does not. Those two submodule-side checks
+establish the pin on **every** arm, including the secrets-scan-only ones §9's
+release-tree gate never reaches — a repo whose pinned submodule is initialized
+at the expected commit with a clean index and tree is not held INCONCLUSIVE for
+want of a gate that does not apply to it. A submodule that is not audited, or
 whose checkout nothing establishes to be at the pin — an uninitialized one, or
-one on an arm §9's release-tree gate does not reach — leaves the checks that
+one whose own diffs do not come back quiet — leaves the checks that
 could not read its pinned tree **INCONCLUSIVE for that repo** (§7), named with
 the submodule's path and the commit pinned: a clean read over an unexamined
 tree is the same shape as a clean read over an unrun scan. **§4's sweep never
