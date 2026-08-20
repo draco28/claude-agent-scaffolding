@@ -311,21 +311,31 @@ fixture path — no pattern matches it and no scan calls it a secret. Where a re
 arm reads no tracked content, no descent is owed and the block says so with the
 arm that justified it.
 
-**The two corpus passes do not descend.** They are owed per repo in the
-manifest set: a submodule's own history is the submodule repository's exposure
-rather than the pin's, so a submodule never adds a **History passes** row of
-its own — and where that repository is not itself in the manifest set, its
-history is §9's own not-shipped dimension. **A submodule that is itself a repo
-in the manifest set gets its own arm, and the superproject's pinned-tree read
-is owed as well unless both the commit and the governing policy are
-identical.** That repo's own arm
-audits its **checked-out** ref (§9), which need not be the commit this
-superproject pins, and two superprojects may pin different commits; dropping
-the pinned-tree read on the strength of the other block can leave the tree
-actually published the one nobody examined. Where the two coincide, the
-superproject's block records the pin and points at that repo's own block
-rather than repeating the read. The descent adds **no entry to the coverage
-line**: it is those same checks, run against another tree.
+**The history pass does not descend; the working-tree pass does.** A
+submodule's own history is the submodule repository's exposure rather than the
+pin's, so a submodule never adds a **History passes** row of its own — and
+where that repository is not itself in the manifest set, its history is §9's
+own not-shipped dimension. The **working-tree pass** is the opposite case: it
+performs its reads **within each initialized submodule** — the rules over the
+diff, the `--no-git` read over the working copy, and the read of the **staged
+patch**. Nothing else reaches a submodule's index: the pinned-tree reads see
+the commit, §4 sees untracked files, the superproject's `--no-git` scan sees
+only what is on disk, and the superproject's own staged-patch read stops at the
+gitlink — so content **staged inside a submodule and removed from its working
+copy** is invisible to every other read this audit performs, which is exactly
+the shape §3 makes the staged read mandatory for. Where a submodule is not
+initialized there is no index to read and the pass is INCONCLUSIVE for that
+path.
+
+**A submodule that is itself a repo in the manifest set gets its own arm, and
+the superproject's pinned-tree read is owed as well — always.** They answer
+different questions: that repo's own block answers for its own exposure at its
+**checked-out** ref (§9), and the superproject's block answers for the tree
+this release publishes through the pin. The two can differ in commit, in arm,
+in blocking-or-hygiene status, and in the prefix their paths are matched under,
+and those vary independently — so no equivalence test licenses dropping one
+read for the other. The descent adds **no entry to the coverage line**: it is
+those same checks, run against another tree.
 
 **No arm of this table skips the secrets scan.** Scanning does not depend on a
 remote (below), so it cannot depend on being able to *read* a remote either.

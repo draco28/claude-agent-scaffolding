@@ -174,13 +174,18 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    the superproject, with §3's arguable-match rule governing — and the finding
    naming the superproject-relative path — so raising §3's missing-file finding
    against a submodule checkout is wrong, whether or not it carries a boundary
-   file of its own. **The two corpus passes do not descend**: a
-   submodule's own history is the submodule repository's exposure rather than
-   the pin's, so no **History passes** row is owed for a submodule; and a
-   submodule that is itself a repo in the manifest set is audited on its own
-   arm **with the superproject's pinned-tree read still owed unless the
-   commit and the governing policy are identical** — that arm reads its
-   checked-out ref, which need not be the pinned commit. **§4 does descend on the arms that run it at all, but over the
+   file of its own. **The history pass does not descend but the
+   working-tree pass does**: a submodule's own history is the submodule
+   repository's exposure rather than the pin's, so no **History passes** row is
+   owed for a submodule, while the working-tree pass performs its reads —
+   rules over the diff, `--no-git` over the working copy, and the **staged
+   patch** — inside each initialized submodule, since content staged there and
+   removed from the working copy is invisible to every other read (INCONCLUSIVE
+   where the submodule is uninitialized). A submodule that is itself a repo in
+   the manifest set gets its own arm **and the superproject's pinned-tree read
+   is owed as well, always** — the two differ in commit, arm, blocking status
+   and path prefix independently, so no equivalence test licenses dropping
+   one. **§4 does descend on the arms that run it at all, but over the
    submodule's working tree rather than the pin** — what it audits is the distance between an untracked
    sensitive file and a tracked one on this machine, which a vendored checkout
    has like any other — and a submodule that itself pins submodules is read the
