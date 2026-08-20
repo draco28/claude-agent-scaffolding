@@ -29,7 +29,7 @@ is named rather than left to read as executed:
 | **5. Docs increment (spec §8)** | **not shipped.** The trigger table lives in spec §8 and has no executable surface yet |
 | **6. Handoff cleanup for the closed release** | **not shipped.** `/ossify:handoff` authors session handoffs as a standalone utility, but it has no retention policy by design — handoffs accumulate and the user prunes — so there is nothing for a close to clean up; the same non-wiring `spine-close.md` §9 records for the spine boundary |
 | **7. Release tag / PR gate** | **not shipped.** The spine→release / release→main tier question is unsettled, and a PR gate written before it is settled would harden the wrong tier |
-| **8. Boundary audit (companion §6)** | **built — core scope over the full repo set** — §8, full depth in `references/boundary-audit.md`. Re-derived under the skill-first freeze: prose driving `git`/`gh`/`gitleaks` plus agent judgment, **every manifest repo object audited with per-role arms, observed-visibility gated**, fail-closed — the tracked-file audit, the secrets scan, the scan-first untracked sweep, and the semantic pass over tracked prose. Confirmed findings block the close. The dimensions this scope still omits — history, uncommitted tracked modifications, submodules, the override record — are named in that file's own not-shipped table and land as their own PRs |
+| **8. Boundary audit (companion §6)** | **built — core scope over the full repo set** — §8, full depth in `references/boundary-audit.md`. Re-derived under the skill-first freeze: prose driving `git`/`gh`/`gitleaks` plus agent judgment, **every manifest repo object audited with per-role arms, observed-visibility gated**, fail-closed — the tracked-file audit, the secrets scan, the scan-first untracked sweep, and the semantic pass over tracked prose. Confirmed findings block the close; the one other unblock is a recorded accepted-disclosure override. The dimensions this scope still omits — history, uncommitted tracked modifications, submodules — are named in that file's own not-shipped table and land as their own PRs |
 
 A missing step and a step that silently does nothing are indistinguishable to
 every later reader, which is why they are a table rather than an omission.
@@ -359,9 +359,11 @@ in that file's own not-shipped table and land as their own PRs.
 What matters for the ceremony's shape: this step runs **after** the
 feature-map re-groom, so a blocked close still walked, retro'd and re-groomed
 — all of that survives the halt as artifacts and planning input — and
-**before** §9, so a blocked release is never recorded closed. The only unblock
-this release is the fix; the accepted-disclosure override is not shipped
-(`boundary-audit.md` §6, §9).
+**before** §9, so a blocked release is never recorded closed. Two unblocks: the
+fix, or an **accepted-disclosure override** written to the private boundary
+inventory with the surface it covers pinned (`boundary-audit.md` §6). An
+overridden close reports under the audit's third verdict, never as `clean`
+(`boundary-audit.md` §7).
 
 **A halt here is not free, and steps 1-6 are not free to repeat.** A re-close
 re-runs the full cumulative walkthrough — this ceremony's most expensive step —
@@ -453,5 +455,7 @@ executed.
 - **Writing `release_status closed` after any halt** (§9) — a boundary-audit
   halt included (§8).
 - **Auto-dispositioning a boundary-audit finding, or closing "with a leak
-  noted."** Every finding reaches the user; a confirmed one blocks until fixed
-  — the override is not shipped (`boundary-audit.md` §6, §9).
+  noted."** Every finding reaches the user; a confirmed one blocks until it is
+  fixed or accepted on the record (`boundary-audit.md` §6).
+- **Reporting an overridden close as `clean`.** An acceptance takes the audit's
+  third verdict and names its inventory row (`boundary-audit.md` §7).

@@ -246,6 +246,28 @@ things; it is consumed by the release-close semantic audit and by the phase-2
 code requires a `private_core` repo. An implementer may not shortcut private
 crates into the `-internal` docs repo.
 
+### Accepted disclosures
+
+A second table in the same file, **written by the release-close boundary audit,
+not at `start`-time** (`close/references/boundary-audit.md` §6). It does not
+exist until the first override is accepted; the audit creates it then.
+
+| Release | Finding | Surface covered (pinned) | Reason | Date |
+|---|---|---|---|---|
+
+**The surface column is the load-bearing one, and what makes it checkable is
+the audit's contract, not this file's** — `close/references/boundary-audit.md`
+**§6** states what a row must pin and the two bounds every override carries,
+and its **§5** states how a row is read back: matched only on the surface it
+pins, and covering nothing when it pins nothing checkable. Both live there
+because the audit is what writes a row and what later decides whether a hit is
+the covered surface or a fresh finding. **Do not restate those rules here**;
+two copies of one contract drift, and the drift would be silent on both sides.
+
+What belongs here is the artifact: this table lives in the AI workspace with
+the moat table above it, and **pruning a row is a deliberate `start`-time
+edit** — never something an audit does to quiet its own output.
+
 ---
 
 ## 8. Stack packaging patterns (for `private-package`)

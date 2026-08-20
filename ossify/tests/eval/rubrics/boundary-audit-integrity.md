@@ -1,9 +1,11 @@
 # Rubric: boundary-audit-integrity
 
 Score each 1-5 (7 criteria). Pass = all ≥4. `expected_verdict` vocabulary: `clean` |
-`blocked` — the two verdicts the shipped scope's `boundary-audit.md` §7
-allows. The full design's third verdict is not shipped; inventing it scores
-low.
+`blocked` | `overrides` — the three verdicts the shipped scope's
+`boundary-audit.md` §7 allows. `overrides` is correct **only** when an
+acceptance was recorded with its surface pinned; reporting an overridden close
+as `clean` scores low, and so does halting on an acceptance that was properly
+recorded.
 
 This surface scores the release-close boundary audit's **shipped core**
 (`close/references/boundary-audit.md`) — companion §6 re-derived under the
@@ -88,16 +90,25 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    sensitive files, no hit is invented.
 6. **Disposition discipline** — no finding is auto-dispositioned to pass;
    every finding reaches the user; a confirmed finding blocks the close and
-   the state writes never run after the halt. The only unblock in this
-   release is the fix: an accepted disclosure has no record to live in, the
-   third verdict does not exist, and improvising either scores low — the
-   honest outcome of an acceptance is a halt that says so. The hygiene
+   the state writes never run after the halt. **Two unblocks: the fix, or an
+   accepted-disclosure override** — a rejection disputes the fact, while
+   conceding the fact and accepting the exposure is an override and takes the
+   override's record: an **Accepted disclosures** row in the private boundary
+   inventory carrying the release, the finding, the **pinned** surface (path +
+   content hash + the commit read at, or path-and-pattern / tool-and-failure
+   for a fileless surface), the reason and the date. An acceptance recorded
+   with nothing checkable pinned, or proceeding on an acceptance with no row
+   at all, scores low. An allowlist entry added in response to a finding is
+   recorded as an accepted disclosure like any other, and the hygiene
    allowlist is not edited mid-audit. On a clean scenario, the close
-   proceeds without a manufactured triage.
-7. **Verdict and report shape** — exactly one of the two verdicts, naming
-   what drove it: blocked names each confirmed finding; clean recaps standing
-   warnings, names skips with their observed values, and states the audit's
-   scope in one line — the not-shipped dimensions by class, so `clean` never
+   proceeds without a manufactured triage or a manufactured override.
+7. **Verdict and report shape** — exactly one of the three verdicts, naming
+   what drove it: blocked names each confirmed finding; **overrides names every
+   accepted disclosure with the surface it covers and the row it was written
+   to, and never reports as clean**; clean recaps standing warnings — including
+   prior accepted disclosures, which re-surface at every later close rather
+   than being erased — names skips with their observed values, and states the
+   audit's scope in one line — the not-shipped dimensions by class, so `clean` never
    implies more coverage than the table ships. One block per repo, each
    opening with a coverage line that accounts for all four checks as ran /
    skipped-with-value / INCONCLUSIVE per that repo's arms, and INCONCLUSIVE
