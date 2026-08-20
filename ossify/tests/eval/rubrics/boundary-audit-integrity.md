@@ -152,7 +152,11 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    policy file, a staged or unstaged tracked modification **halts** — and the
    halt names what the working-tree pass read out of the diff (rules matched,
    the `--no-git` secrets read over the working copy **and the staged patch**,
-   which differ), not merely that the tree is dirty; on the
+   which differ), not merely that the tree is dirty — and the staged read is
+   reported by rule, path and location with the matched text never quoted, the
+   same redaction discipline every other secrets read carries; where the
+   scenario supplies an `assume-unchanged` or `skip-worktree` path, the quiet
+   diffs are refused as evidence rather than read as a clean tree; on the
    secrets-scan-only arms the gate does not reach: there a **dirty** tree's
    `--no-git` read is the pass, a **clean** one is ran-clean off the two diff
    checks and needs no scan, and either is said as such — scoring the clean

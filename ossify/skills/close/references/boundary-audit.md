@@ -423,6 +423,18 @@ ref's tracked prose — so a moat-describing README section committed and later
 deleted, or living on a branch the release never merged, is as invisible as a
 deleted planning tree.
 
+**A review reaches only the objects the clone has.** A shallow or partial clone
+makes "every commit" mean the local object graph and nothing more — a `--depth 1`
+clone simply does not contain the deleted planning tree this pass exists to find,
+and `--single-branch` does not contain the other branches — while the row it
+writes would read current forever. **A pass reviewed from a corpus that is not
+known to be complete is INCONCLUSIVE, not recordable**, and the block says what
+was missing. How completeness is established is the reviewer's business and
+varies by clone and host; what this step fixes is that an unestablished corpus
+never becomes a recorded row. The same applies to §3's secrets scan on such a
+clone: it walks the same object graph, so a completed run over an incomplete one
+is a degradation, not a clean result.
+
 **Both are closed by a recorded pass, not by a scan.** Reading every commit of
 a repo's history for documents the rules ban and prose that describes a moat item
 is a human-scale review, not something this step performs mid-close. **The review
@@ -514,7 +526,17 @@ not secrets.) **This pass runs at §9's pre-flight gate, before the reads above.
 **Start from whether there is anything to read** — `git -C "<root>" diff --quiet`
 and `git -C "<root>" diff --cached --quiet`. Both succeeding means the repo has no
 uncommitted tracked modifications and the pass is **ran, clean**; there is nothing
-here to narrow and nothing to manufacture. A plain non-repo root (§2) has no index
+here to narrow and nothing to manufacture.
+
+**The first answer is evidence only when nothing in the index suppresses it.**
+A path marked `assume-unchanged` or `skip-worktree` makes `diff --quiet` succeed
+over a working copy that differs — `git -C "<root>" ls-files -v` marks the first
+lowercase (`h`) and the second `S`. **If any tracked path carries either flag,
+that check proves nothing about the working tree**: run the reads below anyway
+and name the flagged paths in the block. (`diff --cached --quiet` compares HEAD
+against the index and neither flag touches it, so it stays evidence.) A clean
+answer produced by a flag whose whole purpose is to stop git looking is the
+fail-open this section exists to prevent. A plain non-repo root (§2) has no index
 and no tracked set, so the pass is a **named skip** like this section's other index reads.
 
 **When either fails, the read is the same on every arm — three inputs, because
@@ -530,12 +552,18 @@ no two of them see the same thing:**
   whatever the tool's own config skips — which is both wider than this
   dimension's own question and as expensive as the tree is big: say so in the
   block rather than reporting a narrower read than the one that ran;
-- the **staged patch**, `git -C "<root>" diff --cached`, because the scan above
-  reads the working copy and the index can differ from it. A secret staged and
-  then edited back out of the working tree is in **neither** that scan nor the
-  committed history, and committing to clear this gate is exactly what would put
-  it into history. **This read is not optional on any arm** — it is the only one
-  that sees the index.
+- the **staged patch**, because the scan above reads the working copy and the
+  index can differ from it. A secret staged and then edited back out of the
+  working tree is in **neither** that scan nor the committed history, and
+  committing to clear this gate is exactly what would put it into history.
+  **This read is not optional on any arm** — it is the only one that sees the
+  index. **There is no redacting form of this read**, and that is not a gap to
+  paper over: a patch is content, and reading content is what this pass is for,
+  the same way §5 reads tracked prose. What §3's redaction rule forbids is
+  carrying a matched secret **onward** — so the block names the rule, the path
+  and the location, and the matched text never reaches the report or the close
+  summary. The scan above redacts at its source because it can; here the
+  discipline is at the report.
 
 **What differs by arm is what happens after the read, not what is read:**
 
@@ -1089,9 +1117,13 @@ in full or as hygiene notes — both
 must succeed** — a staged deletion or an unstaged edit to `PUBLIC_BOUNDARY.md`
 can make the committed release tree differ from everything this audit just
 read, and a clean verdict over a tree the release does not ship is the
-failure. **The gate reads before it halts:** §3's working-tree pass states
-what to read out of the diff and how a hit is classified, and this gate does
-not restate it. A repo on a
+failure. **And the quiet answers license this gate only under §3's caveat:** a
+tracked path marked `assume-unchanged` or `skip-worktree` makes
+`diff --quiet` succeed over a working copy that differs, so where either flag
+is present that check does not clear the tree here either. **The gate reads
+before it halts:** §3's working-tree pass states what to read out of the diff,
+how a hit is classified, and when the quiet checks are evidence; this gate does
+not restate any of it. A repo on a
 secrets-scan-only arm makes no release-tree claim — on a git repo, gitleaks
 reads committed history and neither the index nor the working tree, so an
 unstaged edit is invisible to the scan and no divergence claim exists; its
