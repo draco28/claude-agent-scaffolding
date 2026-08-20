@@ -198,7 +198,15 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    A read of a checkout is evidence about the pin only where the
    checkout is established to be at the pinned commit, so an uninitialized
    submodule — or one on an arm §9's gate does not reach — is INCONCLUSIVE
-   rather than clean. Where a repo's arm reads no tracked content, no descent is
+   rather than clean. **§4 is not exempt on an uninitialized submodule
+   either**: there is no working tree to sweep and the superproject's
+   enumeration does not reach into that directory, so the sweep is
+   INCONCLUSIVE for that path — and a sweep aimed at the empty directory
+   resolves to the superproject and returns nothing while succeeding, which is
+   not evidence. The policy's non-pattern-matchable directives
+   (`fixtures-must-be:`) are asked of **each pinned tree too**, since on an arm
+   where §5 does not run they are the only check reaching non-synthetic data at
+   an unremarkable fixture path. Where a repo's arm reads no tracked content, no descent is
    owed and the block says so with the arm that justified it. Where a repo
    simply tracks **no submodule**, no descent is manufactured and **no extra
    negative statement is required** — the descent adds no coverage entry, so

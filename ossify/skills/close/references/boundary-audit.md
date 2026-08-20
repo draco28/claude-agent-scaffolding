@@ -17,9 +17,9 @@ repository object the pairing
 manifest carries, each gated on its observed visibility with per-role arms,
 and each tracked submodule's pinned tree audited by that same arm
 (§2).** What is still deliberately absent — divergence on a public ref other
-than the one audited after a recorded history pass, and a pinned submodule
-repository's own history where that repository is not itself in the manifest
-set — §9's table names rather than leaving it to read as executed. A dimension nobody wrote a rule for reporting clean is the
+than the one audited after a recorded history pass, and every superseded submodule pin
+together with a non-manifest pinned submodule repository's own history — §9's
+table names rather than leaving it to read as executed. A dimension nobody wrote a rule for reporting clean is the
 one failure shape this file exists to prevent; scope cuts get the same
 treatment.
 
@@ -274,9 +274,9 @@ that arm's blocking-or-hygiene status.** A half that degrades on the
 superproject degrades the same way on the pin. **§4 descends too on the arms
 that run it at all, but over the submodule's working tree rather than the
 pin**: an untracked set is a property
-of a checkout and not of a commit, and what §4 audits — the distance between an
-untracked sensitive file and a tracked one, on the machine this close runs
-on — a vendored checkout has exactly like any other tree. **And a submodule
+of a checkout and not of a commit, and what §4 audits is the distance between
+an untracked sensitive file and a tracked one on the machine this close runs
+on — which a vendored checkout has like any other tree. **And a submodule
 that itself pins submodules is read the same way, at every level.**
 
 **A read of a checkout is evidence about the pin only where the checkout is
@@ -285,8 +285,16 @@ whose checkout nothing establishes to be at the pin — an uninitialized one, or
 one on an arm §9's release-tree gate does not reach — leaves the checks that
 could not read its pinned tree **INCONCLUSIVE for that repo** (§7), named with
 the submodule's path and the commit pinned: a clean read over an unexamined
-tree is the same shape as a clean read over an unrun scan. §4's sweep is
-untouched by this — it never claimed the pin.
+tree is the same shape as a clean read over an unrun scan. **§4's sweep never
+claimed the pin, but it is not exempt either:** it sweeps a submodule's working
+tree where there is one, and where the submodule is **uninitialized** there is
+no working tree to sweep while the superproject's own enumeration does not
+reach into that directory — so the sweep is **INCONCLUSIVE for that path**,
+never clean. A sweep aimed at the empty directory is not evidence to the
+contrary: with no repository there it resolves to the **superproject** (§2's
+nested-parent hazard) and returns nothing while succeeding, so a sensitive file
+sitting under an uninitialized submodule is invisible to both reads and both
+report clean.
 
 The **superproject's** `PUBLIC_BOUNDARY.md` is the policy for those reads — it
 is the superproject that publishes the pin — so §3's missing-file finding does
@@ -295,8 +303,11 @@ boundary file of its own. Its `never-tracked:` patterns are matched against the
 submodule's paths **under both anchorings**, relative to the submodule root and
 relative to the superproject, with §3's rule that an arguable match **is** a
 match governing the result; a finding names the superproject-relative path. The
-block's non-pattern-matchable directives (`fixtures-must-be:`) are asked of the
-repo whose policy it is and are not re-asked of a pinned tree. Where a repo's
+block's non-pattern-matchable directives (`fixtures-must-be:`) are asked of
+**each pinned tree too**, not only of the repo whose policy it is: the
+superproject publishes that tree, and on an arm where §5 does not run they are
+the only check that reaches non-synthetic data sitting at an unremarkable
+fixture path — no pattern matches it and no scan calls it a secret. Where a repo's
 arm reads no tracked content, no descent is owed and the block says so with the
 arm that justified it.
 
@@ -1143,7 +1154,7 @@ silently does nothing is indistinguishable from a missing one
 | Dimension | Status |
 |---|---|
 | **Public refs other than the audited one, after a recorded history pass** | **not shipped.** §3's recorded review covers the repo at the commit it reviewed through, and the currency check compares one ref — the one this close audits. A document committed to an unmerged branch, a tag, or a `refs/pull/N/head` after that commit leaves the audited ref untouched and raises nothing. The per-tip comparison that would catch it was tried and cut: no fetch brings PR-ref objects down by default (an explicit refspec does, which is one more thing to get right per repo) and fork or squash-merged heads are ancestors of nothing, so the check would read INCONCLUSIVE on every repo with a pull request in it, and a gate that can never read current is not a gate. The report names the refs it did not compare; the row leaves this table when a pass persists a reviewed tip **per ref** rather than one commit |
-| **A pinned submodule repository's own history and other refs, where that repository is not itself in the manifest set** | **not shipped.** §2's descent reads the pinned *tree*. A document committed to that repository and later deleted, or living on another of its refs, is that repository's own exposure and nothing here reaches it — the history pass is owed per repo in the manifest set, and a submodule that IS in the set gets its own arm and its own row. The report names the pinned repositories whose history it did not read; the row leaves this table when the repo set can carry a repository the manifest does not name |
+| **Every superseded submodule pin, and a non-manifest pinned submodule repository's own history and other refs** | **not shipped.** §2's descent reads the tree at the pin the release publishes **now**. Two gaps follow and both are named here rather than left to read as executed. **Superseded pins:** a superproject that once pinned a commit and later advanced the pin published that older tree, and nothing reaches it — the superproject's history pass sees the gitlink values change and does not descend, and a manifest-listed submodule's own history pass runs under **that repository's** policy, which need not carry the rule the superproject forbids the path by. So a path forbidden only by the superproject, published through a pin since advanced, is covered by neither. **Non-manifest histories:** a document committed to a pinned repository the manifest does not name and later deleted, or living on another of its refs, is that repository's own exposure. Inspecting every historically published pin under the publishing superproject's policy is the read that would close the first gap; it is not shipped, and the report names the pinned repositories whose history it did not read |
 | **Everything about the project that is not a git repo** | permanent scope, not a cut: issues, wiki, releases, Pages, Actions artifacts, published packages |
 
 Each row is named by class in the report's scope line (§7), so a `clean`
