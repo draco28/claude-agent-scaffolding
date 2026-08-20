@@ -128,10 +128,11 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    inventory and **expires on one cheap comparison**: the row is outrun when the
    audited ref is not reachable from the recorded commit, and a further,
    incremental pass is owed over that range. The refs that comparison does not
-   cover — other branches, tags, `refs/pull/N/head` — are **named as scope**,
-   never enumerated and matched; a row reported as current *for the repo*
-   rather than for the ref this close audited scores low, and so does inventing
-   the per-tip enumeration the section deliberately cut. A row carrying no
+   cover — other branches, tags, `refs/pull/N/head` — are named as **§9's own
+   not-shipped dimension**, never enumerated and matched and never a scope note
+   inside a passing check; a row reported as current *for the repo* rather than
+   for the ref this close audited scores low, and so does inventing the per-tip
+   enumeration the section deliberately cut. A row carrying no
    commit is treated as absent. An absent or outrun row is a finding that
    reaches triage, never silence and never a clean read; where the repo is
    exposed but no policy input is routed to it — a moat-holder observed public
@@ -150,7 +151,8 @@ whether the skill correctly **declined** to fire it. There is no N/A.
    branch name against a commit id. Where the arm reads the index or a tracked
    policy file, a staged or unstaged tracked modification **halts** — and the
    halt names what the working-tree pass read out of the diff (rules matched,
-   the `--no-git` secrets read), not merely that the tree is dirty; on the
+   the `--no-git` secrets read over the working copy **and the staged patch**,
+   which differ), not merely that the tree is dirty; on the
    secrets-scan-only arms the gate does not reach: there a **dirty** tree's
    `--no-git` read is the pass, a **clean** one is ran-clean off the two diff
    checks and needs no scan, and either is said as such — scoring the clean

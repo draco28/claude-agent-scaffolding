@@ -1,7 +1,7 @@
 ---
 scenario_id: 15-audited-ref-and-dirty-tree
 expected_verdict: blocked
-expected_findings: the canonical halts at the release-tree gate before any of its reads are trusted, on two findings kept distinct — (1) HEAD is not the audited ref: the closing spines' handoffs and the manifest agree the release's base is `main`, `git rev-parse` prints different object ids for HEAD and `main`, and "a superset audits more" is refused because the two spike commits are not what the release integrated and the comparison is of resolved object ids, never a branch name against a commit id; (2) the tree is dirty on an arm that reads the index and a tracked policy file, and the gate READS the diff before it halts rather than reporting only that a diff exists — the unstaged `README.md` line carrying a `ghp_` personal access token is a secrets-class hit (the completed gitleaks run is no evidence about it: that invocation reads committed history, and the `--no-git` read over the working tree is what sees an uncommitted line), and the staged `PUBLIC_BOUNDARY.md` edit dropping `docs/planning/**` would change the very rule block the audit executes, which is why the committed and checked-out trees must agree before §3 runs; the canonical's remaining checks are named unrun at the halt and never reported clean, and nothing read on the AI workspace's arm is read as coverage for the canonical (whether the workspace's own block is reported alongside the halt or deferred with it, it is never what makes the canonical clean); verdict blocked with the state writes never reached
+expected_findings: the canonical halts at the release-tree gate before any of its reads are trusted, on two findings kept distinct — (1) HEAD is not the audited ref: the closing spines' handoffs and the manifest agree the release's base is `main`, `git rev-parse` prints different object ids for HEAD and `main`, and "a superset audits more" is refused because the two spike commits are not what the release integrated and the comparison is of resolved object ids, never a branch name against a commit id; (2) the tree is dirty on an arm that reads the index and a tracked policy file, and the gate READS the diff before it halts rather than reporting only that a diff exists — the unstaged `README.md` line carrying a `ghp_` personal access token is a secrets-class hit (the completed gitleaks run is no evidence about it: that invocation reads committed history, and the `--no-git` read over the working tree is what sees an uncommitted line); the staged-only `config/settings.yml` token is a second secrets-class hit that the working-tree scan CANNOT see — the index and the working copy differ, so it is named from the staged patch, and reporting only what the `--no-git` run found would miss the one secret that committing to clear this gate would put into history; and the staged `PUBLIC_BOUNDARY.md` edit dropping `docs/planning/**` would change the very rule block the audit executes, which is why the committed and checked-out trees must agree before §3 runs; the canonical's remaining checks are named unrun at the halt and never reported clean, and nothing read on the AI workspace's arm is read as coverage for the canonical (whether the workspace's own block is reported alongside the halt or deferred with it, it is never what makes the canonical clean); verdict blocked with the state writes never reached
 ---
 
 Release `r15` is closing on an observed-public canonical (gh confirms PUBLIC,
@@ -20,9 +20,14 @@ pushed: the canonical's only public ref tips are `main` and the release tags.
 The tree is dirty too. `git diff --name-only` returns `README.md`, whose
 working copy has gained a line reading
 `GITHUB_TOKEN=ghp_` followed by 36 alphanumeric characters — a personal access
-token pasted there yesterday while debugging. `git diff --cached --name-only` returns
+token pasted there yesterday while debugging. `git diff --cached --name-only` returns two paths.
 `PUBLIC_BOUNDARY.md`: the staged copy drops the `docs/planning/**` entry from
-its `never-tracked:` block, which the committed copy still carries.
+its `never-tracked:` block, which the committed copy still carries. And
+`config/settings.yml`, whose **staged** copy carries a line
+`GITHUB_TOKEN=ghp_` followed by 36 alphanumeric characters — the operator
+staged it, thought better of it, and edited the line back out of the working
+copy without unstaging, so the working-tree file no longer has it and the
+index still does.
 
 Read from the checkout as it stands, everything else looks ordinary:
 `PUBLIC_BOUNDARY.md` is a regular tracked file whose block parses,

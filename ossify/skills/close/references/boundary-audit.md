@@ -15,9 +15,9 @@ two corpus passes §3 adds to it, the secrets scan, the untracked sweep, and the
 semantic pass — over the full repo set: every
 repository object the pairing
 manifest carries, each gated on its observed visibility with per-role arms
-(§2).** One dimension the companion names is still deliberately absent —
-**submodule contents** — and §9's table names it rather than leaving it to
-read as executed. A dimension nobody wrote a rule for reporting clean is the
+(§2).** What is still deliberately absent — **submodule contents**, and
+divergence on a public ref other than the one audited after a recorded history
+pass — §9's table names rather than leaving it to read as executed. A dimension nobody wrote a rule for reporting clean is the
 one failure shape this file exists to prevent; scope cuts get the same
 treatment.
 
@@ -466,17 +466,15 @@ reachable from the recorded commit:
 is not, commits have landed since and a further pass is owed — incremental is
 enough**, the range between the two.
 
-**Then name what that comparison did not cover, because it is most of the
-repo.** The remote advertises refs this pass never walked: other branches, tags,
-and on GitHub `refs/pull/N/head` for every pull request ever opened — publicly
-fetchable, surviving the branch's deletion, and holding commits no local fetch
-brings down by default. **A row is therefore current for the ref this close
-audited and is reported that way, never as "current for the repo"**, and the
-block names the other refs as the review's business rather than a tip
-comparison's. Enumerating them mechanically was tried and cut: an unfiltered
-`ls-remote` puts every fork and squash-merged PR head in the set, none of them
-ancestors of anything, which turns an adequate review into a permanent failure
-— a gate that can never read current is not a gate.
+**That comparison covers one ref, and the rest is a scope cut with a row of its
+own.** A row is **current for the ref this close audited and is reported that
+way, never as "current for the repo"** — a document committed to another public
+branch, a tag, or a `refs/pull/N/head` *after* the recorded review leaves the
+audited ref an ancestor of the recorded commit, so this check stays quiet and
+**nothing here detects it**. That is not a scope note inside a passing check: it
+is **§9's own row**, named by class in the report's scope line like every other
+dimension this release does not ship, so a `clean` verdict never stands in for
+it.
 
 A row carrying only a release id and no commit predates this format and is
 **treated as absent**.
@@ -519,32 +517,42 @@ uncommitted tracked modifications and the pass is **ran, clean**; there is nothi
 here to narrow and nothing to manufacture. A plain non-repo root (§2) has no index
 and no tracked set, so the pass is a **named skip** like this section's other index reads.
 
-**When either fails, what happens next is the arm's:**
+**When either fails, the read is the same on every arm — three inputs, because
+no two of them see the same thing:**
+
+- the **paths**, `git -C "<root>" diff --name-only` and
+  `git -C "<root>" diff --cached --name-only`, matched against the
+  `never-tracked:` rules the way tracked paths are matched above;
+- the **working tree**, `gitleaks detect --source "<root>" --no-banner --redact
+  --no-git`, for the secrets classes — `--no-git` is what reads the tree instead
+  of the history, the same role §2 states it for on a filesystem-only root. It
+  reads the whole tree — tracked, untracked **and gitignored alike**, minus
+  whatever the tool's own config skips — which is both wider than this
+  dimension's own question and as expensive as the tree is big: say so in the
+  block rather than reporting a narrower read than the one that ran;
+- the **staged patch**, `git -C "<root>" diff --cached`, because the scan above
+  reads the working copy and the index can differ from it. A secret staged and
+  then edited back out of the working tree is in **neither** that scan nor the
+  committed history, and committing to clear this gate is exactly what would put
+  it into history. **This read is not optional on any arm** — it is the only one
+  that sees the index.
+
+**What differs by arm is what happens after the read, not what is read:**
 
 - **On every arm that reads the index or a tracked policy file**, §9's clean-tree
-  gate halts on exactly this condition — **and the gate reads before it halts.**
-  Match `git -C "<root>" diff --name-only` and
-  `git -C "<root>" diff --cached --name-only` against the `never-tracked:` rules
-  the way tracked paths are matched above, classified by the arm exactly as this
-  section's other hits are (blocking on a public arm, a hygiene note on the
-  private canonical's), and run
-  `gitleaks detect --source "<root>" --no-banner --redact --no-git` over the
-  working tree for the secrets classes — `--no-git` is what reads the tree
-  instead of the history, the same role §2 states it for on a filesystem-only
-  root. **The halt then names what is in the diff**, not merely that a diff
-  exists. A dirty tree the operator commits and re-runs is read by the rules
-  above at the new tip; a dirty tree carrying a violation is a finding the
-  operator sees at the halt instead of a lap later.
+  gate halts on exactly this condition — **and the gate reads before it halts**,
+  so the halt names what is in the diff rather than merely that a diff exists.
+  Hits are classified by the arm exactly as this section's other hits are
+  (blocking on a public arm, a hygiene note on the private canonical's). A dirty
+  tree the operator commits and re-runs is read by the rules above at the new
+  tip; a dirty tree carrying a violation is a finding the operator sees at the
+  halt instead of a lap later.
 - **On the secrets-scan-only arms** — the moat-holder roles observed private,
-  which §9's gate does not reach because they make no release-tree claim — that
-  same `--no-git` run **is** this pass, under the secrets-class carve-out §2
-  carries: the history scan cannot see an uncommitted edit, and this is the read
-  that can. It reads the whole working tree — tracked, untracked **and
-  gitignored alike**, minus whatever the tool's own config skips — which is both
-  wider than this dimension's own question and as expensive as the tree is big:
-  say so in the block rather than reporting a narrower read than the one that
-  ran. No `PUBLIC_BOUNDARY.md` is routed to those roles (§2), so the document
-  half is a named skip there, never a missing-file finding.
+  which §9's gate does not reach because they make no release-tree claim — the
+  same three reads **are** this pass, under the secrets-class carve-out §2
+  carries: the history scan cannot see an uncommitted or staged edit, and these
+  are the reads that can. No `PUBLIC_BOUNDARY.md` is routed to those roles (§2),
+  so the document half is a named skip there, never a missing-file finding.
 
 ---
 
@@ -1022,6 +1030,7 @@ silently does nothing is indistinguishable from a missing one
 
 | Dimension | Status |
 |---|---|
+| **Public refs other than the audited one, after a recorded history pass** | **not shipped.** §3's recorded review covers the repo at the commit it reviewed through, and the currency check compares one ref — the one this close audits. A document committed to an unmerged branch, a tag, or a `refs/pull/N/head` after that commit leaves the audited ref untouched and raises nothing. The per-tip comparison that would catch it was tried and cut: no fetch brings PR-ref objects down by default (an explicit refspec does, which is one more thing to get right per repo) and fork or squash-merged heads are ancestors of nothing, so the check would read INCONCLUSIVE on every repo with a pull request in it, and a gate that can never read current is not a gate. The report names the refs it did not compare; the row leaves this table when a pass persists a reviewed tip **per ref** rather than one commit |
 | **Submodule contents** | **not shipped.** `ls-files` returns one gitlink, `--others` does not descend, gitleaks does not follow. A tracked submodule is named in the report as outside this audit's coverage — never read as clean by default |
 | **Everything about the project that is not a git repo** | permanent scope, not a cut: issues, wiki, releases, Pages, Actions artifacts, published packages |
 
