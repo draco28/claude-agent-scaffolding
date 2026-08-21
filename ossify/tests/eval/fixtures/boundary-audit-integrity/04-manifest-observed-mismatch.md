@@ -33,4 +33,19 @@ names exactly two repos, canonical and the AI workspace, and the AI workspace
 is a git repo (`git_tracked: true`) with one github.com remote; `gh repo view`
 returns `{"visibility": "PRIVATE"}` for it and its manifest entry agrees. The
 AI workspace's own gitleaks run completes and reports nothing. Every tracked
-fixture in the canonical is synthetic.
+fixture in the canonical is synthetic. The closing spines' handoffs record `base_branch: main` under
+`## 2. Spine context`, the manifest's `canonical.default_branch` reads
+`main`, and `git rev-parse HEAD` and `git rev-parse main` print the same
+object id; the AI workspace is at its own branch `main`; and
+neither checkout carries staged or unstaged tracked changes, and neither repo
+carries a `.gitleaks.toml` of its own.
+
+Clone and index state, stated so nothing above infers it: every repo in the
+set that is a git repo is a full clone — `git rev-parse
+--is-shallow-repository` prints `false` and every remote branch is fetched —
+and `git ls-files -v` marks no tracked path in any of them with
+`assume-unchanged` or `skip-worktree`.
+
+Inventory, manifest and allowlist state, stated so nothing above infers it:
+the private boundary inventory carries no **Accepted disclosures** section; no
+manifest object records a `git_remote` beyond the remotes enumerated above.

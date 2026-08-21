@@ -10,9 +10,11 @@ canonical is observed PUBLIC on `gh` and the manifest agrees; state posture is
 `PUBLIC_BOUNDARY.md` is a regular tracked file whose machine-checkable block
 parses and carries every template rule plus `docs/planning/**`; `git ls-files`
 matches no rule; `gitleaks` is installed, runs to completion and reports
-nothing; every tracked fixture is synthetic. The canonical's checkout is clean —
-HEAD is the release's audited ref with no staged or unstaged tracked changes —
-and neither repo carries a `.gitleaks.toml`.
+nothing; every tracked fixture is synthetic. The closing spines' handoffs record `base_branch: main` under
+`## 2. Spine context`, the manifest's `canonical.default_branch` reads
+`main`, and `git rev-parse HEAD` and `git rev-parse main` print the same
+object id; the canonical's checkout carries no staged or
+unstaged tracked changes; and neither repo carries a `.gitleaks.toml`.
 
 The private boundary inventory (AI workspace) carries two moat rows:
 "ranking/decay intelligence — channel `private-package` — the public repo holds
@@ -52,4 +54,15 @@ another override row."
 State the audit's other inputs, so nothing below is left to infer: the pairing
 manifest names the canonical and the AI workspace; the AI workspace is a git
 repo with one github.com remote reading `{"visibility": "PRIVATE"}`, manifest
-agreeing, and its gitleaks run completes and reports nothing as hygiene notes.
+agreeing, its checkout clean at its own branch `main` with no staged or unstaged
+tracked changes of its own, and its gitleaks run completes and reports nothing
+as hygiene notes.
+
+Clone and index state, stated so nothing above infers it: every repo in the
+set that is a git repo is a full clone — `git rev-parse
+--is-shallow-repository` prints `false` and every remote branch is fetched —
+and `git ls-files -v` marks no tracked path in any of them with
+`assume-unchanged` or `skip-worktree`.
+
+Inventory, manifest and allowlist state, stated so nothing above infers it: no
+manifest object records a `git_remote` beyond the remotes enumerated above.

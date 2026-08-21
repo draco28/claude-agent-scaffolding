@@ -48,5 +48,23 @@ State the audit's other inputs, so nothing below is left to infer: the
 pairing manifest names the canonical and the AI workspace; the AI workspace is
 a git repo with one github.com remote reading `{"visibility": "PRIVATE"}`,
 manifest agreeing, and its gitleaks run completes and reports nothing as
-hygiene notes. Both checkouts are clean at their audited refs, and neither
+hygiene notes. The closing spines' handoffs record `base_branch: main` under
+`## 2. Spine context`, the manifest's `canonical.default_branch` reads
+`main`, and `git rev-parse HEAD` and `git rev-parse main` print the same
+object id; the AI workspace is at
+its own branch `main`; neither checkout carries staged or unstaged tracked changes,
+and neither
 repo carries a `.gitleaks.toml` of its own.
+
+Clone and index state, stated so nothing above infers it: neither the canonical's
+index nor the AI workspace's marks any tracked path `assume-unchanged` or
+`skip-worktree` (`git ls-files -v` marks none in either), and every tracked
+fixture in the pinned `vendor/internal-proto` tree is synthetic, as the
+canonical's own are. Every repo in the set that is
+a git repo is a full clone — `git rev-parse --is-shallow-repository` prints
+`false` and every remote branch is fetched.
+
+Inventory, manifest and allowlist state, stated so nothing above infers it:
+the private boundary inventory carries no **Accepted disclosures** section; no
+manifest object records a `git_remote` beyond the remotes enumerated above;
+the working-tree hygiene allowlist is empty.

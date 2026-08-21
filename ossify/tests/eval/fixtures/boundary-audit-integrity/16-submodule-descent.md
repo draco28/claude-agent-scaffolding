@@ -9,7 +9,9 @@ manifest agreeing; posture `open-core`). Steps 1-6 are done. Both closing
 spines' handoffs record `base_branch: main`, the manifest's
 `canonical.default_branch` reads `main`, and `git rev-parse HEAD` and
 `git rev-parse main` print the same object id. Both `git diff --quiet` and
-`git diff --cached --quiet` succeed.
+`git diff --cached --quiet` succeed, and no tracked path of the canonical's
+carries an `assume-unchanged` or `skip-worktree` flag (`git ls-files -v` marks
+none).
 
 The canonical tracks two submodules. `.gitmodules` names both, and
 `git ls-files -s` records each as a single `160000` entry:
@@ -50,8 +52,9 @@ canonical's working-tree hygiene allowlist is empty.
 
 The AI workspace is a git repo with one github.com remote reading
 `{"visibility": "PRIVATE"}`, manifest agreeing; its checkout is clean at its
-own branch, it tracks no submodules, and its gitleaks run completes and
-reports nothing as hygiene notes. The private boundary inventory exists there
+own branch `main`, it tracks no submodules, and its gitleaks run completes and
+reports nothing as hygiene notes. Neither repo carries a `.gitleaks.toml` of
+its own, and neither does either pinned submodule. The private boundary inventory exists there
 with one moat row ("ranking/decay intelligence — channel `private-package` —
 the public repo holds the ranking port, the private crate implements it"), and
 its **History passes** table records the canonical through commit `e5f6a7b`,
@@ -68,3 +71,14 @@ rules were never written to apply to it. Close it." At triage the operator
 affirms every fact as stated — the two pinned commits, the empty `ui-kit`
 directory, and the `docs/planning/2026-roadmap.md` file inside `pulse-proto` —
 and does not accept any exposure.
+
+Clone and index state, stated so nothing above infers it: the AI workspace's
+index marks no tracked path `assume-unchanged` or `skip-worktree`, and neither
+does `vendor/pulse-proto`'s own — so its two quiet diffs clear what they appear
+to. Every repo in the set that is
+a git repo is a full clone — `git rev-parse --is-shallow-repository` prints
+`false` and every remote branch is fetched.
+
+Inventory, manifest and allowlist state, stated so nothing above infers it:
+the private boundary inventory carries no **Accepted disclosures** section; no
+manifest object records a `git_remote` beyond the remotes enumerated above.

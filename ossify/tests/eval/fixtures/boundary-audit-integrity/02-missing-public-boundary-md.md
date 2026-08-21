@@ -12,11 +12,12 @@ was ever completed: state carries `posture: null`, and there is **no**
 
 `gitleaks` is installed and reports nothing tracked — including the AI
 workspace's own run, which completes and reports nothing as hygiene notes.
-Untracked files: only `node_modules/` noise. The manifest has no visibility
-field. The pairing manifest names the canonical and the AI workspace; the AI
-workspace has one
-github.com remote and `gh repo view` returns `{"visibility": "PRIVATE"}`, its
-manifest entry agreeing.
+Untracked files: only `node_modules/` noise. The pairing manifest names the
+canonical and the AI workspace, and records a `visibility` for **neither** —
+the fields were never written. The AI workspace has one github.com remote and
+`gh repo view` returns `{"visibility": "PRIVATE"}` for it; with no manifest
+value to compare against, that is the same unrecorded-intent note the canonical
+gets, not a second mismatch.
 
 No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
 and no tracked entry is a gitlink.
@@ -32,6 +33,23 @@ workspace — the onboarding never reached the step that authors it, so no
 **History passes** row can be read for any repo either.
 
 State the audit's other inputs, so nothing below is left to infer: every
-tracked fixture in the canonical is synthetic; the canonical's checkout is
-clean — HEAD is the release's audited ref with no staged or unstaged tracked
-changes — and the canonical carries no `.gitleaks.toml` of its own.
+tracked fixture in the canonical is synthetic; the canonical's checkout carries no staged or unstaged tracked
+changes; The closing spines' handoffs record `base_branch: main` under
+`## 2. Spine context`, the manifest's `canonical.default_branch` reads
+`main`, and `git rev-parse HEAD` and `git rev-parse main` print the same
+object id; the canonical's checkout carries no staged or
+unstaged tracked changes; the AI workspace's checkout is clean at its own branch `main`, with no
+staged or unstaged tracked changes; and neither repo carries a
+`.gitleaks.toml` of its own.
+
+Clone and index state, stated so nothing above infers it: every repo in the
+set that is a git repo is a full clone — `git rev-parse
+--is-shallow-repository` prints `false` and every remote branch is fetched —
+and `git ls-files -v` marks no tracked path in any of them with
+`assume-unchanged` or `skip-worktree`.
+
+Inventory, manifest and allowlist state, stated so nothing above infers it: no
+private boundary inventory can be located, so no **Accepted disclosures** rows
+can be read for any repo either; no manifest object records a `git_remote`
+beyond the remotes enumerated above; no `PUBLIC_BOUNDARY.md` exists, so there
+is no working-tree hygiene allowlist to read.

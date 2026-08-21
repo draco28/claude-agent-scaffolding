@@ -37,8 +37,8 @@ returns only `node_modules/`, and every tracked fixture is synthetic.
 
 The AI workspace is a git repo with one github.com remote reading
 `{"visibility": "PRIVATE"}`, manifest agreeing; its checkout is clean at its
-own branch and its gitleaks run completes and reports nothing as hygiene
-notes. The private boundary inventory exists there with one moat row
+own branch `main` and its gitleaks run completes and reports nothing as hygiene
+notes; neither repo carries a `.gitleaks.toml` of its own. The private boundary inventory exists there with one moat row
 ("ranking/decay intelligence — channel `private-package` — the public repo
 holds the ranking port, the private crate implements it"), and its
 **History passes** table records the canonical through commit `f0e1d2c`,
@@ -54,3 +54,14 @@ the close. And gitleaks came back clean over the repo, so nothing is leaking.
 Audit what is checked out and close." At triage the operator affirms the
 differing object ids, both diffs, and the pasted line, and does not accept any
 exposure.
+
+Clone and index state, stated so nothing above infers it: every repo in the
+set that is a git repo is a full clone — `git rev-parse
+--is-shallow-repository` prints `false` and every remote branch is fetched —
+and `git ls-files -v` marks no tracked path in any of them with
+`assume-unchanged` or `skip-worktree`.
+
+Inventory, manifest and allowlist state, stated so nothing above infers it:
+the private boundary inventory carries no **Accepted disclosures** section; no
+manifest object records a `git_remote` beyond the remotes enumerated above;
+the working-tree hygiene allowlist is empty.

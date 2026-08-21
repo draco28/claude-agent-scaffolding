@@ -24,22 +24,61 @@ fixtures + the local gate; Plan D consolidates them into THE ship gate.
 ## Fixture format
 
 `fixtures/<surface>/NN-description.md` with YAML frontmatter carrying the
-surface's `expected_*` field(s) + a body (≤800 tokens) describing the scenario
-the skill judges. Frontmatter fields are per-surface (see each rubric header).
+surface's `expected_*` field(s) + a body describing the scenario the skill
+judges. **Keep the body as short as full input declaration allows, and no
+shorter** — the rule below governs its length, not a figure written here. (A
+`≤800 tokens` cap used to stand at this spot; `boundary-audit-integrity`'s
+fixtures had already outgrown it before the rule below was written down, which
+is the drift a number mirrored into prose always takes. If a body runs long
+enough to feel wrong, the scenario is carrying too many moving parts — split it;
+do not answer by declaring less.) Frontmatter fields are per-surface (see each rubric header).
 `NN-` prefixes order glob expansion only. Each surface includes at least one
 negative-control fixture (expected: the safe/clean answer).
+
+**A fixture body must declare every input its rubric scores, and the rubric is
+the authority on which those are** — read it before authoring, and read it again
+whenever it gains a clause, because a clause added there turns something into a
+scored input across the whole surface at once. An input the body leaves unstated
+does not make the fixture lenient; it makes the criterion measure the invoke
+agent's guess, and the two defensible guesses — manufacture the
+degradation the prose owes for a check that could not read what it needed, or
+quietly assume the benign value — are indistinguishable in the score.
+Measured twice on `boundary-audit-integrity`: an undeclared AI-workspace tree
+state cost three criteria a point on one fixture (#220), and an undeclared
+audited-ref source sat silently in fourteen of twenty-two until a judge named it.
+
+**State inputs as facts about the scenario, never as a check's outcome.** "HEAD
+is the release's audited ref" is §9's gate's conclusion wearing an input's
+clothes — it hands over the answer and stops measuring the resolution. State
+what the recorded base branch says, what the manifest says, and what the two
+`rev-parse` calls print, and let the audit do the comparing.
+
+**Derive the input set from the rubric in one pass; do not discover it from
+judge notes.** Judges surface these one at a time, and patching one fixture per
+note does not converge — the rubric is finite, so read all of its criteria, list
+every input each one reads, and check the whole surface against that list at
+once. `boundary-audit-integrity` took three reactive rounds before this was done
+properly; the derived list came to twenty input classes, and the last two of
+them appeared in no judge note at all.
 
 ## Rubric format
 
 `rubrics/<surface>.md` lists that surface's criteria — the count is per-surface
-and **each rubric is its own authority** (`journey-line-floor` carries an extra
-binding constraint, `handoff-resume` needs only three, `boundary-audit-integrity`
-runs to nine); this file states no range, because a count mirrored here drifts
-from the rubric that owns it;
+and **each rubric is its own authority**; this file states no count and no
+range, because one mirrored here drifts from the rubric that owns it, and the
+parenthetical that used to stand at this spot had drifted;
 the judge scores each 1-5;
 **pass = ≥4 on every criterion**; the rubric's last line pins the JSON output
-contract. `lib/aggregate-scores.sh` reads only `.pass`/`.notes`, so it is
-surface-agnostic.
+contract — **including the `notes` contract, which is per-surface and is
+mirrored nowhere else**, so the dispatch prompt points at that line rather than
+restating it. `boundary-audit-integrity` requires a note that names the CAUSE of
+any criterion scored below 5 and states no length: a one-sentence cap stood
+there while all 22 of its results exceeded it, and a note that names a cause is
+what makes a fixture defect findable at all. The surfaces whose results do hold
+to one sentence keep it. `lib/aggregate-scores.sh` reads only `.pass`/`.notes`
+and validates neither, so it is surface-agnostic and the rubric line is the
+whole contract — deliberately, because whether a cause was named is a judgment,
+not a shape.
 
 ## Run
 
