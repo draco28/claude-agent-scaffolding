@@ -107,5 +107,7 @@ PulseHive→fully-open). Scenarios 1-9 landed as fixtures in PR F2 across
 `spike-contract-integrity` (1), `spine-class-declaration` (2, 4, 6),
 `close-gate-integrity` + `journey-line-floor` (3, 8, 9),
 `risk-gate-registration` (5), and `release-ladder-labels` (7); scenario 10
-(two independent planners agree) is a post-merge agreement run, recorded here
+(two independent planners agree) is a post-merge agreement run — two fresh
+invoke agents on one representative fixture, a judge compares their verdicts on
+spine class, ladder label, risk gate, and mandatory controls — recorded here
 as evidence when it runs, not a standing fixture.
