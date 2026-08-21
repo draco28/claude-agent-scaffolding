@@ -1,6 +1,6 @@
 # Rubric: journey-line-floor
 
-Score each 1-7. Pass = all ≥4. (A 6th criterion is included for the before/after-evidence floor and the 7th for the real-seams floor — ossify-specific constraints per the README's 6th-criterion allowance.)
+Score each 1-5 (7 criteria). Pass = all ≥4.
 
 1. **Verdict correct** — accept/reject matches `expected_verdict`.
 2. **Inspector phrasing caught** — a `user:` line phrased as inspection ("inspect", "view", "open the record") is rejected as a journey line.
