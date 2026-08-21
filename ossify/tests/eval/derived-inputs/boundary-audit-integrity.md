@@ -27,11 +27,11 @@ row here; this list is downstream of the rubric and goes stale silently.
 | I1 | observed visibility per repo (`gh repo view`, including an indeterminate read) | 1, 2, 8 |
 | I2 | manifest `visibility` field per repo — its value, or that it is unset | 1 |
 | I3 | state posture, including unset and unrecognised | 1, 4 |
-| I4 | the manifest's repository-object set, **and that it is exhaustive** | 2, 10 |
-| I5 | root shape per object — git repo vs plain non-repo, probe against the `git_tracked` hint | 2 |
+| I4 | the manifest's repository-object set, **that it is exhaustive**, and **each object's role value** (canonical, `ai_workspace`/`private_core`, unrecognized, undeterminable — the role selects the arm) | 2, 10 |
+| I5 | root shape per object — every topology the probe distinguishes, not only git-repo vs plain non-repo: nested inside a parent repo, linked worktree, bare, and unresolved, each with its own probe facts (`--show-toplevel`, `--git-common-dir`, `--is-bare-repository`) and its own finding or scope note; and the manifest `git_tracked` hint's value, which the probe decides against (a manifest `true` over a plain non-repo halts as drift; the field is a hint, the probe decides) | 2 |
 | I6 | remotes on record per repo — local enumeration **and** manifest `git_remote` — and each one's observed visibility | 2, 8 |
 | I7 | `--no-git` reads: bytes scanned, and the content of every tree the read spans (tracked, untracked, gitignored) | 2, 3, 9 |
-| I8 | `PUBLIC_BOUNDARY.md` presence and shape per repo — absent, `100644`, `120000` with its target **and the target's own shape** (mode, tracked or not, and which repo tracks it — the target decides note vs finding, not the symlink), `160000` | 3, 10 |
+| I8 | `PUBLIC_BOUNDARY.md` presence and shape per repo — absent, `100644` **or `100755`** (either executable mode is a regular tracked entry), `120000` with its target **and the target's own shape** (mode, tracked or not, and which repo tracks it — the target decides note vs finding, not the symlink), `160000` | 3, 10 |
 | I9 | rules-block parse state and contents, including non-pattern directives (`fixtures-must-be:`) | 3, 10 |
 | I10 | `gitleaks` availability and per-repo run outcome; `.gitleaks.toml` **presence and, where present, its contents** | 3 |
 | I11 | whether the untracked enumeration completed untruncated | 3 |
@@ -41,7 +41,7 @@ row here; this list is downstream of the rubric and goes stale silently.
 | I15 | the untracked file list (`git ls-files --others`, ignored files included) | 5 |
 | I16 | hygiene allowlist entries, and whether one was added in response to a finding | 5, 6 |
 | I17 | the character of each untracked hit — dependency/build tree vs generic ignored directory — and its contents | 5 |
-| I18 | **Accepted disclosures** section — present or absent, and each row's pinned fields | 6, 7 |
+| I18 | **Accepted disclosures** section — present or absent, and **every field of each row**: the release id, the finding and the surface it covers, the reason, and the date (criterion 6 treats all of them as the row; §5/criterion 7 re-read the row to resurface) | 6, 7 |
 | I19 | the operator's disposition at triage — affirming or disputing the fact, **and accepting or not accepting the exposure** | 6, 7 |
 | I20 | the pin fields of any surface an override would have to pin, in the shape that surface admits — tracked content: path + content hash + the commit read at; untracked or fileless finding: path + pattern; tool degradation: tool + failure | 6 |
 | I21 | **History passes** row per repo — present, its recorded commit, and what the review covered | 8 |
@@ -53,6 +53,7 @@ row here; this list is downstream of the rubric and goes stale silently.
 | I27 | submodules tracked per repo — `.gitmodules`, gitlink entries, **and each pinned commit id** | 10 |
 | I28 | submodule state — initialized or not, HEAD against the pin, its own two quiet diffs, its own index flags, its own untracked set, whether it pins submodules of its own | 10 |
 | I29 | the pinned submodule tree's **tracked content** where the arm's reads reach it — document-rule matches, secrets hits, semantic-pass surfaces, and the non-pattern directives asked of each pinned tree | 3, 4, 10 |
+| I30 | the superproject's **tracked-path set** the document rules execute against — `git ls-files` and the `fixtures-must-be:` non-pattern directives ask it of tracked data, so a fixture declaring the rules must also declare whether the superproject tracks a matching path or production-like fixture | 3, 10 |
 
 ## The two ways a declaration still fails
 
