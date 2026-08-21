@@ -15,8 +15,8 @@ in it as a fixture owing a result.
 rubric in one pass, do not discover it from judge notes. The rule was written after a
 partial pass and then never applied fixture-by-fixture, so the same class kept arriving a
 few instances at a time: two consecutive review rounds on PR #226 were dominated by omitted
-inputs, 4 findings then 4 again. The full pass (issue #229) found **48 instances across 10
-classes** — the four the reviewer had reached were 4 of 48. This file is what a fixture
+inputs, 4 findings then 4 again. The full pass (issue #229) found **55 instances across 10
+classes** — the four the reviewer had reached were 4 of 55. This file is what a fixture
 author checks against so that pass is not owed a third time.
 
 **Re-derive it when the rubric changes.** A criterion edited to read something new adds a
@@ -63,5 +63,5 @@ nothing") instead of the content the check reads. The criterion then cannot fail
 **Declared for one repo and read for several.** I6, I23 and I2 are per-repo inputs that read
 naturally as set-wide sentences. Four fixtures declared clone completeness for the canonical
 alone while the workspace's arm read it too; a sentence pinning the manifest `git_remote`
-set "beyond the remotes enumerated above" appeared in twelve fixtures that never enumerated
+set "beyond the remotes enumerated above" appeared in **fifteen** fixtures that never enumerated
 the canonical's remotes.
