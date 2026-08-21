@@ -57,4 +57,6 @@ allowlist can be read there.
 
 Remote and submodule state, stated so nothing above infers it: `git remote
 -v` in the canonical lists exactly one remote, `origin`, on github.com; `git
-ls-files -s -- PUBLIC_BOUNDARY.md` records the gitlink pinned at `0d4e8b1`.
+ls-files -s -- PUBLIC_BOUNDARY.md` records the gitlink pinned at `0d4e8b1`; and
+whether that pinned tree tracks submodules of its own is not established, since
+none of it is on disk and the host does not resolve.

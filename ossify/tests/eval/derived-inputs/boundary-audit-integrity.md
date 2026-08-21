@@ -7,9 +7,9 @@ An input a criterion reads but the body never states is scored against a guess.
 
 **What this is not.** It is not a second copy of the rubric and states no rule. Each row
 points at the criteria that read it; **the rubric is the authority on what those criteria
-say**, and where the two disagree the rubric wins. Kept here rather than in
-`fixtures/` because `lib/aggregate-scores.sh` walks that directory and treats every `*.md`
-in it as a fixture owing a result.
+say**, and where the two disagree the rubric wins. Kept out of
+`fixtures/<surface>/` because `lib/aggregate-scores.sh` globs `*.md` inside each surface
+directory and treats every one it finds as a fixture owing a result JSON.
 
 **Why it exists.** `README.md` already carries the rule — derive the input set from the
 rubric in one pass, do not discover it from judge notes. The rule was written after a

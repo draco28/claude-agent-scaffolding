@@ -5,7 +5,8 @@ expected_findings: five, kept distinct — PUBLIC_BOUNDARY.md absent from an obs
 ---
 Release `r1` of an adopted-forward project is closing; steps 1-6 are done.
 
-The canonical repo has `origin` on github.com, and `gh repo view` returns
+The canonical repo has `origin` on github.com — the only remote
+`git remote -v` lists — and `gh repo view` returns
 `{"visibility": "PUBLIC"}`. The project was onboarded before its posture block
 was ever completed: state carries `posture: null`, and there is **no**
 `PUBLIC_BOUNDARY.md` anywhere in the repo.

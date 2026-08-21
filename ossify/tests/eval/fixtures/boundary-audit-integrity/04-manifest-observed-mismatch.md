@@ -7,7 +7,8 @@ Release `r2` is closing. Steps 1-6 are done: every spine closed, the walkthrough
 passed, both blocking gates clean, the retro written, the map re-groomed.
 
 The project is dual-repo. The pairing manifest's canonical entry carries
-`visibility: private`. The canonical has an `origin` remote on github.com, and
+`visibility: private`. The canonical has an `origin` remote on github.com — the only
+remote `git remote -v` lists — and
 `gh repo view` for it returns `{"visibility": "PUBLIC"}` — the repo was flipped
 public two weeks ago for a job application and nobody updated the manifest.
 

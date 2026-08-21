@@ -5,7 +5,8 @@ expected_findings: none — the allowlisted `.env` is a standing warning recappe
 ---
 Release `r4` is closing; steps 1-6 are done.
 
-The canonical has `origin` on github.com, and `gh repo view` returns
+The canonical has `origin` on github.com — the only remote `git remote -v`
+lists — and `gh repo view` returns
 `{"visibility": "PUBLIC"}`. The manifest carries no visibility field. State
 posture is `open-core`.
 
