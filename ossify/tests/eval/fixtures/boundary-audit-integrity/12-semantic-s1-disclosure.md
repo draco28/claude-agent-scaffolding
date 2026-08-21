@@ -59,7 +59,7 @@ and `git ls-files -v` marks no tracked path in any of them with
 `assume-unchanged` or `skip-worktree`.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it: no
-manifest object records a `git_remote` beyond the remotes enumerated above;
+manifest object records a `git_remote` beyond the remotes this scenario enumerates;
 the working-tree hygiene allowlist is empty.
 
 Remote and surface state, stated so nothing above infers it: `git remote -v`

@@ -56,7 +56,7 @@ and `git ls-files -v` marks no tracked path in any of them with
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
 the private boundary inventory carries no **Accepted disclosures** section; no
-manifest object records a `git_remote` beyond the one named above; the
+manifest object records a `git_remote` beyond the one this scenario names; the
 working-tree hygiene allowlist is empty.
 
 Repo-set, manifest and remote state, stated so nothing above infers it: the

@@ -81,7 +81,7 @@ a git repo is a full clone — `git rev-parse --is-shallow-repository` prints
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
 the private boundary inventory carries no **Accepted disclosures** section; no
-manifest object records a `git_remote` beyond the remotes enumerated above.
+manifest object records a `git_remote` beyond the remotes this scenario enumerates.
 
 Repo-set, remote and submodule state, stated so nothing above infers it: the
 pairing manifest names the canonical and the AI workspace, and carries no

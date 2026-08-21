@@ -51,7 +51,7 @@ a git repo is a full clone — `git rev-parse --is-shallow-repository` prints
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
 the private boundary inventory carries no **Accepted disclosures** section; no
-manifest object records a `git_remote` beyond the remotes enumerated above; no
+manifest object records a `git_remote` beyond the remotes this scenario enumerates; no
 readable policy blob is committed in the canonical, so no working-tree hygiene
 allowlist can be read there.
 

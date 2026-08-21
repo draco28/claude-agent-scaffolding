@@ -63,7 +63,7 @@ tree, and does not accept any exposure.
 
 Inventory, manifest and allowlist state, stated so nothing above infers it:
 the private boundary inventory carries no **Accepted disclosures** section; no
-manifest object records a `git_remote` beyond the remotes enumerated above.
+manifest object records a `git_remote` beyond the remotes this scenario enumerates.
 
 Remote state, stated so nothing above infers it: `git remote -v` in the
 canonical lists exactly one remote, `origin`, on github.com.

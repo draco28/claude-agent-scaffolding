@@ -58,10 +58,11 @@ judge notes.** Judges surface these one at a time, and patching one fixture per
 note does not converge — the rubric is finite, so read all of its criteria, list
 every input each one reads, and check the whole surface against that list at
 once. `boundary-audit-integrity` took three reactive rounds and two review rounds
-before this was done properly, and what the derivation added was not new classes —
-judges and reviewers had already named eight of the ten. It was their **extent**: a
-class flagged on one or two fixtures by a note ran to fifteen and sixteen once the
-whole surface was checked against the rubric at once.
+before this was done properly. The derivation found ten omission-classes: judges and
+reviewers had already named eight of them, and two appeared in no note at all. But
+the larger gap was **extent** — a class a note flagged on one or two fixtures ran to
+fifteen and sixteen once the whole surface was checked against the rubric at once. A
+note names a class from the instance in front of it and cannot size it.
 
 **Where a surface has had that pass run, the result is kept** under
 `derived-inputs/<surface>.md` — check a new fixture against that list rather than

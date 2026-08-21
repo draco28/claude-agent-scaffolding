@@ -53,5 +53,5 @@ and `git ls-files -v` marks no tracked path in any of them with
 Inventory, manifest and allowlist state, stated so nothing above infers it: no
 private boundary inventory can be located, so no **Accepted disclosures** rows
 can be read for any repo either; no manifest object records a `git_remote`
-beyond the remotes enumerated above; no `PUBLIC_BOUNDARY.md` exists, so there
+beyond the remotes this scenario enumerates; no `PUBLIC_BOUNDARY.md` exists, so there
 is no working-tree hygiene allowlist to read.
