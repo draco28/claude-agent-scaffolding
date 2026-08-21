@@ -30,7 +30,8 @@ close; I'll fix the field next week." At triage the operator does not dispute
 that the repo is observably public today, and does not accept any exposure.
 
 State the audit's other inputs, so nothing below is left to infer: the manifest
-names exactly two repos, canonical and the AI workspace, and the AI workspace
+names the canonical and the AI workspace and carries no other repository
+object, and the AI workspace
 is a git repo (`git_tracked: true`) with one github.com remote; `gh repo view`
 returns `{"visibility": "PRIVATE"}` for it and its manifest entry agrees. The
 AI workspace's own gitleaks run completes and reports nothing. Every tracked
