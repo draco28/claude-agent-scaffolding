@@ -32,7 +32,7 @@ The operator's position: "there is no remote at all — nothing can have left
 this machine, ever. The visibility gate has nothing to read; skip the
 canonical's scans and close on the workspace's arm." At triage the operator
 affirms that no remote exists on record and does not dispute the file
-facts.
+facts, and does not accept any exposure.
 
 The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout. Its **History passes** table records a review of the canonical through commit `5e4d3c2`, and that commit is the canonical's current tip on every ref.
 
@@ -53,3 +53,8 @@ either with `assume-unchanged` or `skip-worktree`.
 Inventory, manifest and allowlist state, stated so nothing above infers it:
 the private boundary inventory carries no **Accepted disclosures** section; no
 manifest object records a `git_remote` beyond the one named above.
+
+Repo-set and manifest state, stated so nothing above infers it: the pairing
+manifest names the canonical and the AI workspace, and carries no other
+repository object; and the manifest's canonical entry carries no `visibility`
+field at all.

@@ -62,3 +62,8 @@ Inventory, manifest and allowlist state, stated so nothing above infers it:
 the private boundary inventory carries no **Accepted disclosures** section; no
 manifest object records a `git_remote` beyond the remotes enumerated above;
 the working-tree hygiene allowlist is empty.
+
+Repo-set and remote state, stated so nothing above infers it: the pairing
+manifest names the canonical and the AI workspace, and carries no other
+repository object; `git remote -v` in the canonical lists exactly one
+remote, `origin`, on github.com.

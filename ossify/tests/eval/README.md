@@ -57,9 +57,15 @@ what the recorded base branch says, what the manifest says, and what the two
 judge notes.** Judges surface these one at a time, and patching one fixture per
 note does not converge — the rubric is finite, so read all of its criteria, list
 every input each one reads, and check the whole surface against that list at
-once. `boundary-audit-integrity` took three reactive rounds before this was done
-properly; the derived list came to twenty input classes, and the last two of
-them appeared in no judge note at all.
+once. `boundary-audit-integrity` took three reactive rounds and two review rounds
+before this was done properly, and the classes the full pass found outnumbered the
+ones any judge or reviewer had named by an order of magnitude.
+
+**Where a surface has had that pass run, the result is kept** under
+`derived-inputs/<surface>.md` — check a new fixture against that list rather than
+re-deriving it. `boundary-audit-integrity` has one; the other surfaces do not yet,
+and for those the pass is still owed. The lists are downstream of the rubrics and go
+stale silently, so a criterion edited to read something new owes its list a row.
 
 ## Rubric format
 

@@ -25,20 +25,22 @@ and no tracked entry is a gitlink.
 The operator's position at triage: "git tracks it, both diffs are quiet, and
 the target on disk is the exact policy we intend — read the target, it IS the
 policy. The shape is an implementation detail." The operator affirms the facts
-as stated and does not dispute that the committed blob is a path.
+as stated and does not dispute that the committed blob is a path, and does not accept any exposure.
 
 The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout. Its **History passes** table records a review of the canonical through commit `b6a5948`, and that commit is the canonical's current tip on every ref.
 
-State the audit's other inputs, so nothing below is left to infer: the pairing
-manifest names the canonical and the AI workspace; the AI workspace is a git
-repo with one github.com remote reading `{"visibility": "PRIVATE"}`, manifest
-agreeing, and its gitleaks run completes and reports nothing. The closing spines' handoffs record `base_branch: main` under
-`## 2. Spine context`, the manifest's `canonical.default_branch` reads
-`main`, and `git rev-parse HEAD` and `git rev-parse main` print the same
-object id; the AI workspace is at its own
-branch `main`; neither checkout carries staged or unstaged tracked changes, and neither repo's index carries an `assume-unchanged` or
-`skip-worktree` path (`git ls-files -v` marks none). Neither repo carries a
-`.gitleaks.toml` of its own.
+State the audit's other inputs, so nothing below is left to infer: the
+pairing manifest names the canonical and the AI workspace, and carries no
+other repository object; the AI workspace is a git repo with one github.com
+remote reading `{"visibility": "PRIVATE"}`, manifest agreeing, and its
+gitleaks run completes and reports nothing. The closing spines' handoffs
+record `base_branch: main` under `## 2. Spine context`, the manifest's
+`canonical.default_branch` reads `main`, and `git rev-parse HEAD` and `git
+rev-parse main` print the same object id; the AI workspace is at its own
+branch `main`; neither checkout carries staged or unstaged tracked changes,
+and neither repo's index carries an `assume-unchanged` or `skip-worktree`
+path (`git ls-files -v` marks none). Neither repo carries a `.gitleaks.toml`
+of its own.
 
 Clone state, stated so nothing above infers it: every repo in the set that is
 a git repo is a full clone — `git rev-parse --is-shallow-repository` prints
@@ -48,3 +50,6 @@ Inventory, manifest and allowlist state, stated so nothing above infers it:
 the private boundary inventory carries no **Accepted disclosures** section; no
 manifest object records a `git_remote` beyond the remotes enumerated above;
 the working-tree hygiene allowlist is empty.
+
+Remote state, stated so nothing above infers it: `git remote -v` in the
+canonical lists exactly one remote, `origin`, on github.com.

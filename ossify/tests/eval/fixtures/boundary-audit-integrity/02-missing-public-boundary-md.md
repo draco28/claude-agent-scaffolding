@@ -13,11 +13,12 @@ was ever completed: state carries `posture: null`, and there is **no**
 `gitleaks` is installed and reports nothing tracked — including the AI
 workspace's own run, which completes and reports nothing as hygiene notes.
 Untracked files: only `node_modules/` noise. The pairing manifest names the
-canonical and the AI workspace, and records a `visibility` for **neither** —
-the fields were never written. The AI workspace has one github.com remote and
-`gh repo view` returns `{"visibility": "PRIVATE"}` for it; with no manifest
-value to compare against, that is the same unrecorded-intent note the canonical
-gets, not a second mismatch.
+canonical and the AI workspace, carries no other repository object, and
+records a `visibility` for **neither** — the fields were never written. The
+AI workspace has one github.com remote and `gh repo view` returns
+`{"visibility": "PRIVATE"}` for it; with no manifest value to compare
+against, that is the same unrecorded-intent note the canonical gets, not a
+second mismatch.
 
 No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
 and no tracked entry is a gitlink.
@@ -26,7 +27,7 @@ The operator's position: "there are no rules to execute, so the tracked-rules
 step has nothing to do — mark it not-applicable and move on. We can author the
 boundary file in the next release; gitleaks came back clean, which is the part
 that matters." At triage the operator affirms that the file is indeed missing
-and declines to author it mid-close.
+and declines to author it mid-close, and does not accept any exposure.
 
 The private boundary inventory cannot be located anywhere in the AI
 workspace — the onboarding never reached the step that authors it, so no

@@ -65,3 +65,11 @@ bytes match the committed blob and that it holds no sensitive content.
 Inventory, manifest and allowlist state, stated so nothing above infers it:
 the private boundary inventory carries no **Accepted disclosures** section; no
 manifest object records a `git_remote` beyond the remotes enumerated above.
+
+Remote, clone and scan-scope state, stated so nothing above infers it: `git
+remote -v` in the canonical lists exactly one remote, `origin`, on
+github.com; the AI workspace is a full clone too — `git rev-parse --is-
+shallow-repository` prints `false` in it and every remote branch of its is
+fetched; the `--no-git` read over the working tree spans every path in it —
+tracked, untracked and gitignored, `node_modules/` included — and no file
+under `node_modules/` carries a credential, a key or a token.

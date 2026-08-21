@@ -82,3 +82,11 @@ a git repo is a full clone — `git rev-parse --is-shallow-repository` prints
 Inventory, manifest and allowlist state, stated so nothing above infers it:
 the private boundary inventory carries no **Accepted disclosures** section; no
 manifest object records a `git_remote` beyond the remotes enumerated above.
+
+Repo-set, remote and submodule state, stated so nothing above infers it: the
+pairing manifest names the canonical and the AI workspace, and carries no
+other repository object; `git remote -v` in the canonical lists exactly one
+remote, `origin`, on github.com; `vendor/pulse-proto` tracks no submodule of
+its own — its `.gitmodules` is absent and no tracked entry of its is a
+gitlink; whether `vendor/ui-kit`'s pinned tree tracks one is not
+established, since none of that tree is on disk.

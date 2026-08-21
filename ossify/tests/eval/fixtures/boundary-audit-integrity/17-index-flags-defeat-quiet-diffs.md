@@ -69,3 +69,9 @@ a git repo is a full clone — `git rev-parse --is-shallow-repository` prints
 Inventory, manifest and allowlist state, stated so nothing above infers it:
 the private boundary inventory carries no **Accepted disclosures** section; no
 manifest object records a `git_remote` beyond the remotes enumerated above.
+
+Remote and scan-scope state, stated so nothing above infers it: `git remote
+-v` in the canonical lists exactly one remote, `origin`, on github.com; the
+`--no-git` read over the working tree spans every path in it — tracked,
+untracked and gitignored, `node_modules/` included — and no file under
+`node_modules/` carries a credential, a key or a token.

@@ -66,3 +66,8 @@ is in the history, and does not accept any exposure.
 Inventory, manifest and allowlist state, stated so nothing above infers it:
 the private boundary inventory carries no **Accepted disclosures** section; no
 manifest object records a `git_remote` beyond the remotes enumerated above.
+
+Remote and clone state, stated so nothing above infers it: `git remote -v`
+in the canonical lists exactly one remote, `origin`, on github.com; the AI
+workspace is a full clone too — `git rev-parse --is-shallow-repository`
+prints `false` in it and every remote branch of its is fetched.

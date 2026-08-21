@@ -24,11 +24,12 @@ matching the hygiene allowlist's `.env*` entry) and the files under
 `node_modules/` — a recognizable dependency tree, which §4's bound collapses
 to one entry read by name.
 
-The pairing manifest names the canonical and the AI workspace; the AI
-workspace is a git repo with one github.com remote reading
-`{"visibility": "PRIVATE"}`, and its own gitleaks run completes and reports
-nothing — its block records the secrets scan as hygiene notes with the sweep, the
-semantic pass and the disposition as named skips.
+The pairing manifest names the canonical and the AI workspace, and carries
+no other repository object; the AI workspace is a git repo with one
+github.com remote reading `{"visibility": "PRIVATE"}`, and its own gitleaks
+run completes and reports nothing — its block records the secrets scan as
+hygiene notes with the sweep, the semantic pass and the disposition as named
+skips.
 
 The private boundary inventory exists in the AI workspace with one moat row ("ranking/decay intelligence — channel `private-package` — the public repo holds the ranking port, the private crate implements it"); the canonical's tracked doc set, swept against it per the semantic pass, names nothing — clean throughout. Its **History passes** table records a review of the canonical through commit `c7d8e9f`, and that commit is the canonical's current tip on every ref.
 
