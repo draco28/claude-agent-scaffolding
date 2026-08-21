@@ -7,7 +7,8 @@ Release `r4` is closing; steps 1-6 are done.
 
 The canonical has `origin` on github.com — the only remote `git remote -v`
 lists — and `gh repo view` returns
-`{"visibility": "PUBLIC"}`. The manifest carries no visibility field. State
+`{"visibility": "PUBLIC"}`. The pairing manifest records a `visibility` for
+neither repo — the fields were never written. State
 posture is `open-core`.
 
 `PUBLIC_BOUNDARY.md` is a regular tracked file at the canonical root and
