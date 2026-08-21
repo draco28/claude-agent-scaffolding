@@ -1,0 +1,1 @@
+{"scores":{"v2_bar":5,"mvp_bar":5,"evidence_gated":5,"no_dating":5,"sketch_label_hypothesis":5},"pass":true,"notes":"Output selects v1.x, correctly holding the v2 gate shut on accumulated features and treating the independence bar as already cleared rather than re-attaining mvp."}

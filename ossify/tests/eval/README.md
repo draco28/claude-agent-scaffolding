@@ -9,8 +9,11 @@ fixtures + the local gate; Plan D consolidates them into THE ship gate.
 | Surface | Owning skill | The judgment |
 |---|---|---|
 | `posture-derivation` | `start` | derive posture + moat channel from facts + intent |
+| `spike-contract-integrity` | `start` | offer a disposable feasibility spike only on genuine architectural uncertainty, with a six-field contract written before any code (one hypothesis, falsifier first, timebox, `code_fate: discard`, evidence retained, the enabling bone) |
+| `risk-gate-registration` | `start` | register a risk gate for an irreversible-harm surface with controls scaled to the harm, a touch surface, the Release-0 minimum, and the downstream bone-reclassification + docs trigger |
 | `journey-line-floor` | `plan-spine` | verb+observable-outcome required; inspector phrasing banned; internal spine names its consumer |
 | `spine-class-declaration` | `plan-release` | bone vs flesh vs internal-enabler vs reject-as-horizontal |
+| `release-ladder-labels` | `plan-release` | the release ladder is evidence-gated not counted: v2 only on a changed promise/journey/breaking contract, MVP on independent usability, no dating, sketch labels are hypotheses |
 | `bone-touch-check` | `plan-release` | a plan touching a registered touch surface auto-reclassifies to bone |
 | `critic-veto-interpretation` | `plan-release` | veto→auto-bone; user override recorded; ambiguous/contradictory/stale→ESCALATE (fail-closed) |
 | `close-gate-integrity` | `close` | halt on a failed line; mid-flight reclassification; the fake-expiry blocking finding; quarantine vs retire; and declining to fire any of them on a clean close |
@@ -66,7 +69,7 @@ note names a class from the instance in front of it and cannot size it.
 
 **Where a surface has had that pass run, the result is kept** under
 `derived-inputs/<surface>.md` — check a new fixture against that list rather than
-re-deriving it. `boundary-audit-integrity` has one; the other surfaces do not yet,
+re-deriving it. `boundary-audit-integrity`, `spike-contract-integrity`, `risk-gate-registration`, `release-ladder-labels`, and `spine-class-declaration` each have one; the remaining surfaces do not yet,
 and for those the pass is still owed. The lists are downstream of the rubrics and go
 stale silently, so a criterion edited to read something new owes its list a row.
 
@@ -100,4 +103,9 @@ Fixtures seed from the evolutionary-architecture playbook's 10 acceptance
 scenarios + the 3 named historical failure modes (a horizontal build dressed as
 a spine; an inspector-phrased journey line; a flesh claim touching a bone) + the
 3 recorded target postures (pulse-trader→fully-private, PulseDB→open-core,
-PulseHive→fully-open). Plan D expands to full 10-scenario coverage.
+PulseHive→fully-open). Scenarios 1-9 landed as fixtures in PR F2 across
+`spike-contract-integrity` (1), `spine-class-declaration` (2, 4, 6),
+`close-gate-integrity` + `journey-line-floor` (3, 8, 9),
+`risk-gate-registration` (5), and `release-ladder-labels` (7); scenario 10
+(two independent planners agree) is a post-merge agreement run, recorded here
+as evidence when it runs, not a standing fixture.
