@@ -69,6 +69,6 @@ manifest object records a `git_remote` beyond the remotes enumerated above.
 Manifest, remote and clone state, stated so nothing above infers it: the
 manifest's canonical entry records `visibility: public`, agreeing with the
 observed read; `git remote -v` in the canonical lists exactly one remote,
-`origin`, on github.com; the AI workspace is a full clone too — `git rev-
-parse --is-shallow-repository` prints `false` in it and every remote branch
-of its is fetched.
+`origin`, on github.com; the AI workspace is a full clone too — `git
+rev-parse --is-shallow-repository` prints `false` in it and every remote
+branch of its is fetched.

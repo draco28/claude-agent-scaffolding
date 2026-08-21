@@ -69,7 +69,7 @@ manifest object records a `git_remote` beyond the remotes enumerated above.
 
 Remote, clone and doc-set state, stated so nothing above infers it: `git
 remote -v` in the canonical lists exactly one remote, `origin`, on
-github.com; the AI workspace is a full clone too — `git rev-parse --is-
-shallow-repository` prints `false` in it and every remote branch of its is
-fetched; no tracked file in the canonical other than `README.md` names or
+github.com; the AI workspace is a full clone too — `git rev-parse
+--is-shallow-repository` prints `false` in it and every remote branch of its
+is fetched; no tracked file in the canonical other than `README.md` names or
 describes either moat item.
