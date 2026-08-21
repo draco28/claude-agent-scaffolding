@@ -17,7 +17,8 @@ posture block, and nothing has set one since.
 `never-tracked:` block parses and carries every rule the template ships plus
 `**/SPEC.md, docs/planning/**` — the team authored it by hand last year.
 `git ls-files` matches no rule. `git ls-files --others` (ignored files
-included) returns only `node_modules/`. Every tracked fixture is synthetic,
+included) completes untruncated and returns only `node_modules/`. Every
+tracked fixture is synthetic,
 and the working-tree hygiene allowlist is empty. The canonical's checkout
 carries no staged or unstaged tracked changes, and no tracked path of its
 carries an `assume-unchanged` or `skip-worktree` flag (`git ls-files -v`

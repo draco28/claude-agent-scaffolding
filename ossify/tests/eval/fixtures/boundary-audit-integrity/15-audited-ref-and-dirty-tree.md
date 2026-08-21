@@ -33,7 +33,8 @@ Read from the checkout as it stands, everything else looks ordinary:
 `PUBLIC_BOUNDARY.md` is a regular tracked file whose block parses,
 `git ls-files` matches no `never-tracked:` pattern, `gitleaks` runs to
 completion over the repository and reports nothing, `git ls-files --others`
-returns only `node_modules/`, and every tracked fixture is synthetic.
+completes untruncated and returns only `node_modules/`, and every tracked
+fixture is synthetic.
 
 The AI workspace is a git repo with one github.com remote reading
 `{"visibility": "PRIVATE"}`, manifest agreeing; its checkout is clean at its

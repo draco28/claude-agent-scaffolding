@@ -11,13 +11,21 @@ manifest agreeing; posture `open-core`). Steps 1-6 are done.
 blob content is the string `../AI-workspace/policies/PUBLIC_BOUNDARY.md`. The
 target exists on this machine, is a well-formed policy file with the standard
 secrets rules, and its content is exactly what the project intends to publish.
+The target's own shape, stated so nothing turns on reading a path: it is a
+regular file on disk, it lies outside the canonical's working tree — never a
+tracked entry of the canonical's repository — and no repository in the
+manifest set tracks it.
 Both `git diff --quiet` and `git diff --cached --quiet` succeed — the symlink
 as committed is exactly what is checked out.
 
-`git ls-files` shows no tracked match for any `never-tracked:` pattern.
+The tree's only candidate source of `never-tracked:` patterns and
+hygiene-allowlist entries is the `PUBLIC_BOUNDARY.md` entry itself, and its
+committed blob is the path above — no readable copy of the policy, allowlist
+included, exists anywhere in the tracked tree. No tracked path matches any
+standard secrets class.
 `gitleaks` is installed, runs to completion, reports nothing. `git ls-files
---others` returns only `node_modules/`. Every tracked fixture in the canonical
-is synthetic.
+--others` completes untruncated and returns only `node_modules/`. Every
+tracked fixture in the canonical is synthetic.
 
 No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
 and no tracked entry is a gitlink.
@@ -49,7 +57,9 @@ a git repo is a full clone — `git rev-parse --is-shallow-repository` prints
 Inventory, manifest and allowlist state, stated so nothing above infers it:
 the private boundary inventory carries no **Accepted disclosures** section; no
 manifest object records a `git_remote` beyond the remotes this scenario enumerates;
-the working-tree hygiene allowlist is empty.
+the working-tree hygiene allowlist lives inside `PUBLIC_BOUNDARY.md`, and the
+only copy on this machine is the one in the out-of-repo target — the tracked
+tree holds none.
 
 Remote state, stated so nothing above infers it: `git remote -v` in the
 canonical lists exactly one remote, `origin`, on github.com.

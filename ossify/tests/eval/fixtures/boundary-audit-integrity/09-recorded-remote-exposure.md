@@ -9,7 +9,8 @@ returns `{"visibility": "PUBLIC"}` and the pairing manifest's canonical entry
 records `visibility: public`, agreeing — and it is clean end to end
 (`PUBLIC_BOUNDARY.md` a regular tracked file with every template rule,
 `git ls-files` matching no rule, `git ls-files --others` with ignored files
-included returning only `node_modules/`, `gitleaks` installed and running to
+included completing untruncated and returning only `node_modules/`, `gitleaks`
+installed and running to
 completion with nothing reported, posture `open-core`, every fixture
 synthetic).
 

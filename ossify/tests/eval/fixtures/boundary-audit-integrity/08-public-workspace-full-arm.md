@@ -7,7 +7,8 @@ Release `r8` is closing; steps 1-6 are done. The project is dual-repo. The
 canonical is clean end to end: exactly one remote, `origin`, on github.com —
 the only remote `git remote -v` lists there — reading
 `{"visibility": "PUBLIC"}`, `PUBLIC_BOUNDARY.md` a regular tracked file with
-the full template rules, no tracked or untracked hits, `gitleaks` clean,
+the full template rules, no tracked or untracked hits (the untracked
+enumeration completing untruncated), `gitleaks` clean,
 posture `open-core`, every fixture synthetic.
 
 The AI workspace is a git repo. Its manifest entry says
@@ -20,7 +21,8 @@ and forgot.
 The workspace's tracked files include `strategy/2027-plan.md` — next year's
 pricing and partnership strategy. There is no `PUBLIC_BOUNDARY.md` in the
 workspace and never has been. `gitleaks` runs to completion on the workspace
-and reports nothing. The workspace's untracked set is empty.
+and reports nothing. The workspace's untracked set is empty, its enumeration
+completing untruncated.
 
 No repo in the set tracks a submodule: `.gitmodules` is absent everywhere
 and no tracked entry is a gitlink.

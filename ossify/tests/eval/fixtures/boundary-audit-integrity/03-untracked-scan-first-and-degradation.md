@@ -13,8 +13,8 @@ allowlist has exactly two entries: `SPEC.md` (untracked, gitignored) and
 `.env*` (untracked).
 
 `git ls-files` shows no tracked rule match. `git ls-files --others` (ignored
-files included) returns three paths: `SPEC.md`, `.env.local`, and
-`NOTES-STRATEGY.md` — the last is a scratch file the operator wrote yesterday
+files included) completes untruncated and returns three paths: `SPEC.md`,
+`.env.local`, and `NOTES-STRATEGY.md` — the last is a scratch file the operator wrote yesterday
 sketching the next two quarters of competitive positioning. It is gitignored
 via a catch-all `NOTES-*` pattern and appears in no allowlist.
 

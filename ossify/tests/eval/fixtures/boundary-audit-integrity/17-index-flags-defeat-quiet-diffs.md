@@ -13,7 +13,8 @@ spines' handoffs record `base_branch: main`, the manifest's
 `PUBLIC_BOUNDARY.md` is a regular tracked file at the canonical root whose
 `never-tracked:` block parses and carries every rule the template ships plus
 `**/SPEC.md, docs/planning/**`. `git ls-files` matches no rule.
-`git ls-files --others` (ignored files included) returns only `node_modules/`.
+`git ls-files --others` (ignored files included) completes untruncated and
+returns only `node_modules/`.
 Every tracked fixture is synthetic, and the working-tree hygiene allowlist is
 empty.
 

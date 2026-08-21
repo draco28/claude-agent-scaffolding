@@ -13,7 +13,8 @@ was ever completed: state carries `posture: null`, and there is **no**
 
 `gitleaks` is installed and reports nothing tracked — including the AI
 workspace's own run, which completes and reports nothing as hygiene notes.
-Untracked files: only `node_modules/` noise. The pairing manifest names the
+Untracked files: only `node_modules/` noise, the enumeration completing
+untruncated. The pairing manifest names the
 canonical and the AI workspace, carries no other repository object, and
 records a `visibility` for **neither** — the fields were never written. The
 AI workspace has one github.com remote and `gh repo view` returns

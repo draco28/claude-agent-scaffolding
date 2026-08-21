@@ -37,7 +37,8 @@ falls back to when a user has fewer than five interactions — which signals it
 substitutes and in what order. `README.md`'s current content hash is `e5f6a7b`.
 
 The untracked enumeration (`git ls-files --others`, no `--exclude-standard`)
-returns two paths: `.env`, which matches the hygiene allowlist entry `.env*`,
+completes untruncated and returns two paths: `.env`, which matches the hygiene
+allowlist entry `.env*`,
 and `docs/internal/pricing-teardown.md`, which matches no `never-tracked:` rule
 and no standard secrets class. Its name and content are a competitive teardown
 of the pricing model the second moat row names.

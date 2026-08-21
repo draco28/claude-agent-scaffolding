@@ -21,8 +21,8 @@ what is checked out.
 observation about the tree, which cannot itself be an outcome of the
 tracked-rules check: no policy blob is committed anywhere to read rules from.
 `gitleaks` is installed, runs to completion, reports nothing. `git ls-files
---others` returns only `node_modules/`. Every tracked fixture in the canonical
-is synthetic.
+--others` completes untruncated and returns only `node_modules/`. Every
+tracked fixture in the canonical is synthetic.
 
 The operator's position at triage: "the submodule pointer is legacy — the
 policy text lives in the old private submodule, which is exactly where it

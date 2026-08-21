@@ -11,7 +11,8 @@ manifest agreeing; posture `open-core`). Steps 1-6 are done.
 parses and carries every template rule plus `**/SPEC.md, docs/planning/**`.
 `git ls-files` matches no rule. `gitleaks` is installed, runs to completion
 over the canonical and reports nothing. `git ls-files --others` (ignored files
-included) returns only `node_modules/`. Every tracked fixture is synthetic.
+included) completes untruncated and returns only `node_modules/`. Every tracked
+fixture is synthetic.
 The closing spines' handoffs record `base_branch: main` under
 `## 2. Spine context`, the manifest's `canonical.default_branch` reads
 `main`, and `git rev-parse HEAD` and `git rev-parse main` print the same

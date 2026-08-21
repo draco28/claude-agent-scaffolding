@@ -15,7 +15,8 @@ public two weeks ago for a job application and nobody updated the manifest.
 `PUBLIC_BOUNDARY.md` exists at the canonical root as a regular tracked file
 with the standard secrets rules and an empty hygiene allowlist. `git ls-files`
 shows no tracked match for any `never-tracked:` pattern. There are no untracked
-files. `gitleaks` is installed and reports nothing. The posture in state is
+files, and the enumeration that established this completed untruncated.
+`gitleaks` is installed and reports nothing. The posture in state is
 `fully-private`; the private boundary inventory exists in the AI workspace and
 lists no moat items (explicitly empty); its **History passes** table records a
 review of the canonical through commit `4b1c2d3`, and that commit is the

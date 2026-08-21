@@ -15,8 +15,8 @@ regular tracked file whose rules block parses with every template rule, no
 tracked match, `gitleaks` runs to completion and reports nothing, every
 tracked fixture is synthetic, and state posture is `open-core`.
 
-`git ls-files --others` (ignored files included) returns two paths:
-`.env.local` (matching the hygiene allowlist's `.env*` entry) and
+`git ls-files --others` (ignored files included) completes untruncated and
+returns two paths: `.env.local` (matching the hygiene allowlist's `.env*` entry) and
 `NOTES-STRATEGY.md` — a scratch file sketching the next two quarters of
 competitive positioning, gitignored via a catch-all `NOTES-*` pattern, in no
 allowlist.

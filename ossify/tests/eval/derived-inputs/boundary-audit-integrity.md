@@ -31,9 +31,9 @@ row here; this list is downstream of the rubric and goes stale silently.
 | I5 | root shape per object — git repo vs plain non-repo, probe against the `git_tracked` hint | 2 |
 | I6 | remotes on record per repo — local enumeration **and** manifest `git_remote` — and each one's observed visibility | 2, 8 |
 | I7 | `--no-git` reads: bytes scanned, and the content of every tree the read spans (tracked, untracked, gitignored) | 2, 3, 9 |
-| I8 | `PUBLIC_BOUNDARY.md` presence and shape per repo — absent, `100644`, `120000` with its target, `160000` | 3, 10 |
+| I8 | `PUBLIC_BOUNDARY.md` presence and shape per repo — absent, `100644`, `120000` with its target **and the target's own shape** (mode, tracked or not, and which repo tracks it — the target decides note vs finding, not the symlink), `160000` | 3, 10 |
 | I9 | rules-block parse state and contents, including non-pattern directives (`fixtures-must-be:`) | 3, 10 |
-| I10 | `gitleaks` availability and per-repo run outcome; `.gitleaks.toml` presence | 3 |
+| I10 | `gitleaks` availability and per-repo run outcome; `.gitleaks.toml` **presence and, where present, its contents** | 3 |
 | I11 | whether the untracked enumeration completed untruncated | 3 |
 | I12 | whether the semantic sweep had to be narrowed to fit | 3 |
 | I13 | private boundary inventory — locatable; its moat rows; empty, explicitly empty, or non-empty | 4 |
@@ -43,7 +43,7 @@ row here; this list is downstream of the rubric and goes stale silently.
 | I17 | the character of each untracked hit — dependency/build tree vs generic ignored directory — and its contents | 5 |
 | I18 | **Accepted disclosures** section — present or absent, and each row's pinned fields | 6, 7 |
 | I19 | the operator's disposition at triage — affirming or disputing the fact, **and accepting or not accepting the exposure** | 6, 7 |
-| I20 | content hash and audited commit of any surface an override would have to pin | 6 |
+| I20 | the pin fields of any surface an override would have to pin, in the shape that surface admits — tracked content: path + content hash + the commit read at; untracked or fileless finding: path + pattern; tool degradation: tool + failure | 6 |
 | I21 | **History passes** row per repo — present, its recorded commit, and what the review covered | 8 |
 | I22 | reachability of the audited ref from that recorded commit | 8 |
 | I23 | clone completeness **per repo**, not once for the set | 8, 3 |
@@ -52,6 +52,7 @@ row here; this list is downstream of the rubric and goes stale silently.
 | I26 | `git ls-files -v` index flags per repo | 9, 10 |
 | I27 | submodules tracked per repo — `.gitmodules`, gitlink entries, **and each pinned commit id** | 10 |
 | I28 | submodule state — initialized or not, HEAD against the pin, its own two quiet diffs, its own index flags, its own untracked set, whether it pins submodules of its own | 10 |
+| I29 | the pinned submodule tree's **tracked content** where the arm's reads reach it — document-rule matches, secrets hits, semantic-pass surfaces, and the non-pattern directives asked of each pinned tree | 3, 4, 10 |
 
 ## The two ways a declaration still fails
 

@@ -9,7 +9,8 @@ canonical is observed PUBLIC on gh, the manifest agreeing; state posture is
 
 `PUBLIC_BOUNDARY.md` is a regular tracked file whose rules block parses with
 every template rule; `git ls-files` matches no rule; `gitleaks` runs to
-completion and reports nothing; the untracked set is empty; every tracked
+completion and reports nothing; the untracked set is empty, its enumeration
+completing untruncated; every tracked
 fixture is synthetic.
 
 The private boundary inventory exists in the AI workspace with two moat
