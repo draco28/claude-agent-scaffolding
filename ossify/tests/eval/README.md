@@ -265,13 +265,20 @@ its own fixtures (#242, #247), now in a scenario written to avoid it:
   therefore only return a conditional ("if no active line carries the prefix"),
   so that part of the controls comparison is conditional rather than derived.
 
-**#250 and #251 are not withdrawn, and here is why each survives.** #250 no
-longer rests on this run at all: its strongest evidence is that `risk-gates.md`
-§3's own `user-data-deletion` worked example sits below §2's destructive floor,
-which is a contradiction inside the file regardless of any scenario. #251's
-governing observation — that only rung 1 carries an explicit halt — is likewise
-read off the prose, not off the run. What the under-declaration costs is the
-*run's* weight as corroboration, and both issues now say so. Filed as **#254**.
+**Run-1 reasoning, retained as history — both issues are now CLOSED.** #250 and
+#251 were fixed by PR #256 and the premises quoted below no longer describe the
+shipped prose: the destructive worked example now carries every attached control,
+and `class-declaration.md` now states that every rung still runs. The paragraph
+is kept because it records why each issue was held valid *at the time*, which is
+what makes the run-2 result checkable rather than merely asserted.
+
+> **#250 and #251 are not withdrawn, and here is why each survives.** #250 no
+> longer rests on this run at all: its strongest evidence is that `risk-gates.md`
+> §3's own `user-data-deletion` worked example sits below §2's destructive floor,
+> which is a contradiction inside the file regardless of any scenario. #251's
+> governing observation — that only rung 1 carries an explicit halt — is likewise
+> read off the prose, not off the run. What the under-declaration costs is the
+> *run's* weight as corroboration, and both issues now say so. Filed as **#254**.
 
 **This is two runs on one scenario.** Run 1 diverged on `mandatory controls`
 and on whether rung 3 still runs after rung 2 hits; both were filed as prose

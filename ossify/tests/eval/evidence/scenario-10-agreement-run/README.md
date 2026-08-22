@@ -5,10 +5,22 @@ Playbook §13.10 is the one acceptance scenario that is a **run**, not a fixture
 tier, and mandatory controls from the same evidence.* This directory is that
 run's persisted record.
 
-**Two runs share this directory.** The scenario and both prompts are the run's
-*input* and are byte-identical across runs; only the verdicts and the judge
-output differ, so they carry a `-run2` suffix. Run 2 was executed against the
-prose as fixed by PR #256, which closed the two ambiguities run 1 exposed.
+**Two runs share this directory.** The stored `scenario.md`, `planner-prompt.md`
+and `judge-prompt.md` are byte-identical across runs; run 2's outputs carry a
+`-run2` suffix.
+
+**The prompts are not the whole input, and the rest of it changed on purpose.**
+Each planner is told to read `ossify/skills/` in the checkout, so the skills tree
+is an input too — and run 2 read a *different* tree, which is the entire point of
+running it. Pin it when reading these files:
+
+| Run | Skills tree read |
+|---|---|
+| 1 | the checkout recorded by `cdaef4f` — pre-#256. The exact ref was **not pinned at the time**; this row is reconstructed from the commit that stored the run. |
+| 2 | `3972658` (main, the #256 merge) — pinned because the run was executed from it. |
+
+Record the ref for any future run. Run 1's is the gap this table exists to stop
+repeating.
 
 It is deliberately **not** under `fixtures/`. `lib/aggregate-scores.sh` walks
 `fixtures/*/` and fails on any fixture without a result JSON; an agreement run
@@ -71,12 +83,25 @@ Run 1's first secondary is also closed: both planners ran rung 3 after the rung-
 hit and both derived the new-bone ADR obligation, where run 1's planner A had
 stopped the ladder at rung 2.
 
-**Run 1's second secondary recurred unchanged.** Both runs split on whether the
-§7c critic pass is already discharged when the scenario simply does not mention
-it — run 1 read it as a placement ambiguity, run 2 as missing vocabulary for
-"the pass has not been run yet". Two independent sightings of one prose gap,
-which is why it is now filed rather than left as a note. It moves none of the
-five judgments in either run.
+**Run 1's second secondary reappeared — but run 2 is the first actual split.**
+Run 1 was *not* a disagreement: its judge records planner A as **silent**, not as
+holding a contrary position, and this file's run-1 section says so explicitly
+("Do not read the array's length as a divergence count"). Only in run 2 did two
+planners state opposing readings — A treating an unmentioned critic pass as a
+clean review discharged by the `none` row, B treating it as still owed.
+
+**So this is one observed split, not two sightings**, and #260 was filed on the
+overstated count before this was caught. The count is corrected there.
+
+**Its cause is contested, and the record should not pretend otherwise.** The run-2
+judge classified it a prose ambiguity, quoting `critic-veto.md` §3's definition of
+`none` over a review that returned findings. But `plan-release/SKILL.md` §7 step 1
+*does* define the unknown-critic path — probe with `oss critic_detect`, and on
+`absent` "warn once and continue with the §7a/§7b judgments only" — which the
+judge never quoted. On that reading the divergence traces to the scenario never
+declaring whether a critic is installed or ran, which is **#254's species, not a
+prose gap**. What survives either way is a narrower question: does `none` cover a
+pass that was never run? It moves none of the five judgments in either run.
 
 **What run 2 does not establish.** It is one more run on the *same* scenario, so
 the series is n=2, not a measured property of the prose across scenarios. #254
