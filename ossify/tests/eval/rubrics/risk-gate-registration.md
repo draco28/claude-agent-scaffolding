@@ -7,7 +7,8 @@ the judge reads as the key, not an exact string match).
 
 This surface scores `start` SKILL.md §8's risk-gate judgment
 (`references/risk-gates.md`) — which surfaces qualify as risk gates, whether
-the controls scale to the harm, and what a gate converts into downstream.
+every control the menu attaches to the family is present, and what a gate
+converts into downstream.
 
 **Every criterion is scored on every fixture.** Criteria that name a thing the
 registration may carry score, on a scenario that warrants no gate, whether the
@@ -18,17 +19,19 @@ skill correctly declined to register one. There is no N/A.
    disclosure, silent ordering corruption) is identified as a risk gate; a
    bounded, locally reversible defect is **not** inflated to a gate. On a
    scenario with no irreversible-harm surface, no gate is manufactured.
-2. **Controls scaled to harm** — controls chosen from the menu and scaled to
-   the family. The menu attaches: money → paper/sandbox env + human confirm
+2. **Controls attached to the family** — controls taken from the menu by what
+   its "Applies when" column names. The menu attaches: money → paper/sandbox env + human confirm
    naming the **concrete effect** (never a generic "are you sure?") + kill
    switch + audit trail + progressive exposure (all five); destructive →
    paper/sandbox env + human confirm (concrete effect) + audit trail +
    progressive exposure (kill switch does not attach); identity → audit trail
-   + least privilege; ordering → audit trail + kill switch + progressive
-   exposure (+ a cheap determinism/property test). The rule-of-thumb floor is
-   paper env + human confirm + audit trail for money and destructive;
-   controls the menu attaches above that floor are warranted when the harm
-   demands them. Ceremony inflation is applying a control the menu does not
+   + least privilege + no-secret-in-log assertions; ordering → audit trail +
+   kill switch + progressive exposure (+ a cheap determinism/property test).
+   The identity and ordering additions are named in §2's prose rather than the
+   column, and they are the only ones. Attachment is the whole rule:
+   every control the menu attaches to the family is required, and there is no
+   floor above which an attached control becomes optional. Ceremony inflation
+   is applying a control the menu does not
    attach to the family (e.g. paper env or progressive exposure on identity,
    or kill switch on destructive), and no gate with no controls.
 3. **Touch surface recorded** — the gate carries a touch-glob-csv naming the

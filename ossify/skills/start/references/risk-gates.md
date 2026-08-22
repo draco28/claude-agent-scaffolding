@@ -1,8 +1,8 @@
 # Risk gates
 
 Depth for SKILL.md §8. A risk gate is a first-class registry entry: a named
-hazard, the **touch surface** that reaches it, and a **control checklist scaled
-to the harm** it can do.
+hazard, the **touch surface** that reaches it, and the **controls its family
+attaches**.
 
 ---
 
@@ -23,11 +23,14 @@ the registry.
 
 ---
 
-## 2. Controls, scaled to harm
+## 2. Controls, attached by family
 
-Controls are chosen from this menu; the deeper the harm, the more of them apply.
-Do **not** apply all five to everything — that is ceremony inflation, and it
-trains people to skip the checklist.
+**The "Applies when" column is the rule, not a hint.** A control whose column
+names the gate's family is **required**. A control whose column does not name it
+is **not applied**, and applying one anyway is ceremony inflation. Read the
+column and take every row that names your family — there is no harm-scaling
+judgment left to make, and no floor above which an attached control turns
+optional.
 
 | Control | What it means | Applies when |
 |---|---|---|
@@ -37,12 +40,15 @@ trains people to skip the checklist.
 | **Audit trail** | Append-only record of who/what/when/inputs/outcome, retained independently of the operation's own state | All four families |
 | **Progressive exposure** | Ship to a narrow blast radius first (one account, one symbol, 1% of traffic), widen on evidence | Money, destructive, ordering |
 
-Two more that recur for identity/trust: **least privilege** (the code path holds
-the narrowest credential that works) and **no-secret-in-log** assertions.
+Two more controls the column cannot express, defined here and attached below:
+**least privilege** (the code path holds the narrowest credential that works)
+and **no-secret-in-log** assertions.
 
-**Rule of thumb:** money or destructive → at least paper env + human confirm +
-audit trail. Identity → audit trail + least privilege. Ordering → audit trail +
-kill switch, and a determinism/property test if one is cheap.
+**What the table cannot carry.** Identity gates also take least privilege and
+no-secret-in-log assertions. Ordering gates also take a determinism/property test
+when one is cheap. These are additions to what the column attaches, not
+replacements for it, and they are the **only** additions — anything else outside
+the column is ceremony inflation.
 
 ---
 
@@ -61,7 +67,7 @@ oss risk_gate_add "live-order-execution" \
 
 oss risk_gate_add "user-data-deletion" \
   "src/admin/purge.rs" \
-  "human confirm,audit trail,soft-delete window"
+  "paper env,human confirm,audit trail,progressive exposure"
 ```
 
 Touch surfaces use the same `case`-glob semantics as bones — see
@@ -103,8 +109,10 @@ feature map instead and register the gate when the surface exists.
 ## 6. Anti-patterns
 
 - **A gate with no controls.** Then it is a worry, not a gate.
-- **Every control on every gate.** Scale to harm, or the checklist becomes
-  noise and gets skipped wholesale.
+- **A control the family's column does not name.** Paper env or progressive
+  exposure on an identity gate, a kill switch on a destructive one. That is
+  ceremony inflation, and it is what trains people to skip the checklist
+  wholesale. Attachment decides; harm is not re-litigated gate by gate.
 - **"We'll add the kill switch later."** The control belongs in the plan of the
   spine that first reaches the surface — that is precisely what the touch
   surface guarantees. Do not pre-emptively defer it here.
