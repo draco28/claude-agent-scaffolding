@@ -59,8 +59,9 @@ Codex support is dual-published from the same repo through
 - `scaffold-dev`
 - `architect-critic`
 - `claude-security-audit`
-- `ossify` (replaces `scaffold-onboard` + `scaffold-dev`; round execution is a
-  Claude Code surface — see below)
+- `ossify` (replaces `scaffold-onboard` + `scaffold-dev`; rounds are driven from
+  Claude Code or OpenCode, which register the implementer subagent — Codex does
+  not)
 
 Deprecated and not ported: `scaffold`.
 
