@@ -108,6 +108,55 @@ PulseHive→fully-open). Scenarios 1-9 landed as fixtures in PR F2 across
 `close-gate-integrity` + `journey-line-floor` (3, 8, 9),
 `risk-gate-registration` (5), and `release-ladder-labels` (7); scenario 10
 (two independent planners agree) is a post-merge agreement run — two fresh
-invoke agents on one representative fixture, a judge compares their verdicts on
-spine class, ladder label, risk gate, and mandatory controls — recorded here
-as evidence when it runs, not a standing fixture.
+invoke agents on one representative **classification scenario**, a judge compares
+their verdicts on spine class, ladder label, risk gate, and mandatory controls —
+recorded here as evidence, not a standing fixture. The scenario is authored for
+the run and is deliberately **not** a `fixtures/<surface>/NN-*.md` file: see the
+record below for why lifting one measures the wrong thing.
+
+### Scenario 10 — the agreement run (executed 2026-08-22, post-#235)
+
+**Result: 3 of 4 dimensions agreed; `mandatory controls` diverged.** Both
+planners reached `mvp`, both overruled the spine's declared `flesh` to `bone` on
+the same rung-2 touch-surface hit, and both derived the same risk gate — family
+`destructive`, touch surface `src/retention/**,src/storage/segment.rs`, register
+now, `src/cli/commands.rs` excluded as the entry point rather than the hazard.
+They differed on whether `progressive exposure` is owed for a destructive gate.
+
+**A second divergence sat below the four dimensions and is recorded because it
+is a finding even though it moved no judgment.** The planners split on whether
+rung 3 still runs once rung 2 has decided the class. Both reached `bone` and both
+said an ADR is owed, so no compared dimension moved — but under one reading rung 3
+never runs, and the new bone the spine creates never gets its own declared touch
+surface — the anti-pattern `class-declaration.md` names as "the next spine's
+rung 2 cannot see it, and the registry silently stops working".
+
+**The scenario was authored for this run rather than lifted from `fixtures/`.**
+The four dimensions span three surfaces, and no single existing fixture
+exercises all four without also stating its own dispositions in the body — the
+leakage class tracked in #247. A body that hands the planner its answers would
+have measured agreement-on-echo, so the run used an evidence-only scenario: a
+release with the independence evidence stated and no label; a spine whose files
+include a registered bone's touch surface and whose declared class is a claim,
+plus one **new module, registered to nothing**, that is where the destructive
+behaviour lands; and a behaviour whose defect character is derivable. That new
+unregistered module is what puts rung 3 in play and what the #251 consequence
+below rests on. No disposition appeared in the scenario.
+
+**Both divergences — the compared one and the secondary one — were judgment
+ambiguities in the shipped prose, not misreads.** The judge checked that
+distinction specifically, because a misread is not a finding against the prose.
+Filed as **#250** (`risk-gates.md` §2 gives a floor of three controls and an
+applicability column listing a fourth, with no rule deciding
+whether an applicable control above the floor is required — and the controls CSV
+is what `risk_gate_add` records and what becomes required work) and **#251**
+(`class-declaration.md` §1's "an earlier rung's verdict is not revisited by a
+later one" does not decide whether later rungs still *run*; only rung 1 carries
+an explicit stop, and rung 3 is the sole source of the new-bone obligation, so
+one reading leaves a newly created bone unregistered).
+
+**This is one run.** Two planners agreeing on three dimensions is a single
+datapoint about inter-planner reliability, not a measured property of the prose;
+a second run on a different scenario could move any of the four. What the run
+establishes is narrower and does not depend on the count: two named ambiguities,
+each with an operative cost, each traced to the sentence that produced it.
