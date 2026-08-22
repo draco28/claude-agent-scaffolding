@@ -18,7 +18,13 @@ rows *above* the core, not whether the core runs.
 
 ## 1. The ladder (run in this order)
 
-Order matters: an earlier rung's verdict is not revisited by a later one.
+Order matters, and it decides two separate things. **An earlier rung's verdict
+is never overridden by a later one** — once a rung sets the class, no later rung
+changes it. **Every rung still runs anyway**, because the later rungs carry
+obligations of their own that an earlier verdict does not discharge — rung 3 is
+the only source of the new-bone obligation, and skipping it is how the registry
+rots. The one exception is rung 1: an `internal-enabler` verdict stops the
+ladder outright, and its own text says so.
 
 ### Rung 1 — the journey gate
 

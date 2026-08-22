@@ -218,9 +218,10 @@ oss risk_gate_add "<name>" "<touch-glob-csv>" "<controls-csv>"
 ```
 
 Control menu: paper/sandbox env · human confirm (naming the concrete effect) ·
-kill switch · audit trail · progressive exposure. Money or destructive → at
-least paper env + human confirm + audit trail. Do **not** apply all five to
-everything; that is ceremony inflation and it trains people to skip checklists.
+kill switch · audit trail · progressive exposure. **Every control the menu
+attaches to the gate's family is required; one it does not attach is ceremony
+inflation.** The attachment table is `references/risk-gates.md` §2 — read it
+there, and do not restate it here.
 
 A spine touching a gate's surface reclassifies to `bone` **and** inherits the
 gate's controls as required work.
