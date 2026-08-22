@@ -5,8 +5,7 @@ allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep, Task
 ---
 
 Parse args from `$ARGUMENTS` via the env-var bridge (no positional `$1`/`$2`/`$N`),
-then invoke the `ossify:work-item` skill in its orchestrator mode, which owns the
-execution lane.
+then run the execution lane, whose contract you load below.
 
 ```bash
 ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
@@ -16,11 +15,11 @@ ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
 '
 ```
 
-Now invoke the skill in-conversation:
+Now load the lane contract and follow it:
 
-**`Skill(ossify:work-item)`** — pass the parsed spine id and say plainly that you
-are driving the spine's rounds, not one work item. The skill routes to
-`references/round-orchestration.md`, which owns the whole lane: the spine-branch
+**Read `${CLAUDE_PLUGIN_ROOT}/skills/work-item/references/round-orchestration.md`
+end to end and follow it** — with the parsed spine id; you are driving the spine's
+rounds, not one work item. It owns the whole lane: the spine-branch
 cut-and-checkout, one worktree per work item, `oss work_item_exec`, dispatching
 `ossify:implementer-agent` per item, the 3-iteration cap, and the round barrier.
 Returns are processed in declared decomposition order regardless of arrival order.
