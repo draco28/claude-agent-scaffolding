@@ -43,9 +43,11 @@ optional.
 Two more that recur for identity/trust: **least privilege** (the code path holds
 the narrowest credential that works) and **no-secret-in-log** assertions.
 
-**What the table cannot carry.** Identity gates also take least privilege.
-Ordering gates also take a determinism/property test when one is cheap. Both are
-additions to what the column attaches, not replacements for it.
+**What the table cannot carry.** Identity gates also take least privilege and
+no-secret-in-log assertions. Ordering gates also take a determinism/property test
+when one is cheap. These are additions to what the column attaches, not
+replacements for it, and they are the **only** additions — anything else outside
+the column is ceremony inflation.
 
 ---
 
