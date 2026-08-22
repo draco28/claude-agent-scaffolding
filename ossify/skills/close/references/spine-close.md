@@ -334,12 +334,15 @@ Skill(architect-critic:critiquing-spec)
 Both failure modes — not installed, and installed but returning nothing — are
 silent by design. Neither blocks the close.
 
-A third failure mode is **not** silent: **the call itself denied or the Skill
-tool unavailable** — a session permission policy refused or removed it, and
-installing the plugin will not fix that. It does not block the close either,
-but it leaves exactly one warning naming the permission cause, then proceeds.
-Never retry. A skipped audit and a refused audit are different facts; only one
-of them is the user's to fix.
+A third failure mode — **the call itself denied or unavailable** — is neither
+silent nor blocking: exactly one warning naming which cause (**this host has no
+Skill tool, or a session permission policy refused it** — installing
+architect-critic cures neither), one line in the retrospective recording the
+skip, then proceed. Never retry. The remedies differ — absence is cured by
+installing the plugin, refusal is cured in the session's policy — and a warning
+that conflates them sends the user to fix the wrong one. The skip contract
+itself is shared: `start/references/critic-moment.md` §4 owns it for every
+critic call site.
 
 The findings come back as **disposition rows**, and this is where spec §6.1's
 triage policy applies: spec-aligned recommendations auto-apply, and only

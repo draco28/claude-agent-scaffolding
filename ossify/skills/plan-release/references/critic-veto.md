@@ -66,11 +66,13 @@ bone-touch judge — those two are not optional and do not depend on the critic.
 Do not stall, do not retry, do not treat the missing critic as a pass *or* as a
 veto.
 
-**Denied call:** if the invocation itself is refused or the Skill tool is
-unavailable — a session permission policy, not a missing install — warn once
-naming that cause and take the same no-critic path: the class ladder and the
-bone-touch judge, openly rather than silently. The warning is the record that
-the veto was skipped for policy, not passed. Never retry, never block.
+**Denied call:** refused or unavailable — this host has no Skill tool, or a
+session permission policy denied it; installing architect-critic cures
+neither. Take the same no-critic path (class ladder and bone-touch judge),
+openly: one warning naming the actual cause, and a record of the skip in the
+spine's veto trail — a later reader must distinguish skipped-for-policy from
+passed, and the transcript is not the record. Never retry, never block. The
+skip contract is `start/references/critic-moment.md` §4.
 
 ---
 
