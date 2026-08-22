@@ -1,7 +1,7 @@
 ---
 description: Plan an ossify feature spine (1-5 work items, DAG rounds, per-round specs, grill-me for bone spines, cumulative-demo criteria under the journey-line floor, fake ledger)
 argument-hint: "<spine-id>"
-allowed-tools: Bash(bash:*), Read, Write, Edit, SlashCommand
+allowed-tools: Bash(bash:*), Read, Write, Edit, Skill
 ---
 
 Parse args from `$ARGUMENTS` via the env-var bridge (no positional `$1`/`$2`/`$N`),

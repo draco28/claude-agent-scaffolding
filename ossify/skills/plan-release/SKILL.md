@@ -326,6 +326,8 @@ ordinary findings.
 1. **Probe:** `oss critic_detect`. If `absent`, warn once — *"architect-critic not
    installed — skipping the class-declaration veto. Install via `/plugin install
    architect-critic` (v0.2+)."* — and continue with the §7a/§7b judgments only.
+   A denied or unavailable call is not absence: same §7a/§7b-only path, skip
+   recorded — `references/critic-veto.md` §2.
 2. **Invoke** via the env-var bridge — `export` it, one quoted absolute path,
    `--close` inside the string, plugin-qualified skill name:
 

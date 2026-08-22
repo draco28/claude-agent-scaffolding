@@ -76,6 +76,9 @@ dropped its entry from that registry in v0.2 (ac settlement #1).
    Skill(architect-critic:critiquing-spec)
    ```
 
+   If the call is denied or the Skill tool does not exist in this host, take
+   §4's skip path with the denied cause — not the install remedy.
+
    architect-critic runs its own challenge-resolution loop internally
    (sequential rebuttal, concession scoring, auto-promotion checks). You do not
    mediate its internals. Control returns via its structured summary block —
@@ -122,7 +125,7 @@ dispatch-and-resume job, which is the wrong shape for a synchronous close.
 
 ---
 
-## 4. Absent — warn and skip
+## 4. Absent or denied — warn and skip
 
 Emit exactly one warning, then continue to the Release-0-minimums recap and the
 outputs block — the same destination every arm of §3 ends at:
@@ -133,6 +136,17 @@ outputs block — the same destination every arm of §3 ends at:
 Do not stall the conversation, do not prompt to install interactively, and do
 not retry the probe. Spec-core close is robust to the critic's absence; the
 critic is a strength-multiplier, not a gate.
+
+The same skip path covers a **denied or unavailable call**: this host has no
+Skill tool, or a session permission policy refused or removed it. Installing
+the plugin cures neither, so the warning names the actual cause, never the
+install remedy. One warning, then the same skip. Never retry. State the skip
+in whatever durable record this ceremony keeps; where none can hold it, say
+so in the read-out — and never manufacture a critic disposition the critic
+never produced.
+
+This is the skip contract every critic call site follows; the close, veto and
+plan-audit references point here.
 
 ---
 

@@ -216,6 +216,12 @@ the spine plan** (`SPINE.md` plus the specs that exist), after the plan settles.
 
    There is **no** `target=` / `depth=` / `artifact_path=` parameter. Passing one
    resolves the wrong artifact at the wrong depth without any error.
+
+   A refused or unavailable call — this host has no Skill tool, or a session
+   permission policy denied it; installing architect-critic cures neither — is
+   not the absent critic of step 1. Warn once naming the actual cause, note the
+   skipped audit in the plan, and continue. Never retry, never block. The skip
+   contract is `start/references/critic-moment.md` §4.
 3. **On return, triage the standing challenges** and fold accepted ones back into
    the plan (§4 decomposition, §5 rounds, §8 demo contribution) before locking.
 

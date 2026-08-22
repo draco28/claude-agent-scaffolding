@@ -66,6 +66,15 @@ bone-touch judge — those two are not optional and do not depend on the critic.
 Do not stall, do not retry, do not treat the missing critic as a pass *or* as a
 veto.
 
+**Denied call:** refused or unavailable — this host has no Skill tool, or a
+session permission policy denied it; installing architect-critic cures
+neither. Take the same no-critic path (class ladder and bone-touch judge),
+openly: one warning naming the actual cause, and one line in the plan record
+stating the skip — a later reader must distinguish skipped-for-policy from
+passed. Never write a veto disposition for it: the veto trail records the
+critic's findings, and the critic never ran. Never retry, never block. The
+skip contract is `start/references/critic-moment.md` §4.
+
 ---
 
 ## 3. Gate A — is the finding veto-grade?

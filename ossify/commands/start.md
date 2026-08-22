@@ -1,7 +1,7 @@
 ---
 description: Drive spec-core onboarding for a new ossify project (journey map, skeleton-cut, bones, risk gates, posture, spec-core critic)
 argument-hint: "[project-name]"
-allowed-tools: Bash(bash:*), Read, Write, Edit, SlashCommand
+allowed-tools: Bash(bash:*), Read, Write, Edit, Skill
 ---
 
 Parse args from `$ARGUMENTS` via the env-var bridge (no positional `$1`/`$2`/`$N`),
