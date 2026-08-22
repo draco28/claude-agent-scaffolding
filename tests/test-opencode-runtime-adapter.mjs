@@ -306,7 +306,7 @@ test("Task 8 documents exact native skills, aliases, and runtime requirements", 
   );
   assert.deepEqual(
     inventory.map((row) => row.Availability),
-    ["Default", "Default", "Default", "Experimental opt-in"],
+    ["Default", "Default", "Default", "Opt-in"],
   );
 
   const aliases = parseMarkdownTable(markdownSection(guide, "Differing Aliases"));
@@ -548,10 +548,13 @@ test("Task 8 documents update policy and the implemented trust boundary", async 
   );
 });
 
-test("Task 8 reconciles experimental Ossify availability without claiming stability", async () => {
+test("Task 8 reconciles registered Ossify availability across shipped surfaces", async () => {
   // The release roadmap was a third surface here until AI-process docs stopped
   // being tracked in this repo. The consistency check is the point, not the
   // count: every SHIPPED surface that describes ossify's status must agree.
+  // As of v1.0.0 that status is: registered in BOTH marketplaces, and still an
+  // explicit opt-in inside the OpenCode bundle. Those are separate surfaces and
+  // the second did not change when the first did.
   const [rootReadme, ossifyReadme, manifestSource] = await Promise.all([
     readFile(readmeUrl, "utf8"),
     readFile(ossifyReadmeUrl, "utf8"),
@@ -574,8 +577,11 @@ test("Task 8 reconciles experimental Ossify availability without claiming stabil
 
   assert.match(intro, /Claude Code and Codex plugin marketplace.*OpenCode adapter/is);
   assert.ok(ossifyRow, "root inventory must include Ossify");
-  assert.match(ossifyRow.Scope, /Experimental OpenCode opt-in/);
-  assert.match(ossifyRow.Purpose, /not.*Claude or Codex marketplace/i);
+  assert.match(ossifyRow.Scope, /Project-level \(continuous\)/);
+  assert.match(
+    ossifyRow.Purpose,
+    /In the Claude and Codex marketplaces as of v1\.0\.0/i,
+  );
   assert.match(
     markdownSection(rootReadme, "Plugins"),
     /Ossify is an alternate replacement lifecycle.*`scaffold-onboard`.*`scaffold-dev`/is,
@@ -618,19 +624,17 @@ test("Task 8 reconciles experimental Ossify availability without claiming stabil
       normalizeWhitespace(source)
         .toLowerCase()
         .includes(
-          "experimental installability begins only after an immutable bundle tag is published",
+          "bundle installability begins only after an immutable bundle tag is published",
         ),
     );
+    assert.match(source, /in the Claude and Codex marketplaces as of v1\.0\.0/i);
   }
-  for (const source of [ossifyReadme, manifest.description]) {
-    assert.match(source, /experimental/i);
-    assert.match(source, /OpenCode/i);
-    assert.match(source, /Plan D/i);
-    assert.doesNotMatch(source, /(?:ossify is|now) stable|ready for v1 now/i);
+  for (const source of [rootReadme, ossifyReadme, manifest.description]) {
+    assert.doesNotMatch(source, /experimental/i);
   }
   assert.match(ossifyReadme, /explicit.*allowlist/is);
-  assert.match(ossifyReadme, /not.*(?:Claude|Codex).*marketplace/is);
-  assert.match(manifest.version, /^0\./);
+  assert.match(ossifyReadme, /Plan D/i);
+  assert.match(manifest.version, /^1\./);
   assert.ok(manifest.description.length <= 600);
   assert.doesNotMatch(manifest.description, /not installable/i);
 });

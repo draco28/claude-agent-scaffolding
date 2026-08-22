@@ -1,0 +1,27 @@
+{
+  "name": "ossify",
+  "version": "1.0.0",
+  "description": "Skeleton-first lifecycle from Release 0 through MVP and v1. An alternate replacement for scaffold-onboard + scaffold-dev, not a stage alongside them.",
+  "author": {
+    "name": "Pras"
+  },
+  "repository": "https://github.com/draco28/claude-agent-scaffolding",
+  "license": "MIT",
+  "keywords": ["lifecycle", "skeleton-first", "release", "spine", "handoff"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Ossify",
+    "shortDescription": "Drive a project from Release 0 through MVP and v1, skeleton first.",
+    "longDescription": "Ossify plans a release as a skeleton, drives its spine round by round, and closes it with a ceremony that harvests what the round learned. It replaces the scaffold-onboard + scaffold-dev pair rather than composing with them — install one lifecycle or the other, not both. In Codex the six entry skills load natively; the Claude Code surface additionally exposes the slash commands and the implementer subagent.",
+    "developerName": "Pras",
+    "category": "Coding",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": [
+      "Open a new release with ossify.",
+      "Plan the spine for this release.",
+      "Run the next round of the spine."
+    ],
+    "websiteURL": "https://github.com/draco28/claude-agent-scaffolding/tree/main/ossify",
+    "brandColor": "#57534E"
+  }
+}

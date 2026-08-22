@@ -1,4 +1,4 @@
-# ossify (experimental v0.x)
+# ossify (v1.0.0)
 
 Skeleton-first lifecycle plugin: Release 0 → MVP → v1, driven by bone and flesh
 spines against a cumulative demo ledger. Six entry skills (`start`,
@@ -11,15 +11,14 @@ not. The utilities are a Claude Code command surface: the OpenCode bundle
 exposes the entry skills only (#131 tracks the command-registration gap
 there).
 
-Ossify's experimental installability begins only after an immutable bundle tag
-is published. At that point it requires the root OpenCode bundle's explicit
+Ossify is in the Claude and Codex marketplaces as of v1.0.0. In the OpenCode
+bundle it stays an explicit opt-in: bundle installability begins only after an
+immutable bundle tag is published, and it requires the root bundle's explicit
 four-plugin allowlist documented in
-[`../.opencode/INSTALL.md`](../.opencode/INSTALL.md). It is not in the stable
-Claude or Codex marketplaces and is not stable or ready for v1 until Plan D's
-consolidated eval suite and two real-project pilots pass.
+[`../.opencode/INSTALL.md`](../.opencode/INSTALL.md). Plan D's consolidated eval
+suite has passed; the two real-project pilots are operator-owned and post-v1.
 
 Design of record and the release roadmap are tracked in this repository's
-issues and git history rather than as shipped files. The Plan D gate is the
-condition for leaving experimental status.
+issues and git history rather than as shipped files.
 
 Dispatcher: `bin/oss`. Tests: `bash tests/run-all.sh`.
