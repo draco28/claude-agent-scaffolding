@@ -16,7 +16,15 @@ bundle it stays an explicit opt-in: bundle installability begins only after an
 immutable bundle tag is published, and it requires the root bundle's explicit
 four-plugin allowlist documented in
 [`../.opencode/INSTALL.md`](../.opencode/INSTALL.md). Plan D's consolidated eval
-suite has passed; the two real-project pilots are operator-owned and post-v1.
+covers all 10 acceptance scenarios; scenario 10 is preserved evidence rather than
+a standing fixture, and its agreement run recorded one diverging axis (#254). The
+two real-project pilots are operator-owned and post-v1.
+
+Ossify requires `workspace-init`: `start` refuses fail-fast until a
+workspace-init pairing manifest exists. Round execution dispatches the
+`ossify:implementer-agent` subagent, which only the Claude Code surface
+registers — on Codex and OpenCode the planning, diagnosis, and close skills work
+natively and rounds are driven from Claude Code.
 
 Design of record and the release roadmap are tracked in this repository's
 issues and git history rather than as shipped files.

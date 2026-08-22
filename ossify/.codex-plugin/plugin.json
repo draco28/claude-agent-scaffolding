@@ -1,7 +1,7 @@
 {
   "name": "ossify",
   "version": "1.0.0",
-  "description": "Skeleton-first lifecycle from Release 0 through MVP and v1. An alternate replacement for scaffold-onboard + scaffold-dev, not a stage alongside them.",
+  "description": "Skeleton-first lifecycle from Release 0 through MVP and v1. An alternate replacement for scaffold-onboard + scaffold-dev, not a stage alongside them. Requires workspace-init.",
   "author": {
     "name": "Pras"
   },
@@ -11,15 +11,15 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Ossify",
-    "shortDescription": "Drive a project from Release 0 through MVP and v1, skeleton first.",
-    "longDescription": "Ossify plans a release as a skeleton, drives its spine round by round, and closes it with a ceremony that harvests what the round learned. It replaces the scaffold-onboard + scaffold-dev pair rather than composing with them — install one lifecycle or the other, not both. In Codex the six entry skills load natively; the Claude Code surface additionally exposes the slash commands and the implementer subagent.",
+    "shortDescription": "Plan a release as a skeleton and drive it from Release 0 through MVP and v1.",
+    "longDescription": "Ossify plans a release as a skeleton, drives its spine round by round, and closes it with a ceremony that harvests what the round learned. It replaces the scaffold-onboard + scaffold-dev pair rather than composing with them — install one lifecycle or the other, not both. It also requires workspace-init: the first entry point refuses fail-fast until a workspace-init pairing manifest exists. On Codex the planning, diagnosis, and close skills work natively; round EXECUTION dispatches an implementer subagent that only the Claude Code surface registers, so drive rounds there.",
     "developerName": "Pras",
     "category": "Coding",
     "capabilities": ["Interactive", "Read", "Write"],
     "defaultPrompt": [
       "Open a new release with ossify.",
       "Plan the spine for this release.",
-      "Run the next round of the spine."
+      "Diagnose this repo's ossify state."
     ],
     "websiteURL": "https://github.com/draco28/claude-agent-scaffolding/tree/main/ossify",
     "brandColor": "#57534E"
