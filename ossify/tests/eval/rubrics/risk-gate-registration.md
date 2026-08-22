@@ -25,8 +25,10 @@ skill correctly declined to register one. There is no N/A.
    switch + audit trail + progressive exposure (all five); destructive →
    paper/sandbox env + human confirm (concrete effect) + audit trail +
    progressive exposure (kill switch does not attach); identity → audit trail
-   + least privilege; ordering → audit trail + kill switch + progressive
-   exposure (+ a cheap determinism/property test). Attachment is the whole rule:
+   + least privilege + no-secret-in-log assertions; ordering → audit trail +
+   kill switch + progressive exposure (+ a cheap determinism/property test).
+   The identity and ordering additions are named in §2's prose rather than the
+   column, and they are the only ones. Attachment is the whole rule:
    every control the menu attaches to the family is required, and there is no
    floor above which an attached control becomes optional. Ceremony inflation
    is applying a control the menu does not

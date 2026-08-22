@@ -40,8 +40,9 @@ optional.
 | **Audit trail** | Append-only record of who/what/when/inputs/outcome, retained independently of the operation's own state | All four families |
 | **Progressive exposure** | Ship to a narrow blast radius first (one account, one symbol, 1% of traffic), widen on evidence | Money, destructive, ordering |
 
-Two more that recur for identity/trust: **least privilege** (the code path holds
-the narrowest credential that works) and **no-secret-in-log** assertions.
+Two more controls the column cannot express, defined here and attached below:
+**least privilege** (the code path holds the narrowest credential that works)
+and **no-secret-in-log** assertions.
 
 **What the table cannot carry.** Identity gates also take least privilege and
 no-secret-in-log assertions. Ordering gates also take a determinism/property test
