@@ -87,13 +87,13 @@ nothing, probe nothing else, stop.
 
 **Canonical-content gate (refuses fail-fast).** `/start` is pre-code ceremony:
 establish whether the canonical (`oss repo_root canonical`) already carries the
-product's own source and history — a bare pairing scaffold is not that. If so,
-author nothing and refuse, naming what you found and that **ossify has no
-adopt-forward path in this version (tracked as ossify issue #267) — stay on your
-existing stack.** Those tokens are load-bearing too. Then `oss init "<project-name>"`.
-
-`oss init` refuses if state already exists. That is the correct behavior — treat
-it as the "already onboarded" signal and route per §2 rather than forcing past it.
+product's own source or its own history — either alone refuses, and a bare
+pairing scaffold is neither. If so, author nothing and refuse, naming what you
+found and that **ossify has no adopt-forward path in this version (tracked as
+ossify issue #267) — stay on your existing stack.** Those tokens are load-bearing
+too. Past both gates: `oss init "<project-name>"`, which refuses if ossify state
+already exists — the "already onboarded" signal; route per §2 rather than forcing
+past it.
 
 ---
 
