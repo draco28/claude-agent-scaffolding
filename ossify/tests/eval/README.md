@@ -133,7 +133,9 @@ reported separately rather than folded into one "spine class" line:
 | Risk tier | the risk gate | **agree** — warranted, family `destructive`, surface `src/retention/**,src/storage/segment.rs`, register now, `src/cli/commands.rs` excluded as entry point not hazard |
 | — (mandatory controls) | the control checklist | **diverge** — whether `progressive exposure` is owed |
 
-**Result: 4 of 5 agreed; `mandatory controls` diverged.** That count is the
+**Run 1 result: 4 of 5 agreed; `mandatory controls` diverged.** Run 2, against
+the prose as fixed by PR #256, agreed **5 of 5 with no divergence** — the table
+above is run 1's, and `evidence/scenario-10-agreement-run/README.md` carries both. That count is the
 judge's own, from `evidence/scenario-10-agreement-run/judge-comparison.json` —
 the judge was given the five axes and told to score increment type and D-class
 separately even though one ossify ladder answers both. The planners were asked
@@ -265,16 +267,20 @@ governing observation — that only rung 1 carries an explicit halt — is likew
 read off the prose, not off the run. What the under-declaration costs is the
 *run's* weight as corroboration, and both issues now say so. Filed as **#254**.
 
-**This is one run.** Two planners agreeing on four axes is a single
-datapoint about inter-planner reliability, not a measured property of the prose;
-a second run on a different scenario could move any of them. The preserved input
-under `evidence/scenario-10-agreement-run/` exists so a second run is possible
-against the same evidence rather than a new one. What the run
-establishes is narrower still, and narrower than the first draft of this
-paragraph claimed: **two independent planners, reading the same shipped prose,
-produced different answers in two places.** Whether each difference traces to the
-sentence the judge named or to a fact the scenario failed to declare is exactly
-what this run cannot settle (#254). The prose questions it raised stand on the
-prose — #250 on a worked example that sits below its own file's floor, #251 on
-which rung carries the only explicit halt — and neither needs this run to be
-true.
+**This is two runs on one scenario.** Run 1 diverged on `mandatory controls`
+and on whether rung 3 still runs after rung 2 hits; both were filed as prose
+findings (#250, #251), both were fixed in PR #256, and run 2 agreed on both.
+That sequence is the strongest thing the series says: a divergence was traced to
+a named sentence, the sentence was changed, and the divergence did not recur.
+
+**It is still not a measured property of the prose.** n=2 on the *same*
+scenario is not evidence about scenarios the series has never run, and #254
+stands over both runs equally — the scenario under-declares three facts the
+compared judgments turn on, so how much of the agreement is the prose and how
+much is the scenario is exactly what this series cannot separate. A run on a
+different scenario starts a new series and could move any axis.
+
+**One gap outlived the fix.** Both runs split on whether the §7c critic pass is
+already discharged when the scenario does not mention it. It moved no judgment
+in either run, and two independent sightings are why it is filed rather than
+noted.
