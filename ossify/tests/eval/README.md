@@ -174,7 +174,7 @@ explicitly (increment type) and both reached `bone` on the rung-2 hit (D-class).
 It is not the case that they agreed at every rung — **rung 3 is where they
 split**. That moved no verdict, so the count stands; but a judgment that folds
 two axes into one ladder is one that can hide a rung-level disagreement, and
-this run contained one, with a second question raised and left unestablished.
+this run contained one, with a second question raised alongside it.
 
 **One further divergence sat below the five axes, plus one question that was
 raised but not established.** Both concern the same thing: whether a rung the
@@ -232,12 +232,18 @@ later one" does not decide whether later rungs still *run*; only rung 1 carries
 an explicit stop, and rung 3 is the sole source of the new-bone obligation, so
 one reading leaves a newly created bone unregistered).
 
-**The critic-veto question has no issue of its own.** It is #251's question one
-rung further on — when the ladder short-circuits, which of the later rungs'
-obligations survive? — so it is noted there rather than filed separately, and
-noted as *unestablished* rather than as a second observed instance. Answering
-#251 for rung 3 alone would still leave rung 4 with the identical gap, which is
-why it is worth carrying at all.
+**The critic-veto question is filed as #260, and run 2 is why.** At the time of
+run 1 it had no issue of its own: it was read as #251's question one rung further
+on — when the ladder short-circuits, which of the later rungs' obligations
+survive? — and carried there as *unestablished* rather than as a second observed
+instance.
+
+**Run 2 falsified both halves of that.** #251 is closed, fixed in PR #256, and
+run 2 shows the rung-3 half did not recur — both planners ran rung 3 and both
+derived the new-bone obligation. The critic-veto half *did* recur, with a
+different planner pair, which is exactly the second instance run 1 could not
+claim. Run 1's own note predicted this: answering #251 for rung 3 alone would
+leave rung 4 with the identical gap. It did, so the gap is filed on its own.
 
 **What this run's scenario under-declared — and what that costs the two
 findings.** The scenario was built to state facts and no dispositions, and it
