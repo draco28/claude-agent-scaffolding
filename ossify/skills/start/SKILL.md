@@ -76,7 +76,6 @@ if ! oss state_path >/dev/null 2>&1; then
   printf '%s\n' "ossify requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first (on Codex, invoke the workspace-init skill initializing-dual-repo-workspace or pairing-canonical-repo — that surface publishes skills, not commands)."
   exit 0
 fi
-oss init "<project-name>"
 ```
 
 The literal tokens `/init-workspace` and `/pair-workspace` are load-bearing —
@@ -86,8 +85,15 @@ publishes `./skills/` only, so on Codex those commands do not exist and the
 command tokens alone are a dead end. Name both; drop neither. On refusal: author
 nothing, probe nothing else, stop.
 
-`oss init` refuses if state already exists. That is the correct behavior — treat
-it as the "already onboarded" signal and route per §2 rather than forcing past it.
+**Canonical-content gate (refuses fail-fast).** `/start` is pre-code ceremony:
+establish whether the canonical (`oss repo_root canonical`) already carries the
+product's own source or its own history — either alone refuses, and a bare
+pairing scaffold is neither. If so, author nothing and refuse, naming what you
+found and that **ossify has no adopt-forward path in this version (tracked as
+ossify issue #267) — stay on your existing stack.** Those tokens are load-bearing
+too. Past both gates: `oss init "<project-name>"`, which refuses if ossify state
+already exists — the "already onboarded" signal; route per §2 rather than forcing
+past it.
 
 ---
 
