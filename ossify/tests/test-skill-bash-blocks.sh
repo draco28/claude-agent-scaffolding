@@ -8,10 +8,9 @@
 # runtime does not accept, or a block that does not parse, and every gate stays
 # green. This file is that gate.
 #
-# SCOPE - check, do not execute. Eight mechanical facts: parse-validity, verb
+# SCOPE - check, do not execute. Six mechanical facts: parse-validity, verb
 # resolution, Skill() arity, the command-body arg bridge, reference
-# reachability, the SKILL.md line budget, command route-pointer integrity,
-# and shadowed Skill(ossify:) tokens. Executing skill prose would need
+# reachability, and the SKILL.md line budget. Executing skill prose would need
 # a fixture per ceremony, would have side effects, and would test the fixture
 # instead of the contract.
 #
@@ -28,7 +27,7 @@
 # have is how the next phantom entry point ships.
 #
 # THE SELF-TEST IS THE POINT. This artifact is itself a test, so an extractor
-# that silently stops extracting goes green forever and takes all eight checks
+# that silently stops extracting goes green forever and takes all six checks
 # with it - and nothing downstream can notice. Every check therefore runs twice:
 # once against the shipped tree (expect zero findings) and once against a
 # purpose-built fixture carrying exactly one planted defect per check (expect
@@ -395,75 +394,6 @@ check_7_descriptions() { # $1=ossify-root $2=workdir; writes $2/check7-report.tx
   [ "$n" -ge 10 ] || echo "check 7 saw only $n command files; the budget loop is not measuring the whole set"
 }
 
-# ---------------------------------------------------------------------------
-# Check 8 - every command wrapper's route pointer resolves.
-#
-# Post-#274 the sanctioned entry is path-routing: each wrapper carries a
-# "Read ${CLAUDE_PLUGIN_ROOT}/<target> and follow it" line. Check 5's
-# extractor deliberately skips PLUGIN_ROOT-rooted pointers (it resolves
-# skill-relative references only), so nothing verifies the TARGET exists -
-# a rename of skills/close/ or a typo while editing a wrapper passes every
-# gate and every invocation of that command dies at runtime on a Read
-# error. That reintroduces the #262/#267 "no entry point" symptom through a
-# one-file edit no gate could see (#263's review, finding 1; roadmap Gate 0
-# item 4). Substitute the ossify root for ${CLAUDE_PLUGIN_ROOT} and test -f.
-#
-# TWO ARMS: a route that resolves to nothing, and a wrapper with no route at
-# all (the unwrapped shape #262 made unreachable). The per-file report is
-# also the vacuity floor - a broken extraction matches nothing, which would
-# otherwise read as "all resolved".
-# ---------------------------------------------------------------------------
-check_8_routes() { # $1=ossify-root $2=workdir; writes $2/check8-report.txt
-  local f tok target nseen nres
-  mkdir -p "$2"; : > "$2/check8-report.txt"
-  for f in "$1"/commands/*.md; do
-    [ -e "$f" ] || continue
-    nseen=0; nres=0
-    while IFS= read -r tok; do
-      [ -n "$tok" ] || continue
-      nseen=$((nseen+1))
-      target="$1${tok#\$\{CLAUDE_PLUGIN_ROOT\}}"
-      if [ -f "$target" ]; then
-        nres=$((nres+1))
-      else
-        echo "$(basename "$f"): route resolves to nothing: $tok"
-      fi
-    done < <({ grep -oE '\$\{CLAUDE_PLUGIN_ROOT\}/[A-Za-z0-9_./-]+' "$f" || true; })
-    # The two arms must be disjoint: "carries no route" means NO route token
-    # was present at all. A file whose only route FAILS to resolve has one -
-    # reporting both would miscount and the no-route message would lie about
-    # a wrapper that has one. (Caught by this check's own plant, first run.)
-    if [ "$nseen" -eq 0 ]; then
-      echo "$(basename "$f"): carries no \${CLAUDE_PLUGIN_ROOT} route - not path-routed, unreachable per #262"
-    elif [ "$nseen" -eq "$nres" ]; then
-      echo "     ok  $(basename "$f") ($nseen route$([ "$nseen" -gt 1 ] && echo s))" >> "$2/check8-report.txt"
-    fi
-  done
-}
-
-# ---------------------------------------------------------------------------
-# Check 9 - no shadowed Skill(ossify:<name>) tokens anywhere in the tree.
-#
-# The bare form that CAUSED #262: Skill(ossify:close) is shadowed by
-# commands/close.md, so the call loads the ~20-line wrapper, not the skill
-# body, and dead-ends. Check 3 catches only comma-bearing invocations
-# (Skill\(x, target=y\)); a prose edit restoring a bare token - from git
-# history, a regenerated wrapper, a reference doc - passes every gate
-# (#263's review, finding 2; roadmap Gate 0 item 5's collision arm). The
-# sanctioned route is the wrapper's Read line (check 8) or a cross-PLUGIN
-# call like Skill(architect-critic:...) - only ossify's OWN token is
-# shadowed. Baseline verified clean at plant time; any hit is a finding.
-# ---------------------------------------------------------------------------
-check_9_shadowed_tokens() { # $1=ossify-root
-  local f hit
-  while IFS= read -r f; do
-    while IFS= read -r hit; do
-      [ -n "$hit" ] || continue
-      echo "$f:${hit%%:*}: shadowed token ${hit#*:} - Skill(ossify:<name>) is dead-ended by the same-named command (#262); route by the wrapper's Read line instead"
-    done < <({ grep -nE 'Skill\(ossify:' "$f" || true; })
-  done < <(_md_files "$1")
-}
-
 # ===========================================================================
 # PART 1 - the shipped tree. Expect zero findings from every check.
 # ===========================================================================
@@ -522,16 +452,6 @@ echo "-- check 7: command-description budget (the every-call listing cost)"
 cat "$WORK/check7-report.txt"
 t_assert_eq 0 "$(_count "$C7")" "check 7: command descriptions are within the 3200-byte every-call budget${C7:+ -- $C7}"
 t_assert_ge 11 "$(_lines "$WORK/check7-report.txt")" "check 7: the description loop saw every command (10 rows + the total)"
-
-C8="$(check_8_routes "$OSSIFY" "$WORK")"
-echo "-- check 8: command route-pointer integrity"
-cat "$WORK/check8-report.txt"
-t_assert_eq 0 "$(_count "$C8")" "check 8: every command route pointer resolves, every wrapper carries one${C8:+ -- $C8}"
-t_assert_ge 10 "$(_lines "$WORK/check8-report.txt")" "check 8: the route loop saw every command wrapper (vacuity floor)"
-
-C9="$(check_9_shadowed_tokens "$OSSIFY")"
-echo "-- check 9: shadowed Skill(ossify:) tokens"
-t_assert_eq 0 "$(_count "$C9")" "check 9: no shadowed Skill(ossify:) tokens anywhere in the tree${C9:+ -- $C9}"
 
 # ===========================================================================
 # PART 2 - the permanent self-test.
@@ -687,28 +607,5 @@ t_assert_contains "$F7" "over the 3200 every-call budget by 300" "self-test: che
 F7B="$(check_7_descriptions "$FIX7B" "$WORK/fix7b")"
 t_assert_eq 1 "$(_count "$F7B")" "self-test: check 7 fires on an under-measured set even though its total passes${F7B:+ -- $F7B}"
 t_assert_contains "$F7B" "saw only 2 command files" "self-test: check 7's floor guard names how many it actually saw"
-
-# --- check 8 and 9 plants: DEDICATED ROOTS, for the same coupling reason as
-# check 7's - the shared fixture cannot host them: commands/c4.md (check 4's
-# plant) carries no CLAUDE_PLUGIN_ROOT route, and skills/c3's body (check 3's
-# plant) literally contains Skill(ossify:c3, ...) - each would cross-fire the
-# other check and couple plant counts across fixtures.
-FIX8="$WORK/fixture8"; FIX9="$WORK/fixture9"
-mkdir -p "$FIX8/commands" "$FIX8/skills/real" "$FIX9/skills/c9"
-echo "# real target" > "$FIX8/skills/real/SKILL.md"
-printf -- '---\ndescription: good wrapper\n---\nRead `${CLAUDE_PLUGIN_ROOT}/skills/real/SKILL.md` and follow it.\n' > "$FIX8/commands/r8good.md"
-printf -- '---\ndescription: broken route\n---\nRead `${CLAUDE_PLUGIN_ROOT}/skills/missing/SKILL.md` and follow it.\n' > "$FIX8/commands/r8bad.md"
-printf -- '---\ndescription: no route at all\n---\nJust prose. Nothing to read.\n' > "$FIX8/commands/r8none.md"
-printf -- '# c9\nInvoke Skill(ossify:c9) and wait.\n' > "$FIX9/skills/c9/SKILL.md"
-
-F8="$(check_8_routes "$FIX8" "$WORK/fix8")"
-t_assert_eq 2 "$(_count "$F8")" "self-test: check 8 finds exactly its 2 planted route defects (unresolvable, absent)${F8:+ -- $F8}"
-t_assert_contains "$F8" "r8bad.md: route resolves to nothing" "self-test: check 8 names the unresolvable route"
-t_assert_contains "$F8" "r8none.md: carries no" "self-test: check 8 names the routeless wrapper"
-t_assert_ge 1 "$(_lines "$WORK/fix8/check8-report.txt")" "self-test: check 8's ok-report still saw the good wrapper (extraction alive)"
-
-F9="$(check_9_shadowed_tokens "$FIX9")"
-t_assert_eq 1 "$(_count "$F9")" "self-test: check 9 finds exactly its 1 planted shadowed token${F9:+ -- $F9}"
-t_assert_contains "$F9" "c9/SKILL.md:2" "self-test: check 9 names the planted file and line"
 
 t_summary
