@@ -163,7 +163,7 @@ Don't run `/grill-me` and `/council` in the same session — different interacti
 ├── scaffold/                          # scaffold plugin (v1.0.0)
 ├── architect-critic/                  # architect-critic plugin (v0.6.0)
 ├── claude-security-audit/             # security-audit plugin (v0.1.3)
-├── ossify/                            # skeleton-first replacement lifecycle (v1.0.0)
+├── ossify/                            # skeleton-first replacement lifecycle (v1.0.1)
 ├── docs/
 │   ├── SPEC-ai-mentor.md              # ai-mentor spec (v1.1 amendments)
 │   ├── SPEC-scaffold.md               # scaffold spec (v1.0 amendments)
