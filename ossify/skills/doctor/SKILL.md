@@ -316,7 +316,7 @@ this project's own history:
 
 | Budget | What it sums | Enforced by |
 |---|---|---|
-| **Every-call description** | the `description:` frontmatter of `skills/*/SKILL.md` | `check 7`, a red test |
+| **Every-call description** | the `description:` frontmatter of `commands/*.md` — what the listing loads (#263) | `check 7`, a red test |
 | **SKILL.md body** | line count per `SKILL.md`, 500 each | `check 6`, a red test |
 
 Neither is affected by `references/`, by `plugin.json`'s description, or by the

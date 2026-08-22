@@ -326,35 +326,77 @@ check_6_budget() { # $1=ossify-root $2=workdir; writes $2/check6-report.txt
 }
 
 # ---------------------------------------------------------------------------
-# check 7 - the EVERY-CALL listing budget.
+# check 7 - the EVERY-CALL listing budget, over the strings that LOAD.
 #
 # check 6 guards the SKILL.md *body* (500 lines), which costs nothing until a
-# skill is entered. This guards the frontmatter *descriptions*, which are the
-# only thing loaded on every single call - the cost the whole progressive-
-# disclosure design exists to protect. Nothing enforced it before: Plan C1
-# trimmed the five descriptions 4180 -> 3121 chars (0.52% -> 0.39% of a 200k
-# window) to get inside the §9.1 band, and with no test holding it there they
-# had already drifted back to 3135 by v0.2 planning. Uncaught, because a
-# budget nobody measures is not a budget.
+# skill is entered. This guards the listing that loads on every single call -
+# and that listing carries the COMMAND descriptions, not the SKILL.md ones:
+# measured 2026-08-22 from a live session's own recorded skill_listing
+# attachment (issue #263), all ten commands/*.md descriptions load verbatim
+# and none of the six skills/*/SKILL.md descriptions load at all -
+# commands/<name>.md shadows skills/<name>/SKILL.md on the ossify:<name>
+# token, and the #274 fix changed the loading ROUTE, not the listing SOURCE.
+# Until this re-point the check summed strings that never load: a green gate
+# certifying nothing, the same shadowing one level up.
+#
+# CEILING - derived from the spec band, never from history. §9.1
+# (poc-first-lifecycle-design.md :115-119, :467) targets every-call listing
+# cost at 0.3-0.4% of the window: 0.4% of 200k tokens = 800 tokens; at the
+# 4.0 chars/token ratio the C1 numbers embed (3121 bytes = 0.39% = 780
+# tokens - internally consistent), the band edge is 800 x 4.0 = 3200 bytes.
+# The previous constant 3121 was the C1 trim's LANDING POINT (4180 -> 3121,
+# 0.52% -> 0.39%), 79 bytes inside the edge: a historical accident, not the
+# band. Nothing enforced any of it before C1, and the trim had drifted back
+# to 3135 by v0.2 planning - a budget nobody measures is not a budget.
+#
+# MEASUREMENT is description-only, in bytes under the LC_ALL=C exported at
+# the top of this file - the same method the ceiling is derived in. The
+# listing's "- ossify:<name>: " prefixes add real cost (194 bytes at the
+# ten-command set, name-length-dependent) but are harness rendering this
+# test does not own; recorded here, not measured.
+#
+# HONESTY LINE: the ten-command surface measures 1467/3200 = 0.18% of the
+# window - 2.2x headroom, and BELOW §9.1's 0.3-0.4% band, because three of
+# the ten are standalone utilities §9.1 intended to surface name-only
+# (issue #282 records that divergence and why trimming is the wrong fix:
+# budget nobody is short of, traded against routing triggers). This check
+# is a regression guard against growth, not a tight budget; it cannot fire
+# until the surface more than doubles. Know that is what it is.
+#
+# DIVERGENCES recorded here, fixed elsewhere:
+#   D-2: §9.1 says "<=6 fully-described entry skills" and lists six;
+#        run-spine is a de-facto seventh full entry (lifecycle baton target),
+#        and #267's adopt is an eighth unless §9.1 is amended deliberately -
+#        the amendment is #267's to make. This check enforces bytes, not
+#        count, on purpose.
+#   D-3: §9.1's doctor row still allocates the phase-2 migration entry point
+#        the adopt-forward spec rejected on doctor's report-only contract;
+#        falls to the same §9.1 amendment.
 #
 # The floor assertion is not decoration: a glob that silently matches nothing
 # sums to 0, which sails under any ceiling. That is the same vacuity mode
 # check 5 guards against, and it is why this reports rather than just totals.
+# The floor moved with the glob (skills -> commands) at this re-point.
 # ---------------------------------------------------------------------------
 check_7_descriptions() { # $1=ossify-root $2=workdir; writes $2/check7-report.txt
   local f d n total=0
   mkdir -p "$2"; : > "$2/check7-report.txt"
-  for f in "$1"/skills/*/SKILL.md; do
+  for f in "$1"/commands/*.md; do
     [ -e "$f" ] || continue
-    d="$(sed -n 's/^description: //p' "$f" | head -1)"
+    # Frontmatter-scoped on purpose: the listing loads the frontmatter value,
+    # and a `description: ` line in the BODY is prose. The old whole-file sed
+    # counted body lines (Codex r1 on #283) - a wrapper whose frontmatter
+    # description was lost but whose body happened to carry such a line kept
+    # a green budget and a silent no-description miss.
+    d="$(awk 'NR==1 && $0!="---" {exit} NR>1 && $0=="---" {exit} NR>1 && /^description: / {sub(/^description: /,""); print; exit}' "$f")"
     [ -n "$d" ] || { echo "$f: no frontmatter description"; continue; }
-    echo "     ${#d}  $(basename "$(dirname "$f")")/SKILL.md" >> "$2/check7-report.txt"
+    echo "     ${#d}  commands/$(basename "$f")" >> "$2/check7-report.txt"
     total=$(( total + ${#d} ))
   done
-  echo "     TOTAL $total  (budget 3121, headroom $((3121 - total)))" >> "$2/check7-report.txt"
-  [ "$total" -le 3121 ] || echo "entry-skill descriptions total $total chars, over the 3121 every-call budget by $(( total - 3121 ))"
-  n="$(ls -1 "$1"/skills/*/SKILL.md 2>/dev/null | wc -l | tr -d ' ')"
-  [ "$n" -ge 5 ] || echo "check 7 saw only $n SKILL.md files; the budget loop is not measuring the whole set"
+  echo "     TOTAL $total  (budget 3200, headroom $((3200 - total)))" >> "$2/check7-report.txt"
+  [ "$total" -le 3200 ] || echo "command descriptions total $total bytes, over the 3200 every-call budget by $(( total - 3200 ))"
+  n="$(ls -1 "$1"/commands/*.md 2>/dev/null | wc -l | tr -d ' ')"
+  [ "$n" -ge 10 ] || echo "check 7 saw only $n command files; the budget loop is not measuring the whole set"
 }
 
 # ===========================================================================
@@ -411,10 +453,10 @@ t_assert_eq 0 "$(_count "$C6")" "check 6: every SKILL.md is within the 500-line 
 t_assert_ge 5 "$(_lines "$WORK/check6-report.txt")" "check 6: the budget loop saw every entry skill"
 
 C7="$(check_7_descriptions "$OSSIFY" "$WORK")"
-echo "-- check 7: entry-skill description budget (the every-call listing cost)"
+echo "-- check 7: command-description budget (the every-call listing cost)"
 cat "$WORK/check7-report.txt"
-t_assert_eq 0 "$(_count "$C7")" "check 7: entry-skill descriptions are within the 3121-char every-call budget${C7:+ -- $C7}"
-t_assert_ge 6 "$(_lines "$WORK/check7-report.txt")" "check 7: the description loop saw every entry skill (5 rows + the total)"
+t_assert_eq 0 "$(_count "$C7")" "check 7: command descriptions are within the 3200-byte every-call budget${C7:+ -- $C7}"
+t_assert_ge 11 "$(_lines "$WORK/check7-report.txt")" "check 7: the description loop saw every command (10 rows + the total)"
 
 # ===========================================================================
 # PART 2 - the permanent self-test.
@@ -507,24 +549,31 @@ echo "# c6ref" > "$FIX/skills/c6/references/c6ref.md"
 echo "# agent" > "$FIX/agents/a.md"
 
 # --- check 7 plants: TWO DEDICATED ROOTS, deliberately not the shared $FIX ---
-# The shared fixture's six skills carry no frontmatter description at all, so
-# running check 7 against it would emit six "no frontmatter description"
-# findings and couple this plant's count to every other check's fixture - the
-# fixtures-coupled-through-shared-state vacuity mode. Separate roots keep the
-# count exact and stable when a check 8 is added later.
+# The shared fixture's commands/c4.md carries no frontmatter description (it
+# is check 4's plant), so running check 7 against $FIX would emit a
+# no-description finding and couple this plant's count to check 4's fixture -
+# the fixtures-coupled-through-shared-state vacuity mode. Separate roots keep
+# the count exact and stable when a check 8 is added later.
 FIX7="$WORK/fixture7"; FIX7B="$WORK/fixture7b"
-_c7_skill() { # $1=root $2=name $3=description-length
-  mkdir -p "$1/skills/$2"
+_c7_command() { # $1=root $2=name $3=description-length
+  mkdir -p "$1/commands"
   { echo "---"; echo "name: $2"
     printf 'description: '; printf 'd%.0s' $(seq 1 "$3"); echo
-    echo "---"; echo "# $2"; } > "$1/skills/$2/SKILL.md"
+    echo "---"; echo "# $2"; } > "$1/commands/$2.md"
 }
-# Plant A: 5 skills x 700 chars = 3500, over the 3121 budget by 379.
-for s in c7a c7b c7c c7d c7e; do _c7_skill "$FIX7" "$s" 700; done
-# Plant B: only 2 skills, each comfortably under budget - the TOTAL passes, so
-# the only thing that can fire is the floor guard. That is the assertion that
-# makes check 7 unable to pass by measuring nothing.
-for s in c7f c7g; do _c7_skill "$FIX7B" "$s" 100; done
+# Plant A: 10 commands x 350 bytes = 3500, over the 3200 budget by 300 - and
+# at the full ten-file count, so ONLY the ceiling arm fires.
+for s in c7a c7b c7c c7d c7e c7h c7i c7j c7k c7l; do _c7_command "$FIX7" "$s" 350; done
+# Plant B: only 2 commands, each comfortably under budget - the TOTAL passes,
+# so the only thing that can fire is the floor guard. That is the assertion
+# that makes check 7 unable to pass by measuring nothing.
+for s in c7f c7g; do _c7_command "$FIX7B" "$s" 100; done
+# Plant C: description only in the BODY, frontmatter empty of one - the whole
+# file sed counted it and stayed green; the frontmatter-scoped extractor must
+# call it what it is (no description, not counted).
+FIX7C="$WORK/fixture7c"
+mkdir -p "$FIX7C/commands"
+printf -- '---\nname: c7m\n---\ndescription: %s\n# c7m\n' "$(printf 'd%.0s' $(seq 1 60))" > "$FIX7C/commands/c7m.md"
 
 echo "-- self-test fixture: $FIX"
 
@@ -560,14 +609,18 @@ t_assert_eq 1 "$(_count "$F6")" "self-test: check 6 finds exactly its 1 planted 
 t_assert_contains "$F6" "c6/SKILL.md:501" "self-test: check 6 names the planted file and its line count"
 
 F7="$(check_7_descriptions "$FIX7" "$WORK/fix7")"
-t_assert_eq 1 "$(_count "$F7")" "self-test: check 7 finds exactly its 1 planted over-budget description set${F7:+ -- $F7}"
-t_assert_contains "$F7" "total 3500 chars" "self-test: check 7 names the measured total, not just that it is over"
-t_assert_contains "$F7" "over the 3121 every-call budget by 379" "self-test: check 7 names the exact overage"
+t_assert_eq 1 "$(_count "$F7")" "self-test: check 7 finds exactly its 1 planted over-budget command set${F7:+ -- $F7}"
+t_assert_contains "$F7" "total 3500 bytes" "self-test: check 7 names the measured total, not just that it is over"
+t_assert_contains "$F7" "over the 3200 every-call budget by 300" "self-test: check 7 names the exact overage"
 # The floor guard: a root the loop under-measures must RED even though its
 # total is far under budget. Without this, a glob that matched nothing would
 # sum to 0 and sail through - the way a budget check ends up unable to fail.
 F7B="$(check_7_descriptions "$FIX7B" "$WORK/fix7b")"
 t_assert_eq 1 "$(_count "$F7B")" "self-test: check 7 fires on an under-measured set even though its total passes${F7B:+ -- $F7B}"
-t_assert_contains "$F7B" "saw only 2 SKILL.md files" "self-test: check 7's floor guard names how many it actually saw"
+t_assert_contains "$F7B" "saw only 2 command files" "self-test: check 7's floor guard names how many it actually saw"
+F7C="$(check_7_descriptions "$FIX7C" "$WORK/fix7c")"
+t_assert_eq 2 "$(_count "$F7C")" "self-test: check 7 flags a body-only description AND its floor (2 findings, not a green budget)${F7C:+ -- $F7C}"
+t_assert_contains "$F7C" "c7m.md: no frontmatter description" "self-test: check 7 names the body-only-description wrapper"
+t_assert_grep "$WORK/fix7c/check7-report.txt" 'TOTAL 0 ' "self-test: the 60-byte body line is NOT counted toward the budget"
 
 t_summary
