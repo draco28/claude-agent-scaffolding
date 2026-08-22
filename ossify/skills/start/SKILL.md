@@ -73,15 +73,18 @@ workspace, discovered by walking up for `.workspace/pairing.json`:
 
 ```bash
 if ! oss state_path >/dev/null 2>&1; then
-  printf '%s\n' "ossify requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first."
+  printf '%s\n' "ossify requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first (on Codex, invoke the workspace-init skill initializing-dual-repo-workspace or pairing-canonical-repo — that surface publishes skills, not commands)."
   exit 0
 fi
 oss init "<project-name>"
 ```
 
 The literal tokens `/init-workspace` and `/pair-workspace` are load-bearing —
-do not paraphrase the refusal. On refusal: author nothing, probe nothing else,
-stop.
+do not paraphrase the refusal. The skill names beside them are load-bearing for
+the same reason on a different surface: `workspace-init`'s Codex manifest
+publishes `./skills/` only, so on Codex those commands do not exist and the
+command tokens alone are a dead end. Name both; drop neither. On refusal: author
+nothing, probe nothing else, stop.
 
 `oss init` refuses if state already exists. That is the correct behavior — treat
 it as the "already onboarded" signal and route per §2 rather than forcing past it.
