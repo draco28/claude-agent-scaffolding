@@ -337,12 +337,13 @@ silent by design. Neither blocks the close.
 A third failure mode — **the call itself denied or unavailable** — is neither
 silent nor blocking: exactly one warning naming which cause (**this host has no
 Skill tool, or a session permission policy refused it** — installing
-architect-critic cures neither), one line in the retrospective recording the
-skip, then proceed. Never retry. The remedies differ — absence is cured by
-installing the plugin, refusal is cured in the session's policy — and a warning
-that conflates them sends the user to fix the wrong one. The skip contract
-itself is shared: `start/references/critic-moment.md` §4 owns it for every
-critic call site.
+architect-critic cures neither), one line in the close report recording the
+skip — wherever its author can place it; it is a fact about the run, not a
+critic disposition, for the critic never ran — then proceed. Never retry. The
+remedies differ — absence is cured by installing the plugin, refusal is cured
+in the session's policy — and a warning that conflates them sends the user to
+fix the wrong one. The skip contract itself is shared:
+`start/references/critic-moment.md` §4 owns it for every critic call site.
 
 The findings come back as **disposition rows**, and this is where spec §6.1's
 triage policy applies: spec-aligned recommendations auto-apply, and only

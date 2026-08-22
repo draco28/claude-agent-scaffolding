@@ -140,10 +140,10 @@ critic is a strength-multiplier, not a gate.
 The same skip path covers a **denied or unavailable call**: this host has no
 Skill tool, or a session permission policy refused or removed it. Installing
 the plugin cures neither, so the warning names the actual cause, never the
-install remedy. One warning, one line in the ceremony's record of outcomes
-(the digest for this moment; the retrospective at a spine close; the veto
-trail at a class declaration; the plan at a spine plan), then the same skip.
-Never retry.
+install remedy. One warning, then the same skip. Never retry. State the skip
+in whatever durable record this ceremony keeps; where none can hold it, say
+so in the read-out — and never manufacture a critic disposition the critic
+never produced.
 
 This is the skip contract every critic call site follows; the close, veto and
 plan-audit references point here.

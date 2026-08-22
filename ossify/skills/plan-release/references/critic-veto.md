@@ -69,9 +69,10 @@ veto.
 **Denied call:** refused or unavailable — this host has no Skill tool, or a
 session permission policy denied it; installing architect-critic cures
 neither. Take the same no-critic path (class ladder and bone-touch judge),
-openly: one warning naming the actual cause, and a record of the skip in the
-spine's veto trail — a later reader must distinguish skipped-for-policy from
-passed, and the transcript is not the record. Never retry, never block. The
+openly: one warning naming the actual cause, and one line in the plan record
+stating the skip — a later reader must distinguish skipped-for-policy from
+passed. Never write a veto disposition for it: the veto trail records the
+critic's findings, and the critic never ran. Never retry, never block. The
 skip contract is `start/references/critic-moment.md` §4.
 
 ---
