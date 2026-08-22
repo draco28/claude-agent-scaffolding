@@ -1,5 +1,5 @@
 {
   "name": "ossify",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Skeleton-first lifecycle from Release 0 through MVP and v1. An alternate replacement for scaffold-onboard + scaffold-dev, not a stage alongside them. Requires workspace-init: /ossify:start refuses without its pairing manifest. /ossify:start does the pre-code spec-core onboarding, /ossify:plan-release opens a release, /ossify:plan-spine lays out its skeleton, /ossify:run-spine drives the rounds, /ossify:close runs the close ceremony, /ossify:doctor diagnoses state, spec, rules, interop and budgets, plus the any-repo /ossify:handoff and /ossify:work-pr."
 }
