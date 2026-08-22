@@ -8,9 +8,10 @@
 # runtime does not accept, or a block that does not parse, and every gate stays
 # green. This file is that gate.
 #
-# SCOPE - check, do not execute. Six mechanical facts: parse-validity, verb
+# SCOPE - check, do not execute. Eight mechanical facts: parse-validity, verb
 # resolution, Skill() arity, the command-body arg bridge, reference
-# reachability, and the SKILL.md line budget. Executing skill prose would need
+# reachability, the SKILL.md line budget, command route-pointer integrity,
+# and shadowed Skill(ossify:) tokens. Executing skill prose would need
 # a fixture per ceremony, would have side effects, and would test the fixture
 # instead of the contract.
 #
@@ -27,7 +28,7 @@
 # have is how the next phantom entry point ships.
 #
 # THE SELF-TEST IS THE POINT. This artifact is itself a test, so an extractor
-# that silently stops extracting goes green forever and takes all six checks
+# that silently stops extracting goes green forever and takes all eight checks
 # with it - and nothing downstream can notice. Every check therefore runs twice:
 # once against the shipped tree (expect zero findings) and once against a
 # purpose-built fixture carrying exactly one planted defect per check (expect
@@ -60,7 +61,13 @@ t_assert_grep() { # $1=file $2=ERE $3=label
 
 _md_files() { # $1=ossify-root -> every markdown file the harness owns
   local r="$1" d
-  for d in skills commands agents; do
+  # references/ included since the route gates landed: three wrappers load
+  # the plugin-root references tree directly (handoff, handoff-resume,
+  # work-pr), so its prose is shipped contract with the same claim to scanning
+  # as skills/. Blast radius measured before widening: the four shipped files
+  # carry zero bash fences, zero Skill( forms, zero oss tokens, so checks 1-3
+  # widen with no new findings (Codex r1 finding on #283).
+  for d in skills commands agents references; do
     [ -d "$r/$d" ] && find "$r/$d" -type f -name '*.md'
   done | sort
 }
@@ -399,6 +406,88 @@ check_7_descriptions() { # $1=ossify-root $2=workdir; writes $2/check7-report.tx
   [ "$n" -ge 10 ] || echo "check 7 saw only $n command files; the budget loop is not measuring the whole set"
 }
 
+# ---------------------------------------------------------------------------
+# Check 8 - every command wrapper's entry route resolves.
+#
+# Post-#274 the sanctioned entry is path-routing: each wrapper carries a
+# "Read ${CLAUDE_PLUGIN_ROOT}/<target> and follow it" line. Check 5's
+# extractor deliberately skips PLUGIN_ROOT-rooted pointers (it resolves
+# skill-relative references only), so nothing verifies the TARGET exists -
+# a rename of skills/close/ or a typo while editing a wrapper passes every
+# gate and every invocation of that command dies at runtime on a Read
+# error. That reintroduces the #262/#267 "no entry point" symptom through a
+# one-file edit no gate could see (#263's review, finding 1).
+#
+# ENTRY ROUTE vs SUBSIDIARY REFERENCE, disjoint by construction (Codex r1
+# on #283): the entry route is the sanctioned INSTRUCTION - a line carrying
+# Read AND a PLUGIN_ROOT target. A subsidiary pointer (handoff's
+# sections.md) existence-checks but can never satisfy entry, so deleting
+# the Read line goes red even when every subsidiary resolves. The two
+# token sets are extracted from DISJOINT line sets - a Read-line token
+# cannot also fire the reference arm, and vice versa. (The disjointness
+# discipline itself came from this check's own plant refusing its first
+# draft on #283, which double-reported a wrapper whose only route failed
+# to resolve.)
+#
+# The per-file report is the vacuity floor - a broken extraction matches
+# nothing, which would otherwise read as "all resolved".
+# ---------------------------------------------------------------------------
+check_8_routes() { # $1=ossify-root $2=workdir; writes $2/check8-report.txt
+  local f tok target nrss nrs nsub
+  mkdir -p "$2"; : > "$2/check8-report.txt"
+  for f in "$1"/commands/*.md; do
+    [ -e "$f" ] || continue
+    nrss=0; nrs=0; nsub=0
+    while IFS= read -r tok; do
+      [ -n "$tok" ] || continue
+      nrss=$((nrss+1))
+      target="$1${tok#\$\{CLAUDE_PLUGIN_ROOT\}}"
+      if [ -f "$target" ]; then
+        nrs=$((nrs+1))
+      else
+        echo "$(basename "$f"): Read-route resolves to nothing: $tok"
+      fi
+    done < <({ grep -E 'Read' "$f" | grep -oE '\$\{CLAUDE_PLUGIN_ROOT\}/[A-Za-z0-9_./-]+' || true; })
+    while IFS= read -r tok; do
+      [ -n "$tok" ] || continue
+      target="$1${tok#\$\{CLAUDE_PLUGIN_ROOT\}}"
+      if [ ! -f "$target" ]; then
+        nsub=1
+        echo "$(basename "$f"): reference resolves to nothing: $tok"
+      fi
+    done < <({ grep -vE 'Read' "$f" | grep -oE '\$\{CLAUDE_PLUGIN_ROOT\}/[A-Za-z0-9_./-]+' || true; })
+    if [ "$nrss" -eq 0 ]; then
+      echo "$(basename "$f"): carries no Read \${CLAUDE_PLUGIN_ROOT} route - not path-routed, unreachable per #262"
+    elif [ "$nrss" -eq "$nrs" ] && [ "$nsub" -eq 0 ]; then
+      echo "     ok  $(basename "$f")" >> "$2/check8-report.txt"
+    fi
+  done
+}
+
+# ---------------------------------------------------------------------------
+# Check 9 - no shadowed Skill(ossify:<name>) tokens anywhere the harness owns.
+#
+# The bare form that CAUSED #262: Skill(ossify:close) is shadowed by
+# commands/close.md, so the call loads the ~20-line wrapper, not the skill
+# body, and dead-ends. Check 3 catches only comma-bearing invocations
+# (Skill\(x, target=y\)); a prose edit restoring a bare token - from git
+# history, a regenerated wrapper, a reference doc - passes every gate
+# (#263's review, finding 2). The sanctioned route is the wrapper's Read
+# line (check 8) or a cross-PLUGIN call like Skill(architect-critic:...) -
+# only ossify's OWN token is shadowed. Baseline verified clean at plant
+# time; any hit is a finding. The scan owns the plugin-root references/
+# tree too, because three wrappers load it directly (Codex r1 on #283).
+# ---------------------------------------------------------------------------
+check_9_shadowed_tokens() { # $1=ossify-root
+  local f hit
+  while IFS= read -r f; do
+    while IFS= read -r hit; do
+      [ -n "$hit" ] || continue
+      echo "$f:${hit%%:*}: shadowed token ${hit#*:} - Skill(ossify:<name>) is dead-ended by the same-named command (#262); route by the wrapper's Read line instead"
+    done < <({ grep -nE 'Skill\(ossify:' "$f" || true; })
+  done < <(_md_files "$1")
+}
+
 # ===========================================================================
 # PART 1 - the shipped tree. Expect zero findings from every check.
 # ===========================================================================
@@ -457,6 +546,16 @@ echo "-- check 7: command-description budget (the every-call listing cost)"
 cat "$WORK/check7-report.txt"
 t_assert_eq 0 "$(_count "$C7")" "check 7: command descriptions are within the 3200-byte every-call budget${C7:+ -- $C7}"
 t_assert_ge 11 "$(_lines "$WORK/check7-report.txt")" "check 7: the description loop saw every command (10 rows + the total)"
+
+C8="$(check_8_routes "$OSSIFY" "$WORK")"
+echo "-- check 8: command route-pointer integrity"
+cat "$WORK/check8-report.txt"
+t_assert_eq 0 "$(_count "$C8")" "check 8: every command's Read-route resolves and every wrapper carries one${C8:+ -- $C8}"
+t_assert_ge 10 "$(_lines "$WORK/check8-report.txt")" "check 8: the route loop saw every command wrapper (vacuity floor)"
+
+C9="$(check_9_shadowed_tokens "$OSSIFY")"
+echo "-- check 9: shadowed Skill(ossify:) tokens"
+t_assert_eq 0 "$(_count "$C9")" "check 9: no shadowed Skill(ossify:) tokens anywhere the harness owns${C9:+ -- $C9}"
 
 # ===========================================================================
 # PART 2 - the permanent self-test.
@@ -622,5 +721,38 @@ F7C="$(check_7_descriptions "$FIX7C" "$WORK/fix7c")"
 t_assert_eq 2 "$(_count "$F7C")" "self-test: check 7 flags a body-only description AND its floor (2 findings, not a green budget)${F7C:+ -- $F7C}"
 t_assert_contains "$F7C" "c7m.md: no frontmatter description" "self-test: check 7 names the body-only-description wrapper"
 t_assert_grep "$WORK/fix7c/check7-report.txt" 'TOTAL 0 ' "self-test: the 60-byte body line is NOT counted toward the budget"
+
+# --- check 8 and 9 plants: DEDICATED ROOTS, for the same coupling reason as
+# check 7's - the shared fixture cannot host them: commands/c4.md (check 4's
+# plant) carries no CLAUDE_PLUGIN_ROOT route, and skills/c3's body (check 3's
+# plant) literally contains Skill(ossify:c3, ...) - each would cross-fire the
+# other check and couple plant counts across fixtures.
+FIX8="$WORK/fixture8"; FIX9="$WORK/fixture9"
+mkdir -p "$FIX8/commands" "$FIX8/skills/real" "$FIX9/skills/c9"
+echo "# real target" > "$FIX8/skills/real/SKILL.md"
+printf -- '---\ndescription: good wrapper\n---\nRead `${CLAUDE_PLUGIN_ROOT}/skills/real/SKILL.md` and follow it.\n' > "$FIX8/commands/r8good.md"
+printf -- '---\ndescription: broken route\n---\nRead `${CLAUDE_PLUGIN_ROOT}/skills/missing/SKILL.md` and follow it.\n' > "$FIX8/commands/r8bad.md"
+printf -- '---\ndescription: no route at all\n---\nJust prose. Nothing to read.\n' > "$FIX8/commands/r8none.md"
+# r8sub is the T2 shape exactly: a RESOLVING subsidiary reference on a non-Read
+# line, no Read-route. Counting any reference as entry kept this green; the
+# Read-route requirement must name it.
+printf -- '---\ndescription: subsidiary only\n---\nGuidance lives in `${CLAUDE_PLUGIN_ROOT}/skills/real/SKILL.md`.\n' > "$FIX8/commands/r8sub.md"
+printf -- '# c9\nInvoke Skill(ossify:c9) and wait.\n' > "$FIX9/skills/c9/SKILL.md"
+# r9 is the T1 shape: a shadowed token in the plugin-root references tree that
+# _md_files did not own before the widening.
+mkdir -p "$FIX9/references"
+printf -- '# r9\nAlso invoke Skill(ossify:r9) here.\n' > "$FIX9/references/r9.md"
+
+F8="$(check_8_routes "$FIX8" "$WORK/fix8")"
+t_assert_eq 3 "$(_count "$F8")" "self-test: check 8 finds exactly its 3 planted route defects (unresolvable Read-route, absent route, subsidiary-not-entry)${F8:+ -- $F8}"
+t_assert_contains "$F8" "r8bad.md: Read-route resolves to nothing" "self-test: check 8 names the unresolvable Read-route"
+t_assert_contains "$F8" "r8none.md: carries no Read" "self-test: check 8 names the routeless wrapper"
+t_assert_contains "$F8" "r8sub.md: carries no Read" "self-test: check 8 refuses a resolving subsidiary as an entry route"
+t_assert_ge 1 "$(_lines "$WORK/fix8/check8-report.txt")" "self-test: check 8's ok-report still saw the good wrapper (extraction alive)"
+
+F9="$(check_9_shadowed_tokens "$FIX9")"
+t_assert_eq 2 "$(_count "$F9")" "self-test: check 9 finds both planted shadowed tokens, in skills AND in the references tree${F9:+ -- $F9}"
+t_assert_contains "$F9" "c9/SKILL.md:2" "self-test: check 9 names the skills-tree plant"
+t_assert_contains "$F9" "references/r9.md:2" "self-test: check 9 names the references-tree plant"
 
 t_summary
