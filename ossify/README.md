@@ -16,9 +16,11 @@ bundle it stays an explicit opt-in: bundle installability begins only after an
 immutable bundle tag is published, and it requires the root bundle's explicit
 four-plugin allowlist documented in
 [`../.opencode/INSTALL.md`](../.opencode/INSTALL.md). Plan D's consolidated eval
-covers all 10 acceptance scenarios; scenario 10 is preserved evidence rather than
-a standing fixture, and its agreement run recorded one diverging axis (#254). The
-two real-project pilots are operator-owned and post-v1.
+covers all 10 acceptance scenarios; scenario 10 is a run rather than a standing
+fixture, and its second run agreed **5 of 5 with no divergence** after the prose
+fixes its first run prompted (#250, #251). That is two runs on one scenario, not
+a measured property of the prose — #254 stands over both. The two real-project
+pilots are operator-owned and post-v1.
 
 Ossify requires `workspace-init`: `start` refuses fail-fast until a
 workspace-init pairing manifest exists. Round execution dispatches the
