@@ -211,7 +211,7 @@ defines are vocabulary with an owner — challenging and defining them is
 
 Record each hazard whose harm a test failure cannot undo — **money**,
 **destructive**, **identity/trust**, **ordering/correctness-critical** — with a
-touch surface and a control checklist **scaled to the harm**:
+touch surface and **the controls its family attaches**:
 
 ```bash
 oss risk_gate_add "<name>" "<touch-glob-csv>" "<controls-csv>"

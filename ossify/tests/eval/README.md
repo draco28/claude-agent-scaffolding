@@ -10,7 +10,7 @@ fixtures + the local gate; Plan D consolidates them into THE ship gate.
 |---|---|---|
 | `posture-derivation` | `start` | derive posture + moat channel from facts + intent |
 | `spike-contract-integrity` | `start` | offer a disposable feasibility spike only on genuine architectural uncertainty, with a six-field contract written before any code (one hypothesis, falsifier first, timebox, `code_fate: discard`, evidence retained, the enabling bone) |
-| `risk-gate-registration` | `start` | register a risk gate for an irreversible-harm surface with controls scaled to the harm, a touch surface, the Release-0 minimum, and the downstream bone-reclassification + docs trigger |
+| `risk-gate-registration` | `start` | register a risk gate for an irreversible-harm surface with the controls its family attaches, a touch surface, the Release-0 minimum, and the downstream bone-reclassification + docs trigger |
 | `journey-line-floor` | `plan-spine` | verb+observable-outcome required; inspector phrasing banned; internal spine names its consumer |
 | `spine-class-declaration` | `plan-release` | bone vs flesh vs internal-enabler vs reject-as-horizontal |
 | `release-ladder-labels` | `plan-release` | the release ladder is evidence-gated not counted: v2 only on a changed promise/journey/breaking contract, MVP on independent usability, no dating, sketch labels are hypotheses |

@@ -38,4 +38,5 @@ verdict on them.
 
 **Declaring the gate without the harm family.** A body that says "register a
 risk gate for the payment code" without stating which irreversible-harm family
-the defect produces hands criterion 2 a guess about which controls scale to it.
+the defect produces hands criterion 2 a guess about which controls its family
+attaches.

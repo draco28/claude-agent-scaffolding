@@ -1,8 +1,8 @@
 # Risk gates
 
 Depth for SKILL.md §8. A risk gate is a first-class registry entry: a named
-hazard, the **touch surface** that reaches it, and a **control checklist scaled
-to the harm** it can do.
+hazard, the **touch surface** that reaches it, and the **controls its family
+attaches**.
 
 ---
 
@@ -64,7 +64,7 @@ oss risk_gate_add "live-order-execution" \
 
 oss risk_gate_add "user-data-deletion" \
   "src/admin/purge.rs" \
-  "human confirm,audit trail,soft-delete window"
+  "paper env,human confirm,audit trail,progressive exposure"
 ```
 
 Touch surfaces use the same `case`-glob semantics as bones — see

@@ -7,7 +7,8 @@ the judge reads as the key, not an exact string match).
 
 This surface scores `start` SKILL.md §8's risk-gate judgment
 (`references/risk-gates.md`) — which surfaces qualify as risk gates, whether
-the controls scale to the harm, and what a gate converts into downstream.
+every control the menu attaches to the family is present, and what a gate
+converts into downstream.
 
 **Every criterion is scored on every fixture.** Criteria that name a thing the
 registration may carry score, on a scenario that warrants no gate, whether the
