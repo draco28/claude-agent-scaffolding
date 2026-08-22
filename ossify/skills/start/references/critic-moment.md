@@ -122,7 +122,7 @@ dispatch-and-resume job, which is the wrong shape for a synchronous close.
 
 ---
 
-## 4. Absent — warn and skip
+## 4. Absent or denied — warn and skip
 
 Emit exactly one warning, then continue to the Release-0-minimums recap and the
 outputs block — the same destination every arm of §3 ends at:
@@ -133,6 +133,12 @@ outputs block — the same destination every arm of §3 ends at:
 Do not stall the conversation, do not prompt to install interactively, and do
 not retry the probe. Spec-core close is robust to the critic's absence; the
 critic is a strength-multiplier, not a gate.
+
+The same skip path covers a **denied or unavailable call**: the session's
+permission policy refused the Skill tool or removed it entirely. That is not
+the critic's absence — installing it will not fix it — so the warning names
+the permission cause, not the install remedy. One warning, same skip, never a
+retry.
 
 ---
 

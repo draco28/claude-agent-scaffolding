@@ -216,6 +216,12 @@ the spine plan** (`SPINE.md` plus the specs that exist), after the plan settles.
 
    There is **no** `target=` / `depth=` / `artifact_path=` parameter. Passing one
    resolves the wrong artifact at the wrong depth without any error.
+
+   A refused or unavailable call is a third failure mode, distinct from the
+   absent critic in step 1: a session permission policy denied or removed the
+   Skill tool, and installing architect-critic will not fix it. Warn once
+   naming the permission cause, then continue without the audit. Never retry,
+   never block.
 3. **On return, triage the standing challenges** and fold accepted ones back into
    the plan (§4 decomposition, §5 rounds, §8 demo contribution) before locking.
 

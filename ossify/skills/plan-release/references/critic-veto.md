@@ -66,6 +66,12 @@ bone-touch judge — those two are not optional and do not depend on the critic.
 Do not stall, do not retry, do not treat the missing critic as a pass *or* as a
 veto.
 
+**Denied call:** if the invocation itself is refused or the Skill tool is
+unavailable — a session permission policy, not a missing install — warn once
+naming that cause and take the same no-critic path: the class ladder and the
+bone-touch judge, openly rather than silently. The warning is the record that
+the veto was skipped for policy, not passed. Never retry, never block.
+
 ---
 
 ## 3. Gate A — is the finding veto-grade?
