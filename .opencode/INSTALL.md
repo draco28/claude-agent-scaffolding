@@ -45,9 +45,9 @@ user config at `~/.config/opencode/opencode.json` or a project's
 Restart OpenCode after saving the config. The default enables only
 `workspace-init`, `ai-mentor`, and `architect-critic`.
 
-## Experimental Ossify Opt-In
+## Ossify Opt-In
 
-Ossify v0.x is experimental. To opt in, use OpenCode's native
+Ossify is not among the default three. To opt in, use OpenCode's native
 `[specifier, options]` tuple and the exact four-name allowlist:
 
 ```json
@@ -69,9 +69,8 @@ Ossify v0.x is experimental. To opt in, use OpenCode's native
 }
 ```
 
-Restart OpenCode after changing the options. Ossify remains absent from the
-stable Claude and Codex marketplaces and is not ready for v1 until Plan D's
-consolidated eval and two-pilot gate passes.
+Restart OpenCode after changing the options. Ossify is in the Claude and Codex
+marketplaces as of v1.0.0; in this bundle it stays an explicit opt-in.
 
 ## Native Skills And Commands
 
@@ -83,7 +82,7 @@ selected skill as a same-name native slash command. The complete inventory is:
 | `workspace-init` | Default | `/initializing-dual-repo-workspace`, `/pairing-canonical-repo`, `/pairing-existing-dual` |
 | `ai-mentor` | Default | `/grill-me`, `/council`, `/eli10`, `/fool` |
 | `architect-critic` | Default | `/critiquing-spec`, `/reviewing-critique-history`, `/listing-principles`, `/promoting-principle`, `/checking-adversary-readiness`, `/managing-async-critique` |
-| `ossify` | Experimental opt-in | `/start`, `/plan-spine`, `/work-item`, `/close`, `/plan-release`, `/doctor` |
+| `ossify` | Opt-in | `/start`, `/plan-spine`, `/work-item`, `/close`, `/plan-release`, `/doctor` |
 
 ## Differing Aliases
 
