@@ -8,10 +8,11 @@
 # runtime does not accept, or a block that does not parse, and every gate stays
 # green. This file is that gate.
 #
-# SCOPE - check, do not execute. Eight mechanical facts: parse-validity, verb
+# SCOPE - check, do not execute. Seven mechanical facts: parse-validity, verb
 # resolution, Skill() arity, the command-body arg bridge, reference
-# reachability, the SKILL.md line budget, command route-pointer integrity,
-# and shadowed Skill(ossify:) tokens. Executing skill prose would need
+# reachability, the SKILL.md line budget, and shadowed Skill(ossify:) tokens.
+# (Route-pointer integrity was the eighth; it was removed at #284 round 2 -
+# see the tombstone at check 8's old site.) Executing skill prose would need
 # a fixture per ceremony, would have side effects, and would test the fixture
 # instead of the contract.
 #
@@ -28,7 +29,7 @@
 # have is how the next phantom entry point ships.
 #
 # THE SELF-TEST IS THE POINT. This artifact is itself a test, so an extractor
-# that silently stops extracting goes green forever and takes all eight checks
+# that silently stops extracting goes green forever and takes all seven checks
 # with it - and nothing downstream can notice. Every check therefore runs twice:
 # once against the shipped tree (expect zero findings) and once against a
 # purpose-built fixture carrying exactly one planted defect per check (expect
@@ -296,13 +297,17 @@ check_5_refs() { # $1=ossify-root $2=workdir; writes $2/check5-{crossskill,point
       [ -n "$p" ] || continue
       echo "$p" >> "$w/check5-pointers.txt"
       case "$f" in
-        # A citing file under the plugin-root references/ tree resolves its
-        # references/... pointers against the PLUGIN ROOT, not a skill dir
-        # (Codex r1 on #284 - before this arm those files had base "" and
-        # every valid root-relative pointer reported dangling).
+        # A citing file under the plugin-root references/ tree: its BARE
+        # references/... pointers resolve against the plugin root (Codex r1
+        # on #284 - before this arm those files had base "" and every valid
+        # root-relative pointer reported dangling), while the QUALIFIED forms
+        # keep their generic bases (Codex r2 on #284 - the round-1 arm had
+        # dropped them, dangling valid citations like start/references/x.md).
         "$r"/references/*) case "$p" in
-                              references/*) base="$r" ;;
-                              *)            base="" ;;
+                              references/*)   base="$r" ;;
+                              skills/*)       base="$r" ;;
+                              */references/*) base="$r/skills" ;;
+                              *)              base="" ;;
                             esac ;;
         *) case "$p" in
              skills/*)       base="$r" ;;
@@ -312,13 +317,19 @@ check_5_refs() { # $1=ossify-root $2=workdir; writes $2/check5-{crossskill,point
       esac
       if [ -n "$base" ] && [ -f "$base/$p" ]; then continue; fi
       # Bare form only: does the named file exist under some sibling skill?
-      case "$p" in
-        references/*)
-          if ls "$r"/skills/*/"$p" >/dev/null 2>&1; then
-            echo "$f: cross-skill pointer '$p' (resolves under a sibling skill; base named in prose)" >> "$w/check5-crossskill.txt"
-            continue
-          fi ;;
-      esac
+      # NOT for plugin-root reference files (Codex r2 on #284): a root-relative
+      # pointer that only exists under some skill is dangling at RUNTIME - the
+      # root file loads by wrapper route, never through a skill dir - so the
+      # sibling fallback must not swallow the miss.
+      if ! case "$f" in "$r"/references/*) true ;; *) false ;; esac; then
+        case "$p" in
+          references/*)
+            if ls "$r"/skills/*/"$p" >/dev/null 2>&1; then
+              echo "$f: cross-skill pointer '$p' (resolves under a sibling skill; base named in prose)" >> "$w/check5-crossskill.txt"
+              continue
+            fi ;;
+        esac
+      fi
       echo "$f: dangling pointer '$p' resolves to no file (base ${base:-<no skill dir>})"
     done < <({ grep -ohE '(^|[^A-Za-z0-9_/${}-])(skills/)?([A-Za-z0-9_-]+/)?references/[A-Za-z0-9_.-]+\.md' "$f" || true; } \
                | sed -E 's#^[^A-Za-z0-9_]##' | sort -u)
@@ -417,92 +428,16 @@ check_7_descriptions() { # $1=ossify-root $2=workdir; writes $2/check7-report.tx
 }
 
 # ---------------------------------------------------------------------------
-# Check 8 - every command wrapper's entry route resolves.
-#
-# Post-#274 the sanctioned entry is path-routing: each wrapper carries a
-# "Read ${CLAUDE_PLUGIN_ROOT}/<target> and follow it" line. Check 5's
-# extractor deliberately skips PLUGIN_ROOT-rooted pointers (it resolves
-# skill-relative references only), so nothing verifies the TARGET exists -
-# a rename of skills/close/ or a typo while editing a wrapper passes every
-# gate and every invocation of that command dies at runtime on a Read
-# error. That reintroduces the #262/#267 "no entry point" symptom through a
-# one-file edit no gate could see (#263's review, finding 1).
-#
-# ENTRY ROUTE vs SUBSIDIARY REFERENCE, disjoint by construction (Codex r1
-# on #283): the entry route is the sanctioned INSTRUCTION - a line carrying
-# Read AND a PLUGIN_ROOT target. A subsidiary pointer (handoff's
-# sections.md) existence-checks but can never satisfy entry, so deleting
-# the Read line goes red even when every subsidiary resolves. The two
-# token sets are extracted from DISJOINT line sets - a Read-line token
-# cannot also fire the reference arm, and vice versa. (The disjointness
-# discipline itself came from this check's own plant refusing its first
-# draft on #283, which double-reported a wrapper whose only route failed
-# to resolve.)
-#
-# The per-file report is the vacuity floor - a broken extraction matches
-# nothing, which would otherwise read as "all resolved".
+# Check 8 - REMOVED at round 2, per the pre-agreed fallback. Route-pointer
+# integrity drew seven precision findings across three review passes (#283 r1:
+# non-disjoint arms; #284 r1: Read-substring match, suffix truncation,
+# cross-wiring; #284 r2: no left boundary on Read, first-entry-only
+# validation, backtick inconsistency between instruction regex and extractor).
+# A gate still finding new ways to be wrong on its third pass is not ready to
+# block every future PR. Deferred to its own issue carrying this history; the
+# entry-route surface returns to unguarded, its pre-PR state, until that issue
+# lands. Check 9 keeps the cheap half of the route protection.
 # ---------------------------------------------------------------------------
-# Route tokens come from BACKTICK SPANS, not from an unanchored character-class
-# grep (Codex r1 on #284): a span carries the path as written, so a suffix like
-# `SKILL.md#oops` reaches -f as the full string and fails, instead of being
-# silently truncated to the existing .md prefix. The ENTRY arm requires the
-# sanctioned instruction SHAPE - Read, optional space, optional backtick, then
-# the PLUGIN_ROOT span - so a "Read-out" line cannot route a subsidiary
-# pointer through the entry arm.
-_c8_routes() { # $1=file $2=read|notread -> backtick-span route tokens, one per line
-  awk -v mode="$2" '
-    { keep = 0
-      if (mode == "read") keep = ($0 ~ /Read[ \t]*`?\$\{CLAUDE_PLUGIN_ROOT\}/)
-      else                keep = ($0 !~ /Read[ \t]*`?\$\{CLAUDE_PLUGIN_ROOT\}/)
-      if (!keep) next
-      s = $0
-      while (match(s, /`[^`]*\$\{CLAUDE_PLUGIN_ROOT\}[^`]*`/)) {
-        t = substr(s, RSTART + 1, RLENGTH - 2)
-        sub(/^\$\{CLAUDE_PLUGIN_ROOT\}/, "", t)
-        print t
-        s = substr(s, RSTART + RLENGTH) } }' "$1"
-}
-
-check_8_routes() { # $1=ossify-root $2=workdir; writes $2/check8-report.txt
-  local f tok target nme nrs nsub entry ok
-  mkdir -p "$2"; : > "$2/check8-report.txt"
-  for f in "$1"/commands/*.md; do
-    [ -e "$f" ] || continue
-    nme=0; nrs=0; nsub=0; entry=""
-    while IFS= read -r tok; do
-      [ -n "$tok" ] || continue
-      nme=$((nme+1))
-      target="$1$tok"
-      if [ -f "$target" ]; then
-        nrs=$((nrs+1)); [ -z "$entry" ] && entry="$tok"
-      else
-        echo "$(basename "$f"): Read-route resolves to nothing: $tok"
-      fi
-    done < <(_c8_routes "$f" read)
-    while IFS= read -r tok; do
-      [ -n "$tok" ] || continue
-      target="$1$tok"
-      if [ ! -f "$target" ]; then
-        nsub=1
-        echo "$(basename "$f"): reference resolves to nothing: $tok"
-      fi
-    done < <(_c8_routes "$f" notread)
-    # Cross-wire guard (Codex r1 on #284): existence-only checking passed a
-    # wrapper repointed at ANOTHER skill's entry. When a same-named skill body
-    # exists, the entry set must include it - /close must route to close's
-    # SKILL.md, not doctor's. Utilities and run-spine (no same-named skill)
-    # stay existence-checked.
-    nme2="$(basename "$f" .md)"
-    if [ "$nme" -gt 0 ] && [ -f "$1/skills/$nme2/SKILL.md" ] && [ "$entry" != "/skills/$nme2/SKILL.md" ]; then
-      echo "$(basename "$f"): cross-wired entry $entry - skills/$nme2/SKILL.md exists and is this command's body"
-    fi
-    if [ "$nme" -eq 0 ]; then
-      echo "$(basename "$f"): carries no Read \${CLAUDE_PLUGIN_ROOT} route - not path-routed, unreachable per #262"
-    elif [ "$nme" -eq "$nrs" ] && [ "$nsub" -eq 0 ]; then
-      echo "     ok  $(basename "$f")" >> "$2/check8-report.txt"
-    fi
-  done
-}
 
 # ---------------------------------------------------------------------------
 # Check 9 - no shadowed Skill(ossify:<name>) tokens anywhere the harness owns.
@@ -512,19 +447,27 @@ check_8_routes() { # $1=ossify-root $2=workdir; writes $2/check8-report.txt
 # body, and dead-ends. Check 3 catches only comma-bearing invocations
 # (Skill\(x, target=y\)); a prose edit restoring a bare token - from git
 # history, a regenerated wrapper, a reference doc - passes every gate
-# (#263's review, finding 2). The sanctioned route is the wrapper's Read
-# line (check 8) or a cross-PLUGIN call like Skill(architect-critic:...) -
-# only ossify's OWN token is shadowed. Baseline verified clean at plant
-# time; any hit is a finding. The scan owns the plugin-root references/
+# (#263's review, finding 2). The sanctioned route is the wrapper's
+# path-routing Read line or a cross-PLUGIN call like
+# Skill(architect-critic:...). The scan owns the plugin-root references/
 # tree too, because three wrappers load it directly (Codex r1 on #283).
+#
+# SHADOW-CONDITIONED (Codex r2 on #284): the dead-end exists only where
+# commands/<name>.md actually shadows a same-named skill. A future skill
+# with no same-named command is NOT shadowed and invoking it by token is
+# legal - the check extracts the name and fires only on the collision.
 # ---------------------------------------------------------------------------
 check_9_shadowed_tokens() { # $1=ossify-root
-  local f hit
+  local f hit rest name
   while IFS= read -r f; do
     while IFS= read -r hit; do
       [ -n "$hit" ] || continue
-      echo "$f:${hit%%:*}: shadowed token ${hit#*:} - Skill(ossify:<name>) is dead-ended by the same-named command (#262); route by the wrapper's Read line instead"
-    done < <({ grep -nE 'Skill\(ossify:' "$f" || true; })
+      rest="${hit#*:}"
+      name="$(printf '%s' "$hit" | sed -nE 's/.*Skill\(ossify:([A-Za-z0-9_-]+).*/\1/p')"
+      [ -n "$name" ] || continue
+      [ -f "$1/commands/$name.md" ] || continue
+      echo "$f:${hit%%:*}: shadowed token $rest - commands/$name.md shadows the skill this call means (#262); route by the wrapper's path-routing Read line instead"
+    done < <({ grep -nE 'Skill\(ossify:[A-Za-z0-9_-]+' "$f" || true; })
   done < <(_md_files "$1")
 }
 
@@ -586,12 +529,6 @@ echo "-- check 7: command-description budget (the every-call listing cost)"
 cat "$WORK/check7-report.txt"
 t_assert_eq 0 "$(_count "$C7")" "check 7: command descriptions are within the 3200-byte every-call budget${C7:+ -- $C7}"
 t_assert_ge 11 "$(_lines "$WORK/check7-report.txt")" "check 7: the description loop saw every command (10 rows + the total)"
-
-C8="$(check_8_routes "$OSSIFY" "$WORK")"
-echo "-- check 8: command route-pointer integrity"
-cat "$WORK/check8-report.txt"
-t_assert_eq 0 "$(_count "$C8")" "check 8: every command's Read-route resolves and every wrapper carries one${C8:+ -- $C8}"
-t_assert_ge 10 "$(_lines "$WORK/check8-report.txt")" "check 8: the route loop saw every command wrapper (vacuity floor)"
 
 C9="$(check_9_shadowed_tokens "$OSSIFY")"
 echo "-- check 9: shadowed Skill(ossify:) tokens"
@@ -677,14 +614,16 @@ Read `references/c5dref.md`, then `references/nowhere.md`.
 EOF
 echo "# c5dref" > "$FIX/skills/c5d/references/c5dref.md"
 
-# check 5 root-reference plants (Codex r1 on #284): one root-relative pointer
-# that RESOLVES against the plugin root (must stay silent), one that dangles
-# (must fire). Before the root-base arm, both reported dangling. Created HERE,
-# before the F5 assertions run - plant order is execution order.
+# check 5 root-reference plants (Codex r1+r2 on #284): rr resolves bare
+# (silent) and carries a QUALIFIED pointer that must keep its generic base
+# (silent); rq dangles bare (fires); rs cites a file that exists ONLY under a
+# sibling skill (fires - the sibling fallback must not swallow a root miss).
+# Created HERE, before the F5 assertions run - plant order is execution order.
 mkdir -p "$FIX/references"
 echo "# root target" > "$FIX/references/rtarget.md"
-printf -- '# rr\nSee `references/rtarget.md` for the template.\n' > "$FIX/references/rr.md"
+printf -- '# rr\nSee `references/rtarget.md`; the skill-local form is `c5d/references/c5dref.md`.\n' > "$FIX/references/rr.md"
 printf -- '# rq\nSee `references/rnothing.md`.\n' > "$FIX/references/rq.md"
+printf -- '# rs\nSee `references/c5dref.md`.\n' > "$FIX/references/rs.md"
 
 # --- check 6 plant: 501 lines -----------------------------------------------
 {
@@ -748,10 +687,11 @@ t_assert_eq 1 "$(_count "$F4")" "self-test: check 4 finds exactly its 1 planted 
 t_assert_contains "$F4" "c4.md:3" "self-test: check 4 names the planted line, not line 2's backticked warning"
 
 F5="$(check_5_refs "$FIX" "$WORK/fix5")"
-t_assert_eq 3 "$(_count "$F5")" "self-test: check 5 finds exactly its 3 planted defects (1 orphan, 1 skill dangling, 1 root-reference dangling)${F5:+ -- $F5}"
+t_assert_eq 4 "$(_count "$F5")" "self-test: check 5 finds exactly its 4 planted defects (1 orphan, 1 skill dangling, 1 root bare dangling, 1 sibling-swallowed root miss)${F5:+ -- $F5}"
 t_assert_contains "$F5" "orphan.md: orphan" "self-test: check 5 names the planted orphan"
 t_assert_contains "$F5" "dangling pointer 'references/nowhere.md'" "self-test: check 5 names the planted dangling pointer"
 t_assert_contains "$F5" "dangling pointer 'references/rnothing.md'" "self-test: check 5 names the root-reference dangling pointer"
+t_assert_contains "$F5" "dangling pointer 'references/c5dref.md'" "self-test: a root citation that exists only under a sibling skill still dangles"
 
 F6="$(check_6_budget "$FIX" "$WORK/fix6")"
 t_assert_eq 1 "$(_count "$F6")" "self-test: check 6 finds exactly its 1 planted over-budget SKILL.md${F6:+ -- $F6}"
@@ -772,51 +712,24 @@ t_assert_eq 2 "$(_count "$F7C")" "self-test: check 7 flags a body-only descripti
 t_assert_contains "$F7C" "c7m.md: no frontmatter description" "self-test: check 7 names the body-only-description wrapper"
 t_assert_grep "$WORK/fix7c/check7-report.txt" 'TOTAL 0 ' "self-test: the 60-byte body line is NOT counted toward the budget"
 
-# --- check 8 and 9 plants: DEDICATED ROOTS, for the same coupling reason as
-# check 7's - the shared fixture cannot host them: commands/c4.md (check 4's
-# plant) carries no CLAUDE_PLUGIN_ROOT route, and skills/c3's body (check 3's
-# plant) literally contains Skill(ossify:c3, ...) - each would cross-fire the
-# other check and couple plant counts across fixtures.
-FIX8="$WORK/fixture8"; FIX9="$WORK/fixture9"
-mkdir -p "$FIX8/commands" "$FIX8/skills/real" "$FIX9/skills/c9"
-echo "# real target" > "$FIX8/skills/real/SKILL.md"
-printf -- '---\ndescription: good wrapper\n---\nRead `${CLAUDE_PLUGIN_ROOT}/skills/real/SKILL.md` and follow it.\n' > "$FIX8/commands/r8good.md"
-printf -- '---\ndescription: broken route\n---\nRead `${CLAUDE_PLUGIN_ROOT}/skills/missing/SKILL.md` and follow it.\n' > "$FIX8/commands/r8bad.md"
-printf -- '---\ndescription: no route at all\n---\nJust prose. Nothing to read.\n' > "$FIX8/commands/r8none.md"
-# r8sub is the T2 shape exactly: a RESOLVING subsidiary reference on a non-Read
-# line, no Read-route. Counting any reference as entry kept this green; the
-# Read-route requirement must name it.
-printf -- '---\ndescription: subsidiary only\n---\nGuidance lives in `${CLAUDE_PLUGIN_ROOT}/skills/real/SKILL.md`.\n' > "$FIX8/commands/r8sub.md"
-# r8subword (Codex r1 on #284): a RESOLVING span on a "Read-out" line - the
-# substring match routed it through the entry arm; the instruction-shape regex
-# must not.
-printf -- '---\ndescription: readout bait\n---\nRead-out summary `${CLAUDE_PLUGIN_ROOT}/skills/real/SKILL.md` for the record.\n' > "$FIX8/commands/r8subword.md"
-# r8suf (Codex r1 on #284): a suffix on the path. The class-based extractor
-# truncated at .md and -f passed; the span carries the full string and fails.
-printf -- '---\ndescription: suffix junk\n---\nRead `${CLAUDE_PLUGIN_ROOT}/skills/real/SKILL.md#oops` and follow it.\n' > "$FIX8/commands/r8suf.md"
-# r8wire (Codex r1 on #284): every route resolves, but a same-named skill body
-# exists and the entry points elsewhere - the cross-wire guard must fire.
-mkdir -p "$FIX8/skills/r8wire"
-echo "# r8wire body" > "$FIX8/skills/r8wire/SKILL.md"
-printf -- '---\ndescription: cross-wired\n---\nRead `${CLAUDE_PLUGIN_ROOT}/skills/real/SKILL.md` and follow it.\n' > "$FIX8/commands/r8wire.md"
+# --- check 9 plants: a DEDICATED ROOT, for the same coupling reason as check
+# 7's - the shared fixture cannot host this: skills/c3's body (check 3's plant)
+# literally contains Skill(ossify:c3, ...) and would cross-fire.
+FIX9="$WORK/fixture9"
+mkdir -p "$FIX9/skills/c9" "$FIX9/skills/c9u" "$FIX9/references" "$FIX9/commands"
 printf -- '# c9\nInvoke Skill(ossify:c9) and wait.\n' > "$FIX9/skills/c9/SKILL.md"
-# r9 is the T1 shape: a shadowed token in the plugin-root references tree that
-# _md_files did not own before the widening.
-mkdir -p "$FIX9/references"
+# r9 (Codex r1 on #284): a shadowed token in the plugin-root references tree
+# that _md_files did not own before the widening.
 printf -- '# r9\nAlso invoke Skill(ossify:r9) here.\n' > "$FIX9/references/r9.md"
-
-F8="$(check_8_routes "$FIX8" "$WORK/fix8")"
-t_assert_eq 6 "$(_count "$F8")" "self-test: check 8 finds exactly its 6 planted route defects (unresolvable, absent, subsidiary, substring-bait, suffix, cross-wire)${F8:+ -- $F8}"
-t_assert_contains "$F8" "r8bad.md: Read-route resolves to nothing" "self-test: check 8 names the unresolvable Read-route"
-t_assert_contains "$F8" "r8none.md: carries no Read" "self-test: check 8 names the routeless wrapper"
-t_assert_contains "$F8" "r8sub.md: carries no Read" "self-test: check 8 refuses a resolving subsidiary as an entry route"
-t_assert_contains "$F8" "r8subword.md: carries no Read" "self-test: a Read-out line cannot satisfy the entry arm"
-t_assert_contains "$F8" "r8suf.md: Read-route resolves to nothing: /skills/real/SKILL.md#oops" "self-test: a suffixed path is not truncated to its .md prefix"
-t_assert_contains "$F8" "r8wire.md: cross-wired entry" "self-test: a same-named skill body pins the entry"
-t_assert_ge 1 "$(_lines "$WORK/fix8/check8-report.txt")" "self-test: check 8's ok-report still saw the good wrapper (extraction alive)"
+# The shadow condition (Codex r2): both plants are shadowed because their
+# same-named COMMANDS exist. c9u has no command - its token is legal and must
+# NOT fire; the exact-count assertion is that control.
+echo "# wrapper c9" > "$FIX9/commands/c9.md"
+echo "# wrapper r9" > "$FIX9/commands/r9.md"
+printf -- '# c9u\nCompose Skill(ossify:c9u) freely - no command shadows it.\n' > "$FIX9/skills/c9u/SKILL.md"
 
 F9="$(check_9_shadowed_tokens "$FIX9")"
-t_assert_eq 2 "$(_count "$F9")" "self-test: check 9 finds both planted shadowed tokens, in skills AND in the references tree${F9:+ -- $F9}"
+t_assert_eq 2 "$(_count "$F9")" "self-test: check 9 fires on both shadowed plants AND stays silent on the unshadowed control (count 2, not 3)${F9:+ -- $F9}"
 t_assert_contains "$F9" "c9/SKILL.md:2" "self-test: check 9 names the skills-tree plant"
 t_assert_contains "$F9" "references/r9.md:2" "self-test: check 9 names the references-tree plant"
 
