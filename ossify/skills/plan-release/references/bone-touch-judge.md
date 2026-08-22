@@ -133,7 +133,7 @@ The listed controls (paper/sandbox env · human confirm naming the concrete effe
 Record it so the checklist is not lost between planning and decomposition:
 
 ```bash
-oss class_set "<spine>" bone "risk-gate: live-order-execution (src/exec/**) - controls: paper env, human confirm, kill switch, audit trail"
+oss class_set "<spine>" bone "risk-gate: live-order-execution (src/exec/**) - controls: paper env, human confirm, kill switch, audit trail, progressive exposure"
 oss veto_add  "<spine>" "risk-gate: live-order-execution (src/exec/**)" auto-bone "risk-surface overlap; gate controls attached"
 ```
 
@@ -164,7 +164,7 @@ inflation with a state record attached.
 |---|---|---|---|
 | bone ADR-0002 "hexagonal core", touch `src/domain/**, src/port.rs` | `src/domain/order.rs`, `src/ui/list.rs` | rc 0, prints `bone ADR-0002` | **auto-bone** — `class_set … bone "bone-touch: ADR-0002 (src/domain/**)"` + `veto_add … auto-bone` |
 | bone ADR-0002 "hexagonal core", touch `src/domain/**, src/port.rs` | `src/ui/export.rs`, `docs/export.md` | rc 1, no output | **clean** — no reclassification, no record; the spine keeps its declared class |
-| risk gate "live-order-execution", touch `src/exec/**`, controls: paper env, human confirm, kill switch, audit trail | `src/exec/router.rs` | rc 0, prints `risk_gate live-order-execution` | **auto-bone + controls attached** — bone close path *plus* that gate's four controls as required work |
+| risk gate "live-order-execution", touch `src/exec/**`, controls: paper env, human confirm, kill switch, audit trail, progressive exposure | `src/exec/router.rs` | rc 0, prints `risk_gate live-order-execution` | **auto-bone + controls attached** — bone close path *plus* that gate's five controls as required work |
 
 In all three rows the verdict is the same whether the critic vetoed, passed, or
 never ran.

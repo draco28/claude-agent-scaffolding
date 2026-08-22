@@ -10,7 +10,7 @@ fixtures + the local gate; Plan D consolidates them into THE ship gate.
 |---|---|---|
 | `posture-derivation` | `start` | derive posture + moat channel from facts + intent |
 | `spike-contract-integrity` | `start` | offer a disposable feasibility spike only on genuine architectural uncertainty, with a six-field contract written before any code (one hypothesis, falsifier first, timebox, `code_fate: discard`, evidence retained, the enabling bone) |
-| `risk-gate-registration` | `start` | register a risk gate for an irreversible-harm surface with controls scaled to the harm, a touch surface, the Release-0 minimum, and the downstream bone-reclassification + docs trigger |
+| `risk-gate-registration` | `start` | register a risk gate for an irreversible-harm surface with the controls its family attaches, a touch surface, the Release-0 minimum, and the downstream bone-reclassification + docs trigger |
 | `journey-line-floor` | `plan-spine` | verb+observable-outcome required; inspector phrasing banned; internal spine names its consumer |
 | `spine-class-declaration` | `plan-release` | bone vs flesh vs internal-enabler vs reject-as-horizontal |
 | `release-ladder-labels` | `plan-release` | the release ladder is evidence-gated not counted: v2 only on a changed promise/journey/breaking contract, MVP on independent usability, no dating, sketch labels are hypotheses |
@@ -133,7 +133,9 @@ reported separately rather than folded into one "spine class" line:
 | Risk tier | the risk gate | **agree** — warranted, family `destructive`, surface `src/retention/**,src/storage/segment.rs`, register now, `src/cli/commands.rs` excluded as entry point not hazard |
 | — (mandatory controls) | the control checklist | **diverge** — whether `progressive exposure` is owed |
 
-**Result: 4 of 5 agreed; `mandatory controls` diverged.** That count is the
+**Run 1 result: 4 of 5 agreed; `mandatory controls` diverged.** Run 2, against
+the prose as fixed by PR #256, agreed **5 of 5 with no divergence** — the table
+above is run 1's, and `evidence/scenario-10-agreement-run/README.md` carries both. That count is the
 judge's own, from `evidence/scenario-10-agreement-run/judge-comparison.json` —
 the judge was given the five axes and told to score increment type and D-class
 separately even though one ossify ladder answers both. The planners were asked
@@ -172,7 +174,7 @@ explicitly (increment type) and both reached `bone` on the rung-2 hit (D-class).
 It is not the case that they agreed at every rung — **rung 3 is where they
 split**. That moved no verdict, so the count stands; but a judgment that folds
 two axes into one ladder is one that can hide a rung-level disagreement, and
-this run contained one, with a second question raised and left unestablished.
+this run contained one, with a second question raised alongside it.
 
 **One further divergence sat below the five axes, plus one question that was
 raised but not established.** Both concern the same thing: whether a rung the
@@ -230,12 +232,18 @@ later one" does not decide whether later rungs still *run*; only rung 1 carries
 an explicit stop, and rung 3 is the sole source of the new-bone obligation, so
 one reading leaves a newly created bone unregistered).
 
-**The critic-veto question has no issue of its own.** It is #251's question one
-rung further on — when the ladder short-circuits, which of the later rungs'
-obligations survive? — so it is noted there rather than filed separately, and
-noted as *unestablished* rather than as a second observed instance. Answering
-#251 for rung 3 alone would still leave rung 4 with the identical gap, which is
-why it is worth carrying at all.
+**The critic-veto question is filed as #260, and run 2 is why.** At the time of
+run 1 it had no issue of its own: it was read as #251's question one rung further
+on — when the ladder short-circuits, which of the later rungs' obligations
+survive? — and carried there as *unestablished* rather than as a second observed
+instance.
+
+**Run 2 falsified both halves of that.** #251 is closed, fixed in PR #256, and
+run 2 shows the rung-3 half did not recur — both planners ran rung 3 and both
+derived the new-bone obligation. The critic-veto half *did* recur, with a
+different planner pair, which is exactly the second instance run 1 could not
+claim. Run 1's own note predicted this: answering #251 for rung 3 alone would
+leave rung 4 with the identical gap. It did, so the gap is filed on its own.
 
 **What this run's scenario under-declared — and what that costs the two
 findings.** The scenario was built to state facts and no dispositions, and it
@@ -257,24 +265,35 @@ its own fixtures (#242, #247), now in a scenario written to avoid it:
   therefore only return a conditional ("if no active line carries the prefix"),
   so that part of the controls comparison is conditional rather than derived.
 
-**#250 and #251 are not withdrawn, and here is why each survives.** #250 no
-longer rests on this run at all: its strongest evidence is that `risk-gates.md`
-§3's own `user-data-deletion` worked example sits below §2's destructive floor,
-which is a contradiction inside the file regardless of any scenario. #251's
-governing observation — that only rung 1 carries an explicit halt — is likewise
-read off the prose, not off the run. What the under-declaration costs is the
-*run's* weight as corroboration, and both issues now say so. Filed as **#254**.
+**Run-1 reasoning, retained as history — both issues are now CLOSED.** #250 and
+#251 were fixed by PR #256 and the premises quoted below no longer describe the
+shipped prose: the destructive worked example now carries every attached control,
+and `class-declaration.md` now states that every rung still runs. The paragraph
+is kept because it records why each issue was held valid *at the time*, which is
+what makes the run-2 result checkable rather than merely asserted.
 
-**This is one run.** Two planners agreeing on four axes is a single
-datapoint about inter-planner reliability, not a measured property of the prose;
-a second run on a different scenario could move any of them. The preserved input
-under `evidence/scenario-10-agreement-run/` exists so a second run is possible
-against the same evidence rather than a new one. What the run
-establishes is narrower still, and narrower than the first draft of this
-paragraph claimed: **two independent planners, reading the same shipped prose,
-produced different answers in two places.** Whether each difference traces to the
-sentence the judge named or to a fact the scenario failed to declare is exactly
-what this run cannot settle (#254). The prose questions it raised stand on the
-prose — #250 on a worked example that sits below its own file's floor, #251 on
-which rung carries the only explicit halt — and neither needs this run to be
-true.
+> **#250 and #251 are not withdrawn, and here is why each survives.** #250 no
+> longer rests on this run at all: its strongest evidence is that `risk-gates.md`
+> §3's own `user-data-deletion` worked example sits below §2's destructive floor,
+> which is a contradiction inside the file regardless of any scenario. #251's
+> governing observation — that only rung 1 carries an explicit halt — is likewise
+> read off the prose, not off the run. What the under-declaration costs is the
+> *run's* weight as corroboration, and both issues now say so. Filed as **#254**.
+
+**This is two runs on one scenario.** Run 1 diverged on `mandatory controls`
+and on whether rung 3 still runs after rung 2 hits; both were filed as prose
+findings (#250, #251), both were fixed in PR #256, and run 2 agreed on both.
+That sequence is the strongest thing the series says: a divergence was traced to
+a named sentence, the sentence was changed, and the divergence did not recur.
+
+**It is still not a measured property of the prose.** n=2 on the *same*
+scenario is not evidence about scenarios the series has never run, and #254
+stands over both runs equally — the scenario under-declares three facts the
+compared judgments turn on, so how much of the agreement is the prose and how
+much is the scenario is exactly what this series cannot separate. A run on a
+different scenario starts a new series and could move any axis.
+
+**One gap outlived the fix.** Both runs split on whether the §7c critic pass is
+already discharged when the scenario does not mention it. It moved no judgment
+in either run, and two independent sightings are why it is filed rather than
+noted.

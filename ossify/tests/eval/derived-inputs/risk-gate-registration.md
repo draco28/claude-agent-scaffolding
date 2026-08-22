@@ -21,7 +21,7 @@ silently.
 |---|---|---|
 | I1 | the surface's defect character — which irreversible-harm family (money moved / data destroyed / identity-trust disclosure / silent ordering corruption) vs bounded and locally reversible | 1 |
 | I2 | the proposed controls — which menu entries, and whether a human confirm names the concrete effect or is a generic "are you sure?" | 2 |
-| I3 | whether a control the menu does not attach to the family is applied (ceremony inflation — e.g. paper env or progressive exposure on identity, or kill switch on destructive) or the controls are scaled to the family | 2 |
+| I3 | whether a control the menu does not attach to the family is applied (ceremony inflation — e.g. paper env or progressive exposure on identity, or kill switch on destructive) or every control the menu does attach to the family is present | 2 |
 | I4 | the touch surface — a glob naming the surface that reaches the hazard, or absent | 3 |
 | I5 | whether the skeleton can reach the surface in Release 0 | 4 |
 | I6 | whether the gate is known to be coming with a known surface (register now) vs a known-coming gate with no known surface (feature map) vs Release 0 cannot reach and no known surface | 4 |
@@ -38,4 +38,5 @@ verdict on them.
 
 **Declaring the gate without the harm family.** A body that says "register a
 risk gate for the payment code" without stating which irreversible-harm family
-the defect produces hands criterion 2 a guess about which controls scale to it.
+the defect produces hands criterion 2 a guess about which controls its family
+attaches.
