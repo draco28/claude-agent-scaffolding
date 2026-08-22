@@ -383,7 +383,12 @@ check_7_descriptions() { # $1=ossify-root $2=workdir; writes $2/check7-report.tx
   mkdir -p "$2"; : > "$2/check7-report.txt"
   for f in "$1"/commands/*.md; do
     [ -e "$f" ] || continue
-    d="$(sed -n 's/^description: //p' "$f" | head -1)"
+    # Frontmatter-scoped on purpose: the listing loads the frontmatter value,
+    # and a `description: ` line in the BODY is prose. The old whole-file sed
+    # counted body lines (Codex r1 on #283) - a wrapper whose frontmatter
+    # description was lost but whose body happened to carry such a line kept
+    # a green budget and a silent no-description miss.
+    d="$(awk 'NR==1 && $0!="---" {exit} NR>1 && $0=="---" {exit} NR>1 && /^description: / {sub(/^description: /,""); print; exit}' "$f")"
     [ -n "$d" ] || { echo "$f: no frontmatter description"; continue; }
     echo "     ${#d}  commands/$(basename "$f")" >> "$2/check7-report.txt"
     total=$(( total + ${#d} ))
@@ -563,6 +568,12 @@ for s in c7a c7b c7c c7d c7e c7h c7i c7j c7k c7l; do _c7_command "$FIX7" "$s" 35
 # so the only thing that can fire is the floor guard. That is the assertion
 # that makes check 7 unable to pass by measuring nothing.
 for s in c7f c7g; do _c7_command "$FIX7B" "$s" 100; done
+# Plant C: description only in the BODY, frontmatter empty of one - the whole
+# file sed counted it and stayed green; the frontmatter-scoped extractor must
+# call it what it is (no description, not counted).
+FIX7C="$WORK/fixture7c"
+mkdir -p "$FIX7C/commands"
+printf -- '---\nname: c7m\n---\ndescription: %s\n# c7m\n' "$(printf 'd%.0s' $(seq 1 60))" > "$FIX7C/commands/c7m.md"
 
 echo "-- self-test fixture: $FIX"
 
@@ -607,5 +618,9 @@ t_assert_contains "$F7" "over the 3200 every-call budget by 300" "self-test: che
 F7B="$(check_7_descriptions "$FIX7B" "$WORK/fix7b")"
 t_assert_eq 1 "$(_count "$F7B")" "self-test: check 7 fires on an under-measured set even though its total passes${F7B:+ -- $F7B}"
 t_assert_contains "$F7B" "saw only 2 command files" "self-test: check 7's floor guard names how many it actually saw"
+F7C="$(check_7_descriptions "$FIX7C" "$WORK/fix7c")"
+t_assert_eq 2 "$(_count "$F7C")" "self-test: check 7 flags a body-only description AND its floor (2 findings, not a green budget)${F7C:+ -- $F7C}"
+t_assert_contains "$F7C" "c7m.md: no frontmatter description" "self-test: check 7 names the body-only-description wrapper"
+t_assert_grep "$WORK/fix7c/check7-report.txt" 'TOTAL 0 ' "self-test: the 60-byte body line is NOT counted toward the budget"
 
 t_summary
