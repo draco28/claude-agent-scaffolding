@@ -30,9 +30,12 @@ sending; each file's own header names its substitutions.
 the fixture suite, so this directory is the only place the run's input survives.
 A paraphrase would leave the next reader unable to check whether both planners
 received identical evidence, or whether the judge's ambiguity findings follow
-from what the planners actually wrote. The findings this run produced (#250; #251,
-carrying two instances of one question; and #253) are arguments about shipped
-prose, and an argument whose input is paraphrased cannot be audited.
+from what the planners actually wrote. The prose findings this run produced (#250,
+#251, #253) are arguments about shipped skill prose, and an argument whose input
+is paraphrased cannot be audited. **#254 argues about this scenario itself** —
+that it under-declares three facts the compared judgments turn on — and that
+finding was only reachable because the scenario is stored here rather than
+summarised.
 
 **Reproducing it.** Re-running is not re-rolling: a fresh run on this same
 scenario is a second datapoint, and the outcome recorded in `../../README.md` is
@@ -47,7 +50,9 @@ changed input starts a new series.
 **4 of 5 agreed; `mandatory controls` diverged.** Scenario 10 names stage,
 increment type, D-class, Risk tier and controls; the first four are the
 playbook's independent axes, and `../../README.md` carries the table mapping
-each to the ossify judgment that answers it, plus the **two** secondary
-divergences that moved no axis — `judge-comparison.json`'s `secondary` array is
-the authority on that count. That file is the narrative account this directory
-backs.
+each to the ossify judgment that answers it, plus what sat below the axes:
+`judge-comparison.json`'s `secondary` array holds two entries, of which **one is
+an observed divergence** (rung 3) and **one is not** — the critic-veto entry
+records planner A as silent, not as disagreeing, and that array field says so.
+Do not read the array's length as a divergence count. That file is the narrative
+account this directory backs.
