@@ -22,9 +22,13 @@ two real-project pilots are operator-owned and post-v1.
 
 Ossify requires `workspace-init`: `start` refuses fail-fast until a
 workspace-init pairing manifest exists. Round execution dispatches the
-`ossify:implementer-agent` subagent, which only the Claude Code surface
-registers — on Codex and OpenCode the planning, diagnosis, and close skills work
-natively and rounds are driven from Claude Code.
+`ossify:implementer-agent` subagent. Claude Code registers it natively, and the
+OpenCode adapter registers `ossify-implementer-agent` as well, so rounds run on
+both. **Codex** has no worker path: its planning, diagnosis and close skills
+work, and rounds are driven from Claude Code or OpenCode. On a Codex-only
+install the architect-critic probe also reports `absent` — it searches Claude
+cache paths only — so the release-planning veto and the spine-close audit take
+their no-critic path.
 
 Design of record and the release roadmap are tracked in this repository's
 issues and git history rather than as shipped files.

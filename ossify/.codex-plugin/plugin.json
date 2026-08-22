@@ -12,13 +12,13 @@
   "interface": {
     "displayName": "Ossify",
     "shortDescription": "Plan a release as a skeleton and drive it from Release 0 through MVP and v1.",
-    "longDescription": "Ossify plans a release as a skeleton, drives its spine round by round, and closes it with a ceremony that harvests what the round learned. It replaces the scaffold-onboard + scaffold-dev pair rather than composing with them — install one lifecycle or the other, not both. It also requires workspace-init: the first entry point refuses fail-fast until a workspace-init pairing manifest exists. On Codex the planning, diagnosis, and close skills work natively; round EXECUTION dispatches an implementer subagent that only the Claude Code surface registers, so drive rounds there.",
+    "longDescription": "Ossify plans a release as a skeleton, drives its spine round by round, and closes it with a ceremony that harvests what the round learned. It replaces the scaffold-onboard + scaffold-dev pair rather than composing with them — install one lifecycle or the other, not both. It also requires workspace-init: the first entry point refuses fail-fast until a workspace-init pairing manifest exists. Two limits on Codex specifically: round execution dispatches an implementer subagent that only the Claude Code and OpenCode surfaces register, and the architect-critic probe searches Claude cache paths only, so on a Codex-only install the release-planning veto and the spine-close audit take their no-critic path.",
     "developerName": "Pras",
     "category": "Coding",
     "capabilities": ["Interactive", "Read", "Write"],
     "defaultPrompt": [
-      "Open a new release with ossify.",
-      "Plan the spine for this release.",
+      "Onboard this project's spec core with ossify.",
+      "Open the next release and plan its spine.",
       "Diagnose this repo's ossify state."
     ],
     "websiteURL": "https://github.com/draco28/claude-agent-scaffolding/tree/main/ossify",

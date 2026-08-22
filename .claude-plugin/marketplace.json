@@ -50,7 +50,7 @@
     },
     {
       "name": "ossify",
-      "description": "Skeleton-first replacement lifecycle for scaffold-onboard + scaffold-dev. Install one lifecycle or the other, not both. Requires workspace-init: /ossify:start refuses fail-fast until its pairing manifest exists. 6 native skills (start, plan-release, plan-spine, doctor, work-item, close), 10 slash commands, and an implementer subagent. /ossify:start opens a release; /ossify:plan-release and /ossify:plan-spine lay out the skeleton; /ossify:run-spine drives a planned spine round by round; /ossify:close runs the close ceremony with memory harvest; /ossify:doctor diagnoses state, spec, rules, interop and budgets. The any-repo utilities /ossify:handoff, /ossify:handoff-resume, and /ossify:work-pr (review-fix-merge loop) run standalone on any gh repo.",
+      "description": "Skeleton-first replacement lifecycle for scaffold-onboard + scaffold-dev. Install one lifecycle or the other, not both. Requires workspace-init: /ossify:start refuses fail-fast until its pairing manifest exists. 6 native skills (start, plan-release, plan-spine, doctor, work-item, close), 10 slash commands, and an implementer subagent. /ossify:start does the pre-code spec-core onboarding; /ossify:plan-release opens a release and /ossify:plan-spine lays out its skeleton; /ossify:run-spine drives a planned spine round by round; /ossify:close runs the close ceremony with memory harvest; /ossify:doctor diagnoses state, spec, rules, interop and budgets. The any-repo utilities /ossify:handoff, /ossify:handoff-resume, and /ossify:work-pr (review-fix-merge loop) run standalone on any gh repo.",
       "category": "workflow",
       "source": "./ossify"
     }
