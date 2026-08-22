@@ -38,7 +38,7 @@ recorded, and the recovery is the user's to pick.
 
 **Trigger phrases (description-match):**
 
-- `/close <id>` (slash command — see §8 for the `$ARGUMENTS` bridge)
+- `/close <id>` (slash command — see §9 for the `$ARGUMENTS` bridge)
 - "close work item r1.s2.w3", "close the spine", "close spine r1.s2", "close the
   release", "run the close ceremony", "run the impl-check gate"
 

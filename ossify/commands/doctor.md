@@ -5,7 +5,7 @@ allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep
 ---
 
 Parse args from `$ARGUMENTS` via the env-var bridge (no positional `$1`/`$2`/`$N`),
-then invoke the `ossify:doctor` skill, which owns the diagnosis.
+then load the `ossify:doctor` skill body, which owns the diagnosis.
 
 ```bash
 ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
@@ -15,14 +15,15 @@ ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
 '
 ```
 
-Now invoke the skill in-conversation:
+Now load the skill body and follow it:
 
-**`Skill(ossify:doctor)`** — pass the parsed surface name, if any. The skill body
-owns the routing (an optional surface token; empty runs the full sweep) → state
-inspection (`oss doctor`'s four gate lines, the remedy table, then the advisory
-reads the skill performs itself — lock, ledger, fakes, patches, worktrees) →
-lean-spec validation → machine-checkable-rule authoring → the Claude/Codex
-interop check → the budget check.
+**Read `${CLAUDE_PLUGIN_ROOT}/skills/doctor/SKILL.md` end to end and follow it** —
+with the parsed surface name, if any. The skill body owns the routing (an
+optional surface token; empty runs the full sweep) → state inspection
+(`oss doctor`'s four gate lines, the remedy table, then the advisory reads the
+skill performs itself — lock, ledger, fakes, patches, worktrees) → lean-spec
+validation → machine-checkable-rule authoring → the Claude/Codex interop check
+→ the budget check.
 
 It shells out to `oss` for mechanical facts **where a verb exists**. The interop
 surface no longer has one: `interop_check` was 175 lines of bash that opened
