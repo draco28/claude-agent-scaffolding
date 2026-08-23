@@ -262,7 +262,8 @@ Audit complete for <target>.
   Elapsed          : <S> seconds
 
 Audit complete for <target>. <K> challenges stood:
-- <one bullet per standing challenge, verbatim>
+- [<severity>] <challenge text, verbatim>
+- [<severity>] <challenge text, verbatim>
 ```
 
 `<target>` is the caller's label, else the artifact path. `<K>` is the count
@@ -272,14 +273,26 @@ walked (§7). When the set is empty, the closing line is
 `Audit complete for <target>. 0 challenges stood — recap is solid.` with no
 bullets.
 
+**Every bullet carries its severity as a `[premise]` / `[gap]` /
+`[alternative]` prefix.** The consumers sort on it — the veto's Gate A
+excludes `alternative`-severity remarks by that prefix alone — and an
+aggregate count cannot be mapped back to individual findings.
+
+**Standalone deferrals are listed, not just counted.** Under the `Deferred`
+field, when `<D>` is non-zero and no ceremony caller owns the record, emit
+`Deferred challenges:` followed by one verbatim bullet per deferred finding
+(the same `[severity]` prefix). A standalone run has no close report or veto
+trail to carry them; this list is the only place they survive the
+conversation.
+
 **The tokens below are a contract.** Callers (`plan-release`'s veto, `close`'s
 triage, `start`'s moment) read this summary out of conversation context. Keep
 them verbatim, case-sensitive:
 
 - the literal `Audit complete for ` opening and closing the summary;
-- the closing line `… <K> challenges stood:` followed immediately by one `- `
-  bullet per standing challenge, or the `0 challenges stood — recap is solid.`
-  form;
+- the closing line `… <K> challenges stood:` followed immediately by one
+  `- [<severity>] <text>` bullet per standing challenge, or the
+  `0 challenges stood — recap is solid.` form;
 - the field labels with `:` separator and exactly two spaces of indentation;
 - bare integer counts (no commas, no inline units).
 

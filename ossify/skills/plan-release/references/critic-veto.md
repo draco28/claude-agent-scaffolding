@@ -44,7 +44,9 @@ a skipped veto: the findings are real findings, and Gate A applies to them
 unchanged.
 
 Control returns via the audit's closing line — `Audit complete for <target>.
-<K> challenges stood:` plus one `- ` bullet per standing challenge — which is
+<K> challenges stood:` plus one `- [<severity>] <text>` bullet per standing
+challenge, the severity prefix being what Gate A's `alternative`-severity
+exclusion sorts on — which is
 the input everything below reads.
 
 ---

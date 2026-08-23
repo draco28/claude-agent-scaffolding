@@ -16,8 +16,14 @@ dependencies. This body is a router: it picks the mode and nothing else.
   names a file to audit) → **audit mode.** Read
   `${CLAUDE_PLUGIN_ROOT}/skills/challenge/references/audit.md` end to end and
   follow it, with the artifact and the depth the caller named.
-- **A plan or design sits in conversation and no path is named** →
-  **interview mode.** Read
+- **Audit intent with no path** — the invocation says *audit / critique /
+  adversarial review / deep audit* of material that sits in the conversation
+  → **still audit mode.** Write the pasted material to a scratch file (a
+  `SPEC*`/`PLAN*` name under `${TMPDIR}`), audit it, and say where it was
+  written; if the material is only described, not pasted, ask for the file.
+  Explicit audit intent never falls through to an interview.
+- **A plan or design sits in conversation, to be stress-tested interactively**
+  → **interview mode.** Read
   `${CLAUDE_PLUGIN_ROOT}/skills/challenge/references/interview.md` end to end
   and follow it.
 - **Ambiguous** → ask one question: audit this artifact, or grill this plan?

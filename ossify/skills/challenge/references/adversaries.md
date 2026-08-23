@@ -119,13 +119,16 @@ keeps.
 ## 3. The return contract — travels in the prompt
 
 The adversary never sees this skill, so the contract is embedded in the prompt
-verbatim, as an ordinary fenced block:
+verbatim, as an ordinary fenced block — with **one legal severity value in
+the example** (an alternation literal like `premise|gap|alternative` is not a
+legal enum value, and a schema-constrained model may echo it back):
 
     ## Return contract
-    End your final message with a fenced JSON block of this exact shape:
+    Return a JSON object of exactly this shape:
     ```json
-    {"challenges":[{"text":"<one paragraph>","severity":"premise|gap|alternative","rationale":"<why>"}]}
+    {"challenges":[{"text":"<one paragraph>","severity":"gap","rationale":"<why>"}]}
     ```
+    severity is one of: premise, gap, alternative.
 
 Validation: a JSON object with a `challenges` array whose items each carry
 string `text`, `severity` in `premise|gap|alternative`, and string `rationale`.
