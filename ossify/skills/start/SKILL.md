@@ -89,11 +89,11 @@ nothing, probe nothing else, stop.
 establish whether the canonical (`oss repo_root canonical`) already carries the
 product's own source or its own history — either alone refuses, and a bare
 pairing scaffold is neither. If so, author nothing and refuse, naming what you
-found and that **ossify has no adopt-forward path in this version (tracked as
-ossify issue #267) — stay on your existing stack.** Those tokens are load-bearing
-too. Past both gates: `oss init "<project-name>"`, which refuses if ossify state
-already exists — the "already onboarded" signal; route per §2 rather than forcing
-past it.
+found and routing to **`/ossify:adopt` — the adopt-forward path for a project
+that already has code (on Codex/OpenCode, the native `adopt` skill).** Those
+tokens are load-bearing too. Past both gates:
+`oss init "<project-name>"`, which refuses if ossify state already exists — the
+"already onboarded" signal; route per §2 rather than forcing past it.
 
 ---
 

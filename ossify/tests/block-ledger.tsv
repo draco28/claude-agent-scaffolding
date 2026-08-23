@@ -92,6 +92,7 @@
 # that someone else can apply it and get the same answer cannot have exceptions
 # that live only in the author's head.)
 #
+I	skills/adopt/SKILL.md	1	single-verb calls with <placeholder> args: release_add, release_status (the C4 retroactive baseline pair)
 O	skills/close/references/spine-close.md	work items that are not complete	tests/test-close.sh	the open-work-item gate refuses to close a spine with incomplete items
 O	skills/close/references/spine-close.md	is-ancestor	tests/test-close.sh	the merge guard: the spine tip must actually reach the base branch
 O	skills/close/references/spine-close.md	touch_check	tests/test-close.sh	bone-touch at close re-classifies the spine rather than trusting the plan
@@ -115,6 +116,7 @@ O	skills/close/references/impl-check.md	while IFS=	tests/test-close.sh	the halt 
 I	skills/close/references/impl-check.md	2	single-verb calls: verify_acs, report_cross_check (the harvest_dir resolve went with the verb - the bank path is prose-resolved per close/references/harvest.md §7 now)
 O	skills/work-item/references/round-orchestration.md	checkout -q -b	tests/test-close.sh	W2: the cut runs clean under set -u with NOTHING injected, leaves canonical checked out on the spine branch, halts on an existing spine branch (W2b) and on a detached HEAD (W2c). It cuts from the branch canonical is PARKED ON - reading the planned base from SPINE.md is deferred to #133, and 07a0bd8 reverted an attempt at it. An earlier revision of this row claimed planned-base coverage, which is behaviour the block deliberately does not have
 D	skills/work-item/references/round-orchestration.md	4	#138	spine-dir resolution, per-item spec path derivation, target_repo worktree spawn, and the dirty-worktree halt
+D	commands/adopt.md	1	#267	the $ARGUMENTS env-var bridge
 D	commands/close.md	1	#138	the $ARGUMENTS env-var bridge - a positional-substitution regression here silently drops every argument
 D	commands/doctor.md	1	#138	the $ARGUMENTS env-var bridge
 D	commands/plan-release.md	1	#138	the $ARGUMENTS env-var bridge
@@ -174,12 +176,14 @@ I	skills/work-item/references/debugging.md	3	worked pytest invocations teaching 
 I	skills/work-item/references/tdd-loop.md	4	worked RED-GREEN examples: a redgate call, two test invocations, a zero_tests_guard pipe
 I	skills/work-item/references/handoff-contract.md	1	a single verify_step call
 I	skills/work-item/references/report-contract.md	1	a single report_cross_check call
+H	commands/adopt.md	3550582653-140
 H	commands/close.md	1986596502-140
 H	commands/plan-release.md	3197413462-147
 H	commands/plan-spine.md	3747955391-145
 H	commands/run-spine.md	2545938813-144
 H	commands/start.md	3557017349-140
 H	commands/work-item.md	2378584622-144
+H	skills/adopt/SKILL.md	3003032981-173
 H	skills/close/SKILL.md	2598283696-409
 H	skills/close/references/code-review.md	477087775-527
 H	skills/close/references/cumulative-demo.md	2610898515-1543

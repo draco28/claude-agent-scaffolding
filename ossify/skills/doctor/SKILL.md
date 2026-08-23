@@ -70,13 +70,17 @@ the verb, let the user run it.
 
 - The user wants to **run a gate** — the work-item gate, the cumulative demo, a
   release's blocking findings. Those are `/close`, and they halt; you do not.
-- The user wants to **author or amend the spec itself**. Authoring is `/start`;
-  amending an existing spec is not this surface's job — you validate what exists
-  and never edit it.
+- The user wants to **author or amend the spec itself**. Fresh authoring is
+  `/start`, which refuses on a canonical that already carries code; a project
+  that already has code adopts via `/ossify:adopt`. Amending an existing spec
+  is not this surface's job — you validate what exists and never edit it.
 - The user wants to **plan, decompose, or execute** anything. Those are
   `/plan-release`, `/plan-spine`, `/work-item`.
 - The user asks to **fix** a finding you reported. Name the verb and let them
   run it, unless it is one of the two explicit-write surfaces above.
+- The spec and the state disagree on **what adoption did**. Read
+  `<ai-workspace>/ADOPTION.md` if it exists — it is adoption's record
+  (`adopt` §6); route the discrepancy there before re-deriving one side.
 
 ---
 

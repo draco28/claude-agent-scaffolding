@@ -1,7 +1,7 @@
 # ossify (v1.0.2)
 
 Skeleton-first lifecycle plugin: Release 0 → MVP → v1, driven by bone and flesh
-spines against a cumulative demo ledger. Six entry skills (`start`,
+spines against a cumulative demo ledger. Seven entry skills (`start`, `adopt`,
 `plan-release`, `plan-spine`, `work-item`, `close`, `doctor`) plus
 `/ossify:run-spine`, which drives a planned spine's rounds end to end, and the
 standalone utilities — session handoff (`/ossify:handoff`,
