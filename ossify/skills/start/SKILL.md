@@ -339,47 +339,33 @@ and the root is unambiguous (then `oss composition_set "<root>"`).
 ## 11. Spec-core critic moment
 
 Fires **once**, at spec-core close — after the lean MASTER-SPEC is authored and
-**before the bones harden** into Release-0 planning.
+**before the bones harden** into Release-0 planning. The audit is ossify's own
+`challenge` skill in audit mode; it always runs — there is no plugin whose
+absence skips it.
 
-1. **Announce**, then end the turn: *"Spec-core close — invoking architect-critic
-   for a `close` audit on the lean MASTER-SPEC + bones registry + skeleton-cut
-   before the bones harden. Type `skip` to bypass."*
+1. **Announce**, then end the turn: *"Spec-core close — running a close-depth
+   audit on the lean MASTER-SPEC + bones registry + skeleton-cut before the
+   bones harden. Type `skip` to bypass."*
 2. **Wait.** If the user types `skip` (case-insensitive), log it and continue
-   to §12.
-3. **Probe:** `oss critic_detect`. If `absent`, warn once — *"architect-critic
-   not installed — skipping spec-core audit. Install via `/plugin install
-   architect-critic` (v0.2+)."* — and continue. Do not stall.
-4. If `v0.2` **or later**, **export the args string, then invoke the skill bare and
-   plugin-qualified** — that env-var bridge is architect-critic's only
-   invocation contract; there are no `target` / `depth` / `artifact_path`
-   parameters:
-
-   ```bash
-   export ARCHITECT_CRITIC_ARGS="--spec \"<absolute path to the lean MASTER-SPEC>\" --close"
-   ```
-
-   ```text
-   Skill(architect-critic:critiquing-spec)
-   ```
-
-   All three details are load-bearing and fail **silently**: `export` it (a bare
-   assignment is invisible to the skill); `--spec` takes **one** quoted absolute
-   path, never a list; `--close` must be **in the args string** — it is the only
-   thing that selects close depth, announcement wording does not, and without it
-   the audit degrades to a shallow claude-only pass. architect-critic infers host
-   agent and adversary availability itself; you supply only the artifact and the
-   depth.
-5. **On control return, disposition-triage** the standing challenges:
-   auto-accept spec-aligned ones (fold into the spec + bones ADRs and say what
-   you folded); escalate load-bearing / vision-touching ones to the user;
-   reject out-of-scope ones (the retired artifacts) with a stated reason;
-   escalate anything ambiguous. Surface a short digest of the triage.
+   to §12. In a non-interactive run the default is to proceed — `skip` is the
+   only bypass.
+3. **Run the audit.** Read
+   `${CLAUDE_PLUGIN_ROOT}/skills/challenge/references/audit.md` end to end and
+   follow it: the lean MASTER-SPEC is the artifact, the depth is `close`.
+   Whether an external fresh-frame adversary joins is the adversary ladder's
+   decision (`challenge/references/adversaries.md`), and the audit's summary
+   names what ran.
+4. **On return, disposition-triage** the standing challenges: auto-accept
+   spec-aligned ones (fold into the spec + bones ADRs and say what you
+   folded); escalate load-bearing / vision-touching ones to the user; reject
+   out-of-scope ones (the retired artifacts) with a stated reason; escalate
+   anything ambiguous. Surface a short digest of the triage.
 
 **Advisory, never a gate.** A standing challenge the user declines is recorded
 and the flow continues.
 
-Full mechanism — including the §3.1 invocation contract and its silent failure
-modes — in `references/critic-moment.md`.
+Full mechanism — the audit contract and the disposition asymmetry with the
+release veto — in `references/critic-moment.md`.
 
 ---
 
@@ -486,8 +472,9 @@ state and is awkward to change later.
 - **`oss`** (the dispatcher over `lib/*.sh`) handles mechanical state only —
   the verbs `oss help` lists: state CRUD, registry adds, and probes. It holds
   no judgment and never should.
-- **`architect-critic:critiquing-spec`** is invoked as a peer skill; it runs its
-  own rebuttal loop and returns a summary. You do not mediate its internals.
+- **`challenge` (audit mode)** is ossify's own critic. It runs its own
+  rebuttal loop and returns a summary of standing challenges. You do not
+  mediate its internals.
 - **Peer entry skills:** `plan-release` owns Release 0, spine classes, and the
   critic veto; `plan-spine` owns decomposition and demo lines. `doctor` **ships
   as of v0.3** and owns state inspection, lean-spec validation, machine-checkable

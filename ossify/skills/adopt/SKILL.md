@@ -107,7 +107,7 @@ the state it creates. Nothing hand-authors `project-state.json`.
   genuine open decision, unaffected by prior code.
 - **Critic moment — unchanged** (`/start` §11 +
   `references/critic-moment.md`): fires once on the reconciled spec, same
-  skip contract and `ARCHITECT_CRITIC_ARGS` bridge.
+  skip contract and the internal `challenge` audit.
 
 ---
 

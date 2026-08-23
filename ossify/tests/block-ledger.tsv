@@ -86,6 +86,8 @@
 #   plan-release/SKILL.md   rel  -> spine_add + release_set_meta
 #   class-declaration.md    sid  -> class_set
 #   spine-close.md          `oss critic_detect || true` - rc-handling, not decoration
+#     (retired at 1.1.0 with the critic probe itself - Batch S moved the critic
+#     in-tree and deleted both the probe and the ARGS bridge from the skills)
 # The fourth was caught two rounds after the first three, by the same rule.
 # The lesson is worth keeping: when a stated rule and a case-by-case instinct
 # disagree, the rule wins or the rule gets rewritten - a ledger whose value is
@@ -93,10 +95,11 @@
 # that live only in the author's head.)
 #
 I	skills/adopt/SKILL.md	1	single-verb calls with <placeholder> args: release_add, release_status (the C4 retroactive baseline pair)
+D	skills/challenge/references/adversaries.md	2	#138	the codex and claude adversary invocation recipes - schema-backed exec forms the close-depth audit runs; documented shell the agent runs, never executed by the suite, and a wrong shape fails loudly into host-only
 O	skills/close/references/spine-close.md	work items that are not complete	tests/test-close.sh	the open-work-item gate refuses to close a spine with incomplete items
 O	skills/close/references/spine-close.md	is-ancestor	tests/test-close.sh	the merge guard: the spine tip must actually reach the base branch
 O	skills/close/references/spine-close.md	touch_check	tests/test-close.sh	bone-touch at close re-classifies the spine rather than trusting the plan
-D	skills/close/references/spine-close.md	3	#138	the architect-critic ARGS bridge (export form, quoting, absolute --spec), and `oss critic_detect || true` - the `|| true` is rc-handling, not decoration: rc 1 means "not installed, carry on" and removing the guard aborts the whole close ceremony under set -e + the resume containment probe (audit #47, operative, unexecuted)
+D	skills/close/references/spine-close.md	1	#138	the resume containment probe (audit #47, operative, unexecuted)
 I	skills/close/references/spine-close.md	5	single-verb calls with <placeholder> args: ledger_apply_pending, class_set, risk-gate read, worktree_remove, spine_status
 O	skills/close/references/release-close.md	spines that are not closed	tests/test-close.sh	the release gate blocks on any spine still open
 O	skills/close/references/release-close.md	expired_fakes	tests/test-close.sh	the fake-expiry gate blocks on fakes past their expiry release
@@ -117,6 +120,7 @@ I	skills/close/references/impl-check.md	2	single-verb calls: verify_acs, report_
 O	skills/work-item/references/round-orchestration.md	checkout -q -b	tests/test-close.sh	W2: the cut runs clean under set -u with NOTHING injected, leaves canonical checked out on the spine branch, halts on an existing spine branch (W2b) and on a detached HEAD (W2c). It cuts from the branch canonical is PARKED ON - reading the planned base from SPINE.md is deferred to #133, and 07a0bd8 reverted an attempt at it. An earlier revision of this row claimed planned-base coverage, which is behaviour the block deliberately does not have
 D	skills/work-item/references/round-orchestration.md	4	#138	spine-dir resolution, per-item spec path derivation, target_repo worktree spawn, and the dirty-worktree halt
 D	commands/adopt.md	1	#267	the $ARGUMENTS env-var bridge
+D	commands/challenge.md	1	#267	the $ARGUMENTS env-var bridge
 D	commands/close.md	1	#138	the $ARGUMENTS env-var bridge - a positional-substitution regression here silently drops every argument
 D	commands/doctor.md	1	#138	the $ARGUMENTS env-var bridge
 D	commands/plan-release.md	1	#138	the $ARGUMENTS env-var bridge
@@ -138,19 +142,19 @@ D	skills/close/references/routing.md	1	#138	the id_parse scope router - shares i
 I	skills/close/references/routing.md	1	a single spine_list call
 I	skills/close/references/retrospective.md	1	a single quarantine read
 D	skills/plan-release/SKILL.md	3	#138	the state-absent refusal, the touch_check rc-capture, and the release_add capture whose $rel feeds spine_add and release_set_meta
-I	skills/plan-release/SKILL.md	8	single-verb calls with <placeholder> args: release_set_meta x4, feature_add, release_add, class_set, the critic ARGS export, the release_dir resolve+mkdir
+I	skills/plan-release/SKILL.md	7	single-verb calls with <placeholder> args: release_set_meta x4, feature_add, release_add, class_set, the release_dir resolve+mkdir
 D	skills/plan-release/references/bone-touch-judge.md	2	#138	the two-branch if that folds rc 2 into clean, and the rc-capture form that does not - REL-9 flags the first as a copy trap
 I	skills/plan-release/references/bone-touch-judge.md	3	single-verb calls: class_set x2 and a risk-gate controls read
 D	skills/plan-release/references/class-declaration.md	1	#138	sid=$(oss spine_add ...) consumed by class_set - assigned then consumed, the same rule that reclassified release-md-emission.md
 I	skills/plan-release/references/class-declaration.md	1	a single feature_add return
-I	skills/plan-release/references/critic-veto.md	4	the critic ARGS export and three single-verb disposition calls
+I	skills/plan-release/references/critic-veto.md	3	three single-verb disposition calls
 I	skills/plan-release/references/feature-map-grooming.md	1	a single feature_list call
 I	skills/plan-release/references/real-use-findings.md	3	three worked release_set_meta / feature_add calls
 D	skills/plan-release/references/release-md-emission.md	1	#138	rel -> oss release_dir -> mkdir -p: a variable one step assigns and two later steps consume, and it creates a directory. Operative by this file's own rule; an earlier revision called it "a release-id read", describing only its first line
 I	skills/plan-release/references/rolling-wave.md	1	a single next_sketch write
 I	skills/plan-release/references/spine-sequencing-dag.md	1	a single spine_dag write
 D	skills/plan-spine/SKILL.md	3	#138	the state-absent refusal, the spine-id resolution, and the touch_check branch
-I	skills/plan-spine/SKILL.md	7	single-verb calls with <placeholder> args: work_item_add, class_set, the critic ARGS export, ledger_add_user, ledger_supersede, fake_add, feature_add
+I	skills/plan-spine/SKILL.md	6	single-verb calls with <placeholder> args: work_item_add, class_set, ledger_add_user, ledger_supersede, fake_add, feature_add
 D	skills/plan-spine/references/cross-repo.md	1	#138	the worktree_path read and cross-repo dispatch
 I	skills/plan-spine/references/cross-repo.md	2	a work_item_add shape and a work-items-by-spine read
 D	skills/plan-spine/references/decomposition.md	1	#138	the bone-touch re-check at decomposition
@@ -160,12 +164,10 @@ I	skills/plan-spine/references/demo-authoring.md	7	worked ledger_add_auto exampl
 I	skills/plan-spine/references/demo-amendments.md	3	single-verb calls: supersede, ledger read, quarantine
 I	skills/plan-spine/references/fake-ledger-discipline.md	3	single-verb calls: fake_add, fake_status, feature_add
 I	skills/plan-spine/references/citation-foldin.md	2	two ADR reads used to check citations by eye
-I	skills/plan-spine/references/spec-authoring.md	1	the critic ARGS export
 D	skills/start/SKILL.md	1	#138	the state-absent bootstrap refusal
-I	skills/start/SKILL.md	7	single-verb calls with <placeholder> args: feature_add, bone_add, risk_gate_add, posture_set, overlay_set, the critic ARGS export, doctor
+I	skills/start/SKILL.md	6	single-verb calls with <placeholder> args: feature_add, bone_add, risk_gate_add, posture_set, overlay_set, doctor
 D	skills/start/references/bones-registry.md	1	#138	the ADR-number minting block - two sed forms, a sort -n tail, and 10# base-10 forcing, all silently wrong on an empty or odd-named dir
 I	skills/start/references/bones-registry.md	2	a bone_add shape and a worked bone_add example
-I	skills/start/references/critic-moment.md	2	a critic_detect probe and the ARGS export
 I	skills/start/references/journey-map.md	1	a single feature_add call
 I	skills/start/references/posture-block.md	4	single-verb calls: posture_set, overlay_set, bone_add, composition_set
 I	skills/start/references/risk-gates.md	2	a risk_gate_add shape and a worked example
@@ -177,6 +179,7 @@ I	skills/work-item/references/tdd-loop.md	4	worked RED-GREEN examples: a redgate
 I	skills/work-item/references/handoff-contract.md	1	a single verify_step call
 I	skills/work-item/references/report-contract.md	1	a single report_cross_check call
 H	commands/adopt.md	3550582653-140
+H	commands/challenge.md	2670379828-144
 H	commands/close.md	1986596502-140
 H	commands/plan-release.md	3197413462-147
 H	commands/plan-spine.md	3747955391-145
@@ -184,6 +187,7 @@ H	commands/run-spine.md	2545938813-144
 H	commands/start.md	3557017349-140
 H	commands/work-item.md	2378584622-144
 H	skills/adopt/SKILL.md	3003032981-173
+H	skills/challenge/references/adversaries.md	1957045464-497
 H	skills/close/SKILL.md	2598283696-409
 H	skills/close/references/code-review.md	477087775-527
 H	skills/close/references/cumulative-demo.md	2610898515-1543
@@ -194,7 +198,7 @@ H	skills/close/references/patch-lane.md	1477508772-1735
 H	skills/close/references/release-close.md	3882829569-2451
 H	skills/close/references/retrospective.md	2875153190-110
 H	skills/close/references/routing.md	948295148-232
-H	skills/close/references/spine-close.md	251174316-3806
+H	skills/close/references/spine-close.md	3996621875-3390
 H	skills/close/references/work-item-close.md	575441835-2387
 H	commands/doctor.md	729179949-141
 H	skills/doctor/SKILL.md	630905567-126
@@ -202,26 +206,24 @@ H	skills/doctor/references/budget-check.md	582880737-316
 H	skills/doctor/references/interop-check.md	3672515018-357
 H	skills/doctor/references/spec-validation.md	2541080060-102
 H	skills/doctor/references/state-inspection.md	622871202-1192
-H	skills/plan-release/SKILL.md	1589553138-2187
+H	skills/plan-release/SKILL.md	3335154455-2082
 H	skills/plan-release/references/bone-touch-judge.md	3552761506-1221
 H	skills/plan-release/references/class-declaration.md	119880498-302
-H	skills/plan-release/references/critic-veto.md	3621408746-561
+H	skills/plan-release/references/critic-veto.md	179374432-460
 H	skills/plan-release/references/feature-map-grooming.md	2982982503-158
 H	skills/plan-release/references/real-use-findings.md	2699050376-489
 H	skills/plan-release/references/release-md-emission.md	3198314590-173
 H	skills/plan-release/references/rolling-wave.md	767614811-211
 H	skills/plan-release/references/spine-sequencing-dag.md	3469132072-141
-H	skills/plan-spine/SKILL.md	592471900-2423
+H	skills/plan-spine/SKILL.md	334501861-2317
 H	skills/plan-spine/references/citation-foldin.md	3602525984-347
 H	skills/plan-spine/references/cross-repo.md	522633753-880
 H	skills/plan-spine/references/decomposition.md	1060876370-667
 H	skills/plan-spine/references/demo-amendments.md	3004605912-329
 H	skills/plan-spine/references/demo-authoring.md	11800694-1544
 H	skills/plan-spine/references/fake-ledger-discipline.md	3569334562-372
-H	skills/plan-spine/references/spec-authoring.md	210504779-102
-H	skills/start/SKILL.md	1430020782-890
+H	skills/start/SKILL.md	1547252962-776
 H	skills/start/references/bones-registry.md	179051130-727
-H	skills/start/references/critic-moment.md	2109289951-214
 H	skills/start/references/journey-map.md	3044115941-97
 H	skills/start/references/posture-block.md	79955184-463
 H	skills/start/references/risk-gates.md	2376839325-381

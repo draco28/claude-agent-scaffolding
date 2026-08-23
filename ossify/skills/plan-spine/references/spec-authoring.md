@@ -34,7 +34,7 @@ only in the conversation** — and two ceremonies read it back later:
 | Consumer | Reads |
 |---|---|
 | `close/references/spine-close.md` §3 (step 2) | `base_branch`, from the spine-context section |
-| `close/references/spine-close.md` §7 (architect-critic) | the whole file, as the architect-critic `--spec` target |
+| `close/references/spine-close.md` §7 (the adversarial audit) | the whole file, as the audit's artifact at spine close |
 | §6 of this file | the same, for the planning-time adversarial pass |
 
 Skipped, both fail in the same shape: the critic audits a path that does not
@@ -190,40 +190,20 @@ mandatory re-verification after any bone change — in `citation-foldin.md`.
 
 ## 6. Adversarial pass (optional, at the full plan)
 
-If the user wants the plan audited before build, run architect-critic **against
-the spine plan** (`SPINE.md` plus the specs that exist), after the plan settles.
+If the user wants the plan audited before build, run ossify's own audit —
+`challenge` in audit mode — **against the spine plan** (`SPINE.md` plus the
+specs that exist), after the plan settles.
 
-1. **Probe:** `oss critic_detect || true` — it prints `absent` and returns **rc 1**
-   on that arm, so an unguarded call aborts under `set -e`. On `absent`, warn once —
-   *"architect-critic not installed — skipping the spine-plan audit. Install via
-   `/plugin install architect-critic` (v0.2+)."* — and continue. Never block on it.
-2. **Invoke** via the env-var bridge. This is architect-critic's **only**
-   invocation contract:
-
-   ```bash
-   export ARCHITECT_CRITIC_ARGS="--spec \"<absolute path to SPINE.md>\" --close"
-   ```
-
-   ```text
-   Skill(architect-critic:critiquing-spec)
-   ```
-
-   Three details are load-bearing and each fails **silently** when wrong:
-   **`export` it** (a bare assignment is invisible to the bash that reads it);
-   **one quoted absolute path** after `--spec`, never a list (the CLI path reads
-   exactly one artifact); **`--close` inside the args string** — it is the only
-   thing that selects close depth, and announcement wording does not.
-
-   There is **no** `target=` / `depth=` / `artifact_path=` parameter. Passing one
-   resolves the wrong artifact at the wrong depth without any error.
-
-   A refused or unavailable call — this host has no Skill tool, or a session
-   permission policy denied it; installing architect-critic cures neither — is
-   not the absent critic of step 1. Warn once naming the actual cause, note the
-   skipped audit in the plan, and continue. Never retry, never block. The skip
-   contract is `start/references/critic-moment.md` §4.
-3. **On return, triage the standing challenges** and fold accepted ones back into
-   the plan (§4 decomposition, §5 rounds, §8 demo contribution) before locking.
+1. **Run the audit.** Read
+   `${CLAUDE_PLUGIN_ROOT}/skills/challenge/references/audit.md` end to end and
+   follow it: `SPINE.md`'s absolute path is the artifact, the depth is `close`,
+   the target label is the spine id. The audit always runs — there is no
+   plugin whose absence skips it. Whether an external fresh-frame adversary
+   joins is the ladder's decision
+   (`challenge/references/adversaries.md`), and the summary names what ran.
+2. **On return, triage the standing challenges** and fold accepted ones back
+   into the plan (§4 decomposition, §5 rounds, §8 demo contribution) before
+   locking.
 
 This is a **planning** audit. The bone spine's full close-depth audit with the
 external adversary belongs to `close`, and it is a different moment with a
@@ -242,8 +222,6 @@ next to re-planning a locked spine.
   critic sees the full spine plan (§3).
 - **A parallel prose AC table** beside the machine-checkable lines (§2).
 - **Promoting per-item scaffolding ACs into the cumulative ledger** (§4).
-- **Passing `target=` / `depth=` / `artifact_path=` to architect-critic**, or
-  assigning `ARCHITECT_CRITIC_ARGS` without `export`, or passing more than one
-  `--spec` path (§6).
-- **Blocking the plan on architect-critic's absence.** Warn once and proceed.
+- **Skipping the §6 audit because no external adversary is configured.**
+  Host-only is the declared default, not an absence (§6).
 - **Re-shaping an id for a directory name** — verbatim, always (§1).

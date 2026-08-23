@@ -1,6 +1,6 @@
 ---
 name: plan-release
-description: Plan an ossify release — groom the feature map into spines, phrase exit criteria as user journeys, sequence spines by DAG, declare each spine bone or flesh under a fail-closed architect-critic veto, and emit RELEASE.md. Use when the user wants to plan a release, groom the feature map, pick spines for the next release, plan Release 0 (the skeleton), or runs /plan-release. Requires a project onboarded via /start. Not spec-core onboarding (/start) or spine decomposition (/plan-spine).
+description: Plan an ossify release — groom the feature map into spines, phrase exit criteria as user journeys, sequence spines by DAG, declare each spine bone or flesh under a fail-closed internal critic veto, and emit RELEASE.md. Use when the user wants to plan a release, groom the feature map, pick spines for the next release, plan Release 0 (the skeleton), or runs /plan-release. Requires a project onboarded via /start. Not spec-core onboarding (/start) or spine decomposition (/plan-spine).
 ---
 
 # plan-release
@@ -319,29 +319,20 @@ On no hit: change nothing, record nothing. Full usage in
 ### 7c. Critic veto (fail-closed)
 
 Submit `RELEASE.md` + the bones registry (with touch surfaces) + each spine's plan
-to a **standard** architect-critic pass and interpret its findings plugin-side.
-architect-critic gains no new interface — the veto is entirely our reading of
-ordinary findings.
+to the internal adversarial audit — ossify's own `challenge` skill in audit
+mode — and interpret its findings plugin-side. The veto is entirely our reading
+of ordinary findings. **The audit always runs**; there is no plugin whose
+absence skips it, so the class declaration is never critic-free.
 
-1. **Probe:** `oss critic_detect`. If `absent`, warn once — *"architect-critic not
-   installed — skipping the class-declaration veto. Install via `/plugin install
-   architect-critic` (v0.2+)."* — and continue with the §7a/§7b judgments only.
-   A denied or unavailable call is not absence: same §7a/§7b-only path, skip
-   recorded — `references/critic-veto.md` §2.
-2. **Invoke** via the env-var bridge — `export` it, one quoted absolute path,
-   `--close` inside the string, plugin-qualified skill name:
-
-   ```bash
-   export ARCHITECT_CRITIC_ARGS="--spec \"<absolute path to RELEASE.md>\" --close"
-   ```
-
-   ```text
-   Skill(architect-critic:critiquing-spec)
-   ```
-
-   There is **no** `target=` / `depth=` / `artifact_path=` parameter. All three
-   details fail silently when wrong (see `references/critic-veto.md` §2).
-3. **Interpret each finding** — the fail-closed ladder:
+1. **Run the audit.** Read
+   `${CLAUDE_PLUGIN_ROOT}/skills/challenge/references/audit.md` end to end and
+   follow it: `RELEASE.md` is the artifact, the depth is `close`, the target
+   label is the release id. The registry and spine plans go into the
+   conversation alongside it. Whether an external fresh-frame adversary joins
+   is the ladder's decision (`challenge/references/adversaries.md`); the
+   summary names what ran. Full submission rules in
+   `references/critic-veto.md`.
+2. **Interpret each finding** — the fail-closed ladder:
 
 | Finding | Disposition | Action |
 |---|---|---|
@@ -468,10 +459,10 @@ that cites it.
   the verbs `oss help` lists: state CRUD, registry adds, and probes. It
   holds no judgment and never should — `touch_check` matches globs, it does not
   decide what the match means.
-- **`architect-critic:critiquing-spec`** is invoked as an unmodified peer skill.
-  It runs its own rebuttal loop and returns a summary of standing challenges; the
-  veto is **our** interpretation of that summary (spec §12: the critic gains no
-  new interface or obligations). Do not ask it for a verdict; ask it for findings.
+- **`challenge` (audit mode)** is ossify's own critic. It runs its own rebuttal
+  loop and returns a summary of standing challenges; the veto is **our**
+  interpretation of that summary. Do not ask it for a verdict; ask it for
+  findings.
 - **Peer entry skills:** `start` owns spec-core, the bones registry, and the
   *advisory* spec-core critic moment — do not import its disposition-triage
   semantics into this fail-closed veto, and do not export the veto's semantics

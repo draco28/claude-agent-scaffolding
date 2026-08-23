@@ -12,7 +12,7 @@ the methodology, not negotiated per spine.
 
 ## 1. Independent of the critic — say it twice
 
-The bone-touch judge and the architect-critic veto are **two separate judges over
+The bone-touch judge and the critic veto are **two separate judges over
 the same spine**, and neither one clears the other:
 
 - A **clean critic** does not clear a touch hit. The critic reviewing a spine and
@@ -20,8 +20,8 @@ the same spine**, and neither one clears the other:
   evidence the critic did not raise a finding.
 - A **critic veto** does not require a touch hit. Rung 3 of the class ladder
   (bone by creation) catches bones that do not exist in the registry yet.
-- The judge runs **even when architect-critic is not installed**
-  (`oss critic_detect` → `absent`). It has no dependency on the critic at all.
+- The judge has **no dependency on the critic at all** — it runs on every
+  declaration, whatever the audit's configured depth.
 
 Order in SKILL.md §7 is ladder → touch → critic, and the touch judge's verdict
 survives everything downstream of it. The only legitimate way to undo a

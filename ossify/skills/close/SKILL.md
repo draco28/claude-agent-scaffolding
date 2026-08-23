@@ -244,8 +244,8 @@ steps, in **binding order**:
    (three arguments — the reason is required).
 6. **Risk-gate escalation**, distinguished from a bone hit by the printed prefix,
    and it escalates regardless of class.
-7. **architect-critic**, class-scoped: `--close` on bone, **absent on flesh**.
-   Guard `oss critic_detect` — it prints `absent` and returns rc 1.
+7. **The adversarial audit** (`challenge`, audit mode), class-scoped: close
+   depth on bone, a light host-only pass on flesh.
 8. **The retrospective**, against a fixed section contract.
 9. **Memory-bank harvest** — always before cleanup.
 10. **Worktree + branch cleanup**, per work item. Only now.

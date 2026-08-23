@@ -6,7 +6,7 @@ axis, no weight axis, no "small bone" — a spine's class answers one question:
 
 | Class | Definition | Ceremony |
 |---|---|---|
-| **bone** | Creates or modifies a bone — the skeleton itself, a new boundary, a new cross-cutting contract, a data-ownership change, a stack decision | Full: grill gates at planning, full architect-critic audit with the external adversary at close, full retro, ADR required |
+| **bone** | Creates or modifies a bone — the skeleton itself, a new boundary, a new cross-cutting contract, a data-ownership change, a stack decision | Full: grill gates at planning, full close-depth audit with the external adversary when one is configured, full retro, ADR required |
 | **flesh** | Lands entirely on existing bones — features, deepening passes, polish | Core rows only, plus a light host-only critic pass that includes a mandatory bone-touch check |
 | **internal-enabler** | Not a user-facing spine at all: no actor-to-outcome journey. Rare, and admission-gated | See §4 — it is a *verdict*, and admission is a separate judgment |
 

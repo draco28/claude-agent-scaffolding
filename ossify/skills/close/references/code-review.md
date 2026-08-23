@@ -15,7 +15,7 @@ and is it the code the spine was supposed to write?**
 
 | | Reviews | Asks |
 |---|---|---|
-| **architect-critic** | specs, plans, `SPINE.md` | is the *design* sound? |
+| **challenge (audit mode)** | specs, plans, `SPINE.md` | is the *design* sound? |
 | **impl-check** Layer 1/2 | AC commands, the report | did every AC *pass*? |
 | **impl-check** Layer 3 | the diff vs `03-code-patterns.md` | does it violate a **documented** pattern? |
 | **bone-touch judge** | changed paths vs the registry | did a flesh spine touch a **bone**? |
@@ -23,7 +23,7 @@ and is it the code the spine was supposed to write?**
 
 The gap is real and each neighbour leaves it open on purpose:
 
-- **architect-critic never sees code.** It audits `SPINE.md` before the work
+- **The audit never sees code.** It audits `SPINE.md` before the work
   exists, so it cannot know what was built.
 - **impl-check Layer 3 is bounded by what is written down.** If
   `03-code-patterns.md` is silent, Layer 3 is silent — correctly, because

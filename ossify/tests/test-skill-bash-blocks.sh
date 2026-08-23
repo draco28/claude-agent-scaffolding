@@ -379,13 +379,13 @@ check_6_budget() { # $1=ossify-root $2=workdir; writes $2/check6-report.txt
 #
 # MEASUREMENT is description-only, in bytes under the LC_ALL=C exported at
 # the top of this file - the same method the ceiling is derived in. The
-# listing's "- ossify:<name>: " prefixes add real cost (194 bytes at the
-# ten-command set, name-length-dependent) but are harness rendering this
+# listing's "- ossify:<name>: " prefixes add real cost (230 bytes at the
+# twelve-command set, name-length-dependent) but are harness rendering this
 # test does not own; recorded here, not measured.
 #
-# HONESTY LINE: the ten-command surface measures 1467/3200 = 0.18% of the
-# window - 2.2x headroom, and BELOW §9.1's 0.3-0.4% band, because three of
-# the ten are standalone utilities §9.1 intended to surface name-only
+# HONESTY LINE: the twelve-command surface measures 1986/3200 = 0.25% of the
+# window - 1.6x headroom, and BELOW §9.1's 0.3-0.4% band, because three of
+# the twelve are standalone utilities §9.1 intended to surface name-only
 # (issue #282 records that divergence and why trimming is the wrong fix:
 # budget nobody is short of, traded against routing triggers). This check
 # is a regression guard against growth, not a tight budget; it cannot fire
@@ -394,7 +394,8 @@ check_6_budget() { # $1=ossify-root $2=workdir; writes $2/check6-report.txt
 # DIVERGENCES recorded here, fixed elsewhere:
 #   D-2: §9.1 says "<=6 fully-described entry skills" and lists six;
 #        run-spine is a de-facto seventh full entry (lifecycle baton target),
-#        and #267's adopt is an eighth unless §9.1 is amended deliberately -
+#        #267's adopt is an eighth, and Batch S's challenge is a ninth,
+#        unless §9.1 is amended deliberately -
 #        the amendment is #267's to make. This check enforces bytes, not
 #        count, on purpose.
 #   D-3: §9.1's doctor row still allocates the phase-2 migration entry point
@@ -424,7 +425,7 @@ check_7_descriptions() { # $1=ossify-root $2=workdir; writes $2/check7-report.tx
   echo "     TOTAL $total  (budget 3200, headroom $((3200 - total)))" >> "$2/check7-report.txt"
   [ "$total" -le 3200 ] || echo "command descriptions total $total bytes, over the 3200 every-call budget by $(( total - 3200 ))"
   n="$(ls -1 "$1"/commands/*.md 2>/dev/null | wc -l | tr -d ' ')"
-  [ "$n" -ge 11 ] || echo "check 7 saw only $n command files; the budget loop is not measuring the whole set"
+  [ "$n" -ge 12 ] || echo "check 7 saw only $n command files; the budget loop is not measuring the whole set"
 }
 
 # ---------------------------------------------------------------------------
@@ -448,8 +449,8 @@ check_7_descriptions() { # $1=ossify-root $2=workdir; writes $2/check7-report.tx
 # (Skill\(x, target=y\)); a prose edit restoring a bare token - from git
 # history, a regenerated wrapper, a reference doc - passes every gate
 # (#263's review, finding 2). The sanctioned route is the wrapper's
-# path-routing Read line or a cross-PLUGIN call like
-# Skill(architect-critic:...). The scan owns the plugin-root references/
+# path-routing Read line or a cross-PLUGIN call into another plugin's
+# skill. The scan owns the plugin-root references/
 # tree too, because three wrappers load it directly (Codex r1 on #283).
 #
 # SHADOW-CONDITIONED (Codex r2 on #284): the dead-end exists only where
@@ -528,7 +529,7 @@ C7="$(check_7_descriptions "$OSSIFY" "$WORK")"
 echo "-- check 7: command-description budget (the every-call listing cost)"
 cat "$WORK/check7-report.txt"
 t_assert_eq 0 "$(_count "$C7")" "check 7: command descriptions are within the 3200-byte every-call budget${C7:+ -- $C7}"
-t_assert_ge 12 "$(_lines "$WORK/check7-report.txt")" "check 7: the description loop saw every command (11 rows + the total)"
+t_assert_ge 13 "$(_lines "$WORK/check7-report.txt")" "check 7: the description loop saw every command (12 rows + the total)"
 
 C9="$(check_9_shadowed_tokens "$OSSIFY")"
 echo "-- check 9: shadowed Skill(ossify:) tokens"
@@ -648,10 +649,10 @@ _c7_command() { # $1=root $2=name $3=description-length
     printf 'description: '; printf 'd%.0s' $(seq 1 "$3"); echo
     echo "---"; echo "# $2"; } > "$1/commands/$2.md"
 }
-# Plant A: 11 commands = 3500 bytes (10 x 300 + 1 x 500), over the 3200 budget
-# by 300 - and at the full eleven-file count, so ONLY the ceiling arm fires.
-for s in c7a c7b c7c c7d c7e c7h c7i c7j c7k c7l; do _c7_command "$FIX7" "$s" 300; done
-_c7_command "$FIX7" c7m2 500
+# Plant A: 12 commands = 3500 bytes (11 x 300 + 1 x 200), over the 3200 budget
+# by 300 - and at the full twelve-file count, so ONLY the ceiling arm fires.
+for s in c7a c7b c7c c7d c7e c7f c7h c7i c7j c7k c7l; do _c7_command "$FIX7" "$s" 300; done
+_c7_command "$FIX7" c7m2 200
 # Plant B: only 2 commands, each comfortably under budget - the TOTAL passes,
 # so the only thing that can fire is the floor guard. That is the assertion
 # that makes check 7 unable to pass by measuring nothing.
