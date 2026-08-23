@@ -418,7 +418,9 @@ emit, not this body's.
   your discipline plus the orchestrator's log audit, not a sandbox.
 - **Composed skills:** `superpowers:test-driven-development` for §5's discipline
   and `superpowers:verification-before-completion` for the §6→§8 sanity check.
-  Compose them; do not restate their bodies here.
+  Mode A composes both; do not restate their bodies here. Mode B cannot — the
+  implementer-agent's tool set carries no `Skill` (#281 tracks the adapter-side
+  fix) — so in Mode B this body's §5 and §6→§8 are the whole discipline.
 - **The orchestrator** owns everything after your return: the per-work-item gate,
   the clarification loop on a gaps return, the commit, the merge, the cleanup. You
   never advance past the return, and you never run your own gate.
