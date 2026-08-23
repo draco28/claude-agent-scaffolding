@@ -6,9 +6,8 @@ description: Adopt an existing project into ossify — five fail-closed gates, s
 # adopt
 
 You are the conductor of ossify's **adoption** — the on-ramp for a project
-that already has code, tests, history, and decisions. `/start` is pre-code
-ceremony and refuses such a canonical on its content gate; everything here
-exists because that refusal needs somewhere to send the operator.
+that already has code, tests, history, and decisions; `/start` is pre-code
+ceremony and refuses such a canonical on its content gate.
 
 **This body is thin by design, not under budget pressure.** Seven of `/start`'s
 stations transfer unchanged and live THERE — every pointer in §4 is a
@@ -48,13 +47,12 @@ target is enforced as a stated self-cap in §7.
 
 **Do NOT auto-invoke when:**
 
-- The project is greenfield — that is `/start`, and this skill has nothing to
-  adopt.
+- The project is greenfield — that is `/start`.
 - Ossify state already exists at the routed path — already onboarded; route to
   `doctor`.
 - The ask is state-schema migration — `oss migrate` is a different thing and a
   dispatcher concern, not a ceremony.
-- A slice is open on the legacy stack — §3's A5 refuses; finish the slice.
+- A slice is open on the legacy stack — §3 A5 refuses.
 
 ---
 
@@ -70,14 +68,18 @@ that says "clean your tree" sends them to fix a symptom.
   and its `/init-workspace` / `/pair-workspace` tokens are load-bearing; read
   them there, do not paraphrase).
 - **A2 — no ossify state at the routed path.** If state exists: already
-  adopted → route to `doctor`; do not force past.
-- **A3 — canonical tree is clean.** `git -C "$(oss repo_root canonical)"
-  diff --quiet` and `--cached --quiet`. On failure: refuse, naming the legacy
-  stack's slice close.
-- **A4 — no live worktrees.** `oss worktree_orphans` under the canonical —
-  any directory means a slice is open. Same refusal as A3.
-- **A5 — legacy position is on a boundary.** Read the legacy roadmap state
-  (`.workspace/project-roadmap.json`); an active slice refuses and names it.
+  adopted → route to `doctor`.
+- **A3 — canonical tree is clean, tracked AND untracked.** `git -C "$(oss
+  repo_root canonical)" status --porcelain` — empty is clean; any line is
+  work in flight. On failure: refuse, naming the legacy stack's slice close.
+- **A4 — no live worktrees.** `find "$(oss repo_root canonical)/.worktrees"
+  -mindepth 1 -maxdepth 1 2>/dev/null` — any directory means a slice is open;
+  same refusal as A3. A plain probe on purpose: `oss worktree_orphans`
+  resolves ossify state, which A2 just required not to exist.
+- **A5 — legacy position is on a boundary.** The live position is the
+  manifest-routed memory bank's `05-active-context.md` cursor (scaffold-dev's
+  `sd_state_read_cursor` resolves it; `project-roadmap.json` is inventory,
+  not position). An active slice there refuses and names it.
 
 Once all five pass, **record the baseline SHA** — `git -C "$(oss repo_root
 canonical)" rev-parse HEAD`. Everything downstream is relative to it, and the
@@ -87,8 +89,7 @@ adoption record cites it.
 
 ## 4. Stations that transfer unchanged — pointers only
 
-**Do not restate these.** Read the pointer, work it against the adopted
-project.
+**Do not restate these — read the pointer, work it against the project.**
 
 - **Vision — confirm, do not elicit** (`/start` §4). It is already written;
   read it back for correction.
@@ -102,9 +103,6 @@ project.
 - **Critic moment — unchanged** (`/start` §11 +
   `references/critic-moment.md`). Fires once, on the reconciled spec; same
   announce/wait/skip contract, same `ARCHITECT_CRITIC_ARGS` bridge.
-- **Minimums — replaced by baseline completeness.** `/start` §12's Release-0
-  floors describe a thin new project, not a shipped one; C4 is their
-  replacement.
 
 ---
 
@@ -170,9 +168,11 @@ accepts `closed`; no new verb, no spine tree. **Do not reconstruct per-slice
 history as spines and work items** — that would put unearned records in the
 ledger. The first ossify-planned release is Release 1.
 
-Then author the **stub retrospective** at `oss release_dir r0` — recording the
-adoption, not a spine retro. Measured: that path is the one input
-`plan-release` needs and lacks after a retroactively-closed Release 0.
+Then author the **stub retrospective** at
+`"$(oss release_dir r0)/release-retrospective.md"` — recording the adoption,
+not a spine retro. That filename is `plan-release` §4's previous-release
+input, measured as the one thing it needs and lacks after a
+retroactively-closed Release 0.
 
 ### C5 — Reconcile artifacts; read the destination before writing it
 
@@ -184,19 +184,19 @@ no blank destinations — an adopted project is all occupied surface.
 | `MASTER-SPEC.md` | map legacy phases → the 7 lean sections; keep legacy sections (spec-validation reads their presence as legal) |
 | `CLAUDE.md` | merge ossify's loop section; preserve hand-authored zones |
 | `EXECUTIVE-SUMMARY.md` | leave; no gate reads it |
-| memory bank | append with harvest's provenance trailer (`close/references/harvest.md`); **never truncate**. For `09-known-issues.md` / `10-decisions-log.md`, harvest's never-regenerate rule wins — they hold the history adoption exists to preserve (#268; the brief's fresh-file conditional is owed there, cross-linked) |
+| memory bank | append with harvest's provenance trailer (`close/references/harvest.md`); **never truncate**. For `09-known-issues.md` / `10-decisions-log.md`, harvest's never-regenerate rule wins — they hold the history adoption preserves (#268; the brief's conditional is still owed) |
 | `tech-debt.md`, `PUBLIC_BOUNDARY.md` | author (absent) |
 | `<canonical>/docs/adr/` | append only, continuing the series |
 
-### C6 — Seed the demo ledger, or the cumulative demo is vacuous
+### C6 — Seed the demo ledger, or the first close passes vacuously
 
-After C3+C4 the demo ledger holds **0 lines**: no prior spines exist, so the
-first close runs an empty `auto:` set and **passes vacuously**. Seed a small
-number of end-to-end `auto:` lines bound to the project's existing
-verification: `oss ledger_add_auto "<name>" "<end-to-end command>"`.
-
-Small and end-to-end — the current cut's journey, **not** a transcription of
-the test suite. The ledger is an operated asset with a wall-clock budget.
+The only ledger verb, `oss ledger_add_auto`, keys every line to a spine — and
+C4 deliberately creates none. So adoption **records the seed candidates**
+(small, end-to-end, from the current cut's journey — not a transcription of
+the test suite) in the adoption record, and **the first `/plan-spine` mints
+them as `auto:` lines on that spine**. No close can run before a spine
+exists, so the first close runs them: the vacuous window closes without
+minting unearned spine records.
 
 ---
 
@@ -212,12 +212,12 @@ the test suite. The ledger is an operated asset with a wall-clock budget.
 | Release 0, closed | `project-state.json` | write |
 | `PUBLIC_BOUNDARY.md` | each public repo root | author |
 | Seed demo-ledger lines | `project-state.json` | `oss ledger_add_auto` |
-| Stub retrospective at `oss release_dir r0` | AI workspace | author — records the adoption |
-| **Adoption record** | AI workspace | author — baseline SHA, gates passed, merged-vs-authored, **every C2 gap** |
+| Stub retrospective | `"$(oss release_dir r0)/release-retrospective.md"` | author — records the adoption |
+| **Adoption record** | `<ai-workspace>/ADOPTION.md` | author — baseline SHA, gates passed, merged-vs-authored, **every C2 gap**, the C6 seed candidates |
 
 The adoption record is the point: it is the only artifact that says what
 adoption actually did, and it is what a later `doctor` run reads when the spec
-and the state disagree.
+and the state disagree (doctor §2 routes the discrepancy to it).
 
 Close with `oss doctor` (the state gate: `state`, `schema`, `replay`,
 `shape`) and name the next step: **`/plan-release`** for Release 1.
@@ -234,9 +234,9 @@ Close with `oss doctor` (the state gate: `state`, `schema`, `replay`,
 - **Mid-slice adoption.** §3 A5 refuses it by design.
 - **Repairing what it finds.** C2 gaps and stale ADRs are findings.
 - **Letting this body exceed 250 lines.** Thin-by-design is a stated
-  constraint, not an aspiration — the cap sits deliberately close to the
-  target so the first unjustified addition hits it. Depth belongs in pointers
-  to `/start`'s sections, never restated here.
+  constraint, not an aspiration — the cap sits close enough to the target
+  that the first unjustified addition hits it. Depth belongs in pointers,
+  never restated.
 
 ---
 
@@ -244,6 +244,7 @@ Close with `oss doctor` (the state gate: `state`, `schema`, `replay`,
 
 The `/adopt` command exports the raw argument as `$ARGUMENTS` via the env-var
 bridge — parse it in bash; never reference `$1`/`$2`/`$N`. The only argument
-is an optional project name, passed to `oss init`. The command registers on
-Claude Code only — as no ossify command registers on OpenCode, #131 tracks
-that gap for all of them — while this skill body reaches OpenCode by path.
+is an optional project name, passed to `oss init`; when absent, ask before
+initializing. The command registers on Claude Code only — as no ossify
+command registers on OpenCode, #131 tracks that gap for all of them — while
+this skill body reaches OpenCode by path as the native `adopt` skill.
