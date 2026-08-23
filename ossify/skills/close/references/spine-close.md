@@ -400,8 +400,8 @@ clean, and an unreadable registry.
 - **Assuming a touch hit is a bone.** Read the printed prefix (§6.2).
 - **Carrying close depth onto the flesh path** — the light host-only pass is
   the flesh contract (§7).
-- **Carrying `--close` on the flesh path**, or dropping it on the bone path (§7).
-- **Passing `target=` or `depth=` to the critic skill** (§7).
+- **Running the flesh pass at close depth**, or the bone pass at shallow depth (§7).
+- **Reading the audit reference halfway** — the depth (close or shallow) and the artifact path both arrive in the invoking prose (§7).
 - **Cleaning up before the harvest**, or before the merge (§9).
 - **Writing `spine_status closed` after any halt.** A halt records nothing.
 - **Re-running the touch check after a mid-flight reclassification** (§6.1).

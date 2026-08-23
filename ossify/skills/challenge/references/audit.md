@@ -134,13 +134,17 @@ adversary, run its recipe from `references/adversaries.md`.
 The adversary is a separate model in a separate session with no knowledge of
 this conversation. That fresh frame is the point: it catches what your
 self-audit cannot see because you already absorbed the artifact's framing. The
-prompt you build carries (a) the full artifact content, (b) the instruction to
-be adversarial — *"surface the strongest single-paragraph counter-arguments;
-do not be polite, do not soften, do not assume the author is correct"* — and
-(c) the return contract from `adversaries.md` §3, verbatim.
+prompt you build carries (a) the full artifact content **plus every companion
+the invoking prose submitted alongside it** — the bones registry with its
+touch surfaces, the spine plans, whatever the caller handed over: the
+fresh-frame adversary gets the same submission the host audit got, or its
+findings degrade to advice about the one file it was handed, (b) the
+instruction to be adversarial — *"surface the strongest single-paragraph
+counter-arguments; do not be polite, do not soften, do not assume the author
+is correct"* — and (c) the return contract from `adversaries.md` §3, verbatim.
 
-On timeout, non-zero exit, or missing/invalid output: one warning naming the
-cause, then continue host-only. Never retry mid-ceremony.
+On timeout, non-zero exit, over-cap prompt, or missing/invalid output: one
+warning naming the cause, then continue host-only. Never retry mid-ceremony.
 
 ---
 

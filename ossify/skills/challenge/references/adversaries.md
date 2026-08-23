@@ -11,10 +11,17 @@ not by accident.
 
 1. **Per-invocation override.** The calling prose or the user names an
    adversary for this run.
-2. **`OSSIFY_ADVERSARY`** — a recipe name from §2, or the literal `none`
-   (force host-only even where a recipe would resolve).
+2. **`OSSIFY_ADVERSARY`** — `codex`, `claude`, or the literal `none` (force
+   host-only even where a recipe would resolve).
 3. **Host-only.** The declared default. No implicit adversary is ever assumed
    from the host agent.
+
+**Any other value resolves to a loud refusal, not an improvisation:** an
+unvalidated name (`droid`, `gemini`, anything not in §2) gets one plain line —
+*"<name> has no validated recipe — running host-only; see
+challenge/references/adversaries.md §2 for how a recipe is added"* — and the
+audit continues host-only. Selecting a name whose invocation nobody has
+validated would hand the audit to a guessed command line.
 
 Audit mode announces the resolution before running (audit.md §3), and the
 summary's `Adversaries used` line always names what actually ran — `host only`
@@ -26,9 +33,11 @@ is a value, not an omission.
 
 Each recipe: a probe, an invocation, the output contract (§3), a timeout, and
 the failure path (§4). `codex` and `claude` are ported verbatim from
-architect-critic 0.6.0's proven invocations. The others are templates: marked
-unproven until validated on a real run, and the contract in §3 is what a
-validated run must satisfy.
+architect-critic 0.6.0's proven invocations; they are the complete validated
+set. A third entry joins only after a real run proves it (§2.1).
+
+**Every invocation runs under the timeout guard (§2.2) — an unguarded hang is
+a blocked ceremony.**
 
 ### codex — ported, proven
 
@@ -47,9 +56,6 @@ codex exec --json \
 
 Read the `--output-last-message` file, not stdout. Validate it against §3.
 
-**Timeout:** 300s default; `OSSIFY_ADVERSARY_TIMEOUT_S` overrides (integer
-seconds).
-
 ### claude — ported, proven
 
 **Probe:** `command -v claude`.
@@ -67,25 +73,31 @@ claude --print \
 
 Validate the response against §3.
 
-**Timeout:** 300s default; `OSSIFY_ADVERSARY_TIMEOUT_S` overrides.
+### 2.1 Adding a recipe
 
-### droid — template, unproven
+`droid` is the expected next entry, and the reason it is not selectable yet is
+the point: a recipe ships only after a real audit run validates its exact
+flags against the installed CLI. To add one: run one close-depth audit with
+the candidate CLI, confirm the final message satisfies §3, then add the
+section — probe, invocation, timeout, failure path — in the same change. A
+name without a validated invocation is a dead selector, not a recipe.
 
-**Probe:** `command -v droid`.
+### 2.2 The timeout guard
 
-**Invocation:** use the CLI's non-interactive single-shot mode with the prompt
-as input; capture its final message. Exact flags are unvalidated — on first
-real use, confirm the flags against the installed version's `--help`, run one
-audit, and correct this recipe in the same change.
+`OSSIFY_ADVERSARY_TIMEOUT_S` (integer seconds, default **300**) bounds every
+recipe invocation:
 
-**Contract:** whatever the flags, the final message must end with the §3 fenced
-block.
+- **GNU `timeout` or `gtimeout` present** — run the invocation under
+  `timeout "$OSSIFY_ADVERSARY_TIMEOUT_S" <invocation>`. Exit 124 is the
+  timeout signature.
+- **Neither present (macOS default)** — run the invocation in the background,
+  sleep-and-poll for completion, and `kill` it once the limit passes. The
+  exit status of a killed run is the timeout signature.
 
-### generic CLI — template
-
-Any CLI qualifies if it: takes a prompt non-interactively, returns text on
-stdout or in a file, and can be instructed to end with the §3 fenced block.
-Add it as a named recipe here once validated.
+A timeout lands in §4 like any other failure: one warning naming the cause,
+audit continues host-only. **Never invoke an adversary without the guard** —
+the timeout documented beside a recipe is a promise this section is what
+keeps.
 
 ---
 
@@ -104,12 +116,20 @@ Validation: a JSON object with a `challenges` array whose items each carry
 string `text`, `severity` in `premise|gap|alternative`, and string `rationale`.
 Anything else is invalid output and takes the §4 path.
 
+**Size cap before dispatch.** The prompt travels as one command-line argument,
+and argv limits (roughly 2 MB, less after environment overhead) fail the
+process before the adversary starts — a silent loss of the fresh frame. If the
+assembled prompt exceeds **128 KiB**, do not dispatch: run host-only with one
+warning naming the artifact's size and the cap. §1's 50K-line check surfaces
+oversized artifacts earlier; this cap is the mechanical backstop.
+
 ---
 
 ## 4. Failure is host-only, loudly
 
-Timeout, non-zero exit, missing file, invalid JSON — all four land in the same
-place: **one warning naming the cause, the audit continues host-only, and the
-summary records what actually ran.** Never retry mid-ceremony; never treat a
-failed adversary as a passing one. The user re-runs the audit after fixing the
-cause if the fresh frame matters for this artifact.
+Timeout, non-zero exit, missing file, invalid JSON, over-cap prompt — all five
+land in the same place: **one warning naming the cause, the audit continues
+host-only, and the summary records what actually ran.** Never retry
+mid-ceremony; never treat a failed adversary as a passing one. The user
+re-runs the audit after fixing the cause if the fresh frame matters for this
+artifact.

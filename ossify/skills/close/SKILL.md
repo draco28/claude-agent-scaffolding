@@ -377,8 +377,8 @@ exists; what that file adds is when to reach for it.
   demo lines carry a feature field to group on (§6).
 - **Routing a change through the patch lane without `oss touch_check`**, or
   using diff size as the criterion (§6).
-- **Carrying `--close` on a flesh spine's critic pass**, or dropping it on a
-  bone's (§5).
+- **Running the close audit at close depth on a flesh spine**, or at shallow
+  depth on a bone's (§5).
 - **Closing a scope whose children are not closed** — a spine with an unfinished
   work item, a release with an open spine (§5, §6).
 - **`cd`-ing mid-ceremony**, or exporting `OSS_STATE_FILE` to compensate (§3).

@@ -207,7 +207,7 @@ specs that exist), after the plan settles.
 
 This is a **planning** audit. The bone spine's full close-depth audit with the
 external adversary belongs to `close`, and it is a different moment with a
-different artifact. `--close` here is deliberate all the same: this is the
+different artifact. Close depth here is deliberate all the same: this is the
 plan's **lock moment** — the audit runs once, right before the plan becomes
 binding, and a shallow pass at that moment wastes the one look; depth is cheap
 next to re-planning a locked spine.
