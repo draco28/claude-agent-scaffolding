@@ -65,10 +65,9 @@ slice close, then re-run — never "clean your tree", which fixes a symptom.
   and its `/init-workspace` / `/pair-workspace` tokens are load-bearing; read
   them there, do not paraphrase).
 - **A2 — no ossify state at the routed path.** State exists: already
-  adopted → route to `doctor` — unless no adoption record exists at
-  `<ai-workspace>/ADOPTION.md`, which names an interrupted adoption: this
-  version has no resume path; the unconsumed state can be removed to
-  restart.
+  onboarded → route to `doctor`, full stop — every `/start` project has
+  state and no adoption record, so the record's absence distinguishes
+  nothing.
 - **A3 — every tree adoption will edit is clean, tracked AND untracked.**
   `git -C "$(oss repo_root canonical)" status --porcelain`, and the same for
   `oss repo_root ai_workspace` — C5 edits both roots. Any line is work in
