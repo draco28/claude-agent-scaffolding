@@ -244,6 +244,6 @@ Close with `oss doctor` (the state gate: `state`, `schema`, `replay`,
 
 The `/adopt` command exports the raw argument as `$ARGUMENTS` via the env-var
 bridge — parse it in bash; never reference `$1`/`$2`/`$N`. The only argument
-is an optional project name, passed to `oss init`. The command ships on
-Claude Code only this release, consistent with `/ossify:run-spine` (#131
-tracks the OpenCode gap); the skill body itself reaches OpenCode by path.
+is an optional project name, passed to `oss init`. The command registers on
+Claude Code only — as no ossify command registers on OpenCode, #131 tracks
+that gap for all of them — while this skill body reaches OpenCode by path.
