@@ -424,7 +424,7 @@ check_7_descriptions() { # $1=ossify-root $2=workdir; writes $2/check7-report.tx
   echo "     TOTAL $total  (budget 3200, headroom $((3200 - total)))" >> "$2/check7-report.txt"
   [ "$total" -le 3200 ] || echo "command descriptions total $total bytes, over the 3200 every-call budget by $(( total - 3200 ))"
   n="$(ls -1 "$1"/commands/*.md 2>/dev/null | wc -l | tr -d ' ')"
-  [ "$n" -ge 10 ] || echo "check 7 saw only $n command files; the budget loop is not measuring the whole set"
+  [ "$n" -ge 11 ] || echo "check 7 saw only $n command files; the budget loop is not measuring the whole set"
 }
 
 # ---------------------------------------------------------------------------
@@ -528,7 +528,7 @@ C7="$(check_7_descriptions "$OSSIFY" "$WORK")"
 echo "-- check 7: command-description budget (the every-call listing cost)"
 cat "$WORK/check7-report.txt"
 t_assert_eq 0 "$(_count "$C7")" "check 7: command descriptions are within the 3200-byte every-call budget${C7:+ -- $C7}"
-t_assert_ge 11 "$(_lines "$WORK/check7-report.txt")" "check 7: the description loop saw every command (10 rows + the total)"
+t_assert_ge 12 "$(_lines "$WORK/check7-report.txt")" "check 7: the description loop saw every command (11 rows + the total)"
 
 C9="$(check_9_shadowed_tokens "$OSSIFY")"
 echo "-- check 9: shadowed Skill(ossify:) tokens"
@@ -648,9 +648,10 @@ _c7_command() { # $1=root $2=name $3=description-length
     printf 'description: '; printf 'd%.0s' $(seq 1 "$3"); echo
     echo "---"; echo "# $2"; } > "$1/commands/$2.md"
 }
-# Plant A: 10 commands x 350 bytes = 3500, over the 3200 budget by 300 - and
-# at the full ten-file count, so ONLY the ceiling arm fires.
-for s in c7a c7b c7c c7d c7e c7h c7i c7j c7k c7l; do _c7_command "$FIX7" "$s" 350; done
+# Plant A: 11 commands = 3500 bytes (10 x 300 + 1 x 500), over the 3200 budget
+# by 300 - and at the full eleven-file count, so ONLY the ceiling arm fires.
+for s in c7a c7b c7c c7d c7e c7h c7i c7j c7k c7l; do _c7_command "$FIX7" "$s" 300; done
+_c7_command "$FIX7" c7m2 500
 # Plant B: only 2 commands, each comfortably under budget - the TOTAL passes,
 # so the only thing that can fire is the floor guard. That is the assertion
 # that makes check 7 unable to pass by measuring nothing.
