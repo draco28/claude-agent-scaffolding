@@ -324,15 +324,21 @@ mode — and interpret its findings plugin-side. The veto is entirely our readin
 of ordinary findings. **The audit always runs**; there is no plugin whose
 absence skips it, so the class declaration is never critic-free.
 
-1. **Run the audit.** Read
+1. **Render the draft first.** The audit reads a real file on disk, and §8's
+   emission is what creates `RELEASE.md` — so emit §8's draft **now** (the
+   release directory, the five-part render at the classes the ladder declared),
+   audit the draft, then re-render at §8 with the veto's dispositions folded
+   in. Auditing a file that does not exist yet is a halt, not a no-findings
+   pass.
+2. **Run the audit.** Read
    `${CLAUDE_PLUGIN_ROOT}/skills/challenge/references/audit.md` end to end and
-   follow it: `RELEASE.md` is the artifact, the depth is `close`, the target
-   label is the release id. The registry and spine plans go into the
-   conversation alongside it. Whether an external fresh-frame adversary joins
-   is the ladder's decision (`challenge/references/adversaries.md`); the
-   summary names what ran. Full submission rules in
+   follow it: the draft `RELEASE.md` is the artifact, the depth is `close`,
+   the target label is the release id. The registry and spine plans go into
+   the conversation alongside it. Whether an external fresh-frame adversary
+   joins is the ladder's decision (`challenge/references/adversaries.md`);
+   the summary names what ran. Full submission rules in
    `references/critic-veto.md`.
-2. **Interpret each finding** — the fail-closed ladder:
+3. **Interpret each finding** — the fail-closed ladder:
 
 | Finding | Disposition | Action |
 |---|---|---|
@@ -359,7 +365,9 @@ Full input contract, the veto-grade test, and the three ESCALATE triggers in
 
 ## 8. Emit RELEASE.md
 
-Create the release spec directory and write `RELEASE.md` into it:
+Runs **twice**: §7c renders the draft the veto audits; this pass re-renders
+with the dispositions folded in. Create the release spec directory and write
+`RELEASE.md` into it:
 
 ```bash
 rel_dir="$(oss release_dir "$rel")"   # ABSOLUTE, manifest-rooted — never paste the <ai-workspace> shape

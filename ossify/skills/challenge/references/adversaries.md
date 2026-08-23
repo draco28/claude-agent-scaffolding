@@ -37,18 +37,27 @@ architect-critic 0.6.0's proven invocations; they are the complete validated
 set. A third entry joins only after a real run proves it (§2.1).
 
 **Every invocation runs under the timeout guard (§2.2) — an unguarded hang is
-a blocked ceremony.**
+a blocked ceremony.** And both resolve the schema path **before entering
+Bash**: `${CLAUDE_PLUGIN_ROOT}` is not exported into Bash-tool subprocesses
+(it expands to empty there — `doctor/references/budget-check.md` documents the
+behaviour), so the fenced invocations take a resolved absolute path, derived
+from the `oss` dispatcher, which Claude Code puts on `$PATH`:
+
+```bash
+plugin_root="$(cd "$(dirname "$(command -v oss)")/.." && pwd)"
+schema="$plugin_root/skills/challenge/templates/output-schema.json"
+```
 
 ### codex — ported, proven
 
 **Probe:** `command -v codex`.
 
 **Invocation** (the schema file ships at
-`${CLAUDE_PLUGIN_ROOT}/skills/challenge/templates/output-schema.json`):
+`skills/challenge/templates/output-schema.json` under the plugin root):
 
 ```bash
 codex exec --json \
-  --output-schema "${CLAUDE_PLUGIN_ROOT}/skills/challenge/templates/output-schema.json" \
+  --output-schema "$schema" \
   --output-last-message "<tmpdir>/codex-audit-<id>.json" \
   --ignore-user-config --ignore-rules --skip-git-repo-check \
   "<prompt>"
@@ -65,7 +74,7 @@ Read the `--output-last-message` file, not stdout. Validate it against §3.
 ```bash
 claude --print \
   --output-format json \
-  --json-schema "$(cat "${CLAUDE_PLUGIN_ROOT}/skills/challenge/templates/output-schema.json")" \
+  --json-schema "$(cat "$schema")" \
   --permission-mode dontAsk \
   --no-session-persistence \
   "<prompt>"

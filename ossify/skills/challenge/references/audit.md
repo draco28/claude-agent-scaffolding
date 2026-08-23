@@ -165,8 +165,21 @@ lists are judgment work, not helper work:
 
 ## 7. The rebuttal cycle
 
-The heart of the user experience. You ask in your turn; the user replies in
-theirs. Never capture answers through bash.
+The heart of the user experience — **for a standalone invocation.** You ask in
+your turn; the user replies in theirs. Never capture answers through bash.
+
+**A ceremony caller skips this cycle entirely.** When the invoking prose is a
+lifecycle moment that dispositions findings itself — the release veto's
+fail-closed ladder, close's triage, start's disposition pass — the rebuttal
+here would consume findings before the caller's own machinery sees them: an
+`accept` inside this cycle marks a concession and drops the challenge from
+the closing line, and the veto never learns a class-bearing finding existed.
+Those callers' ladders ARE the rebuttal, and their records (`oss veto_add`,
+the close report, the spec fold-in) are where acceptance is applied. So: a
+ceremony invocation returns **every** consolidated challenge unwalked — the
+closing line reads `<N> challenges stood:` with all of them, no triage, no
+cycle — and the caller dispositions. The cycle below runs only when the user
+invoked `/ossify:challenge` directly.
 
 **Recommend by default.** Each challenge you surface carries one recommended
 disposition (`accept` / `rebut` / `defer`) with a one-line rationale, cited

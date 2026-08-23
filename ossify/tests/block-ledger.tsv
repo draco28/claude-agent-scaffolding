@@ -95,7 +95,7 @@
 # that live only in the author's head.)
 #
 I	skills/adopt/SKILL.md	1	single-verb calls with <placeholder> args: release_add, release_status (the C4 retroactive baseline pair)
-D	skills/challenge/references/adversaries.md	2	#138	the codex and claude adversary invocation recipes - schema-backed exec forms the close-depth audit runs; documented shell the agent runs, never executed by the suite, and a wrong shape fails loudly into host-only
+D	skills/challenge/references/adversaries.md	3	#138	the plugin-root resolution (oss-dispatcher shape, the budget-check workaround), and the codex and claude adversary invocation recipes - schema-backed exec forms the close-depth audit runs; documented shell the agent runs, never executed by the suite, and a wrong shape fails loudly into host-only
 O	skills/close/references/spine-close.md	work items that are not complete	tests/test-close.sh	the open-work-item gate refuses to close a spine with incomplete items
 O	skills/close/references/spine-close.md	is-ancestor	tests/test-close.sh	the merge guard: the spine tip must actually reach the base branch
 O	skills/close/references/spine-close.md	touch_check	tests/test-close.sh	bone-touch at close re-classifies the spine rather than trusting the plan
@@ -187,7 +187,7 @@ H	commands/run-spine.md	2545938813-144
 H	commands/start.md	3557017349-140
 H	commands/work-item.md	2378584622-144
 H	skills/adopt/SKILL.md	3003032981-173
-H	skills/challenge/references/adversaries.md	1957045464-497
+H	skills/challenge/references/adversaries.md	3682471682-529
 H	skills/close/SKILL.md	2598283696-409
 H	skills/close/references/code-review.md	477087775-527
 H	skills/close/references/cumulative-demo.md	2610898515-1543
