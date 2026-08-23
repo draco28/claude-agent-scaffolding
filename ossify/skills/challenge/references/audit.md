@@ -71,6 +71,9 @@ user can act on:
   *"No adversary configured — running host-only. Set `OSSIFY_ADVERSARY` (see
   challenge/references/adversaries.md) for an external fresh-frame."*
   Unconfigured host-only is the declared default, not a degraded state.
+- **close depth, `OSSIFY_ADVERSARY=none`** — *"Adversary disabled
+  (`OSSIFY_ADVERSARY=none`) — running host-only."* A deliberate choice, one
+  plain line; do not advise configuring what was deliberately turned off.
 - **close depth, configured but probe fails** — *"<name> configured but not
   available (<cause>); running host-only."*
 - **shallow depth** — *"Running a host-only pass. Close depth recruits the
