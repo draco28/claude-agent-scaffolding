@@ -42,8 +42,7 @@ target is enforced as a stated self-cap in §7.
 **Trigger phrases (description-match):**
 
 - `/adopt` (slash command — §8 for the `$ARGUMENTS` bridge)
-- "adopt this project into ossify", "onboard a project that already has code",
-  "bring an existing codebase into ossify", "we have history and ADRs already"
+- "adopt this project into ossify", "onboard a project that already has code"
 
 **Do NOT auto-invoke when:**
 
