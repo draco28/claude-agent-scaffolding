@@ -472,9 +472,9 @@ state and is awkward to change later.
 - **`oss`** (the dispatcher over `lib/*.sh`) handles mechanical state only —
   the verbs `oss help` lists: state CRUD, registry adds, and probes. It holds
   no judgment and never should.
-- **`challenge` (audit mode)** is ossify's own critic. It runs its own
-  rebuttal loop and returns a summary of standing challenges. You do not
-  mediate its internals.
+- **`challenge` (audit mode)** is ossify's own critic. As a ceremony caller
+  it hands back every consolidated finding unwalked — no internal rebuttal —
+  and the disposition pass below is where those findings are ruled on.
 - **Peer entry skills:** `plan-release` owns Release 0, spine classes, and the
   critic veto; `plan-spine` owns decomposition and demo lines. `doctor` **ships
   as of v0.3** and owns state inspection, lean-spec validation, machine-checkable

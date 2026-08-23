@@ -34,9 +34,10 @@ dependencies. This body is a router: it picks the mode and nothing else.
 | the user, directly | either | — | — |
 
 The callers own their moments, their gating, and their dispositions. This
-skill yields challenges and a rebuttal record; what a standing challenge *does*
-is decided by the reference that invoked you (`critic-veto.md`,
-`critic-moment.md`, `spine-close.md`).
+skill yields the challenge set — **unwalked for ceremony callers** (their
+ladders are the rebuttal), with a rebuttal record when the user invoked it
+directly; what a finding *does* is decided by the reference that invoked you
+(`critic-veto.md`, `critic-moment.md`, `spine-close.md`).
 
 ## 3. The adversary is configuration
 

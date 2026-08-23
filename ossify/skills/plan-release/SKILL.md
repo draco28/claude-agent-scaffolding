@@ -467,10 +467,10 @@ that cites it.
   the verbs `oss help` lists: state CRUD, registry adds, and probes. It
   holds no judgment and never should — `touch_check` matches globs, it does not
   decide what the match means.
-- **`challenge` (audit mode)** is ossify's own critic. It runs its own rebuttal
-  loop and returns a summary of standing challenges; the veto is **our**
-  interpretation of that summary. Do not ask it for a verdict; ask it for
-  findings.
+- **`challenge` (audit mode)** is ossify's own critic. As a ceremony caller
+  it returns every consolidated finding unwalked — no internal rebuttal
+  (audit.md §7) — and the veto below is **our** interpretation of that
+  returned set. Do not ask it for a verdict; ask it for findings.
 - **Peer entry skills:** `start` owns spec-core, the bones registry, and the
   *advisory* spec-core critic moment — do not import its disposition-triage
   semantics into this fail-closed veto, and do not export the veto's semantics

@@ -39,12 +39,12 @@ imports the other's semantics.
 3. **Run the audit.** Read
    `${CLAUDE_PLUGIN_ROOT}/skills/challenge/references/audit.md` end to end and
    follow it: the lean MASTER-SPEC is the artifact, the depth is `close`, the
-   target label is the spec's name. The audit runs its own
-   challenge-resolution loop internally (consolidation, sequential rebuttal,
-   concession scoring). You do not mediate its internals. Control returns via
-   its structured summary — a message opening *"Audit complete for …"* listing
-   the challenges that stood. React to what it actually returned, not to what
-   you expected.
+   target label is the spec's name. You are a ceremony caller: the audit
+   consolidates and returns **every finding unwalked** — it runs no internal
+   rebuttal for you (audit.md §7) — and control returns via its structured
+   summary, a message opening *"Audit complete for …"* listing them all.
+   Your §4 triage below is the rebuttal. React to what it actually returned,
+   not to what you expected.
 
    Whether an external fresh-frame adversary joined is decided by the
    adversary ladder (`challenge/references/adversaries.md`): per-invocation

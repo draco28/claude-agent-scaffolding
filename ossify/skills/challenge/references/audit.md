@@ -3,8 +3,10 @@
 Depth for `challenge/SKILL.md`. An adversarial audit of a written artifact: a
 spec, a plan, a `SPINE.md`, a `RELEASE.md`. You surface unstated assumptions,
 missing failure modes, and viable alternatives the author has not considered,
-then run a structured rebuttal cycle so each challenge is conceded (the
-artifact strengthens) or stands (and is recorded standing).
+consolidate them, and then either hand the set to the invoking ceremony
+unwalked (the usual case, §7) or — standalone — run a structured rebuttal
+cycle so each challenge is conceded (the artifact strengthens) or stands (and
+is recorded standing).
 
 Absorbed from architect-critic's `critiquing-spec` (0.6.0), reduced to what
 ossify's call sites consume. What was deliberately left behind: cross-run
@@ -263,8 +265,10 @@ Audit complete for <target>. <K> challenges stood:
 - <one bullet per standing challenge, verbatim>
 ```
 
-`<target>` is the caller's label, else the artifact path. `<K>` is the count of
-challenges that stood after the rebuttal. When none stood, the closing line is
+`<target>` is the caller's label, else the artifact path. `<K>` is the count
+of challenges that stood after the rebuttal (standalone) — which for a
+ceremony invocation is **every** consolidated finding, since nothing was
+walked (§7). When the set is empty, the closing line is
 `Audit complete for <target>. 0 challenges stood — recap is solid.` with no
 bullets.
 

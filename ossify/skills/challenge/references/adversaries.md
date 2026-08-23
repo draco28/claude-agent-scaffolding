@@ -40,12 +40,18 @@ set. A third entry joins only after a real run proves it (§2.1).
 a blocked ceremony.** And both resolve the schema path **before entering
 Bash**: `${CLAUDE_PLUGIN_ROOT}` is not exported into Bash-tool subprocesses
 (it expands to empty there — `doctor/references/budget-check.md` documents the
-behaviour), so the fenced invocations take a resolved absolute path, derived
-from the `oss` dispatcher, which Claude Code puts on `$PATH`:
+behaviour). Resolve from the `oss` dispatcher, and **account for the OpenCode
+wrapper**: on that surface `command -v oss` finds `.opencode/bin/oss`, whose
+parent is the bundle package, not the plugin — the plugin sits one level
+further up, beside it. Two steps, loud on failure:
 
 ```bash
-plugin_root="$(cd "$(dirname "$(command -v oss)")/.." && pwd)"
+oss_bin="$(command -v oss)"
+plugin_root="$(cd "$(dirname "$oss_bin")/.." && pwd)"          # direct install
 schema="$plugin_root/skills/challenge/templates/output-schema.json"
+[ -f "$schema" ] || { plugin_root="$(cd "$(dirname "$oss_bin")/../.." && pwd)/ossify"  # OpenCode wrapper
+                      schema="$plugin_root/skills/challenge/templates/output-schema.json"; }
+[ -f "$schema" ] || { echo "cannot locate the challenge schema from $oss_bin"; exit 1; }
 ```
 
 ### codex — ported, proven
