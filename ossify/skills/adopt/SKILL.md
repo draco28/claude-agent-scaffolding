@@ -1,13 +1,13 @@
 ---
 name: adopt
-description: Adopt an existing project into ossify — five fail-closed gates, six conversions (journey re-marked shipped|next|later, the current cut as a present-tense clean-checkout test, bones back-derived from ADRs, Release 0 closed retroactively, artifacts reconciled, demo ledger seeded), and an adoption record. For the codebase that already has code, tests, history, and decisions; /ossify:start refuses it.
+description: Adopt an existing project into ossify — five fail-closed gates, six conversions (journey re-marked shipped|next|later, the current cut as a present-tense clean-checkout test, bones back-derived from ADRs, Release 0 closed retroactively, artifacts reconciled, demo-ledger seed candidates recorded), and an adoption record. For the codebase that already has code, tests, history, and decisions; /ossify:start refuses it.
 ---
 
 # adopt
 
 You are the conductor of ossify's **adoption** — the on-ramp for a project
-that already has code, tests, history, and decisions; `/start` is pre-code
-ceremony and refuses such a canonical on its content gate.
+that already has code; `/start` is pre-code ceremony and refuses such a
+canonical on its content gate.
 
 **This body is thin by design, not under budget pressure.** The stations that
 transfer unchanged live in `/start` — every pointer in §4 is a
@@ -61,9 +61,9 @@ slice close, then re-run — never "clean your tree", which fixes a symptom.
   adoption would mint into another project's state while A1/A2 inspected
   this one. Unset it and re-run (same guard as plan-release §3).
 - **A1 — pairing manifest resolves.** `oss state_path` (probe; refuse exactly
-  as `/start` §3's manifest probe does — that block's refusal text is verbatim,
-  and its `/init-workspace` / `/pair-workspace` tokens are load-bearing; read
-  them there, do not paraphrase).
+  as `/start` §3's manifest probe does — refusal text verbatim,
+  `/init-workspace` / `/pair-workspace` tokens load-bearing; read them
+  there, never paraphrased).
 - **A2 — no ossify state at the routed path.** State exists: already
   onboarded → route to `doctor`, full stop — every `/start` project has
   state and no adoption record, so the record's absence distinguishes
@@ -71,7 +71,10 @@ slice close, then re-run — never "clean your tree", which fixes a symptom.
 - **A3 — every tree adoption will edit is clean, tracked AND untracked.**
   `git -C "$(oss repo_root canonical)" status --porcelain`, and the same for
   `oss repo_root ai_workspace` — C5 edits both roots. Any line is work in
-  flight; refuse, naming the legacy stack's slice close.
+  flight; refuse, naming the legacy stack's slice close. The canonical must
+  also be **on the manifest's default branch** — a parked checkout is
+  refused and named: the baseline and C5's writes land on whatever is
+  checked out.
 - **A4 — no live worktrees.** Resolve the legacy worktree directory as
   scaffold-dev does — the manifest's `.during_dev.worktrees_dir`, falling
   back to `<canonical>/.worktrees` — then `find <dir> -mindepth 1 -maxdepth
@@ -103,8 +106,8 @@ the state it creates. Nothing hand-authors `project-state.json`.
 - **Posture — unchanged** (`/start` §10 + `references/posture-block.md`): a
   genuine open decision, unaffected by prior code.
 - **Critic moment — unchanged** (`/start` §11 +
-  `references/critic-moment.md`). Fires once, on the reconciled spec; same
-  announce/wait/skip contract, same `ARCHITECT_CRITIC_ARGS` bridge.
+  `references/critic-moment.md`): fires once on the reconciled spec, same
+  skip contract and `ARCHITECT_CRITIC_ARGS` bridge.
 
 ---
 
@@ -120,9 +123,8 @@ vocabulary change: `skeleton` presupposes unbuilt. Re-mark every step:
 ```
 
 `shipped` means the step passes the clean-checkout test at the baseline commit
-**today** — not "code exists for it." Harvest `next` and `later` to the feature
-map exactly as `/start` §5 does; `shipped` steps are the baseline, not
-candidates.
+**today** — not "code exists for it." Harvest `next`/`later` to the feature map
+as `/start` §5 does; `shipped` steps are the baseline, not candidates.
 
 ### C2 — The current cut replaces the skeleton cut
 
@@ -165,16 +167,14 @@ oss release_add "Release 0" "adopted baseline: everything shipped under <legacy-
 oss release_status "<release-id>" closed
 ```
 
-The skeleton exists — it was built before ossify arrived. `release_status`
-accepts `closed`; no new verb, no spine tree. **Do not reconstruct per-slice
-history as spines and work items** — that would put unearned records in the
-ledger. The first ossify-planned release is Release 1.
+The skeleton exists — it was built before ossify arrived; `release_status`
+accepts `closed`. **Do not reconstruct per-slice history as spines and work
+items** — unearned records. The first ossify-planned release is Release 1.
 
 Then author the **stub retrospective** at
 `"$(oss release_dir r0)/release-retrospective.md"` — recording the adoption,
 not a spine retro. That filename is `plan-release` §4's previous-release
-input, measured as the one thing it needs and lacks after a
-retroactively-closed Release 0.
+input — the one thing it lacks after a retroactively-closed Release 0.
 
 ### C5 — Reconcile artifacts; read the destination before writing it
 
@@ -229,9 +229,10 @@ Close with `oss doctor` (the state gate: `state`, `schema`, `replay`,
 
 - **State-schema migration.** `oss migrate` is a different thing. Do not
   overload the word.
-- **Touching the legacy stack's files.** `.workspace/project-roadmap.json` and
-  scaffold-dev's artifacts are read, never written. Adoption is additive; the
-  operator retires the old stack when they choose.
+- **Touching the legacy stack's STATE** — roadmap position, cursor, slice
+  and worktree structure: read, never written. Reconciling the legacy
+  ARTIFACTS (spec, `CLAUDE.md`, memory bank, ADRs) is C5's job. Adoption
+  is additive; the operator retires the old stack at their choosing.
 - **Mid-slice adoption.** §3 A5 refuses it by design.
 - **Repairing what it finds.** C2 gaps and stale ADRs are findings.
 - **Letting this body exceed 250 lines.** Thin-by-design is a stated
