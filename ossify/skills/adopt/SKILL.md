@@ -12,28 +12,20 @@ ceremony and refuses such a canonical on its content gate.
 **This body is thin by design, not under budget pressure.** The stations that
 transfer unchanged live in `/start` — every pointer in §4 is a
 do-not-restate pointer. Restating them here is how a second 500-line body goes
-stale against the first; one contract in two files drifts by construction. The
-target is enforced as a stated self-cap in §7.
+stale against the first. The target is enforced as a stated self-cap in §7.
 
 ---
 
 ## 1. The station map
 
-`/start`'s stations, and what each becomes here:
-
-| `/start` station | Here | Where |
-|---|---|---|
-| §4 vision | **confirm**, do not elicit | §4 |
-| §5 journey map | **re-mark** `shipped\|next\|later` | §5 C1 |
-| §6 skeleton cut | **replaced** by the current cut | §5 C2 |
-| §7 bones | **back-derived** from ADRs | §5 C3 |
-| §8 risk gates | **derive** from existing constraints | §4 |
-| §9 smoke tests | **narrowed** to unverified external pins | §4 |
-| §9a spike | unchanged | §4 |
-| §10 posture | unchanged | §4 |
-| §11 critic moment | unchanged, on the reconciled spec | §4 |
-| §12 minimums | **replaced** by baseline completeness | §5 C4 |
-| §13 outputs | **reconcile**, never author | §5 C5 |
+`/start`'s stations, and what each becomes here — **§4 carries the
+transfers** (vision confirmed, not elicited; risk gates derived from the
+legacy spec's constraints; smoke narrowed to unverified external pins; spike
+and posture unchanged; critic moment on the reconciled spec), and **§5
+carries the replacements** (C1 re-marks the journey `shipped|next|later`;
+C2 replaces the skeleton cut with the current cut; C3 back-derives bones;
+C4 replaces the Release-0 minimums with the closed baseline; C5 reconciles
+outputs instead of authoring them).
 
 ---
 
@@ -47,6 +39,9 @@ target is enforced as a stated self-cap in §7.
 **Do NOT auto-invoke when:**
 
 - The project is greenfield — that is `/start`.
+- The project has no scaffold-dev legacy stack — no roadmap state, no
+  active-context cursor, no legacy spec. This version adopts THAT stack;
+  anything else is out of scope today.
 - Ossify state already exists at the routed path — already onboarded; route to
   `doctor`.
 - The ask is state-schema migration — `oss migrate` is a different thing and a
@@ -58,27 +53,35 @@ target is enforced as a stated self-cap in §7.
 ## 3. Pre-flight gates (fail closed, in order)
 
 Each gate refuses fail-closed. A1 reuses `/start`'s exact refusal contract;
-A3–A5's refusals name the **legacy stack's** close ceremony — the operator's
-next move is scaffold-dev's slice close, then re-run `/ossify:adopt`. A refusal
-that says "clean your tree" sends them to fix a symptom.
+A3–A5's refusals name the **legacy stack's** close ceremony — scaffold-dev's
+slice close, then re-run — never "clean your tree", which fixes a symptom.
 
+- **A0 — no inherited state override.** If `OSS_STATE_FILE` is set, stop:
+  `_oss_resolve_state` lets it override the manifest for every verb below —
+  adoption would mint into another project's state while A1/A2 inspected
+  this one. Unset it and re-run (same guard as plan-release §3).
 - **A1 — pairing manifest resolves.** `oss state_path` (probe; refuse exactly
   as `/start` §3's manifest probe does — that block's refusal text is verbatim,
   and its `/init-workspace` / `/pair-workspace` tokens are load-bearing; read
   them there, do not paraphrase).
-- **A2 — no ossify state at the routed path.** If state exists: already
-  adopted → route to `doctor`.
-- **A3 — canonical tree is clean, tracked AND untracked.** `git -C "$(oss
-  repo_root canonical)" status --porcelain` — empty is clean; any line is
-  work in flight. On failure: refuse, naming the legacy stack's slice close.
-- **A4 — no live worktrees.** `find "$(oss repo_root canonical)/.worktrees"
-  -mindepth 1 -maxdepth 1 2>/dev/null` — any directory means a slice is open;
-  same refusal as A3. A plain probe on purpose: `oss worktree_orphans`
-  resolves ossify state, which A2 just required not to exist.
+- **A2 — no ossify state at the routed path.** State exists: already
+  adopted → route to `doctor` — unless no adoption record exists at
+  `<ai-workspace>/ADOPTION.md`, which names an interrupted adoption: this
+  version has no resume path; the unconsumed state can be removed to
+  restart.
+- **A3 — every tree adoption will edit is clean, tracked AND untracked.**
+  `git -C "$(oss repo_root canonical)" status --porcelain`, and the same for
+  `oss repo_root ai_workspace` — C5 edits both roots. Any line is work in
+  flight; refuse, naming the legacy stack's slice close.
+- **A4 — no live worktrees.** Resolve the legacy worktree directory as
+  scaffold-dev does — the manifest's `.during_dev.worktrees_dir`, falling
+  back to `<canonical>/.worktrees` — then `find <dir> -mindepth 1 -maxdepth
+  1`: any directory means a slice is open (a plain probe; the oss verb needs
+  the state A2 just forbade).
 - **A5 — legacy position is on a boundary.** The live position is the
-  manifest-routed memory bank's `05-active-context.md` cursor (scaffold-dev's
-  `sd_state_read_cursor` resolves it; `project-roadmap.json` is inventory,
-  not position). An active slice there refuses and names it.
+  manifest-routed memory bank's `05-active-context.md` cursor (the roadmap
+  file is inventory, not position). An active slice there refuses and
+  names it.
 
 Once all five pass, **record the baseline SHA** — `git -C "$(oss repo_root
 canonical)" rev-parse HEAD`; everything downstream is relative to it and the
@@ -92,14 +95,13 @@ the state it creates. Nothing hand-authors `project-state.json`.
 
 **Do not restate these — read the pointer, work it against the project.**
 
-- **Vision — confirm, do not elicit** (`/start` §4). It is already written;
-  read it back for correction.
-- **Risk gates — derive from existing constraints** (`/start` §8). They are
-  already enumerated in the legacy spec; mint them with `oss risk_gate_add`.
-- **Smoke — narrowed** (`/start` §9). Shipped tests already verify the code's
-  own claims; the residue is **unverified external pins** nobody re-checked.
+- **Vision — confirm, do not elicit** (`/start` §4): read it back for correction.
+- **Risk gates — derive from existing constraints** (`/start` §8 owns the
+  families and the control menu); mint with `oss risk_gate_add`.
+- **Smoke — narrowed** (`/start` §9) to **unverified external pins** —
+  shipped tests already cover the code's own claims.
 - **Spike — unchanged** (`/start` §9a). Rarely fires on an adopted project.
-- **Posture — unchanged** (`/start` §10 + `references/posture-block.md`). A
+- **Posture — unchanged** (`/start` §10 + `references/posture-block.md`): a
   genuine open decision, unaffected by prior code.
 - **Critic moment — unchanged** (`/start` §11 +
   `references/critic-moment.md`). Fires once, on the reconciled spec; same
@@ -189,15 +191,15 @@ no blank destinations — an adopted project is all occupied surface.
 | `tech-debt.md`, `PUBLIC_BOUNDARY.md` | author (absent) |
 | `<canonical>/docs/adr/` | append only, continuing the series |
 
-### C6 — Seed the demo ledger, or the first close passes vacuously
+### C6 — Record the demo-ledger seed candidates
 
-The only ledger verb, `oss ledger_add_auto`, keys every line to a spine — and
-C4 deliberately creates none. So adoption **records the seed candidates**
-(small, end-to-end, from the current cut's journey — not a transcription of
-the test suite) in the adoption record, and **the first `/plan-spine` mints
-them as `auto:` lines on that spine**. No close can run before a spine
-exists, so the first close runs them: the vacuous window closes without
-minting unearned spine records.
+The only ledger verb, `oss ledger_add_auto`, keys every line to a spine, and
+C4 deliberately creates none — adoption cannot mint them, and **no ceremony
+consumes the candidates yet** (#293 wires the first post-adoption spine
+to). Record them in the adoption record anyway — small, end-to-end, from
+the current cut's journey, not a transcription of the test suite: the first
+spine close should exercise the shipped surface, and until that wiring
+exists the vacuous-window risk stands, named rather than hidden.
 
 ---
 
@@ -234,9 +236,7 @@ Close with `oss doctor` (the state gate: `state`, `schema`, `replay`,
 - **Mid-slice adoption.** §3 A5 refuses it by design.
 - **Repairing what it finds.** C2 gaps and stale ADRs are findings.
 - **Letting this body exceed 250 lines.** Thin-by-design is a stated
-  constraint, not an aspiration — the cap sits close enough to the target
-  that the first unjustified addition hits it. Depth belongs in pointers,
-  never restated.
+  constraint, not an aspiration. Depth belongs in pointers, never restated.
 
 ---
 
@@ -245,6 +245,6 @@ Close with `oss doctor` (the state gate: `state`, `schema`, `replay`,
 The `/adopt` command exports the raw argument as `$ARGUMENTS` via the env-var
 bridge — parse it in bash; never reference `$1`/`$2`/`$N`. The only argument
 is an optional project name, passed to `oss init`; when absent, ask before
-initializing. The command registers on Claude Code only — as no ossify
-command registers on OpenCode, #131 tracks that gap for all of them — while
-this skill body reaches OpenCode by path as the native `adopt` skill.
+initializing. The command is Claude-Code-only; the skill body reaches
+OpenCode by path as the native `adopt` skill (#131 tracks the command gap
+for all eleven).
