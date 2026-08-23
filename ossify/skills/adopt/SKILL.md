@@ -9,8 +9,8 @@ You are the conductor of ossify's **adoption** — the on-ramp for a project
 that already has code, tests, history, and decisions; `/start` is pre-code
 ceremony and refuses such a canonical on its content gate.
 
-**This body is thin by design, not under budget pressure.** Seven of `/start`'s
-stations transfer unchanged and live THERE — every pointer in §4 is a
+**This body is thin by design, not under budget pressure.** The stations that
+transfer unchanged live in `/start` — every pointer in §4 is a
 do-not-restate pointer. Restating them here is how a second 500-line body goes
 stale against the first; one contract in two files drifts by construction. The
 target is enforced as a stated self-cap in §7.
@@ -82,8 +82,10 @@ that says "clean your tree" sends them to fix a symptom.
   not position). An active slice there refuses and names it.
 
 Once all five pass, **record the baseline SHA** — `git -C "$(oss repo_root
-canonical)" rev-parse HEAD`. Everything downstream is relative to it, and the
-adoption record cites it.
+canonical)" rev-parse HEAD`; everything downstream is relative to it and the
+adoption record cites it. Then `oss init "<project-name>"` — its
+state-exists refusal is A2 made mechanical, and every verb below mints into
+the state it creates. Nothing hand-authors `project-state.json`.
 
 ---
 
@@ -208,16 +210,15 @@ minting unearned spine records.
 | Memory bank | AI workspace | append-with-trailer; author only what is absent |
 | `CLAUDE.md` | AI workspace | merge |
 | Bones ADRs | `<canonical>/docs/adr/` | append, continuing the series |
-| Bones / risk gates / feature map / posture | `project-state.json` | write (state is new) |
-| Release 0, closed | `project-state.json` | write |
+| Bones / risk gates / feature map / posture | `project-state.json` | `oss` verbs — into §3's init state |
+| Release 0, closed | `project-state.json` | `oss` verbs |
 | `PUBLIC_BOUNDARY.md` | each public repo root | author |
-| Seed demo-ledger lines | `project-state.json` | `oss ledger_add_auto` |
 | Stub retrospective | `"$(oss release_dir r0)/release-retrospective.md"` | author — records the adoption |
 | **Adoption record** | `<ai-workspace>/ADOPTION.md` | author — baseline SHA, gates passed, merged-vs-authored, **every C2 gap**, the C6 seed candidates |
 
 The adoption record is the point: it is the only artifact that says what
 adoption actually did, and it is what a later `doctor` run reads when the spec
-and the state disagree (doctor §2 routes the discrepancy to it).
+and the state disagree (doctor §1's routing list routes it there).
 
 Close with `oss doctor` (the state gate: `state`, `schema`, `replay`,
 `shape`) and name the next step: **`/plan-release`** for Release 1.

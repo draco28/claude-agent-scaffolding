@@ -26,4 +26,6 @@ stack's files is ever written.
 This is the entry point for the project that already has code — where
 `/ossify:start` refuses on its canonical-content gate; its refusal names this
 command. The command registers on Claude Code only — no ossify command
-registers on OpenCode at all, and #131 tracks that gap for every one of them.
+registers on OpenCode at all, and #131 tracks that gap for every one of them —
+while the skill body itself reaches OpenCode by path as the native `adopt`
+skill.
