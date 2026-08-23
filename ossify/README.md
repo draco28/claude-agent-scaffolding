@@ -1,8 +1,8 @@
 # ossify (v1.0.3)
 
 Skeleton-first lifecycle plugin: Release 0 → MVP → v1, driven by bone and flesh
-spines against a cumulative demo ledger. Seven entry skills (`start`, `adopt`,
-`plan-release`, `plan-spine`, `work-item`, `close`, `doctor`) plus
+spines against a cumulative demo ledger. Eight entry skills (`start`, `adopt`,
+`plan-release`, `plan-spine`, `work-item`, `close`, `doctor`, `challenge`) plus
 `/ossify:run-spine`, which drives a planned spine's rounds end to end, and the
 standalone utilities — session handoff (`/ossify:handoff`,
 `/ossify:handoff-resume`) and the PR review-fix-merge loop
@@ -10,6 +10,15 @@ standalone utilities — session handoff (`/ossify:handoff`,
 not. The utilities are a Claude Code command surface: the OpenCode bundle
 exposes the entry skills only (#131 tracks the command-registration gap
 there).
+
+`challenge` is the grill and the adversarial critic, absorbed in-tree at 1.1.0:
+the bone grill gate, the spec-core close audit, the release class veto, and the
+spine plan/close audits all run on ossify alone — no ai-mentor or
+architect-critic install required. Both plugins remain useful standalone;
+ossify no longer depends on either. A close-depth audit recruits an external
+fresh-frame adversary when one is configured via `OSSIFY_ADVERSARY`
+(`skills/challenge/references/adversaries.md`); unconfigured means host-only,
+by declaration.
 
 Ossify is in the Claude and Codex marketplaces as of v1.0.0. In the OpenCode
 bundle it stays an explicit opt-in: bundle installability begins only after an
@@ -27,10 +36,9 @@ workspace-init pairing manifest exists. Round execution dispatches the
 `ossify:implementer-agent` subagent. Claude Code registers it natively, and the
 OpenCode adapter registers `ossify-implementer-agent` as well, so rounds run on
 both. **Codex** has no worker path: its planning, diagnosis and close skills
-work, and rounds are driven from Claude Code or OpenCode. On a Codex-only
-install the architect-critic probe also reports `absent` — it searches Claude
-cache paths only — so the release-planning veto and the spine-close audit take
-their no-critic path.
+work, and rounds are driven from Claude Code or OpenCode. The critic is
+internal, so the release-planning veto and the spine-close audit run on every
+install, Codex-only included.
 
 Design of record and the release roadmap are tracked in this repository's
 issues and git history rather than as shipped files.

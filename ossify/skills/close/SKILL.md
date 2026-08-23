@@ -244,8 +244,8 @@ steps, in **binding order**:
    (three arguments — the reason is required).
 6. **Risk-gate escalation**, distinguished from a bone hit by the printed prefix,
    and it escalates regardless of class.
-7. **architect-critic**, class-scoped: `--close` on bone, **absent on flesh**.
-   Guard `oss critic_detect` — it prints `absent` and returns rc 1.
+7. **The adversarial audit** (`challenge`, audit mode), class-scoped: close
+   depth on bone, a light host-only pass on flesh.
 8. **The retrospective**, against a fixed section contract.
 9. **Memory-bank harvest** — always before cleanup.
 10. **Worktree + branch cleanup**, per work item. Only now.
@@ -377,8 +377,8 @@ exists; what that file adds is when to reach for it.
   demo lines carry a feature field to group on (§6).
 - **Routing a change through the patch lane without `oss touch_check`**, or
   using diff size as the criterion (§6).
-- **Carrying `--close` on a flesh spine's critic pass**, or dropping it on a
-  bone's (§5).
+- **Running the close audit at close depth on a flesh spine**, or at shallow
+  depth on a bone's (§5).
 - **Closing a scope whose children are not closed** — a spine with an unfinished
   work item, a release with an open spine (§5, §6).
 - **`cd`-ing mid-ceremony**, or exporting `OSS_STATE_FILE` to compensate (§3).

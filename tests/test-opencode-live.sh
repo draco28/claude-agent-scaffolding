@@ -371,7 +371,7 @@ const pluginSkills = {
     "checking-adversary-readiness",
     "managing-async-critique",
   ],
-  ossify: ["start", "adopt", "plan-spine", "work-item", "close", "plan-release", "doctor"],
+  ossify: ["start", "adopt", "plan-spine", "work-item", "close", "plan-release", "doctor", "challenge"],
 };
 
 function command(description, skill, hasArguments = true) {

@@ -189,10 +189,12 @@ oss_cmd_migrate() { # [$1=state-file]
 }
 
 # Filesystem probe for architect-critic v0.2 (binary v0.2-or-absent), mirroring
-# scaffold-onboard's sf_compose_detect_architect_critic. Used by start's
-# spec-core critic moment. No composition.json read. Stateless by design: it
-# takes no state path and needs no manifest, so a skill can probe before (or
-# without) an initialized project.
+# scaffold-onboard's sf_compose_detect_architect_critic. No in-plugin callers
+# remain: 1.1.0 moved the critic in-tree (skills/challenge/), so the lifecycle
+# audits no longer probe for a peer plugin. Retained for external consumers
+# and deprecated; removal is a major. No composition.json read. Stateless by
+# design: it takes no state path and needs no manifest, so a skill can probe
+# before (or without) an initialized project.
 # Scan EVERY cache before deciding, and report the highest version found. The
 # previous form returned on the first hit and globbed only critiquing-spec, so a
 # stale v0.2 directory won over a newer v0.3 install and v0.3 was unreportable.

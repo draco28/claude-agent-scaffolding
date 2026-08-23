@@ -174,7 +174,7 @@ module that embodies the decision.
 
 At release planning, a spine whose plan touches **any** registered bone or
 risk-gate surface is auto-reclassified to `bone` — independently of, and in
-addition to, the architect-critic veto. That is the mechanical, non-skippable
+addition to, the critic veto. That is the mechanical, non-skippable
 half of class declaration. `plan-release` owns that step; `start` owns making
 the surfaces exist and be accurate.
 

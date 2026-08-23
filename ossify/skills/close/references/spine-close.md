@@ -21,7 +21,7 @@ round barrier (`work-item/references/round-orchestration.md` §7).
 | Memory-bank harvest | **core** | **core** |
 | Handoff / state updates | **core** | **core** |
 | Worktree + branch cleanup (only after harvest) | **core** | **core** |
-| architect-critic | full audit, external adversary at close depth (`--close`) | one light host-only pass (no `--close`) |
+| the adversarial audit (`challenge`) | full audit at close depth, external adversary per the ladder | one light host-only pass |
 | Retrospective | full section set | lean section set |
 | Grill gates (planning + fix-up replans) | offered | skipped |
 | ADR check (a bone added or changed requires an ADR) | required | carried by the bone-touch row above |
@@ -288,62 +288,25 @@ both a bone and a gate; then both apply.
 
 ---
 
-## 7. Step 7 — architect-critic, and the flag differs by class
+## 7. Step 7 — the adversarial audit, and the depth differs by class
 
-```bash
-oss critic_detect || true        # prints "v0.3"/"v0.2" (rc 0) or "absent" (rc 1)
-```
+Run ossify's own audit — `challenge` in audit mode. Read
+`${CLAUDE_PLUGIN_ROOT}/skills/challenge/references/audit.md` end to end and
+follow it. The audit always runs; there is no plugin whose absence skips it,
+and nothing here blocks the close on an adversary that is not configured.
 
-**Guard the call.** The verb prints `absent` and **returns rc 1**, so an
-unguarded invocation aborts the whole ceremony under `set -e` at the one moment
-the answer is "not installed, carry on".
+**The depth differs by class, and one call cannot serve both:**
 
-On `absent`: **exactly one warning, then proceed.** A silent skip and a blocking
-error are both wrong — *"architect-critic not installed — skipping the spine
-close audit. Install via `/plugin install architect-critic` (v0.2+)."*
+- **bone** — close depth. The adversary ladder
+  (`challenge/references/adversaries.md`) decides whether an external
+  fresh-frame adversary joins; the audit's summary names what ran.
+- **flesh** — the light host-only pass: the same reference, shallow depth.
 
-Otherwise, export the bridge and invoke. **One string cannot serve both classes**:
-
-```bash
-# bone — full audit, external adversary at close depth
-export ARCHITECT_CRITIC_ARGS="--spec \"<abs path to the spine's SPINE.md>\" --close"
-
-# flesh — the light host-only pass: the SAME string WITHOUT --close
-export ARCHITECT_CRITIC_ARGS="--spec \"<abs path to the spine's SPINE.md>\""
-```
-
-```text
-Skill(architect-critic:critiquing-spec)
-```
-
-- **`--close` is the depth switch.** It is what recruits the external adversary,
-  so carrying it on the flesh path is the opposite of "one light pass". Nothing
-  else selects depth — announcement wording does not.
-- **`export` it.** A bare assignment is invisible to the bash that reads it.
-- **`--spec` takes one quoted absolute path to a real file.** Point it at the
-  spine's `SPINE.md` under `oss spine_dir "<release-id>" "<spine-id>" "<slug>"` —
-  the same artifact `plan-spine` hands the critic
-  (`plan-spine/references/spec-authoring.md` §6). That verb returns a
-  **relative** path, so prefix it with `oss repo_root ai_workspace`. A path that
-  does not resolve triggers the critic's glob fallback and audits the wrong
-  artifact, silently.
-- **A bare `Skill(...)` call.** There is no `target=` / `depth=` /
-  `artifact_path=` parameter; passing one resolves the wrong artifact at the
-  wrong depth with no error.
-
-Both failure modes — not installed, and installed but returning nothing — are
-silent by design. Neither blocks the close.
-
-A third failure mode — **the call itself denied or unavailable** — is neither
-silent nor blocking: exactly one warning naming which cause (**this host has no
-Skill tool, or a session permission policy refused it** — installing
-architect-critic cures neither), one line in the close report recording the
-skip — wherever its author can place it; it is a fact about the run, not a
-critic disposition, for the critic never ran — then proceed. Never retry. The
-remedies differ — absence is cured by installing the plugin, refusal is cured
-in the session's policy — and a warning that conflates them sends the user to
-fix the wrong one. The skip contract itself is shared:
-`start/references/critic-moment.md` §4 owns it for every critic call site.
+The artifact is the spine's `SPINE.md` under
+`oss spine_dir "<release-id>" "<spine-id>" "<slug>"` — the same artifact
+`plan-spine` hands the audit (`plan-spine/references/spec-authoring.md` §6).
+That verb returns a **relative** path, so prefix it with
+`oss repo_root ai_workspace`; the audit wants one absolute path.
 
 The findings come back as **disposition rows**, and this is where spec §6.1's
 triage policy applies: spec-aligned recommendations auto-apply, and only
@@ -435,9 +398,10 @@ clean, and an unreadable registry.
 - **Calling `oss class_set` with two arguments.** The reason is required, and a
   missing one is a crash, not a default (§6.1).
 - **Assuming a touch hit is a bone.** Read the printed prefix (§6.2).
-- **Letting `oss critic_detect` run unguarded** — `absent` is rc 1 (§7).
-- **Carrying `--close` on the flesh path**, or dropping it on the bone path (§7).
-- **Passing `target=` or `depth=` to the critic skill** (§7).
+- **Carrying close depth onto the flesh path** — the light host-only pass is
+  the flesh contract (§7).
+- **Running the flesh pass at close depth**, or the bone pass at shallow depth (§7).
+- **Reading the audit reference halfway** — the depth (close or shallow) and the artifact path both arrive in the invoking prose (§7).
 - **Cleaning up before the harvest**, or before the merge (§9).
 - **Writing `spine_status closed` after any halt.** A halt records nothing.
 - **Re-running the touch check after a mid-flight reclassification** (§6.1).
