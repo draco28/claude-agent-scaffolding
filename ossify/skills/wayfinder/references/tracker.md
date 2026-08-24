@@ -221,13 +221,14 @@ elsewhere:
 ```bash
 MAP_JSON="$(gh api graphql -f query='
 query($owner:String!,$repo:String!,$number:Int!){
+  viewer{login}
   repository(owner:$owner,name:$repo){
     issue(number:$number){
       title url
       subIssues(first:100){
         pageInfo{hasNextPage}
         nodes{
-          number title url state
+          number title url state body
           assignees(first:100){nodes{login}}
           labels(first:100){nodes{name}}
           blockedBy(first:100){nodes{number state}}
@@ -255,6 +256,12 @@ printf '%s' "$MAP_JSON" | jq -r --argjson n "$TICKET" '
 
 # The pagination gate for working.md §5's terminal branch
 printf '%s' "$MAP_JSON" | jq -r '.data.repository.issue.subIssues.pageInfo.hasNextPage'
+
+# The operator this session runs as - the ONLY source for telling "assigned to
+# somebody else" from "assigned to me" in working.md §1's resume rule. `@me`
+# is a write-side special value for --add-assignee/--remove-assignee; it never
+# reveals a login, and §4 rules out a separate `gh api user` call.
+printf '%s' "$MAP_JSON" | jq -r '.data.viewer.login'
 ```
 
 **The response is captured once and filtered several times, rather than
@@ -273,6 +280,28 @@ the ticket's type label: `wayfinder:research`, `wayfinder:smoke-test`,
 position — a ticket also carrying an unrelated label (`priority:high`, say)
 still reports its real type, and a ticket carrying none reports `no-type`
 rather than guessing.
+
+**Exactly one `wayfinder:` type label, checked before claim or dispatch.**
+`.[0]` above takes whichever the API returned first, and `ticket-types.md` §1
+requires exactly one — so a ticket that collected a second one, from a
+collaborator or an automation, gets classified arbitrarily. That is not
+cosmetic: a `prototype` also carrying `wayfinder:research` can be read as AFK
+and fanned out to a subagent, which is the HITL refusal bypassed by a label
+edit. Count them and stop on anything but one:
+
+```bash
+printf '%s' "$MAP_JSON" | jq -r '
+  .data.repository.issue.subIssues.nodes[]
+  | . as $t
+  | [.labels.nodes[].name | select(startswith("wayfinder:"))]
+  | select(length != 1)
+  | "\($t.number) has \(length) wayfinder: labels - \(.)"'
+```
+
+Any output is a stop, naming the ticket and its labels. `no-type` in the
+frontier view is the zero case of the same problem and is equally a stop
+before the ticket is worked — the view reports it rather than guessing
+precisely so this check has something to catch.
 
 **Every nested connection asks for 100, the GraphQL maximum, and none of the
 three may be trimmed to "enough".** Each one feeds the eligibility boolean, so

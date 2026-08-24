@@ -20,8 +20,12 @@ after resolving it instead of before, has broken the mode — not bent it.
 2. **Choose and claim.** The operator's ticket if named, otherwise the first
    frontier ticket. **Assign it to the operator before any work** — that
    assignment *is* the claim, and it is what lets concurrent sessions skip it.
-3. **Resolve it** through its type's instrument (`ticket-types.md`). Zoom as
-   needed: fetch any related or closed ticket's full body on demand.
+3. **Resolve it** through its type's instrument (`ticket-types.md`), reading
+   the ticket's **body** — §2's query returns it per node. The title is the
+   short form; `charting.md` §3 puts the actionable question, why it gates the
+   destination, what would settle it, and the known constraints in the body,
+   so resolving from the title alone discards everything charting recorded.
+   Zoom further as needed: fetch any related or closed ticket on demand.
 4. **Record the resolution** — post the answer as a resolution comment,
    **close** the issue, then append one line to the map's Decisions so far.
 5. **Graduate and re-scope.** Add tickets the answer made specifiable
@@ -111,6 +115,11 @@ again, reading that ticket's `assignees` node — and act on **who** holds it:
 - **Nobody** — claim it and work it.
 - **Somebody else** — skip it and say so; another session is on it.
 - **The operator this session runs as** — **resume it.** Do not skip.
+
+Telling those apart needs the operator's login, and `@me` does not supply it —
+it is a write-side special value for `--add-assignee`/`--remove-assignee` only.
+§2's query returns `viewer.login` for exactly this comparison; §4 rules out a
+separate `gh api user` call, so that field is the only source.
 
 That last row is not a nicety. A session that dies between the claim and the
 close leaves the ticket assigned and therefore off every future frontier query
