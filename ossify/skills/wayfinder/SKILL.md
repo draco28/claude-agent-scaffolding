@@ -27,6 +27,10 @@ its ladder before doing anything else.
 - **A map plus a ticket** → work mode, that ticket specifically, skipping
   the frontier read.
 
+Charting that question into a map — the six steps, the fog-or-ticket
+test, and the commands that create it — is read from
+`${CLAUDE_PLUGIN_ROOT}/skills/wayfinder/references/charting.md`.
+
 A ticket's type decides how it resolves — read
 `${CLAUDE_PLUGIN_ROOT}/skills/wayfinder/references/ticket-types.md` for the
 six types, which of ossify's uncertainty instruments each one points at, and
