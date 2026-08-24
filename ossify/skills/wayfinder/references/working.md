@@ -37,32 +37,71 @@ ticket first and assigns it after has broken step 2 — the assignment is
 what a concurrent session reads to know the ticket is spoken for, and an
 assignment made after the work is not a claim at all.
 
-**A named ticket skips the frontier read, never the parent check.** Confirm
-the ticket the operator named is one of `$MAP`'s sub-issues — `gh issue view
-"$TICKET" --json parent` — and **stop** on a mismatch, naming both the map the
-ticket actually belongs to and the one that was asked for. The shortcut exists
-because the operator already chose, not because the number is trusted: step 4
-**closes** that issue and appends its answer to `$MAP`'s Decisions so far, so a
-typo or a stale link mutates two wrong things at once — an unrelated issue
-closed, and a decision recorded on a map that never asked the question. The
-frontier query is what implicitly validates parentage in the unnamed case,
-which is exactly why the named case has to do it explicitly.
+**A named ticket skips the frontier read, not what the frontier read
+checked.** §2's query does four things at once for an unnamed ticket — it
+confirms the ticket belongs to this map, that it is open, that nothing open
+blocks it, and that nobody holds it. Naming a ticket is the operator choosing
+*which* one, not a warrant that it is any of those. So the shortcut fetches
+the same four facts for that ticket and applies the same predicate:
+
+```bash
+gh issue view "$TICKET" -R "$OWNER_REPO" --json parent,state,assignees
+```
+
+`blockedBy` has no `gh issue view` field; take it from §2's query, which
+already returns it for every sub-issue of `$MAP`.
+
+Each failure is a **stop**, and each is stated rather than worked around:
+
+- **Not a sub-issue of `$MAP`** — name both the map it does belong to and the
+  one that was asked for. Step 4 **closes** the issue and appends its answer to
+  `$MAP`'s Decisions so far, so a typo or a stale link mutates two wrong things
+  at once: an unrelated issue closed, and a decision recorded on a map that
+  never asked the question.
+- **Already closed** — its resolution is on record. Recording a second one
+  double-counts a decision in Decisions so far.
+- **Blocked by something still open** — name the blocker. This is the same
+  rule `references/ticket-types.md` §3 applies to the AFK fan-out, for the same
+  reason: an answer derived before its evidence exists is worse than no answer.
+- **Assigned to someone else** — see the claim rule below.
 
 Resolve `$MAP` the same way: confirm it carries `wayfinder:map` before working
 it. A map name that lands on an ordinary issue otherwise gets a Decisions so
 far heading appended to something that was never a map.
+
+**Every one of these calls takes `-R "$OWNER_REPO"`, and so does every other
+`gh` call on this page.** The tracker is frequently not the repository the
+session is running in — `references/tracker.md` §1 branch 1 puts maps on the
+**AI workspace** while the work happens in a canonical — so a bare `gh issue
+view` or `gh issue close` resolves the number against the wrong repository and
+reads, or closes, an unrelated issue that merely shares it.
 
 **The claim is a marker, not a lock.** `--add-assignee` succeeds whether or not
 the ticket was already assigned — GitHub offers no compare-and-set on
 assignment — so two sessions that run the frontier query before either
 assignment lands will both select the same ticket and both claims will
 succeed. Re-read the chosen ticket's assignees immediately before claiming
-(`gh issue view "$TICKET" --json assignees`) and skip it if someone already
-holds it; that shrinks the window to the gap between the read and the write
-but does not close it. **Two sessions working one map concurrently can still
-double-resolve a ticket**, and no mechanism here prevents it. Work a map from
-one session at a time; the assignment is what makes a claim *visible*, not
-what makes it exclusive.
+(the `--json ... assignees` read above) and act on **who** holds it:
+
+- **Nobody** — claim it and work it.
+- **Somebody else** — skip it and say so; another session is on it.
+- **The operator this session runs as** — **resume it.** Do not skip.
+
+That last row is not a nicety. A session that dies between the claim and the
+close leaves the ticket assigned and therefore off every future frontier query
+(§2 filters on `(.assignees.nodes|length)==0`), so the only way back to it is
+the operator naming it explicitly — and a rule that skips any assigned ticket
+would refuse that retry too, stranding the ticket until someone hand-edits
+GitHub. An assignment held by the current operator is a **resumable claim**,
+not a competing one. To hand a stuck ticket to someone else, drop the
+assignment (`gh issue edit "$TICKET" -R "$OWNER_REPO" --remove-assignee
+"@me"`), which returns it to the frontier.
+
+The re-read shrinks the concurrent window to the gap between the read and the
+write; it does not close it. **Two sessions working one map at the same time
+can still double-resolve a ticket**, and no mechanism here prevents it. Work a
+map from one session at a time; the assignment makes a claim *visible*, not
+exclusive.
 
 ---
 
@@ -152,8 +191,8 @@ one of exactly two things, and the session says which:
 
 On the first, read the map's Destination against its Decisions so far and say
 whether the question is answered. If it is, **ask the operator, then close the
-map** — `gh issue close "$MAP"` — leaving Decisions so far as the record of
-the route walked. If it is not, the remaining uncertainty is fog that never
+map** — `gh issue close "$MAP" -R "$OWNER_REPO"` — leaving Decisions so far as
+the record of the route walked. If it is not, the remaining uncertainty is fog that never
 graduated: say what is still open, and let the operator decide whether to
 chart the next ticket or stop.
 

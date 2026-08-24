@@ -7,7 +7,7 @@ earns its label on the tracker.
 
 Ossify already owns five ways to resolve uncertainty — four instrument docs
 (`research.md`, `smoke-test-pass.md`, `spike-contract.md`, `prototype.md`)
-plus a grill (`/ossify:challenge`) — and wayfinder adds none of its own. A
+plus a grill (`challenge`) — and wayfinder adds none of its own. A
 ticket's type says which of those five its uncertainty is, or that it
 carries no uncertainty at all and just wants doing.
 
@@ -21,13 +21,19 @@ carries no uncertainty at all and just wants doing.
 | `smoke-test` | AFK | `start/references/smoke-test-pass.md` | factual, script-shaped |
 | `spike` | AFK | `start/references/spike-contract.md` | technical — build a falsifier |
 | `prototype` | HITL | `start/references/prototype.md` | experiential — a person chooses |
-| `grilling` | HITL | `/ossify:challenge` interview + `start/references/domain-modeling.md` | none; it is the grill |
+| `grilling` | HITL | `challenge` interview + `start/references/domain-modeling.md` | none; it is the grill |
 | `task` | either | no instrument | none; manual work unblocking a decision |
 
 Resolver paths are read cross-skill via
 `${CLAUDE_PLUGIN_ROOT}/skills/start/references/<file>`. This is the
 established pattern — `challenge/SKILL.md` already reads references that
-way, and the absorption spec sanctions it.
+way, and the absorption spec sanctions it. **The grill is reached the same
+way** — read `${CLAUDE_PLUGIN_ROOT}/skills/challenge/references/interview.md`,
+as every other ossify caller of the grill does. Never name the slash command:
+`/ossify:challenge` is the Claude Code spelling, and wayfinder now ships on
+the OpenCode bundle too, where the same skill is registered as a native
+`/challenge` and no `ossify:` alias exists. The reference path is the one
+address that is correct on every surface.
 
 **Take each instrument's method; do not take its storage.** All four were
 written for an ossify project and name ossify artifacts as their
@@ -91,6 +97,18 @@ Fan `research`, `smoke-test`, and `spike` tickets out through the `Task` tool
 directly, not `superpowers:dispatching-parallel-agents` — Batch S ossified
 `challenge` in-tree to drop plugin dependencies, and taking one back
 reverses that.
+
+**The map body is the dispatcher's to write, never a worker's.**
+`references/working.md` §1 step 4 has each resolved ticket append one line to
+the map's Decisions so far — and a map body is edited by whole-body
+replacement (`gh issue edit --body`), so two workers that finish together read
+the same body and the second write silently erases the first's line. Split
+step 4 for a fan-out: **each worker** posts its own resolution comment and
+closes its own ticket, which touch nothing shared; **the dispatching session**
+collects the resolutions the batch returns and appends them to the map itself,
+one at a time, after the batch is in. The per-ticket half is already
+conflict-free; only the map line needs serialising, and the session that
+launched the fan-out is the one place it can be serialised.
 
 **Dispatch only what the frontier predicate admits** — open, unassigned, and
 blocked by nothing still open (`references/tracker.md` §2). AFK is a property

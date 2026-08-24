@@ -16,9 +16,13 @@ that is work mode's job, once the map exists, not this one's.
 
 ## 1. The six steps
 
-1. **Name the destination.** Call `/ossify:challenge` in interview mode
-   plus `start/references/domain-modeling.md`. The destination fixes the
-   scope, so it settles first.
+1. **Name the destination.** Run ossify's own grill in interview mode —
+   read `${CLAUDE_PLUGIN_ROOT}/skills/challenge/references/interview.md` end
+   to end and follow it — plus `start/references/domain-modeling.md`. Read the
+   reference, never a slash command: `/ossify:challenge` is the Claude Code
+   spelling and wayfinder also ships on the OpenCode bundle, where that
+   command does not exist (`references/ticket-types.md` §1). The destination
+   fixes the scope, so it settles first.
 2. **Map the frontier, breadth-first** — fan out across the whole space
    rather than deep on one thread.
 3. **If step 2 surfaces no fog, there is no map to make.** Say so and
@@ -31,9 +35,10 @@ that is work mode's job, once the map exists, not this one's.
    cannot name a blocker the map has not created yet.
 6. **Fire the AFK tickets that nothing open blocks** (`research`,
    `smoke-test`, `spike`) in parallel, then **stop**. Charting hand-resolves
-   nothing. `references/ticket-types.md` §3 has the fan-out mechanics and the
-   `caffeinate` discipline the dispatch needs; this step only decides
-   which tickets qualify.
+   nothing. `references/ticket-types.md` §3 has the fan-out mechanics, the
+   `caffeinate` discipline, and the rule that the **dispatching session**
+   writes every Decisions-so-far line the batch produces; this step only
+   decides which tickets qualify.
 
 Type is not the whole qualification. §2 files a blocked-but-sharp question as
 a ticket, and step 5's second pass wires it to its blocker, so a `spike` that
@@ -135,14 +140,37 @@ for L in map research smoke-test spike prototype grilling task; do
   gh label create "wayfinder:$L" -R "$OWNER_REPO" \
     --description "wayfinder $L" 2>/dev/null || true
 done
+
+# The loop cannot tell "already exists" from a transient API failure, so it
+# does not try to. Verify the end state instead, once, and stop before the
+# first issue mutation if anything is missing.
+HAVE="$(gh label list -R "$OWNER_REPO" --limit 500 --json name --jq '.[].name')"
+for L in map research smoke-test spike prototype grilling task; do
+  case "
+$HAVE
+" in
+    *"
+wayfinder:$L
+"*) ;;
+    *) echo "wayfinder: label wayfinder:$L missing after bootstrap - not charting" >&2; exit 1 ;;
+  esac
+done
 ```
 
 Deliberately **not** `--force`: that would overwrite the colour and
 description of a label the repo already has. Failing silently when the
-label exists is the behaviour wanted here. Do not reach for
-`... | grep -q` to test existence first — under `set -o pipefail` a
-`grep -q` that matches early closes the pipe and the whole pipeline
-reports failure.
+label exists is the behaviour wanted here — but *only* that case. `|| true`
+swallows a transient API error exactly as it swallows an already-exists, and
+this section promises all seven labels exist before anything is created, so
+proceeding on a swallowed failure leaves a half-built map the moment a later
+`gh issue create --label` rejects the missing one. The verify loop is what
+makes the promise true: it reads the end state rather than trying to classify
+the error, so it is right whatever the failure was.
+
+Do not reach for `... | grep -q` in either loop — under `set -o pipefail` a
+`grep -q` that matches early closes the pipe and the whole pipeline reports
+failure. The `case` above matches against a captured variable, not through a
+pipe, which is why it is shaped that way.
 
 ---
 

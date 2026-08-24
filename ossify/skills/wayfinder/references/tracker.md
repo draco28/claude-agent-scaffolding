@@ -150,9 +150,9 @@ query($owner:String!,$repo:String!,$number:Int!){
       subIssues(first:100){
         nodes{
           number title url state
-          assignees(first:5){nodes{login}}
-          labels(first:10){nodes{name}}
-          blockedBy(first:20){nodes{number state}}
+          assignees(first:100){nodes{login}}
+          labels(first:100){nodes{name}}
+          blockedBy(first:100){nodes{number state}}
         }
       }
     }
@@ -174,6 +174,15 @@ the ticket's type label: `wayfinder:research`, `wayfinder:smoke-test`,
 position — a ticket also carrying an unrelated label (`priority:high`, say)
 still reports its real type, and a ticket carrying none reports `no-type`
 rather than guessing.
+
+**Every nested connection asks for 100, the GraphQL maximum, and none of the
+three may be trimmed to "enough".** Each one feeds the eligibility boolean, so
+a truncated page does not lose information — it *inverts* the answer. Miss an
+open blocker past the cut and the ticket is admitted to the frontier and worked
+before its evidence exists; miss the `wayfinder:` label past the cut on a repo
+with ten of its own and a correctly typed ticket reports `no-type` and loses
+its resolver. A wayfinder map will not approach 100 of any of them; asking for
+the maximum costs one page either way and removes the question.
 
 The `--jq` filter is doing the derivation the REST form would need N calls to
 assemble: three raw facts per ticket — `state`, `assignees`, `blockedBy` —
