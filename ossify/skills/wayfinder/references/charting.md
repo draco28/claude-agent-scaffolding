@@ -125,31 +125,17 @@ gh issue create -R "$OWNER_REPO" --label "wayfinder:$TYPE" \
 
 `gh issue create` has no parent argument, so every ticket the map wants
 gets created first, as a plain issue, and only wired to the map and to
-each other in a second pass — both calls below need issue ids that do not
-exist until the issues do:
+each other in a second pass — both calls below need the issue numbers
+`gh issue create` already returned:
 
 ```bash
 # second pass: parent it, then wire blocking
-gh api -X POST "repos/$OWNER_REPO/issues/$MAP/sub_issues" \
-  -F sub_issue_id="$TICKET_ID"
-gh api -X POST "repos/$OWNER_REPO/issues/$TICKET/dependencies/blocked_by" \
-  -F issue_id="$BLOCKER_ID"
+gh issue edit "$MAP"    -R "$OWNER_REPO" --add-sub-issue  "$TICKET"
+gh issue edit "$TICKET" -R "$OWNER_REPO" --add-blocked-by "$BLOCKER"
 ```
 
-**Both `gh api` POST endpoints take the issue's REST database id — an
-integer — not its number and not its GraphQL node id.** This was
-verified, and the two obvious ways to get an id both return the wrong one
-for this purpose:
-
-```bash
-# CORRECT — the database id the endpoints want
-gh api "repos/$OWNER_REPO/issues/$N" --jq .id          # → 5222321979
-
-# WRONG — this returns the GraphQL node id
-gh issue view "$N" -R "$OWNER_REPO" --json id --jq .id  # → I_kwDOSMv3ks8AAAABN0ZPOw
-```
-
-`$N` is `$MAP` or `$TICKET`, whichever issue's id the call needs;
-`$TICKET_ID` and `$BLOCKER_ID` are both fetched this way, never the
-GraphQL form. Use `-F` (typed field), not `-f` (string field), or the
-integer is sent as a string.
+`$TICKET` and `$BLOCKER` are ordinary issue numbers — the same kind used
+everywhere else in this file, not a REST database id. A `gh` too old to
+carry these three relationship flags still has the REST sub-issue and
+dependency endpoints to fall back to, at the cost of a database-id lookup
+per call.
