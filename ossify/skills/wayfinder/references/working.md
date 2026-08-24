@@ -197,15 +197,32 @@ gh issue edit "$TICKET" -R "$OWNER_REPO" --add-assignee "@me"
 # emit it just before the next "## ", or at EOF when that section is last,
 # dropping the section's trailing blanks so the first entry on a fresh map and
 # the tenth on an old one land the same way. Every other section passes
-# through untouched. Non-zero when the heading is absent, because an unchanged
-# body means nothing was recorded and a no-op write looks exactly like a
-# recorded decision - the one failure this section exists to prevent.
+# through untouched. Non-zero when the heading is absent or duplicated -
+# absent because an unchanged body means nothing was recorded and a no-op
+# write looks exactly like a recorded decision, duplicated because the append
+# would land twice and split the record - the failures this section exists to
+# prevent.
 build_map_update() {
   # $HEADING and $ENTRY cross into awk through the ENVIRONMENT, never -v.
   # awk -v processes escape sequences in the value before the program sees it:
   # a resolution mentioning \d+ loses its backslash, C:\new\test gains a tab,
   # and any \n SPLITS the Decisions-so-far line in two. Measured, not assumed.
   # ENVIRON passes the bytes through untouched.
+  #
+  # The heading must appear EXACTLY once. Zero is caught below by the
+  # unchanged-body stop, but TWO copies of the heading would append the entry
+  # to both - the body changes, so that stop passes, and the decision lands
+  # twice on a map a collaborator split or duplicated. Count first, exact-line
+  # match, and refuse anything but one.
+  HEADING_COUNT="$(printf '%s\n' "$MAP_BODY" | HEADING="$HEADING" awk '
+    BEGIN { h = ENVIRON["HEADING"] }
+    $0 == h { c++ }
+    END { print c+0 }
+  ')"
+  [ "$HEADING_COUNT" -eq 1 ] || {
+    echo "wayfinder: expected exactly one '$HEADING' on $MAP, found $HEADING_COUNT - not writing an ambiguous map" >&2
+    return 1
+  }
   NEW_BODY="$(printf '%s\n' "$MAP_BODY" | HEADING="$HEADING" ENTRY="$ENTRY" awk '
     BEGIN { h = ENVIRON["HEADING"]; entry = ENVIRON["ENTRY"] }
     /^## / { if (inside) { print entry; print ""; inside=0; pend=0 } print; if ($0 == h) inside=1; next }

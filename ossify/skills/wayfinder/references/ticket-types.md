@@ -160,8 +160,15 @@ This binds on every caller — `charting.md` step 6's post-chart fan-out and any
 batch a work-mode session launches alike — and it is stated here, at the
 fan-out, rather than in each of them.
 
-This host sleeps in about a minute and kills background agents as a generic
-API error. Hold `caffeinate -i` across the **whole** fan-out, not per agent.
+A host that sleeps mid-run kills background agents as a generic API error.
+Hold a sleep inhibitor across the **whole** fan-out, not per agent. The
+spelling is the platform's: `caffeinate -i` on macOS — a foreground process
+that holds the assertion until killed. On Linux, `systemd-inhibit
+--what=sleep sleep infinity` held in the background for the batch and killed
+after it — `systemd-inhibit` inhibits only while the command it wraps is
+running, so a background `sleep infinity` is the held assertion, the same
+shape `caffeinate -i` gives for free. A host with neither has nothing to
+hold: say so, rather than claiming a protected fan-out.
 
 ---
 

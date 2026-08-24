@@ -289,8 +289,10 @@ cosmetic: a `prototype` also carrying `wayfinder:research` can be read as AFK
 and fanned out to a subagent, which is the HITL refusal bypassed by a label
 edit. Count against the **six allowed ticket labels**, not the `wayfinder:` prefix:
 a prefix count of one also passes `wayfinder:map` on a child and a typo like
-`wayfinder:reseach`, both of which name no resolver. Membership and
-cardinality, in one check:
+`wayfinder:reseach`, both of which name no resolver — and a prefixed label
+that names no resolver is a stop even riding alongside a valid type, because
+`.[0]` above still classifies the ticket by whichever label the API returned
+first. Exactly one of the six, and no other `wayfinder:` label, in one check:
 
 ```bash
 printf '%s' "$MAP_JSON" | jq -r '
@@ -298,9 +300,14 @@ printf '%s' "$MAP_JSON" | jq -r '
    "wayfinder:prototype","wayfinder:grilling","wayfinder:task"] as $valid
   | .data.repository.issue.subIssues.nodes[]
   | . as $t
-  | [.labels.nodes[].name | select(. as $l | $valid | index($l))]
-  | select(length != 1)
-  | "\($t.number) carries \(length) of the six ticket labels - \(.)"'
+  | [.labels.nodes[].name] as $all
+  | ([$all[] | select(. as $l | $valid | index($l))]) as $typed
+  | ([$all[] | select(startswith("wayfinder:"))
+      | select(. as $l | ($valid | index($l)) | not)]) as $stray
+  | select(($typed|length) != 1 or ($stray|length) != 0)
+  | "\($t.number) needs exactly one of the six ticket labels and no other
+     wayfinder: label - carries \(
+       if ($all|length) > 0 then ($all|join(", ")) else "no labels" end)"'
 ```
 
 Any output is a stop, naming the ticket and its labels. `no-type` in the
