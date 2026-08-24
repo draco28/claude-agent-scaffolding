@@ -176,10 +176,9 @@ pipe, which is why it is shaped that way.
 
 ## 5. Create the map and its tickets
 
-`$OWNER_REPO` is `references/tracker.md` §1's resolved tracker. **On a
-`local` tracker it is unbound and none of the commands in this section run**
-— `references/tracker.md` §3 gives the file form each one takes instead, and
-everything else on this page binds unchanged. `$TYPE` is
+`$OWNER_REPO` is `references/tracker.md` §1's resolved tracker, and it is
+always bound by the time this section runs — §1 stops rather than reaching
+here without one. `$TYPE` is
 one of the six words from `references/ticket-types.md` §1 — `research`,
 `smoke-test`, `spike`, `prototype`, `grilling`, or `task`. `$MAP_TITLE`
 and `$TICKET_TITLE` are the map's and the ticket's own names — never a

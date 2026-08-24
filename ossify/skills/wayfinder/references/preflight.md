@@ -20,12 +20,20 @@ decision on record that bears on its own stations.
 
 ```bash
 gh issue list -R "$OWNER_REPO" --label "wayfinder:map" --state all \
-  --json number,title,state,url
+  --limit 500 --json number,title,state,url
 ```
 
 `--state all` on purpose: a closed map's `Decisions so far` is still a
 resolved decision worth reading back, and a map that later reopens must
 not have silently dropped out of the count.
+
+`--limit 500` is not padding. `gh issue list` defaults to **30**, and this
+query is a *count* that branches — a truncated page does not shorten the
+answer, it changes which row of §2 fires. Past 30 maps on one tracker the
+`>1` branch could no longer name every map, so the operator would be asked to
+choose from a list that silently omitted the one they wanted. `--state all`
+makes the ceiling easier to reach than it looks, because closed maps never
+age out of it.
 
 ---
 
@@ -44,23 +52,20 @@ is §1's `gh issue list` — an empty result **is** the answer, and nothing
 else in this file executes.
 
 **The unresolved row exists because wayfinder is advisory here.** Run
-directly, `references/tracker.md` branch 0 stops and asks, branch 4 falls
-back to local markdown, and §1's empty-`$OWNER_REPO` guard exits non-zero.
-**Inside a ceremony none of the three fires.** A ceremony that documents two
-hard stops must not grow a third one it never came to ask about, and branch
-4's local path has no `$OWNER_REPO` and so no count to take. Proceeding as
-count 0 costs the ceremony nothing and leaves the map to be read by an
-explicit `/ossify:wayfinder` run.
+directly, every unresolved-tracker path in `references/tracker.md` §1 is a
+**stop** — branch 0's conflict, branch 4's failed probe, and the
+empty-`$OWNER_REPO` guard alike. **Inside a ceremony none of them fires.** A
+ceremony that documents its own hard stops must not grow another one it never
+came to ask about, and a tracker it cannot resolve simply means no count can
+be taken. Proceeding as count 0 costs the ceremony nothing and leaves the map
+to be read by an explicit `/ossify:wayfinder` run.
 
-**Why §1's guard is carved out rather than obeyed.** That guard exists so a
-*wayfinder* session cannot mistake an unbuilt probe for branch 4 and write
-every map to local markdown while reporting a documented fallback. A
-ceremony writes no map and takes no fallback, so it has nothing to mistake:
-an unbound `$OWNER_REPO` here means only that the count cannot be taken,
-which is precisely the unresolved row above. A ceremony agent sent to §1 by
-this file's opening pointer reads it for the resolution and stops there —
-`exit 1` is wayfinder's behaviour, never `/start`'s or
-`/plan-release`'s.
+**Every §1 stop is wayfinder's, never a ceremony's.** A ceremony agent sent to
+§1 by this file's opening pointer reads it for the **resolution** and stops
+there: it writes no map and mutates no tracker, so none of the failures those
+stops protect against can happen to it. An unresolved tracker here means only
+that the count cannot be taken, which is precisely the unresolved row above.
+`exit 1` is wayfinder's behaviour, never `/start`'s or `/plan-release`'s.
 
 ---
 

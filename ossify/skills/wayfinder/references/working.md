@@ -71,9 +71,12 @@ Each failure is a **stop**, and each is stated rather than worked around:
   reason: an answer derived before its evidence exists is worse than no answer.
 - **Assigned to someone else** — see the claim rule below.
 
-Resolve `$MAP` the same way: confirm it carries `wayfinder:map` before working
-it. A map name that lands on an ordinary issue otherwise gets a Decisions so
-far heading appended to something that was never a map.
+Resolve `$MAP` the same way: confirm it carries `wayfinder:map` **before**
+anything is claimed or closed. The map load in §4 requests `labels` for this
+one purpose — without that field the check has no data source and passes by
+default, which is worse than not stating it. A map name that lands on an
+ordinary issue otherwise gets a Decisions so far heading appended to something
+that was never a map.
 
 **Every `gh` call on this page takes `-R "$OWNER_REPO"`, and §2's query takes
 its `-F owner`/`-F repo` from the same resolution.** The tracker is frequently not the repository the
@@ -139,10 +142,9 @@ never enters Decisions so far, which records the route actually walked.
 
 ## 4. The commands
 
-`$OWNER_REPO` is `references/tracker.md` §1's resolved tracker. **On a
-`local` tracker it is unbound and none of the commands in this section run**
-— `references/tracker.md` §3 gives the file form each one takes instead, and
-every rule on this page binds unchanged.
+`$OWNER_REPO` is `references/tracker.md` §1's resolved tracker, and it is
+always bound by the time this section runs — §1 stops rather than reaching
+here without one.
 `$RESOLUTION` is the answer this session is recording, fed on **stdin** —
 `--body-file -` — so no scratch file lands in the operator's working tree.
 In the claim and record calls below, `$MAP` and `$TICKET` are the map's and
@@ -151,8 +153,10 @@ once from the name the operator gave or the frontier query returned, never
 re-asked for and never how either is referred to in conversation.
 
 ```bash
-# load the map low-res: its body is the whole index, tickets are a separate query
-gh issue view "$MAP" -R "$OWNER_REPO" --json title,body,url
+# load the map low-res: its body is the whole index, tickets are a separate
+# query. `labels` is not optional - it is the only source for the
+# wayfinder:map check in §1, which runs before anything is claimed or closed.
+gh issue view "$MAP" -R "$OWNER_REPO" --json title,body,url,labels
 
 # claim FIRST, before any work — "@me" needs no login lookup
 gh issue edit "$TICKET" -R "$OWNER_REPO" --add-assignee "@me"
@@ -187,8 +191,11 @@ addressed by its issue number, never a database id.
 ## 5. The empty frontier, and closing the map
 
 An empty frontier is not an error and not an edge case — it is the state
-every map reaches. `references/tracker.md` §2's query returning nothing means
-one of exactly two things, and the session says which:
+every map reaches. §2's *filtered* output returning nothing means one of
+exactly two things, and the filter cannot tell them apart — it discards every
+node it excludes, so both cases look identical from it. Read the **unfiltered**
+`subIssues.nodes` of the same query (`references/tracker.md` §2) and say
+which:
 
 - **Every ticket is closed.** The map has no open work left.
 - **Tickets remain, but none is workable** — each is blocked by something

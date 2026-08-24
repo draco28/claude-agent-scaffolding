@@ -2,8 +2,7 @@
 
 Depth for `SKILL.md` §1's routing pointer, and the file every other wayfinder
 reference cites by section number: §1 the ladder that decides which tracker a
-map lives on, §2 the query both chart and work modes run against it, §3 the
-fallback for when no tracker is reachable at all.
+map lives on, and §2 the query both chart and work modes run against it.
 
 A **map** is the parent ticket for one decision — the question wayfinder
 exists to resolve. Its **tickets** are the map's sub-issues: the research,
@@ -26,8 +25,8 @@ switch trackers and orphan every existing map.
    key records this.
 2. Branch 1 declined, `.wayfinder.json` present → use it.
 3. Branch 1 declined, no `.wayfinder.json` → ask once, then write it.
-4. Chosen tracker unreachable → fall back to §3 and name the branch that
-   fired.
+4. Chosen tracker unreachable → **stop**, naming which probe failed and
+   what would restore it.
 
 **Branch 1 needs the remote, not just the workspace.** A discoverable
 workspace with no `origin` declines to branch 2 — `workspace-init` writes
@@ -44,12 +43,10 @@ forms:
 
 ```json
 {"tracker": "github:owner/repo"}
-{"tracker": "local", "dir": "docs/wayfinder"}
 ```
 
-`dir` is optional and only meaningful under `"local"`: it names the
-directory §3 writes into, and `docs/wayfinder` is the default when it is
-absent. Branch 3 writes **exactly these key names** — a session that invents
+`github:owner/repo` is the only form 1.2.0 accepts. Branch 3 writes
+**exactly this key name** — a session that invents
 its own leaves a dotfile the next session cannot read, which orphans every
 map on it just as surely as the silent tracker switch branch 0 exists to
 prevent.
@@ -58,22 +55,31 @@ prevent.
 `$REPO`.** Those three names are what every other wayfinder file consumes and
 none of them assigns — this is their only definition site. Branch 1 derives
 them from the workspace remote below; branches 2 and 3 derive them from
-`.wayfinder.json`'s `tracker` value, dropping its `github:` prefix. A `local`
-tracker binds none of the three and goes straight to §3.
+`.wayfinder.json`'s `tracker` value, dropping its `github:` prefix. There is
+no branch that leaves them unbound: **wayfinder requires a reachable issue
+tracker**, and every path that cannot produce one stops.
 
 Resolve the workspace root with the shipped resolver, then read its remote
 **from git, never from the manifest**:
 
 ```bash
 # `oss repo_root` walks up from $PWD and refuses by name when unpaired: a
-# non-zero rc here IS branch 2, not an error. It resolves the root under
-# either manifest schema, so the topology branch needs no separate read.
-AI_ROOT="$(oss repo_root ai_workspace)"
+# non-zero rc here IS branch 2, not an error, so it is swallowed for the same
+# reason the origin read below is. Under `set -e` a bare assignment would abort
+# the session on the ordinary standalone repo before .wayfinder.json is read.
+# It resolves the root under either manifest schema, so the topology branch
+# needs no separate read.
+AI_ROOT="$(oss repo_root ai_workspace 2>/dev/null || true)"
 
-# An absent origin is branch 2 as surely as an unpaired repo is, so swallow the
-# rc and let an empty $ORIGIN route it. A bare `git remote get-url origin` here
-# would abort a strict-mode caller on the ordinary no-remote workspace.
-ORIGIN="$(git -C "$AI_ROOT" remote get-url origin 2>/dev/null || true)"
+# Both branch-1 preconditions are now empty-or-set, so one test routes them:
+# no workspace, or a workspace with no origin, is branch 2 either way. Written
+# as an `if` rather than `[ ... ] && ...` on purpose - the AND-list form is
+# safe under `set -e` but only by a rule about non-final list elements that a
+# later reader is liable to "correct" the wrong way.
+ORIGIN=""
+if [ -n "$AI_ROOT" ]; then
+  ORIGIN="$(git -C "$AI_ROOT" remote get-url origin 2>/dev/null || true)"
+fi
 
 OWNER_REPO="$(printf '%s' "$ORIGIN" \
   | sed -E 's#^git@github\.com:#https://github.com/#; s#^https://github\.com/##; s#\.git$##')"
@@ -107,28 +113,38 @@ Check reachability before committing to a tracker — auth lapses and issues
 can be disabled per repo:
 
 ```bash
-[ -n "$OWNER_REPO" ] || { echo "wayfinder: tracker resolution failed - \$OWNER_REPO is empty; this is not branch 4" >&2; exit 1; }
+[ -n "$OWNER_REPO" ] || { echo "wayfinder: tracker resolution failed - \$OWNER_REPO is empty after the ladder" >&2; exit 1; }
 gh repo view "$OWNER_REPO" --json hasIssuesEnabled --jq '.hasIssuesEnabled'
 ```
 
 A `false`, or a `gh` error from a probe that was actually constructed, is
-branch 4: fall through to §3 and say which branch fired, so the operator can
-tell an unreachable tracker from one that simply has issues turned off.
+branch 4: **stop**, and say which it was — an unreachable tracker and one that
+simply has issues turned off need different things from the operator, and both
+are recoverable outside this session.
 
-**An unresolved tracker is a stop, never branch 4.** The guard above runs
-**after the ladder has finished**, so it fires only when a branch that claimed
-to bind `$OWNER_REPO` did not — a resolution step failed upstream of the probe,
-and that is a bug to report, not a fallback to take. Without it the probe runs
-as `gh repo view ""`, errors, and the error is indistinguishable from a
-legitimate branch 4: every map on a perfectly reachable tracker would go to
-local markdown, with a documented branch fired and nothing red anywhere.
-Branch 4 means the probe ran and said no. It never means the probe could not
-be built.
+**The two stops are different failures and say so.** Branch 4 means the probe
+ran and answered no: auth, network, or issues disabled. The guard above means
+the probe could not be built at all — it runs **after the ladder has
+finished**, so it fires only when a branch that claimed to bind `$OWNER_REPO`
+did not, which is a bug in the resolution rather than a fact about the
+tracker. Without the guard the probe runs as `gh repo view ""`, errors, and
+reports itself as branch 4 — a resolution bug wearing an unreachable-tracker
+message.
 
-An empty `$ORIGIN` is not that case: branch 1 declined, so the ladder went on
-to branch 2 or 3 and bound `$OWNER_REPO` from `.wayfinder.json` — or the
-operator chose `local`, which reaches §3 without a probe. Either way the guard
-is never handed the no-origin workspace.
+An empty `$ORIGIN` is neither: branch 1 declined, so the ladder went on to
+branch 2 or 3 and bound `$OWNER_REPO` from `.wayfinder.json`. The guard is
+never handed the no-origin workspace.
+
+**Why there is no local fallback.** An earlier draft of this file routed both
+stops to a Markdown-backed map on disk. It was cut before release: nothing
+exercised it, and every review round found another tracker operation the file
+mapping did not cover — clearing a resolved blocker out of a dependent's
+metadata, closing a map that has no state field, and a transient probe failure
+silently splitting one effort across two backends once connectivity returned.
+A map is a **shared, mutable, queryable** record with parent/child and
+blocking edges, which is what an issue tracker is for. Requiring one is the
+honest boundary; a half-built second backend is not a fallback, it is a second
+place for maps to be lost.
 
 ---
 
@@ -186,48 +202,23 @@ the maximum costs one page either way and removes the question.
 
 The `--jq` filter is doing the derivation the REST form would need N calls to
 assemble: three raw facts per ticket — `state`, `assignees`, `blockedBy` —
-collapse into one boolean, frontier-eligible or not. §3's front-matter keeps
-the same three facts so the local fallback computes the identical boolean
-without a network call.
+collapse into one boolean, frontier-eligible or not.
 
----
+**The filter is a view, not the query.** `subIssues.nodes` holds *every* sub-issue
+of the map with all three facts on it; the `--jq` above narrows that to the
+eligible set and formats it for a human to pick from. Three callers need the
+**unfiltered** nodes instead, and each reads them from this same single call
+rather than issuing another:
 
-## 3. Local-markdown fallback
+- a **named ticket** — its node is read directly and the predicate applied to
+  it, and its presence in the list is the parent check
+  (`references/working.md` §1);
+- the **claim re-read** — that node's `assignees`, immediately before
+  assigning (`references/working.md` §1);
+- the **terminal check** — an empty eligible set is ambiguous on its own, so
+  §5's two cases are told apart by the unfiltered nodes: all closed, or some
+  open but blocked or claimed (`references/working.md` §5).
 
-When no tracker is reachable (branch 4), or the operator chose none, a map
-lives as Markdown instead of an issue: `<dir>/<map-slug>/MAP.md`, with its
-tickets as `NN-<slug>.md` files beside it — `<dir>` is `.wayfinder.json`'s
-`dir` where the dotfile sets one and `docs/wayfinder` where it does not,
-`NN` a stable two-digit order so a directory listing sorts the way the
-frontier would, `<slug>` the ticket's own short name. A ticket is referred to by that name, the same rule
-as on the tracker — never by the bare `NN`.
-
-Each ticket file's front-matter carries four fields: `state` (`open` or
-`closed`), `type` (the ticket's `wayfinder:<type>` label, without the
-prefix), `assignee` (a name, or empty), and `blocked_by` (the slugs of
-tickets still open that block it, or empty). Frontier eligibility computes
-exactly as §2's query derives it — `state` open, `assignee` empty,
-`blocked_by` empty — the same three-fact boolean, read from disk instead of
-queried over the network.
-
-**On this branch every `gh` call in `charting.md` §5 and `working.md` §4 is
-replaced, not adapted.** A `local` tracker binds no `$OWNER_REPO`, so those
-commands cannot run and must not be attempted — the whole point of writing the
-front-matter contract above is that a file write does what the API call did.
-The mapping is one-to-one, and it is written here so neither of those files
-has to restate it:
-
-| The `gh` call | Its local form |
-|---|---|
-| `gh label create wayfinder:*` | nothing — `type` is a front-matter field, so there is no label namespace to bootstrap |
-| `gh issue create` for the map | write `<dir>/<map-slug>/MAP.md` with §3's five headings from `charting.md` §3 |
-| `gh issue create --parent "$MAP"` | write `<dir>/<map-slug>/NN-<slug>.md`; the parent is the containing directory |
-| `--label "wayfinder:$TYPE"` | the `type` field, prefix dropped |
-| `--add-blocked-by` | append the blocker's slug to `blocked_by` |
-| `--add-assignee "@me"` | set `assignee` to the operator |
-| `gh issue comment` + `gh issue close` | append the resolution under the ticket file's body, then set `state: closed` |
-| the frontier query | read every `NN-*.md` front-matter and apply the same three-fact boolean |
-
-Nothing else about either mode changes: the six steps, the fog-or-ticket
-test, the claim-before-work ordering and the one-ticket-per-session rule all
-bind identically. Only the storage moves.
+That last one is why the distinction is stated here rather than left implicit.
+A caller that saw only the filtered output would read an empty result as "no
+work left" in both cases and could close a map with open tickets still on it.
