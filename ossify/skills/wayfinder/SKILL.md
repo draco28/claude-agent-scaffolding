@@ -27,6 +27,11 @@ its ladder before doing anything else.
 - **A map plus a ticket** → work mode, that ticket specifically, skipping
   the frontier read.
 
+A ticket's type decides how it resolves — read
+`${CLAUDE_PLUGIN_ROOT}/skills/wayfinder/references/ticket-types.md` for the
+six types, which of ossify's uncertainty instruments each one points at, and
+whether it runs AFK or needs a human in the loop.
+
 ## 2. Nevers
 
 - **Never resolve branch 0's conflict silently.** A manifest and a
