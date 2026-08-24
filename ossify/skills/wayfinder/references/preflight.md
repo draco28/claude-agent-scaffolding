@@ -35,11 +35,20 @@ not have silently dropped out of the count.
 | 0 | Proceed exactly as today — the common case, and it costs nothing. |
 | 1 | Read its `## Decisions so far` (`references/charting.md` §3) and carry each recorded decision into §3 below. |
 | >1 | Name every map — by title, never by bare number — and ask the operator which one this ceremony is for. |
+| tracker unresolved | Proceed as count 0. |
 
-The zero branch is the load-bearing one: a repo with no map yet must not
-pay a network round trip's latency, let alone a prompt, on every single
-`/start` or `/plan-release` run. An empty `gh issue list` result **is**
-the answer; nothing else in this file executes.
+The zero branch is the load-bearing one: a repo with no map yet pays **one
+query and never a prompt** on a `/start` or `/plan-release` run. That query
+is §1's `gh issue list` — an empty result **is** the answer, and nothing
+else in this file executes.
+
+**The unresolved row exists because wayfinder is advisory here.** Run
+directly, `references/tracker.md` branch 0 stops and asks and branch 4 falls
+back to local markdown; inside a ceremony neither fires. A ceremony that
+documents two hard stops must not grow a third one it never came to ask
+about, and branch 4's local path has no `$OWNER_REPO` and so no count to
+take. Proceeding as count 0 costs the ceremony nothing and leaves the map
+to be read by an explicit `/ossify:wayfinder` run.
 
 ---
 

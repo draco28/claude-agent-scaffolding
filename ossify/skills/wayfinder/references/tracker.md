@@ -28,6 +28,21 @@ switch trackers and orphan every existing map.
 4. Chosen tracker unreachable → fall back to §3 and name the branch that
    fired.
 
+`.wayfinder.json` sits at the repo root and carries one key, in one of two
+forms:
+
+```json
+{"tracker": "github:owner/repo"}
+{"tracker": "local", "dir": "docs/wayfinder"}
+```
+
+`dir` is optional and only meaningful under `"local"`: it names the
+directory §3 writes into, and `docs/wayfinder` is the default when it is
+absent. Branch 3 writes **exactly these key names** — a session that invents
+its own leaves a dotfile the next session cannot read, which orphans every
+map on it just as surely as the silent tracker switch branch 0 exists to
+prevent.
+
 **Whichever branch fires, it ends by binding `$OWNER_REPO`, `$OWNER` and
 `$REPO`.** Those three names are what every other wayfinder file consumes and
 none of them assigns — this is their only definition site. Branch 1 derives
@@ -149,10 +164,11 @@ without a network call.
 ## 3. Local-markdown fallback
 
 When no tracker is reachable (branch 4), or the operator chose none, a map
-lives as Markdown instead of an issue: `docs/wayfinder/<map-slug>/MAP.md`,
-with its tickets as `NN-<slug>.md` files beside it — `NN` a stable two-digit
-order so a directory listing sorts the way the frontier would, `<slug>` the
-ticket's own short name. A ticket is referred to by that name, the same rule
+lives as Markdown instead of an issue: `<dir>/<map-slug>/MAP.md`, with its
+tickets as `NN-<slug>.md` files beside it — `<dir>` is `.wayfinder.json`'s
+`dir` where the dotfile sets one and `docs/wayfinder` where it does not,
+`NN` a stable two-digit order so a directory listing sorts the way the
+frontier would, `<slug>` the ticket's own short name. A ticket is referred to by that name, the same rule
 as on the tracker — never by the bare `NN`.
 
 Each ticket file's front-matter carries four fields: `state` (`open` or
