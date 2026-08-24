@@ -219,7 +219,7 @@ This query costs one, and is written **once**, here, never re-inlined
 elsewhere:
 
 ```bash
-gh api graphql -f query='
+MAP_JSON="$(gh api graphql -f query='
 query($owner:String!,$repo:String!,$number:Int!){
   repository(owner:$owner,name:$repo){
     issue(number:$number){
@@ -235,13 +235,34 @@ query($owner:String!,$repo:String!,$number:Int!){
       }
     }
   }
-}' -F owner="$OWNER" -F repo="$REPO" -F number="$MAP" --jq '
+}' -F owner="$OWNER" -F repo="$REPO" -F number="$MAP")"
+
+# The frontier VIEW - what the operator picks from.
+printf '%s' "$MAP_JSON" | jq -r '
   .data.repository.issue.subIssues.nodes
   | map(select(.state=="OPEN"
         and (.assignees.nodes|length)==0
         and ([.blockedBy.nodes[]|select(.state=="OPEN")]|length)==0))
   | .[] | "\(.title)  [\([.labels.nodes[].name | select(startswith("wayfinder:"))] | .[0] // "no-type")]  #\(.number)"'
+
+# The UNFILTERED nodes - the named-ticket check, the claim re-read and the
+# terminal check all read these, and none of them can use the view above.
+printf '%s' "$MAP_JSON" | jq -r '.data.repository.issue.subIssues.nodes'
+
+# One named ticket's node, for §1's four checks
+printf '%s' "$MAP_JSON" | jq -r --argjson n "$TICKET" '
+  .data.repository.issue.subIssues.nodes[] | select(.number==$n)'
+
+# The pagination gate for working.md §5's terminal branch
+printf '%s' "$MAP_JSON" | jq -r '.data.repository.issue.subIssues.pageInfo.hasNextPage'
 ```
+
+**The response is captured once and filtered several times, rather than
+`--jq`'d at the call.** `--jq` applies its filter to the response and prints
+only the result, so putting the frontier filter there would throw away the
+unfiltered nodes and `pageInfo` — the very things the three readers named
+below need. One call, four views; a second round trip for facts the first
+response already carried is the N+1 this query exists to avoid.
 
 `$MAP` is the map's issue number, resolved once — from the name or URL the
 operator gave — and never asked for again. The bracket in each output line is
