@@ -28,16 +28,26 @@ switch trackers and orphan every existing map.
 4. Chosen tracker unreachable → fall back to §3 and name the branch that
    fired.
 
-Resolve the workspace root, then read its remote **from git, never from the
-manifest**:
+**Whichever branch fires, it ends by binding `$OWNER_REPO`, `$OWNER` and
+`$REPO`.** Those three names are what every other wayfinder file consumes and
+none of them assigns — this is their only definition site. Branch 1 derives
+them from the workspace remote below; branches 2 and 3 derive them from
+`.wayfinder.json`'s `tracker` value, dropping its `github:` prefix. A `local`
+tracker binds none of the three and goes straight to §3.
+
+Resolve the workspace root with the shipped resolver, then read its remote
+**from git, never from the manifest**:
 
 ```bash
-# root: implicit under topology.json (the .ossify parent), explicit under pairing.json
-AI_ROOT="$(jq -r '.ai_workspace.root' .workspace/pairing.json)"   # pairing branch
-# AI_ROOT="$(dirname "$(dirname "$TOPOLOGY_FILE")")"              # topology branch
+# `oss repo_root` walks up from $PWD and refuses by name when unpaired: a
+# non-zero rc here IS branch 2, not an error. It resolves the root under
+# either manifest schema, so the topology branch needs no separate read.
+AI_ROOT="$(oss repo_root ai_workspace)"
 
-git -C "$AI_ROOT" remote get-url origin \
-  | sed -E 's#^git@github\.com:#https://github.com/#; s#^https://github\.com/##; s#\.git$##'
+OWNER_REPO="$(git -C "$AI_ROOT" remote get-url origin \
+  | sed -E 's#^git@github\.com:#https://github.com/#; s#^https://github\.com/##; s#\.git$##')"
+OWNER="${OWNER_REPO%%/*}"
+REPO="${OWNER_REPO##*/}"
 ```
 
 **Why this reads git, and not a manifest field that plainly exists.** A
@@ -52,16 +62,36 @@ identical string under either one — so branch 1 asks git directly, and a
 future reader who "fixes" this back to a manifest read is reintroducing the
 dependency this design deliberately avoided.
 
+**Why the resolver and not a hand-rolled `jq` read of the manifest.**
+`oss repo_root ai_workspace` is the walk-up branch 1 describes — a raw
+`jq -r '.ai_workspace.root' .workspace/pairing.json` only ever finds a
+manifest sitting in `$PWD`, so branch 1 misses on a correctly paired repo
+invoked from any subdirectory. The resolver also substitutes the manifest's
+`${…}` tokens and refuses with a named message, which is why this repo
+removed `oss_cmd_manifest_get` in v0.2.0 (`lib/commands.sh:117-126`): the raw
+read handed the caller a literal unresolved token string. It is a read that
+already ships, so using it adds no verb.
+
 Check reachability before committing to a tracker — auth lapses and issues
 can be disabled per repo:
 
 ```bash
+[ -n "$OWNER_REPO" ] || { echo "wayfinder: tracker resolution failed - \$OWNER_REPO is empty; this is not branch 4" >&2; exit 1; }
 gh repo view "$OWNER_REPO" --json hasIssuesEnabled --jq '.hasIssuesEnabled'
 ```
 
-A `false`, or a `gh` error, is branch 4: fall through to §3 and say which
-branch fired, so the operator can tell an unreachable tracker from one that
-simply has issues turned off.
+A `false`, or a `gh` error from a probe that was actually constructed, is
+branch 4: fall through to §3 and say which branch fired, so the operator can
+tell an unreachable tracker from one that simply has issues turned off.
+
+**An unresolved tracker is a stop, never branch 4.** The guard above fires
+when `$OWNER_REPO` was never bound at all — a resolution step failed upstream
+of the probe — and that is a bug to report, not a fallback to take. Without
+it the probe runs as `gh repo view ""`, errors, and the error is
+indistinguishable from a legitimate branch 4: every map on a perfectly
+reachable tracker would go to local markdown, with a documented branch fired
+and nothing red anywhere. Branch 4 means the probe ran and said no. It never
+means the probe could not be built.
 
 ---
 
