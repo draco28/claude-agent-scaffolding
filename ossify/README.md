@@ -5,8 +5,10 @@ spines against a cumulative demo ledger. Eight entry skills (`start`, `adopt`,
 `plan-release`, `plan-spine`, `work-item`, `close`, `doctor`, `challenge`) plus
 `/ossify:run-spine`, which drives a planned spine's rounds end to end, and the
 standalone utilities — session handoff (`/ossify:handoff`,
-`/ossify:handoff-resume`) and the PR review-fix-merge loop
-(`/ossify:work-pr`) — which work in any repository, ossify-initialised or
+`/ossify:handoff-resume`), the PR review-fix-merge loop
+(`/ossify:work-pr`), and decision-ticket maps that chart a question into
+tickets or work an existing map's frontier one ticket per session
+(`/ossify:wayfinder`) — which work in any repository, ossify-initialised or
 not. The utilities are a Claude Code command surface: the OpenCode bundle
 exposes the entry skills only (#131 tracks the command-registration gap
 there).
