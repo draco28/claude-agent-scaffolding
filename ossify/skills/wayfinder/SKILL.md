@@ -41,6 +41,12 @@ A ticket's type decides how it resolves — read
 six types, which of ossify's uncertainty instruments each one points at, and
 whether it runs AFK or needs a human in the loop.
 
+`references/preflight.md` lives here but is read from outside this skill:
+`/ossify:start` and `/ossify:plan-release` each run it at the end of their
+own pre-flight, to notice whether a map already exists before their
+stations start asking. It has no route above — a map pre-fills a station
+in those ceremonies, it never picks chart or work mode here.
+
 ## 2. Nevers
 
 - **Never resolve branch 0's conflict silently.** A manifest and a

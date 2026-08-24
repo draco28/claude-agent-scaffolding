@@ -95,6 +95,10 @@ tokens are load-bearing too. Past both gates:
 `oss init "<project-name>"`, which refuses if ossify state already exists — the
 "already onboarded" signal; route per §2 rather than forcing past it.
 
+**Wayfinder pre-flight.** If a map exists for this repo, its resolved decisions
+pre-fill stations below rather than being re-elicited. Branch logic:
+`${CLAUDE_PLUGIN_ROOT}/skills/wayfinder/references/preflight.md` — do not restate it here.
+
 ---
 
 ## 4. Product vision → narrative
