@@ -1,17 +1,22 @@
 # ossify (v1.2.0)
 
 Skeleton-first lifecycle plugin: Release 0 → MVP → v1, driven by bone and flesh
-spines against a cumulative demo ledger. Eight entry skills (`start`, `adopt`,
-`plan-release`, `plan-spine`, `work-item`, `close`, `doctor`, `challenge`) plus
-`/ossify:run-spine`, which drives a planned spine's rounds end to end, and the
-standalone utilities — session handoff (`/ossify:handoff`,
-`/ossify:handoff-resume`), the PR review-fix-merge loop
-(`/ossify:work-pr`), and decision-ticket maps that chart a question into
-tickets or work an existing map's frontier one ticket per session
-(`/ossify:wayfinder`) — which work in any repository, ossify-initialised or
-not. The utilities are a Claude Code command surface: the OpenCode bundle
-exposes the entry skills only (#131 tracks the command-registration gap
-there).
+spines against a cumulative demo ledger. Nine entry skills (`start`, `adopt`,
+`plan-release`, `plan-spine`, `work-item`, `close`, `doctor`, `challenge`,
+`wayfinder`) plus `/ossify:run-spine`, which drives a planned spine's rounds
+end to end, and the standalone utilities — session handoff
+(`/ossify:handoff`, `/ossify:handoff-resume`) and the PR review-fix-merge
+loop (`/ossify:work-pr`) — which work in any repository, ossify-initialised
+or not.
+
+`wayfinder` is both at once, which is why it is listed above rather than
+below: an entry skill with its own skill directory, and an any-repo one. It
+charts a question into decision tickets on the issue tracker, or works an
+existing map's frontier one ticket per session. The three utilities have no
+skill directory — their depth lives in `references/` — so they are a Claude
+Code command surface only and the OpenCode bundle does not carry them (#131
+tracks the command-registration gap there). Every entry skill, `wayfinder`
+included, is in the bundle.
 
 `challenge` is the grill and the adversarial critic, absorbed in-tree at 1.1.0:
 the bone grill gate, the spec-core close audit, the release class veto, and the

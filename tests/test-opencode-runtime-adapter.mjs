@@ -280,7 +280,7 @@ test("Task 8 documents exact native skills, aliases, and runtime requirements", 
       "/checking-adversary-readiness",
       "/managing-async-critique",
     ],
-    ossify: ["/start", "/adopt", "/plan-spine", "/work-item", "/close", "/plan-release", "/doctor", "/challenge"],
+    ossify: ["/start", "/adopt", "/plan-spine", "/work-item", "/close", "/plan-release", "/doctor", "/challenge", "/wayfinder"],
   };
 
   for (const requirement of [
@@ -394,15 +394,21 @@ test("Task 9 documents the bounded Ossify Git guard and OpenCode async prerequis
 });
 
 test("Task 9 keeps root README versions aligned with parsed plugin manifests", async () => {
-  const [rootReadme, aiMentorManifestSource, architectCriticManifestSource] =
-    await Promise.all([
-      readFile(readmeUrl, "utf8"),
-      readFile(aiMentorManifestUrl, "utf8"),
-      readFile(architectCriticManifestUrl, "utf8"),
-    ]);
+  const [
+    rootReadme,
+    aiMentorManifestSource,
+    architectCriticManifestSource,
+    ossifyManifestSource,
+  ] = await Promise.all([
+    readFile(readmeUrl, "utf8"),
+    readFile(aiMentorManifestUrl, "utf8"),
+    readFile(architectCriticManifestUrl, "utf8"),
+    readFile(ossifyManifestUrl, "utf8"),
+  ]);
   const manifests = [
     JSON.parse(aiMentorManifestSource),
     JSON.parse(architectCriticManifestSource),
+    JSON.parse(ossifyManifestSource),
   ];
   const pluginRows = parseMarkdownTable(markdownSection(rootReadme, "Plugins"));
   const layout = markdownSection(rootReadme, "Layout");
