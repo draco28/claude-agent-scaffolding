@@ -167,8 +167,13 @@ that holds the assertion until killed. On Linux, `systemd-inhibit
 --what=sleep sleep infinity` held in the background for the batch and killed
 after it — `systemd-inhibit` inhibits only while the command it wraps is
 running, so a background `sleep infinity` is the held assertion, the same
-shape `caffeinate -i` gives for free. A host with neither has nothing to
-hold: say so, rather than claiming a protected fan-out.
+shape `caffeinate -i` gives for free. Whichever spelling, the host's
+permission config must allow it BEFORE the batch: an inhibitor first invoked
+mid-fan-out pauses for approval exactly when the operator is away — after
+the dispatcher has claimed the tickets — and protects nothing while it
+waits. If invoking it would prompt, say the batch is unprotected and let the
+operator pre-approve it or accept that. A host with neither inhibitor has
+nothing to hold: say so, rather than claiming a protected fan-out.
 
 ---
 
