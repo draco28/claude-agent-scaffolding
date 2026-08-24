@@ -25,9 +25,10 @@ after resolving it instead of before, has broken the mode — not bent it.
 4. **Record the resolution** — post the answer as a resolution comment,
    **close** the issue, then append one line to the map's Decisions so far.
 5. **Graduate and re-scope.** Add tickets the answer made specifiable
-   (create-then-wire), clearing each graduated patch from Not yet specified so
-   it lives only as its new ticket. If the answer reveals a ticket sits beyond
-   the destination, **rule it out of scope** rather than resolving it.
+   (created and parented in one call, §4), clearing each graduated patch from
+   Not yet specified so it lives only as its new ticket. If the answer reveals
+   a ticket sits beyond the destination, **rule it out of scope** rather than
+   resolving it.
 
 Step 2's "first frontier ticket" is `references/tracker.md` §2's query, run
 once; a map plus a named ticket skips the query entirely, because the

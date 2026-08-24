@@ -4,10 +4,11 @@ Depth for the pointer at the end of `start/SKILL.md` §3 and
 `plan-release/SKILL.md` §3: the branch a ceremony runs, once its own
 fail-fast gates have resolved a workspace root, to notice whether a
 decision map already exists for this repo before its stations start
-asking. It reads `references/tracker.md` §1 to resolve `$OWNER_REPO`, and
-on the one-map branch reads `references/charting.md`'s `## Decisions so
-far` heading. Nothing downstream reads this file's own output — the
-ceremony that ran it is the last consumer, whichever branch fires.
+asking. It reads `references/tracker.md` §1 for its **resolution** — not
+for its stops; see §2 — and on the one-map branch reads
+`references/charting.md`'s `## Decisions so far` heading. Nothing
+downstream reads this file's own output — the ceremony that ran it is the
+last consumer, whichever branch fires.
 
 ---
 
@@ -43,12 +44,23 @@ is §1's `gh issue list` — an empty result **is** the answer, and nothing
 else in this file executes.
 
 **The unresolved row exists because wayfinder is advisory here.** Run
-directly, `references/tracker.md` branch 0 stops and asks and branch 4 falls
-back to local markdown; inside a ceremony neither fires. A ceremony that
-documents two hard stops must not grow a third one it never came to ask
-about, and branch 4's local path has no `$OWNER_REPO` and so no count to
-take. Proceeding as count 0 costs the ceremony nothing and leaves the map
-to be read by an explicit `/ossify:wayfinder` run.
+directly, `references/tracker.md` branch 0 stops and asks, branch 4 falls
+back to local markdown, and §1's empty-`$OWNER_REPO` guard exits non-zero.
+**Inside a ceremony none of the three fires.** A ceremony that documents two
+hard stops must not grow a third one it never came to ask about, and branch
+4's local path has no `$OWNER_REPO` and so no count to take. Proceeding as
+count 0 costs the ceremony nothing and leaves the map to be read by an
+explicit `/ossify:wayfinder` run.
+
+**Why §1's guard is carved out rather than obeyed.** That guard exists so a
+*wayfinder* session cannot mistake an unbuilt probe for branch 4 and write
+every map to local markdown while reporting a documented fallback. A
+ceremony writes no map and takes no fallback, so it has nothing to mistake:
+an unbound `$OWNER_REPO` here means only that the count cannot be taken,
+which is precisely the unresolved row above. A ceremony agent sent to §1 by
+this file's opening pointer reads it for the resolution and stops there —
+`exit 1` is wayfinder's behaviour, never `/start`'s or
+`/plan-release`'s.
 
 ---
 
