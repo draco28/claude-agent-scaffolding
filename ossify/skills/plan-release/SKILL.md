@@ -112,6 +112,10 @@ amendments, quarantined lines, outstanding fakes, patch records, a held lock or
 orphan worktrees. Run it if the state itself looks inconsistent; invoke **`ossify:doctor`**
 if you want the advisory surfaces, which this skill does not invoke.
 
+**Wayfinder pre-flight.** If a map exists for this repo, its resolved decisions
+pre-fill stations below rather than being re-elicited. Branch logic:
+`${CLAUDE_PLUGIN_ROOT}/skills/wayfinder/references/preflight.md` — do not restate it here.
+
 ---
 
 ## 4. Inputs
