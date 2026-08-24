@@ -45,7 +45,15 @@
 #   block unfindable and the failure read as "vacuous" rather than as wrong
 #   behaviour. Pick the anchor from the block's SCAFFOLDING, never from its FIX.
 #
-# Totals: 172 blocks - 59 operative (11 covered, 48 deferred), 113 illustrative.
+# Totals: 179 blocks - 69 operative (11 covered, 58 deferred), 110 illustrative.
+# DERIVED, never hand-counted: check 2's report line gives the total from a walk
+# of the TREE ("179 blocks accounted for"); one awk pass over the rows below
+# gives the split. Two independent routes, agreeing at 179 - that agreement IS
+# the check. The previous headline (172 = 11/48/113) was ALREADY STALE BEFORE
+# the wayfinder branch: the retirements narrated in the parentheticals below
+# were never subtracted from it. So "172 + 8 new D rows = 180" corrects a figure
+# that was never true; do not re-derive 180 from that arithmetic. Nothing
+# asserts this line, which is why it drifted across several releases.
 # (the harvest conversion retired two: impl-check.md's harvest_dir read and
 # rule-authoring.md's deferred path composition; the rules conversion retired
 # three more: doctor/SKILL.md's rules_types call and rule-authoring.md's last
