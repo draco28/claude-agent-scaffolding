@@ -37,21 +37,19 @@ AI_ROOT="$(jq -r '.ai_workspace.root' .workspace/pairing.json)"   # pairing bran
 # AI_ROOT="$(dirname "$(dirname "$TOPOLOGY_FILE")")"              # topology branch
 
 git -C "$AI_ROOT" remote get-url origin \
-  | sed -E 's#^https://github\.com/##; s#\.git$##'
+  | sed -E 's#^git@github\.com:#https://github.com/#; s#^https://github\.com/##; s#\.git$##'
 ```
 
 **Why this reads git, and not a manifest field that plainly exists.** A
-concurrent design
-(`docs/superpowers/specs/2026-08-24-ossify-multi-canonical-design.md`, landing
-after wayfinder) replaces `pairing.json` with `.ossify/topology.json`, where
-the workspace root is implicit — its §1 states plainly that *"there is no
-`ai_workspace` key to drift"* — and its §9 lists `routing` among the keys
-ossify **never reads**. An `ai_workspace.git_remote` field and a
+concurrent internal design, landing after wayfinder, makes the workspace root
+implicit and removes the key that would otherwise carry it — routing fields,
+including a tracker pointer, are on that design's list of keys ossify's own
+resolvers never read. An `ai_workspace.git_remote` field and a
 `routing.wayfinder_maps` key would both be dependencies on manifest surfaces
-already scheduled for deletion. The workspace root is stable under both
-schemas, and `git remote get-url` returns the identical string under either
-one (verified 2026-08-24) — so branch 1 asks git directly, and a future
-reader who "fixes" this back to a manifest read is reintroducing the
+already scheduled for deletion. The workspace root is stable across both the
+current and the incoming schema, and `git remote get-url` returns the
+identical string under either one — so branch 1 asks git directly, and a
+future reader who "fixes" this back to a manifest read is reintroducing the
 dependency this design deliberately avoided.
 
 Check reachability before committing to a tracker — auth lapses and issues
@@ -97,7 +95,7 @@ query($owner:String!,$repo:String!,$number:Int!){
   | map(select(.state=="OPEN"
         and (.assignees.nodes|length)==0
         and ([.blockedBy.nodes[]|select(.state=="OPEN")]|length)==0))
-  | .[] | "\(.title)  [\(.labels.nodes[0].name)]  #\(.number)"'
+  | .[] | "\(.title)  [\([.labels.nodes[].name | select(startswith("wayfinder:"))] | .[0] // "no-type")]  #\(.number)"'
 ```
 
 `$MAP` is the map's issue number, resolved once — from the name or URL the
@@ -105,7 +103,10 @@ operator gave — and never asked for again. The bracket in each output line is
 the ticket's type label: `wayfinder:research`, `wayfinder:smoke-test`,
 `wayfinder:spike`, `wayfinder:prototype`, `wayfinder:grilling`, or
 `wayfinder:task`, set when the ticket was filed; the map itself carries
-`wayfinder:map`.
+`wayfinder:map`. The filter picks that label out by prefix rather than by
+position — a ticket also carrying an unrelated label (`priority:high`, say)
+still reports its real type, and a ticket carrying none reports `no-type`
+rather than guessing.
 
 The `--jq` filter is doing the derivation the REST form would need N calls to
 assemble: three raw facts per ticket — `state`, `assignees`, `blockedBy` —
