@@ -3,10 +3,12 @@
 Score each 1-5 (5 criteria). Pass = all ≥4.
 
 This surface scores `wayfinder/SKILL.md`'s routing judgment plus the four
-reference docs it points at — `references/tracker.md`, `references/
-charting.md`, and `references/ticket-types.md` — where a loose question
-becomes a map, where fog stays fog, which tickets a subagent may touch, and
-the ladder that decides which tracker a map lives on. The skill has no
+reference docs it points at — `references/tracker.md`,
+`references/charting.md`, `references/working.md` and
+`references/ticket-types.md` — where a loose question becomes a map, where
+fog stays fog, how an existing map's frontier is worked, which tickets a
+subagent may touch, and the ladder that decides which tracker a map lives
+on. The skill has no
 gates; the judgment under test is whether the prose holds the rails without
 one.
 

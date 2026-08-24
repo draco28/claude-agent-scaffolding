@@ -37,7 +37,16 @@ dependencies. This body is a router: it picks the mode and nothing else.
 | `plan-spine` §6 plan audit | audit | close | optional, user-asked |
 | `plan-spine` §7 bone grill gate | interview | — | offered, bone-only, never auto-invoked |
 | `close` §7 spine close | audit | close on bone, shallow on flesh | class-scoped record |
+| `wayfinder` chart step 1 | interview | — | advisory — it fixes the map's destination, never gates |
+| `wayfinder` `grilling` ticket | interview | — | the ticket **is** the grill; resolving it closes the ticket |
 | the user, directly | either | — | — |
+
+**Wayfinder's two rows take the direct-invocation shape, not the ceremony
+one.** An operator is in the loop both times — `ticket-types.md` §2 makes
+`grilling` HITL and refuses to dispatch it to a subagent — so the challenge
+set is walked with the operator and a rebuttal record is kept. Where that
+record lands is wayfinder's call: the map's `Notes` for chart step 1, the
+ticket's resolution comment for a `grilling` ticket.
 
 The callers own their moments, their gating, and their dispositions. This
 skill yields the challenge set — **unwalked for ceremony callers** (their

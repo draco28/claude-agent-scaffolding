@@ -53,7 +53,7 @@ The proven form is a two-column table:
 | canonical `main` at `7bf74f2` | `git log -1 --format='%h %s' origin/main` |
 | suite ALL GREEN, 1,321 assertions | `bash tests/run-all.sh` |
 | zero open PRs | `gh pr list --state open` |
-| 3 tickets on the frontier of "multi-tenant billing" | the frontier query in `wayfinder/references/tracker.md` §2 |
+| 3 tickets on the frontier of "multi-tenant billing" | run the frontier query at `${CLAUDE_PLUGIN_ROOT}/skills/wayfinder/references/tracker.md` §2 |
 ```
 
 **The contract: every command tests the whole claim on its row.** A row whose
