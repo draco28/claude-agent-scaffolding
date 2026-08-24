@@ -178,33 +178,44 @@ gh issue view "$MAP" -R "$OWNER_REPO" --json title,body,url,labels,state
 # claim FIRST, before any work — "@me" needs no login lookup
 gh issue edit "$TICKET" -R "$OWNER_REPO" --add-assignee "@me"
 
+# Build $NEW_BODY by appending $ENTRY as the last line of the $HEADING section:
+# emit it just before the next "## ", or at EOF when that section is last,
+# dropping the section's trailing blanks so the first entry on a fresh map and
+# the tenth on an old one land the same way. Every other section passes
+# through untouched. Non-zero when the heading is absent, because an unchanged
+# body means nothing was recorded and a no-op write looks exactly like a
+# recorded decision - the one failure this section exists to prevent.
+build_map_update() {
+  NEW_BODY="$(printf '%s\n' "$MAP_BODY" | awk -v h="$HEADING" -v entry="$ENTRY" '
+    /^## / { if (inside) { print entry; print ""; inside=0; pend=0 } print; if ($0 == h) inside=1; next }
+    inside && /^[ \t]*$/ { pend++; next }
+    { while (inside && pend > 0) { print ""; pend-- } print }
+    END { if (inside) print entry }
+  ')"
+  [ "$NEW_BODY" != "$MAP_BODY" ] || {
+    echo "wayfinder: map body unchanged - '$HEADING' not found on $MAP; nothing recorded" >&2
+    return 1
+  }
+}
+
+# DRY RUN, before anything irreversible. It fails on a map whose headings
+# moved or were renamed - and finding that out AFTER the ticket is closed
+# strands the decision: ticket closed, map with no record, and §1's
+# closed-ticket stop refusing the retry. Prove the append is possible while
+# the ticket is still open and nothing has happened yet.
+MAP_BODY="$(gh issue view "$MAP" -R "$OWNER_REPO" --json body --jq '.body')"
+build_map_update || exit 1
+
 # record: comment, then close
 printf '%s\n' "$RESOLUTION" \
   | gh issue comment "$TICKET" -R "$OWNER_REPO" --body-file -
 gh issue close "$TICKET" -R "$OWNER_REPO"
 
-# THEN write the map. gh cannot append to an issue body, so every map-body
-# change is a read-modify-write of the WHOLE body. Re-read here rather than
-# reusing the copy loaded above: the resolve step sits between them.
+# THEN write the map, rebuilt against a FRESH read - the dry run's copy is two
+# API calls stale by now, and gh cannot append to an issue body, so this is a
+# read-modify-write of the WHOLE body either way.
 MAP_BODY="$(gh issue view "$MAP" -R "$OWNER_REPO" --json body --jq '.body')"
-
-# Append $ENTRY as the last line of the $HEADING section: emit it just before
-# the next "## ", or at EOF when that section is last, dropping the section's
-# trailing blank lines so the first entry on a fresh map and the tenth on an
-# old one land the same way. Every other section passes through untouched.
-NEW_BODY="$(printf '%s\n' "$MAP_BODY" | awk -v h="$HEADING" -v entry="$ENTRY" '
-  /^## / { if (inside) { print entry; print ""; inside=0; pend=0 } print; if ($0 == h) inside=1; next }
-  inside && /^[ \t]*$/ { pend++; next }
-  { while (inside && pend > 0) { print ""; pend-- } print }
-  END { if (inside) print entry }
-')"
-
-# An unchanged body means the heading was not found - a renamed or reflowed
-# map, or a typo in $HEADING. Writing it back anyway is a no-op that LOOKS
-# like a recorded decision, which is the one failure this whole section
-# exists to prevent, so it is a stop.
-[ "$NEW_BODY" != "$MAP_BODY" ] || { echo "wayfinder: map body unchanged - '$HEADING' not found on $MAP; nothing recorded" >&2; exit 1; }
-
+build_map_update || exit 1
 printf '%s\n' "$NEW_BODY" | gh issue edit "$MAP" -R "$OWNER_REPO" --body-file -
 
 # §3's out-of-scope ruling is this same close with NO resolution comment
@@ -247,6 +258,18 @@ Four rules bind every one of those writes:
 - **Never hand-build a body.** Always the re-read, edited. `--body` replaces
   the whole issue body, so a hand-built one silently deletes every heading it
   forgot.
+- **Prove the append before closing anything.** The same build runs twice: once
+  as a dry run while the ticket is still open, and once for real against a
+  fresh read. The first exists so a map with moved headings fails while
+  everything is still recoverable; the second because the first is stale by
+  then.
+
+**If the map write fails after the close**, the decision is recorded on the
+ticket and missing from the map, and the ticket is closed. That state is
+recoverable but only deliberately: re-run the map write alone for that ticket.
+§1's closed-ticket stop carries its one exception here — a closed ticket whose
+decision is **absent from `Decisions so far`** may have its map line written,
+and nothing else. It is not re-resolved, not re-commented, and not reopened.
 
 **The lost-update window is real and is closed by ownership, not by the
 command.** `gh` offers no compare-and-set on an issue body any more than it

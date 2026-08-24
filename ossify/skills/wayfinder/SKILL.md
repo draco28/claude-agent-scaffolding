@@ -24,10 +24,11 @@ its ladder before doing anything else.
 - **A map name, number, or URL** → **work mode.** The map already exists:
   read its frontier — the tickets that are open, unassigned, and
   unblocked — and work one.
-- **A map plus a ticket** → work mode, that ticket specifically, skipping
-  the frontier read — **not** the check that the ticket is one of that map's
-  sub-issues. `references/working.md` §1 has that check and why a mismatch is
-  a stop.
+- **A map plus a ticket** → work mode, that ticket specifically. This skips
+  the frontier **choice**, not the frontier **query** — that query is the only
+  specified source for the named ticket's membership, state, blockers and
+  assignees, so work mode runs it either way and reads its unfiltered node.
+  `references/working.md` §1 has the four checks and why each is a stop.
 
 Charting that question into a map — the six steps, the fog-or-ticket
 test, and the commands that create it — is read from

@@ -98,6 +98,22 @@ directly, not `superpowers:dispatching-parallel-agents` — Batch S ossified
 `challenge` in-tree to drop plugin dependencies, and taking one back
 reverses that.
 
+**`Task` is a Claude Code tool, and wayfinder ships on surfaces that do not
+have it.** The Codex manifest registers no agent and no tool, and
+`ossify/README.md` states outright that Codex has no worker path; the OpenCode
+bundle exposes the skill without one either. **On any surface with no subagent
+mechanism, the fan-out does not happen and is not simulated.** Chart mode
+finishes at step 5, says which AFK tickets it left unworked and why, and those
+tickets stay open on the frontier for a later work-mode session to pick up one
+at a time — which is the ordinary path, not a degraded one, since work mode
+resolves exactly these types single-file anyway.
+
+Resolving them inline in the charting session instead is the failure to avoid:
+it breaks charting's own rule that it resolves nothing, and on a batch of
+three research tickets it silently converts an unattended fan-out into a long
+foreground run the operator did not ask for. A named refusal costs one
+sentence; the alternative costs the mode's contract.
+
 **The map body is the dispatcher's to write, never a worker's — and that
 means every heading, not just one.** A map body is edited by whole-body
 replacement (`references/working.md` §4), so two workers that finish together

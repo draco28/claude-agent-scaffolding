@@ -198,17 +198,30 @@ MAP="$(printf '%s\n' "$MAP_BODY" \
       --title "$MAP_TITLE" --body-file - \
   | grep -oE '[0-9]+$')"
 
-# a ticket, parented to the map in the same call
+# a ticket, parented to the map AND wired to any blocker that already exists,
+# both in the creating call. --blocked-by takes a comma-separated list
+# ("--blocked-by 200,201"), so $BLOCKERS carries every already-created blocker
+# at once. When the ticket has none, drop the whole flag rather than passing an
+# empty value: gh rejects the empty string, and an unquoted ${BLOCKERS:+...}
+# would be word-split by some shells and left whole by zsh, which does not
+# word-split at all. Two spellings, not one clever one.
 TICKET="$(printf '%s\n' "$TICKET_BODY" \
   | gh issue create -R "$OWNER_REPO" --label "wayfinder:$TYPE" \
-      --title "$TICKET_TITLE" --parent "$MAP" --body-file - \
+      --title "$TICKET_TITLE" --parent "$MAP" --blocked-by "$BLOCKERS" --body-file - \
   | grep -oE '[0-9]+$')"
+
+# ...and the same command with --blocked-by omitted entirely, for a ticket
+# nothing created so far blocks.
 ```
 
 **Only a forward reference needs the second pass.** `gh issue create`
 takes `--parent` and `--blocked-by`, both by issue number, so a ticket is
 parented — and wired to any blocker that already exists — in the call that
-creates it. What cannot run in the first pass is a ticket blocked by a
+creates it. **Both flags have to actually be on the command**: the second pass
+below is explicitly forward-only, so a backward dependency the create call
+omits is never wired by anything, and step 6's frontier predicate then reads
+the dependent ticket as unblocked and dispatches it before its prerequisite
+exists. What cannot run in the first pass is a ticket blocked by a
 sibling the map has not created yet: it has no number to name. Create in
 dependency order wherever the map allows it, and wire what is left once
 every ticket has a number:
