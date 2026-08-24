@@ -49,7 +49,9 @@ session resolves itself, not a batch it only launched and is waiting on.
 **Plan, don't do.** Tickets produce decisions, not deliverables. Ossify is a
 build lifecycle, so the pull to start building mid-map is stronger here than
 elsewhere — and that pull is the signal the map's edge has been reached and
-it is time to hand off. An effort may override this in its `Notes`.
+it is time to hand off. An effort may override this in its `Notes`
+(`references/charting.md` §3 names Notes as the override channel);
+**absent that override, the default binds.**
 
 ---
 
@@ -64,9 +66,11 @@ never enters Decisions so far, which records the route actually walked.
 
 ## 4. The commands
 
-`$OWNER_REPO` is `references/tracker.md` §1's resolved tracker. In the
-claim and record calls below, `$MAP` and `$TICKET` are the map's and the
-session's own ticket — the one chosen and claimed in step 2 — resolved
+`$OWNER_REPO` is `references/tracker.md` §1's resolved tracker.
+`$RESOLUTION` is the answer this session is recording, fed on **stdin** —
+`--body-file -` — so no scratch file lands in the operator's working tree.
+In the claim and record calls below, `$MAP` and `$TICKET` are the map's and
+the session's own ticket — the one chosen and claimed in step 2 — resolved
 once from the name the operator gave or the frontier query returned, never
 re-asked for and never how either is referred to in conversation.
 
@@ -78,8 +82,13 @@ gh issue view "$MAP" -R "$OWNER_REPO" --json title,body,url
 gh issue edit "$TICKET" -R "$OWNER_REPO" --add-assignee "@me"
 
 # record: comment, then close
-gh issue comment "$TICKET" -R "$OWNER_REPO" --body-file resolution.md
+printf '%s\n' "$RESOLUTION" \
+  | gh issue comment "$TICKET" -R "$OWNER_REPO" --body-file -
 gh issue close "$TICKET" -R "$OWNER_REPO"
+
+# §3's out-of-scope ruling is this same close with NO resolution comment
+# before it: the one line goes to the map's Out of scope, never to
+# Decisions so far
 ```
 
 `@me` is documented gh behaviour (`gh issue edit --help`: *"Use `@me` to
@@ -88,8 +97,9 @@ session assigns the operator it is running as. Do not resolve a login with
 `gh api user --jq .login` first; it is an extra call for the same result.
 
 Graduating a ticket the answer made specifiable reuses
-`references/charting.md` §5's create-then-wire pattern — an issue needs a
-number before anything can be wired to it, so create runs first.
+`references/charting.md` §5's create call, `--parent "$MAP"` and all — the
+map already has a number, so a graduated ticket needs no second pass unless
+something blocks it that does not exist yet.
 
 In a graduate context, `$TICKET` is not the ticket claimed in step 2 but
 the new one step 5 creates — `references/charting.md` §5 defines its

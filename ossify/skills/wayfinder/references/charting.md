@@ -24,10 +24,11 @@ that is work mode's job, once the map exists, not this one's.
 3. **If step 2 surfaces no fog, there is no map to make.** Say so and
    stop.
 4. **Create the map** (label `wayfinder:map`): Destination and Notes
-   filled, Decisions so far empty, the fog sketched into Not yet
-   specified.
-5. **Create the specifiable tickets, then wire blocking in a second
-   pass** — issues need ids before they can reference each other.
+   filled, the fog sketched into Not yet specified, whatever step 1 ruled
+   out written into Out of scope, and Decisions so far empty.
+5. **Create the specifiable tickets, parented in the creating call, then
+   wire any forward blocking reference in a second pass** — a ticket
+   cannot name a blocker the map has not created yet.
 6. **Fire the AFK tickets** (`research`, `smoke-test`, `spike`) in
    parallel, then **stop**. Charting hand-resolves nothing.
    `references/ticket-types.md` §3 has the fan-out mechanics and the
@@ -53,8 +54,9 @@ whether it can be **answered** now.
   several tickets, or none.
 
 A blocked-but-sharp question is still a ticket, wired to whatever blocks
-it in step 5's second pass — being unable to act on it yet is not the
-same as being unable to phrase it.
+it as step 5 creates it, or in step 5's second pass when the blocker is
+created later — being unable to act on it yet is not the same as being
+unable to phrase it.
 
 ---
 
@@ -62,14 +64,18 @@ same as being unable to phrase it.
 
 Every map's issue body carries five headings, in this fixed order:
 `## Destination`, `## Notes`, `## Decisions so far`,
-`## Not yet specified`, `## Out of scope`. Step 4 writes three of them and
-touches a fourth only to leave it empty:
+`## Not yet specified`, `## Out of scope`. Step 4 writes four of them — Out
+of scope only when step 1's interview actually ruled something out — and
+touches the fifth, Decisions so far, only to leave it empty:
 
 - **Destination** — the question named in step 1, the one this map
   exists to resolve.
 - **Notes** — context a later session would otherwise have to re-derive:
   why now, what prompted the question, anything the interview surfaced
-  that is not itself a decision.
+  that is not itself a decision. Notes is also the one **override
+  channel**: an effort that means to override work mode's "plan, don't
+  do" default (`references/working.md` §2) writes that override here and
+  nowhere else, because here is where work mode reads for it.
 - **Decisions so far** — empty. A map is chartered with nothing yet
   decided; work mode is the only writer of this heading, one entry per
   ticket it resolves.
@@ -84,9 +90,8 @@ touches a fourth only to leave it empty:
 
 ## 4. Bootstrap the labels first
 
-`gh issue create --label` fails on a label the repo does not have, and no
-repo has these yet — verified: zero `wayfinder:*` labels exist anywhere.
-Chart mode ensures all seven before creating anything, idempotently and
+`gh issue create --label` fails on a label the repo does not have. Chart
+mode ensures all seven before creating anything, idempotently and
 without clobbering a label someone already customised:
 
 ```bash
@@ -111,32 +116,44 @@ reports failure.
 one of the six words from `references/ticket-types.md` §1 — `research`,
 `smoke-test`, `spike`, `prototype`, `grilling`, or `task`. `$MAP_TITLE`
 and `$TICKET_TITLE` are the map's and the ticket's own names — never a
-bare number, on the tracker exactly as in conversation.
+bare number, on the tracker exactly as in conversation. `$MAP_BODY` and
+`$TICKET_BODY` are the bodies §3 shapes, fed on **stdin** — `--body-file -`
+— so charting drops no scratch file into the operator's working tree.
+
+`gh issue create` prints the new issue's URL and nothing else, so the
+number every later call needs is captured here, at the one step that
+mints it:
 
 ```bash
 # the map
-gh issue create -R "$OWNER_REPO" --label "wayfinder:map" \
-  --title "$MAP_TITLE" --body-file map-body.md
+MAP="$(printf '%s\n' "$MAP_BODY" \
+  | gh issue create -R "$OWNER_REPO" --label "wayfinder:map" \
+      --title "$MAP_TITLE" --body-file - \
+  | grep -oE '[0-9]+$')"
 
-# a ticket, as a sub-issue of the map
-gh issue create -R "$OWNER_REPO" --label "wayfinder:$TYPE" \
-  --title "$TICKET_TITLE" --body-file ticket-body.md
+# a ticket, parented to the map in the same call
+TICKET="$(printf '%s\n' "$TICKET_BODY" \
+  | gh issue create -R "$OWNER_REPO" --label "wayfinder:$TYPE" \
+      --title "$TICKET_TITLE" --parent "$MAP" --body-file - \
+  | grep -oE '[0-9]+$')"
 ```
 
-`gh issue create` has no parent argument, so every ticket the map wants
-gets created first, as a plain issue, and only wired to the map and to
-each other in a second pass — both calls below need the issue numbers
-`gh issue create` already returned:
+**Only a forward reference needs the second pass.** `gh issue create`
+takes `--parent` and `--blocked-by`, both by issue number, so a ticket is
+parented — and wired to any blocker that already exists — in the call that
+creates it. What cannot run in the first pass is a ticket blocked by a
+sibling the map has not created yet: it has no number to name. Create in
+dependency order wherever the map allows it, and wire what is left once
+every ticket has a number:
 
 ```bash
-# second pass: parent it, then wire blocking
-gh issue edit "$MAP"    -R "$OWNER_REPO" --add-sub-issue  "$TICKET"
+# second pass: forward blocking references only, once both issues exist
 gh issue edit "$TICKET" -R "$OWNER_REPO" --add-blocked-by "$BLOCKER"
 ```
 
 `$TICKET` and `$BLOCKER` are ordinary issue numbers — the same kind used
 everywhere else in this file, not a REST database id. A `gh` too old to
-carry these three relationship flags still has the REST sub-issue and
+carry these relationship flags still has the REST sub-issue and
 dependency endpoints to fall back to, at the cost of a database-id lookup
 per call — and a trap in that lookup: `gh issue view --json id` returns
 the GraphQL node id, not the database id the endpoints want; only
