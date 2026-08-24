@@ -31,6 +31,11 @@ Charting that question into a map — the six steps, the fog-or-ticket
 test, and the commands that create it — is read from
 `${CLAUDE_PLUGIN_ROOT}/skills/wayfinder/references/charting.md`.
 
+Working an existing map — the claim that makes it safe to pick up a
+ticket, the resolve-then-record cycle, and what a resolved ticket
+graduates or rules out of scope — is read from
+`${CLAUDE_PLUGIN_ROOT}/skills/wayfinder/references/working.md`.
+
 A ticket's type decides how it resolves — read
 `${CLAUDE_PLUGIN_ROOT}/skills/wayfinder/references/ticket-types.md` for the
 six types, which of ossify's uncertainty instruments each one points at, and
