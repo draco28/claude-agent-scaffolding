@@ -66,7 +66,7 @@ ticket, not resolved it.
 
 ## 3. Dispatching the AFK tickets
 
-Fan `research`, `smoke-test`, and `spike` tickets out through the Agent tool
+Fan `research`, `smoke-test`, and `spike` tickets out through the `Task` tool
 directly, not `superpowers:dispatching-parallel-agents` — Batch S ossified
 `challenge` in-tree to drop plugin dependencies, and taking one back
 reverses that.
