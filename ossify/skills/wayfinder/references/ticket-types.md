@@ -98,17 +98,33 @@ directly, not `superpowers:dispatching-parallel-agents` — Batch S ossified
 `challenge` in-tree to drop plugin dependencies, and taking one back
 reverses that.
 
-**The map body is the dispatcher's to write, never a worker's.**
-`references/working.md` §1 step 4 has each resolved ticket append one line to
-the map's Decisions so far — and a map body is edited by whole-body
-replacement (`gh issue edit --body`), so two workers that finish together read
-the same body and the second write silently erases the first's line. Split
-step 4 for a fan-out: **each worker** posts its own resolution comment and
-closes its own ticket, which touch nothing shared; **the dispatching session**
-collects the resolutions the batch returns and appends them to the map itself,
-one at a time, after the batch is in. The per-ticket half is already
-conflict-free; only the map line needs serialising, and the session that
-launched the fan-out is the one place it can be serialised.
+**The map body is the dispatcher's to write, never a worker's — and that
+means every heading, not just one.** A map body is edited by whole-body
+replacement (`references/working.md` §4), so two workers that finish together
+read the same body and the second write silently erases the first's edit.
+`working.md` step 4 appends to `Decisions so far`, and **step 5 mutates the
+same body twice more**: it clears a graduated patch out of `Not yet specified`
+and appends a scoping ruling to `Out of scope`. All three race identically.
+
+So the split is by **surface**, not by step:
+
+- **Each worker** resolves its own ticket, posts its own resolution comment,
+  and closes it. Those touch only that ticket and are conflict-free.
+- **Each worker returns** everything that would touch the map — its
+  Decisions-so-far line, any patch its answer graduated out of fog, any
+  scoping ruling, and any ticket that should be created as a result.
+- **The dispatching session** applies all of it to the map after the batch is
+  in, one write at a time, and creates the graduated tickets.
+
+Splitting by step instead is the trap this paragraph exists to close: a worker
+told only "comment and close" that follows step 5 anyway overwrites its
+siblings' map edits, and a worker that obeys the restriction literally
+**silently drops** the graduation and re-scoping its own answer produced. Both
+failures are invisible at the end of a fan-out that otherwise looks clean —
+neither leaves an error, and the map simply comes out missing work.
+
+The dispatching session is the one place any of this can be serialised, which
+is why the rule lives here at the fan-out rather than in `working.md`.
 
 **Dispatch only what the frontier predicate admits** — open, unassigned, and
 blocked by nothing still open (`references/tracker.md` §2). AFK is a property

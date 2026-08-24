@@ -93,15 +93,42 @@ if [ -n "$AI_ROOT" ]; then
   ORIGIN="$(git -C "$AI_ROOT" remote get-url origin 2>/dev/null || true)"
 fi
 
-# Git documents three remote spellings for the same repo and all three reach
-# here: scp-style (git@host:owner/repo), https, and the ssh:// URL form. Miss
-# the third and OWNER binds to "ssh:", which then queries a repo that does not
-# exist rather than failing at the parse.
-OWNER_REPO="$(printf '%s' "$ORIGIN" \
-  | sed -E 's#^ssh://([^@/]+@)?github\.com/#https://github.com/#; s#^git@github\.com:#https://github.com/#; s#^https://github\.com/##; s#\.git$##')"
+# The ladder BRANCHES here; it does not fall through. Normalizing an empty
+# $ORIGIN unconditionally would derive an empty $OWNER_REPO on every branch-2
+# and branch-3 repo and hand it straight to the guard below, which is the
+# standalone path failing in the one shape that looks like a resolution bug.
+if [ -n "$ORIGIN" ]; then
+  # BRANCH 1. Git documents three remote spellings for the same repo and all
+  # three reach here: scp-style (git@host:owner/repo), https, and the ssh://
+  # URL form. Miss the third and OWNER binds to "ssh:", which then queries a
+  # repo that does not exist rather than failing at the parse.
+  OWNER_REPO="$(printf '%s' "$ORIGIN" \
+    | sed -E 's#^ssh://([^@/]+@)?github\.com/#https://github.com/#; s#^git@github\.com:#https://github.com/#; s#^https://github\.com/##; s#\.git$##')"
+else
+  # BRANCHES 2 and 3. The dotfile is the source. It sits at the REPO root, not
+  # $PWD, so resolve the root rather than reading a relative path that misses
+  # from any subdirectory - the same failure the manifest note below describes.
+  REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  [ -n "$REPO_ROOT" ] || { echo "wayfinder: not inside a git repository - cannot locate .wayfinder.json" >&2; exit 1; }
+  WF="$REPO_ROOT/.wayfinder.json"
+
+  # BRANCH 3 is branch 2 with one extra step: ask, write the dotfile, then read
+  # it back through the same path, so the two branches cannot drift apart.
+  [ -f "$WF" ] || { echo "wayfinder: no tracker configured - ask the operator for one and write $WF as {\"tracker\": \"github:owner/repo\"} before continuing" >&2; exit 1; }
+
+  OWNER_REPO="$(jq -r '.tracker // empty' "$WF" | sed -E 's#^github:##')"
+  [ -n "$OWNER_REPO" ] || { echo "wayfinder: $WF has no usable \"tracker\" key" >&2; exit 1; }
+fi
 OWNER="${OWNER_REPO%%/*}"
 REPO="${OWNER_REPO##*/}"
 ```
+
+**Branch 3 is not a separate code path.** It asks the operator, writes
+`.wayfinder.json`, and then re-enters branch 2's read — the dotfile is the only
+thing either branch consumes. Writing the value into `$OWNER_REPO` directly and
+skipping the read-back would let a session that wrote a malformed dotfile
+succeed once and fail on every later invocation, which is the drift the exact
+key names above already exist to prevent.
 
 **Why this reads git, and not a manifest field that plainly exists.** A
 concurrent internal design, landing after wayfinder, makes the workspace root

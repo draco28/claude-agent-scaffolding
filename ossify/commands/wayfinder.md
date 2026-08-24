@@ -1,7 +1,7 @@
 ---
 description: Chart or work a wayfinder map — decision tickets on the issue tracker, resolved one per session until the destination is clear. Use for a question whose resolution is a decision, not a build slice, on work too big for one session. Not release or spine planning (/plan-release, /plan-spine).
 argument-hint: "[map name, number, or URL] [ticket]"
-allowed-tools: Bash(bash:*), Bash(gh:*), Bash(jq:*), Bash(git:*), Bash(oss:*), Bash(caffeinate:*), Read, Write, Edit, Glob, Grep, Skill, Task
+allowed-tools: Bash(bash:*), Bash(gh:*), Bash(jq:*), Bash(git:*), Bash(oss:*), Bash(caffeinate:*), Read, Write, Edit, Glob, Grep, Skill, Task, WebFetch, WebSearch
 ---
 
 Invoke the wayfinder skill with: $ARGUMENTS

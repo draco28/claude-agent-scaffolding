@@ -71,12 +71,28 @@ Each failure is a **stop**, and each is stated rather than worked around:
   reason: an answer derived before its evidence exists is worse than no answer.
 - **Assigned to someone else** — see the claim rule below.
 
-Resolve `$MAP` the same way: confirm it carries `wayfinder:map` **before**
-anything is claimed or closed. The map load in §4 requests `labels` for this
-one purpose — without that field the check has no data source and passes by
-default, which is worse than not stating it. A map name that lands on an
-ordinary issue otherwise gets a Decisions so far heading appended to something
-that was never a map.
+Resolve `$MAP` the same way, and there are three checks on it, all **before**
+anything is claimed or closed. The map load in §4 requests `labels` and
+`state` for exactly these — a check whose field is not fetched has no data
+source and passes by default, which is worse than not stating it.
+
+- **It carries `wayfinder:map`.** A map name that lands on an ordinary issue
+  otherwise gets a Decisions so far heading appended to something that was
+  never a map.
+- **It is open.** A closed map has been finalised by §5. Working one either
+  runs the terminal ceremony against a map that already had it, or — if a
+  child was reopened or added after the close — claims and resolves that child
+  while the parent stays closed, producing a decision on a map nothing will
+  read again. A closed map is a **stop**: say it is closed and ask the
+  operator to reopen it deliberately.
+- **A supplied URL points at this tracker.** When the operator gives a map
+  **URL** rather than a number, it encodes `owner/repo` — check that against
+  `$OWNER_REPO` *before* reducing it to `$MAP`. Reducing first throws that
+  identity away and re-attaches the bare number to the resolved tracker, so a
+  URL from another repository silently addresses whatever issue holds the same
+  number here. If that issue happens to carry `wayfinder:map`, every check
+  above passes and work mode claims and closes an unrelated map's children. A
+  mismatch is a stop naming both repositories — never a silent retarget.
 
 **Every `gh` call on this page takes `-R "$OWNER_REPO"`, and §2's query takes
 its `-F owner`/`-F repo` from the same resolution.** The tracker is frequently not the repository the
@@ -154,9 +170,10 @@ re-asked for and never how either is referred to in conversation.
 
 ```bash
 # load the map low-res: its body is the whole index, tickets are a separate
-# query. `labels` is not optional - it is the only source for the
-# wayfinder:map check in §1, which runs before anything is claimed or closed.
-gh issue view "$MAP" -R "$OWNER_REPO" --json title,body,url,labels
+# query. `labels` and `state` are not optional - they are the only sources for
+# the wayfinder:map check and the closed-map refusal in §1, both of which run
+# before anything is claimed or closed.
+gh issue view "$MAP" -R "$OWNER_REPO" --json title,body,url,labels,state
 
 # claim FIRST, before any work — "@me" needs no login lookup
 gh issue edit "$TICKET" -R "$OWNER_REPO" --add-assignee "@me"
@@ -166,10 +183,54 @@ printf '%s\n' "$RESOLUTION" \
   | gh issue comment "$TICKET" -R "$OWNER_REPO" --body-file -
 gh issue close "$TICKET" -R "$OWNER_REPO"
 
+# THEN write the map. gh cannot append to an issue body, so every map-body
+# change is a read-modify-write of the WHOLE body. Re-read here rather than
+# reusing the copy loaded above: the resolve step sits between them.
+MAP_BODY="$(gh issue view "$MAP" -R "$OWNER_REPO" --json body --jq '.body')"
+# ... edit exactly one heading in $MAP_BODY, per the rules below ...
+printf '%s\n' "$MAP_BODY" | gh issue edit "$MAP" -R "$OWNER_REPO" --body-file -
+
 # §3's out-of-scope ruling is this same close with NO resolution comment
-# before it: the one line goes to the map's Out of scope, never to
+# before it, and the same map write against Out of scope instead of
 # Decisions so far
 ```
+
+### Writing the map body
+
+The map body is the feature's durable output — `preflight.md` §1 exists to
+carry `## Decisions so far` into `/start` and `/plan-release`, and §5 reads it
+to judge whether the destination is reached. Three of the five headings are
+written after charting, all through the read-modify-write pair above:
+
+| When | Heading | The edit |
+|---|---|---|
+| step 4, every resolved ticket | `## Decisions so far` | append one line: what was asked, what was decided, and a link to the ticket |
+| step 5, a graduated patch | `## Not yet specified` | remove the patch that became a ticket, so it lives only as that ticket |
+| step 5 and §3, a scoping ruling | `## Out of scope` | append one line: the gist, why it is out, and a link |
+
+Four rules bind every one of those writes:
+
+- **One heading per write.** The other four sections come back byte-identical.
+  A write that reflows or "tidies" a heading it did not come to change is how
+  a map body drifts out of the shape `charting.md` §3 fixed and six files
+  read by name.
+- **Append chronologically** to `Decisions so far`. It records the route
+  actually walked, so the order is part of the record.
+- **Re-read immediately before each write.** The body loaded at step 1 is
+  stale by step 4 — the resolve step ran in between, and on a fan-out other
+  tickets may have landed their lines.
+- **Never hand-build a body.** Always the re-read, edited. `--body` replaces
+  the whole issue body, so a hand-built one silently deletes every heading it
+  forgot.
+
+**The lost-update window is real and is closed by ownership, not by the
+command.** `gh` offers no compare-and-set on an issue body any more than it
+does on assignment, so two writers that read the same body will have the
+second overwrite the first. Re-reading immediately before the write shrinks
+that window; what actually prevents the race is that
+`references/ticket-types.md` §3 makes the dispatching session the **sole**
+writer of the map body while a fan-out is in flight. That rule is what makes
+this command safe, so it is not optional scheduling advice.
 
 `@me` is documented gh behaviour (`gh issue edit --help`: *"Use `@me` to
 assign yourself"*) and is exactly the semantics the claim wants — the
