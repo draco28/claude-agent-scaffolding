@@ -138,4 +138,6 @@ gh issue edit "$TICKET" -R "$OWNER_REPO" --add-blocked-by "$BLOCKER"
 everywhere else in this file, not a REST database id. A `gh` too old to
 carry these three relationship flags still has the REST sub-issue and
 dependency endpoints to fall back to, at the cost of a database-id lookup
-per call.
+per call — and a trap in that lookup: `gh issue view --json id` returns
+the GraphQL node id, not the database id the endpoints want; only
+`gh api "repos/$OWNER_REPO/issues/$N" --jq .id` returns the right one.
