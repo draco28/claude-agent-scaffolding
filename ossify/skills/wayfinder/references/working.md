@@ -89,20 +89,9 @@ session assigns the operator it is running as. Do not resolve a login with
 
 Graduating a ticket the answer made specifiable reuses
 `references/charting.md` §5's create-then-wire pattern — an issue needs a
-number before anything can be wired to it, so create runs first:
+number before anything can be wired to it, so create runs first.
 
-```bash
-# graduate: create the ticket, then wire it to the map and its blocker
-gh issue create -R "$OWNER_REPO" --label "wayfinder:$TYPE" \
-  --title "$TICKET_TITLE" --body-file ticket-body.md
-
-gh issue edit "$MAP"    -R "$OWNER_REPO" --add-sub-issue  "$TICKET"
-gh issue edit "$TICKET" -R "$OWNER_REPO" --add-blocked-by "$BLOCKER"
-```
-
-`$TICKET` is reused here for the ticket this step just created — a
-different issue than the one claimed in step 2, wired the same way
-`references/charting.md` §5 wires any new ticket, by the issue number
-`gh issue create`'s own output carries, never a database id. `$BLOCKER` is
-the issue number of whichever ticket the graduated one is blocked by, when
-it is blocked by one.
+In a graduate context, `$TICKET` is not the ticket claimed in step 2 but
+the new one step 5 creates — `references/charting.md` §5 defines its
+`$TYPE` and `$TICKET_TITLE`. Wired or claimed, a ticket is always
+addressed by its issue number, never a database id.
