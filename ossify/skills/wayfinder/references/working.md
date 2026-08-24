@@ -113,8 +113,14 @@ succeed. Re-read the chosen ticket's assignees immediately before claiming — �
 again, reading that ticket's `assignees` node — and act on **who** holds it:
 
 - **Nobody** — claim it and work it.
-- **Somebody else** — skip it and say so; another session is on it.
-- **The operator this session runs as** — **resume it.** Do not skip.
+- **The operator this session runs as, and nobody else** — **resume it.**
+- **Anybody else, including alongside the operator** — skip it and say so.
+
+The middle row is an exact-set test, not a membership test. GitHub allows
+several assignees, so a ticket holding both the viewer and a collaborator
+matches "mine" and "someone else's" at once — and resuming on that reading
+closes work a second person has also claimed. Resume only when the assignee
+set is **exactly** the viewer; any other login present is a skip.
 
 Telling those apart needs the operator's login, and `@me` does not supply it —
 it is a write-side special value for `--add-assignee`/`--remove-assignee` only.
@@ -195,7 +201,13 @@ gh issue edit "$TICKET" -R "$OWNER_REPO" --add-assignee "@me"
 # body means nothing was recorded and a no-op write looks exactly like a
 # recorded decision - the one failure this section exists to prevent.
 build_map_update() {
-  NEW_BODY="$(printf '%s\n' "$MAP_BODY" | awk -v h="$HEADING" -v entry="$ENTRY" '
+  # $HEADING and $ENTRY cross into awk through the ENVIRONMENT, never -v.
+  # awk -v processes escape sequences in the value before the program sees it:
+  # a resolution mentioning \d+ loses its backslash, C:\new\test gains a tab,
+  # and any \n SPLITS the Decisions-so-far line in two. Measured, not assumed.
+  # ENVIRON passes the bytes through untouched.
+  NEW_BODY="$(printf '%s\n' "$MAP_BODY" | HEADING="$HEADING" ENTRY="$ENTRY" awk '
+    BEGIN { h = ENVIRON["HEADING"]; entry = ENVIRON["ENTRY"] }
     /^## / { if (inside) { print entry; print ""; inside=0; pend=0 } print; if ($0 == h) inside=1; next }
     inside && /^[ \t]*$/ { pend++; next }
     { while (inside && pend > 0) { print ""; pend-- } print }
@@ -228,8 +240,11 @@ build_map_update || exit 1
 printf '%s\n' "$NEW_BODY" | gh issue edit "$MAP" -R "$OWNER_REPO" --body-file -
 
 # §3's out-of-scope ruling is this same close with NO resolution comment
-# before it, and the same map write against Out of scope instead of
-# Decisions so far
+# before it, the same map write against Out of scope instead of Decisions so
+# far, and --reason "not planned" - GitHub's default state reason is
+# COMPLETED, which is precisely the "posing as a decision made" that §3
+# forbids, recorded in tracker history and every filter built on it:
+#   gh issue close "$TICKET" -R "$OWNER_REPO" --reason "not planned"
 ```
 
 ### Writing the map body

@@ -287,15 +287,20 @@ requires exactly one — so a ticket that collected a second one, from a
 collaborator or an automation, gets classified arbitrarily. That is not
 cosmetic: a `prototype` also carrying `wayfinder:research` can be read as AFK
 and fanned out to a subagent, which is the HITL refusal bypassed by a label
-edit. Count them and stop on anything but one:
+edit. Count against the **six allowed ticket labels**, not the `wayfinder:` prefix:
+a prefix count of one also passes `wayfinder:map` on a child and a typo like
+`wayfinder:reseach`, both of which name no resolver. Membership and
+cardinality, in one check:
 
 ```bash
 printf '%s' "$MAP_JSON" | jq -r '
-  .data.repository.issue.subIssues.nodes[]
+  ["wayfinder:research","wayfinder:smoke-test","wayfinder:spike",
+   "wayfinder:prototype","wayfinder:grilling","wayfinder:task"] as $valid
+  | .data.repository.issue.subIssues.nodes[]
   | . as $t
-  | [.labels.nodes[].name | select(startswith("wayfinder:"))]
+  | [.labels.nodes[].name | select(. as $l | $valid | index($l))]
   | select(length != 1)
-  | "\($t.number) has \(length) wayfinder: labels - \(.)"'
+  | "\($t.number) carries \(length) of the six ticket labels - \(.)"'
 ```
 
 Any output is a stop, naming the ticket and its labels. `no-type` in the
