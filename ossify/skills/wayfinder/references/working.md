@@ -31,25 +31,31 @@ after resolving it instead of before, has broken the mode — not bent it.
    resolving it.
 
 Step 2's "first frontier ticket" is `references/tracker.md` §2's query, run
-once; a map plus a named ticket skips the query entirely, because the
-operator already made the choice by naming it. A session that resolves a
-ticket first and assigns it after has broken step 2 — the assignment is
-what a concurrent session reads to know the ticket is spoken for, and an
-assignment made after the work is not a claim at all.
+once. A session that resolves a ticket first and assigns it after has broken
+step 2 — the assignment is what a concurrent session reads to know the ticket
+is spoken for, and an assignment made after the work is not a claim at all.
 
-**A named ticket skips the frontier read, not what the frontier read
-checked.** §2's query does four things at once for an unnamed ticket — it
-confirms the ticket belongs to this map, that it is open, that nothing open
-blocks it, and that nobody holds it. Naming a ticket is the operator choosing
-*which* one, not a warrant that it is any of those. So the shortcut fetches
-the same four facts for that ticket and applies the same predicate:
+**A named ticket skips the frontier *choice*, not the frontier *query*.**
+Naming a ticket settles which one to work; it warrants nothing about whether
+that ticket may be worked. §2's query establishes four facts at once for every
+sub-issue of `$MAP` — membership, `state`, `blockedBy`, and `assignees` — and
+those are exactly the four the named case needs, so the named case runs the
+same query. Reading a per-ticket alternative out of `gh issue view` does not
+work and must not be attempted: it has no `blockedBy` field at all, so the one
+check `references/ticket-types.md` §3 calls non-negotiable would have no source.
 
-```bash
-gh issue view "$TICKET" -R "$OWNER_REPO" --json parent,state,assignees
-```
+What differs is only which node is read out of the result. §2's `--jq` filters
+to the eligible set and formats it for the operator to pick from; the named
+case instead reads the **unfiltered** node for `$TICKET` out of
+`.data.repository.issue.subIssues.nodes` and applies the predicate to it
+directly. One query, either way.
 
-`blockedBy` has no `gh issue view` field; take it from §2's query, which
-already returns it for every sub-issue of `$MAP`.
+**Membership is the parent check.** A named ticket that is not among `$MAP`'s
+sub-issues is absent from that node list, which is the mismatch stop below —
+no separate parentage read is needed or wanted. (§2 asks for `subIssues(first:100)`,
+so a map with more than 100 tickets could report a real ticket as absent. That
+refuses a valid input rather than admitting an invalid one, which is the
+direction to fail in, and no wayfinder map approaches it.)
 
 Each failure is a **stop**, and each is stated rather than worked around:
 
@@ -69,8 +75,8 @@ Resolve `$MAP` the same way: confirm it carries `wayfinder:map` before working
 it. A map name that lands on an ordinary issue otherwise gets a Decisions so
 far heading appended to something that was never a map.
 
-**Every one of these calls takes `-R "$OWNER_REPO"`, and so does every other
-`gh` call on this page.** The tracker is frequently not the repository the
+**Every `gh` call on this page takes `-R "$OWNER_REPO"`, and §2's query takes
+its `-F owner`/`-F repo` from the same resolution.** The tracker is frequently not the repository the
 session is running in — `references/tracker.md` §1 branch 1 puts maps on the
 **AI workspace** while the work happens in a canonical — so a bare `gh issue
 view` or `gh issue close` resolves the number against the wrong repository and
@@ -80,8 +86,8 @@ reads, or closes, an unrelated issue that merely shares it.
 the ticket was already assigned — GitHub offers no compare-and-set on
 assignment — so two sessions that run the frontier query before either
 assignment lands will both select the same ticket and both claims will
-succeed. Re-read the chosen ticket's assignees immediately before claiming
-(the `--json ... assignees` read above) and act on **who** holds it:
+succeed. Re-read the chosen ticket's assignees immediately before claiming — §2's query
+again, reading that ticket's `assignees` node — and act on **who** holds it:
 
 - **Nobody** — claim it and work it.
 - **Somebody else** — skip it and say so; another session is on it.
