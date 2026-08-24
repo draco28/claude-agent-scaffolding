@@ -37,6 +37,33 @@ ticket first and assigns it after has broken step 2 — the assignment is
 what a concurrent session reads to know the ticket is spoken for, and an
 assignment made after the work is not a claim at all.
 
+**A named ticket skips the frontier read, never the parent check.** Confirm
+the ticket the operator named is one of `$MAP`'s sub-issues — `gh issue view
+"$TICKET" --json parent` — and **stop** on a mismatch, naming both the map the
+ticket actually belongs to and the one that was asked for. The shortcut exists
+because the operator already chose, not because the number is trusted: step 4
+**closes** that issue and appends its answer to `$MAP`'s Decisions so far, so a
+typo or a stale link mutates two wrong things at once — an unrelated issue
+closed, and a decision recorded on a map that never asked the question. The
+frontier query is what implicitly validates parentage in the unnamed case,
+which is exactly why the named case has to do it explicitly.
+
+Resolve `$MAP` the same way: confirm it carries `wayfinder:map` before working
+it. A map name that lands on an ordinary issue otherwise gets a Decisions so
+far heading appended to something that was never a map.
+
+**The claim is a marker, not a lock.** `--add-assignee` succeeds whether or not
+the ticket was already assigned — GitHub offers no compare-and-set on
+assignment — so two sessions that run the frontier query before either
+assignment lands will both select the same ticket and both claims will
+succeed. Re-read the chosen ticket's assignees immediately before claiming
+(`gh issue view "$TICKET" --json assignees`) and skip it if someone already
+holds it; that shrinks the window to the gap between the read and the write
+but does not close it. **Two sessions working one map concurrently can still
+double-resolve a ticket**, and no mechanism here prevents it. Work a map from
+one session at a time; the assignment is what makes a claim *visible*, not
+what makes it exclusive.
+
 ---
 
 ## 2. One ticket per session
@@ -67,7 +94,10 @@ never enters Decisions so far, which records the route actually walked.
 
 ## 4. The commands
 
-`$OWNER_REPO` is `references/tracker.md` §1's resolved tracker.
+`$OWNER_REPO` is `references/tracker.md` §1's resolved tracker. **On a
+`local` tracker it is unbound and none of the commands in this section run**
+— `references/tracker.md` §3 gives the file form each one takes instead, and
+every rule on this page binds unchanged.
 `$RESOLUTION` is the answer this session is recording, fed on **stdin** —
 `--body-file -` — so no scratch file lands in the operator's working tree.
 In the claim and record calls below, `$MAP` and `$TICKET` are the map's and
@@ -106,3 +136,33 @@ In a graduate context, `$TICKET` is not the ticket claimed in step 2 but
 the new one step 5 creates — `references/charting.md` §5 defines its
 `$TYPE` and `$TICKET_TITLE`. Wired or claimed, a ticket is always
 addressed by its issue number, never a database id.
+
+---
+
+## 5. The empty frontier, and closing the map
+
+An empty frontier is not an error and not an edge case — it is the state
+every map reaches. `references/tracker.md` §2's query returning nothing means
+one of exactly two things, and the session says which:
+
+- **Every ticket is closed.** The map has no open work left.
+- **Tickets remain, but none is workable** — each is blocked by something
+  still open, or already claimed by another session. Name them and what holds
+  each one. Close nothing; there is nothing to decide here.
+
+On the first, read the map's Destination against its Decisions so far and say
+whether the question is answered. If it is, **ask the operator, then close the
+map** — `gh issue close "$MAP"` — leaving Decisions so far as the record of
+the route walked. If it is not, the remaining uncertainty is fog that never
+graduated: say what is still open, and let the operator decide whether to
+chart the next ticket or stop.
+
+**The close is the operator's, not the session's.** A map's destination is a
+judgment about whether a question is settled, which is the one thing work mode
+does not decide on its own — the same reason `prototype` and `grilling`
+tickets are HITL. What binds here is that the session must **reach** the
+question rather than reporting an empty frontier and stopping.
+
+A closed map is a real state, not a hypothetical one: `references/preflight.md`
+§1 queries `--state all` precisely so a closed map's Decisions so far still
+reaches the ceremony that comes after it. This section is what produces one.

@@ -25,7 +25,9 @@ its ladder before doing anything else.
   read its frontier — the tickets that are open, unassigned, and
   unblocked — and work one.
 - **A map plus a ticket** → work mode, that ticket specifically, skipping
-  the frontier read.
+  the frontier read — **not** the check that the ticket is one of that map's
+  sub-issues. `references/working.md` §1 has that check and why a mismatch is
+  a stop.
 
 Charting that question into a map — the six steps, the fog-or-ticket
 test, and the commands that create it — is read from
@@ -55,3 +57,7 @@ in those ceremonies, it never picks chart or work mode here.
 - **Never refer to a map or a ticket by a bare number.** Name it — the map's
   or ticket's own name — a number alone is not how a session or an operator
   can tell two tickets apart in conversation.
+- **Never act on an id the operator supplied without confirming what it is.**
+  A map carries `wayfinder:map`; a named ticket is that map's sub-issue. Work
+  mode closes tickets and writes into map bodies, so an unchecked number
+  mutates the wrong issue — `references/working.md` §1.

@@ -29,6 +29,27 @@ Resolver paths are read cross-skill via
 established pattern — `challenge/SKILL.md` already reads references that
 way, and the absorption spec sanctions it.
 
+**Take each instrument's method; do not take its storage.** All four were
+written for an ossify project and name ossify artifacts as their
+destination — `research.md` writes `docs/research/<slug>.md` in the AI
+workspace and folds verified claims into a bone's ADR, `smoke-test-pass.md`
+and `spike-contract.md` both land in the affected bone's ADR, and
+`prototype.md` records against a journey-map step or a bone ADR. A wayfinder
+map does not require any of that: `references/tracker.md` §1 branches 2 and 3
+put a map on any repository's tracker, and such a repo may have no bones, no
+ADRs, no journey map, and no AI workspace at all. The instrument's *procedure*
+— the question form, the falsifier, the timebox, the variant comparison — is
+what the type points at and it transfers whole. Its *write target* does not.
+
+Where the named artifact does not exist, the resolution's home is the one
+every ticket already has: the resolution comment on the ticket and its one
+line in the map's Decisions so far (`references/working.md` §1 step 4). That
+is the durable record on this branch. **Never invent a parallel artifact tree
+to satisfy a resolver path** — a `docs/adr/` written into a repo that has no
+bones is scaffolding nobody asked for and nothing else reads. In an ossify
+project the instrument's own destination stands, and the ticket's comment is
+the pointer to it.
+
 Each ticket carries exactly one `wayfinder:<type>` label, set when it is
 filed: `wayfinder:research`, `wayfinder:smoke-test`, `wayfinder:spike`,
 `wayfinder:prototype`, `wayfinder:grilling`, or `wayfinder:task`. The map
@@ -70,6 +91,15 @@ Fan `research`, `smoke-test`, and `spike` tickets out through the `Task` tool
 directly, not `superpowers:dispatching-parallel-agents` — Batch S ossified
 `challenge` in-tree to drop plugin dependencies, and taking one back
 reverses that.
+
+**Dispatch only what the frontier predicate admits** — open, unassigned, and
+blocked by nothing still open (`references/tracker.md` §2). AFK is a property
+of the type; it is not permission to run. A blocked `spike` handed to a
+subagent resolves against evidence that does not exist yet and records that
+answer on the ticket as if it were real, which is worse than not running it.
+This binds on every caller — `charting.md` step 6's post-chart fan-out and any
+batch a work-mode session launches alike — and it is stated here, at the
+fan-out, rather than in each of them.
 
 This host sleeps in about a minute and kills background agents as a generic
 API error. Hold `caffeinate -i` across the **whole** fan-out, not per agent.

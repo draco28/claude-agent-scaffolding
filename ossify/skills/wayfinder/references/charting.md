@@ -29,11 +29,23 @@ that is work mode's job, once the map exists, not this one's.
 5. **Create the specifiable tickets, parented in the creating call, then
    wire any forward blocking reference in a second pass** — a ticket
    cannot name a blocker the map has not created yet.
-6. **Fire the AFK tickets** (`research`, `smoke-test`, `spike`) in
-   parallel, then **stop**. Charting hand-resolves nothing.
-   `references/ticket-types.md` §3 has the fan-out mechanics and the
+6. **Fire the AFK tickets that nothing open blocks** (`research`,
+   `smoke-test`, `spike`) in parallel, then **stop**. Charting hand-resolves
+   nothing. `references/ticket-types.md` §3 has the fan-out mechanics and the
    `caffeinate` discipline the dispatch needs; this step only decides
    which tickets qualify.
+
+Type is not the whole qualification. §2 files a blocked-but-sharp question as
+a ticket, and step 5's second pass wires it to its blocker, so a `spike` that
+waits on a `research` created moments earlier is an ordinary product of
+charting. Dispatching it now would run the worker before the evidence it needs
+exists and record a resolution derived from nothing — so step 6 applies
+`references/tracker.md` §2's frontier predicate as well as the type test:
+**open, unassigned, and blocked by nothing still open.** A blocked AFK ticket
+is not dropped; it waits for work mode, which is where the frontier is read
+again after its blocker closes. Run step 6 only after step 5's second pass,
+for the same reason — before it, the blocking edges the predicate reads are
+not on the tracker yet.
 
 Step 3 has to actually stop the session, not just get mentioned in
 passing. If the breadth-first pass in step 2 turns up nothing that clears
@@ -86,6 +98,30 @@ touches the fifth, Decisions so far, only to leave it empty:
   naming the destination, so a later session does not reopen it. Left
   empty when nothing was ruled out.
 
+### The ticket body
+
+A ticket's body is not the map's, and it carries four things. A ticket filed
+with only a title hands the next reader — a work-mode session days later, or
+an AFK subagent that never saw this conversation — the question and none of
+what makes it answerable:
+
+- **The question**, phrased as §2's test found it phrasable. The title is the
+  short form; the body is the one a resolver can act on without guessing.
+- **Why it gates the destination** — one line. This is what lets a later
+  session rule the ticket out of scope (`references/working.md` §3) when the
+  answer turns out to sit past the destination.
+- **What would settle it** — the evidence, the check, or the choice that
+  counts as an answer. For a `spike` this is the falsifier;
+  `references/ticket-types.md` §1 names the instrument each type resolves
+  through, and that instrument decides the shape.
+- **What is already known** — anything the charting interview surfaced that
+  the resolver would otherwise re-derive, and any constraint the answer must
+  respect.
+
+Nothing here is a heading — a ticket body is prose, not a form. The map's five
+headings are fixed because two modes read them by name; a ticket body is read
+only by whoever resolves that ticket.
+
 ---
 
 ## 4. Bootstrap the labels first
@@ -112,12 +148,16 @@ reports failure.
 
 ## 5. Create the map and its tickets
 
-`$OWNER_REPO` is `references/tracker.md` §1's resolved tracker. `$TYPE` is
+`$OWNER_REPO` is `references/tracker.md` §1's resolved tracker. **On a
+`local` tracker it is unbound and none of the commands in this section run**
+— `references/tracker.md` §3 gives the file form each one takes instead, and
+everything else on this page binds unchanged. `$TYPE` is
 one of the six words from `references/ticket-types.md` §1 — `research`,
 `smoke-test`, `spike`, `prototype`, `grilling`, or `task`. `$MAP_TITLE`
 and `$TICKET_TITLE` are the map's and the ticket's own names — never a
-bare number, on the tracker exactly as in conversation. `$MAP_BODY` and
-`$TICKET_BODY` are the bodies §3 shapes, fed on **stdin** — `--body-file -`
+bare number, on the tracker exactly as in conversation. `$MAP_BODY` is the
+five-heading body §3 fixes and `$TICKET_BODY` is the four-part prose §3's
+*The ticket body* describes; both are fed on **stdin** — `--body-file -`
 — so charting drops no scratch file into the operator's working tree.
 
 `gh issue create` prints the new issue's URL and nothing else, so the

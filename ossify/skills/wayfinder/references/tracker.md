@@ -20,13 +20,24 @@ silently: a repo that adopted ossify after using wayfinder would otherwise
 switch trackers and orphan every existing map.
 
 1. The AI workspace is discoverable — `.ossify/topology.json` or
-   `.workspace/pairing.json`, by walking up from `$PWD` → the tracker is that
-   workspace repo's **own git remote**. Maps are process records, so they go
-   to the workspace and never to a canonical; no manifest key records this.
-2. No manifest, `.wayfinder.json` present → use it.
-3. Neither → ask once, then write `.wayfinder.json`.
+   `.workspace/pairing.json`, by walking up from `$PWD` — **and that workspace
+   repo has an `origin` remote** → the tracker is that remote. Maps are process
+   records, so they go to the workspace and never to a canonical; no manifest
+   key records this.
+2. Branch 1 declined, `.wayfinder.json` present → use it.
+3. Branch 1 declined, no `.wayfinder.json` → ask once, then write it.
 4. Chosen tracker unreachable → fall back to §3 and name the branch that
    fired.
+
+**Branch 1 needs the remote, not just the workspace.** A discoverable
+workspace with no `origin` declines to branch 2 — `workspace-init` writes
+`git_remote: null` by default, and its own default-case test asserts exactly
+that (`workspace-init/tests/test-manifest.sh:372`), so a freshly initialised
+workspace has no remote as its **normal** state rather than as a failure.
+Branching on discoverability alone would hand the reachability guard below an
+empty `$OWNER_REPO` and stop wayfinder outright on every new workspace, while
+reporting a resolution bug — which is why branches 2 and 3 key off "branch 1
+declined" and not off "no manifest".
 
 `.wayfinder.json` sits at the repo root and carries one key, in one of two
 forms:
@@ -59,7 +70,12 @@ Resolve the workspace root with the shipped resolver, then read its remote
 # either manifest schema, so the topology branch needs no separate read.
 AI_ROOT="$(oss repo_root ai_workspace)"
 
-OWNER_REPO="$(git -C "$AI_ROOT" remote get-url origin \
+# An absent origin is branch 2 as surely as an unpaired repo is, so swallow the
+# rc and let an empty $ORIGIN route it. A bare `git remote get-url origin` here
+# would abort a strict-mode caller on the ordinary no-remote workspace.
+ORIGIN="$(git -C "$AI_ROOT" remote get-url origin 2>/dev/null || true)"
+
+OWNER_REPO="$(printf '%s' "$ORIGIN" \
   | sed -E 's#^git@github\.com:#https://github.com/#; s#^https://github\.com/##; s#\.git$##')"
 OWNER="${OWNER_REPO%%/*}"
 REPO="${OWNER_REPO##*/}"
@@ -99,14 +115,20 @@ A `false`, or a `gh` error from a probe that was actually constructed, is
 branch 4: fall through to §3 and say which branch fired, so the operator can
 tell an unreachable tracker from one that simply has issues turned off.
 
-**An unresolved tracker is a stop, never branch 4.** The guard above fires
-when `$OWNER_REPO` was never bound at all — a resolution step failed upstream
-of the probe — and that is a bug to report, not a fallback to take. Without
-it the probe runs as `gh repo view ""`, errors, and the error is
-indistinguishable from a legitimate branch 4: every map on a perfectly
-reachable tracker would go to local markdown, with a documented branch fired
-and nothing red anywhere. Branch 4 means the probe ran and said no. It never
-means the probe could not be built.
+**An unresolved tracker is a stop, never branch 4.** The guard above runs
+**after the ladder has finished**, so it fires only when a branch that claimed
+to bind `$OWNER_REPO` did not — a resolution step failed upstream of the probe,
+and that is a bug to report, not a fallback to take. Without it the probe runs
+as `gh repo view ""`, errors, and the error is indistinguishable from a
+legitimate branch 4: every map on a perfectly reachable tracker would go to
+local markdown, with a documented branch fired and nothing red anywhere.
+Branch 4 means the probe ran and said no. It never means the probe could not
+be built.
+
+An empty `$ORIGIN` is not that case: branch 1 declined, so the ladder went on
+to branch 2 or 3 and bound `$OWNER_REPO` from `.wayfinder.json` — or the
+operator chose `local`, which reaches §3 without a probe. Either way the guard
+is never handed the no-origin workspace.
 
 ---
 
@@ -178,3 +200,25 @@ tickets still open that block it, or empty). Frontier eligibility computes
 exactly as §2's query derives it — `state` open, `assignee` empty,
 `blocked_by` empty — the same three-fact boolean, read from disk instead of
 queried over the network.
+
+**On this branch every `gh` call in `charting.md` §5 and `working.md` §4 is
+replaced, not adapted.** A `local` tracker binds no `$OWNER_REPO`, so those
+commands cannot run and must not be attempted — the whole point of writing the
+front-matter contract above is that a file write does what the API call did.
+The mapping is one-to-one, and it is written here so neither of those files
+has to restate it:
+
+| The `gh` call | Its local form |
+|---|---|
+| `gh label create wayfinder:*` | nothing — `type` is a front-matter field, so there is no label namespace to bootstrap |
+| `gh issue create` for the map | write `<dir>/<map-slug>/MAP.md` with §3's five headings from `charting.md` §3 |
+| `gh issue create --parent "$MAP"` | write `<dir>/<map-slug>/NN-<slug>.md`; the parent is the containing directory |
+| `--label "wayfinder:$TYPE"` | the `type` field, prefix dropped |
+| `--add-blocked-by` | append the blocker's slug to `blocked_by` |
+| `--add-assignee "@me"` | set `assignee` to the operator |
+| `gh issue comment` + `gh issue close` | append the resolution under the ticket file's body, then set `state: closed` |
+| the frontier query | read every `NN-*.md` front-matter and apply the same three-fact boolean |
+
+Nothing else about either mode changes: the six steps, the fog-or-ticket
+test, the claim-before-work ordering and the one-ticket-per-session rule all
+bind identically. Only the storage moves.
