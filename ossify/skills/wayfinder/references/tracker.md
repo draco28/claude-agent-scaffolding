@@ -13,10 +13,22 @@ decision needs before it can close.
 
 ## 1. Which tracker
 
-**Branch 0 runs first.** If `.workspace/pairing.json` and `.wayfinder.json`
-both exist and name different trackers, **stop and ask**. Never resolve it
-silently: a repo that adopted ossify after using wayfinder would otherwise
-switch trackers and orphan every existing map.
+**Branch 0 runs first — but it runs on the resolved origin, not the
+manifest.** Resolve the workspace remote below, then: if that resolution
+produced a tracker *and* `.wayfinder.json` exists *and* the two name different
+trackers, **stop and ask**. Never resolve it silently — a repo that adopted
+ossify after using wayfinder would otherwise switch trackers and orphan every
+existing map.
+
+Comparing the *manifest's* stored remote instead is the bug this phrasing
+exists to prevent. Branch 1 discovers a workspace through either
+`.ossify/topology.json` or `.workspace/pairing.json` and then deliberately
+takes the **live** git origin (see below), so a manifest whose stored remote
+is stale — or a topology migration that moved the workspace — leaves branch 0
+comparing one value while branch 1 selects another. `.wayfinder.json` would
+then point at the old tracker, branch 0 would see no conflict, and branch 1
+would silently switch: exactly the orphaning this stop exists to catch, reached
+through the check meant to prevent it.
 
 1. The AI workspace is discoverable — `.ossify/topology.json` or
    `.workspace/pairing.json`, by walking up from `$PWD` — **and that workspace
@@ -81,8 +93,12 @@ if [ -n "$AI_ROOT" ]; then
   ORIGIN="$(git -C "$AI_ROOT" remote get-url origin 2>/dev/null || true)"
 fi
 
+# Git documents three remote spellings for the same repo and all three reach
+# here: scp-style (git@host:owner/repo), https, and the ssh:// URL form. Miss
+# the third and OWNER binds to "ssh:", which then queries a repo that does not
+# exist rather than failing at the parse.
 OWNER_REPO="$(printf '%s' "$ORIGIN" \
-  | sed -E 's#^git@github\.com:#https://github.com/#; s#^https://github\.com/##; s#\.git$##')"
+  | sed -E 's#^ssh://([^@/]+@)?github\.com/#https://github.com/#; s#^git@github\.com:#https://github.com/#; s#^https://github\.com/##; s#\.git$##')"
 OWNER="${OWNER_REPO%%/*}"
 REPO="${OWNER_REPO##*/}"
 ```
@@ -114,7 +130,11 @@ can be disabled per repo:
 
 ```bash
 [ -n "$OWNER_REPO" ] || { echo "wayfinder: tracker resolution failed - \$OWNER_REPO is empty after the ladder" >&2; exit 1; }
-gh repo view "$OWNER_REPO" --json hasIssuesEnabled --jq '.hasIssuesEnabled'
+
+# --jq PRINTS a value; it does not test one. Capturing and comparing is what
+# makes a disabled tracker branch 4 instead of a line of output nobody reads.
+HAS_ISSUES="$(gh repo view "$OWNER_REPO" --json hasIssuesEnabled --jq '.hasIssuesEnabled' 2>/dev/null || true)"
+[ "$HAS_ISSUES" = "true" ] || { echo "wayfinder: branch 4 - $OWNER_REPO is unreachable or has Issues disabled (probe returned '${HAS_ISSUES:-<error>}')" >&2; exit 1; }
 ```
 
 A `false`, or a `gh` error from a probe that was actually constructed, is
@@ -164,6 +184,7 @@ query($owner:String!,$repo:String!,$number:Int!){
     issue(number:$number){
       title url
       subIssues(first:100){
+        pageInfo{hasNextPage}
         nodes{
           number title url state
           assignees(first:100){nodes{login}}
@@ -222,3 +243,13 @@ rather than issuing another:
 That last one is why the distinction is stated here rather than left implicit.
 A caller that saw only the filtered output would read an empty result as "no
 work left" in both cases and could close a map with open tickets still on it.
+
+**`pageInfo.hasNextPage` gates the terminal decision, and only that one.**
+`subIssues(first:100)` returns one page. For the named-ticket and claim reads
+a truncated page can only make a real ticket look absent, which refuses a
+valid input — the safe direction. For §5's terminal check it is the opposite:
+if the first 100 are closed and ticket 101 is open, "every ticket is closed"
+is **wrong**, and acting on it closes a map with live work on it. So `working.md`
+§5 **refuses the terminal branch entirely while `hasNextPage` is true** and
+says the map is too large to judge in one page, rather than paginating a case
+no wayfinder map is expected to reach.

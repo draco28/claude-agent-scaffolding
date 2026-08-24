@@ -197,6 +197,14 @@ node it excludes, so both cases look identical from it. Read the **unfiltered**
 `subIssues.nodes` of the same query (`references/tracker.md` §2) and say
 which:
 
+**First check `pageInfo.hasNextPage`.** If it is true, the map has more than
+one page of tickets and this section does not run: say the map is too large to
+judge from one page, close nothing, and stop. Everything below reasons from
+"every ticket" and only the first 100 were fetched, so a closed first page with
+an open ticket at 101 would read as complete and close a map with live work on
+it. That is the one place in wayfinder where a truncated read fails toward a
+wrong mutation rather than toward a refusal.
+
 - **Every ticket is closed.** The map has no open work left.
 - **Tickets remain, but none is workable** — each is blocked by something
   still open, or already claimed by another session. Name them and what holds

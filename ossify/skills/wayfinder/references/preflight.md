@@ -60,6 +60,19 @@ came to ask about, and a tracker it cannot resolve simply means no count can
 be taken. Proceeding as count 0 costs the ceremony nothing and leaves the map
 to be read by an explicit `/ossify:wayfinder` run.
 
+**Branch 3 counts as unresolved here, and this is the common case.** §1's
+branch 3 asks the operator for a tracker and writes `.wayfinder.json`. That is
+correct for a wayfinder session and wrong for a ceremony: a fresh workspace
+normally has no `origin` (`workspace-init` writes `git_remote: null` by
+default), so branch 1 declines and, with no dotfile yet, branch 3 is exactly
+where a new project lands. A ceremony that followed it would prompt for
+tracker configuration and mutate a config file the operator never came to
+`/start` or `/plan-release` to discuss — breaking this section's own promise
+of one query and never a prompt, in the very case that promise was written
+for. **Take the unresolved row instead: no prompt, no dotfile, count 0.**
+Only branches 1 and 2, which resolve a tracker without asking anything, are
+followed here.
+
 **Every §1 stop is wayfinder's, never a ceremony's.** A ceremony agent sent to
 §1 by this file's opening pointer reads it for the **resolution** and stops
 there: it writes no map and mutates no tracker, so none of the failures those
