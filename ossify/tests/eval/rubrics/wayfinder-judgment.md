@@ -8,9 +8,8 @@ reference docs it points at — `references/tracker.md`,
 `references/ticket-types.md` — where a loose question becomes a map, where
 fog stays fog, how an existing map's frontier is worked, which tickets a
 subagent may touch, and the ladder that decides which tracker a map lives
-on. The skill has no
-gates; the judgment under test is whether the prose holds the rails without
-one.
+on. The skill has no gates; the judgment under test is whether the prose
+holds the rails without one.
 
 **Every criterion is scored on every fixture.** Each names a thing wayfinder
 may do, and on a scenario that does not warrant it the criterion scores
