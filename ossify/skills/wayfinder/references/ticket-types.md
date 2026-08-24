@@ -108,6 +108,15 @@ and appends a scoping ruling to `Out of scope`. All three race identically.
 
 So the split is by **surface**, not by step:
 
+- **The dispatching session claims every ticket BEFORE launching its worker**
+  — `references/working.md` §1's claim, run serially here, one ticket at a
+  time. A dispatched ticket is otherwise open and unassigned for the whole
+  length of a research pass or a spike, so a concurrent work-mode session
+  reads it as frontier, claims it, and resolves it alongside the worker; both
+  then comment, both close, and two conflicting decisions come back for the
+  same question. Claiming in the dispatcher rather than inside each worker is
+  deliberate: it is already serial, so N workers cannot race each other's
+  claims the way N concurrent sessions would.
 - **Each worker** resolves its own ticket, posts its own resolution comment,
   and closes it. Those touch only that ticket and are conflict-free.
 - **Each worker returns** everything that would touch the map — its

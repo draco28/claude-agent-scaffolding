@@ -187,8 +187,25 @@ gh issue close "$TICKET" -R "$OWNER_REPO"
 # change is a read-modify-write of the WHOLE body. Re-read here rather than
 # reusing the copy loaded above: the resolve step sits between them.
 MAP_BODY="$(gh issue view "$MAP" -R "$OWNER_REPO" --json body --jq '.body')"
-# ... edit exactly one heading in $MAP_BODY, per the rules below ...
-printf '%s\n' "$MAP_BODY" | gh issue edit "$MAP" -R "$OWNER_REPO" --body-file -
+
+# Append $ENTRY as the last line of the $HEADING section: emit it just before
+# the next "## ", or at EOF when that section is last, dropping the section's
+# trailing blank lines so the first entry on a fresh map and the tenth on an
+# old one land the same way. Every other section passes through untouched.
+NEW_BODY="$(printf '%s\n' "$MAP_BODY" | awk -v h="$HEADING" -v entry="$ENTRY" '
+  /^## / { if (inside) { print entry; print ""; inside=0; pend=0 } print; if ($0 == h) inside=1; next }
+  inside && /^[ \t]*$/ { pend++; next }
+  { while (inside && pend > 0) { print ""; pend-- } print }
+  END { if (inside) print entry }
+')"
+
+# An unchanged body means the heading was not found - a renamed or reflowed
+# map, or a typo in $HEADING. Writing it back anyway is a no-op that LOOKS
+# like a recorded decision, which is the one failure this whole section
+# exists to prevent, so it is a stop.
+[ "$NEW_BODY" != "$MAP_BODY" ] || { echo "wayfinder: map body unchanged - '$HEADING' not found on $MAP; nothing recorded" >&2; exit 1; }
+
+printf '%s\n' "$NEW_BODY" | gh issue edit "$MAP" -R "$OWNER_REPO" --body-file -
 
 # §3's out-of-scope ruling is this same close with NO resolution comment
 # before it, and the same map write against Out of scope instead of
@@ -202,11 +219,19 @@ carry `## Decisions so far` into `/start` and `/plan-release`, and §5 reads it
 to judge whether the destination is reached. Three of the five headings are
 written after charting, all through the read-modify-write pair above:
 
-| When | Heading | The edit |
+| When | `$HEADING` | `$ENTRY` |
 |---|---|---|
-| step 4, every resolved ticket | `## Decisions so far` | append one line: what was asked, what was decided, and a link to the ticket |
-| step 5, a graduated patch | `## Not yet specified` | remove the patch that became a ticket, so it lives only as that ticket |
-| step 5 and §3, a scoping ruling | `## Out of scope` | append one line: the gist, why it is out, and a link |
+| step 4, every resolved ticket | `## Decisions so far` | one line: what was asked, what was decided, and a link to the ticket |
+| step 5 and §3, a scoping ruling | `## Out of scope` | one line: the gist, why it is out, and a link |
+
+Step 5's other map edit — **removing** a graduated patch from
+`## Not yet specified`, so it lives only as its new ticket — is the same
+read-modify-write with a deletion in place of the append. The `awk` above does
+not do it: which prose patch a new ticket replaced is a judgement, not a
+pattern match. Edit that section's lines directly in `$MAP_BODY`, leave the
+other four byte-identical, and keep the **same unchanged-body stop** — a
+removal that removed nothing is as silent as an append that appended
+nothing.
 
 Four rules bind every one of those writes:
 

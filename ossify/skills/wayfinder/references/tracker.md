@@ -104,6 +104,20 @@ if [ -n "$ORIGIN" ]; then
   # repo that does not exist rather than failing at the parse.
   OWNER_REPO="$(printf '%s' "$ORIGIN" \
     | sed -E 's#^ssh://([^@/]+@)?github\.com/#https://github.com/#; s#^git@github\.com:#https://github.com/#; s#^https://github\.com/##; s#\.git$##')"
+
+  # BRANCH 0 RUNS HERE, and only here. It compares the RESOLVED origin against
+  # the dotfile, so it needs both - and this is the only arm that has an
+  # origin. Stating the rule in prose above and leaving the ladder without the
+  # comparison is the shape this block exists to close: the stop reads as
+  # binding and never executes.
+  WF_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  if [ -n "$WF_ROOT" ] && [ -f "$WF_ROOT/.wayfinder.json" ]; then
+    WF_TRACKER="$(jq -r '.tracker // empty' "$WF_ROOT/.wayfinder.json" | sed -E 's#^github:##')"
+    if [ -n "$WF_TRACKER" ] && [ "$WF_TRACKER" != "$OWNER_REPO" ]; then
+      echo "wayfinder: branch 0 - .wayfinder.json names $WF_TRACKER but the workspace origin resolves to $OWNER_REPO. Stop and ask which tracker this repo's maps live on; do not resolve it silently." >&2
+      exit 1
+    fi
+  fi
 else
   # BRANCHES 2 and 3. The dotfile is the source. It sits at the REPO root, not
   # $PWD, so resolve the root rather than reading a relative path that misses
