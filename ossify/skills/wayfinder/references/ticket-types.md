@@ -5,11 +5,11 @@ ticket resolves through: which of ossify's uncertainty instruments a
 ticket's type names, whether that instrument can run unattended, and how it
 earns its label on the tracker.
 
-Wayfinder does not add a fifth instrument to the four ossify already owns
-for uncertainty — `research.md`, `smoke-test-pass.md`, `spike-contract.md`,
-`prototype.md` — plus a grill (`/ossify:challenge`). A ticket's type says
-which of those five its uncertainty is, or that it carries no uncertainty
-at all and just wants doing.
+Ossify already owns five ways to resolve uncertainty — four instrument docs
+(`research.md`, `smoke-test-pass.md`, `spike-contract.md`, `prototype.md`)
+plus a grill (`/ossify:challenge`) — and wayfinder adds none of its own. A
+ticket's type says which of those five its uncertainty is, or that it
+carries no uncertainty at all and just wants doing.
 
 ---
 
@@ -21,7 +21,7 @@ at all and just wants doing.
 | `smoke-test` | AFK | `start/references/smoke-test-pass.md` | factual, script-shaped |
 | `spike` | AFK | `start/references/spike-contract.md` | technical — build a falsifier |
 | `prototype` | HITL | `start/references/prototype.md` | experiential — a person chooses |
-| `grilling` | HITL | `/ossify:challenge` interview + `domain-modeling.md` | none; it is the grill |
+| `grilling` | HITL | `/ossify:challenge` interview + `start/references/domain-modeling.md` | none; it is the grill |
 | `task` | either | no instrument | none; manual work unblocking a decision |
 
 Resolver paths are read cross-skill via
