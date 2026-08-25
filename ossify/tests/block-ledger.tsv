@@ -108,7 +108,7 @@ O	skills/close/references/spine-close.md	work items that are not complete	tests/
 O	skills/close/references/spine-close.md	is-ancestor	tests/test-close.sh	the merge guard: the spine tip must actually reach the base branch
 O	skills/close/references/spine-close.md	touch_check	tests/test-close.sh	bone-touch at close re-classifies the spine rather than trusting the plan
 D	skills/close/references/spine-close.md	1	#138	the resume containment probe (audit #47, operative, unexecuted). #272/#310 Task 9 turned the once-per-spine probe into a loop over every hosting repo, same shape as round-orchestration.md's `checkout -q -b` conversion
-I	skills/close/references/spine-close.md	5	single-verb calls with <placeholder> args: ledger_apply_pending, class_set, risk-gate read, worktree_remove, spine_status
+I	skills/close/references/spine-close.md	4	single-verb calls with <placeholder> args: ledger_apply_pending, class_set, risk-gate read, worktree_remove, spine_status
 O	skills/close/references/release-close.md	spines that are not closed	tests/test-close.sh	the release gate blocks on any spine still open
 O	skills/close/references/release-close.md	expired_fakes	tests/test-close.sh	the fake-expiry gate blocks on fakes past their expiry release
 O	skills/close/references/release-close.md	expired_quarantines	tests/test-close.sh	the quarantine gate blocks on quarantines that have come due
@@ -211,7 +211,7 @@ H	skills/close/references/patch-lane.md	3173812713-2590
 H	skills/close/references/release-close.md	3882829569-2451
 H	skills/close/references/retrospective.md	2875153190-110
 H	skills/close/references/routing.md	948295148-232
-H	skills/close/references/spine-close.md	647594484-4707
+H	skills/close/references/spine-close.md	1442239776-5800
 H	skills/close/references/work-item-close.md	3454219241-2854
 H	commands/doctor.md	729179949-141
 H	skills/doctor/SKILL.md	630905567-126
@@ -245,7 +245,7 @@ H	skills/work-item/references/debugging.md	2424723308-562
 H	skills/work-item/references/handoff-contract.md	797876821-82
 H	skills/work-item/references/pre-flight.md	713514376-609
 H	skills/work-item/references/report-contract.md	4244866935-82
-H	skills/work-item/references/round-orchestration.md	997644827-3091
+H	skills/work-item/references/round-orchestration.md	1653964939-3526
 H	skills/work-item/references/tdd-loop.md	3273402540-842
 H	skills/wayfinder/references/tracker.md	3019141852-9377
 H	skills/wayfinder/references/charting.md	3417135513-1905

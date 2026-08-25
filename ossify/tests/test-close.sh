@@ -466,6 +466,22 @@ case "$T_OUT" in
   *) T_PASS=$((T_PASS+1));;
 esac
 
+# E5b. RESUME. E5 left canonical merged and parked on its base branch - exactly
+# the state a close halted at step 5 leaves behind. Re-entering the merge block
+# used to be impossible: it asserted HEAD == $spine_branch and halted on a repo
+# it had itself finished, and $merge_shas (a shell variable) was gone, so §6's
+# touch check had nothing to compute a first-parent diff from. The resume arm
+# now lives inside the loop, so this is the same block run twice.
+FIRST_MERGE="$(git -C "$CANON" rev-parse "$BASE_BRANCH")"
+MERGES_BEFORE="$(git -C "$CANON" rev-list --merges --count "$BASE_BRANCH")"
+t_capture env "PATH=$SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='$SP'; spine_slug='$SPINE_SLUG'; repo_base_branches='canonical:$BASE_BRANCH'; . '$MERGE_BLOCK'; printf 'PAIRS%s\n' \"\$merge_shas\""
+t_assert_rc 0 "resume: the merge block re-runs clean against an already-landed repo"
+t_assert_contains "$T_OUT" "already landed at $FIRST_MERGE" "resume: the landed repo is recognised and its merge sha reconstructed from history"
+t_assert_contains "$T_OUT" "canonical:$FIRST_MERGE" "resume: \$merge_shas is repopulated for the landed repo - the touch check reads it"
+t_assert_eq "$MERGES_BEFORE" "$(git -C "$CANON" rev-list --merges --count "$BASE_BRANCH")" "resume: no second, spurious merge commit was created"
+t_assert_eq "$BASE_BRANCH" "$(git -C "$CANON" rev-parse --abbrev-ref HEAD)" "resume: the repo is left on its base branch"
+
 # E6. touch_check's three exit codes across four cases (zero paths, hit,
 # clean, unreadable registry), read straight off the dispatcher.
 t_capture bash "$OSS" touch_check

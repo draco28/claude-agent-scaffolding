@@ -121,27 +121,47 @@ while IFS= read -r repo; do
     || { echo "close: $spine_id names undeclared repo '$repo' - halt"; exit 1; }
   base_branch="$(printf '%s\n' "$repo_base_branches" | awk -F: -v r="$repo" '$1==r{print $2; exit}')"
 
-  head_branch="$(git -C "$repo_root" rev-parse --abbrev-ref HEAD)"
-  [ "$head_branch" = "$spine_branch" ] \
-    || { echo "close: $repo is on '$head_branch', not '$spine_branch' - halt"; exit 1; }
-
   [ -n "$base_branch" ] \
     || { echo "close: no base_branch recorded for $spine_id in $repo - halt"; exit 1; }
-
   pre="$(git -C "$repo_root" rev-parse "$spine_branch")" \
     || { echo "close: cannot resolve '$spine_branch' in $repo - halt"; exit 1; }
 
-  git -C "$repo_root" checkout -q "$base_branch" \
-    || { echo "close: cannot check out base branch '$base_branch' in $repo - halt"; exit 1; }
-  now_on="$(git -C "$repo_root" rev-parse --abbrev-ref HEAD)"
-  [ "$now_on" = "$base_branch" ] \
-    || { echo "close: switch-back left $repo on '$now_on', not '$base_branch' - halt"; exit 1; }
+  # ALREADY LANDED? This is the resume arm, and it lives inside the merge loop
+  # rather than in a probe of its own: a separate probe can only report, and
+  # step 2 would still halt on its own HEAD assertion the moment it ran.
+  # Against $base_branch, NOT HEAD. On a first close HEAD *is* $spine_branch, so
+  # the tip is trivially its own ancestor and this arm would fire every time,
+  # skipping the merge and leaving the repo parked on the spine branch.
+  if git -C "$repo_root" merge-base --is-ancestor "$pre" "$base_branch" 2>/dev/null; then
+    # Recover this repo's merge commit from history - the commit on this branch
+    # whose SECOND parent is the spine tip. $merge_shas is a shell variable that
+    # does not outlive the invocation, and §6's touch check needs every pair, so
+    # a resumed close has to reconstruct what the first one recorded.
+    merges="$(git -C "$repo_root" log --format='%H %P' --merges "$base_branch")"
+    merge_sha="$(printf '%s\n' "$merges" \
+      | awk -v t="$pre" 'found=="" { for (i = 3; i <= NF; i++) if ($i == t) found = $1 } END { print found }')"
+    [ -n "$merge_sha" ] \
+      || { echo "close: $base_branch in $repo already contains $spine_branch but no merge commit has it as a second parent - a fast-forward or a rebase landed it, and §6 cannot compute this repo's first-parent diff - halt"; exit 1; }
+    git -C "$repo_root" checkout -q "$base_branch" \
+      || { echo "close: $repo already landed but cannot check out '$base_branch' - halt"; exit 1; }
+    echo "close: $repo already landed at $merge_sha - not re-merging"
+  else
+    head_branch="$(git -C "$repo_root" rev-parse --abbrev-ref HEAD)"
+    [ "$head_branch" = "$spine_branch" ] \
+      || { echo "close: $repo is on '$head_branch', not '$spine_branch', and does not contain $spine_branch - halt"; exit 1; }
 
-  git -C "$repo_root" merge --no-ff "$spine_branch" -m "merge $spine_id" \
-    || { echo "close: merge conflict in $repo - halt"; exit 1; }
-  git -C "$repo_root" merge-base --is-ancestor "$pre" HEAD \
-    || { echo "close: merge reported success but $pre is not reachable from HEAD in $repo - halt"; exit 1; }
-  merge_sha="$(git -C "$repo_root" rev-parse HEAD)"
+    git -C "$repo_root" checkout -q "$base_branch" \
+      || { echo "close: cannot check out base branch '$base_branch' in $repo - halt"; exit 1; }
+    now_on="$(git -C "$repo_root" rev-parse --abbrev-ref HEAD)"
+    [ "$now_on" = "$base_branch" ] \
+      || { echo "close: switch-back left $repo on '$now_on', not '$base_branch' - halt"; exit 1; }
+
+    git -C "$repo_root" merge --no-ff "$spine_branch" -m "merge $spine_id" \
+      || { echo "close: merge conflict in $repo - halt"; exit 1; }
+    git -C "$repo_root" merge-base --is-ancestor "$pre" HEAD \
+      || { echo "close: merge reported success but $pre is not reachable from HEAD in $repo - halt"; exit 1; }
+    merge_sha="$(git -C "$repo_root" rev-parse HEAD)"
+  fi
   merge_shas="$merge_shas
 $repo:$merge_sha"
 done < <(oss get ".work_items[] | select(.spine==\"$spine_id\") | .target_repo" | sort -u)
@@ -180,41 +200,37 @@ intent. Resuming means finishing *this* repo's merge and continuing the loop
 from there, not re-running the layer or restarting a repo that already landed.
 
 **Resuming a halted spine close.** A halt at steps 4-11 leaves step 2's merge
-already landed in **every** hosting repo — the loop above runs to completion
-before step 3 ever starts — and re-invoking `/close <spine-id>` fails step 2's
-HEAD assertion in whichever repo the loop reaches first, with a message that
-misdiagnoses the resume as a branch error. A halt **inside** step 2 is the other
-case a cross-repo spine introduces: the loop may have already landed the merge
-in one or two hosting repos before a later one failed, so "already landed" is a
-per-repo question now, not one yes/no for the whole step. Key the resume on an
-observable instead — for each hosting repo, whether the spine tip is already
-contained in that repo's HEAD:
+already landed in **every** hosting repo. A halt **inside** step 2 is the other
+case a cross-repo spine introduces: the loop may have landed the merge in one or
+two hosting repos before a later one failed, so "already landed" is a per-repo
+question now, not one yes/no for the whole step.
 
-```bash
-while IFS= read -r repo; do
-  [ -n "$repo" ] || continue
-  repo_root="$(oss repo_root "$repo")" \
-    || { echo "close: $spine_id names undeclared repo '$repo' - halt"; exit 1; }
-  mb="$(git -C "$repo_root" merge-base "$spine_branch" HEAD)"
-  if [ "$mb" = "$(git -C "$repo_root" rev-parse "$spine_branch")" ]; then
-    echo "$repo: step 2 already landed"
-  else
-    echo "$repo: step 2 NOT landed - resume the merge here, then continue the loop"
-  fi
-done < <(oss get ".work_items[] | select(.spine==\"$spine_id\") | .target_repo" | sort -u)
-```
+**Step 2's loop above is itself the resume path — there is no separate probe.**
+An earlier draft had one: a loop that tested containment and printed
+`already landed` / `NOT landed` per repo, next to a step 2 that still asserted
+`HEAD == $spine_branch`. Nothing consumed the probe's result, so a resumed close
+read a correct report and then halted in the very next step on a repo the report
+had just called finished. The containment test now lives in the merge loop and
+decides what that iteration does, which also means `$merge_shas` comes out
+populated for **every** repo — reconstructed for the ones that already landed —
+rather than only for the ones this invocation happened to merge.
 
-Step 2 as a whole is done only once **every** hosting repo reports landed —
-never treat one landed repo as the whole step being finished, and never
-re-merge a repo that already reports landed (that repeats the earlier merge
-into a tree that already contains it, which is at best a no-op and at worst a
-second, spurious merge commit). Once every repo reports landed: skip step 2 and
-resume at the first unfinished step, saying which. Restart properties, one line
-each: the demo (§5) re-runs whole; the touch check (§6) re-runs from the
-recorded `$merge_shas`; the critic (§7) re-runs; the retro (§8) is **amended,
-never re-authored** (the same rule `release-close.md` §8 states); the harvest is
-idempotent by `harvest.md` §7's skip-identical rule, and cleanup is idempotent
-(both §9). Issue #133 is the execution-lane counterpart, not a substitute for
+Re-invoke `/close <spine-id>` and let step 2 run. It re-merges only the repos
+that have not landed, and never re-merges one that has (that repeats the merge
+into a tree already containing it — at best a no-op, at worst a second, spurious
+merge commit). Step 2 is complete only once **every** hosting repo is landed;
+then continue at the first unfinished step, saying which. Restart properties,
+one line each: the demo (§5) re-runs whole; the touch check (§6) re-runs from
+`$merge_shas`, which step 2 has just rebuilt; the critic (§7) re-runs; the retro
+(§8) is **amended, never re-authored** (the same rule `release-close.md` §8
+states); the harvest is idempotent by `harvest.md` §7's skip-identical rule, and
+cleanup is idempotent (both §9).
+
+The one resume this cannot serve is a spine whose branch was already deleted by
+§9's cleanup — then the tip is unresolvable and step 2 halts naming it. That is
+a completed close, not a halted one.
+
+Issue #133 is the execution-lane counterpart, not a substitute for
 this.
 
 ---

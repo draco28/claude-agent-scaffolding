@@ -76,20 +76,49 @@ invocation got here first — halt rather than re-cutting it or half-reusing it:
 
 ```bash
 spine_branch="$(oss branch_name "<spine-id>" "<spine-slug>")"
+repo_list="$(mktemp)"; repo_bases="$(mktemp)"
+oss get '.work_items[] | select(.spine=="<spine-id>") | .target_repo' | sort -u > "$repo_list"
+
+# PASS 1 - CHECK every hosting repo. Mutate nothing. A halt here leaves every
+# repo exactly as it was found.
 while IFS= read -r repo; do
   [ -n "$repo" ] || continue
   root="$(oss repo_root "$repo")" || exit 1     # undeclared repo halts HERE
-  [ -z "$(git -C "$root" status --porcelain)" ] || { echo "$repo is dirty - halt"; exit 1; }
+  [ -z "$(git -C "$root" status --porcelain)" ] || { echo "halt: $repo is dirty"; exit 1; }
   if git -C "$root" show-ref --verify --quiet "refs/heads/$spine_branch"; then
     echo "halt: $spine_branch already exists in $repo - an earlier run cut it (issue 133)."; exit 1
   fi
   base_branch="$(git -C "$root" rev-parse --abbrev-ref HEAD)"
   [ "$base_branch" != "HEAD" ] || { echo "halt: $repo is in DETACHED HEAD"; exit 1; }
-  git -C "$root" checkout -q -b "$spine_branch"
-done < <(oss get '.work_items[] | select(.spine=="<spine-id>") | .target_repo' | sort -u)
+  printf '%s\t%s\n' "$repo" "$base_branch" >> "$repo_bases"
+done < "$repo_list"
+
+# PASS 2 - every repo passed; now cut, in the same order.
+while IFS="$(printf '\t')" read -r repo base_branch; do
+  [ -n "$repo" ] || continue
+  git -C "$(oss repo_root "$repo")" checkout -q -b "$spine_branch" || exit 1
+done < "$repo_bases"
 ```
 
-Five things here, each load-bearing:
+Each of these is load-bearing:
+
+**Check every repo before cutting a branch in any of them.** This was one loop
+that checked and mutated per repo. With an earlier-sorted repo clean and a later
+one dirty, detached, or already carrying the spine branch, the first repo's
+branch was already cut when the halt fired — and re-running then failed that
+repo's own already-exists guard, which this document says is not resumable. A
+condition that should merely block dispatch instead wedged the spine until
+someone repaired the repos by hand. The checks are cheap and read-only; the
+`checkout -b` only runs once all of them have passed.
+
+**`$repo_bases` is a per-repo MAPPING, not a variable.** `base_branch` was a
+single name overwritten on every iteration, so only the last repo's value
+survived the loop — and the handoff authored afterwards has to record *each*
+target repo's observed base branch (`handoff-contract.md` §2), which spine close
+then treats as its primary merge destination. Writing one repo's base into
+another repo's handoff either halts the close or merges into a same-named branch
+that happens to exist there. Read this file when authoring each handoff; never
+carry a surviving `$base_branch`.
 
 **`oss repo_root "$repo"`, never a bare `<repo-root>` placeholder.** The verb
 resolves the declared repo's root from the topology declaration
