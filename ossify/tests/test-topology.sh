@@ -125,10 +125,23 @@ cd "$HERE"
 
 # --- grammar is an injection boundary, refused BEFORE any jq read ---
 cd "$TMP/ws"   # declares core + ui only
-for bad in 'x|hack' '1core' '' 'Core' 'core.js' 'a b'; do
+# rc 2 alone does NOT prove the grammar fired: an undeclared-but-well-formed key
+# refuses at the same rc, so a key the grammar wrongly ADMITS still scores a pass
+# on rc. Assert the grammar's own message instead. `Core`/`svcA` are the live
+# case - a bracket RANGE is collation-ordered under a UTF-8 locale, so the old
+# `*[!a-z0-9_-]*` admitted uppercase on the operator's macOS shell and refused it
+# under CI's C locale, and this loop went green on both for different reasons.
+for bad in 'x|hack' '1core' 'Core' 'svcA' 'core.js' 'a b' '-core' '_core'; do
   t_capture _oss_repo_root "$bad"
   t_assert_rc 2 "invalid repo key '$bad' refused at rc 2"
+  t_assert_contains "$T_OUT" "invalid repo key" \
+    "repo key '$bad' refused by the GRAMMAR, not by an undeclared-key lookup"
 done
+# The empty key is NOT a grammar case: `_oss_repo_root` routes it to the default
+# resolver before any validation, and with two repos declared that is ambiguous.
+t_capture _oss_repo_root ''
+t_assert_rc 2 "empty repo key refused at rc 2"
+t_assert_contains "$T_OUT" "name one" "empty key refused as an ambiguous default, not by the grammar"
 t_capture _oss_repo_root ui
 t_assert_rc 0 "declared repo resolves"
 t_assert_eq "$TMP/ui" "$T_OUT" "ui root"

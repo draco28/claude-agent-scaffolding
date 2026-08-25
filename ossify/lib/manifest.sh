@@ -24,10 +24,20 @@ _oss_current_user() {
 # must refuse metacharacters ('x|hack'), leading digits, empty, and uppercase
 # before any jq read. The closed enum this replaces was accidentally that
 # boundary; this one is deliberate (#272 design section 3, adjacent to #120).
+#
+# The sets are ENUMERATED, not written as `[a-z]`. A bracket RANGE is
+# collation-ordered outside the C locale, and every UTF-8 collation interleaves
+# the cases - so `*[!a-z0-9_-]*` admitted `svcA` on the operator's macOS shell
+# and refused it under CI's C locale. A boundary whose shape depends on $LANG is
+# not a boundary. The leading-character arm is enumerated for the same reason,
+# and it refuses a leading `-` or `_` as well as a leading digit: the grammar
+# says the first character is a letter, and a key starting `-` is an argument to
+# every command this name is interpolated into.
 _oss_repo_key_valid() { # $1=key ; rc 0 valid
   case "$1" in
-    ''|[0-9]*|*[!a-z0-9_-]*) return 1 ;;
-    *) return 0 ;;
+    *[!abcdefghijklmnopqrstuvwxyz0123456789_-]*) return 1 ;;
+    [abcdefghijklmnopqrstuvwxyz]*)               return 0 ;;
+    *)                                           return 1 ;;
   esac
 }
 

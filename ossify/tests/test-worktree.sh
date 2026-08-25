@@ -728,7 +728,7 @@ t_assert_eq "$QRT/priv/.worktrees/r9.s9.w9" "$QOUT" "quoting: and it names the o
 # resolution and worktree-orphan-scoping this file pins throughout against a
 # .workspace/pairing.json two-role manifest ("canonical" / "private_core"),
 # run again from a NATIVE .ossify/topology.json declaring two repos under
-# names that are neither of those - "svcA" / "svcB" - so nothing below can
+# names that are neither of those - "svc_a" / "svc_b" - so nothing below can
 # pass because of a magic name. Cross-repo non-attribution is the actual
 # multi-canonical feature #272/#310 ships; this is where it is proven to
 # hold from a native declaration, not only from a translated legacy one.
@@ -756,20 +756,20 @@ t_assert_eq "$QRT/priv/.worktrees/r9.s9.w9" "$QOUT" "quoting: and it names the o
 # wholesale).
 # ===========================================================================
 TWT="$(mktemp -d)"
-mkdir -p "$TWT/ws/.ossify" "$TWT/svcA" "$TWT/svcB"
-for r in svcA svcB; do
+mkdir -p "$TWT/ws/.ossify" "$TWT/svc_a" "$TWT/svc_b"
+for r in svc_a svc_b; do
   git -C "$TWT/$r" init -q
   git -C "$TWT/$r" config user.email t@t; git -C "$TWT/$r" config user.name t
   echo seed > "$TWT/$r/f.txt"
   git -C "$TWT/$r" add .; git -C "$TWT/$r" commit -qm seed
 done
 cat > "$TWT/ws/.ossify/topology.json" <<JSON
-{"schema_version":1,"repos":{"svcA":{"root":"$TWT/svcA"},"svcB":{"root":"$TWT/svcB"}},"well_known_paths":{}}
+{"schema_version":1,"repos":{"svc_a":{"root":"$TWT/svc_a"},"svc_b":{"root":"$TWT/svc_b"}},"well_known_paths":{}}
 JSON
 cd "$TWT/ws"
 
-t_capture _oss_repo_root svcA
-t_assert_eq "$TWT/svcA" "$T_OUT" "topology twin: svcA repo root resolves"
+t_capture _oss_repo_root svc_a
+t_assert_eq "$TWT/svc_a" "$T_OUT" "topology twin: svc_a repo root resolves"
 t_capture _oss_repo_root nonsense
 t_assert_rc 2 "topology twin: an unknown repo key is rc 2"
 
@@ -779,42 +779,42 @@ t_assert_rc 2 "topology twin: an unknown repo key is rc 2"
 TWS="$TWT/ws/.ossify/project-state.json"
 oss_state_init "$TWS" "topology-twin" >/dev/null
 TWREL="$(oss_entity_add_release "$TWS" "twin-rel" "a goal")"
-TWSPN="$(oss_entity_add_spine "$TWS" "$TWREL" "twin-spine" flesh svcA)"
-TWWI_A="$(oss_entity_add_work_item "$TWS" "$TWSPN" "svcA item" svcA)"
-TWWI_B="$(oss_entity_add_work_item "$TWS" "$TWSPN" "svcB item" svcB)"
+TWSPN="$(oss_entity_add_spine "$TWS" "$TWREL" "twin-spine" flesh svc_a)"
+TWWI_A="$(oss_entity_add_work_item "$TWS" "$TWSPN" "svc_a item" svc_a)"
+TWWI_B="$(oss_entity_add_work_item "$TWS" "$TWSPN" "svc_b item" svc_b)"
 
 # (0) No `.worktrees` directory at all is not a finding.
-t_capture oss_worktree_orphans svcA "$TWS"
+t_capture oss_worktree_orphans svc_a "$TWS"
 t_assert_rc 0 "topology twin: a repo with no .worktrees dir at all is rc 0"
 t_assert_eq "" "$T_OUT" "topology twin: no .worktrees dir reports nothing"
 
-t_capture oss_worktree_add svcA t0.s1.w1 "first-ticket" HEAD
+t_capture oss_worktree_add svc_a t0.s1.w1 "first-ticket" HEAD
 t_assert_rc 0 "topology twin: worktree_add ok"
 TWA="$T_OUT"
-t_assert_eq "$TWT/svcA/.worktrees/t0.s1.w1" "$TWA" "topology twin: worktree path convention"
+t_assert_eq "$TWT/svc_a/.worktrees/t0.s1.w1" "$TWA" "topology twin: worktree path convention"
 
-t_capture "$OSS" repo_root svcB
-t_assert_eq "$TWT/svcB" "$T_OUT" "topology twin: dispatcher repo_root resolves the second declared repo"
-t_capture "$OSS" worktree_add svcB t0.s1.w2 "second-ticket" HEAD
+t_capture "$OSS" repo_root svc_b
+t_assert_eq "$TWT/svc_b" "$T_OUT" "topology twin: dispatcher repo_root resolves the second declared repo"
+t_capture "$OSS" worktree_add svc_b t0.s1.w2 "second-ticket" HEAD
 t_assert_rc 0 "topology twin: dispatcher worktree_add ok on the second repo"
 TWB="$T_OUT"
-t_assert_eq "$TWT/svcB/.worktrees/t0.s1.w2" "$TWB" "topology twin: the second repo's worktree lands under ITS OWN root, not svcA's"
+t_assert_eq "$TWT/svc_b/.worktrees/t0.s1.w2" "$TWB" "topology twin: the second repo's worktree lands under ITS OWN root, not svc_a's"
 
 # Both worktrees above are claimed by NOTHING TWWI_A/TWWI_B carry (different
 # ids) - clean them before the orphan-scoping arms below, which start from
-# an empty .worktrees/ on svcA and assert exact output sets.
-git -C "$TWT/svcA" worktree remove --force "$TWA" >/dev/null 2>&1
-git -C "$TWT/svcB" worktree remove --force "$TWB" >/dev/null 2>&1
+# an empty .worktrees/ on svc_a and assert exact output sets.
+git -C "$TWT/svc_a" worktree remove --force "$TWA" >/dev/null 2>&1
+git -C "$TWT/svc_b" worktree remove --force "$TWB" >/dev/null 2>&1
 
 # (a) a spawned-but-not-yet-journaled worktree is claimed by its work item's id.
-oss_worktree_add svcA "$TWWI_A" "svcA-slug" HEAD >/dev/null
-t_capture oss_worktree_orphans svcA "$TWS"
+oss_worktree_add svc_a "$TWWI_A" "svc_a-slug" HEAD >/dev/null
+t_capture oss_worktree_orphans svc_a "$TWS"
 t_assert_eq "" "$T_OUT" "topology twin: a spawned-but-not-yet-journaled worktree is claimed by its work item's id"
 
-# (b) a directory no work item claims, under svcA, is the finding.
-mkdir -p "$TWT/svcA/.worktrees/x9.s9.w9"
-t_capture oss_worktree_orphans svcA "$TWS"
-t_assert_eq "$TWT/svcA/.worktrees/x9.s9.w9" "$T_OUT" "topology twin: an unclaimed directory under svcA is reported"
+# (b) a directory no work item claims, under svc_a, is the finding.
+mkdir -p "$TWT/svc_a/.worktrees/x9.s9.w9"
+t_capture oss_worktree_orphans svc_a "$TWS"
+t_assert_eq "$TWT/svc_a/.worktrees/x9.s9.w9" "$T_OUT" "topology twin: an unclaimed directory under svc_a is reported"
 
 # (d) the DISJOINT claim path: a directory whose basename is NOT a work-item
 # id, claimed because a work item's journaled worktree_path IS it. x9.s9.w9
@@ -822,28 +822,28 @@ t_assert_eq "$TWT/svcA/.worktrees/x9.s9.w9" "$T_OUT" "topology twin: an unclaime
 # only hand-named-dir, not everything (drop the path arm and this assertion
 # is the one that goes red while (a) stays green - the two arms cover
 # disjoint failures, same as the legacy pair).
-mkdir -p "$TWT/svcA/.worktrees/hand-named-dir"
-oss_entity_set_work_item_exec "$TWS" "$TWWI_A" "work/$TWWI_A-svcA-slug" \
-  "$TWT/svcA/.worktrees/hand-named-dir" "$(git -C "$TWT/svcA" rev-parse HEAD)" >/dev/null
-t_capture oss_worktree_orphans svcA "$TWS"
-t_assert_eq "$TWT/svcA/.worktrees/x9.s9.w9" "$T_OUT" "topology twin: a dir claimed by a journaled worktree_path is not reported"
-rm -rf "$TWT/svcA/.worktrees/x9.s9.w9" "$TWT/svcA/.worktrees/hand-named-dir"
+mkdir -p "$TWT/svc_a/.worktrees/hand-named-dir"
+oss_entity_set_work_item_exec "$TWS" "$TWWI_A" "work/$TWWI_A-svc_a-slug" \
+  "$TWT/svc_a/.worktrees/hand-named-dir" "$(git -C "$TWT/svc_a" rev-parse HEAD)" >/dev/null
+t_capture oss_worktree_orphans svc_a "$TWS"
+t_assert_eq "$TWT/svc_a/.worktrees/x9.s9.w9" "$T_OUT" "topology twin: a dir claimed by a journaled worktree_path is not reported"
+rm -rf "$TWT/svc_a/.worktrees/x9.s9.w9" "$TWT/svc_a/.worktrees/hand-named-dir"
 
-# (c) cross-repo non-attribution: an svcB work item's id must NOT claim a
-# same-named directory that happens to sit under svcA's root.
-mkdir -p "$TWT/svcA/.worktrees/$TWWI_B"
-t_capture oss_worktree_orphans svcA "$TWS"
-t_assert_eq "$TWT/svcA/.worktrees/$TWWI_B" "$T_OUT" "topology twin: an svcB work item does NOT claim an svcA-rooted directory of the same id"
-rm -rf "$TWT/svcA/.worktrees/$TWWI_B"
+# (c) cross-repo non-attribution: an svc_b work item's id must NOT claim a
+# same-named directory that happens to sit under svc_a's root.
+mkdir -p "$TWT/svc_a/.worktrees/$TWWI_B"
+t_capture oss_worktree_orphans svc_a "$TWS"
+t_assert_eq "$TWT/svc_a/.worktrees/$TWWI_B" "$T_OUT" "topology twin: an svc_b work item does NOT claim an svc_a-rooted directory of the same id"
+rm -rf "$TWT/svc_a/.worktrees/$TWWI_B"
 
 # (e) dispatcher-path - bin/oss runs `set -euo pipefail`; every arm above
 # only sourced the lib. The unmatched-glob guard and the `jq -e || printf`
 # pair are both shapes that behave differently under strict mode.
-mkdir -p "$TWT/svcA/.worktrees/x9.s9.w9"
-t_capture "$OSS" worktree_orphans svcA "$TWS"
+mkdir -p "$TWT/svc_a/.worktrees/x9.s9.w9"
+t_capture "$OSS" worktree_orphans svc_a "$TWS"
 t_assert_rc 0 "topology twin: dispatcher worktree_orphans under strict mode is rc 0"
-t_assert_eq "$TWT/svcA/.worktrees/x9.s9.w9" "$T_OUT" "topology twin: dispatcher worktree_orphans reports the same single orphan"
-rm -rf "$TWT/svcA/.worktrees/x9.s9.w9"
+t_assert_eq "$TWT/svc_a/.worktrees/x9.s9.w9" "$T_OUT" "topology twin: dispatcher worktree_orphans reports the same single orphan"
+rm -rf "$TWT/svc_a/.worktrees/x9.s9.w9"
 
 # An unconfigured repo key must not degrade to a silent guess.
 t_capture oss_worktree_orphans svcC "$TWS"
