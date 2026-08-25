@@ -19,6 +19,18 @@ _oss_current_user() {
   printf '%s' "$u"
 }
 
+# A repo name is [a-z][a-z0-9_-]*. This is an INJECTION BOUNDARY, not style:
+# the name is interpolated into jq expressions and filesystem paths, so it
+# must refuse metacharacters ('x|hack'), leading digits, empty, and uppercase
+# before any jq read. The closed enum this replaces was accidentally that
+# boundary; this one is deliberate (#272 design section 3, adjacent to #120).
+_oss_repo_key_valid() { # $1=key ; rc 0 valid
+  case "$1" in
+    ''|[0-9]*|*[!a-z0-9_-]*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
 # Walk up from $PWD to find .workspace/pairing.json. Echoes the abs path; rc 1.
 oss_manifest_discover() {
   local dir="$PWD"

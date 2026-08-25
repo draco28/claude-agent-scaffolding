@@ -2,6 +2,7 @@
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/harness.sh"
 . "$HERE/../lib/manifest.sh"
+. "$HERE/../lib/worktree.sh"
 TMP="$(mktemp -d)"
 
 # --- topology discovery wins; pairing still discovered alone ---
@@ -110,6 +111,29 @@ t_assert_contains "$T_OUT" "/init-workspace" "refusal keeps /init-workspace toke
 t_assert_contains "$T_OUT" "/pair-workspace" "refusal keeps /pair-workspace token"
 t_assert_contains "$T_OUT" "/ossify:start" "refusal names /ossify:start"
 t_assert_contains "$T_OUT" "/ossify:adopt" "refusal names /ossify:adopt"
+cd "$HERE"
+
+# --- grammar is an injection boundary, refused BEFORE any jq read ---
+cd "$TMP/ws"   # declares core + ui only
+for bad in 'x|hack' '1core' '' 'Core' 'core.js' 'a b'; do
+  t_capture _oss_repo_root "$bad"
+  t_assert_rc 2 "invalid repo key '$bad' refused at rc 2"
+done
+t_capture _oss_repo_root ui
+t_assert_rc 0 "declared repo resolves"
+t_assert_eq "$TMP/ui" "$T_OUT" "ui root"
+t_capture _oss_repo_root nosuch
+t_assert_rc 2 "undeclared repo refused"
+t_assert_contains "$T_OUT" "core, ui" "refusal lists declared repos"
+t_capture _oss_repo_root ai_workspace
+t_assert_rc 0 "ai_workspace still resolves (reserved)"
+t_assert_eq "$TMP/ws" "$T_OUT" "workspace root via reserved key"
+cd "$TMP/legacy"
+t_capture _oss_repo_root canonical
+t_assert_rc 0 "legacy canonical resolves through translation"
+t_assert_eq "$TMP/canon" "$T_OUT" "legacy canonical root"
+t_capture _oss_repo_root tooling_repo
+t_assert_rc 0 "tooling_repo resolves (was refused by the enum)"
 cd "$HERE"
 
 t_summary

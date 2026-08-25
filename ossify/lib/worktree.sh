@@ -9,26 +9,48 @@
 # every call site and every path-shape assertion in this file.
 
 _oss_repo_root() { # $1=repo-key
-  local key="${1:-canonical}" root
-  case "$key" in
-    canonical|ai_workspace|private_core) ;;
-    *) echo "oss: unknown repo key '$key' (canonical|ai_workspace|private_core)" >&2; return 2 ;;
-  esac
-  root="$(oss_manifest_get ".${key}.root" 2>/dev/null)" || root=""
-  # An unconfigured key must NOT fall back to canonical: silently building a
-  # private_core worktree inside the public repo is precisely the leak the
-  # companion spec exists to prevent.
-  [ -n "$root" ] && [ "$root" != "null" ] \
-    || { echo "oss: repo '$key' is not configured in the pairing manifest" >&2; return 2; }
-  # `oss_manifest_get` is a RAW jq read, so a manifest storing a root as
+  local key="${1:-}" root shape
+  shape="$(_oss_shape_file)" || return 1
+  if [ "$key" = "ai_workspace" ]; then
+    root="$(printf '%s' "$shape" | jq -r '.workspace // empty')"
+  else
+    _oss_repo_key_valid "$key" || {
+      echo "oss: invalid repo key '$key' - names match [a-z][a-z0-9_-]* (ai_workspace is reserved)" >&2; return 2; }
+    root="$(printf '%s' "$shape" | jq -r --arg k "$key" '.repos[$k].root // empty')"
+    # An unconfigured key must NOT fall back to canonical: silently building a
+    # private_core worktree inside the public repo is precisely the leak the
+    # companion spec exists to prevent.
+    if [ -z "$root" ] || [ "$root" = "null" ]; then
+      echo "oss: repo '$key' is not declared (declared: $(printf '%s' "$shape" | jq -r '.repos | keys | join(", ")'))" >&2; return 2
+    fi
+  fi
+  # This is a RAW jq read off the shape, so a repo root stored as
   # `${HOME}/workspace` returns the token verbatim. Every consumer treats this
   # as an absolute path — `oss release_dir` composes on it, worktree paths are
   # built from it — so an unresolved token becomes a relative-looking path that
   # resolves against the caller's cwd and writes artifacts in the wrong place.
-  # Resolve here, once, and refuse anything still holding a `${...}` rather than
-  # handing a caller a path that only looks absolute.
-  local mroot; mroot="$(oss_manifest_discover)" || return 1
-  root="$(_oss_manifest_resolve "$(dirname "$(dirname "$mroot")")" "$root")" || return 1
+  # Resolve here, once, against the shape's own workspace root - $shape already
+  # carries it (topology-declared, or translated from a pairing manifest), so
+  # this does not re-discover a manifest of its own - and refuse anything still
+  # holding a `${...}` rather than handing a caller a path that only looks
+  # absolute.
+  #
+  # Only invoke the resolver when $root actually holds a token. A plain
+  # literal root - the common case for both a topology declaration and a
+  # pairing manifest that never used ${...} tokens - needs no substitution,
+  # and a topology-only workspace has no `.workspace/pairing.json` for
+  # `_oss_manifest_resolve` to consult. Calling it unconditionally would
+  # refuse every topology-only lookup before it ever got to tell "nothing to
+  # substitute" apart from "no manifest to substitute from". (That resolver
+  # still re-discovers a pairing manifest of its own rather than reading the
+  # shape's `${ai_workspace.root}` / `${canonical.root}` directly - a known
+  # gap that is Task 3's to close, not this guard's.)
+  case "$root" in
+    *'${'*)
+      local ai_root; ai_root="$(printf '%s' "$shape" | jq -r '.workspace // empty')"
+      root="$(_oss_manifest_resolve "$ai_root" "$root")" || return 1
+      ;;
+  esac
   # Mirrors `_oss_manifest_wellknown_guard` (#165) and shares its grammar test, so
   # the two refusals cannot drift the way their wording already did. Same reasoning:
   # the token is documented workspace-init vocabulary that ossify deliberately does
