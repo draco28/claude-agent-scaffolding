@@ -292,6 +292,15 @@ t_capture oss_demo_run_auto "$SD"
 t_assert_rc 1 "topology twin: vacuous green caught"
 t_assert_contains "$T_OUT" "vacuous-green" "topology twin: guard named"
 
+# Take the vacuous line (d4) out of the active run so the AND-gate-precision
+# check below can reach it - same reason the opening fixture quarantines its
+# own d4 before this exact assertion (review round 1, finding 3: the twin
+# had stopped one assertion short of the legacy sequence at :60-64).
+oss_ledger_quarantine "$SD" d4 "test cleanup" >/dev/null
+oss_ledger_add_auto "$SD" r0.s1 "legit zero-passing mention" "echo '0 passing warnings remain'" "contains:0 passing" >/dev/null
+t_capture oss_demo_run_auto "$SD"
+t_assert_rc 0 "topology twin: non-runner output mentioning a zero-tests phrase is NOT vacuous-green (AND-gate precision)"
+
 cd "$HERE"
 rm -rf "$TMPD"
 

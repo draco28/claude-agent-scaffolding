@@ -312,13 +312,21 @@ rm -rf "$TMP"
 # SCOPED to the assertions that actually read the manifest: discovery, the
 # convention default, a routed well_known_paths token, the unresolved-token
 # guard, the RELATIVE-path guard, the dispatcher smoke check, spec_path's
-# convention/override/refusal trio, and the '&' literalness guarantee. Left
-# untwinned, with the reason inline at each: _oss_resolve_state's
-# OSS_STATE_FILE precedence and override-notice wording (no manifest read at
-# all in that branch's assertions - a bare `/explicit/x.json` and a raw env
-# var), and the `_oss_manifest_wellknown_guard`/PLUGIN_DATA/`_oss_subst_literal`
-# blocks above (pure functions over an already-resolved string - no
-# discovery, no shape, no manifest source involved).
+# convention/override/unresolved-token/relative-path refusal quartet, and
+# the '&' literalness guarantee. Left untwinned, with the reason at each:
+#   - _oss_resolve_state's OSS_STATE_FILE precedence and override-notice
+#     wording (:59-154 above) - no manifest read at all in those assertions,
+#     just a bare `/explicit/x.json` and a raw env var.
+#   - the `_oss_manifest_wellknown_guard`/PLUGIN_DATA/`_oss_subst_literal`
+#     blocks (:156-294 above) - pure functions over an already-resolved
+#     string, no discovery, no shape, no manifest source involved.
+#   - `oss_manifest_get '.ai_workspace.root'` and the removed-`manifest_get`-
+#     verb coverage (:80-98 above) - `.ai_workspace.root` is pairing-specific
+#     read vocabulary with no topology analog (topology has no such field to
+#     read; `_oss_manifest_ai_root` reads `.workspace` off the SHAPE
+#     instead, which is what this twin's own dispatcher `repo_root
+#     ai_workspace` check just below already exercises for the topology
+#     source.
 # ===========================================================================
 TMPT="$(mktemp -d)"
 mkdir -p "$TMPT/ws/.ossify"
@@ -404,6 +412,18 @@ cd "$TMPT/ws"
 t_capture oss_manifest_spec_path
 t_assert_rc 0 "topology twin: routed spec path resolved"
 t_assert_eq "$TMPT/ws/specs/LEAN-SPEC.md" "$T_OUT" "topology twin: the ROUTED destination wins over the convention"
+cd "$HERE"
+
+# The same two guards apply, because they are the same guard (review round 1,
+# finding 1: the legacy case tests the UNRESOLVED-token refusal at :247-254 as
+# a scenario distinct from the RELATIVE-path refusal below - dropping it left
+# the twin one refusal short of its original).
+cat > "$TMPT/ws/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"core":{"root":"$TMPT/core"}},"well_known_paths":{"master_spec":"\${repos.private_core.root}/S.md"}}
+JSON
+cd "$TMPT/ws"
+t_capture oss_manifest_spec_path
+t_assert_rc 1 "topology twin: an unresolved token in the spec path is refused"
 cd "$HERE"
 
 cat > "$TMPT/ws/.ossify/topology.json" <<JSON

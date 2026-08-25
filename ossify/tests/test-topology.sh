@@ -352,6 +352,14 @@ t_assert_eq "canonical" "$T_OUT" "pulsebase shape: the work item's target_repo i
 t_capture oss_worktree_add canonical "$PBWI" "legacy-slug" HEAD
 t_assert_rc 0 "pulsebase shape: worktree_add resolves canonical through the TRANSLATED pairing manifest"
 PBWT="$T_OUT"
+# Review round 1, finding 4: PBWT must be checked against an INDEPENDENTLY
+# known path, not merely carried forward - the E5 loop above does exactly
+# this (`t_assert_eq "$E5/$r/.worktrees/$wi" "$wt"`) and this fixture had
+# skipped its own counterpart, so the no-orphan assertion below was
+# inheriting whatever worktree_add produced rather than confirming it was
+# right. This is the migration guarantee the whole build rests on, so its
+# path gets the same independent check as every other repo in this file.
+t_assert_eq "$PB/canon/.worktrees/$PBWI" "$PBWT" "pulsebase shape: the worktree lands at the id-named path under the TRANSLATED canonical root"
 oss_entity_set_work_item_exec "$PBS" "$PBWI" "$(oss_id_work_item_branch "$PBWI" legacy-slug)" \
   "$PBWT" "$(git -C "$PB/canon" rev-parse HEAD)" >/dev/null
 t_capture oss_worktree_orphans canonical "$PBS"

@@ -732,14 +732,27 @@ t_assert_eq "$QRT/priv/.worktrees/r9.s9.w9" "$QOUT" "quoting: and it names the o
 # multi-canonical feature #272/#310 ships; this is where it is proven to
 # hold from a native declaration, not only from a translated legacy one.
 #
-# SCOPED DELIBERATELY, not a line-for-line replay of the whole file: the git-
-# hook-chatter, dirty-worktree-halt, unmerged-branch, spine-branch-lifecycle,
-# permission-bit and path-quoting assertions above test git/filesystem
-# semantics that run entirely AFTER a repo root is already resolved - none
-# of them touch `_oss_shape_file` or `_oss_repo_root`, so they behave
-# identically regardless of manifest source and duplicating them here would
-# prove nothing new (task-11-report.md's triage names the same reasoning for
-# the files this task excludes wholesale).
+# SIX orphan-scoping arms, matching the legacy ORPH fixture's own six: no
+# .worktrees dir at all (:323-327), claimed-by-id (:329-338), an unclaimed
+# directory is the finding (:340-344), the DISJOINT claim path - a directory
+# whose basename is not a work-item id but whose PATH is journaled
+# (:346-353, which the legacy comment calls out as a code path disjoint from
+# the id-claim arm), cross-repo non-attribution (:397-406), and the
+# dispatcher-path invocation under real `set -euo pipefail` (:359-364, whose
+# own comment says the unmatched-glob guard and the `jq -e || printf` pair
+# behave differently under strict mode). Review round 1, finding 2: an
+# earlier draft of this twin covered only 3 of the 6 and did not name the
+# other 3 as excluded - not a defensible triage, so all 6 are here now.
+#
+# SCOPED DELIBERATELY everywhere else, not a line-for-line replay of the
+# whole file: the git-hook-chatter, dirty-worktree-halt, unmerged-branch,
+# spine-branch-lifecycle, permission-bit and path-quoting assertions above
+# test git/filesystem semantics that run entirely AFTER a repo root is
+# already resolved - none of them touch `_oss_shape_file` or
+# `_oss_repo_root`, so they behave identically regardless of manifest source
+# and duplicating them here would prove nothing new (task-11-report.md's
+# triage names the same reasoning for the files this task excludes
+# wholesale).
 # ===========================================================================
 TWT="$(mktemp -d)"
 mkdir -p "$TWT/ws/.ossify" "$TWT/svcA" "$TWT/svcB"
@@ -759,6 +772,21 @@ t_assert_eq "$TWT/svcA" "$T_OUT" "topology twin: svcA repo root resolves"
 t_capture _oss_repo_root nonsense
 t_assert_rc 2 "topology twin: an unknown repo key is rc 2"
 
+# State minted BEFORE any worktree touches the filesystem, so the very next
+# check - orphans against a repo whose .worktrees/ does not exist yet - is
+# genuine, not incidentally true because state itself is absent.
+TWS="$TWT/ws/.ossify/project-state.json"
+oss_state_init "$TWS" "topology-twin" >/dev/null
+TWREL="$(oss_entity_add_release "$TWS" "twin-rel" "a goal")"
+TWSPN="$(oss_entity_add_spine "$TWS" "$TWREL" "twin-spine" flesh svcA)"
+TWWI_A="$(oss_entity_add_work_item "$TWS" "$TWSPN" "svcA item" svcA)"
+TWWI_B="$(oss_entity_add_work_item "$TWS" "$TWSPN" "svcB item" svcB)"
+
+# (0) No `.worktrees` directory at all is not a finding.
+t_capture oss_worktree_orphans svcA "$TWS"
+t_assert_rc 0 "topology twin: a repo with no .worktrees dir at all is rc 0"
+t_assert_eq "" "$T_OUT" "topology twin: no .worktrees dir reports nothing"
+
 t_capture oss_worktree_add svcA t0.s1.w1 "first-ticket" HEAD
 t_assert_rc 0 "topology twin: worktree_add ok"
 TWA="$T_OUT"
@@ -771,19 +799,11 @@ t_assert_rc 0 "topology twin: dispatcher worktree_add ok on the second repo"
 TWB="$T_OUT"
 t_assert_eq "$TWT/svcB/.worktrees/t0.s1.w2" "$TWB" "topology twin: the second repo's worktree lands under ITS OWN root, not svcA's"
 
-# Both worktrees above are claimed by NOTHING in state (no state file exists
-# yet) - clean them before the orphan-scoping section below, which starts
-# from an empty .worktrees/ on both repos and asserts exact output sets.
+# Both worktrees above are claimed by NOTHING TWWI_A/TWWI_B carry (different
+# ids) - clean them before the orphan-scoping arms below, which start from
+# an empty .worktrees/ on svcA and assert exact output sets.
 git -C "$TWT/svcA" worktree remove --force "$TWA" >/dev/null 2>&1
 git -C "$TWT/svcB" worktree remove --force "$TWB" >/dev/null 2>&1
-
-# Orphan scoping - the actual multi-canonical feature. Its own state file.
-TWS="$TWT/ws/.ossify/project-state.json"
-oss_state_init "$TWS" "topology-twin" >/dev/null
-TWREL="$(oss_entity_add_release "$TWS" "twin-rel" "a goal")"
-TWSPN="$(oss_entity_add_spine "$TWS" "$TWREL" "twin-spine" flesh svcA)"
-TWWI_A="$(oss_entity_add_work_item "$TWS" "$TWSPN" "svcA item" svcA)"
-TWWI_B="$(oss_entity_add_work_item "$TWS" "$TWSPN" "svcB item" svcB)"
 
 # (a) a spawned-but-not-yet-journaled worktree is claimed by its work item's id.
 oss_worktree_add svcA "$TWWI_A" "svcA-slug" HEAD >/dev/null
@@ -794,7 +814,19 @@ t_assert_eq "" "$T_OUT" "topology twin: a spawned-but-not-yet-journaled worktree
 mkdir -p "$TWT/svcA/.worktrees/x9.s9.w9"
 t_capture oss_worktree_orphans svcA "$TWS"
 t_assert_eq "$TWT/svcA/.worktrees/x9.s9.w9" "$T_OUT" "topology twin: an unclaimed directory under svcA is reported"
-rm -rf "$TWT/svcA/.worktrees/x9.s9.w9"
+
+# (d) the DISJOINT claim path: a directory whose basename is NOT a work-item
+# id, claimed because a work item's journaled worktree_path IS it. x9.s9.w9
+# from (b) stays present and stays reported - proving the path arm silences
+# only hand-named-dir, not everything (drop the path arm and this assertion
+# is the one that goes red while (a) stays green - the two arms cover
+# disjoint failures, same as the legacy pair).
+mkdir -p "$TWT/svcA/.worktrees/hand-named-dir"
+oss_entity_set_work_item_exec "$TWS" "$TWWI_A" "work/$TWWI_A-svcA-slug" \
+  "$TWT/svcA/.worktrees/hand-named-dir" "$(git -C "$TWT/svcA" rev-parse HEAD)" >/dev/null
+t_capture oss_worktree_orphans svcA "$TWS"
+t_assert_eq "$TWT/svcA/.worktrees/x9.s9.w9" "$T_OUT" "topology twin: a dir claimed by a journaled worktree_path is not reported"
+rm -rf "$TWT/svcA/.worktrees/x9.s9.w9" "$TWT/svcA/.worktrees/hand-named-dir"
 
 # (c) cross-repo non-attribution: an svcB work item's id must NOT claim a
 # same-named directory that happens to sit under svcA's root.
@@ -802,6 +834,15 @@ mkdir -p "$TWT/svcA/.worktrees/$TWWI_B"
 t_capture oss_worktree_orphans svcA "$TWS"
 t_assert_eq "$TWT/svcA/.worktrees/$TWWI_B" "$T_OUT" "topology twin: an svcB work item does NOT claim an svcA-rooted directory of the same id"
 rm -rf "$TWT/svcA/.worktrees/$TWWI_B"
+
+# (e) dispatcher-path - bin/oss runs `set -euo pipefail`; every arm above
+# only sourced the lib. The unmatched-glob guard and the `jq -e || printf`
+# pair are both shapes that behave differently under strict mode.
+mkdir -p "$TWT/svcA/.worktrees/x9.s9.w9"
+t_capture "$OSS" worktree_orphans svcA "$TWS"
+t_assert_rc 0 "topology twin: dispatcher worktree_orphans under strict mode is rc 0"
+t_assert_eq "$TWT/svcA/.worktrees/x9.s9.w9" "$T_OUT" "topology twin: dispatcher worktree_orphans reports the same single orphan"
+rm -rf "$TWT/svcA/.worktrees/x9.s9.w9"
 
 # An unconfigured repo key must not degrade to a silent guess.
 t_capture oss_worktree_orphans svcC "$TWS"
