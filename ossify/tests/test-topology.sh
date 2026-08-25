@@ -3,6 +3,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/harness.sh"
 . "$HERE/../lib/manifest.sh"
 . "$HERE/../lib/worktree.sh"
+. "$HERE/../lib/commands.sh"
 TMP="$(mktemp -d)"
 
 # --- topology discovery wins; pairing still discovered alone ---
@@ -188,6 +189,24 @@ cd "$TMP/ws"
 t_capture oss_manifest_state_path
 t_assert_rc 1 "a declared-but-empty repo root leaves its token in place, not substituted to empty"
 t_assert_contains "$T_OUT" "unresolved" "guard names it unresolved rather than manufacturing a root-anchored path"
+cd "$HERE"
+
+# --- sole-repo default: any name resolves; N>1 refuses listing ---
+cat > "$TMP/ws/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"core":{"root":"$TMP/core"}},"well_known_paths":{}}
+JSON
+cd "$TMP/ws"
+t_capture _oss_repo_root ""            # unset key
+t_assert_rc 0 "unset key resolves the sole repo"
+t_assert_eq "$TMP/core" "$T_OUT" "sole repo root, whatever its name"
+cat > "$TMP/ws/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"core":{"root":"$TMP/core"},"ui":{"root":"$TMP/ui"}},"well_known_paths":{}}
+JSON
+t_capture _oss_repo_root ""
+t_assert_rc 2 "unset key with N>1 refuses"
+t_assert_contains "$T_OUT" "core, ui" "refusal lists both"
+t_capture oss_cmd_repo_root            # dispatcher default
+t_assert_rc 2 "dispatcher default refuses under N>1"
 cd "$HERE"
 
 t_summary

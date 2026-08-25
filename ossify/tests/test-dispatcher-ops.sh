@@ -24,6 +24,23 @@ t_capture oss_cmd_get '.project.overlay_wiring'; t_assert_eq '$PULSE_PROMPT_DIR'
 
 t_capture oss_cmd_release_add "Skeleton" "core loop usable"
 t_assert_eq "r0" "$T_OUT" "release via wrapper mints r0"
+
+# #272/#310 Task 4: an omitted target_repo now routes through
+# _oss_default_repo_key, which needs a discoverable manifest even when
+# OSS_STATE_FILE pins the state path directly - a bare temp dir with no
+# manifest on the walk-up path used to be enough (the old default was a
+# literal `canonical`, never a lookup). well_known_paths.project_state is
+# pinned to the SAME path as OSS_STATE_FILE so _oss_resolve_state's
+# override-notice never fires and stays out of captured stdout below. Scoped
+# to just the calls below that need it - "manifest_require refuses with no
+# manifest on the walk-up path" further down needs the OPPOSITE, so this
+# fixture is deliberately NOT installed at the top of the block.
+mkdir -p "$TMP/.ossify"
+cat > "$TMP/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"canonical":{"root":"$TMP/canon"}},"well_known_paths":{"project_state":"$OSS_STATE_FILE"}}
+JSON
+cd "$TMP"
+
 t_capture oss_cmd_spine_add r0 "walking skeleton" bone
 t_assert_eq "r0.s1" "$T_OUT" "spine via wrapper (default target_repo)"
 t_capture oss_cmd_get '.spines[0].target_repo'; t_assert_eq "canonical" "$T_OUT" "spine wrapper defaults target_repo to canonical"
@@ -55,7 +72,10 @@ t_assert_eq "other-project" "$T_OUT" "get honors an explicit state-file argument
 t_capture "$OSS" get '.project.name'
 t_assert_eq "wrapper-demo" "$T_OUT" "get with no argument still resolves via the env/manifest"
 
-# manifest verbs are reachable through the dispatcher at all.
+# manifest verbs are reachable through the dispatcher at all. Deliberately back
+# in $HERE, which the fixture above never touched - this assertion's whole
+# point is the ABSENCE of a manifest on the walk-up path.
+cd "$HERE"
 t_capture "$OSS" manifest_require
 t_assert_rc 1 "manifest_require refuses with no manifest on the walk-up path"
 
@@ -76,6 +96,11 @@ t_assert_eq "docs/specs/r0/r0.s1-order-ticket" "$T_OUT" "spine dir grammar"
 # own fresh state file so it doesn't perturb the id/counter sequence the
 # assertions above depend on.
 DTMP="$(mktemp -d)"; export OSS_STATE_FILE="$DTMP/state.json"
+mkdir -p "$DTMP/.ossify"
+cat > "$DTMP/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"canonical":{"root":"$DTMP/canon"}},"well_known_paths":{"project_state":"$OSS_STATE_FILE"}}
+JSON
+cd "$DTMP"
 
 t_capture "$OSS" init dispatcher-demo
 t_assert_rc 0 "dispatcher: init ok"
@@ -95,9 +120,11 @@ t_assert_eq "r0" "$T_OUT" "dispatcher: get reads back r0"
 t_capture "$OSS" spine_add r9 ghost flesh
 t_assert_rc 7 "dispatcher: spine_add against unknown release propagates rc 7 (not collapsed) through the real binary"
 
+cd "$HERE"
 unset OSS_STATE_FILE
 rm -rf "$DTMP"
 
+cd "$HERE"
 unset OSS_STATE_FILE
 rm -rf "$TMP"
 
@@ -106,6 +133,11 @@ rm -rf "$TMP"
 # through the REAL dispatcher binary under set -euo pipefail - the coverage
 # added elsewhere for this task only exercises them via sourced lib calls.
 FTMP="$(mktemp -d)"; export OSS_STATE_FILE="$FTMP/state.json"
+mkdir -p "$FTMP/.ossify"
+cat > "$FTMP/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"canonical":{"root":"$FTMP/canon"}},"well_known_paths":{"project_state":"$OSS_STATE_FILE"}}
+JSON
+cd "$FTMP"
 t_capture "$OSS" init fake-status-demo
 t_assert_rc 0 "dispatcher: init ok (quarantine/fake_status block)"
 "$OSS" release_add "Skeleton" "goal" >/dev/null
@@ -126,6 +158,7 @@ t_assert_eq "r2" "$T_OUT" "dispatcher: fake_status renewal reaches state through
 t_capture "$OSS" fake_status "broker" bogus "x"
 t_assert_rc 2 "dispatcher: fake_status rejects a bad enum through the real binary"
 
+cd "$HERE"
 unset OSS_STATE_FILE
 rm -rf "$FTMP"
 

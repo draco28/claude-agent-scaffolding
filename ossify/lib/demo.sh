@@ -2,21 +2,25 @@
 # Cumulative auto-demo runner (spec §6.1 core row). Halt-on-first-fail.
 
 # §6.1 + companion §4.3: the demo runs against the real product build — the
-# composition root when one is declared, canonical otherwise. Resolved ONCE,
-# BEFORE any cd, because oss_manifest_discover walks up from $PWD and every
-# manifest/state read after a cd would otherwise resolve somewhere else.
-# Precedence is EXPLICIT > composition_root > canonical root — the same
-# explicit-beats-derived shape as _oss_resolve_state. The explicit leg is not a
-# convenience: without it this function would require a pairing manifest, and
+# composition root when one is declared, the sole declared repo's root
+# otherwise (#272/#310 Task 4: routed through the sole-repo default rule, not
+# a literal `canonical` - N>1 declared repos refuses rather than guessing).
+# Resolved ONCE, BEFORE any cd, because oss_manifest_discover walks up from
+# $PWD and every manifest/state read after a cd would otherwise resolve
+# somewhere else. Precedence is EXPLICIT > composition_root > sole-declared-repo
+# root — the same explicit-beats-derived shape as _oss_resolve_state. The
+# explicit leg is not a convenience: without it this function would require a
+# pairing manifest, and
 # every existing demo test (test-demo-runner.sh, test-integration.sh) runs
 # against a bare temp state with no manifest on the walk-up path. A
 # manifest-only resolver would break them all, and "fall back to $PWD when there
 # is no manifest" would silently reinstate the very bug this task fixes.
 oss_demo_workdir() { # $1=state-file [$2=explicit-workdir]
-  local sf="$1" explicit="${2:-}" root comp
+  local sf="$1" explicit="${2:-}" root comp dk
   [ -n "$explicit" ] && { printf '%s\n' "$explicit"; return 0; }
   comp="$(jq -r '.project.composition_root // empty' "$sf" 2>/dev/null)" || comp=""
-  root="$(_oss_repo_root canonical)" || return $?
+  dk="$(_oss_default_repo_key)" || return $?
+  root="$(_oss_repo_root "$dk")" || return $?
   if [ -n "$comp" ]; then
     case "$comp" in /*) printf '%s\n' "$comp" ;; *) printf '%s\n' "$root/$comp" ;; esac
   else

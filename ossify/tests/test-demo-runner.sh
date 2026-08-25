@@ -135,6 +135,65 @@ oss_state_mutate "$S" set_composition "$(jq -n --arg c "$TMP/elsewhere" '{compos
 t_capture oss_demo_workdir "$S"
 t_assert_eq "$TMP/elsewhere" "$T_OUT" "an absolute composition_root is used verbatim, not joined onto the canonical root"
 
+# --- #272/#310 Task 4: oss_demo_workdir routes through the sole-repo default
+# rule, not a literal `canonical`. Precedence: explicit > composition_root >
+# sole-declared-repo > refuse listing repos. Two fresh topology fixtures,
+# deliberately NOT $TMP (single-repo "canonical" pairing manifest, which every
+# other assertion in this file depends on) - this block must not perturb it.
+
+# (1) N=1, but the sole repo is NOT named canonical - exactly the case the OLD
+# literal default could never resolve (it always looked up "canonical" by
+# name, so a workspace whose only repo was named something else refused even
+# though exactly one candidate existed). This is the direct fix this task
+# ships, and a fixture the old code would have refused (RED against the old
+# body: `_oss_repo_root canonical` fails because "core", not "canonical", is
+# declared).
+TMP3="$(mktemp -d)"
+mkdir -p "$TMP3/.ossify"
+cat > "$TMP3/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"core":{"root":"$TMP3/core"}},"well_known_paths":{}}
+JSON
+S3="$TMP3/state.json"; echo '{}' > "$S3"
+cd "$TMP3"
+t_capture oss_demo_workdir "$S3"
+t_assert_rc 0 "sole repo resolves even when it is not literally named canonical"
+t_assert_eq "$TMP3/core" "$T_OUT" "workdir is the sole declared repo's root"
+
+t_capture oss_demo_workdir "$S3" "$TMP3/explicit-wd"
+t_assert_rc 0 "explicit workdir still wins ahead of the default-repo tier"
+t_assert_eq "$TMP3/explicit-wd" "$T_OUT" "explicit workdir echoed verbatim, no repo resolution attempted"
+cd "$TMP"
+rm -rf "$TMP3"
+
+# (2) N>1, and one of the declared repos IS literally named canonical - the
+# fail-safe case this task exists for. The OLD literal default resolved this
+# SILENTLY (canonical happened to be declared, so it "worked" while ignoring
+# the sibling repo entirely - precisely the wrong-repo risk #272/#310 names).
+# The new rule must refuse rather than pick, even with an ABSOLUTE
+# composition_root set: oss_demo_workdir computes the default repo key
+# UNCONDITIONALLY, before ever inspecting composition_root (see its body in
+# lib/demo.sh) - so N>1 refuses regardless of what composition_root holds.
+# Both assertions are RED against the old body: `_oss_repo_root canonical`
+# SUCCEEDS here (a repo named canonical is declared), so the old code returns
+# rc 0 in both cases - the silent wrong-repo pick this task closes.
+TMP4="$(mktemp -d)"
+mkdir -p "$TMP4/.ossify"
+cat > "$TMP4/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"canonical":{"root":"$TMP4/canon"},"ui":{"root":"$TMP4/ui"}},"well_known_paths":{}}
+JSON
+S4="$TMP4/state.json"; echo '{}' > "$S4"
+cd "$TMP4"
+t_capture oss_demo_workdir "$S4"
+t_assert_rc 2 "N>1 refuses even though one declared repo is literally named canonical (no silent pick)"
+t_assert_contains "$T_OUT" "canonical, ui" "refusal lists both declared repos"
+
+jq -n --arg c "$TMP4/abs-comp" '{project:{composition_root:$c}}' > "$S4"
+t_capture oss_demo_workdir "$S4"
+t_assert_rc 2 "an absolute composition_root does not rescue N>1: the default-repo key is computed unconditionally"
+t_assert_contains "$T_OUT" "canonical, ui" "same refusal, same listing"
+cd "$TMP"
+rm -rf "$TMP4"
+
 # Clear it back to unset so the rest of this file's explicit-workdir calls
 # keep resolving against $TMP/canon as they did before this sub-block.
 oss_state_mutate "$S" set_composition "$(jq -n '{composition_root:null}')" >/dev/null

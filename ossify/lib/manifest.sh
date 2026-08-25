@@ -89,6 +89,21 @@ _oss_shape_file() { # discover + shape ; emits a diagnostic and returns 1 whethe
   _oss_topology_shape "$m" || { echo "oss: manifest '$m' could not be parsed as JSON" >&2; return 1; }
 }
 
+# The default repo when a caller omits the key: the SOLE declared repo when
+# exactly one is declared; a listing refusal otherwise. Fail-safe by design -
+# with N>1 an unset target must refuse, never silently pick (spec section 3).
+_oss_default_repo_key() {
+  local shape keys
+  shape="$(_oss_shape_file)" || return 1
+  keys="$(printf '%s' "$shape" | jq -r '.repos | keys[]')"
+  if [ "$(printf '%s\n' "$keys" | grep -c .)" -eq 1 ]; then
+    printf '%s\n' "$keys"
+  else
+    echo "oss: no repo key given and [$(printf '%s' "$shape" | jq -r '.repos | keys | join(", ")')] are declared - name one" >&2
+    return 2
+  fi
+}
+
 # Read a jq expression from the discovered manifest. rc 1 if no manifest / null.
 oss_manifest_get() { # $1=jq-expr
   local expr="$1" manifest out

@@ -9,7 +9,8 @@
 # every call site and every path-shape assertion in this file.
 
 _oss_repo_root() { # $1=repo-key
-  local key="${1:-}" root shape
+  local key root shape
+  if [ -z "${1:-}" ]; then key="$(_oss_default_repo_key)" || return $?; else key="$1"; fi
   shape="$(_oss_shape_file)" || return 1
   if [ "$key" = "ai_workspace" ]; then
     root="$(printf '%s' "$shape" | jq -r '.workspace // empty')"
@@ -159,7 +160,8 @@ oss_worktree_resolve() { # $1=repo-key $2=work-item-id
 # polarity, which close/SKILL.md §7 already lists as a trap for exactly this
 # reason.
 oss_worktree_orphans() { # $1=repo-key [$2=state-file] ; echoes one abs path per orphan
-  local key="${1:-canonical}" root sf dir path
+  local key root sf dir path default_key
+  if [ -z "${1:-}" ]; then key="$(_oss_default_repo_key)" || return $?; else key="$1"; fi
   root="$(_oss_repo_root "$key")" || return $?
   sf="$(_oss_resolve_state "${2:-}")" || return $?
   [ -f "$sf" ] || { echo "oss: state file not found at $sf" >&2; return 1; }
@@ -283,9 +285,29 @@ oss_worktree_orphans() { # $1=repo-key [$2=state-file] ; echoes one abs path per
   # `canonical/.worktrees/r0.s1.w1` look claimed - which suppresses exactly the
   # wrong-repository directory the repo-key design exists to expose, and in the
   # worst case leaves private work sitting under the public canonical root.
-  # Items predating the field default to `canonical`, matching how
-  # `oss_cmd_work_item_add` defaults it. (Codex P2, PR #149 rounds 1-4.)
-  printf '%s\n' "${cands[@]}" | jq -R -s -r --arg k "$key" --slurpfile st "$sf" '
+  # Items predating the field default to the sole-repo default rule's answer,
+  # matching how `oss_cmd_work_item_add` defaults it (#272/#310 Task 4 - was a
+  # literal `canonical`).
+  #
+  # LAZY, deliberately: `default_key` is only needed when some record actually
+  # lacks `target_repo` - never, for anything written since #272/#310 Task 4,
+  # because `oss_entity_add_work_item` now always fills the field (explicit or
+  # resolved). Computing it UNCONDITIONALLY would make every orphan check
+  # refuse outright under N>1 declared repos, even one scoped to a perfectly
+  # valid EXPLICIT key with no legacy record in sight - the declared-membership
+  # check above already proved `$key` is real; ambiguity in the DEFAULT must
+  # not veto a call that never asked for the default. (Measured: this broke
+  # `private_core`-scoped orphan detection under the two-repo PRIV/QRT fixtures
+  # in test-worktree.sh when implemented as the brief's literal unconditional
+  # precompute - fixed here rather than left broken.)
+  local needs_default
+  needs_default="$(jq -r '([.work_items[]? | select(.target_repo == null)] | length) > 0' "$sf" 2>/dev/null)" || needs_default=true
+  if [ "$needs_default" = "true" ]; then
+    default_key="$(_oss_default_repo_key)" || return $?
+  else
+    default_key=""
+  fi
+  printf '%s\n' "${cands[@]}" | jq -R -s -r --arg k "$key" --arg dk "$default_key" --slurpfile st "$sf" '
       ($st[0].work_items // []) as $all
       | (if ($all | type) != "array" then
            error(".work_items is not an array")
@@ -297,7 +319,7 @@ oss_worktree_orphans() { # $1=repo-key [$2=state-file] ; echoes one abs path per
                or (.worktree_path != null and (.worktree_path | type) != "string"))) then
            error(".work_items holds a record whose id, target_repo or worktree_path is not a string")
          else . end)
-      | ($all | map(select((.target_repo // "canonical") == $k))) as $mine
+      | ($all | map(select((.target_repo // $dk) == $k))) as $mine
       | split("\n") | map(select(length > 0))
       | map(select(
           . as $p
