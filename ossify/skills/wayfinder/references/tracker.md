@@ -57,7 +57,7 @@ forms:
 {"tracker": "github:owner/repo"}
 ```
 
-`github:owner/repo` is the only form 1.2.0 accepts. Branch 3 writes
+`github:owner/repo` is the only form 1.3.0 accepts. Branch 3 writes
 **exactly this key name** — a session that invents
 its own leaves a dotfile the next session cannot read, which orphans every
 map on it just as surely as the silent tracker switch branch 0 exists to
