@@ -177,8 +177,10 @@ filename), its **target file**, and its **text** (verbatim; a §6 edit means the
 user's words, not yours).
 
 **Where the bank is — this paragraph is the only copy; other surfaces route
-here.** Read the pairing manifest (walk up from the cwd to
-`.workspace/pairing.json`) and take `.well_known_paths.memory_bank`. The value
+here.** Read the manifest — walk up from the cwd for `.ossify/topology.json`
+first, then `.workspace/pairing.json` if no topology file is found (the same
+order `oss_topology_discover` resolves through, `lib/manifest.sh`) — and take
+`.well_known_paths.memory_bank`. The value
 workspace-init writes is TOKEN form — `${ai_workspace.root}/.claude/memory-bank`
 — and the route vocabulary is exactly the four tokens `_oss_manifest_resolve`
 (lib/manifest.sh) substitutes: `${ai_workspace.root}` and `${canonical.root}`
