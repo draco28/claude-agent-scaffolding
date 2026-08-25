@@ -70,10 +70,11 @@ _oss_topology_shape() { # $1=manifest-path ; echoes shape JSON ; rc 1 unparseabl
   esac
 }
 
-_oss_shape_file() { # discover + shape ; emits the refusal on rc 1
+_oss_shape_file() { # discover + shape ; emits a diagnostic and returns 1 whether nothing
+                     # was found (the refusal) or a manifest was found but failed to parse
   local m
   m="$(oss_topology_discover)" || { echo "oss: $OSS_MANIFEST_REFUSAL" >&2; return 1; }
-  _oss_topology_shape "$m"
+  _oss_topology_shape "$m" || { echo "oss: manifest '$m' could not be parsed as JSON" >&2; return 1; }
 }
 
 # Read a jq expression from the discovered manifest. rc 1 if no manifest / null.

@@ -25,6 +25,35 @@ t_capture oss_topology_discover
 t_assert_rc 1 "neither file -> rc 1"
 cd "$HERE"
 
+# --- topology wins regardless of which is nearer, on the SAME walk-up chain ---
+# The contract is "topology wins when both exist ANYWHERE on the walk-up", not
+# "whichever is closer to $PWD". Two orderings, both must resolve to topology.
+mkdir -p "$TMP/mix1/.workspace" "$TMP/mix1/inner/.ossify" "$TMP/mix1/inner/sub"
+cat > "$TMP/mix1/.workspace/pairing.json" <<JSON
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP/mix1"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{}}
+JSON
+cat > "$TMP/mix1/inner/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"core":{"root":"$TMP/core"}},"well_known_paths":{}}
+JSON
+cd "$TMP/mix1/inner/sub"
+t_capture oss_topology_discover
+t_assert_rc 0 "topology nearer than pairing: discovered"
+t_assert_eq "$TMP/mix1/inner/.ossify/topology.json" "$T_OUT" "topology nearer than pairing: topology wins"
+cd "$HERE"
+
+mkdir -p "$TMP/mix2/.ossify" "$TMP/mix2/inner/.workspace" "$TMP/mix2/inner/sub"
+cat > "$TMP/mix2/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"core":{"root":"$TMP/core"}},"well_known_paths":{}}
+JSON
+cat > "$TMP/mix2/inner/.workspace/pairing.json" <<JSON
+{"schema_version":"1.0","ai_workspace":{"root":"$TMP/mix2/inner"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{}}
+JSON
+cd "$TMP/mix2/inner/sub"
+t_capture oss_topology_discover
+t_assert_rc 0 "pairing nearer than topology: discovered"
+t_assert_eq "$TMP/mix2/.ossify/topology.json" "$T_OUT" "pairing nearer than topology: topology STILL wins"
+cd "$HERE"
+
 # --- the internal shape, from both sources ---
 cd "$TMP/ws"
 t_capture _oss_shape_file
@@ -51,6 +80,26 @@ cd "$TMP/legacy"
 t_capture _oss_shape_file
 t_assert_contains "$T_OUT" '"tooling_repo"' "tooling_repo becomes a declared repo"
 case "$T_OUT" in *'"routing"'*) t_assert_eq "absent" "present" "routing is NOT a repo (no .root)";; *) t_assert_rc 0 "non-root keys are not repos";; esac
+cd "$HERE"
+
+# --- malformed manifest: found but unparseable must fail LOUD, not silent ---
+# Regression guard: at the base commit, a malformed pairing.json (missing
+# ai_workspace.root) still printed a diagnostic to stderr. _oss_shape_file must
+# not regress that to a silent rc 1 for either source.
+mkdir -p "$TMP/badtopo/.ossify"
+printf '{not valid json' > "$TMP/badtopo/.ossify/topology.json"
+cd "$TMP/badtopo"
+t_capture _oss_shape_file
+t_assert_rc 1 "malformed topology.json refused"
+t_assert_contains "$T_OUT" "could not be parsed" "malformed topology.json: stderr names the parse failure"
+cd "$HERE"
+
+mkdir -p "$TMP/badpair/.workspace"
+printf '{not valid json' > "$TMP/badpair/.workspace/pairing.json"
+cd "$TMP/badpair"
+t_capture oss_manifest_state_path
+t_assert_rc 1 "malformed pairing.json refused via state_path (the function skills call)"
+t_assert_contains "$T_OUT" "could not be parsed" "malformed pairing.json: stderr names the parse failure"
 cd "$HERE"
 
 # --- refusal: old tokens stay, new remedy added ---
