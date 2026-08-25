@@ -61,18 +61,19 @@ slice close, then re-run — never "clean your tree", which fixes a symptom.
   adoption would mint into another project's state while A1/A2 inspected
   this one. Unset it and re-run (same guard as plan-release §3).
 - **A1 — topology declaration resolves.** `oss state_path` (probe; refuse
-  exactly as `/start` §3's topology probe does — refusal text verbatim,
-  load-bearing tokens and all; read it there, never paraphrased).
+  exactly as `/start` §3's topology probe does — verbatim, never paraphrased).
 - **A2 — no ossify state at the routed path.** State exists: already
   onboarded → route to `doctor`, full stop — every `/start` project has
   state and no adoption record, so the record's absence distinguishes
   nothing.
 - **A3 — every tree adoption will edit is clean, tracked and untracked.**
-  Iterate the declared repos read at A1 plus the AI workspace — C5 edits
-  all of them: `git -C "$(oss repo_root <name>)" status --porcelain` each.
-  Any line, in any one, is work in flight; refuse, naming the legacy
-  stack's slice close. Each repo must also be on its own default branch —
-  a parked checkout is refused and named.
+  Sweep every repo the topology declares (A1 only confirms it resolves) plus
+  the AI workspace: `git -C "$(oss repo_root <name>)" status --porcelain`
+  each. Any line, in any one, is work in flight; refuse, naming the legacy
+  stack's slice close. Each declared repo, never the AI workspace, must also
+  be on its default branch — require it where the manifest declares one
+  (`boundary-audit.md`'s own precedent); else name the checked-out branch and
+  get the operator's confirmation before proceeding.
 - **A4 — no live worktrees.** Resolve the legacy worktree directory per
   repo — the manifest's `.during_dev.worktrees_dir`, falling back to
   `<repo-root>/.worktrees` — then `find <dir> -mindepth 1 -maxdepth 1` per
@@ -130,8 +131,8 @@ as `/start` §5 does; `shipped` steps are the baseline, not candidates.
 `/start` §6's read-back is unanswerable here: the cut it names already shipped.
 The answerable form is **§6's own clean-checkout test, in the present tense**:
 
-> From a clean checkout at `<baseline-sha>`, a `<actor>` can `<action>` and
-> `<outcome>`.
+> From a clean checkout of every declared repo at its own baseline SHA, a
+> `<actor>` can `<action>` and `<outcome>`.
 
 The current cut is the union of the `shipped` journey steps. Validating it is
 the one place to be slow — it is the only step that establishes what is
@@ -141,10 +142,9 @@ silent re-mark.
 
 ### C3 — Bones back-derived from every repo's ADR directory, aggregated
 
-1. Scan **each declared repo's** `docs/adr/` with `bones-registry.md` §3's
-   scan — already conversion-correct across filename forms and gapped
-   series; use it, do not rewrite it — and aggregate: an ADR anywhere in
-   the product's repos is a decision the registry owes an entry.
+1. Scan **each declared repo's** `docs/adr/` with `bones-registry.md` §3's scan
+   (already conversion-correct; use it, do not rewrite it) and aggregate: any
+   ADR in the product's repos owes the registry an entry.
 2. Map each ADR to one of the nine categories (`/start` §7's checklist).
    Multiple ADRs may share a category; a category may have none.
 3. Mint each: `oss bone_add "<ADR-ref>" "<title>" "<touch-glob-csv>" "<revisit

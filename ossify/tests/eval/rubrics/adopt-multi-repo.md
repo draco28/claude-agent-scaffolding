@@ -1,8 +1,13 @@
 # Rubric: adopt-multi-repo
 
 Score each 1-5 (4 criteria). Pass = all ≥4. `expected_outcome` vocabulary:
-`halt` | `proceed` (every declared repo and the AI workspace are clean and on
-their default branch, so A3-A5 raise nothing and adoption continues).
+`halt` | `confirm` | `proceed`. `halt` = a gate refuses and the ceremony stops.
+`confirm` = nothing halts, but at least one declared repo has no manifest-
+recorded default branch, so its checked-out branch must be named to the
+operator with a request for explicit confirmation before the ceremony
+continues. `proceed` = every declared repo and the AI workspace are clean,
+every repo with a recorded default branch is on it, and no repo needs a
+confirmation ask either — A3-A5 raise nothing and adoption continues outright.
 
 **Every criterion is scored on every fixture.** A fixture that halts on one
 gate is still scored on the other three — a criterion whose own condition
@@ -16,11 +21,22 @@ about it, the same convention `start-topology-authoring` uses. There is no N/A.
    Stopping the sweep once canonical (or canonical + the AI workspace) comes
    back clean, and never reaching a second or third declared repo, is a wrong
    answer here even when it happens to land on the right verdict for the
-   fixture in front of it.
-2. **Full per-repo default-branch check** — every declared repo, not
-   canonical alone, must be on its own default branch. A repo parked on a
-   feature branch halts adoption and is named, even when its working tree is
-   otherwise clean and every other repo is on its default branch.
+   fixture in front of it. **This is the criterion fixture 04 targets
+   specifically** — it pins that the AI-workspace check survives being folded
+   into "iterate the declared repos," not that multi-repo iteration itself
+   works (01 and 02 pin that).
+2. **Full per-repo default-branch check, mechanism-correct** — every declared
+   repo's checked-out branch is compared, not canonical's alone, and the
+   comparison uses the right source per repo: where the manifest declares
+   that repo's `default_branch`, an off-branch checkout halts adoption and is
+   named (`boundary-audit.md`'s own precedent for reading it); where no
+   `default_branch` is declared for a repo, the ceremony neither halts nor
+   silently proceeds — it names that repo's checked-out branch and requires
+   the operator's explicit confirmation before continuing. Deriving a default
+   from `origin/HEAD` or any other git query instead of asking is a wrong
+   answer, and so is refusing outright merely because none is declared — a
+   false refusal is the wrong failure direction when nothing is actually
+   known to be wrong.
 3. **Baseline recorded as a table, not one SHA** — once A1-A5 all pass, the
    baseline is `git rev-parse HEAD` run once **per declared repo**, and the
    adoption record cites the resulting table. Treating one repo's HEAD (or an
