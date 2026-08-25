@@ -49,17 +49,22 @@ amended-not-re-authored retro, the re-run walkthrough); read it before you halt.
 
 ## 2. The repo set, and the visibility gate
 
-**Build the repo set from every repository object the manifest carries, not
-from a fixed list of roles** — walk up from the cwd for `.ossify/topology.json`
+**Build the repo set from `ai_workspace` plus every declared repo the
+manifest carries, not from a fixed list of roles** — walk up from the cwd
+for `.ossify/topology.json`
 **first**, then `.workspace/pairing.json` if no topology file is found — the
 same order `oss_topology_discover` resolves through (`lib/manifest.sh`),
 which every `oss repo_root`/`oss state_path` call this file makes already
 routes on, so stopping this walk at one manifest kind would desync the
-enumeration below from what those calls actually resolve — and take every
-declared repo: under a native topology, every key in `.repos`; under a
-legacy pairing manifest, every top-level object that carries a `root`: the
-canonical (`oss repo_root canonical`, when a project names one that), the AI
-workspace (`oss repo_root ai_workspace`),
+enumeration below from what those calls actually resolve. `ai_workspace` is
+always in the set — `oss repo_root ai_workspace` resolves it under either
+manifest kind, since it is never a `.repos` member itself (the topology arm
+never assigns it there; the pairing arm filters it out). Every OTHER repo is
+a declared repo, taken:
+under a native topology, from every key in `.repos`; under a
+legacy pairing manifest, from every top-level object that carries a `root`
+other than `ai_workspace`: the
+canonical (`oss repo_root canonical`, when a project names one that),
 a `private_core`, and the optional `tooling_repo` workspace-init emits when a
 project volunteers one. Hard-coding three role names is how a public tooling
 repo ends up holding tracked secrets while the release reports clean. A role
