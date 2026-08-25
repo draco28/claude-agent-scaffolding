@@ -717,10 +717,14 @@ for _pair in "$W_GUARD:rev-parse --abbrev-ref" "$W_CUT:checkout -q -b"; do
   fi
 done
 
-# Both blocks OPEN by self-assigning `canonical` from `oss repo_root`, so a
-# caller-injected value is overwritten. Shim the two resolver verbs to point at
-# the scratch repo and delegate everything else to the real dispatcher.
-_wshim() { # $1=dir-to-return $2=spine-branch $3=wi-branch $4=shim-dir
+# Both blocks resolve `canonical` via `oss repo_root`, so a caller-injected
+# value is overwritten. Shim the resolver verbs to point at the scratch repo
+# and delegate everything else to the real dispatcher. $3 doubles as the `oss
+# get` return for whichever call site is under test: W1's guard reads it as
+# the work item's recorded branch; W2's per-repo loop (round-orchestration.md
+# §2) reads it as the one `target_repo` value to iterate — "canonical" there,
+# so the loop's own `oss repo_root "$repo"` call lands on the first case arm.
+_wshim() { # $1=dir-to-return $2=spine-branch $3=wi-branch-or-repo $4=shim-dir
   mkdir -p "$4"
   { printf '#!/usr/bin/env bash\ncase "$1 $2" in\n'
     printf '  "repo_root canonical") echo %s ;;\n' "$1"
@@ -779,7 +783,10 @@ git -C "$W2" checkout -q -b w2-parked
 echo parked > "$W2/parked.txt"; git -C "$W2" add parked.txt
 git -C "$W2" commit -qm parked
 W2_PARKED_SHA="$(git -C "$W2" rev-parse w2-parked)"
-_wshim "$W2" "spine/r0.s9-demo" "unused" "$TMP/shim-w2"
+# "canonical" is the value the per-repo loop's `oss get ... | .target_repo`
+# must yield here - the loop calls `oss repo_root "$repo"` on whatever comes
+# back, and only "canonical" resolves through this shim's first case arm.
+_wshim "$W2" "spine/r0.s9-demo" "canonical" "$TMP/shim-w2"
 # RUN IT WITH NOTHING INJECTED. An earlier revision of this test passed
 # `base_branch=...` into the block, which made it blind to the block not
 # assigning the variable at all - the lane then halted on every fresh run and
@@ -806,7 +813,7 @@ W2C="$TMP/w2c"; mkdir -p "$W2C"; git -C "$W2C" init -q
 git -C "$W2C" config user.email t@t; git -C "$W2C" config user.name t
 echo seed > "$W2C/f"; git -C "$W2C" add .; git -C "$W2C" commit -qm seed
 git -C "$W2C" checkout -q --detach HEAD
-_wshim "$W2C" "spine/r0.s9-demo" "unused" "$TMP/shim-w2c"
+_wshim "$W2C" "spine/r0.s9-demo" "canonical" "$TMP/shim-w2c"
 t_capture env "PATH=$TMP/shim-w2c:$PATH" bash -c "set -euo pipefail; . '$W_CUT'"
 t_assert_rc 1 "W2c: a DETACHED HEAD halts - there is no branch name to record as base_branch"
 t_assert_contains "$T_OUT" "DETACHED HEAD" "W2c: ...naming the condition"
