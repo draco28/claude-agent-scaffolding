@@ -124,17 +124,45 @@ blind spot:
 The read-aloud test above catches the obvious abuse. It does not *establish*
 innocence, and the abuse it misses is the sincere one: an agent that genuinely
 believes the failure is unrelated and is wrong. There is a mechanical check —
-run it from the same workdir the runner resolved (§1; a declared composition
-root when there is one — the block below shows the no-composition-root case,
-`$wd` being whatever the sole declared repo's root resolved to):
+run it from the same workdir the runner resolved (§1 — the composition root,
+which is required and absolute once more than one repo is declared, and the sole
+declared repo's root when exactly one is):
 
 ```bash
 # same command, both trees, and diff the OUTPUT before believing the rc
 cmd="$(oss get ".demo_ledger[] | select(.id==\"<line-id>\") | .command")"
 ( cd "$wd" && bash -c "$cmd" ) > /tmp/oss-head.txt 2>&1; echo "head rc=$?"
-git -C "$wd" checkout --detach "$merge_sha^1"
+
+# EVERY hosting repo to its own first parent - not just the one $wd sits in.
+# $wd is the composition ROOT, which may be in any hosting repo or none of the
+# ones this line exercises, and the spine changed every repo $merge_shas names.
+# Detaching one and leaving the rest at post-merge state compares a tree that is
+# half before and half after this spine, and both wrong answers - "already
+# broken" and "this spine broke it" - come back looking like evidence.
+pairs="$(mktemp)"; restore="$(mktemp)"
+printf '%s\n' "$merge_shas" > "$pairs"
+while IFS=: read -r repo sha; do
+  [ -n "$repo" ] || continue
+  root="$(oss repo_root "$repo")" \
+    || { echo "halt: \$merge_shas names undeclared repo '$repo'"; exit 1; }
+  # Record the branch BEFORE detaching. `git checkout -` cannot restore N repos:
+  # it is per-repo and only remembers one step, and a second detach in the same
+  # repo would lose the original.
+  printf '%s\t%s\n' "$root" "$(git -C "$root" rev-parse --abbrev-ref HEAD)" >> "$restore"
+  git -C "$root" checkout --detach "$sha^1" \
+    || { echo "halt: cannot reach $sha^1 in $repo - the comparison is void"; exit 1; }
+done < "$pairs"
+
 ( cd "$wd" && bash -c "$cmd" ) > /tmp/oss-parent.txt 2>&1; echo "parent rc=$?"
-git -C "$wd" checkout -
+
+# Restore every checkout before judging anything. A repo left detached is a
+# close that continues against a tree nobody meant to be on.
+while IFS="$(printf '\t')" read -r root was; do
+  [ -n "$root" ] || continue
+  git -C "$root" checkout -q "$was" \
+    || echo "WARNING: $root is still detached - restore it to '$was' by hand before continuing"
+done < "$restore"
+
 diff /tmp/oss-head.txt /tmp/oss-parent.txt
 ```
 

@@ -74,11 +74,20 @@ slice close, then re-run — never "clean your tree", which fixes a symptom.
   be on its default branch — require it where the manifest declares one
   (`boundary-audit.md`'s own precedent); else name the checked-out branch and
   get the operator's confirmation before proceeding.
-- **A4 — no live worktrees.** Resolve the legacy worktree directory per
-  repo — the manifest's `.during_dev.worktrees_dir`, falling back to
-  `<repo-root>/.worktrees` — then `find <dir> -mindepth 1 -maxdepth 1` per
-  repo: any directory means a slice is open (a plain probe; the oss verb
-  needs the state A2 just forbade).
+- **A4 — no live worktrees.** `.during_dev.worktrees_dir` is a **single global
+  value**, not a per-repo one: workspace-init writes one, typically
+  `${canonical.root}/.worktrees`. Applying it "per repo" resolves that same
+  directory on every iteration, so a live worktree under `private_core` or any
+  other declared repo is never looked at — and A3 still reports clean roots,
+  because `.worktrees/` is locally excluded. Adoption then proceeds over an open
+  legacy slice.
+
+  Expand the routed value once and find which declared repo's root it sits
+  under: **that repo is the only one it addresses.** Probe every other declared
+  repo at `<repo-root>/.worktrees`. A routed value under no declared repo's root
+  is itself a finding — name it, and probe the conventional path everywhere.
+  Then `find <dir> -mindepth 1 -maxdepth 1` per repo: any directory means a
+  slice is open (a plain probe; the oss verb needs the state A2 just forbade).
 - **A5 — legacy position is on a boundary.** The live position is the
   manifest-routed memory bank's `05-active-context.md` cursor (the roadmap
   file is inventory, not position). An active slice there refuses and

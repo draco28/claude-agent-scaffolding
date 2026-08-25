@@ -101,24 +101,49 @@ The `adr-` prefix is **not** cosmetic: it is the form `scaffold-dev`'s ADR skill
 writes (`adr-NNNN-kebab.md`); `scaffold-onboard`'s seed is the unprefixed
 `0001-record-architecture-decisions.md` — which is exactly why the numbering
 scan below reads both forms.
-A project migrating to ossify already has that series, and the whole reason bone
-ADRs live in the repo they concern is to join that repo's existing series
-rather than start a rival one.
+A project migrating to ossify already has that series, and the reason bone ADRs
+live in the repo they concern is that the decision belongs with the code it
+governs — the file joins that repo's directory rather than starting a rival one
+elsewhere. The NUMBER, though, comes from the project-wide sequence below.
 
-**Numbering is per repo:** the next number is the highest existing plus one
-**in that repo's `docs/adr/`**, **counting both
-forms**. Read it, do not guess:
+**Numbering is project-wide, across every declared repo:** the next number is
+the highest existing plus one **anywhere in the project**, **counting both
+forms**. The *file* still lands in the repo the decision concerns — only the
+SEQUENCE is shared. Read it, do not guess:
 
 ```bash
-repo_root="$(oss repo_root "<name>")"; mkdir -p "$repo_root/docs/adr"
-next="$(ls -1 "$repo_root/docs/adr" 2>/dev/null \
-        | sed -n -e 's/^adr-\([0-9][0-9]*\)-.*\.md$/\1/p' \
-                 -e 's/^\([0-9][0-9]*\)-.*\.md$/\1/p' | sort -n | tail -1)"
+# $repos is NOT ambient: one declared repo name per line, the set the topology
+# declares (A1 for /adopt, the journey-map station for /start) - the same
+# convention spine-close.md's $repo_base_branches uses.
+scan="$(mktemp)"
+while IFS= read -r name; do
+  [ -n "$name" ] || continue
+  root="$(oss repo_root "$name")" || exit 1
+  mkdir -p "$root/docs/adr"
+  ls -1 "$root/docs/adr" 2>/dev/null >> "$scan"
+done <<EOF
+$repos
+EOF
+next="$(sed -n -e 's/^adr-\([0-9][0-9]*\)-.*\.md$/\1/p' \
+               -e 's/^\([0-9][0-9]*\)-.*\.md$/\1/p' "$scan" | sort -n | tail -1)"
 printf 'ADR-%04d\n' "$(( 10#${next:-0} + 1 ))"
 ```
 
-Two things this has to get right, and each has already produced a duplicate id:
+**Why project-wide and not per repo.** A bone record stores `adr`, `title` and
+repo-relative touch globs — no repo key — and `touch_check` reports a bare
+`bone <adr>`. With numbering reset in every repo, two repos whose `docs/adr/`
+both start empty each mint `ADR-0001`, and from then on nothing can tell the two
+records apart: not a citation, not a reclassification reason, not a mechanical
+touch hit. A shared sequence keeps the identifier unique by construction, which
+is cheaper than qualifying it everywhere it is read. The cost is that a repo's
+own series gains gaps — a repo may hold ADR-0003 and ADR-0007 and nothing
+between — and that is the intended trade: gaps are legible, collisions are not.
 
+Things this has to get right, each of which has already produced a duplicate id:
+
+- **Every declared repo is scanned, not just the one the ADR lands in.** That is
+  the whole point of the shared sequence; scanning one repo reintroduces the
+  collision this block exists to prevent.
 - **Both filename forms are scanned.** A directory holding `adr-0002-…` matched
   only against `NNNN-…` yields no number at all, so the scan restarts at 1 and
   mints an `ADR-0002` that already exists — duplicating an identifier that bone

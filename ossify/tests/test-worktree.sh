@@ -578,7 +578,11 @@ mkdir -p "$PRIV/canon/.worktrees/legacy-candidate"
 printf '{"work_items":[{"id":"r9.s9.w9"}]}' > "$PRIV/legacy-state.json"
 t_capture oss_worktree_orphans canonical "$PRIV/legacy-state.json"
 t_assert_rc 2 "orphans: a target_repo-less (legacy) work item under N>1 declared repos refuses - no safe default to fall back on"
-t_assert_contains "$T_OUT" "no repo key given" "orphans: the refusal is the sole-repo default rule's own, naming the ambiguity"
+# The refusal used to reuse `_oss_default_repo_key`'s "no repo key given"
+# wording verbatim - on a call that gave one. The rc and the fail-safe rule are
+# unchanged; only the diagnosis is now the legacy records rather than the
+# caller's argument.
+t_assert_contains "$T_OUT" "carry no target_repo" "orphans: the refusal names the legacy records as the ambiguity"
 rm -rf "$PRIV/canon/.worktrees" "$PRIV/legacy-state.json"
 
 # (12c) A CONFIGURED ROOT THAT DOES NOT EXIST HAS NOT BEEN INSPECTED.
@@ -851,6 +855,44 @@ t_assert_rc 2 "topology twin: an unconfigured repo key is rc 2, never a silent f
 
 cd /
 rm -rf "$TWT"
+
+# ===========================================================================
+# LEGACY RECORDS UNDER N>1. Every pre-#272 journal holds work items with no
+# `target_repo` at all. `oss_worktree_orphans` computes a default key to
+# attribute those, and under more than one declared repo `_oss_default_repo_key`
+# refuses. The REFUSAL is correct and deliberate - #272/#310 Task 4's fail-safe
+# rule, pinned by the PRIV fixture below: guessing a repo for an unattributable
+# record is worse than stopping. What was wrong is that it borrowed
+# `_oss_default_repo_key`'s "no repo key given" wording on a call that gave one,
+# sending the caller to re-run with the argument they already passed.
+# ===========================================================================
+LGT="$(mktemp -d)"; mkdir -p "$LGT/ws/.ossify" "$LGT/canon" "$LGT/priv"
+for r in canon priv; do
+  git -C "$LGT/$r" init -q
+  git -C "$LGT/$r" config user.email t@t; git -C "$LGT/$r" config user.name t
+  echo seed > "$LGT/$r/f.txt"; git -C "$LGT/$r" add .; git -C "$LGT/$r" commit -qm seed
+done
+cat > "$LGT/ws/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"canonical":{"root":"$LGT/canon"},"private_core":{"root":"$LGT/priv"}},"well_known_paths":{}}
+JSON
+cd "$LGT/ws"
+LGS="$LGT/state.json"
+oss_state_init "$LGS" legacy-under-n >/dev/null
+LGREL="$(oss_entity_add_release "$LGS" "legacy-rel" "a goal")"
+LGSPN="$(oss_entity_add_spine "$LGS" "$LGREL" "legacy-spine" flesh canonical)"
+# A pre-#272 record: no target_repo key at all, not a null one.
+jq '.work_items += [{"id":"r0.s1.w9","spine":"r0.s1","title":"legacy","status":"planned","created_at":"2026-01-01T00:00:00Z"}]'   "$LGS" > "$LGS.tmp" && mv "$LGS.tmp" "$LGS"
+t_assert_eq "1" "$(jq '[.work_items[] | select(.target_repo == null)] | length' "$LGS")"   "legacy fixture really holds a record with no target_repo - the arm below is otherwise vacuous"
+mkdir -p "$LGT/canon/.worktrees/x9.s9.w9"
+t_capture oss_worktree_orphans canonical "$LGS"
+t_assert_rc 2 "legacy record under N>1 refuses - the spec's fail-safe rule, unchanged"
+t_assert_contains "$T_OUT" "carry no target_repo" "the refusal names the LEGACY RECORDS as the ambiguity"
+t_assert_contains "$T_OUT" "not about the repo key you passed" "and says explicitly that the explicit key was not the problem"
+case "$T_OUT" in
+  *"no repo key given"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: the refusal still says 'no repo key given' on a call that gave one - that message sends the caller to re-run with the argument they already passed";;
+  *) T_PASS=$((T_PASS+1));;
+esac
+cd /; rm -rf "$LGT"
 
 cd /; rm -rf "$QRT" "$TMP"
 t_summary

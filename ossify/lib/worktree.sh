@@ -304,7 +304,16 @@ oss_worktree_orphans() { # $1=repo-key [$2=state-file] ; echoes one abs path per
   local needs_default
   needs_default="$(jq -r '([.work_items[]? | select(.target_repo == null)] | length) > 0' "$sf" 2>/dev/null)" || needs_default=true
   if [ "$needs_default" = "true" ]; then
-    default_key="$(_oss_default_repo_key)" || return $?
+    # The refusal itself is the spec's fail-safe rule (#272/#310 Task 4): a
+    # record predating `target_repo` is genuinely ambiguous under N>1 and
+    # guessing a repo for it is worse than stopping. What was wrong is the
+    # MESSAGE. `_oss_default_repo_key` says "no repo key given" - and here one
+    # WAS given; the ambiguity is in the legacy records, not in the call. A
+    # caller who reads that refusal re-runs with the key they already passed.
+    if ! default_key="$(_oss_default_repo_key 2>/dev/null)"; then
+      echo "oss: $(jq -r '[.work_items[]? | select(.target_repo == null)] | length' "$sf" 2>/dev/null) work item(s) in '$sf' carry no target_repo, and with [$(printf '%s' "$(_oss_shape_file 2>/dev/null)" | jq -r '.repos | keys | join(", ")' 2>/dev/null)] declared there is no safe repo to attribute them to - refusing rather than guessing. This is not about the repo key you passed. Set target_repo on those records (they predate the field) and re-run." >&2
+      return 2
+    fi
   else
     default_key=""
   fi
