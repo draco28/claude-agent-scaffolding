@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# wayfinder tracker resolution (#337) - branch 1's origin normalization,
+# extracted from the shipped prose and executed for real.
+#
+# SCOPE. block-ledger.tsv classified all FOUR of tracker.md's bash blocks as
+# D ("covered by no suite") because three of them are live `gh` API calls
+# with no local fixture path - see the D row this file's own change shrinks
+# from 4 to 3. The ladder block (the one extracted below) is different: `oss
+# repo_root` and `git remote get-url origin` are local, git-only reads, so it
+# is testable without a live GitHub credential or network call.
+#
+# #337 found the gap this file exists to close: the sed pipeline that derives
+# $OWNER_REPO from a live git origin documented three remote spellings (git@,
+# ssh://, plain https) and silently missed a fourth git also produces - https
+# with userinfo, e.g. an authenticated CI remote
+# (https://x-access-token:TOKEN@github.com/owner/repo). None of the three sed
+# rules touched that shape, so $OWNER_REPO came out as the ENTIRE credentialed
+# origin - a secret bound into a variable the reachability guard, branch 4's
+# stop, and branch 0's own stop message all print to the terminal on failure.
+#
+# WHAT THIS FILE DOES NOT COVER. Only branch 1 (an origin is present) is
+# exercised, across all four spellings plus two extra userinfo shapes
+# (bare-token, percent-encoded password). Branch 0's actual conflict-stop
+# (a mismatched .wayfinder.json) and branches 2/3 (no origin - dotfile read)
+# are NOT exercised here; the block is one fenced unit under this ledger's
+# convention (O rows cover a whole block, never a slice), so this row
+# converts the whole ladder block to O while this comment - and the git
+# history at #337 - is the honest record of which paths inside it a real
+# assertion touches. The other three D-blocks (reachability probe, GraphQL
+# frontier query, ticket-label check) are unchanged: still live `gh` calls,
+# still uncovered here, still D.
+#
+# The block is EXTRACTED from the shipped prose via oss_block_extract, never
+# retyped, and run under real `set -euo pipefail` through a PATH-shimmed `oss`
+# that execs the real dispatcher - so the subject under test is the artifact
+# an agent will actually copy-run, not a paraphrase of it.
+HERE="$(cd "$(dirname "$0")" && pwd)"
+. "$HERE/harness.sh"
+. "$HERE/lib/blocks.sh"
+SKILLS="$HERE/../skills"
+OSS="$HERE/../bin/oss"
+TRACKER_MD="$SKILLS/wayfinder/references/tracker.md"
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+LADDER="$TMP/ladder.sh"
+oss_block_extract "$TRACKER_MD" 'oss repo_root ai_workspace' "$LADDER"
+if [ -s "$LADDER" ] && grep -Fq 'oss repo_root ai_workspace' "$LADDER"; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract the tracker ladder block - every assertion below is vacuous"
+fi
+
+# A real `oss` on PATH, so the block's bare `oss repo_root ai_workspace` call
+# resolves through the actual dispatcher rather than needing a rewrite.
+SHIM="$TMP/shim"
+mkdir -p "$SHIM"
+printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "$OSS" > "$SHIM/oss"
+chmod +x "$SHIM/oss"
+
+# Fixture AI workspace: a real git repo (the block reads git, never the
+# manifest, for the origin) with a pairing.json so "oss repo_root
+# ai_workspace" resolves to it, and deliberately NO .wayfinder.json - branch
+# 0's conflict check must stay inert so the ladder falls straight through to
+# whatever $OWNER_REPO the sed pipeline under test derives.
+WS="$TMP/ws"
+mkdir -p "$WS/.workspace"
+cat > "$WS/.workspace/pairing.json" <<JSON
+{"schema_version":"1.0","ai_workspace":{"root":"$WS"},"canonical":{"root":"$TMP/canon"},"well_known_paths":{}}
+JSON
+git -C "$WS" init -q
+git -C "$WS" config user.email t@t
+git -C "$WS" config user.name t
+
+_run_ladder() { # $1=origin ; sets T_OUT to "$OWNER_REPO $OWNER $REPO", T_RC to the block's rc
+  git -C "$WS" remote remove origin >/dev/null 2>&1 || true
+  git -C "$WS" remote add origin "$1"
+  t_capture env "PATH=$SHIM:$PATH" bash -c "cd '$WS' && set -euo pipefail && . '$LADDER' && printf '%s %s %s' \"\$OWNER_REPO\" \"\$OWNER\" \"\$REPO\""
+}
+
+# The three spellings the prose already claimed - unchanged behaviour, proving
+# the fix does not regress the cases it already handled.
+_run_ladder "git@github.com:acme/repo.git"
+t_assert_rc 0 "scp-style origin: ladder runs clean"
+t_assert_eq "acme/repo acme repo" "$T_OUT" "scp-style origin normalizes to acme/repo"
+
+_run_ladder "ssh://git@github.com/acme/repo.git"
+t_assert_rc 0 "ssh:// origin: ladder runs clean"
+t_assert_eq "acme/repo acme repo" "$T_OUT" "ssh:// origin normalizes to acme/repo"
+
+_run_ladder "https://github.com/acme/repo.git"
+t_assert_rc 0 "plain https origin: ladder runs clean"
+t_assert_eq "acme/repo acme repo" "$T_OUT" "plain https origin normalizes to acme/repo"
+
+# #337 - the fourth spelling: userinfo between scheme and host on an
+# authenticated HTTPS remote. Pre-fix, none of the three sed rules match this
+# shape, so $OWNER_REPO comes out as the entire credentialed origin string.
+_run_ladder "https://x-access-token:ghs_faketoken123@github.com/acme/repo.git"
+t_assert_rc 0 "credentialed https origin: ladder runs clean"
+t_assert_eq "acme/repo acme repo" "$T_OUT" "credentialed https origin strips the userinfo, not just the .git suffix"
+if printf '%s' "$T_OUT" | grep -q 'ghs_faketoken123'; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: the token survived into \$OWNER_REPO/\$OWNER/\$REPO - #337 regressed"
+else
+  T_PASS=$((T_PASS+1))
+fi
+
+# Two more userinfo shapes: a bare token with no colon/password, and a
+# percent-encoded password (the encoded %40 must not be mistaken for the
+# userinfo-terminating @ and over-match into the host).
+_run_ladder "https://TOKEN@github.com/acme/repo.git"
+t_assert_eq "acme/repo acme repo" "$T_OUT" "bare-token (no colon) userinfo also stripped"
+
+_run_ladder "https://user:p%40ss@github.com/acme/repo.git"
+t_assert_eq "acme/repo acme repo" "$T_OUT" "percent-encoded password in userinfo stripped without over-matching"
+
+t_summary

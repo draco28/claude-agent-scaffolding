@@ -98,12 +98,22 @@ fi
 # and branch-3 repo and hand it straight to the guard below, which is the
 # standalone path failing in the one shape that looks like a resolution bug.
 if [ -n "$ORIGIN" ]; then
-  # BRANCH 1. Git documents three remote spellings for the same repo and all
-  # three reach here: scp-style (git@host:owner/repo), https, and the ssh://
-  # URL form. Miss the third and OWNER binds to "ssh:", which then queries a
-  # repo that does not exist rather than failing at the parse.
+  # BRANCH 1. Git documents four remote spellings for the same repo and all
+  # four reach here: scp-style (git@host:owner/repo), the ssh:// URL form,
+  # plain https, and https carrying userinfo - an authenticated remote whose
+  # token or password sits between scheme and host
+  # (https://x-access-token:TOKEN@github.com/owner/repo). Miss the ssh://
+  # form and OWNER binds to "ssh:", which then queries a repo that does not
+  # exist rather than failing at the parse. Miss the userinfo form (#337) and
+  # $OWNER_REPO keeps the credential verbatim - it then flows into every
+  # `gh -R "$OWNER_REPO"` call and gets printed on every later failure: the
+  # reachability guard below, branch 4's stop, and branch 0's own stop
+  # message all echo $OWNER_REPO to the terminal. The userinfo strip runs
+  # before the https://github.com/ strip so it never has to special-case
+  # "with or without credentials" - by the time that rule sees the string,
+  # any userinfo is already gone.
   OWNER_REPO="$(printf '%s' "$ORIGIN" \
-    | sed -E 's#^ssh://([^@/]+@)?github\.com/#https://github.com/#; s#^git@github\.com:#https://github.com/#; s#^https://github\.com/##; s#\.git$##')"
+    | sed -E 's#^ssh://([^@/]+@)?github\.com/#https://github.com/#; s#^git@github\.com:#https://github.com/#; s#^https://[^@/]+@#https://#; s#^https://github\.com/##; s#\.git$##')"
 
   # BRANCH 0 RUNS HERE, and only here. It compares the RESOLVED origin against
   # the dotfile, so it needs both - and this is the only arm that has an
