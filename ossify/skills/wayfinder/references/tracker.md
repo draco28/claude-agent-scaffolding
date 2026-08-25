@@ -110,27 +110,39 @@ if [ -n "$ORIGIN" ]; then
   # reachability guard below, branch 4's stop, and branch 0's own stop
   # message all echo $OWNER_REPO to the terminal.
   #
-  # THE USERINFO CLASS EXCLUDES / ONLY, NOT @. A userinfo field can itself
-  # carry a raw, unescaped @ (a password containing one) - excluding @ from
-  # the class as well stops the match at the FIRST @ rather than the last one
-  # before the host, so `user:p@ss@github.com/...` strips only `user:p@` and
-  # leaves `ss@github.com/...` still credential-bearing. `[^/]*` is greedy
-  # and POSIX ERE takes the longest leftmost match, so it runs all the way to
-  # the last @ before the first /, which is the actual userinfo terminator.
+  # THE USERINFO STRIP IS ONE RULE FOR EVERY SCHEME, not one per scheme
+  # (#337 rounds 1-2 tried ssh-only then ssh-plus-https, and each time the
+  # scheme that was NOT enumerated rode a credential straight through - a
+  # plain http:// remote, or git://, are unlikely but real: a self-hosted
+  # GHE reachable over http, or a stale copy-pasted origin). The rule
+  # `^([a-z][a-z0-9+.-]*://)[^/]*@` matches any RFC-3986-shaped scheme
+  # (letter, then letters/digits/+/./-, then `://`) followed by userinfo, and
+  # captures the scheme so the replacement can put it back unchanged - this
+  # is shorter than enumerating schemes AND does not miss the next one. It
+  # cannot fire on the scp-style git@host:owner/repo form, which has no
+  # `://` at all, so that spelling is untouched by construction rather than
+  # by a separate exclusion.
   #
-  # THE STRIP IS HOST-AGNOSTIC on both the ssh and the https form - neither
-  # requires github.com. An ssh origin carrying userinfo on any other host
-  # (ssh://user:pass@gitlab.example.com/...) would otherwise print that
-  # credential on a later failure, since only the github.com-anchored rewrite
-  # below ever ran; scoping the strip to "any ssh:// origin" closes that
-  # regardless of which host follows, even though this tracker only ever
-  # resolves a github.com remote in practice. Each strip runs BEFORE its
-  # scheme's own scheme-specific rewrite - the ssh://github.com/ rewrite no
-  # longer needs its own userinfo group, since userinfo is already gone by
-  # the time it runs, and the https://github.com/ strip likewise never has to
-  # special-case "with or without credentials".
+  # THE CLASS EXCLUDES / ONLY, NOT @. A userinfo field can itself carry a
+  # raw, unescaped @ (a password containing one) - excluding @ from the class
+  # as well stops the match at the FIRST @ rather than the last one before
+  # the host, so `user:p@ss@github.com/...` would strip only `user:p@` and
+  # leave `ss@github.com/...` still credential-bearing. `[^/]*` is greedy and
+  # POSIX ERE takes the longest leftmost match, so it runs all the way to the
+  # last @ before the first /, which is the actual userinfo terminator - and
+  # `*` rather than `+` so an empty userinfo (`https://@github.com/...`)
+  # still matches instead of falling through untouched.
+  #
+  # WHAT THIS RULE DOES NOT DO: turn every scheme into owner/repo. Only ssh
+  # and https get a github.com-specific rewrite below; a credential-free
+  # http:// or git:// origin is left as `http://github.com/owner/repo` or
+  # similar rather than reduced further, which is fine - the reachability
+  # guard fails it the same way an unsupported scheme was always going to
+  # fail, just without printing a secret on the way. This rule runs FIRST,
+  # before either scheme-specific rewrite, so neither rewrite below needs
+  # its own userinfo handling any more.
   OWNER_REPO="$(printf '%s' "$ORIGIN" \
-    | sed -E 's#^ssh://[^/]*@#ssh://#; s#^ssh://github\.com/#https://github.com/#; s#^git@github\.com:#https://github.com/#; s#^https://[^/]*@#https://#; s#^https://github\.com/##; s#\.git$##')"
+    | sed -E 's#^([a-z][a-z0-9+.-]*://)[^/]*@#\1#; s#^ssh://github\.com/#https://github.com/#; s#^git@github\.com:#https://github.com/#; s#^https://github\.com/##; s#\.git$##')"
 
   # BRANCH 0 RUNS HERE, and only here. It compares the RESOLVED origin against
   # the dotfile, so it needs both - and this is the only arm that has an

@@ -19,24 +19,32 @@
 # stop, and branch 0's own stop message all print to the terminal on failure.
 #
 # ROUND 2 (same issue, review found the round-1 fix still leaked). Two more
-# defects in the userinfo handling itself, both exercised below:
+# defects in the userinfo handling itself:
 #   - the userinfo character class excluded @ as well as /, so it stopped at
 #     the FIRST @ rather than the last one before the host. A password
 #     containing a raw, unescaped @ (user:p@ss@github.com/...) stripped only
 #     "user:p@" and left "ss@github.com/..." still credential-bearing. The
 #     percent-encoded-password case below was NOT sufficient to catch this -
 #     %40 is three literal characters, never a competing @ - so this file
-#     shipped once already without a test that could catch it. The
-#     "raw @ in the password" case below is that missing test.
+#     shipped once already without a test that could catch it.
 #   - the ssh strip was anchored to a literal github.com host, so an ssh
-#     origin carrying userinfo on any OTHER host leaked untouched. The strip
-#     is now host-agnostic on both schemes; the "non-github ssh host" case
-#     below is that test.
+#     origin carrying userinfo on any OTHER host leaked untouched.
+#
+# ROUND 3 (same issue, third time). Rounds 1-2 fixed ssh:// then ssh://+
+# https://, one rule per scheme - and each round the scheme that was NOT
+# enumerated rode a credential straight through. A plain http:// origin, or
+# git://, hit neither the ssh nor the https rule and leaked exactly like the
+# original #337 report. The fix is now scheme-agnostic (one rule matching
+# any RFC-3986-shaped scheme before `://`, not an enumeration), which is a
+# shorter pipeline than round 2's AND does not miss the next scheme. The
+# "http:// with userinfo" and "git:// with userinfo" cases below are what
+# rounds 1 and 2 shipped without.
 #
 # WHAT THIS FILE DOES NOT COVER. Only branch 1 (an origin is present) is
-# exercised, across all four spellings plus several extra userinfo shapes
-# (bare-token, percent-encoded password, raw multi-@ password, non-github
-# ssh host). Branch 0's actual conflict-stop (a mismatched .wayfinder.json)
+# exercised, across all four documented spellings plus several extra
+# userinfo shapes (bare-token, percent-encoded password, raw multi-@
+# password, non-github ssh host, empty userinfo, http:// and git://
+# schemes). Branch 0's actual conflict-stop (a mismatched .wayfinder.json)
 # and branches 2/3 (no origin - dotfile read) are NOT exercised here; the
 # block is one fenced unit under this ledger's convention (O rows cover a
 # whole block, never a slice), so this row converts the whole ladder block
@@ -44,6 +52,14 @@
 # record of which paths inside it a real assertion touches. The other three
 # D-blocks (reachability probe, GraphQL frontier query, ticket-label check)
 # are unchanged: still live `gh` calls, still uncovered here, still D.
+#
+# DEFERRED, logged for the final review, neither a credential issue: a
+# port-bearing or IPv6 origin (github.com:443/... or [::1]/...) strips any
+# credential correctly but leaves $OWNER_REPO malformed, since the literal
+# `https://github\.com/` strip does not match a `github.com:443/` prefix -
+# functional, since it fails closed at the reachability guard rather than
+# resolving wrong. And a trailing slash after `.git` defeats the `\.git$`
+# anchor. Neither is exercised below; neither leaks anything.
 #
 # The block is EXTRACTED from the shipped prose via oss_block_extract, never
 # retyped, and run under real `set -euo pipefail` through a PATH-shimmed `oss`
@@ -168,5 +184,31 @@ fi
 # with a raw multi-@ password - symmetry check.
 _run_ladder "ssh://user:p@ss@github.com/acme/repo.git"
 t_assert_eq "acme/repo acme repo" "$T_OUT" "ssh origin with a raw @ in the password also normalizes cleanly"
+
+# ROUND 3: a scheme neither round 1 nor round 2 enumerated. http:// and
+# git:// get no github.com-specific rewrite (only ssh and https do), so
+# $OWNER_REPO is not reduced to a bare owner/repo here - the only property
+# under test is that the credential itself is gone.
+_run_ladder "http://user:pass@github.com/acme/repo.git"
+t_assert_rc 0 "http:// origin with userinfo: ladder runs clean"
+if printf '%s' "$T_OUT" | grep -Fq 'user:pass'; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: an http:// origin's userinfo survived - #337 round 3 regressed"
+else
+  T_PASS=$((T_PASS+1))
+fi
+
+_run_ladder "git://user:pass@github.com/acme/repo.git"
+t_assert_rc 0 "git:// origin with userinfo: ladder runs clean"
+if printf '%s' "$T_OUT" | grep -Fq 'user:pass'; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: a git:// origin's userinfo survived - #337 round 3 regressed"
+else
+  T_PASS=$((T_PASS+1))
+fi
+
+# Empty userinfo - a bare @ with nothing before it. The class is `[^/]*`
+# (star, not plus) precisely so this still matches instead of falling
+# through untouched.
+_run_ladder "https://@github.com/acme/repo.git"
+t_assert_eq "acme/repo acme repo" "$T_OUT" "empty userinfo (a bare @) still strips cleanly"
 
 t_summary
