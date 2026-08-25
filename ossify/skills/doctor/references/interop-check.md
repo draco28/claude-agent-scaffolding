@@ -150,13 +150,30 @@ Distinguish the two failures — they have different causes and different fixes:
 The second is the one that happens to real projects, usually after a repo is
 renamed or moved.
 
-**Every declared repo must also be a git work tree.** Probe each:
+**Every declared repo must also be a git work tree — and its OWN top level.**
+Probe each:
 
 ```bash
-git -C "$(oss repo_root "<repo-key>")" rev-parse --is-inside-work-tree
+root="$(oss repo_root "<repo-key>")"
+# `-P` because git resolves symlinks in --show-toplevel; comparing an
+# unresolved manifest root against a resolved toplevel reports drift that
+# is not there.
+top="$(git -C "$root" rev-parse --show-toplevel 2>/dev/null)"
+[ "$top" = "$(cd "$root" 2>/dev/null && pwd -P)" ] \
+  && echo "ok: worktree(<repo-key>)" \
+  || echo "fail: worktree(<repo-key>) - resolved root is not this repo's top level (git says '${top:-<no work tree>}')"
 ```
 
-The probe must print `true` — rc 0 alone is not the pass. A declared repo whose
+**`--show-toplevel` compared against the root, not `--is-inside-work-tree`.**
+A declared root that is a *subdirectory* of another repo's work tree answers
+`true` to `--is-inside-work-tree`, so the check reports the repo healthy while
+every later `git -C "$root"` branch, worktree, checkout and merge targets the
+**parent** repository. Two topology entries pointing inside one repo then mutate
+the same repository while reading as separate. `boundary-audit.md` §2 already
+specifies the exact-root form and says why; this is the same check, and the two
+must not disagree about what "is a repo" means.
+
+The comparison must hold — rc 0 alone is not the pass. A declared repo whose
 root is an ordinary directory (`.git` removed, the manifest hand-edited) fails the
 probe outright; a **bare repository or a `.git` directory** answers rc 0 to
 weaker probes like `--git-dir` — and even *survives* `oss worktree_add`, since

@@ -277,16 +277,30 @@ same way §3's single-repo predecessor did: the merge commit against its **first
 parent**.
 
 ```bash
+# Collect into a FILE, and let each repo's failure halt on the spot. The earlier
+# form nested the per-repo loop in a process substitution: the outer `while`
+# consumed only its stdout and never saw its exit status, so a repo whose
+# `oss repo_root` or `git diff` failed AFTER another repo had already emitted
+# paths contributed nothing and said nothing. `$#` was then non-zero, the guard
+# below passed, and `touch_check` ran over a partial list - which is how a bone
+# or risk-gate hit in the failing repo goes unreported and the close continues
+# looking clean. A partial list is the INCONCLUSIVE case, not the clean one.
+paths="$(mktemp)"; : > "$paths"
+while IFS=: read -r repo sha; do
+  [ -n "$repo" ] || continue
+  root="$(oss repo_root "$repo")" \
+    || { echo "close: \$merge_shas names undeclared repo '$repo' - the changed-path list would be INCOMPLETE - halt"; exit 1; }
+  git -C "$root" diff --name-only "$sha^1" "$sha" >> "$paths" \
+    || { echo "close: cannot diff $sha against its first parent in $repo - the changed-path list would be INCOMPLETE - halt"; exit 1; }
+done <<EOF
+$merge_shas
+EOF
+
 set --
 while IFS= read -r p; do
   [ -n "$p" ] || continue
   set -- "$@" "$p"
-done < <(
-  while IFS=: read -r repo sha; do
-    [ -n "$repo" ] || continue
-    git -C "$(oss repo_root "$repo")" diff --name-only "$sha^1" "$sha"
-  done < <(printf '%s\n' "$merge_shas")
-)
+done < "$paths"
 
 [ "$#" -gt 0 ] \
   || { echo "close: the merge changed no paths in any hosting repo - the touch check is INCONCLUSIVE, not clean - halt"; exit 1; }

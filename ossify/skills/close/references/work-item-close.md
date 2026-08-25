@@ -163,6 +163,13 @@ commits. The merge is what actually moves the work onto the spine.
 # spine branch in every one of them); this layer closes ONE item, so it targets
 # exactly the repo that item recorded at work_item_add time.
 target_repo="$(oss get ".work_items[] | select(.id==\"$wi\") | .target_repo")"
+# `ai_workspace` BEFORE the resolver, because the resolver SUCCEEDS on it: it is
+# the reserved alias for the process workspace, so treating resolution as proof
+# of a hosting repo would route this close's commit and merge into the AI
+# workspace itself. `oss work_item_add` refuses the key now, but a record
+# written before that guard - or hand-edited state - still reaches here.
+[ "$target_repo" != "ai_workspace" ] \
+  || { echo "close: $wi targets 'ai_workspace', which is the process workspace, not a hosting repo - no ceremony governs that repo and nothing may be merged into it - halt"; exit 1; }
 repo_root="$(oss repo_root "$target_repo")" || { echo "close: $wi targets undeclared repo '$target_repo' - halt"; exit 1; }
 
 # The merge target comes from STATE, written by the execution lane.

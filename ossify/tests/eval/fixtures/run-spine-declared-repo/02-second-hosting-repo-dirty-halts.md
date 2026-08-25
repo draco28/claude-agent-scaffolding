@@ -12,7 +12,14 @@ has one round with two work items: `r1.s3.w1` (`target_repo: canonical`) and
 
 Before `/run-spine r1.s3` starts: `git -C /Users/ops/repos/product-api
 status --porcelain` prints nothing. `git -C /Users/ops/repos/svc-billing
-status --porcelain` prints one line: ` M src/webhooks/retry.go` — an
+status --porcelain` prints one line (the leading space is the porcelain
+unstaged-modification column, and it is significant):
+
+```text
+ M src/webhooks/retry.go
+```
+
+an
 uncommitted edit left over from manual debugging earlier the same day. Both
 repos are checked out on `main`. Neither repo has a branch named
 `spine/r1.s3-billing-webhook-retries` yet. No live worktrees exist under

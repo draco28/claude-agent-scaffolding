@@ -482,6 +482,22 @@ t_assert_contains "$T_OUT" "canonical:$FIRST_MERGE" "resume: \$merge_shas is rep
 t_assert_eq "$MERGES_BEFORE" "$(git -C "$CANON" rev-list --merges --count "$BASE_BRANCH")" "resume: no second, spurious merge commit was created"
 t_assert_eq "$BASE_BRANCH" "$(git -C "$CANON" rev-parse --abbrev-ref HEAD)" "resume: the repo is left on its base branch"
 
+# E5c. A PARTIAL changed-path list must halt, not read as clean. The per-repo
+# diff loop used to sit inside a process substitution, so the outer loop saw its
+# stdout and never its exit status: a repo failing AFTER an earlier one emitted
+# paths contributed nothing silently, `$#` stayed non-zero, and touch_check ran
+# over a list missing that repo's changes. The good pair comes FIRST here on
+# purpose - that is the ordering the old form could not detect.
+t_capture env "PATH=$SHIM:$PATH" bash -c \
+  "set -euo pipefail; merge_shas='canonical:$FIRST_MERGE
+nosuchrepo:$FIRST_MERGE'; . '$TOUCH_BLOCK'"
+t_assert_rc 1 "a repo failing after another already emitted paths halts the touch check"
+t_assert_contains "$T_OUT" "INCOMPLETE" "...and says the changed-path list would be incomplete"
+case "$T_OUT" in
+  *"touch check: clean"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: touch_check reported CLEAN over a partial path list - the exact false negative this guard exists to prevent";;
+  *) T_PASS=$((T_PASS+1));;
+esac
+
 # E6. touch_check's three exit codes across four cases (zero paths, hit,
 # clean, unreadable registry), read straight off the dispatcher.
 t_capture bash "$OSS" touch_check

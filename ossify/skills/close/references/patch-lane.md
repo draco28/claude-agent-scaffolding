@@ -199,7 +199,12 @@ cannot count what was never written.
 The one-liner is **self-declared**. The ossify:doctor read-out surfaces only a
 **count** of patch records (`doctor/references/state-inspection.md` §2; bare
 `oss doctor` is the four-check gate and shows none) — the one-liner itself is read
-by whoever runs `oss get '[.patch_records[] | {commit, text, at}]'`, so write it
+by whoever runs `oss get '[.patch_records[] | {commit, repo, text, at}]'` — the
+`repo` field records which checkout owns the commit, and without it an auditor
+in a multi-repo project cannot tell that the recorded commit matches the
+repository whose branch was checked out before committing. Records written
+before the field existed have no `repo` key and read as `null`; treat that as
+`canonical`, the sole repo those records could have targeted. So write it
 so that read is auditable. Write the second half — *why it took no spine* — as
 the three-part test's answer, not as a restatement of the diff. *"comment typo in
 the export path — no bone, no gate, no line observes it"* is a record; *"fix

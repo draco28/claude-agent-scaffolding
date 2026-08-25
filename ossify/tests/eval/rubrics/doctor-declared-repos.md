@@ -38,9 +38,12 @@ about it (or correctly reported a clean line), the same convention
    on its own line even when nothing about it would otherwise draw attention —
    an all-ok verdict is not license to collapse multiple repos into one
    summary sentence or omit the ones that passed. Symmetrically, a manifest
-   declaring exactly one product repo produces exactly one repo line, under
-   whatever name that repo actually carries, with no extra lines invented and
-   no behavior different from before this generalization.
+   declaring exactly one product repo produces exactly one DECLARED-REPO line,
+   under whatever name that repo actually carries, **plus the `ai_workspace`
+   line criterion 1 requires** — "exactly one" counts product repos, not total
+   lines, and reading it as total lines scores correct output as wrong. No
+   extra lines invented, and no behavior different from before this
+   generalization.
 4. **The closing statement says plainly, for the WHOLE workspace, whether
    anything failed — never per-repo silence.** Since there is no exit code,
    a `fail:` line on any one declared repo must change the stated bottom
