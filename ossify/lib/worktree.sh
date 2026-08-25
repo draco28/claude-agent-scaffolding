@@ -35,22 +35,19 @@ _oss_repo_root() { # $1=repo-key
   # holding a `${...}` rather than handing a caller a path that only looks
   # absolute.
   #
-  # Only invoke the resolver when $root actually holds a token. A plain
-  # literal root - the common case for both a topology declaration and a
-  # pairing manifest that never used ${...} tokens - needs no substitution,
-  # and a topology-only workspace has no `.workspace/pairing.json` for
-  # `_oss_manifest_resolve` to consult. Calling it unconditionally would
-  # refuse every topology-only lookup before it ever got to tell "nothing to
-  # substitute" apart from "no manifest to substitute from". (That resolver
-  # still re-discovers a pairing manifest of its own rather than reading the
-  # shape's `${ai_workspace.root}` / `${canonical.root}` directly - a known
-  # gap that is Task 3's to close, not this guard's.)
-  case "$root" in
-    *'${'*)
-      local ai_root; ai_root="$(printf '%s' "$shape" | jq -r '.workspace // empty')"
-      root="$(_oss_manifest_resolve "$ai_root" "$root")" || return 1
-      ;;
-  esac
+  # Unconditional as of Task 3 (#272/#310): the call used to be gated behind a
+  # `*'${'*)` case, because `_oss_manifest_resolve` required
+  # `.workspace/pairing.json` to exist even for a token-free string, which
+  # refused every topology-only lookup outright. Task 3 made the resolver
+  # source its vocabulary from the shape instead of re-discovering a pairing
+  # manifest, so a plain literal root - the common case - now passes through
+  # as a no-op (the substitution loop only replaces what actually appears in
+  # the string) rather than failing. MEASURED, not assumed: the full suite
+  # (`bash tests/run-all.sh`, 1418 assertions) was run once with the old gate
+  # in place and once with it removed - identical ALL GREEN both times - before
+  # this simplification was kept.
+  local ai_root; ai_root="$(printf '%s' "$shape" | jq -r '.workspace // empty')"
+  root="$(_oss_manifest_resolve "$ai_root" "$root")" || return 1
   # Mirrors `_oss_manifest_wellknown_guard` (#165) and shares its grammar test, so
   # the two refusals cannot drift the way their wording already did. Same reasoning:
   # the token is documented workspace-init vocabulary that ossify deliberately does

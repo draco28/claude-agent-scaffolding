@@ -136,4 +136,30 @@ t_capture _oss_repo_root tooling_repo
 t_assert_rc 0 "tooling_repo resolves (was refused by the enum)"
 cd "$HERE"
 
+# --- token vocabulary: repos tokens, alias, fail-safe unknown ---
+cat > "$TMP/ws/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"core":{"root":"$TMP/core"},"canonical":{"root":"$TMP/canon"}},"well_known_paths":{"project_state":"\${repos.ui.root}/ps.json"}}
+JSON
+cd "$TMP/ws"
+t_capture oss_manifest_state_path
+t_assert_rc 1 "unknown repo in a route token is refused (left for the guard)"
+t_assert_contains "$T_OUT" "unresolved" "guard names it unresolved"
+cat > "$TMP/ws/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"core":{"root":"$TMP/core"},"ui":{"root":"$TMP/ui"}},"well_known_paths":{"project_state":"\${repos.core.root}/.ossify/ps.json"}}
+JSON
+t_capture oss_manifest_state_path
+t_assert_rc 0 "repos-token route resolves"
+t_assert_eq "$TMP/core/.ossify/ps.json" "$T_OUT" "repos.core.root substituted"
+cat > "$TMP/ws/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"core":{"root":"$TMP/core"}},"well_known_paths":{"project_state":"\${canonical.root}/ps.json"}}
+JSON
+t_capture oss_manifest_state_path
+t_assert_rc 1 "canonical alias without a canonical repo is refused"
+cat > "$TMP/ws/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"canonical":{"root":"$TMP/canon"}},"well_known_paths":{"project_state":"\${canonical.root}/ps.json"}}
+JSON
+t_capture oss_manifest_state_path
+t_assert_rc 0 "canonical alias resolves when declared"
+cd "$HERE"
+
 t_summary

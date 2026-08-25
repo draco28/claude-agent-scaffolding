@@ -140,11 +140,36 @@ _oss_subst_literal() { # $1=haystack $2=needle $3=replacement
 }
 
 _oss_manifest_resolve() { # $1=ai-root $2=string
-  local ai_root="$1" result="$2" manifest="$1/.workspace/pairing.json" aw cn
-  [ -f "$manifest" ] || { echo "oss: manifest not found at $manifest" >&2; return 1; }
-  aw="$(jq -r '.ai_workspace.root // empty' "$manifest" 2>/dev/null)" || true
-  cn="$(jq -r '.canonical.root // empty' "$manifest" 2>/dev/null)" || true
+  # $1 is kept for interface stability (every call site already computes it),
+  # but it is no longer the substitution source. The vocabulary now comes from
+  # the shape - fetched ONCE below via `_oss_shape_file` - so this function
+  # never re-discovers a pairing manifest of its own: that re-discovery is
+  # exactly what left a topology-only workspace (no `.workspace/pairing.json`
+  # to find) failing at a generic "manifest not found" for every token,
+  # including ones a topology declaration fully supports (#272/#310 Task 3).
+  # $1 and the shape's `.workspace` are the same fact by construction - both
+  # trace to the one manifest this session already discovered - and even if a
+  # caller's pre-substituted ai-root and the shape's raw `.workspace` disagree
+  # on a still-templated `${HOME}`/`${USER}`, the substitutions later in this
+  # function self-heal it: they run over the WHOLE result string, including
+  # whatever this step just inserted.
+  local result="$2" shape aw cn name nroot
+  shape="$(_oss_shape_file)" || return 1
+  aw="$(printf '%s' "$shape" | jq -r '.workspace // empty' 2>/dev/null)" || true
   [ -n "$aw" ] && result="$(_oss_subst_literal "$result" '${ai_workspace.root}' "$aw")"
+  # ${repos.<name>.root} for every declared repo. `while read` off a `jq @tsv`
+  # command substitution, not a `for` over it - a `for` over an unquoted
+  # command substitution does not word-split under zsh, and would iterate the
+  # whole TSV blob once instead of once per repo.
+  while IFS=$'\t' read -r name nroot; do
+    [ -n "$name" ] || continue
+    result="$(_oss_subst_literal "$result" "\${repos.$name.root}" "$nroot")"
+  done < <(printf '%s' "$shape" | jq -r '.repos | to_entries[] | select(.value.root != null) | [.key, .value.root] | @tsv')
+  # Legacy alias: ${canonical.root} resolves iff a repo named canonical is
+  # declared - always true under the pairing fallback, optional under a
+  # topology declaration. When no such repo is declared the token is left in
+  # place for the unresolved-token guard below to refuse by name.
+  cn="$(printf '%s' "$shape" | jq -r '.repos.canonical.root // empty' 2>/dev/null)" || true
   [ -n "$cn" ] && result="$(_oss_subst_literal "$result" '${canonical.root}' "$cn")"
   # Two failure modes, and only substituting-when-present avoids both. Under the
   # dispatcher's `set -u` a bare `$HOME` with HOME unset is a fatal expansion
