@@ -160,6 +160,34 @@ cat > "$TMP/ws/.ossify/topology.json" <<JSON
 JSON
 t_capture oss_manifest_state_path
 t_assert_rc 0 "canonical alias resolves when declared"
+t_assert_eq "$TMP/canon/ps.json" "$T_OUT" "canonical alias substitutes to the declared canonical root"
+# --- review round 1, Finding 3: both spellings must resolve identically for
+# a repo literally named canonical - ${canonical.root} is documented as an
+# alias, so pin that the two spellings are not just each individually
+# resolvable but resolve to the SAME value.
+cat > "$TMP/ws/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"canonical":{"root":"$TMP/canon"}},"well_known_paths":{"project_state":"\${repos.canonical.root}/ps.json"}}
+JSON
+t_capture oss_manifest_state_path
+t_assert_rc 0 "repos.canonical.root spelling resolves for a repo literally named canonical"
+t_assert_eq "$TMP/canon/ps.json" "$T_OUT" "both spellings resolve to the identical value"
+cd "$HERE"
+
+# --- review round 1, Finding 1: a declared-but-empty repo root must NOT
+# substitute to the empty string. `${repos.core.root}/ps.json` with an empty
+# core root collapses to `/ps.json` - a well-formed, root-anchored path
+# manufactured out of an absent value, exactly the trap the ${HOME} comment
+# in _oss_manifest_resolve already names and guards against. The token must
+# be LEFT IN PLACE so the unresolved-token guard catches it, the same
+# substituting-when-present discipline every other substitution in that
+# function already follows.
+cat > "$TMP/ws/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"core":{"root":""}},"well_known_paths":{"project_state":"\${repos.core.root}/ps.json"}}
+JSON
+cd "$TMP/ws"
+t_capture oss_manifest_state_path
+t_assert_rc 1 "a declared-but-empty repo root leaves its token in place, not substituted to empty"
+t_assert_contains "$T_OUT" "unresolved" "guard names it unresolved rather than manufacturing a root-anchored path"
 cd "$HERE"
 
 t_summary

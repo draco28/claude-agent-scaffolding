@@ -161,8 +161,25 @@ _oss_manifest_resolve() { # $1=ai-root $2=string
   # command substitution, not a `for` over it - a `for` over an unquoted
   # command substitution does not word-split under zsh, and would iterate the
   # whole TSV blob once instead of once per repo.
+  #
+  # $name is read straight off the shape's repo keys, never re-checked against
+  # `_oss_repo_key_valid` here. That is fine, not merely tolerated: the name is
+  # used only as the NEEDLE half of `_oss_subst_literal`, which does a literal
+  # substring search - no eval, no glob, no shell interpretation of it - so even
+  # a metacharacter-laden key can only ever build an odd-looking literal search
+  # string, never an injection. (The grammar boundary in `_oss_repo_key_valid`
+  # guards a DIFFERENT call site - `_oss_repo_root`'s own `--arg k` jq lookup and
+  # error-message interpolation - not this one.)
+  #
+  # Both `$name` and `$nroot` are guarded non-empty (review round 1, Finding 1).
+  # A declared-but-empty root is the same trap the ${HOME} comment below already
+  # names: substituting it turns `${repos.core.root}/ps.json` into `/ps.json` -
+  # a well-formed, root-anchored path manufactured out of an absent value, that
+  # then sails straight past the unresolved-token guard downstream. So an empty
+  # `$nroot` is treated exactly like an empty `$aw`/`$cn`/`$HOME` above and below:
+  # skipped, leaving the token in place for that guard to catch by name.
   while IFS=$'\t' read -r name nroot; do
-    [ -n "$name" ] || continue
+    [ -n "$name" ] && [ -n "$nroot" ] || continue
     result="$(_oss_subst_literal "$result" "\${repos.$name.root}" "$nroot")"
   done < <(printf '%s' "$shape" | jq -r '.repos | to_entries[] | select(.value.root != null) | [.key, .value.root] | @tsv')
   # Legacy alias: ${canonical.root} resolves iff a repo named canonical is
