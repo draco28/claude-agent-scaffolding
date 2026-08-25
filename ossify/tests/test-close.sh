@@ -765,13 +765,15 @@ t_assert_eq "seed" "$(git -C "$W1" show -s --format=%s "$W1_BASE")" \
 t_assert_eq "" "$(git -C "$W1" log --oneline "$W1_BASE" --grep='merge r0.s1.w1' 2>/dev/null)" \
   "W1: ...and no work-item merge commit exists on it"
 
-# W2 — the spine cut must (a) cut from the PLANNED base recorded in the spine
-# plan, not from whatever branch canonical is parked on, and (b) CHECK OUT the
-# branch rather than merely creating it. `git branch` leaves canonical on its
-# previous branch and every downstream step still returns rc 0, which is
-# precisely how the spine silently never receives the work. Deriving the base
-# from HEAD is the same silent wrong-branch class one step earlier: the close
-# then merges back into the unintended branch with every guard passing.
+# W2 — the spine cut must (a) CHECK OUT the branch rather than merely
+# creating it, and (b) cut from wherever the repo is CURRENTLY parked
+# (HEAD) - NOT from a planned base recorded in the spine plan. `git branch`
+# leaves the repo on its previous branch and every downstream step still
+# returns rc 0, which is precisely how the spine silently never receives the
+# work. Reading the PLANNED base out of SPINE.md instead of HEAD is a known,
+# disclosed limitation deferred to #133 - 07a0bd8 reverted an attempt at
+# doing that here - and this block deliberately does NOT have that coverage
+# (see this file's block-ledger.tsv row for the same disclaimer).
 W2="$TMP/w2"; mkdir -p "$W2"; git -C "$W2" init -q
 git -C "$W2" config user.email t@t; git -C "$W2" config user.name t
 echo seed > "$W2/f"; git -C "$W2" add .; git -C "$W2" commit -qm seed

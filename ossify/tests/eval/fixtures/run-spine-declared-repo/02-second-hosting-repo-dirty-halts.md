@@ -1,7 +1,7 @@
 ---
 scenario_id: 02-second-hosting-repo-dirty-halts
 expected_outcome: halt
-expected_reason: the pre-round-1 dirty-tree check must run against EVERY repo hosting one of the spine's items, not canonical alone — svc-billing's dirty tree halts the cut even though canonical is clean and would otherwise cut without incident; a ceremony still doing the old canonical-only lane never looks at svc-billing at all, so it would proceed straight through and dispatch both items, one of them into a repo whose working tree was never checked
+expected_reason: the pre-round-1 dirty-tree check must run against EVERY repo hosting one of the spine's items, not canonical alone — svc-billing's dirty tree halts the §2 cut, before any item is dispatched, even though canonical is clean and would otherwise cut without incident. A ceremony still doing the old canonical-only lane also halts, but for a different reason and later — its §2 only ever touches canonical (clean, so the old cut succeeds), so it proceeds to spawn r1.s3.w1 (target_repo canonical) — journaling that worktree as active — before r1.s3.w2 (target_repo svc-billing) trips the old §3 guard `[ "$target_repo" = "canonical" ] || halt`, which fires unconditionally regardless of svc-billing's tree state. The old lane never inspects svc-billing's working tree at all; its halt is "not canonical," not "dirty," and it fires only after r1.s3.w1's worktree already exists and is journaled active — the dirty tree is a latent hazard the old halt happens to mask, not one it catches
 ---
 
 `.ossify/topology.json` declares two repos: `canonical` (root
