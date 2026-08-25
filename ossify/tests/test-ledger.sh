@@ -141,6 +141,29 @@ t_assert_eq "0" "$T_OUT" "no phantom patch record journaled after the N>1 refusa
 cd "$TMP"
 rm -rf "$PTMP"
 
+# --- #272/#310 Task 5 review fix (Important 2): the whole justification for
+# NOT bumping the patch_records schema is that replaying an OLD journal
+# reproduces old-shape records untouched and readers absorb the missing
+# `repo` as `canonical`. That claim had no committed assertion - only a
+# manual check outside the suite. Same LEGACY_LINE / LEGACY_STATE
+# byte-identical-survival shape as above, but through the REAL journal +
+# oss_state_replay against this file's live $S (not a synthetic
+# _oss_apply_op call on an isolated fragment) - replay-through-the-journal is
+# the actual mechanism the no-schema-bump decision rests on, so it is the one
+# that must be pinned. Injected via oss_state_mutate directly, bypassing
+# oss_ledger_add_patch, to simulate exactly what a pre-Task-5 journal entry
+# looks like: no `repo` key at all.
+LEGACY_PATCH='{"commit":"legacy5150","text":"pre-task5 shape, no repo key","at":"2020-01-01T00:00:00Z"}'
+t_capture oss_state_mutate "$S" add_patch_record "$LEGACY_PATCH"
+t_assert_rc 0 "setup: legacy-shape patch record journaled"
+IN_SORTED="$(printf '%s' "$LEGACY_PATCH" | jq -S -c .)"
+BEFORE_SORTED="$(jq -S -c '.patch_records[-1]' "$S")"
+t_assert_eq "$IN_SORTED" "$BEFORE_SORTED" "legacy patch record stored with no repo key, exactly as given"
+t_capture oss_state_replay "$S"
+t_assert_rc 0 "replay stays clean with a legacy no-repo patch record in the journal"
+AFTER_SORTED="$(jq -S -c '.patch_records[-1]' "$S")"
+t_assert_eq "$IN_SORTED" "$AFTER_SORTED" "a legacy patch record with no repo key at all survives replay byte-identical"
+
 # §5.3 floor guard must not be bypassable by leading whitespace: a leading
 # space/tab before inspector phrasing is the same banned phrasing, just padded.
 t_capture oss_ledger_add_user "$S" r0.s1 " Open the file" "file contents visible"

@@ -162,6 +162,50 @@ cd "$HERE"
 unset OSS_STATE_FILE
 rm -rf "$FTMP"
 
+# --- #272/#310 Task 5 review fix (Important 1): patch_add's repo-key
+# resolution through the REAL dispatcher binary. Every assertion this task
+# added elsewhere (test-ledger.sh) only calls oss_ledger_add_patch in-process
+# - it never reaches oss_cmd_patch_add or bin/oss's `set -euo pipefail`, so
+# the requirement that the N>1 refusal surfaces as rc 2 "from both the lib
+# function and the dispatcher, never flattened to 1" was unverified at the
+# dispatcher layer. Same gap this file's own header comment (line ~131)
+# describes for ledger_quarantine/fake_status; same fix shape.
+PTMP="$(mktemp -d)"; export OSS_STATE_FILE="$PTMP/state.json"
+mkdir -p "$PTMP/.ossify"
+cat > "$PTMP/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"canonical":{"root":"$PTMP/canon"}},"well_known_paths":{"project_state":"$OSS_STATE_FILE"}}
+JSON
+cd "$PTMP"
+t_capture "$OSS" init patch-demo
+t_assert_rc 0 "dispatcher: init ok (patch_add block)"
+t_capture "$OSS" patch_add deadbeef "explicit repo key through the real binary" ui
+t_assert_rc 0 "dispatcher: patch_add with an explicit repo key ok through the real binary"
+t_capture "$OSS" get '.patch_records[-1].repo'
+t_assert_eq "ui" "$T_OUT" "dispatcher: explicit repo key reaches state through the real binary"
+cd "$HERE"
+unset OSS_STATE_FILE
+rm -rf "$PTMP"
+
+# N>1 declared repos: an omitted repo key must refuse at rc 2 through the
+# real binary too, not just the sourced lib call - a fresh single-repo
+# fixture would never exercise this path at all.
+PMTMP="$(mktemp -d)"; export OSS_STATE_FILE="$PMTMP/state.json"
+mkdir -p "$PMTMP/.ossify"
+cat > "$PMTMP/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"canonical":{"root":"$PMTMP/canon"},"ui":{"root":"$PMTMP/ui"}},"well_known_paths":{"project_state":"$OSS_STATE_FILE"}}
+JSON
+cd "$PMTMP"
+t_capture "$OSS" init patch-multi-demo
+t_assert_rc 0 "dispatcher: init ok (patch_add N>1 block)"
+t_capture "$OSS" patch_add cafef00d "no repo key under N>1, through the real binary"
+t_assert_rc 2 "dispatcher: omitted repo key under N>1 declared repos refuses at rc 2 through the real binary, not flattened to 1"
+t_assert_contains "$T_OUT" "canonical, ui" "dispatcher: refusal lists both declared repos through the real binary"
+t_capture "$OSS" get '.patch_records | length'
+t_assert_eq "0" "$T_OUT" "dispatcher: no phantom patch record journaled after the N>1 refusal through the real binary"
+cd "$HERE"
+unset OSS_STATE_FILE
+rm -rf "$PMTMP"
+
 # critic_detect is a pure filesystem probe (no state file, no manifest) - it
 # must answer on any machine, installed or not, so the assertion accepts any
 # arm of the binary contract but nothing else (an empty/garbage echo, or a
