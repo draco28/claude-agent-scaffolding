@@ -177,7 +177,8 @@ it the only one that can be legitimately *unavailable*: with no pairing manifest
 there is no repo root to look in, so emit `skip:` rather than falling silent.
 
 **Print one line per repository**, tagged `worktrees(<repo-key>)` — the keys are
-`_oss_repo_root`'s enum, so read that rather than a list here. A key the manifest
+every repo the manifest declares, plus `ai_workspace`, resolved from the
+manifest at run time rather than trusted from a list written here. A key the manifest
 does not configure, or whose root is not on this machine, still costs a `skip:`
 line. Do not summarise the lines into one verdict; the whole point is that
 "clean" and "not looked at" stay distinguishable per repo (the #156 history that

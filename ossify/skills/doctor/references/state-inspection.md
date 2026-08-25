@@ -215,13 +215,13 @@ New in v0.3, and the only check that reads the repository rather than the state
 file.
 
 ```bash
-# EVERY key in _oss_repo_root's enum, not a sample - the automatic loop that used
+# EVERY declared repo key, plus ai_workspace, not a sample - the automatic loop that used
 # to cover them is gone, so an omitted key costs its line and #156 comes back.
-# READ the enum from lib/worktree.sh rather than trusting a list written here: a
+# READ that set from the manifest at run time rather than trusting a list written here: a
 # transcribed copy is exactly the drift the deleted (12b) guard used to catch.
 # ALWAYS both arguments: the repo key AND the state this run is inspecting -
 # the same "$sf" the rest of the read-out uses (§2), never a fresh oss state_path.
-oss worktree_orphans <key> "$sf"     # once per key in the enum
+oss worktree_orphans <key> "$sf"     # once per declared key
 ```
 
 **Pass the key every time — the verb does not make you.** Omitting it resolves
@@ -242,8 +242,9 @@ exactly it, **or** when its basename is a work item's id — and only when that
 work item's `target_repo` is the repo being asked about, so a `private_core`
 item cannot claim a same-named directory sitting under the public root.
 
-**You run the selector once per repo key, and the keys are `_oss_repo_root`'s
-enum — read it from `lib/worktree.sh` at run time; no list here to go stale** —
+**You run the selector once per repo key, and the keys are every repo the
+manifest declares, plus `ai_workspace` — resolved from the manifest at run
+time; no list here to go stale** —
 printing `ok:`/`warn:`/`skip: worktrees(<key>)` for each. `oss doctor` used to
 do this and no longer does; the verb it called is unchanged. **Every key costs a line**, including the ones this
 project does not configure. A key the manifest does not configure gets the `skip:`, as does one

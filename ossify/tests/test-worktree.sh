@@ -508,8 +508,8 @@ cd /; rm -rf "$ORPH"
 # one surface the public/private boundary exists to protect — private work
 # accumulating under a root no ceremony and no check ever reads.
 #
-# The loop is driven off `_oss_repo_root`'s key enum rather than a hardcoded
-# pair, and an unconfigured key costs a `skip:` line (asserted at (7)) rather
+# The loop is driven off every repo the manifest declares rather than a
+# hardcoded pair, and an unconfigured key costs a `skip:` line (asserted at (7)) rather
 # than silence — so "not configured" and "configured and clean" stay
 # distinguishable in the read-out.
 # ---------------------------------------------------------------------------
@@ -583,7 +583,7 @@ rm -rf "$PRIV/canon/.worktrees" "$PRIV/legacy-state.json"
 
 # (12c) A CONFIGURED ROOT THAT DOES NOT EXIST HAS NOT BEEN INSPECTED.
 #
-# `_oss_repo_root` validates the manifest value — enum, non-empty, token-free,
+# `_oss_repo_root` validates the manifest value — non-empty, token-free,
 # absolute — but never that the directory is THERE. So an unmounted volume or a
 # moved repo resolved fine, `[ -d "$root/.worktrees" ]` was false, and the
 # "nothing spawned yet is not a finding" early return exited 0 with no output.
@@ -676,11 +676,12 @@ rm -rf "$PRIV/priv"
 
 # (12b) The DRIFT GUARD that lived here is DELETED with doctor's repo-key loop.
 # It asserted that doctor's hand-spelled `for key in ...` matched
-# `_oss_repo_root`'s enum, because two enumerations that can diverge reintroduce
-# #156 for whichever key only one of them knows. doctor no longer enumerates repo
-# keys - the repo-vs-state comparison is prose now - so there is no second copy to
-# drift from, and a guard asserting agreement between one list and nothing would
-# pass while checking nothing. The enum itself stays covered by (5) and (12).
+# `_oss_repo_root`'s closed key list, because two lists that can diverge
+# reintroduce #156 for whichever key only one of them knows. doctor no longer
+# enumerates repo keys - the repo-vs-state comparison is prose now - so there
+# is no second copy to drift from, and a guard asserting agreement between one
+# list and nothing would pass while checking nothing. Key validation itself
+# stays covered by (5) and (12).
 
 cd /; rm -rf "$PRIV"
 

@@ -194,7 +194,7 @@ oss_worktree_orphans() { # $1=repo-key [$2=state-file] ; echoes one abs path per
   # there for why splitting them was the thing that kept going wrong.
   # A CONFIGURED ROOT THAT DOES NOT EXIST HAS NOT BEEN INSPECTED, and must not
   # reach the early return below. `_oss_repo_root` validates the manifest VALUE
-  # - enum, non-empty, token-free, absolute - but never that the directory is
+  # - non-empty, token-free, absolute - but never that the directory is
   # there, so an unmounted volume or a moved repo resolved cleanly, failed
   # `[ -d "$dir" ]`, and exited 0 with no output. That is indistinguishable from
   # "inspected, nothing orphaned", and it violates this function's own contract
