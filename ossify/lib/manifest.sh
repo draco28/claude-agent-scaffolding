@@ -76,12 +76,40 @@ oss_topology_discover() {
 # workspace-init invents - so the writer side can never again declare a role
 # the reader refuses. Unknown keys ride along ignored (pulse-trader's extended
 # routing keys require exactly this).
-_oss_topology_shape() { # $1=manifest-path ; echoes shape JSON ; rc 1 unparseable
-  local m="$1"
+# The `.repos` map is a BOUNDARY, not a field with a default. `repos: (.repos //
+# {})` normalized a null, absent or empty map to `{}` and returned rc 0, so
+# `oss state_path` succeeded on a topology declaring nothing: /start read it as
+# resolved, would neither author nor overwrite it, and the first defaulted repo
+# operation failed with "[] are declared" far from the cause.
+#
+# `ai_workspace` is likewise refused HERE rather than at `_oss_repo_key_valid`.
+# The validator guards the lookup side, and `_oss_repo_root` tests the reserved
+# alias BEFORE it ever calls the validator - so a declared `.repos.ai_workspace`
+# was shadowed by the alias and never reached a grammar check at all. The
+# pairing arm below has always excluded the key by name; this is the topology
+# arm's missing half of that symmetry.
+#
+# rc 3, not rc 1: the caller distinguishes "found a manifest that will not
+# parse" from "parsed a manifest that declares nothing usable", and emitting the
+# JSON-parse message for the second sends the reader looking for a syntax error
+# that is not there.
+_oss_topology_shape() { # $1=manifest-path ; echoes shape JSON ; rc 1 unparseable, rc 3 invalid
+  local m="$1" n
   case "$m" in
     */.ossify/topology.json)
+      # PARSEABILITY FIRST. The boundary checks below are jq expressions, and on
+      # an unparseable file every one of them fails - reporting "declares no
+      # repos" for what is actually a syntax error, and sending the reader to
+      # the wrong half of the file. rc 1 here lets the caller say so.
+      jq -e . "$m" >/dev/null 2>&1 || return 1
+      jq -e 'type == "object"' "$m" >/dev/null 2>&1 || {
+        echo "oss: topology '$m' is not a JSON object - schema v1 is one object carrying .schema_version, .repos and .well_known_paths" >&2; return 3; }
+      jq -e '(.repos // {}) | type == "object" and (length > 0)' "$m" >/dev/null 2>&1 || {
+        echo "oss: topology '$m' declares no repos - .repos must be a non-empty object of <name>:{root}" >&2; return 3; }
+      jq -e '(.repos | has("ai_workspace")) | not' "$m" >/dev/null 2>&1 || {
+        echo "oss: topology '$m' declares 'ai_workspace', which is reserved for the AI workspace itself and cannot be declared as a product repo - rename that entry" >&2; return 3; }
       jq -c --arg ws "$(dirname "$(dirname "$m")")" '{schema_version,
-          repos: (.repos // {}), well_known_paths: (.well_known_paths // {}),
+          repos: .repos, well_known_paths: (.well_known_paths // {}),
           workspace: $ws, source: "topology"}' "$m" 2>/dev/null || return 1 ;;
     *)
       jq -c --arg ws "$(jq -r '.ai_workspace.root // empty' "$m" 2>/dev/null)" \
@@ -96,7 +124,11 @@ _oss_shape_file() { # discover + shape ; emits a diagnostic and returns 1 whethe
                      # was found (the refusal) or a manifest was found but failed to parse
   local m
   m="$(oss_topology_discover)" || { echo "oss: $OSS_MANIFEST_REFUSAL" >&2; return 1; }
-  _oss_topology_shape "$m" || { echo "oss: manifest '$m' could not be parsed as JSON" >&2; return 1; }
+  # rc 3 means _oss_topology_shape already said precisely what is wrong; adding
+  # the JSON-parse line on top of it would contradict its own diagnostic.
+  _oss_topology_shape "$m" && return 0
+  [ "$?" = 3 ] && return 1
+  echo "oss: manifest '$m' could not be parsed as JSON" >&2; return 1
 }
 
 # The default repo when a caller omits the key: the SOLE declared repo when
@@ -112,6 +144,46 @@ _oss_default_repo_key() {
     echo "oss: no repo key given and [$(printf '%s' "$shape" | jq -r '.repos | keys | join(", ")')] are declared - name one" >&2
     return 2
   fi
+}
+
+# The repo key for a state WRITE. `_oss_default_repo_key` covers the omitted
+# case; this covers the supplied one, which used to be trusted verbatim.
+#
+# Two refusals, and they are not the same check. An UNDECLARED key must refuse
+# because a typo that reaches the journal fails much later, during routing, with
+# nothing left to say which ceremony wrote it. `ai_workspace` must refuse
+# because it RESOLVES - it is the reserved alias for the process workspace - so
+# a resolution check alone admits it, and a work item or patch record targeting
+# it routes a close commit and a merge into the AI workspace.
+#
+# Called from the THREE `oss_cmd_*` wrappers that persist a key - spine_add,
+# work_item_add, patch_add - and not from the `oss_entity_*`/`oss_ledger_*`
+# functions beneath them. The dispatcher is where every real caller arrives (a
+# skill never sources a lib, it shells out to `oss`), so guarding there covers
+# the whole reachable surface; guarding the lib functions as well would force a
+# discoverable declaration on internal composition and on unit fixtures that
+# legitimately have none.
+#
+# The six sites that resolve a key through `_oss_repo_root` on the next line are
+# already guarded there, and routing them through this would refuse
+# `ai_workspace` for callers (`oss repo_root ai_workspace`, the doctor re-probe)
+# that legitimately ask for it.
+_oss_repo_key_for_write() { # $1=explicit-key-or-empty ; echoes the key ; rc 2 refusal
+  local k="${1:-}" shape
+  [ -n "$k" ] || { _oss_default_repo_key; return $?; }
+  [ "$k" = "ai_workspace" ] && {
+    echo "oss: 'ai_workspace' is the reserved process workspace, not a hosting repo - a spine, work item or patch record must target a declared product repo" >&2
+    return 2; }
+  # Membership is read off the SHAPE, not via `_oss_repo_root`. Two reasons:
+  # `_oss_repo_root` lives in worktree.sh, and calling it from manifest.sh made
+  # every caller that sources one without the other die on `command not found`;
+  # and membership is a shape question - the extra token-resolution and
+  # directory checks `_oss_repo_root` performs answer a different one.
+  shape="$(_oss_shape_file)" || return $?
+  printf '%s' "$shape" | jq -e --arg k "$k" '.repos | has($k)' >/dev/null 2>&1 || {
+    echo "oss: repo '$k' is not declared (declared: $(printf '%s' "$shape" | jq -r '.repos | keys | join(", ")'))" >&2
+    return 2; }
+  printf '%s\n' "$k"
 }
 
 # Read a jq expression from the discovered manifest. rc 1 if no manifest / null.

@@ -123,6 +123,50 @@ t_assert_contains "$T_OUT" "/ossify:start" "refusal names /ossify:start"
 t_assert_contains "$T_OUT" "/ossify:adopt" "refusal names /ossify:adopt"
 cd "$HERE"
 
+# --- the repos map is itself a boundary: empty, absent, and reserved ---------
+# `repos: (.repos // {})` normalized every one of these to an EMPTY repo map and
+# returned rc 0, so `oss state_path` succeeded and /start read the topology as
+# resolved: it would neither author one nor overwrite the broken file, and the
+# first defaulted repo operation failed with "[] are declared". The pairing arm
+# had always excluded `ai_workspace` by name; the topology arm had no such arm,
+# so a declared `.repos.ai_workspace` was shadowed by the reserved alias and
+# `oss repo_root ai_workspace` returned the WORKSPACE root, silently, for a key
+# the operator declared to mean a product repo.
+mkdir -p "$TMP/bad-empty/.ossify" "$TMP/bad-null/.ossify" "$TMP/bad-absent/.ossify" "$TMP/topo-r/.ossify"
+printf '%s\n' '{"schema_version":1,"repos":{},"well_known_paths":{}}'  > "$TMP/bad-empty/.ossify/topology.json"
+printf '%s\n' '{"schema_version":1,"repos":null,"well_known_paths":{}}' > "$TMP/bad-null/.ossify/topology.json"
+printf '%s\n' '{"schema_version":1,"well_known_paths":{}}'              > "$TMP/bad-absent/.ossify/topology.json"
+cat > "$TMP/topo-r/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"core":{"root":"$TMP/core"},"ai_workspace":{"root":"$TMP/nope"}},"well_known_paths":{}}
+JSON
+mkdir -p "$TMP/topo-a/.ossify"
+printf '%s\n' '[1,2]' > "$TMP/topo-a/.ossify/topology.json"
+cd "$TMP/topo-a"
+t_capture _oss_shape_file
+t_assert_rc 1 "a topology whose top level is not an object refuses"
+t_assert_contains "$T_OUT" "not a JSON object" "the non-object refusal names the shape, not a parse error"
+for bad in bad-empty bad-null bad-absent; do
+  cd "$TMP/$bad"
+  t_capture _oss_shape_file
+  t_assert_rc 1 "topology with a $bad repo map refuses"
+  t_assert_contains "$T_OUT" "declares no repos" "$bad refusal says the repo map is empty, not that the JSON is unparseable"
+  t_capture oss_manifest_state_path
+  t_assert_rc 1 "$bad does not resolve a state path - /start must still author"
+done
+cd "$TMP/topo-r"
+t_capture _oss_shape_file
+t_assert_rc 1 "a topology declaring the reserved key ai_workspace refuses"
+# The fixture dir is `topo-r`, not `bad-reserved`: the shape echoes the
+# workspace PATH, so a directory named ...reserved made this assertion pass on
+# a string the fixture itself planted, against the very bug it exists to catch.
+t_assert_contains "$T_OUT" "cannot be declared" "the reserved-key refusal says ai_workspace cannot be declared"
+# The reserved alias itself still resolves where it is NOT declared.
+cd "$TMP/ws"
+t_capture _oss_repo_root ai_workspace
+t_assert_rc 0 "ai_workspace remains resolvable as the reserved alias on a valid topology"
+t_assert_eq "$TMP/ws" "$T_OUT" "reserved alias still returns the workspace root"
+cd "$HERE"
+
 # --- grammar is an injection boundary, refused BEFORE any jq read ---
 cd "$TMP/ws"   # declares core + ui only
 # rc 2 alone does NOT prove the grammar fired: an undeclared-but-well-formed key
@@ -381,5 +425,61 @@ t_assert_eq "" "$T_OUT" "pulsebase shape: no orphan - the journaled record claim
 
 cd "$HERE"
 rm -rf "$PB"
+
+# --- an EXPLICIT repo key must be declared, not merely well-formed -----------
+# The `if [ -z "$N" ]; then default; else use-it-raw` idiom appears at ten
+# sites. Six resolve the key through `_oss_repo_root` on the next line, so a bad
+# key refuses there. Three PERSIST it - a spine's `target_repo`, a work item's,
+# a patch record's `repo` - and those refused nothing: a typo'd or undeclared
+# key entered the journal and failed only when a later ceremony tried to route
+# on it, far from the mistake.
+#
+# Asserted through `oss_cmd_*`, not the `oss_entity_*`/`oss_ledger_*` functions
+# beneath them, because that is where the guard lives and where every real
+# caller arrives: a skill never sources a lib, it shells out to `oss`.
+#
+# `ai_workspace` is refused at the same boundary for a different reason: it
+# RESOLVES (it is the reserved alias), so a membership check alone would admit
+# it, and a work item targeting it routes a close commit and a merge into the
+# process workspace.
+KT="$(mktemp -d)"; mkdir -p "$KT/.ossify" "$KT/core" "$KT/ui"
+export OSS_STATE_FILE="$KT/state.json"
+cat > "$KT/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"core":{"root":"$KT/core"},"ui":{"root":"$KT/ui"}},"well_known_paths":{"project_state":"$OSS_STATE_FILE"}}
+JSON
+cd "$KT"
+oss_cmd_init "explicit-key-guard" >/dev/null
+oss_cmd_release_add "r-keys" "explicit key coverage" >/dev/null
+for badkey in nosuch ai_workspace; do
+  t_capture oss_cmd_spine_add r0 "spine-$badkey" flesh "$badkey"
+  t_assert_rc 2 "spine with an explicit '$badkey' target refuses at rc 2"
+  t_capture oss_cmd_get '[.spines[]] | length'
+  t_assert_eq "0" "$T_OUT" "spine with an explicit '$badkey' target wrote NOTHING to state"
+done
+t_capture oss_cmd_spine_add r0 "good-spine" flesh core
+t_assert_eq "r0.s1" "$T_OUT" "a declared explicit key still creates the spine"
+for badkey in nosuch ai_workspace; do
+  t_capture oss_cmd_work_item_add r0.s1 "wi-$badkey" "$badkey"
+  t_assert_rc 2 "work item with an explicit '$badkey' target refuses at rc 2"
+  t_capture oss_cmd_patch_add deadbee "patch text" "$badkey"
+  t_assert_rc 2 "patch record with an explicit '$badkey' repo refuses at rc 2"
+done
+t_capture oss_cmd_get '[.work_items[]] | length'
+t_assert_eq "0" "$T_OUT" "no work item was written by any refused explicit key"
+t_capture oss_cmd_get '[.patch_records[]?] | length'
+t_assert_eq "0" "$T_OUT" "no patch record was written by any refused explicit key"
+# The declared keys still work, and the reserved alias is refused for a WRITE
+# while remaining resolvable as a root.
+t_capture oss_cmd_work_item_add r0.s1 "good wi" ui
+t_assert_rc 0 "a declared explicit key still creates the work item"
+t_capture oss_cmd_get '.work_items[0].target_repo'
+t_assert_eq "ui" "$T_OUT" "the declared key is what lands in state"
+t_capture oss_cmd_patch_add cafe123 "good patch" core
+t_assert_rc 0 "a declared explicit key still records the patch"
+t_capture oss_cmd_repo_root ai_workspace
+t_assert_rc 0 "ai_workspace is still resolvable as a ROOT - only the write refuses it"
+unset OSS_STATE_FILE
+cd "$HERE"
+rm -rf "$KT"
 
 t_summary

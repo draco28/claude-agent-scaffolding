@@ -24,9 +24,20 @@ t_capture oss_cmd_work_item_add r0.s1 "wire the entry point"
 t_assert_eq "r0.s1.w1" "$T_OUT" "work item minted"
 t_capture oss_cmd_get '.work_items[0].target_repo'
 t_assert_eq "canonical" "$T_OUT" "default target_repo is canonical"
+# The default-key assertions above need EXACTLY ONE declared repo; this one
+# needs a second, or "explicit" is indistinguishable from "default". Widening
+# the fixture up front satisfies this and disarms those, and leaving it widened
+# makes every LATER omitted-key call in this file refuse - so the second repo is
+# declared here and withdrawn immediately after.
+cat > "$TMP/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"canonical":{"root":"$TMP/canon"},"private_core":{"root":"$TMP/priv"}},"well_known_paths":{"project_state":"$OSS_STATE_FILE"}}
+JSON
 t_capture oss_cmd_work_item_add r0.s1 "private adapter" private_core
 t_capture oss_cmd_get '.work_items[1].target_repo'
 t_assert_eq "private_core" "$T_OUT" "explicit target_repo stored"
+cat > "$TMP/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"canonical":{"root":"$TMP/canon"}},"well_known_paths":{"project_state":"$OSS_STATE_FILE"}}
+JSON
 
 # release meta: exit criteria + DAG + budget + next sketch + real-use findings.
 t_capture oss_cmd_release_set_meta r0 \

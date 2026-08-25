@@ -173,15 +173,24 @@ rm -rf "$FTMP"
 PTMP="$(mktemp -d)"; export OSS_STATE_FILE="$PTMP/state.json"
 mkdir -p "$PTMP/.ossify"
 cat > "$PTMP/.ossify/topology.json" <<JSON
-{"schema_version":1,"repos":{"canonical":{"root":"$PTMP/canon"}},"well_known_paths":{"project_state":"$OSS_STATE_FILE"}}
+{"schema_version":1,"repos":{"canonical":{"root":"$PTMP/canon"},"ui":{"root":"$PTMP/ui"}},"well_known_paths":{"project_state":"$OSS_STATE_FILE"}}
 JSON
 cd "$PTMP"
 t_capture "$OSS" init patch-demo
 t_assert_rc 0 "dispatcher: init ok (patch_add block)"
+# `ui` is DECLARED above. It was not, and this block asserted that an
+# undeclared key reaches state and stays there - the exact defect the
+# explicit-key guard now refuses. A success case for an explicit key has to
+# use a key the declaration carries, or it tests the hole instead of the path.
 t_capture "$OSS" patch_add deadbeef "explicit repo key through the real binary" ui
-t_assert_rc 0 "dispatcher: patch_add with an explicit repo key ok through the real binary"
+t_assert_rc 0 "dispatcher: patch_add with a DECLARED explicit repo key ok through the real binary"
 t_capture "$OSS" get '.patch_records[-1].repo'
 t_assert_eq "ui" "$T_OUT" "dispatcher: explicit repo key reaches state through the real binary"
+t_capture "$OSS" patch_add cafe1234 "undeclared repo key" nosuch
+t_assert_rc 2 "dispatcher: patch_add with an UNDECLARED repo key refuses at rc 2"
+t_assert_contains "$T_OUT" "is not declared" "dispatcher: the undeclared-key refusal names the declared set"
+t_capture "$OSS" get '[.patch_records[]] | length'
+t_assert_eq "1" "$T_OUT" "dispatcher: the refused patch record was not written"
 cd "$HERE"
 unset OSS_STATE_FILE
 rm -rf "$PTMP"

@@ -51,7 +51,7 @@ oss_cmd_release_add() { # $1=name $2=goal
 oss_cmd_spine_add() { # $1=release $2=name $3=class [$4=target_repo]
   _oss_need 3 spine_add "<release> <name> <class> [target_repo]" "$@" || return 2;
   local sf tr; sf="$(_oss_resolve_state)" || return $?
-  if [ -z "${4:-}" ]; then tr="$(_oss_default_repo_key)" || return $?; else tr="$4"; fi
+  tr="$(_oss_repo_key_for_write "${4:-}")" || return $?
   oss_entity_add_spine "$sf" "$1" "$2" "$3" "$tr"
 }
 oss_cmd_class_set() { # $1=spine $2=new-class $3=reason
@@ -104,7 +104,13 @@ oss_cmd_expired_fakes()        { _oss_need 1 expired_fakes "<release>" "$@" || r
 oss_cmd_expired_quarantines()  { _oss_need 1 expired_quarantines "<release>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_expired_quarantines "$sf" "$1"; }
 oss_cmd_patch_add() { # $1=commit $2=text [$3=repo-key]
   _oss_need 2 patch_add "<commit-sha> <text> [repo-key]" "$@" || return 2;
-  local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_add_patch "$sf" "$1" "$2" "${3:-}"
+  local sf repo; sf="$(_oss_resolve_state)" || return $?
+  # Resolved to a CHECKED key here, not left for `oss_ledger_add_patch`'s own
+  # default tier: the explicit half of that tier was trusted verbatim, so a
+  # typo'd or undeclared key entered the journal and failed much later, during
+  # routing, with nothing left to say which ceremony wrote it.
+  repo="$(_oss_repo_key_for_write "${3:-}")" || return $?
+  oss_ledger_add_patch "$sf" "$1" "$2" "$repo"
 }
 # Explicit state file beats the environment. Without this argument a pre-flight
 # probe in one project silently reads another project's state via a stale
@@ -148,7 +154,7 @@ oss_cmd_ledger_active_auto(){ local sf; sf="$(_oss_resolve_state)" || return $?;
 oss_cmd_work_item_add() { # $1=spine $2=title [$3=target_repo]
   _oss_need 2 work_item_add "<spine> <title> [target_repo]" "$@" || return 2;
   local sf tr; sf="$(_oss_resolve_state)" || return $?
-  if [ -z "${3:-}" ]; then tr="$(_oss_default_repo_key)" || return $?; else tr="$3"; fi
+  tr="$(_oss_repo_key_for_write "${3:-}")" || return $?
   oss_entity_add_work_item "$sf" "$1" "$2" "$tr"
 }
 oss_cmd_release_set_meta() { # $1=release $2=patch-json
