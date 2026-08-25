@@ -107,7 +107,7 @@ D	skills/challenge/references/adversaries.md	3	#138	the plugin-root resolution (
 O	skills/close/references/spine-close.md	work items that are not complete	tests/test-close.sh	the open-work-item gate refuses to close a spine with incomplete items
 O	skills/close/references/spine-close.md	is-ancestor	tests/test-close.sh	the merge guard: the spine tip must actually reach the base branch
 O	skills/close/references/spine-close.md	touch_check	tests/test-close.sh	bone-touch at close re-classifies the spine rather than trusting the plan
-D	skills/close/references/spine-close.md	1	#138	the resume containment probe (audit #47, operative, unexecuted)
+D	skills/close/references/spine-close.md	1	#138	the resume containment probe (audit #47, operative, unexecuted). #272/#310 Task 9 turned the once-per-spine probe into a loop over every hosting repo, same shape as round-orchestration.md's `checkout -q -b` conversion
 I	skills/close/references/spine-close.md	5	single-verb calls with <placeholder> args: ledger_apply_pending, class_set, risk-gate read, worktree_remove, spine_status
 O	skills/close/references/release-close.md	spines that are not closed	tests/test-close.sh	the release gate blocks on any spine still open
 O	skills/close/references/release-close.md	expired_fakes	tests/test-close.sh	the fake-expiry gate blocks on fakes past their expiry release
@@ -115,9 +115,9 @@ O	skills/close/references/release-close.md	expired_quarantines	tests/test-close.
 D	skills/close/references/release-close.md	1	#138	the ai_workspace path composition for the release retro is unexecuted
 I	skills/close/references/release-close.md	6	single-verb calls: demo_user_lines, ledger_retire, release goal read, feature_list, release_status, release_dir (the retro destination became a release_dir call - the verb is test-worktree.sh's)
 O	skills/close/references/patch-lane.md	touch_check	tests/test-close.sh	a patch touching a bone surface must escalate out of the patch lane
-D	skills/close/references/patch-lane.md	1	#138	the patch commit's branch placement block - CL-1 says the target branch is unspecified, so executing it needs the design decision first
+D	skills/close/references/patch-lane.md	1	#138	the patch commit's branch placement block - CL-1 says the target branch is unspecified, so executing it needs the design decision first. #272/#310 Task 9 keyed the block to a `repo_key` (any declared repo, not only canonical); the underlying CL-1 gap is unchanged
 I	skills/close/references/patch-lane.md	1	single patch_add call with <placeholder> args
-O	skills/close/references/work-item-close.md	abbrev-ref	tests/test-close.sh	W1: the merge guard fires when canonical is parked on the wrong branch
+O	skills/close/references/work-item-close.md	abbrev-ref	tests/test-close.sh	W1: the merge guard fires when the item's own repo (target_repo, not always canonical since #272/#310 Task 9) is parked on the wrong branch
 D	skills/close/references/work-item-close.md	4	#138	path resolution, the spec-exists halt, the staged-changes read, and the Route A/B close sequence
 I	skills/close/references/work-item-close.md	1	a single <placeholder> assignment showing the report path's origin
 O	skills/close/references/cumulative-demo.md	elapsed=	tests/test-close.sh	D1-D4: the demo measurement block preserves the runner's rc instead of flattening it
@@ -206,12 +206,12 @@ H	skills/close/references/cumulative-demo.md	2610898515-1543
 H	skills/close/references/fake-expiry.md	3542365026-715
 H	skills/close/references/harvest.md	1726645723-663
 H	skills/close/references/impl-check.md	3364110005-836
-H	skills/close/references/patch-lane.md	1477508772-1735
+H	skills/close/references/patch-lane.md	3173812713-2590
 H	skills/close/references/release-close.md	3882829569-2451
 H	skills/close/references/retrospective.md	2875153190-110
 H	skills/close/references/routing.md	948295148-232
-H	skills/close/references/spine-close.md	3996621875-3390
-H	skills/close/references/work-item-close.md	575441835-2387
+H	skills/close/references/spine-close.md	647594484-4707
+H	skills/close/references/work-item-close.md	3454219241-2854
 H	commands/doctor.md	729179949-141
 H	skills/doctor/SKILL.md	630905567-126
 H	skills/doctor/references/budget-check.md	582880737-316

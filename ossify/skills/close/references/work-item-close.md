@@ -158,7 +158,12 @@ The commit boundary is the orchestrator's: the implementer stages, this layer
 commits. The merge is what actually moves the work onto the spine.
 
 ```bash
-canonical="$(oss repo_root canonical)"
+# The item's OWN repo, read from state - never a bare "canonical". A spine can
+# host items across several declared repos (round-orchestration.md §2 cuts the
+# spine branch in every one of them); this layer closes ONE item, so it targets
+# exactly the repo that item recorded at work_item_add time.
+target_repo="$(oss get ".work_items[] | select(.id==\"$wi\") | .target_repo")"
+repo_root="$(oss repo_root "$target_repo")" || { echo "close: $wi targets undeclared repo '$target_repo' - halt"; exit 1; }
 
 # The merge target comes from STATE, written by the execution lane.
 wi_branch="$(oss get ".work_items[] | select(.id==\"$wi\") | .branch")"
@@ -168,15 +173,15 @@ wi_branch="$(oss get ".work_items[] | select(.id==\"$wi\") | .branch")"
 # The spine branch: in the round flow it is already in scope; standalone,
 # recompose it from the slug step 1 recovered.
 spine_branch="$(oss branch_name "$spine_id" "$spine_slug")"
-head_branch="$(git -C "$canonical" rev-parse --abbrev-ref HEAD)"
+head_branch="$(git -C "$repo_root" rev-parse --abbrev-ref HEAD)"
 [ "$head_branch" = "$spine_branch" ] \
-  || { echo "close: canonical is on '$head_branch', not '$spine_branch' - halt"; exit 1; }
+  || { echo "close: $target_repo is on '$head_branch', not '$spine_branch' - halt"; exit 1; }
 
 git -C "$wt" commit -m "<message>"
 wi_sha="$(git -C "$wt" rev-parse HEAD)"
 
-git -C "$canonical" merge --no-ff "$wi_branch" -m "merge $wi" || { echo "close: merge conflict - halt"; exit 1; }
-git -C "$canonical" merge-base --is-ancestor "$wi_sha" HEAD \
+git -C "$repo_root" merge --no-ff "$wi_branch" -m "merge $wi" || { echo "close: merge conflict - halt"; exit 1; }
+git -C "$repo_root" merge-base --is-ancestor "$wi_sha" HEAD \
   || { echo "close: merge reported success but $wi_sha is not reachable from HEAD - halt"; exit 1; }
 
 oss work_item_status "$wi" complete
@@ -190,11 +195,12 @@ back. `oss work_item_branch "$wi" "$slug"` needs a `$slug` that does not exist
 here; it is the id grammar's name generator, not a lookup.
 
 **Verify the merge target before merging.** `git merge` lands on whatever
-canonical has checked out. The execution lane parks canonical on the spine branch
-for the whole spine; if `rev-parse --abbrev-ref HEAD` says anything else, **halt**
-— a merge onto the wrong branch **succeeds silently at rc 0**, the work never
-reaches the spine, and the first thing that notices is a cumulative demo
-measuring a tree assembled by accident.
+`$target_repo` has checked out. The execution lane parks **every repo hosting
+one of the spine's items** on the spine branch for the whole spine
+(`round-orchestration.md` §2); if `rev-parse --abbrev-ref HEAD` in *this item's*
+repo says anything else, **halt** — a merge onto the wrong branch **succeeds
+silently at rc 0**, the work never reaches the spine, and the first thing that
+notices is a cumulative demo measuring a tree assembled by accident.
 
 **Status is set last, after the merge is verified landed.** Spine close reads
 `complete` as "this item's work is on the spine branch" — it is the only signal
@@ -214,7 +220,8 @@ re-run halts at step 3 with an empty index and reports the wrong problem.
 **This merge is not optional bookkeeping.** Without it the commits live only on a
 branch that spine close cannot delete — `oss worktree_remove` refuses an unmerged
 branch (rc 8) — so the round halts at cleanup, *after* the cumulative demo has
-already reported green against a canonical tree that never received the work.
+already reported green against a tree in `$target_repo` that never received the
+work.
 
 ---
 
