@@ -87,10 +87,12 @@ mechanical checks read.
 ossify ships no `/adr` utility — that is a settled decision, not a pending
 gap — so **this section is the convention, permanently**:
 
-**Where:** `<canonical>/docs/adr/` — resolve it with
-`canonical="$(oss repo_root canonical)"`. Bones are decisions about the
-*product's* architecture, so they live with the product, not in the AI
-workspace beside the planning docs.
+**Where:** each declared repo's `docs/adr/` — resolve the repo the decision
+concerns with `oss repo_root <name>` (the sole declared repo when there is
+only one; under more than one, the repo the bone's touch-glob actually
+covers — ask if that is not obvious from the surface named). Bones are
+decisions about the *product's* architecture, so they live with the product,
+not in the AI workspace beside the planning docs.
 
 **Filename:** `adr-NNNN-kebab-title.md`, four-digit zero-padded, matching the
 index reference — `ADR-0002` is `adr-0002-hexagonal-core-with-six-port-traits.md`.
@@ -100,14 +102,16 @@ writes (`adr-NNNN-kebab.md`); `scaffold-onboard`'s seed is the unprefixed
 `0001-record-architecture-decisions.md` — which is exactly why the numbering
 scan below reads both forms.
 A project migrating to ossify already has that series, and the whole reason bone
-ADRs live in the canonical repo is to join it rather than start a rival one.
+ADRs live in the repo they concern is to join that repo's existing series
+rather than start a rival one.
 
-**Numbering:** the next number is the highest existing plus one, **counting both
+**Numbering is per repo:** the next number is the highest existing plus one
+**in that repo's `docs/adr/`**, **counting both
 forms**. Read it, do not guess:
 
 ```bash
-canonical="$(oss repo_root canonical)"; mkdir -p "$canonical/docs/adr"
-next="$(ls -1 "$canonical/docs/adr" 2>/dev/null \
+repo_root="$(oss repo_root "<name>")"; mkdir -p "$repo_root/docs/adr"
+next="$(ls -1 "$repo_root/docs/adr" 2>/dev/null \
         | sed -n -e 's/^adr-\([0-9][0-9]*\)-.*\.md$/\1/p' \
                  -e 's/^\([0-9][0-9]*\)-.*\.md$/\1/p' | sort -n | tail -1)"
 printf 'ADR-%04d\n' "$(( 10#${next:-0} + 1 ))"

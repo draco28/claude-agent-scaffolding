@@ -139,10 +139,10 @@ D	commands/work-item.md	1	#138	the $ARGUMENTS env-var bridge
 I	skills/doctor/SKILL.md	2	a single doctor call (interop_check's block went with its verb - §7 is performed by reading; rules_types' block went the same way - §6's type table is the reference's §3 prose now) and the surface-token placeholder assignment (the broken $ARGS parse became the family's prose-placeholder form - there is no parse logic left to cover; §12 owns $ARGUMENTS)
 I	skills/doctor/references/state-inspection.md	3	the reads the agent-performed half works from, now that doctor emits only its four gate lines: the four advisory counts, the `| type` guard that must precede them (jq's length answers on strings too, so a corrupt field returns a plausible number at rc 0), and the worktree_orphans call shapes one per repo key (#156). Each is a single read whose OUTPUT the prose interprets - the judgement is the prose
 I	skills/doctor/references/spec-validation.md	2	a spec_path resolve and a bones-count get bound to an explicit state path
-I	skills/doctor/references/interop-check.md	3	the resolution calls the agent-performed check reads FROM, now that the verb is gone: the two repo_root reads, the canonical git probe, and state_path vs $OSS_STATE_FILE. Each is a single call whose OUTPUT the prose interprets - the judgement is the prose, so executing these would test the fixture rather than the check
+I	skills/doctor/references/interop-check.md	3	the resolution calls the agent-performed check reads FROM, now that the verb is gone: the ai_workspace + declared-repo root reads, the declared-repo git work-tree probe (#272/#310 Task 10: was canonical-only), and state_path vs $OSS_STATE_FILE. Each is a single call whose OUTPUT the prose interprets - the judgement is the prose, so executing these would test the fixture rather than the check
 D	skills/doctor/references/budget-check.md	2	#138	both budget probes now self-locate the ossify root from the `oss` dispatcher and consume it on the next line - operative by the stated rule. The two forms they replaced (a repo-relative path, then ${CLAUDE_PLUGIN_ROOT}) both failed SILENTLY, the second by expanding to empty and reading /tests/..., so a regression here looks exactly like a working command
 D	skills/close/SKILL.md	2	#138	the id-shape router and the manifest-refusal + doctor gate
-D	skills/close/references/code-review.md	1	#138	consumes $base_branch and $spine_branch assuming an earlier step assigned them - the exact round-7 shape
+D	skills/close/references/code-review.md	1	#138	consumes $repo_base_branches and $spine_branch assuming an earlier step assigned them, and loops every hosting repo rather than canonical alone (#272/#310 Task 10) - the exact round-7 shape extended to N repos
 D	skills/close/references/fake-expiry.md	1	#138	the expired-fakes branch whose rc contract folds rc 2 into neither pass nor block
 I	skills/close/references/fake-expiry.md	2	an active-fakes read and a single fake_status call
 D	skills/close/references/harvest.md	2	#138	the empty-items halt guard and the memory-bank path composition
@@ -198,11 +198,11 @@ H	commands/plan-spine.md	3747955391-145
 H	commands/run-spine.md	2545938813-144
 H	commands/start.md	3557017349-140
 H	commands/work-item.md	2378584622-144
-H	skills/adopt/SKILL.md	3003032981-173
+H	skills/adopt/SKILL.md	3508802419-191
 H	skills/challenge/references/adversaries.md	2951141406-862
-H	skills/close/SKILL.md	2598283696-409
-H	skills/close/references/code-review.md	477087775-527
-H	skills/close/references/cumulative-demo.md	2610898515-1543
+H	skills/close/SKILL.md	1410923543-370
+H	skills/close/references/code-review.md	2814585538-1688
+H	skills/close/references/cumulative-demo.md	1290111459-1515
 H	skills/close/references/fake-expiry.md	3542365026-715
 H	skills/close/references/harvest.md	1726645723-663
 H	skills/close/references/impl-check.md	3364110005-836
@@ -215,7 +215,7 @@ H	skills/close/references/work-item-close.md	3454219241-2854
 H	commands/doctor.md	729179949-141
 H	skills/doctor/SKILL.md	630905567-126
 H	skills/doctor/references/budget-check.md	582880737-316
-H	skills/doctor/references/interop-check.md	3672515018-357
+H	skills/doctor/references/interop-check.md	1186926643-399
 H	skills/doctor/references/spec-validation.md	2541080060-102
 H	skills/doctor/references/state-inspection.md	622871202-1192
 H	skills/plan-release/SKILL.md	3335154455-2082
@@ -229,13 +229,13 @@ H	skills/plan-release/references/rolling-wave.md	767614811-211
 H	skills/plan-release/references/spine-sequencing-dag.md	3469132072-141
 H	skills/plan-spine/SKILL.md	334501861-2317
 H	skills/plan-spine/references/citation-foldin.md	3602525984-347
-H	skills/plan-spine/references/cross-repo.md	522633753-880
-H	skills/plan-spine/references/decomposition.md	1060876370-667
+H	skills/plan-spine/references/cross-repo.md	1538931332-891
+H	skills/plan-spine/references/decomposition.md	904324617-642
 H	skills/plan-spine/references/demo-amendments.md	3004605912-329
 H	skills/plan-spine/references/demo-authoring.md	11800694-1544
 H	skills/plan-spine/references/fake-ledger-discipline.md	3569334562-372
 H	skills/start/SKILL.md	1012149735-855
-H	skills/start/references/bones-registry.md	179051130-727
+H	skills/start/references/bones-registry.md	1560891006-726
 H	skills/start/references/journey-map.md	3044115941-97
 H	skills/start/references/posture-block.md	79955184-463
 H	skills/start/references/risk-gates.md	2376839325-381

@@ -2,11 +2,12 @@
 # Per-work-item worktrees. rc 8 = git/worktree operation failure (see the plan's
 # rc-taxonomy note); rc 2 = usage / unknown repo key; rc 1 = not found.
 #
-# D4: every entry point takes a REPO KEY as its first argument, even though only
-# `canonical` resolves today. `target_repo` has been written into state since B4
-# with no reader; this is its first. Plan D adds `private_core` by extending
-# _oss_repo_root alone - retrofitting the parameter later would mean changing
-# every call site and every path-shape assertion in this file.
+# D4: every entry point takes a REPO KEY as its first argument. `target_repo`
+# has been written into state since B4 with no reader; this is its first.
+# #272/#310 generalized `_oss_repo_root` to resolve any repo the manifest
+# declares, not `canonical` alone - every call site and path-shape assertion
+# in this file already took the parameter, so that generalization needed no
+# signature change here.
 
 _oss_repo_root() { # $1=repo-key
   local key root shape
@@ -95,7 +96,7 @@ oss_worktree_add() { # $1=repo-key $2=work-item-id $3=slug $4=base-ref ; echoes 
 }
 
 # The worktree root lives INSIDE the repo, so without this every spawn leaves
-# `?? .worktrees/` in the canonical repo's status - a dirty tree ossify itself
+# `?? .worktrees/` in that repo's status - a dirty tree ossify itself
 # created, in the very repo whose cleanliness the close ceremony checks. The
 # leading dot already keeps most test runners out (pytest's default
 # `norecursedirs` includes `.*`; `go test ./...` skips dirs beginning with `.`
@@ -115,7 +116,7 @@ _oss_worktree_ignore() { # $1=repo-root ; best-effort, never fatal
   # `.git` FILE pointing elsewhere — its info/exclude lives at the common dir,
   # not at `$1/.git/info/exclude`. The old `[ -d "$1/.git" ] || return 0`
   # guard skipped those repos, leaving `.worktrees/` permanently un-excluded
-  # and the canonical tree dirty on every spawn. (Codex P2 finding #5.)
+  # and that repo's tree dirty on every spawn. (Codex P2 finding #5.)
   local cd
   cd="$(git -C "$1" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \
     || { echo "oss: cannot resolve git common dir for $1 - .worktrees/ not excluded" >&2; return 1; }

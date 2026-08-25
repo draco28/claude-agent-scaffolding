@@ -162,8 +162,8 @@ record whose commit is unreachable. Every arm above fires on something real — 
 parked spine, a work-item branch, a detached checkout, an unresolvable HEAD.
 
 **Checking the WRONG repo's branch is the multi-repo shape of the same
-failure.** `repo_root canonical` always resolves and canonical's own branch may
-well be clean — that proves nothing about `$repo_key` when a project declares
+failure.** Some OTHER declared repo may resolve fine and its branch may well
+be clean — that proves nothing about `$repo_key` when a project declares
 more than one repo. Assert the branch in the repo the commit is actually going
 into, never in whichever repo happens to be easiest to ask.
 
@@ -250,8 +250,8 @@ default rather than a threat.
   (§5).
 - **Inventing a new verb.** `oss patch_add` is the record; nothing else is
   needed (§5).
-- **Asserting `canonical`'s branch when the patch targets a different declared
-  repo**, or recording it under a repo key other than the one the branch guard
+- **Asserting a different declared repo's branch than the one the patch
+  targets**, or recording it under a repo key other than the one the branch guard
   actually checked (§5).
 - **Treating the patch lane as a way past a red demo.** The next spine close runs
   it anyway (§6).

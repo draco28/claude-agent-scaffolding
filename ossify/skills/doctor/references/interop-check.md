@@ -37,11 +37,12 @@ ok: manifest - /path/to/.workspace/pairing.json
 fail: agents_md - no AGENTS.md at /path/AGENTS.md; a Codex session gets no project instructions at all
 ```
 
-Check names, in this order: `manifest`, `canonical`, `ai_workspace`,
-`state_path`, `agents_md`. **If any line is `fail:`, say so explicitly at the
-end** — there is no exit code to carry it now, so the summary is what the reader
-acts on. Report every failing line, not just the first, except where §3 says to
-stop.
+Check names, in this order: `manifest`, `ai_workspace`, one `ok:`/`fail:`
+line per declared repo — named by its own key, `canonical` for a project that
+declares one that way — `state_path`, `agents_md`. **If any line is `fail:`,
+say so explicitly at the end** — there is no exit code to carry it now, so the
+summary is what the reader acts on. Report every failing line, not just the
+first, except where §3 says to stop.
 
 ---
 
@@ -98,13 +99,18 @@ not, all of which used to reach the later checks and produce nonsense:
   and every later line is nonsense about a path nobody configured. Count the
   top-level values. (#169)
 
-### `canonical` and `ai_workspace`
+### `ai_workspace` and every declared repo
 
-Both roots must resolve, and both must be real directories.
+`ai_workspace`'s root must resolve and be a real directory, and so must every
+repo the manifest declares — the same repo set the `manifest` check above
+already read the file for (a native topology's `.repos` object; every top-level
+object carrying a `root` other than `ai_workspace` under a legacy pairing
+manifest, translated the same way `_oss_topology_shape` does). Emit one
+`ok:`/`fail:` line per key, tagged with that key.
 
 ```bash
-oss repo_root canonical
 oss repo_root ai_workspace
+oss repo_root "<repo-key>"            # once per declared repo
 ```
 
 Use the verb, not the raw JSON value. It substitutes `${...}` tokens and refuses
@@ -124,26 +130,27 @@ Distinguish the two failures — they have different causes and different fixes:
 The second is the one that happens to real projects, usually after a repo is
 renamed or moved.
 
-**`canonical` must also be a git work tree.** Probe it:
+**Every declared repo must also be a git work tree.** Probe each:
 
 ```bash
-git -C "$(oss repo_root canonical)" rev-parse --is-inside-work-tree
+git -C "$(oss repo_root "<repo-key>")" rev-parse --is-inside-work-tree
 ```
 
-The probe must print `true` — rc 0 alone is not the pass. A canonical root that
-is an ordinary directory (`.git` removed, the manifest hand-edited) fails the
+The probe must print `true` — rc 0 alone is not the pass. A declared repo whose
+root is an ordinary directory (`.git` removed, the manifest hand-edited) fails the
 probe outright; a **bare repository or a `.git` directory** answers rc 0 to
 weaker probes like `--git-dir` — and even *survives* `oss worktree_add`, since
 git happily adds worktrees from a bare repo — so the first break comes later
 and worse: spine close's checkouts and merges run against the root itself and
 need a work tree there. A probe that certifies switch-ready and defers the
 failure to mid-ceremony is the #153 shape one level in. Line:
-`fail: canonical - resolved root is not a git work tree: <path>`. (#153, #183)
+`fail: <repo-key> - resolved root is not a git work tree: <path>`. (#153, #183)
 
 **Do not apply the git probe to `ai_workspace`.** That workspace is legitimately
 allowed to be untracked, so the same probe there is a false failure. This is the
-one place the two roots are deliberately *not* treated alike — a check that
-loops over both keys uniformly is wrong.
+one place `ai_workspace` and a declared repo are deliberately *not* treated
+alike — a check that loops over `ai_workspace` with the declared repos is
+wrong.
 
 ### `state_path`
 

@@ -36,8 +36,10 @@ the first place anyone notices a regression in an older journey.
 
 Both halves run against **composition-root post-merge state**, which is why the
 demo is step 4 and the merge is step 2. The runner resolves its working directory itself:
-the declared composition root when the project has one, the canonical repo root
-otherwise. Do not `cd` to help it — the manifest walk starts at `$PWD` and a `cd`
+the declared composition root when the project has one, the sole declared
+repo's root otherwise — refusing rather than guessing under more than one
+declared repo (#272/#310 Task 4), never a literal `canonical`. Do not `cd` to
+help it — the manifest walk starts at `$PWD` and a `cd`
 re-points every later state read (SKILL.md §3).
 
 ---
@@ -123,15 +125,16 @@ The read-aloud test above catches the obvious abuse. It does not *establish*
 innocence, and the abuse it misses is the sincere one: an agent that genuinely
 believes the failure is unrelated and is wrong. There is a mechanical check —
 run it from the same workdir the runner resolved (§1; a declared composition
-root when there is one — the block below shows the canonical-root case):
+root when there is one — the block below shows the no-composition-root case,
+`$wd` being whatever the sole declared repo's root resolved to):
 
 ```bash
 # same command, both trees, and diff the OUTPUT before believing the rc
 cmd="$(oss get ".demo_ledger[] | select(.id==\"<line-id>\") | .command")"
-( cd "$canonical" && bash -c "$cmd" ) > /tmp/oss-head.txt 2>&1; echo "head rc=$?"
-git -C "$canonical" checkout --detach "$merge_sha^1"
-( cd "$canonical" && bash -c "$cmd" ) > /tmp/oss-parent.txt 2>&1; echo "parent rc=$?"
-git -C "$canonical" checkout -
+( cd "$wd" && bash -c "$cmd" ) > /tmp/oss-head.txt 2>&1; echo "head rc=$?"
+git -C "$wd" checkout --detach "$merge_sha^1"
+( cd "$wd" && bash -c "$cmd" ) > /tmp/oss-parent.txt 2>&1; echo "parent rc=$?"
+git -C "$wd" checkout -
 diff /tmp/oss-head.txt /tmp/oss-parent.txt
 ```
 

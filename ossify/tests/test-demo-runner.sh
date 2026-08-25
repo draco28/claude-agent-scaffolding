@@ -10,7 +10,9 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/../lib/entities.sh"; . "$HERE/../lib/ledger.sh"; . "$HERE/../lib/verify.sh"; . "$HERE/../lib/worktree.sh"; . "$HERE/../lib/demo.sh"
 TMP="$(mktemp -d)"; S="$TMP/state.json"
 # Task 6: `oss_demo_run_auto` now resolves its working directory via a
-# pairing manifest (composition root when set, canonical root otherwise) -
+# pairing manifest (composition root when set, the sole declared repo's root
+# otherwise - #272/#310 Task 4 routed this through the sole-repo default rule,
+# never a literal `canonical`) -
 # a BEHAVIORAL CHANGE from "runs in the caller's cwd". Every call below that
 # omits the explicit workdir argument needs one on the walk-up path, so the
 # fixture goes in BEFORE the first such call (all eight pre-existing calls

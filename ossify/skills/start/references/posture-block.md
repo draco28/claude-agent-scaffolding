@@ -177,7 +177,8 @@ mandatory citation re-verification.
 enumerating every private asset is self-defeating — that was the v1 draft's
 defect. Rules, patterns, and prose only.
 
-**Routing:** one file per public-facing repo root — the canonical always,
+**Routing:** one file per public-facing repo root — every declared product
+repo (`canonical` when a project names one that; any other, however named),
 and any product-adjacent repo the pairing carries (`tooling_repo`) at its own
 root when the project volunteers one; never the AI workspace or a
 `private_core`, which hold the moat by design. Even a fully-private project

@@ -154,9 +154,11 @@ item behind one bullet is still one bullet hiding four items.)
 oss work_item_add "$spine" "<title>" [target_repo]      # prints r1.s2.w1, …
 ```
 
-`target_repo` defaults to `canonical`; pass the private-side repo (e.g.
-`private_core`) for an item that lands there — only `canonical` executes this
-release (`work-item/references/round-orchestration.md` §3, in the work-item skill, halts otherwise).
+`target_repo` defaults to the sole declared repo, refusing outright once more
+than one is declared; pass the target's key (e.g.
+`private_core`) for an item that lands somewhere else — any declared repo
+executes (`work-item/references/round-orchestration.md` §3, in the work-item
+skill, halts only an undeclared name or `ai_workspace`).
 **Each work item targets exactly one
 repo** — an item that spans two repos is two items. Full rules in
 `references/cross-repo.md`. An unknown spine id exits **7** and writes nothing.

@@ -41,7 +41,7 @@ what `plan-spine` actually wrote.
 — it must be prefixed with the ai_workspace root, exactly as every sibling
 consumer in `close` does. Used bare it resolves against whatever directory the
 agent happens to be standing in, which during a round is usually a worktree
-under the canonical repo — so the read silently misses, or worse, finds a
+under a declared repo — so the read silently misses, or worse, finds a
 different project's file. (`oss release_dir <release-id>` returns the release
 level of the same tree already absolute, if that is all you need.)
 

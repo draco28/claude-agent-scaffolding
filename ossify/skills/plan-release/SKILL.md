@@ -193,8 +193,9 @@ oss release_set_meta "$rel" '{"exit_criteria":["At close, a trader can …"]}'
 prints the minted spine id (`r0.s1`, …). Capture both — every later call is keyed
 by them. `spine_add`'s class argument accepts **only** `bone` or `flesh` (anything
 else exits 2); the class you pass here is the *declared* class, and §7 may
-overrule it. An optional 4th argument sets `target_repo` (defaults to
-`canonical`); pass the private-side repo for a spine that lands there.
+overrule it. An optional 4th argument sets `target_repo` (defaults to the
+sole declared repo, refusing outright once more than one is declared); pass
+the target's key for a spine that lands somewhere else.
 
 **Release 0:** normal ceremony, no shortcuts — with the **skeleton spine
 pre-seeded** from `start`'s skeleton-cut. It is `bone` class by definition (it

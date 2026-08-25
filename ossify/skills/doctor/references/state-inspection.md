@@ -224,11 +224,15 @@ file.
 oss worktree_orphans <key> "$sf"     # once per key in the enum
 ```
 
-**Pass the key every time — the verb does not make you.** Omitting it silently
-resolves to `canonical` (`oss_cmd_worktree_orphans` and `oss_worktree_orphans`
-both default it), so a bare `oss worktree_orphans` answers a question about the
-public repo no matter which one you meant. That defaulting is how #156 happened
-in the first place. Making the argument mandatory is a breaking change to a
+**Pass the key every time — the verb does not make you.** Omitting it resolves
+to the sole declared repo under one, and refuses outright naming the declared
+set under more than one (`oss_cmd_worktree_orphans` and `oss_worktree_orphans`
+both default that way, #272/#310 Task 4 — never a silent guess). Relying on
+that default anyway is still how #156 happened: a habit formed on a
+single-repo project, carried unexamined into one with more, so a bare
+`oss worktree_orphans` answers a question about whichever repo happened to be
+sole when the habit formed, not the one you meant today. Making the argument
+mandatory is a breaking change to a
 shipped verb and is tracked separately; until then the discipline is yours, not
 the tool's.
 

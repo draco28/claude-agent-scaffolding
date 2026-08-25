@@ -161,7 +161,7 @@ line, not a silent pass.
 
 ### Where the file is
 
-The memory bank, in the **AI workspace** — not the canonical repo, and not
+The memory bank, in the **AI workspace** — not any declared repo, and not
 beside the code being reviewed. The bank is manifest-routed: resolve it exactly
 as `references/harvest.md` §7 does (the pairing manifest's
 `.well_known_paths.memory_bank`, token-expanded; a relative or unresolved route

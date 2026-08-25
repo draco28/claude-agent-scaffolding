@@ -88,14 +88,12 @@ passed and show the three shapes:
 **With no id at all, refuse and list what is open** — `oss spine_list`, or
 `oss get` with a status filter. Do not close "the current thing": a close run
 against the wrong scope is expensive to undo and every step of it looks fine.
-And if what arrived is a **canonical** change belonging to no open spine or
-work item — a typo fix, a doc touch-up — it is not a close at all: run §3's
-pre-flight (the lane reads the registries and mutates state too), then route
-it to the patch lane (`references/patch-lane.md`), never a forced ceremony.
-An AI-workspace edit needs no lane — no ceremony governs that repo. An
-out-of-spine change in any *other* product repo has no documented lane
-(`patch_add` records no repository key) — surface it rather than improvising
-one.
+And if what arrived is a change to **any declared repo** belonging to no open
+spine or work item — a typo fix, a doc touch-up — it is not a close at all:
+run §3's pre-flight (the lane reads the registries and mutates state too),
+then route it to the patch lane (`references/patch-lane.md`), which resolves
+and records which declared repo the patch targets, never a forced ceremony.
+An AI-workspace edit needs no lane — no ceremony governs that repo.
 
 Full routing rules — the id grammar, the no-argument refusal, the shapes that are
 deliberately not ids, and the routing anti-patterns — in
@@ -110,7 +108,6 @@ Runs before any scope's first step, every time.
 ```bash
 oss manifest_require || exit 0        # refuse: run /init-workspace or /pair-workspace first
 oss doctor                            # schema + replay must be green
-canonical="$(oss repo_root canonical)"
 ai_root="$(oss repo_root ai_workspace)"
 ```
 
@@ -188,7 +185,7 @@ Six steps, in **binding order**:
 3. **Prove there is something to commit** — a green gate over an empty index
    means the work is not where the commit will look for it.
 4. **On green:** commit **in the worktree**, merge its branch into the spine
-   branch canonical is parked on — reading the branch from `work_items[].branch`,
+   branch that item's own target repo is parked on — reading the branch from `work_items[].branch`,
    never re-deriving it from a slug you do not have — halting on conflict
    (resolution discipline: `references/merge-conflict-resolution.md`), and set
    the work item `complete` **last**, after the merge is verified landed. Spine close reads
@@ -224,7 +221,7 @@ steps, in **binding order**:
 
 1. **Every work item `complete`**, else refuse and **name the offender**. Test
    the *output* of the `oss get` — a `select` matching nothing exits 0.
-2. **Switch canonical back to its `base_branch`, then merge the spine branch in**,
+2. **Switch each hosting repo back to its own `base_branch`, then merge the spine branch in**,
    halting on conflict (at that halt, `references/merge-conflict-resolution.md`
    is the resolution discipline — operator-sanctioned, never automatic). **Derive the spine branch with `oss branch_name` and
    assert HEAD matches it — never read it off HEAD**; then assert the switch-back
@@ -359,8 +356,8 @@ exists; what that file adds is when to reach for it.
   status is written, nothing is recorded as closed.
 - **Auto-selecting from the recovery menu** (§4).
 - **Reading the spine branch off HEAD** instead of deriving it and asserting the
-  match, or merging without switching canonical back first (§5). Both failures
-  are rc 0 and green.
+  match, or merging without switching every hosting repo back first (§5). Both
+  failures are rc 0 and green.
 - **Folding `oss touch_check`'s rc 2 into "clean"**, or reading rc 0 as clean
   (§5).
 - **Copying `touch_check`'s branch shape onto `oss expired_fakes` or

@@ -21,8 +21,8 @@ this directory is `docs/specs/release-N/`; under the ID grammar that renders as
 derivation, and a hand-named directory breaks every downstream lookup.
 
 Route the path through the **pairing manifest** like every other ossify artifact:
-release specs are process artifacts and live in the AI workspace, not in the
-canonical repo.
+release specs are process artifacts and live in the AI workspace, not in any
+declared repo.
 
 ```bash
 rel="$(oss get '.releases[-1].id')"          # e.g. r0
@@ -152,5 +152,5 @@ journey, and its one spine is the skeleton spine (`bone`, by definition). The
   without it, the next planner re-derives it wrongly.
 - **Detailing the next release** beyond goal + candidates
   (`references/rolling-wave.md`).
-- **Emitting it to the canonical repo.** Process artifact; manifest-routed to the
+- **Emitting it to any declared repo.** Process artifact; manifest-routed to the
   AI workspace.

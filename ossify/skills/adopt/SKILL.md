@@ -7,7 +7,7 @@ description: Adopt an existing project into ossify — five fail-closed gates, s
 
 You are the conductor of ossify's **adoption** — the on-ramp for a project
 that already has code; `/start` is pre-code ceremony and refuses such a
-canonical on its content gate.
+project on its content gate.
 
 **This body is thin by design, not under budget pressure.** The stations that
 transfer unchanged live in `/start` — every pointer in §4 is a
@@ -163,7 +163,7 @@ not a bone to write.
 ### C4 — The adopted baseline is Release 0, retroactively closed
 
 ```bash
-oss release_add "Release 0" "adopted baseline: everything shipped under <legacy-stack> through <baseline-sha>"
+oss release_add "Release 0" "adopted baseline: everything shipped under <legacy-stack> through <baseline-sha-per-declared-repo>"
 oss release_status "<release-id>" closed
 ```
 
@@ -188,7 +188,7 @@ no blank destinations — an adopted project is all occupied surface.
 | `EXECUTIVE-SUMMARY.md` | leave; no gate reads it |
 | memory bank | append with harvest's provenance trailer (`close/references/harvest.md`); **never truncate**. For `09-known-issues.md` / `10-decisions-log.md`, harvest's never-regenerate rule wins — they hold the history adoption preserves (#268; the brief's conditional is still owed) |
 | `tech-debt.md`, `PUBLIC_BOUNDARY.md` | author (absent) |
-| `<canonical>/docs/adr/` | append only, continuing the series |
+| each declared repo's `docs/adr/` | append only, continuing the series |
 
 ### C6 — Record the demo-ledger seed candidates
 
@@ -209,7 +209,7 @@ exists the vacuous-window risk stands, named rather than hidden.
 | Lean spec sections 1–7 | AI workspace | merge into the existing MASTER-SPEC |
 | Memory bank | AI workspace | append-with-trailer; author only what is absent |
 | `CLAUDE.md` | AI workspace | merge |
-| Bones ADRs | `<canonical>/docs/adr/` | append, continuing the series |
+| Bones ADRs | each declared repo's `docs/adr/` | append, continuing the series |
 | Bones / risk gates / feature map / posture | `project-state.json` | `oss` verbs — into §3's init state |
 | Release 0, closed | `project-state.json` | `oss` verbs |
 | `PUBLIC_BOUNDARY.md` | each public repo root | author |

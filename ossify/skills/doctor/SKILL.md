@@ -71,8 +71,9 @@ the verb, let the user run it.
 - The user wants to **run a gate** — the work-item gate, the cumulative demo, a
   release's blocking findings. Those are `/close`, and they halt; you do not.
 - The user wants to **author or amend the spec itself**. Fresh authoring is
-  `/start`, which refuses on a canonical that already carries code; a project
-  that already has code adopts via `/ossify:adopt`. Amending an existing spec
+  `/start`, which refuses on a declared repo that already carries code; a
+  project that already has code adopts via `/ossify:adopt`. Amending an
+  existing spec
   is not this surface's job — you validate what exists and never edit it.
 - The user wants to **plan, decompose, or execute** anything. Those are
   `/plan-release`, `/plan-spine`, `/work-item`.
@@ -189,9 +190,13 @@ An unkeyed line means the surface did not run at all, and it names why.
 
 `oss worktree_orphans <repo-key> <state>` names the directories individually.
 **Pass both arguments, every time.** doctor used to print this line for you with
-both pinned; it does not any more, so the discipline is yours. Omitting the key
-silently defaults to `canonical` (the exact habit #156 punished), and omitting
-the state lets an exported `$OSS_STATE_FILE` answer about a different project.
+both pinned; it does not any more, so the discipline is yours. Omitting the
+key resolves to the sole declared repo under one, and refuses outright —
+naming the declared set — under more than one (#272/#310 Task 4); relying on
+that default is still the #156 habit, because a project that grows a second
+repo turns every omitted call into a refusal instead of the per-repo
+read-out this section exists to produce. Omitting the state lets an exported
+`$OSS_STATE_FILE` answer about a different project.
 Pin it once with `sf="${OSS_STATE_FILE:-$(oss state_path)}"` — **override first**,
 matching what `oss doctor` itself resolves — and pass `"$sf"` to every read,
 including to `oss doctor`. `references/state-inspection.md` §2 carries the
@@ -284,8 +289,10 @@ every mutating verb routes through it.
 Emit the same line grammar as `oss doctor` — `ok:` / `fail:` per check — and,
 since there is no exit code now, **state plainly at the end whether anything
 failed**. Checks, in order: the pairing manifest (and that it is *exactly one*
-JSON object), both repo roots resolving to real directories with `canonical`
-also being a git **work tree** (a bare repository or a `.git` directory is not
+JSON object), the `ai_workspace` root and every declared repo's root
+resolving to real directories, with each declared repo — never
+`ai_workspace`, which is legitimately allowed to be untracked — also being a
+git **work tree** (a bare repository or a `.git` directory is not
 one and fails), the state path resolving and not silently
 overridden, and **`AGENTS.md` existing and naming ossify**. That last one is the
 check that is actually about Codex: `AGENTS.md` is the only file Codex reads for
