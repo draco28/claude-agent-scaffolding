@@ -242,4 +242,57 @@ t_assert_rc 0 "replay stays clean across add_close_record (and this file's other
 
 cd /
 rm -rf "$TMP"
+
+# ===========================================================================
+# TOPOLOGY TWIN (#272/#310 Task 11, spec decision O1): the opening fixture's
+# implicit-workdir demo-run sequence (all green / halt on first fail /
+# quarantine skip / vacuous-green catch), run again from a SOLE-repo
+# .ossify/topology.json named "core" - never "canonical". Every call below
+# OMITS the workdir argument, so each one re-resolves
+# `_oss_default_repo_key -> _oss_repo_root` through the topology shape
+# exactly as the opening fixture resolves it through the translated pairing
+# shape. TMP3/TMP4 further up already pin oss_demo_workdir's sole-repo/N>1
+# rule directly (added by #272/#310 Task 4); this proves the FULL RUNNER -
+# ledger read, halt, quarantine, vacuous-green - threads that resolution end
+# to end, which is what the opening fixture actually demonstrates and TMP3/
+# TMP4 do not (they call oss_demo_workdir alone, never oss_demo_run_auto).
+#
+# A fresh mktemp tree: none of this reuses $TMP (already rm -rf'd above) or
+# TMP3/TMP4 (already rm -rf'd earlier in this file).
+# ===========================================================================
+TMPD="$(mktemp -d)"
+mkdir -p "$TMPD/ws/.ossify" "$TMPD/core"
+cat > "$TMPD/ws/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"core":{"root":"$TMPD/core"}},"well_known_paths":{}}
+JSON
+cd "$TMPD/ws"
+SD="$TMPD/ws/.ossify/project-state.json"
+oss_state_init "$SD" demo-run-twin >/dev/null
+oss_entity_add_release "$SD" "demo" "goal" >/dev/null
+oss_entity_add_spine "$SD" r0 "demo spine" bone core >/dev/null
+
+oss_ledger_add_auto "$SD" r0.s1 "always true" "true" "exit:0" >/dev/null
+oss_ledger_add_auto "$SD" r0.s1 "greets" "echo hello-world" "contains:hello" >/dev/null
+t_capture oss_demo_run_auto "$SD"
+t_assert_rc 0 "topology twin: all green"
+t_assert_contains "$T_OUT" "PASS 2" "topology twin: pass count"
+
+oss_ledger_add_auto "$SD" r0.s1 "always false" "false" "exit:0" >/dev/null
+t_capture oss_demo_run_auto "$SD"
+t_assert_rc 1 "topology twin: halt on first fail"
+t_assert_contains "$T_OUT" "FAIL d3" "topology twin: failing line named"
+
+oss_ledger_quarantine "$SD" d3 "flaky env, fix by r1 close" >/dev/null
+t_capture oss_demo_run_auto "$SD"
+t_assert_rc 0 "topology twin: quarantined line skipped"
+t_assert_contains "$T_OUT" "SKIP" "topology twin: skip reported"
+
+oss_ledger_add_auto "$SD" r0.s1 "vacuous suite" "echo 'collected 0 items' # pytest" "exit:0" >/dev/null
+t_capture oss_demo_run_auto "$SD"
+t_assert_rc 1 "topology twin: vacuous green caught"
+t_assert_contains "$T_OUT" "vacuous-green" "topology twin: guard named"
+
+cd "$HERE"
+rm -rf "$TMPD"
+
 t_summary

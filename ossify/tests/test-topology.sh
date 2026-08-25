@@ -4,6 +4,15 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/../lib/manifest.sh"
 . "$HERE/../lib/worktree.sh"
 . "$HERE/../lib/commands.sh"
+# id/state/entities/ledger/demo added for Task 11's five-repo E2E (below): it
+# drives real state minting (oss_state_init/oss_entity_*), ledger lines, and
+# the demo runner, none of which the earlier resolver-only blocks in this
+# file needed.
+. "$HERE/../lib/id.sh"
+. "$HERE/../lib/state.sh"
+. "$HERE/../lib/entities.sh"
+. "$HERE/../lib/ledger.sh"
+. "$HERE/../lib/demo.sh"
 TMP="$(mktemp -d)"
 
 # --- topology discovery wins; pairing still discovered alone ---
@@ -222,5 +231,134 @@ t_assert_rc 2 "dispatcher default refuses under N>1"
 # actually pins site 6 to the new rule rather than the old literal default.
 t_assert_contains "$T_OUT" "no repo key given" "refusal is the new helper's, not the old literal-canonical membership check"
 cd "$HERE"
+
+# ===========================================================================
+# Task 11 Step 1 - the five-repo E2E. Everything above this line proves the
+# resolver, one call at a time, against small (0/1/2-repo) fixtures. This
+# proves the whole declared surface holds together at the N the design was
+# built for: five repos, each with its own git history, worktree lifecycle
+# and orphan-scoping, declared in ONE topology.json - plus the pulsebase
+# migration guarantee (a translated pairing manifest carrying a state file
+# whose work items already say `target_repo:"canonical"`, exactly as a live
+# pre-migration project's state does).
+#
+# A FRESH mktemp tree, never $TMP: every block above this one rewrites
+# $TMP/ws/.ossify/topology.json in place, so inheriting it here would make
+# this block's result depend on whichever fixture happened to run last -
+# the "fixtures coupled through state" trap.
+# ===========================================================================
+E5="$(mktemp -d)"
+mkdir -p "$E5/ws/.ossify"
+for r in core backend cron ui uilib; do
+  mkdir -p "$E5/$r"
+  git -C "$E5/$r" init -q
+  git -C "$E5/$r" config user.email t@t; git -C "$E5/$r" config user.name t
+  echo seed > "$E5/$r/seed.txt"
+  git -C "$E5/$r" add .; git -C "$E5/$r" commit -qm seed
+done
+cat > "$E5/ws/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"core":{"root":"$E5/core"},"backend":{"root":"$E5/backend"},"cron":{"root":"$E5/cron"},"ui":{"root":"$E5/ui"},"uilib":{"root":"$E5/uilib"}},"well_known_paths":{}}
+JSON
+cd "$E5/ws"
+
+# --- every declared repo resolves, plus the reserved ai_workspace key ---
+for r in core backend cron ui uilib; do
+  t_capture _oss_repo_root "$r"
+  t_assert_rc 0 "E2E5: repo_root resolves '$r'"
+  t_assert_eq "$E5/$r" "$T_OUT" "E2E5: '$r' root matches its declared path"
+done
+t_capture _oss_repo_root ai_workspace
+t_assert_rc 0 "E2E5: ai_workspace still resolves under N=5"
+t_assert_eq "$E5/ws" "$T_OUT" "E2E5: ai_workspace root"
+
+# --- an unset repo key refuses, listing ALL FIVE (not truncated) ---
+t_capture _oss_repo_root ""
+t_assert_rc 2 "E2E5: an unset repo key under N=5 refuses"
+for r in core backend cron ui uilib; do
+  t_assert_contains "$T_OUT" "$r" "E2E5: refusal lists '$r' among the declared set"
+done
+t_capture oss_cmd_repo_root
+t_assert_rc 2 "E2E5: dispatcher default under N=5 refuses the same way"
+
+# --- worktree_add per repo; work_item_exec journals it; orphans clean ---
+E5S="$E5/ws/.ossify/project-state.json"
+oss_state_init "$E5S" "five-repo-e2e" >/dev/null
+E5REL="$(oss_entity_add_release "$E5S" "multi-repo" "cross-repo demo")"
+E5SP="$(oss_entity_add_spine "$E5S" "$E5REL" "cross-repo spine" flesh core)"
+for r in core backend cron ui uilib; do
+  wi="$(oss_entity_add_work_item "$E5S" "$E5SP" "wire $r" "$r")"
+  t_capture oss_worktree_add "$r" "$wi" "wire-$r" HEAD
+  t_assert_rc 0 "E2E5: worktree_add for '$r' succeeds"
+  wt="$T_OUT"
+  t_assert_eq "$E5/$r/.worktrees/$wi" "$wt" "E2E5: '$r's worktree lands under ITS OWN root, not another repo's"
+  branch="$(oss_id_work_item_branch "$wi" "wire-$r")"
+  base_sha="$(git -C "$E5/$r" rev-parse HEAD)"
+  t_capture oss_entity_set_work_item_exec "$E5S" "$wi" "$branch" "$wt" "$base_sha"
+  t_assert_rc 0 "E2E5: work_item_exec journals '$r's worktree"
+  t_capture oss_worktree_orphans "$r" "$E5S"
+  t_assert_rc 0 "E2E5: worktree_orphans for '$r' ran clean"
+  t_assert_eq "" "$T_OUT" "E2E5: '$r' has no orphan once work_item_exec journaled the path"
+done
+
+# --- demo workdir: explicit arg runs; without one under N=5 it refuses ---
+oss_ledger_add_auto "$E5S" "$E5SP" "core seed present" "test -f seed.txt" "exit:0" >/dev/null
+t_capture oss_demo_workdir "$E5S" "$E5/core"
+t_assert_rc 0 "E2E5: demo workdir with an explicit arg runs"
+t_assert_eq "$E5/core" "$T_OUT" "E2E5: explicit workdir echoed verbatim"
+t_capture oss_demo_run_auto "$E5S" "$E5/core"
+t_assert_rc 0 "E2E5: demo run against the explicit workdir passes"
+t_assert_contains "$T_OUT" "PASS 1 lines" "E2E5: exactly the one seeded auto line ran"
+
+t_capture oss_demo_workdir "$E5S"
+t_assert_rc 2 "E2E5: demo workdir with no explicit arg and no composition_root refuses under N=5"
+for r in core backend cron ui uilib; do
+  t_assert_contains "$T_OUT" "$r" "E2E5: workdir refusal lists '$r'"
+done
+# oss_demo_run_auto's own workdir guard collapses ANY oss_demo_workdir failure
+# to rc 1 (`|| return 1`, not `|| return $?`) - MEASURED, not assumed: the
+# refusal above is rc 2 from oss_demo_workdir itself. The message still
+# survives (it is on stderr before the collapse), so the runner still refuses
+# and still names the declared set; only the numeric rc differs.
+t_capture oss_demo_run_auto "$E5S"
+t_assert_rc 1 "E2E5: demo run with no explicit workdir also refuses under N=5"
+t_assert_contains "$T_OUT" "no repo key given" "E2E5: ...and the refusal is the same ambiguity message, not a generic failure"
+
+cd "$HERE"
+rm -rf "$E5"
+
+# --- the migration guarantee: target_repo:"canonical" in STATE, resolved
+# through a manifest that is a TRANSLATED PAIRING (no topology.json anywhere
+# on the walk-up) - the exact shape a live pre-migration project (pulsebase)
+# carries in its own state file today. ---
+PB="$(mktemp -d)"
+mkdir -p "$PB/ws/.workspace" "$PB/canon"
+git -C "$PB/canon" init -q
+git -C "$PB/canon" config user.email t@t; git -C "$PB/canon" config user.name t
+echo seed > "$PB/canon/f.txt"; git -C "$PB/canon" add .; git -C "$PB/canon" commit -qm seed
+cat > "$PB/ws/.workspace/pairing.json" <<JSON
+{"schema_version":"1.0","ai_workspace":{"root":"$PB/ws"},"canonical":{"root":"$PB/canon"},"well_known_paths":{}}
+JSON
+cd "$PB/ws"
+PBS="$PB/ws/.ossify/project-state.json"
+oss_state_init "$PBS" "pulsebase-shape" >/dev/null
+PBREL="$(oss_entity_add_release "$PBS" "legacy" "pre-migration state")"
+PBSP="$(oss_entity_add_spine "$PBS" "$PBREL" "legacy spine" flesh canonical)"
+# Written with the EXPLICIT legacy value, exactly as a pre-migration state
+# carries it - not the sole-repo default's inference (also "canonical" here,
+# but for a different reason; this pins the literal recorded field).
+PBWI="$(oss_entity_add_work_item "$PBS" "$PBSP" "legacy work item" canonical)"
+t_capture oss_state_read "$PBS" '.work_items[0].target_repo'
+t_assert_eq "canonical" "$T_OUT" "pulsebase shape: the work item's target_repo is the literal legacy value"
+t_capture oss_worktree_add canonical "$PBWI" "legacy-slug" HEAD
+t_assert_rc 0 "pulsebase shape: worktree_add resolves canonical through the TRANSLATED pairing manifest"
+PBWT="$T_OUT"
+oss_entity_set_work_item_exec "$PBS" "$PBWI" "$(oss_id_work_item_branch "$PBWI" legacy-slug)" \
+  "$PBWT" "$(git -C "$PB/canon" rev-parse HEAD)" >/dev/null
+t_capture oss_worktree_orphans canonical "$PBS"
+t_assert_rc 0 "pulsebase shape: worktree_orphans reads the target_repo:\"canonical\" record through translation"
+t_assert_eq "" "$T_OUT" "pulsebase shape: no orphan - the journaled record claims its directory under the translated root"
+
+cd "$HERE"
+rm -rf "$PB"
 
 t_summary
