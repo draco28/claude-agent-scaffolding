@@ -60,36 +60,35 @@ slice close, then re-run — never "clean your tree", which fixes a symptom.
   `_oss_resolve_state` lets it override the manifest for every verb below —
   adoption would mint into another project's state while A1/A2 inspected
   this one. Unset it and re-run (same guard as plan-release §3).
-- **A1 — pairing manifest resolves.** `oss state_path` (probe; refuse exactly
-  as `/start` §3's manifest probe does — refusal text verbatim,
-  `/init-workspace` / `/pair-workspace` tokens load-bearing; read them
-  there, never paraphrased).
+- **A1 — topology declaration resolves.** `oss state_path` (probe; refuse
+  exactly as `/start` §3's topology probe does — refusal text verbatim,
+  load-bearing tokens and all; read it there, never paraphrased).
 - **A2 — no ossify state at the routed path.** State exists: already
   onboarded → route to `doctor`, full stop — every `/start` project has
   state and no adoption record, so the record's absence distinguishes
   nothing.
-- **A3 — every tree adoption will edit is clean, tracked AND untracked.**
-  `git -C "$(oss repo_root canonical)" status --porcelain`, and the same for
-  `oss repo_root ai_workspace` — C5 edits both roots. Any line is work in
-  flight; refuse, naming the legacy stack's slice close. The canonical must
-  also be **on the manifest's default branch** — a parked checkout is
-  refused and named: the baseline and C5's writes land on whatever is
-  checked out.
-- **A4 — no live worktrees.** Resolve the legacy worktree directory as
-  scaffold-dev does — the manifest's `.during_dev.worktrees_dir`, falling
-  back to `<canonical>/.worktrees` — then `find <dir> -mindepth 1 -maxdepth
-  1`: any directory means a slice is open (a plain probe; the oss verb needs
-  the state A2 just forbade).
+- **A3 — every tree adoption will edit is clean, tracked and untracked.**
+  Iterate the declared repos read at A1 plus the AI workspace — C5 edits
+  all of them: `git -C "$(oss repo_root <name>)" status --porcelain` each.
+  Any line, in any one, is work in flight; refuse, naming the legacy
+  stack's slice close. Each repo must also be on its own default branch —
+  a parked checkout is refused and named.
+- **A4 — no live worktrees.** Resolve the legacy worktree directory per
+  repo — the manifest's `.during_dev.worktrees_dir`, falling back to
+  `<repo-root>/.worktrees` — then `find <dir> -mindepth 1 -maxdepth 1` per
+  repo: any directory means a slice is open (a plain probe; the oss verb
+  needs the state A2 just forbade).
 - **A5 — legacy position is on a boundary.** The live position is the
   manifest-routed memory bank's `05-active-context.md` cursor (the roadmap
   file is inventory, not position). An active slice there refuses and
   names it.
 
-Once all five pass, **record the baseline SHA** — `git -C "$(oss repo_root
-canonical)" rev-parse HEAD`; everything downstream is relative to it and the
-adoption record cites it. Then `oss init "<project-name>"` — its
-state-exists refusal is A2 made mechanical, and every verb below mints into
-the state it creates. Nothing hand-authors `project-state.json`.
+Once all five pass, **record a baseline SHA per declared repo** — `git -C
+"$(oss repo_root <name>)" rev-parse HEAD` for each; the adoption record
+cites a **baseline table**, not one SHA, and everything downstream is
+relative to each repo's own baseline. Then `oss init "<project-name>"` —
+its state-exists refusal is A2 made mechanical, and every verb below mints
+into the state it creates. Nothing hand-authors `project-state.json`.
 
 ---
 
@@ -140,11 +139,12 @@ actually true rather than what a document claims. **Where checkout and legacy
 spec disagree, the checkout wins, and the gap is a recorded finding** — never a
 silent re-mark.
 
-### C3 — Bones back-derived from the ADR directory
+### C3 — Bones back-derived from every repo's ADR directory, aggregated
 
-1. Scan `<canonical>/docs/adr/` with `bones-registry.md` §3's scan — **it is
-   already conversion-correct** across filename forms and gapped series; use
-   it, do not rewrite it.
+1. Scan **each declared repo's** `docs/adr/` with `bones-registry.md` §3's
+   scan — already conversion-correct across filename forms and gapped
+   series; use it, do not rewrite it — and aggregate: an ADR anywhere in
+   the product's repos is a decision the registry owes an entry.
 2. Map each ADR to one of the nine categories (`/start` §7's checklist).
    Multiple ADRs may share a category; a category may have none.
 3. Mint each: `oss bone_add "<ADR-ref>" "<title>" "<touch-glob-csv>" "<revisit
@@ -214,7 +214,7 @@ exists the vacuous-window risk stands, named rather than hidden.
 | Release 0, closed | `project-state.json` | `oss` verbs |
 | `PUBLIC_BOUNDARY.md` | each public repo root | author |
 | Stub retrospective | `"$(oss release_dir r0)/release-retrospective.md"` | author — records the adoption |
-| **Adoption record** | `<ai-workspace>/ADOPTION.md` | author — baseline SHA, gates passed, merged-vs-authored, **every C2 gap**, the C6 seed candidates |
+| **Adoption record** | `<ai-workspace>/ADOPTION.md` | author — baseline table, gates passed, merged-vs-authored, **every C2 gap**, the C6 seed candidates |
 
 The adoption record is the point: it is the only artifact that says what
 adoption actually did, and it is what a later `doctor` run reads when the spec
