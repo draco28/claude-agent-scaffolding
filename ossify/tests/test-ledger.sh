@@ -1,9 +1,19 @@
 #!/usr/bin/env bash
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/harness.sh"
-. "$HERE/../lib/id.sh"; . "$HERE/../lib/state.sh"; . "$HERE/../lib/ledger.sh"
-. "$HERE/../lib/entities.sh"; . "$HERE/../lib/registries.sh"
+. "$HERE/../lib/id.sh"; . "$HERE/../lib/state.sh"; . "$HERE/../lib/manifest.sh"
+. "$HERE/../lib/ledger.sh"; . "$HERE/../lib/entities.sh"; . "$HERE/../lib/registries.sh"
 TMP="$(mktemp -d)"; S="$TMP/state.json"
+# #272/#310 Task 5: oss_ledger_add_patch's omitted-repo-key default now routes
+# through _oss_default_repo_key (manifest.sh, sourced above), which needs a
+# discoverable manifest even for the 2-arg calls already in this file - same
+# fixture shape as test-entities.sh's Task 4 fixture. $S is passed explicitly
+# throughout this file, so the fixture only needs to be DISCOVERABLE.
+mkdir -p "$TMP/.ossify"
+cat > "$TMP/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"canonical":{"root":"$TMP/canon"}},"well_known_paths":{}}
+JSON
+cd "$TMP"
 oss_state_init "$S" ledger-demo >/dev/null
 
 # Mint the spine that the demo lines are keyed to. ledger_add_auto/add_user now
@@ -99,6 +109,37 @@ t_assert_eq "$IN_SORTED" "$OUT_SORTED" "a legacy demo line with no pending_amend
 t_capture oss_ledger_add_patch "$S" abc1234 "bump serde patch version"
 t_assert_rc 0 "patch record added"
 t_capture oss_state_read "$S" '.patch_records | length'; t_assert_eq "1" "$T_OUT" "patch recorded"
+# #272/#310 Task 5: a 2-arg call (repo key omitted) under a one-repo topology
+# (this file's $TMP fixture declares only "canonical") stores the sole repo's
+# name via _oss_default_repo_key, not a hardcoded literal.
+t_capture oss_state_read "$S" '.patch_records[-1].repo'
+t_assert_eq "canonical" "$T_OUT" "omitted repo key defaults to the sole declared repo"
+
+# An explicit repo key is stored verbatim.
+t_capture oss_ledger_add_patch "$S" deadbeef "text" ui
+t_assert_rc 0 "explicit repo key accepted"
+t_capture oss_state_read "$S" '.patch_records[-1].repo'
+t_assert_eq "ui" "$T_OUT" "explicit repo key is stored on the patch record"
+
+# Under N>1 declared repos, an omitted repo key must refuse (rc 2), never
+# silently pick - same fail-safe shape as every other Task 4 default-repo
+# site. Separate TMP dir, deliberately not $TMP (which stays single-repo for
+# the rest of this file).
+PTMP="$(mktemp -d)"
+mkdir -p "$PTMP/.ossify"
+cat > "$PTMP/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"canonical":{"root":"$PTMP/canon"},"ui":{"root":"$PTMP/ui"}},"well_known_paths":{}}
+JSON
+PS="$PTMP/state.json"
+cd "$PTMP"
+oss_state_init "$PS" patch-multi-demo >/dev/null
+t_capture oss_ledger_add_patch "$PS" cafef00d "no repo key under N>1"
+t_assert_rc 2 "omitted repo key under N>1 declared repos refuses"
+t_assert_contains "$T_OUT" "canonical, ui" "refusal lists both declared repos"
+t_capture oss_state_read "$PS" '.patch_records | length'
+t_assert_eq "0" "$T_OUT" "no phantom patch record journaled after the N>1 refusal"
+cd "$TMP"
+rm -rf "$PTMP"
 
 # §5.3 floor guard must not be bypassable by leading whitespace: a leading
 # space/tab before inspector phrasing is the same banned phrasing, just padded.
@@ -162,5 +203,6 @@ t_assert_rc 7 "fake status on an unknown boundary is rc 7"
 t_capture oss_state_replay "$S"
 t_assert_rc 0 "replay stays clean across set_fake_status (and this file's pending/apply/quarantine ops)"
 
+cd "$HERE"
 rm -rf "$TMP"
 t_summary

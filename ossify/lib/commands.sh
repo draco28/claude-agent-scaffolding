@@ -102,9 +102,9 @@ oss_cmd_fake_status()          { _oss_need 3 fake_status "<boundary> <active|rep
 # `touch_check`, which is 0 = hit. Read-only selectors: no mutation, no op.
 oss_cmd_expired_fakes()        { _oss_need 1 expired_fakes "<release>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_expired_fakes "$sf" "$1"; }
 oss_cmd_expired_quarantines()  { _oss_need 1 expired_quarantines "<release>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_expired_quarantines "$sf" "$1"; }
-oss_cmd_patch_add() { # $1=commit $2=text
-  _oss_need 2 patch_add "<commit-sha> <text>" "$@" || return 2;
-  local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_add_patch "$sf" "$1" "$2"
+oss_cmd_patch_add() { # $1=commit $2=text [$3=repo-key]
+  _oss_need 2 patch_add "<commit-sha> <text> [repo-key]" "$@" || return 2;
+  local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_add_patch "$sf" "$1" "$2" "${3:-}"
 }
 # Explicit state file beats the environment. Without this argument a pre-flight
 # probe in one project silently reads another project's state via a stale
