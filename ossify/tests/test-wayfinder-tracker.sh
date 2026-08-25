@@ -18,17 +18,32 @@
 # origin - a secret bound into a variable the reachability guard, branch 4's
 # stop, and branch 0's own stop message all print to the terminal on failure.
 #
+# ROUND 2 (same issue, review found the round-1 fix still leaked). Two more
+# defects in the userinfo handling itself, both exercised below:
+#   - the userinfo character class excluded @ as well as /, so it stopped at
+#     the FIRST @ rather than the last one before the host. A password
+#     containing a raw, unescaped @ (user:p@ss@github.com/...) stripped only
+#     "user:p@" and left "ss@github.com/..." still credential-bearing. The
+#     percent-encoded-password case below was NOT sufficient to catch this -
+#     %40 is three literal characters, never a competing @ - so this file
+#     shipped once already without a test that could catch it. The
+#     "raw @ in the password" case below is that missing test.
+#   - the ssh strip was anchored to a literal github.com host, so an ssh
+#     origin carrying userinfo on any OTHER host leaked untouched. The strip
+#     is now host-agnostic on both schemes; the "non-github ssh host" case
+#     below is that test.
+#
 # WHAT THIS FILE DOES NOT COVER. Only branch 1 (an origin is present) is
-# exercised, across all four spellings plus two extra userinfo shapes
-# (bare-token, percent-encoded password). Branch 0's actual conflict-stop
-# (a mismatched .wayfinder.json) and branches 2/3 (no origin - dotfile read)
-# are NOT exercised here; the block is one fenced unit under this ledger's
-# convention (O rows cover a whole block, never a slice), so this row
-# converts the whole ladder block to O while this comment - and the git
-# history at #337 - is the honest record of which paths inside it a real
-# assertion touches. The other three D-blocks (reachability probe, GraphQL
-# frontier query, ticket-label check) are unchanged: still live `gh` calls,
-# still uncovered here, still D.
+# exercised, across all four spellings plus several extra userinfo shapes
+# (bare-token, percent-encoded password, raw multi-@ password, non-github
+# ssh host). Branch 0's actual conflict-stop (a mismatched .wayfinder.json)
+# and branches 2/3 (no origin - dotfile read) are NOT exercised here; the
+# block is one fenced unit under this ledger's convention (O rows cover a
+# whole block, never a slice), so this row converts the whole ladder block
+# to O while this comment - and the git history at #337 - is the honest
+# record of which paths inside it a real assertion touches. The other three
+# D-blocks (reachability probe, GraphQL frontier query, ticket-label check)
+# are unchanged: still live `gh` calls, still uncovered here, still D.
 #
 # The block is EXTRACTED from the shipped prose via oss_block_extract, never
 # retyped, and run under real `set -euo pipefail` through a PATH-shimmed `oss`
@@ -112,5 +127,46 @@ t_assert_eq "acme/repo acme repo" "$T_OUT" "bare-token (no colon) userinfo also 
 
 _run_ladder "https://user:p%40ss@github.com/acme/repo.git"
 t_assert_eq "acme/repo acme repo" "$T_OUT" "percent-encoded password in userinfo stripped without over-matching"
+
+# ROUND 2, Finding 1: a RAW, unescaped @ inside the password. The class must
+# run to the LAST @ before the host, not the first - this is the case the
+# percent-encoded fixture above could not exercise, since %40 never presents
+# a competing @ to the regex.
+_run_ladder "https://user:p@ss@github.com/acme/repo.git"
+t_assert_rc 0 "https origin with a raw unescaped @ in the password: ladder runs clean"
+t_assert_eq "acme/repo acme repo" "$T_OUT" "the strip runs to the LAST @ before the host, not the first"
+if printf '%s' "$T_OUT" | grep -Eq '@|user:p|p@ss'; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: userinfo survived into \$OWNER_REPO/\$OWNER/\$REPO for a raw multi-@ password - #337 round 2 regressed"
+else
+  T_PASS=$((T_PASS+1))
+fi
+
+# ROUND 2, Finding 2: userinfo on an ssh:// origin whose host is NOT
+# github.com. The original ssh rule only stripped userinfo as a side effect
+# of matching a literal github.com host, so any other host rode through
+# untouched. This tracker only ever resolves a github.com remote in
+# practice, so $OWNER_REPO ending up unresolvable here is expected - the
+# only thing under test is that the credential itself never survives.
+_run_ladder "ssh://user:pass@gitlab.example.com/acme/repo.git"
+t_assert_rc 0 "ssh origin with userinfo on a non-github host: ladder runs clean"
+if printf '%s' "$T_OUT" | grep -Fq 'user:pass'; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: an ssh origin's userinfo survived when the host is not github.com - #337 round 2 Finding 2 regressed"
+else
+  T_PASS=$((T_PASS+1))
+fi
+
+# The two round-2 defects together: a raw multi-@ password on a non-github
+# ssh host must not leak either.
+_run_ladder "ssh://user:p@ss@gitlab.example.com/acme/repo.git"
+if printf '%s' "$T_OUT" | grep -Eq 'user:p|p@ss'; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: a raw multi-@ password on a non-github ssh host survived"
+else
+  T_PASS=$((T_PASS+1))
+fi
+
+# And the ssh+github.com path, now sharing the same fixed class as https,
+# with a raw multi-@ password - symmetry check.
+_run_ladder "ssh://user:p@ss@github.com/acme/repo.git"
+t_assert_eq "acme/repo acme repo" "$T_OUT" "ssh origin with a raw @ in the password also normalizes cleanly"
 
 t_summary

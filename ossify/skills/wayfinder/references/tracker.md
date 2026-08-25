@@ -108,12 +108,29 @@ if [ -n "$ORIGIN" ]; then
   # $OWNER_REPO keeps the credential verbatim - it then flows into every
   # `gh -R "$OWNER_REPO"` call and gets printed on every later failure: the
   # reachability guard below, branch 4's stop, and branch 0's own stop
-  # message all echo $OWNER_REPO to the terminal. The userinfo strip runs
-  # before the https://github.com/ strip so it never has to special-case
-  # "with or without credentials" - by the time that rule sees the string,
-  # any userinfo is already gone.
+  # message all echo $OWNER_REPO to the terminal.
+  #
+  # THE USERINFO CLASS EXCLUDES / ONLY, NOT @. A userinfo field can itself
+  # carry a raw, unescaped @ (a password containing one) - excluding @ from
+  # the class as well stops the match at the FIRST @ rather than the last one
+  # before the host, so `user:p@ss@github.com/...` strips only `user:p@` and
+  # leaves `ss@github.com/...` still credential-bearing. `[^/]*` is greedy
+  # and POSIX ERE takes the longest leftmost match, so it runs all the way to
+  # the last @ before the first /, which is the actual userinfo terminator.
+  #
+  # THE STRIP IS HOST-AGNOSTIC on both the ssh and the https form - neither
+  # requires github.com. An ssh origin carrying userinfo on any other host
+  # (ssh://user:pass@gitlab.example.com/...) would otherwise print that
+  # credential on a later failure, since only the github.com-anchored rewrite
+  # below ever ran; scoping the strip to "any ssh:// origin" closes that
+  # regardless of which host follows, even though this tracker only ever
+  # resolves a github.com remote in practice. Each strip runs BEFORE its
+  # scheme's own scheme-specific rewrite - the ssh://github.com/ rewrite no
+  # longer needs its own userinfo group, since userinfo is already gone by
+  # the time it runs, and the https://github.com/ strip likewise never has to
+  # special-case "with or without credentials".
   OWNER_REPO="$(printf '%s' "$ORIGIN" \
-    | sed -E 's#^ssh://([^@/]+@)?github\.com/#https://github.com/#; s#^git@github\.com:#https://github.com/#; s#^https://[^@/]+@#https://#; s#^https://github\.com/##; s#\.git$##')"
+    | sed -E 's#^ssh://[^/]*@#ssh://#; s#^ssh://github\.com/#https://github.com/#; s#^git@github\.com:#https://github.com/#; s#^https://[^/]*@#https://#; s#^https://github\.com/##; s#\.git$##')"
 
   # BRANCH 0 RUNS HERE, and only here. It compares the RESOLVED origin against
   # the dotfile, so it needs both - and this is the only arm that has an
