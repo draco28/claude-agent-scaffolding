@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # Manifest / state-path resolution for ossify. Ports scaffold-dev's manifest
 # discovery + resolver, and adds the unresolved-token guard the companion §1
-# "silent-literal-path" trap requires. Reads the EXISTING workspace-init
-# pairing manifest (<ai-root>/.workspace/pairing.json); never writes it.
+# "silent-literal-path" trap requires. Reads its own topology declaration
+# (<ai-root>/.ossify/topology.json) first, then falls back to the EXISTING
+# workspace-init pairing manifest (<ai-root>/.workspace/pairing.json),
+# translated into the same internal shape on read; never writes either.
 
-OSS_MANIFEST_REFUSAL="ossify requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first."
+OSS_MANIFEST_REFUSAL="ossify requires a topology declaration (none found on the walk-up path). /ossify:start and /ossify:adopt author one (.ossify/topology.json); an existing dual-repo workspace can instead pair via /init-workspace or /pair-workspace. On Codex, invoke the ossify skills start or adopt - that surface publishes skills, not commands."
 
 # Resolve the effective ${USER} value without ever propagating a failed `id`
 # call into a caller's `set -e` context: this function's own exit status is
@@ -29,6 +31,51 @@ oss_manifest_discover() {
   return 1
 }
 
+# Walk up from $PWD for .ossify/topology.json FIRST, then fall back to the
+# pairing walk. The topology check is for the FILE, never the directory: a
+# legacy workspace's .ossify/project-state.json cannot satisfy it, so no
+# workspace is half-migrated by accident. When both exist anywhere on the
+# walk-up, topology wins - the operator's own declaration beats the legacy
+# fallback (#272 design section 2).
+oss_topology_discover() {
+  local dir="$PWD"
+  while [ "$dir" != "/" ] && [ -n "$dir" ]; do
+    if [ -f "$dir/.ossify/topology.json" ]; then
+      echo "$dir/.ossify/topology.json"; return 0
+    fi
+    dir="$(dirname "$dir")" || return 1
+  done
+  oss_manifest_discover
+}
+
+# One internal shape from either source (#272 design section 2). The pairing
+# arm promotes EVERY top-level object carrying .root except ai_workspace to a
+# repos entry - canonical, private_core, tooling_repo, and any role a future
+# workspace-init invents - so the writer side can never again declare a role
+# the reader refuses. Unknown keys ride along ignored (pulse-trader's extended
+# routing keys require exactly this).
+_oss_topology_shape() { # $1=manifest-path ; echoes shape JSON ; rc 1 unparseable
+  local m="$1"
+  case "$m" in
+    */.ossify/topology.json)
+      jq -c --arg ws "$(dirname "$(dirname "$m")")" '{schema_version,
+          repos: (.repos // {}), well_known_paths: (.well_known_paths // {}),
+          workspace: $ws, source: "topology"}' "$m" 2>/dev/null || return 1 ;;
+    *)
+      jq -c --arg ws "$(jq -r '.ai_workspace.root // empty' "$m" 2>/dev/null)" \
+        '{repos: (to_entries | map(select((.value|type)=="object"
+             and .value.root != null and .key != "ai_workspace")) | from_entries),
+          well_known_paths: (.well_known_paths // {}),
+          workspace: $ws, source: "pairing"}' "$m" 2>/dev/null || return 1 ;;
+  esac
+}
+
+_oss_shape_file() { # discover + shape ; emits the refusal on rc 1
+  local m
+  m="$(oss_topology_discover)" || { echo "oss: $OSS_MANIFEST_REFUSAL" >&2; return 1; }
+  _oss_topology_shape "$m"
+}
+
 # Read a jq expression from the discovered manifest. rc 1 if no manifest / null.
 oss_manifest_get() { # $1=jq-expr
   local expr="$1" manifest out
@@ -38,9 +85,12 @@ oss_manifest_get() { # $1=jq-expr
   echo "$out"
 }
 
-# Refuse to proceed when no manifest is on the walk-up path (skills call early).
+# Refuse to proceed when no declaration is on the walk-up path (skills call
+# early). Checks topology first, then the pairing fallback - same order as
+# `oss_topology_discover` itself - so this gate never refuses a workspace that
+# discovery would have found.
 oss_manifest_require() {
-  oss_manifest_discover >/dev/null 2>&1 && return 0
+  oss_topology_discover >/dev/null 2>&1 && return 0
   echo "oss: $OSS_MANIFEST_REFUSAL" >&2; return 1
 }
 
@@ -144,11 +194,14 @@ _oss_manifest_wellknown_guard() { # $1=resolved $2=what $3=source ; rc 0 if usab
 }
 
 # The AI-workspace root, token-substituted. Both resolvers below need exactly
-# this and nothing else, and having it once keeps their two copies from drifting.
-_oss_manifest_ai_root() { # echoes the substituted ai_workspace.root
-  local manifest ai_root
-  manifest="$(oss_manifest_discover)" || { echo "oss: $OSS_MANIFEST_REFUSAL" >&2; return 1; }
-  ai_root="$(jq -r '.ai_workspace.root // empty' "$manifest" 2>/dev/null)" || true
+# this and nothing else, and having it once keeps their two copies from
+# drifting. Reads `.workspace` off the shape rather than raw-jqing a manifest
+# file directly, so it works unchanged whether the shape came from a topology
+# declaration or a translated pairing manifest (#272 design section 2).
+_oss_manifest_ai_root() { # echoes the substituted workspace root
+  local shape ai_root
+  shape="$(_oss_shape_file)" || return 1
+  ai_root="$(printf '%s' "$shape" | jq -r '.workspace // empty' 2>/dev/null)" || true
   [ -n "$ai_root" ] || { echo "oss: manifest missing ai_workspace.root" >&2; return 1; }
   [ -n "${HOME:-}" ] && ai_root="$(_oss_subst_literal "$ai_root" '${HOME}' "$HOME")"
   ai_root="$(_oss_subst_literal "$ai_root" '${USER}' "$(_oss_current_user)")"
@@ -160,10 +213,10 @@ _oss_manifest_ai_root() { # echoes the substituted ai_workspace.root
 # convention <ai_workspace.root>/.ossify/project-state.json.
 # Echoes the path (the file itself may not exist yet).
 oss_manifest_state_path() {
-  local manifest ai_root routed dest
+  local ai_root shape routed dest
   ai_root="$(_oss_manifest_ai_root)" || return 1
-  manifest="$(oss_manifest_discover)" || return 1
-  routed="$(jq -r '.well_known_paths.project_state // empty' "$manifest" 2>/dev/null)" || true
+  shape="$(_oss_shape_file)" || return 1
+  routed="$(printf '%s' "$shape" | jq -r '.well_known_paths.project_state // empty' 2>/dev/null)" || true
   if [ -n "$routed" ]; then
     dest="$(_oss_manifest_resolve "$ai_root" "$routed")" || return 1
   else
@@ -173,17 +226,17 @@ oss_manifest_state_path() {
   echo "$dest"
 }
 
-# Resolve the lean MASTER-SPEC path, the same way and from the same manifest.
+# Resolve the lean MASTER-SPEC path, the same way and from the same shape.
 # `.well_known_paths.master_spec` is the key workspace-init actually writes
 # (default `${ai_workspace.root}/docs/MASTER-SPEC.md`), so a resolver that only
 # knew the AI-workspace root would miss a customized routed destination and
 # report an initialised project as having no spec. `doctor`'s spec-validation
 # surface is the consumer. Echoes the path; the file may not exist yet.
 oss_manifest_spec_path() {
-  local manifest ai_root routed dest
+  local ai_root shape routed dest
   ai_root="$(_oss_manifest_ai_root)" || return 1
-  manifest="$(oss_manifest_discover)" || return 1
-  routed="$(jq -r '.well_known_paths.master_spec // empty' "$manifest" 2>/dev/null)" || true
+  shape="$(_oss_shape_file)" || return 1
+  routed="$(printf '%s' "$shape" | jq -r '.well_known_paths.master_spec // empty' 2>/dev/null)" || true
   if [ -n "$routed" ]; then
     dest="$(_oss_manifest_resolve "$ai_root" "$routed")" || return 1
   else
