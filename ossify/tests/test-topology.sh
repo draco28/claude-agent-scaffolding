@@ -199,6 +199,13 @@ cd "$TMP/ws"
 t_capture _oss_repo_root ""            # unset key
 t_assert_rc 0 "unset key resolves the sole repo"
 t_assert_eq "$TMP/core" "$T_OUT" "sole repo root, whatever its name"
+# Discriminator for site 6 (oss_cmd_repo_root): under the OLD literal
+# `${1:-canonical}` default this fixture (sole repo "core", no "canonical"
+# declared) would refuse at rc 2 - "canonical" is not declared. The new rule
+# resolves it, mirroring the demo-runner block's non-canonical discriminator.
+t_capture oss_cmd_repo_root            # dispatcher default, N=1, not named canonical
+t_assert_rc 0 "dispatcher default resolves the sole repo even when it is not named canonical"
+t_assert_eq "$TMP/core" "$T_OUT" "dispatcher default: sole repo root"
 cat > "$TMP/ws/.ossify/topology.json" <<JSON
 {"schema_version":1,"repos":{"core":{"root":"$TMP/core"},"ui":{"root":"$TMP/ui"}},"well_known_paths":{}}
 JSON
@@ -207,6 +214,13 @@ t_assert_rc 2 "unset key with N>1 refuses"
 t_assert_contains "$T_OUT" "core, ui" "refusal lists both"
 t_capture oss_cmd_repo_root            # dispatcher default
 t_assert_rc 2 "dispatcher default refuses under N>1"
+# Discriminator: under the OLD literal `${1:-canonical}` default this ALSO
+# refuses at rc 2 - "canonical" is simply not declared here either, by
+# membership, not by ambiguity. "no repo key given" is unique to
+# _oss_default_repo_key's own refusal and unreachable from that old message
+# ("repo 'canonical' is not declared (declared: core, ui)"), so this is what
+# actually pins site 6 to the new rule rather than the old literal default.
+t_assert_contains "$T_OUT" "no repo key given" "refusal is the new helper's, not the old literal-canonical membership check"
 cd "$HERE"
 
 t_summary

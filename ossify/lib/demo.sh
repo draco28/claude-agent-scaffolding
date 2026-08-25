@@ -7,22 +7,34 @@
 # a literal `canonical` - N>1 declared repos refuses rather than guessing).
 # Resolved ONCE, BEFORE any cd, because oss_manifest_discover walks up from
 # $PWD and every manifest/state read after a cd would otherwise resolve
-# somewhere else. Precedence is EXPLICIT > composition_root > sole-declared-repo
-# root — the same explicit-beats-derived shape as _oss_resolve_state. The
-# explicit leg is not a convenience: without it this function would require a
-# pairing manifest, and
-# every existing demo test (test-demo-runner.sh, test-integration.sh) runs
-# against a bare temp state with no manifest on the walk-up path. A
-# manifest-only resolver would break them all, and "fall back to $PWD when there
-# is no manifest" would silently reinstate the very bug this task fixes.
+# somewhere else.
+#
+# Precedence is EXPLICIT > composition_root > sole-declared-repo root, refusing
+# under N>1 unless one of the first two already answered - the same
+# explicit-beats-derived shape as _oss_resolve_state. An ABSOLUTE
+# composition_root short-circuits BEFORE the default-repo key is ever
+# consulted: it names a complete path and needs no repo root at all, so it
+# answers even under N>1 declared repos. A RELATIVE composition_root still
+# joins onto the DEFAULT repo's root (recorded deviation 2), so it still needs
+# the lookup and still refuses under N>1 - only an absolute value or an
+# explicit workdir bypasses that tier (spec section 3).
+#
+# The explicit leg is not a convenience: without it, every caller that omits a
+# workdir would need a discoverable manifest even when it already knows
+# exactly where to run, and "fall back to $PWD when there is no manifest"
+# would silently reinstate the very bug this task fixes.
 oss_demo_workdir() { # $1=state-file [$2=explicit-workdir]
   local sf="$1" explicit="${2:-}" root comp dk
   [ -n "$explicit" ] && { printf '%s\n' "$explicit"; return 0; }
   comp="$(jq -r '.project.composition_root // empty' "$sf" 2>/dev/null)" || comp=""
+  # An ABSOLUTE composition_root is a complete answer on its own - short-circuit
+  # before touching the default-repo tier, so it resolves even under N>1
+  # declared repos.
+  case "$comp" in /*) printf '%s\n' "$comp"; return 0 ;; esac
   dk="$(_oss_default_repo_key)" || return $?
   root="$(_oss_repo_root "$dk")" || return $?
   if [ -n "$comp" ]; then
-    case "$comp" in /*) printf '%s\n' "$comp" ;; *) printf '%s\n' "$root/$comp" ;; esac
+    printf '%s\n' "$root/$comp"
   else
     printf '%s\n' "$root"
   fi

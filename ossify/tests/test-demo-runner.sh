@@ -169,13 +169,14 @@ rm -rf "$TMP3"
 # fail-safe case this task exists for. The OLD literal default resolved this
 # SILENTLY (canonical happened to be declared, so it "worked" while ignoring
 # the sibling repo entirely - precisely the wrong-repo risk #272/#310 names).
-# The new rule must refuse rather than pick, even with an ABSOLUTE
-# composition_root set: oss_demo_workdir computes the default repo key
-# UNCONDITIONALLY, before ever inspecting composition_root (see its body in
-# lib/demo.sh) - so N>1 refuses regardless of what composition_root holds.
-# Both assertions are RED against the old body: `_oss_repo_root canonical`
-# SUCCEEDS here (a repo named canonical is declared), so the old code returns
-# rc 0 in both cases - the silent wrong-repo pick this task closes.
+# The new rule must refuse rather than pick WHEN THE DEFAULT-REPO TIER IS
+# ACTUALLY NEEDED. Spec section 3's precedence is EXPLICIT > composition_root >
+# sole-declared-repo > refuse: an ABSOLUTE composition_root is a complete
+# answer on its own and outranks the sole-declared-repo tier entirely, so it
+# resolves even under N>1 (lib/demo.sh short-circuits on it before ever
+# consulting the default-repo key). A RELATIVE composition_root still joins
+# onto the DEFAULT repo's root (recorded deviation 2), so it still needs the
+# lookup and still refuses under N>1, same as no composition_root at all.
 TMP4="$(mktemp -d)"
 mkdir -p "$TMP4/.ossify"
 cat > "$TMP4/.ossify/topology.json" <<JSON
@@ -184,12 +185,17 @@ JSON
 S4="$TMP4/state.json"; echo '{}' > "$S4"
 cd "$TMP4"
 t_capture oss_demo_workdir "$S4"
-t_assert_rc 2 "N>1 refuses even though one declared repo is literally named canonical (no silent pick)"
+t_assert_rc 2 "N>1 refuses (no composition_root) even though one declared repo is literally named canonical (no silent pick)"
 t_assert_contains "$T_OUT" "canonical, ui" "refusal lists both declared repos"
 
 jq -n --arg c "$TMP4/abs-comp" '{project:{composition_root:$c}}' > "$S4"
 t_capture oss_demo_workdir "$S4"
-t_assert_rc 2 "an absolute composition_root does not rescue N>1: the default-repo key is computed unconditionally"
+t_assert_rc 0 "an ABSOLUTE composition_root outranks the sole-declared-repo tier - resolves even under N>1 (spec section 3)"
+t_assert_eq "$TMP4/abs-comp" "$T_OUT" "the absolute composition_root is returned verbatim, no repo root ever consulted"
+
+jq -n --arg c "rel-comp" '{project:{composition_root:$c}}' > "$S4"
+t_capture oss_demo_workdir "$S4"
+t_assert_rc 2 "a RELATIVE composition_root still needs the default repo's root, so N>1 still refuses"
 t_assert_contains "$T_OUT" "canonical, ui" "same refusal, same listing"
 cd "$TMP"
 rm -rf "$TMP4"

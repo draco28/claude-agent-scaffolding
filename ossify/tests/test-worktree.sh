@@ -564,6 +564,23 @@ t_assert_eq "$PRIV/priv/.worktrees/r9.s9.w9" "$REMEDY_OUT" "orphans: ...and it n
 # claim it.
 rm -rf "$PRIV/priv/.worktrees/r9.s9.w9"
 
+# --- #272/#310 Task 4, Finding 3: the FAIL-SAFE half of the sole-repo default
+# rule. A work-item record that predates the `target_repo` field (the legacy
+# jq fallback in oss_worktree_orphans) is genuinely AMBIGUOUS once N>1 repos
+# are declared - there is no safe repo to attribute it to, so the whole call
+# must refuse rather than guess which repo it belongs to. The SUCCESS half (a
+# legacy record resolves fine when exactly one repo is declared) is already
+# pinned above at "orphans: a record with absent worktree_path/target_repo is
+# still VALID"; this is its N>1 counterpart - nothing else in the suite
+# exercises it, so the refusal half of "with N>1 an unset target must refuse"
+# was previously unasserted.
+mkdir -p "$PRIV/canon/.worktrees/legacy-candidate"
+printf '{"work_items":[{"id":"r9.s9.w9"}]}' > "$PRIV/legacy-state.json"
+t_capture oss_worktree_orphans canonical "$PRIV/legacy-state.json"
+t_assert_rc 2 "orphans: a target_repo-less (legacy) work item under N>1 declared repos refuses - no safe default to fall back on"
+t_assert_contains "$T_OUT" "no repo key given" "orphans: the refusal is the sole-repo default rule's own, naming the ambiguity"
+rm -rf "$PRIV/canon/.worktrees" "$PRIV/legacy-state.json"
+
 # (12c) A CONFIGURED ROOT THAT DOES NOT EXIST HAS NOT BEEN INSPECTED.
 #
 # `_oss_repo_root` validates the manifest value — enum, non-empty, token-free,
