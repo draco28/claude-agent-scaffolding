@@ -1,6 +1,6 @@
 ---
 name: start
-description: Drive ossify spec-core onboarding for a new project — the Patton journey map, the skeleton cut that fixes Release 0, the bones registry, and the privacy posture with its moat channels — producing a lean MASTER-SPEC, memory bank, bones ADRs and a seed feature map. Use when the user wants to start a new project, onboard a project into ossify, kick off a skeleton-first build, or runs /start. Refuses without a workspace-init pairing manifest. Not release planning (/plan-release), spine decomposition (/plan-spine), or amending an existing spec (/amend-spec).
+description: Drive ossify spec-core onboarding for a new project — the Patton journey map, the skeleton cut that fixes Release 0, the bones registry, and the privacy posture with its moat channels — producing a lean MASTER-SPEC, memory bank, bones ADRs and a seed feature map. Use when the user wants to start a new project, onboard a project into ossify, kick off a skeleton-first build, or runs /start. Resolves or authors the topology declaration; halts only if it still fails to resolve. Not release planning (/plan-release), spine decomposition (/plan-spine), or amending an existing spec (/amend-spec).
 ---
 
 # start
@@ -68,22 +68,24 @@ macOS). Call form: `oss <subcommand> [args...]` resolves to `oss_cmd_<subcommand
 Never `source` the lib files directly from a skill body — under zsh
 `BASH_SOURCE` is unset and the libs break. Use `oss help` for discovery.
 
-**Manifest probe (refuses fail-fast).** ossify's state lives in the AI
-workspace, discovered by walking up for `.workspace/pairing.json`:
+**Topology probe (resolves, authors, or refuses fail-closed).** ossify's state lives in
+the AI workspace: walk up for `.ossify/topology.json`, then `.workspace/pairing.json`:
 
 ```bash
 if ! oss state_path >/dev/null 2>&1; then
-  printf '%s\n' "ossify requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first (on Codex, invoke the workspace-init skill initializing-dual-repo-workspace or pairing-canonical-repo — that surface publishes skills, not commands)."
+  printf '%s\n' "ossify requires a topology declaration (none found on the walk-up path). /ossify:start and /ossify:adopt author one (.ossify/topology.json); an existing dual-repo workspace can instead pair via /init-workspace or /pair-workspace. On Codex, invoke the ossify skills start or adopt - that surface publishes skills, not commands."
   exit 0
 fi
 ```
 
-The literal tokens `/init-workspace` and `/pair-workspace` are load-bearing —
-do not paraphrase the refusal. The skill names beside them are load-bearing for
-the same reason on a different surface: `workspace-init`'s Codex manifest
-publishes `./skills/` only, so on Codex those commands do not exist and the
-command tokens alone are a dead end. Name both; drop neither. On refusal: author
-nothing, probe nothing else, stop.
+The refusal's literal tokens are load-bearing — do not paraphrase them. On refusal
+`/start` is itself the remedy: author `.ossify/topology.json` at the AI-workspace root —
+schema v1 `{schema_version, repos:{<name>:{root}}, well_known_paths:{}}`, names
+`[a-z][a-z0-9_-]*`, roots absolute — from the repo set the journey-map station is about to
+ask about (one entry per repo the product spans; `canonical` only if that is genuinely the
+name). Then re-probe `oss state_path` and `oss repo_root <name>` for every declared repo,
+halting only if a probe still refuses. Nothing else in this ceremony may write the file;
+an existing topology or pairing manifest is never overwritten.
 
 **Canonical-content gate (refuses fail-fast).** `/start` is pre-code ceremony:
 establish whether the canonical (`oss repo_root canonical`) already carries the
