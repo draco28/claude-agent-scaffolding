@@ -482,4 +482,44 @@ unset OSS_STATE_FILE
 cd "$HERE"
 rm -rf "$KT"
 
+# --- the cumulative demo needs a composition root under N>1 -----------------
+# `oss_demo_workdir` short-circuits on an ABSOLUTE composition_root and
+# otherwise falls to `_oss_default_repo_key`, which refuses under N>1. /start
+# told operators to leave composition_root unset unless Release 0 is "trivially
+# single-repo", and spine close calls a bare `oss demo_run` - so an ordinarily
+# onboarded multi-repo project could not pass its own mandatory demo gate, and
+# the refusal it got named repo keys rather than the field that was missing.
+CT="$(mktemp -d)"; mkdir -p "$CT/.ossify" "$CT/a" "$CT/b"
+export OSS_STATE_FILE="$CT/state.json"
+cat > "$CT/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"a":{"root":"$CT/a"},"b":{"root":"$CT/b"}},"well_known_paths":{"project_state":"$OSS_STATE_FILE"}}
+JSON
+cd "$CT"
+oss_cmd_init "composition-demo" >/dev/null
+t_capture oss_demo_workdir "$OSS_STATE_FILE"
+t_assert_rc 2 "N>1 with no composition_root refuses"
+t_assert_contains "$T_OUT" "composition_set" "the refusal names the remedy - the missing FIELD, not the repo keys"
+oss_cmd_composition_set "src/app" >/dev/null
+t_capture oss_demo_workdir "$OSS_STATE_FILE"
+t_assert_rc 2 "N>1 with a RELATIVE composition_root still refuses - it composes against a default repo that does not exist"
+t_assert_contains "$T_OUT" "absolute" "the relative-root refusal says it must be absolute"
+oss_cmd_composition_set "$CT/a/app" >/dev/null
+t_capture oss_demo_workdir "$OSS_STATE_FILE"
+t_assert_rc 0 "N>1 with an ABSOLUTE composition_root resolves"
+t_assert_eq "$CT/a/app" "$T_OUT" "and it resolves to that root verbatim"
+# The single-repo path is untouched: the sole declared repo is still the default.
+CT1="$(mktemp -d)"; mkdir -p "$CT1/.ossify" "$CT1/only"
+export OSS_STATE_FILE="$CT1/state.json"
+cat > "$CT1/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"only":{"root":"$CT1/only"}},"well_known_paths":{"project_state":"$OSS_STATE_FILE"}}
+JSON
+cd "$CT1"
+oss_cmd_init "sole-repo-demo" >/dev/null
+t_capture oss_demo_workdir "$OSS_STATE_FILE"
+t_assert_rc 0 "one declared repo with no composition_root still resolves"
+t_assert_eq "$CT1/only" "$T_OUT" "and it is the sole repo's root"
+unset OSS_STATE_FILE
+cd "$HERE"
+rm -rf "$CT" "$CT1"
+
 t_summary

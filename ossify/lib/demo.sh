@@ -24,13 +24,26 @@
 # exactly where to run, and "fall back to $PWD when there is no manifest"
 # would silently reinstate the very bug this task fixes.
 oss_demo_workdir() { # $1=state-file [$2=explicit-workdir]
-  local sf="$1" explicit="${2:-}" root comp dk
+  local sf="$1" explicit="${2:-}" root comp dk shape
   [ -n "$explicit" ] && { printf '%s\n' "$explicit"; return 0; }
   comp="$(jq -r '.project.composition_root // empty' "$sf" 2>/dev/null)" || comp=""
   # An ABSOLUTE composition_root is a complete answer on its own - short-circuit
   # before touching the default-repo tier, so it resolves even under N>1
   # declared repos.
   case "$comp" in /*) printf '%s\n' "$comp"; return 0 ;; esac
+  # Under N>1 the default tier cannot answer, and the generic
+  # `_oss_default_repo_key` refusal names repo keys - which is the wrong remedy
+  # here. `oss demo_run` is called bare by spine close, so a caller reading
+  # "name one" has nowhere to name it. The missing thing is the FIELD.
+  shape="$(_oss_shape_file 2>/dev/null)" || shape=""
+  if [ "$(printf '%s' "$shape" | jq -r '.repos | length' 2>/dev/null || echo 0)" -gt 1 ]; then
+    # Both facts, deliberately. The declared set is what the caller needs to
+    # CHOOSE a root, and the field name is what they need to record it - an
+    # earlier form printed only the set, and a caller of a bare `oss demo_run`
+    # had nowhere to "name one".
+    echo "oss: no repo key given and [$(printf '%s' "$shape" | jq -r '.repos | keys | join(", ")')] are declared - the cumulative demo runs at the composition root, so record it rather than naming a repo here: oss composition_set /abs/path/to/composition/root${comp:+ (project.composition_root is currently '$comp', which is relative and would compose against a default repo root that does not exist - it must be absolute)}" >&2
+    return 2
+  fi
   dk="$(_oss_default_repo_key)" || return $?
   root="$(_oss_repo_root "$dk")" || return $?
   if [ -n "$comp" ]; then

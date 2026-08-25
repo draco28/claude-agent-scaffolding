@@ -74,13 +74,18 @@ Never `source` the lib files directly from a skill body — under zsh
 the AI workspace: walk up for `.ossify/topology.json`, then `.workspace/pairing.json`:
 
 ```bash
-if ! oss state_path >/dev/null 2>&1; then
+if oss state_path >/dev/null 2>&1; then
+  printf '%s\n' "topology: resolved - author nothing, proceed to the journey map"
+else
   printf '%s\n' "ossify requires a topology declaration (none found on the walk-up path). /ossify:start and /ossify:adopt author one (.ossify/topology.json); an existing dual-repo workspace can instead pair via /init-workspace or /pair-workspace. On Codex, invoke the ossify skills start or adopt - that surface publishes skills, not commands."
-  exit 0
+  printf '%s\n' "topology: none on the walk-up path - AUTHOR one per the paragraph below, then re-probe"
 fi
 ```
 
-The refusal's literal tokens are load-bearing — do not paraphrase them. On refusal
+**Not a halt — the block carries no `exit`.** A no-manifest project is the case
+this ceremony exists to serve; the only halt here is a re-probe that still
+refuses AFTER authoring. Print the refusal's tokens verbatim even though the
+ceremony proceeds — they name the alternatives and the Codex surface. On refusal
 `/start` is itself the remedy: author `.ossify/topology.json` at the AI-workspace root —
 schema v1 `{schema_version, repos:{<name>:{root}}, well_known_paths:{}}`, names
 `[a-z][a-z0-9_-]*`, roots absolute — from the repo set the journey-map station is about to
@@ -339,7 +344,7 @@ fully-private project authors it; route the **private boundary inventory** (item
 → channel → location → seam → leak-risk) to the AI workspace. Provisioning is
 deferred to Plan D: never call `add-private-core`, never edit the pairing
 manifest (ossify writes `project-state.json`; workspace-init owns the manifest).
-Leave `project.composition_root` unset unless Release 0 is trivially single-repo
+Set `project.composition_root` — **required and absolute** when more than one repo is declared, optional when exactly one is (posture-block §10)
 and the root is unambiguous (then `oss composition_set "<root>"`).
 
 ---

@@ -128,4 +128,22 @@ while IFS= read -r f; do
 done < "$REF_LIST"
 rm -f "$REF_LIST"
 
+# --- /start's topology probe must not halt ----------------------------------
+# The block printed the refusal then `exit 0`, while the paragraph under it said
+# to author a topology and carry on. A model following the block stopped; one
+# following the prose proceeded - and the no-manifest project is exactly the
+# case /start exists to serve, so the halt made the headline feature of
+# #272/#310 unreachable through its own ceremony. Mechanical fact, mechanical
+# check: the probe block carries no exit.
+PROBE="$(awk '/^```bash$/{n++} n==1 && !/^```/{print} /^```$/{if(n==1) exit}' "$OSSSK/skills/start/SKILL.md")"
+if printf '%s' "$PROBE" | grep -q 'oss state_path'; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: start/SKILL.md's first bash block is not the topology probe - the exit check below is vacuous"
+fi
+case "$PROBE" in
+  *exit*) T_FAIL=$((T_FAIL+1)); echo "FAIL: start/SKILL.md's topology probe carries an 'exit' - a refused probe must author and proceed, not halt" ;;
+  *)      T_PASS=$((T_PASS+1)) ;;
+esac
+
 t_summary
