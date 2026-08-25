@@ -184,7 +184,7 @@ The remedy differs by line, and the wrong one loops the operator:
 
 The rc rule SKILL.md §3 states — rc 0 unless a `fail:` line printed — holds only
 once the state path resolves. A resolution refusal exits 1 with **no** check
-line at all, and the surface emits `skip: state - no pairing manifest, so no
+line at all, and the surface emits `skip: state - no topology declaration, so no
 state file could be resolved`.
 
 **The table is a starting point keyed on the tag, and the tag is not the whole

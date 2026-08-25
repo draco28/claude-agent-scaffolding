@@ -48,7 +48,9 @@ many are declared. The companion design gives a release close a pin/publish
 step before the walkthrough for open-core postures, and one PR per touched repo
 at the gate; neither is built, and both attach to steps this file does not
 ship. The one step that does read checkouts, the boundary audit, reads **every
-repository object the pairing manifest carries**, each with per-role arms (git
+repo the resolved topology declares** — `.ossify/topology.json` first, a
+translated `.workspace/pairing.json` as the fallback, which is the same order
+`references/boundary-audit.md` §2 walks — each with per-role arms (git
 repos via `git -C`, never a worktree; a plain non-repo root via its
 filesystem-only policy, determined per the audit's own §2 whatever the
 manifest field says) — that step alone iterates the repo set explicitly,
@@ -356,7 +358,7 @@ reads this key as its starting point.
 
 ## 8. Step 7 — the boundary audit, the last refusal
 
-**Every repository object the pairing manifest carries, each gated on its
+**Every repo the resolved topology declares, each gated on its
 observed visibility with per-role arms, fail-closed, and confirmed findings
 block the close.** The whole step — the repo set and its visibility gate and
 its two recorded deltas from the companion spec, the tracked-file audit

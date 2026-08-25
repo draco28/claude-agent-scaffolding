@@ -300,7 +300,7 @@ Stated so a green result is not over-read:
 - **Whether the two agents agree on anything else** — model config, tool
   availability, or which branch is checked out.
 - **Anything about `.codex` memory.** There is no Codex memory mirror and there
-  should not be one: the shared source of truth is the pairing manifest, the
+  should not be one: the shared source of truth is the topology declaration, the
   lean spec, the memory bank and `project-state.json`. If you find a `.codex`
   memory tree, that is drift worth reporting in the read-out, not a thing to
   create.

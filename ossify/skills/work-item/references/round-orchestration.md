@@ -92,8 +92,10 @@ done < <(oss get '.work_items[] | select(.spine=="<spine-id>") | .target_repo' |
 Five things here, each load-bearing:
 
 **`oss repo_root "$repo"`, never a bare `<repo-root>` placeholder.** The verb
-resolves the declared repo's root from the pairing manifest and fails rc 2 —
-naming the declared set — rather than defaulting to the working directory. A
+resolves the declared repo's root from the topology declaration
+(`.ossify/topology.json`, or a translated `.workspace/pairing.json` fallback)
+and fails rc 2 — naming the declared set — rather than defaulting to the
+working directory. A
 placeholder that a reader fills in by hand is how a spine gets built in
 whichever repo the session happened to start in.
 

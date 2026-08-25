@@ -22,9 +22,11 @@ stuff reasoning steps inside `bash -c '...'` wrappers.
 
 ## 1. Overview
 
-The five stations: **pair** (workspace-init) → **spec-core onboarding** (you are
-here) → **feasibility spike** (optional, §9a) → **Release 0, the skeleton** →
-**rolling releases**.
+The five stations: **declare the topology** (this ceremony authors
+`.ossify/topology.json` itself; workspace-init's `/init-workspace` or
+`/pair-workspace` is an alternative, not a prerequisite) → **spec-core
+onboarding** (you are here) → **feasibility spike** (optional, §9a) →
+**Release 0, the skeleton** → **rolling releases**.
 
 When invoked, work §3 through §13 below in order — each numbered block is one
 step of the conversation.

@@ -87,4 +87,45 @@ for tok in '09-known-issues.md' '10-decisions-log.md'; do
   fi
 done
 
+
+# --- The manifest refusal: one string, three hardcoded copies -----------------
+# Skills may not `source` the libs, so a ceremony that must print the refusal
+# verbatim has no choice but to carry the literal. That makes drift the default:
+# #272/#310 changed the refusal to name the topology remedies and two ceremonies
+# kept printing the pre-topology text, sending a topology-only project to
+# /init-workspace. No runtime signal - the ceremony refuses correctly, with the
+# wrong remedy. Discovered by grep rather than a fixed list, so a fourth copy is
+# covered the moment it is written.
+OSSLIB="$HERE/../lib"
+OSSSK="$HERE/.."
+_refusal_literal() { sed -n 's/^[^"]*"//; s/"$//p' "$1"; }
+
+REF_LIB="$(sed -n 's/^OSS_MANIFEST_REFUSAL="\(.*\)"$/\1/p' "$OSSLIB/manifest.sh")"
+if [ -n "$REF_LIB" ]; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: cannot read OSS_MANIFEST_REFUSAL from lib/manifest.sh - the parity checks below are vacuous"
+fi
+
+# Every prose file printing the refusal's opening clause must print all of it.
+REF_COPIES="$({ grep -rl 'ossify requires a topology declaration' "$OSSSK/skills" "$OSSSK/commands" || true; } | sort)"
+REF_N="$(printf '%s\n' "$REF_COPIES" | { grep -c . || true; })"
+if [ "$REF_N" -ge 3 ]; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: only $REF_N prose copy/copies of the manifest refusal found - expected the start, plan-release and plan-spine probes at minimum"
+fi
+
+# A pipe into `while` runs the loop in a SUBSHELL and every t_assert_eq inside
+# it increments a counter that dies with it - the summary would report a clean
+# run having asserted nothing. Read from a file instead.
+REF_LIST="$(mktemp)"; printf '%s\n' "$REF_COPIES" > "$REF_LIST"
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  got="$({ grep -F 'ossify requires a topology declaration' "$f" || true; } | head -1 | sed 's/^[^"]*"//; s/"$//')"
+  t_assert_eq "$REF_LIB" "$got" \
+    "$(basename "$(dirname "$f")")/$(basename "$f") prints OSS_MANIFEST_REFUSAL byte-identically"
+done < "$REF_LIST"
+rm -f "$REF_LIST"
+
 t_summary

@@ -40,8 +40,10 @@ marketplaces as of v1.0.0: install ossify or the `scaffold-onboard` +
 ```
 
 `ossify` is an **alternative** to `scaffold-onboard` + `scaffold-dev`, not an
-addition — install it instead of those two. `workspace-init` is required either
-way: `/ossify:start` refuses fail-fast until its pairing manifest exists.
+addition — install it instead of those two. `workspace-init` is **optional** for
+ossify: `/ossify:start` and `/ossify:adopt` author `.ossify/topology.json`
+themselves. Install it when you also want the dual-repo bootstrap and the
+AI-trace commit-msg filter; ossify reads its `pairing.json` as a fallback.
 
 ```
 /plugin install workspace-init@claude-agent-scaffolding

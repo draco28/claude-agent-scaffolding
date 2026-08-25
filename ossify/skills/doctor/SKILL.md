@@ -38,7 +38,8 @@ Five surfaces:
 | Budget check | Does the front-loaded surface still cost what it claims? | §8 |
 
 **The guarantee, and it is the inverse of every other entry skill's:
-`doctor` runs on a broken project.** `start` refuses without a pairing manifest;
+`doctor` runs on a broken project.** `start` refuses without a resolvable
+topology declaration;
 `plan-release` requires an onboarded project; `close` refuses without a green
 `oss doctor`. This skill **never refuses for the condition it exists to report**.
 An uninitialised project, a corrupt state file, a missing manifest — each is a
@@ -173,8 +174,10 @@ count.
 It reports directories under `<repo>/.worktrees/` that no work item claims — why
 that matters at all (spine close removes worktrees by reading state) is
 `references/state-inspection.md` §4's account. Being repo-reading also makes
-it the only one that can be legitimately *unavailable*: with no pairing manifest
-there is no repo root to look in, so emit `skip:` rather than falling silent.
+it the only one that can be legitimately *unavailable*: with no topology
+declaration resolving — neither `.ossify/topology.json` nor a
+`.workspace/pairing.json` on the walk-up path — there is no repo root to look
+in, so emit `skip:` rather than falling silent.
 
 **Print one line per repository**, tagged `worktrees(<repo-key>)` — the keys are
 every repo the manifest declares, plus `ai_workspace`, resolved from the
@@ -289,8 +292,10 @@ every mutating verb routes through it.
 
 Emit the same line grammar as `oss doctor` — `ok:` / `fail:` per check — and,
 since there is no exit code now, **state plainly at the end whether anything
-failed**. Checks, in order: the pairing manifest (and that it is *exactly one*
-JSON object), the `ai_workspace` root and every declared repo's root
+failed**. Checks, in order: the resolved topology declaration —
+`.ossify/topology.json` first, `.workspace/pairing.json` as the translated
+fallback, and that whichever resolves is *exactly one* JSON object — the
+`ai_workspace` root and every declared repo's root
 resolving to real directories, with each declared repo — never
 `ai_workspace`, which is legitimately allowed to be untracked — also being a
 git **work tree** (a bare repository or a `.git` directory is not

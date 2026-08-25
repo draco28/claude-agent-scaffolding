@@ -20,9 +20,11 @@ this directory is `docs/specs/release-N/`; under the ID grammar that renders as
 `docs/specs/rN/`. Do not invent a prettier name — a parity test enforces the
 derivation, and a hand-named directory breaks every downstream lookup.
 
-Route the path through the **pairing manifest** like every other ossify artifact:
-release specs are process artifacts and live in the AI workspace, not in any
-declared repo.
+Route the path through `oss release_dir`, which resolves the **topology
+declaration** like every other ossify artifact — `.ossify/topology.json` first,
+a `.workspace/pairing.json` as the translated fallback, so a topology-only
+workspace needs no pairing manifest to emit a release spec. Release specs are
+process artifacts and live in the AI workspace, not in any declared repo.
 
 ```bash
 rel="$(oss get '.releases[-1].id')"          # e.g. r0

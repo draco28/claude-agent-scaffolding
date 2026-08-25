@@ -39,5 +39,5 @@ nothing here halts on a failure and nothing here is a gate: `doctor` reports, an
 the only thing it writes is a rule block the user asked for.
 
 It also runs on a **broken** project by design — an uninitialised project, a
-corrupt state file or a missing pairing manifest is the finding, not a reason to
-refuse.
+corrupt state file or a missing topology declaration is the finding, not a
+reason to refuse.

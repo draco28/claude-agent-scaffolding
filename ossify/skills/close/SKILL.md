@@ -111,9 +111,13 @@ oss doctor                            # schema + replay must be green
 ai_root="$(oss repo_root ai_workspace)"
 ```
 
-1. **Manifest.** `oss manifest_require` fails when there is no workspace-init
-   pairing manifest. Refuse naming the literal tokens **`/init-workspace`** and
-   **`/pair-workspace`** — do not paraphrase them.
+1. **Manifest.** `oss manifest_require` resolves `.ossify/topology.json` first
+   and a workspace-init `.workspace/pairing.json` as the translated fallback; it
+   fails only when neither is on the walk-up path. On failure print its refusal
+   verbatim — the literal tokens **`/ossify:start`**, **`/ossify:adopt`**,
+   **`/init-workspace`** and **`/pair-workspace`** are all load-bearing, and a
+   refusal naming only the workspace-init pair sends a topology-only project to
+   the wrong remedy. Do not paraphrase it.
 2. **`oss doctor` must be green on `schema` and `replay`.** A close *mutates*
    state; running one over a drifted state compounds the drift into the record
    that every later ceremony reads.
@@ -291,7 +295,8 @@ enforceable at a release boundary). Eight steps, in **binding order**:
 6. **Feature-map re-groom + next-release sketch** — the rolling-wave crank, via
    `oss feature_list` and `oss release_set_meta`.
 7. **The boundary audit** (companion §6, re-derived under the skill-first
-   freeze) — **every repository object the pairing manifest carries, each
+   freeze) — **every repo the resolved topology declares (`.ossify/topology.json`
+   first, a translated `.workspace/pairing.json` as the fallback), each
    gated on its observed visibility with per-role arms**, fail-closed: the
    tracked rules of `PUBLIC_BOUNDARY.md`, the secrets scan, the scan-first
    untracked sweep, the semantic pass over tracked prose against the
