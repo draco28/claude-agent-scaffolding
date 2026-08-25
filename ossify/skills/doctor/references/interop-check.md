@@ -71,22 +71,42 @@ ceremony read it?** If nothing reads it, its absence is not a finding.
 
 ### `manifest`
 
-Walk up from `$PWD` for `.workspace/pairing.json` and read it. That walk is a
+Walk up from `$PWD` for `.ossify/topology.json` **first**, then for
+`.workspace/pairing.json` if no topology file turns up — the identical order
+`oss_topology_discover` resolves through (`lib/manifest.sh`), which is what
+every mutating verb and `oss manifest_require` itself already routes on. When
+both exist on the walk-up, topology wins; read whichever file you actually
+found. That walk is a
 few directory checks; do it yourself.
 
+**This is not a cosmetic ordering choice.** The declared-repo loop the next
+check runs already reads either manifest kind (`.repos` under a native
+topology, or every top-level `.root`-carrying object under a legacy pairing
+manifest). A `manifest` check that only ever looks for `.workspace/pairing.json`
+would STOP here — before that loop ever runs — on every project `/start`'s A1
+topology probe onboarded the normal way, which is `.ossify/topology.json` with
+no pairing manifest at all.
+
 `oss manifest_require` is the *refusal*, not the finder — it returns rc 1 and
-prints the project's canonical refusal text to **stderr**, and discards the path
+prints the project's canonical refusal text to **stderr** (already worded for
+both manifest kinds — `/ossify:start`/`/ossify:adopt` for a topology
+declaration, `/init-workspace`/`/pair-workspace` for a pairing manifest), and
+discards the path
 on success. Use it when you want that exact wording; do not expect a path from
 it. There is no dispatcher verb that echoes the manifest path.
 
-**Absent → `fail:`, and STOP.** Do not run the remaining checks. Every one of
+**Absent (neither file found anywhere on the walk-up) → `fail:`, and STOP.**
+Do not run the remaining checks. Every one of
 them reads this file, so continuing emits four derived failures for one root
 cause and buries the only thing that has to be fixed first. Remedy:
-`/init-workspace` (new workspace) or `/pair-workspace` (existing canonical
-repo) — name those tokens literally, do not paraphrase them.
+`/ossify:start` or `/ossify:adopt` (authors `.ossify/topology.json`) for a new
+or adopted project, or `/init-workspace`/`/pair-workspace` (authors
+`.workspace/pairing.json`) for an existing dual-repo workspace — name those
+tokens literally, do not paraphrase them.
 
-**Present but unreadable → `fail:`, and STOP**, for the same reason. Read the
-file and satisfy yourself it is **exactly one JSON object**. Three ways it is
+**Present but unreadable → `fail:`, and STOP**, for the same reason. Read
+whichever file you found and satisfy yourself it is **exactly one JSON
+object**. Three ways it is
 not, all of which used to reach the later checks and produce nonsense:
 
 - Malformed JSON.

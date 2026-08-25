@@ -49,11 +49,17 @@ amended-not-re-authored retro, the re-run walkthrough); read it before you halt.
 
 ## 2. The repo set, and the visibility gate
 
-**Build the repo set from every repository object the pairing manifest
-carries, not from a fixed list of roles** — walk up from the cwd to
-`.workspace/pairing.json` (`references/harvest.md` §7 resolves it the same
-way) and take every top-level object that carries a `root`: the canonical
-(`oss repo_root canonical`), the AI workspace (`oss repo_root ai_workspace`),
+**Build the repo set from every repository object the manifest carries, not
+from a fixed list of roles** — walk up from the cwd for `.ossify/topology.json`
+**first**, then `.workspace/pairing.json` if no topology file is found — the
+same order `oss_topology_discover` resolves through (`lib/manifest.sh`),
+which every `oss repo_root`/`oss state_path` call this file makes already
+routes on, so stopping this walk at one manifest kind would desync the
+enumeration below from what those calls actually resolve — and take every
+declared repo: under a native topology, every key in `.repos`; under a
+legacy pairing manifest, every top-level object that carries a `root`: the
+canonical (`oss repo_root canonical`, when a project names one that), the AI
+workspace (`oss repo_root ai_workspace`),
 a `private_core`, and the optional `tooling_repo` workspace-init emits when a
 project volunteers one. Hard-coding three role names is how a public tooling
 repo ends up holding tracked secrets while the release reports clean. A role
@@ -113,7 +119,7 @@ absent or agreeing with the
 probe — a repo
 that is not a git
 repo gets the **filesystem-only**
-policy — except the canonical itself, where §9 halts the close instead: the
+policy — except any declared repo, where §9 halts the close instead: the
 product repository has nothing to audit. The policy means: no index, no
 remotes and no history, so this section's
 visibility gate and §3's tracked-file rules do not apply to it. **An
@@ -450,8 +456,9 @@ author it via `start`'s posture block (`start/references/posture-block.md`
 artifact reading as a clean pass. **Where the document rules run at all is
 role-scoped:** on a private canonical running §3 as hygiene notes, a missing
 file is a hygiene finding, not a blocking one (§2's table). `start`'s posture
-block routes `PUBLIC_BOUNDARY.md` to public-facing repo roots — the canonical
-always, a product-adjacent repo at its own root
+block routes `PUBLIC_BOUNDARY.md` to public-facing repo roots — every declared
+product repo (`canonical` when a project names one that; any other, however
+named), and any product-adjacent repo at its own root
 (`start/references/posture-block.md` §6) — so on the
 `ai_workspace`/`private_core` roles no policy file is ever expected, and its
 absence is not
@@ -1203,7 +1210,7 @@ the last spine close — that may not be the branch the release integrated into.
 A clean old branch passing while the release branch carries a tracked
 violation is the failure.
 
-**A canonical that determines as a plain non-repo root (§2) is a halt-and-name
+**Any declared repo that determines as a plain non-repo root (§2) is a halt-and-name
 of its own:** the ceremony's product repository has no index, no history and
 no ref to resolve — no gate in this section can run, and the close stops for
 the owner to restore the repository. Nothing else in this tail applies to it.
