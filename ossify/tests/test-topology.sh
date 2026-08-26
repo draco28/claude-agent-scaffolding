@@ -228,6 +228,43 @@ t_assert_rc 1 "a non-object well_known_paths refuses"
 t_assert_contains "$T_OUT" "well_known_paths" "the refusal names the field"
 cd "$HERE"
 
+# --- both walk-up loops must inspect "/" itself -------------------------------
+# `while [ "$dir" != "/" ]` as the loop CONDITION exits before checking the
+# root, so a workspace AT the filesystem root - or any run started beneath one -
+# reported no declaration at all. Creating /.ossify here is not possible (and
+# would not be acceptable if it were), so this asserts the loop SHAPE: a
+# mechanical fact, and the regression it guards is a one-character edit away.
+for fn in oss_topology_discover oss_manifest_discover; do
+  body="$(sed -n "/^${fn}() {/,/^}/p" "$HERE/../lib/manifest.sh")"
+  if printf '%s' "$body" | grep -q 'while'; then
+    T_PASS=$((T_PASS+1))
+  else
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract $fn's walk loop - the assertion below is vacuous"
+  fi
+  case "$body" in
+    *'while [ "$dir" != "/" ]'*)
+      T_FAIL=$((T_FAIL+1)); echo "FAIL: $fn exits its walk before inspecting \"/\" - a root-level declaration is invisible" ;;
+    *) T_PASS=$((T_PASS+1)) ;;
+  esac
+done
+
+# --- schema_version is a boundary too ----------------------------------------
+# The projection read v1 field semantics off whatever it was given. A file
+# declaring schema_version 2 (or omitting it) resolved, /start preserved it as
+# already-onboarded, and every later verb read a document written for a
+# different schema as though it were v1.
+mkdir -p "$TMP/topo-v2/.ossify" "$TMP/topo-v0/.ossify"
+printf '%s\n' '{"schema_version":2,"repos":{"a":{"root":"/tmp/a"}},"well_known_paths":{}}' > "$TMP/topo-v2/.ossify/topology.json"
+printf '%s\n' '{"repos":{"a":{"root":"/tmp/a"}},"well_known_paths":{}}'                    > "$TMP/topo-v0/.ossify/topology.json"
+cd "$TMP/topo-v2"
+t_capture _oss_shape_file
+t_assert_rc 1 "a topology declaring schema_version 2 refuses"
+t_assert_contains "$T_OUT" "schema_version" "the refusal names the field"
+cd "$TMP/topo-v0"
+t_capture _oss_shape_file
+t_assert_rc 1 "a topology with no schema_version refuses"
+cd "$HERE"
+
 # --- grammar is an injection boundary, refused BEFORE any jq read ---
 cd "$TMP/ws"   # declares core + ui only
 # rc 2 alone does NOT prove the grammar fired: an undeclared-but-well-formed key

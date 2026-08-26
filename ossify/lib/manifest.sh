@@ -44,10 +44,14 @@ _oss_repo_key_valid() { # $1=key ; rc 0 valid
 # Walk up from $PWD to find .workspace/pairing.json. Echoes the abs path; rc 1.
 oss_manifest_discover() {
   local dir="$PWD"
-  while [ "$dir" != "/" ] && [ -n "$dir" ]; do
+  # `[ "$dir" != "/" ]` as the loop CONDITION never inspected "/" itself, so a
+  # workspace at the filesystem root - or any run started beneath one - was
+  # reported as having no declaration at all. Break AFTER checking instead.
+  while [ -n "$dir" ]; do
     if [ -f "$dir/.workspace/pairing.json" ]; then
       echo "$dir/.workspace/pairing.json"; return 0
     fi
+    [ "$dir" = "/" ] && break
     dir="$(dirname "$dir")" || return 1
   done
   return 1
@@ -61,10 +65,12 @@ oss_manifest_discover() {
 # fallback (#272 design section 2).
 oss_topology_discover() {
   local dir="$PWD"
-  while [ "$dir" != "/" ] && [ -n "$dir" ]; do
+  # Checks "/" itself - see oss_manifest_discover's note on the same shape.
+  while [ -n "$dir" ]; do
     if [ -f "$dir/.ossify/topology.json" ]; then
       echo "$dir/.ossify/topology.json"; return 0
     fi
+    [ "$dir" = "/" ] && break
     dir="$(dirname "$dir")" || return 1
   done
   oss_manifest_discover
@@ -112,6 +118,14 @@ _oss_topology_shape() { # $1=manifest-path ; echoes shape JSON ; rc 1 unparseabl
         echo "oss: topology '$m' holds more than one top-level JSON value - schema v1 is exactly one object" >&2; return 3; }
       jq -e 'type == "object"' "$m" >/dev/null 2>&1 || {
         echo "oss: topology '$m' is not a JSON object - schema v1 is one object carrying .schema_version, .repos and .well_known_paths" >&2; return 3; }
+      # schema_version is a BOUNDARY, not a label. The projection below reads v1
+      # field semantics off whatever it is handed, so a document declaring v2 -
+      # or declaring nothing - resolved, /start preserved it as already
+      # onboarded, and every later verb read it as v1. When v2 exists this is
+      # the line that routes to a migration; until then it is the line that
+      # refuses instead of guessing.
+      jq -e '.schema_version == 1' "$m" >/dev/null 2>&1 || {
+        echo "oss: topology '$m' declares schema_version $(jq -c '.schema_version // "nothing"' "$m" 2>/dev/null) - this ossify understands schema_version 1 only" >&2; return 3; }
       jq -e '(.repos // {}) | type == "object" and (length > 0)' "$m" >/dev/null 2>&1 || {
         echo "oss: topology '$m' declares no repos - .repos must be a non-empty object of <name>:{root}" >&2; return 3; }
       jq -e '(.repos | has("ai_workspace")) | not' "$m" >/dev/null 2>&1 || {
