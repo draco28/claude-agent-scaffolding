@@ -3,8 +3,8 @@ HERE="$(cd "$(dirname "$0")" && pwd)"; . "$HERE/harness.sh"
 ROOT="$HERE/.."; . "$ROOT/lib/resolve.sh"
 HOOK="$ROOT/hooks-handlers/stop.sh"; F="$HERE/fixtures/state"
 TMP="$(mktemp -d)"; export BOARD_FAKE_LOG="$TMP/calls.log" BOARD_FAKE_DIR="$TMP/fake" BOARD_HULY_BIN="$HERE/fake/huly"; mkdir -p "$BOARD_FAKE_DIR"; : > "$BOARD_FAKE_LOG"
-echo '[{"name":"Ossify project","roles":[{"name":"agent"}]}]' > "$BOARD_FAKE_DIR/spaces.types.list.json"
-echo '[{"name":"Spine","statuses":[{"name":"planned"},{"name":"active"},{"name":"complete"},{"name":"abandoned"}]},{"name":"Work item","statuses":[{"name":"planned"},{"name":"active"},{"name":"complete"},{"name":"abandoned"}]}]' > "$BOARD_FAKE_DIR/task-types.list.json"
+echo '{"taskTypes":[{"id":"tt1","name":"Spine","projectTypeName":"Ossify project"},{"id":"tt2","name":"Work item","projectTypeName":"Ossify project"}],"total":2}' > "$BOARD_FAKE_DIR/task-types.list.json"
+echo '{"permissions":[{"id":"p1","label":"Create object"},{"id":"p2","label":"Update object"},{"id":"p5","label":"Read object"}],"total":3}' > "$BOARD_FAKE_DIR/spaces.permissions.list.json"
 echo '{"identifier":"PTRD"}' > "$BOARD_FAKE_DIR/projects.get.json"
 run_hook() { printf '{"session_id":"s1","cwd":"%s","hook_event_name":"Stop"}' "$1" | bash "$HOOK"; }
 
@@ -16,7 +16,7 @@ t_capture run_hook "$WS"; t_assert_rc 0 "no binding: exit 0"; t_assert_eq 0 "$(w
 # bound + changed digest: CLI invoked, digest written
 board_binding_write "$WS" PTRD
 t_capture run_hook "$WS/.ossify"; t_assert_rc 0 "bound: exit 0"
-t_capture grep -c 'spaces types list' "$BOARD_FAKE_LOG"; t_assert_eq 1 "$T_OUT" "bound: sync ran"
+t_capture grep -c 'task-types list' "$BOARD_FAKE_LOG"; t_assert_eq 1 "$T_OUT" "bound: sync ran"
 t_capture board_sync_read "$WS" '.digest'; t_assert_eq "$(board_state_digest "$WS")" "$T_OUT" "bound: digest written"
 # unchanged: no CLI
 : > "$BOARD_FAKE_LOG"; t_capture run_hook "$WS"; t_assert_rc 0 "unchanged: exit 0"; t_assert_eq 0 "$(wc -l < "$BOARD_FAKE_LOG" | tr -d ' ')" "unchanged: no CLI"

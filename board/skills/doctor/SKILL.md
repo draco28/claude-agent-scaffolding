@@ -33,7 +33,8 @@ Fetch the actual one: `bash ${CLAUDE_PLUGIN_ROOT}/bin/huly-run issues list --pro
 and `... milestones list --project <IDENT> --json`. Field shapes differ between the two
 lists: a milestone's title lives in `.label`, an issue's in `.title`, and an issue's status
 may be `.status` or `.status.name` — inspect the JSON you actually received before
-comparing. Then report, as short lists:
+comparing. An issue's labels arrive as objects keyed `title` (`[{"title": "spine:bone", ...}]`),
+not bare strings. Then report, as short lists:
 
 - **Status, label, or milestone mismatches** — same title key but a different status; a
   spine whose `spine:<class>` label disagrees with the file; an issue attached to a

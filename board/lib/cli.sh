@@ -24,15 +24,14 @@ board_cli_space_types_list()   { board_cli spaces types list; }
 board_cli_task_types_list()    { board_cli task-types list --project-type "$1"; }     # $1=type name
 board_cli_permissions_list()   { board_cli spaces permissions list; }
 board_cli_milestones_list()    { board_cli milestones list --project "$1" --limit 200; }
-board_cli_issues_list()        { board_cli issues list --project "$1" --title-regex "$2" --limit 200; } # $2=regex
+board_cli_issues_list()        { board_cli issues list --project "$1" --title-search "$2" --limit 200; } # $2=substring
 board_cli_relations_list()     { board_cli issues relations list --project "$1" --issue-identifier "$2"; }
 
 # --- writes ---
 board_cli_project_create()     { board_cli projects create "$1" "$2" --description "$3"; }   # name identifier desc
-board_cli_space_create_typed() { board_cli spaces create "$1" "$2"; }                        # type name
 board_cli_task_type_create()   { board_cli task-types create "$1" --project-type "$2"; }     # name type
 board_cli_issue_status_create(){ board_cli issue-statuses create "$1" "$2" --project-type "$3"; } # name category type
-board_cli_role_create()        { board_cli spaces roles create "$1" "$2" "$3" --confirm; }   # type role permissionsJSON
+board_cli_role_create()        { board_cli spaces roles create "$1" "$2" "$3" --confirm --yes; } # type role permissionsJSON
 board_cli_milestone_create()   { board_cli milestones create "$1" "$2" "$3" --description-file "$4"; } # project label targetDateMs file
 board_cli_milestone_update()   { local p="$1" m="$2"; shift 2; board_cli milestones update "$p" "$m" "$@"; }
 board_cli_issue_create() { # project title taskType status parent(''=none) descFile

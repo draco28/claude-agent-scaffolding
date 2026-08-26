@@ -30,7 +30,8 @@ board_cli_issue_update PTRD PTRD-3 --status active
 board_cli_issue_milestone_set PTRD PTRD-3 "r1 — Release 1"
 board_cli_issue_label_add PTRD PTRD-3 "spine:bone"
 board_cli_relation_add PTRD PTRD-4 PTRD-3 is-blocked-by
-board_cli_issues_list PTRD '^r1\.s1 '
+board_cli_issues_list PTRD 'r1.s1 '
+board_cli_role_create "Ossify project" agent '["p1","p2"]'
 t_capture sed -n '1p' "$BOARD_FAKE_LOG"; t_assert_eq "projects create pulse-trader PTRD --description desc --json" "$T_OUT" "projects create argv"
 t_capture sed -n '2p' "$BOARD_FAKE_LOG"; t_assert_eq "milestones create PTRD r1 — Release 1 1756166400000 --description-file $TMP/d.md --json" "$T_OUT" "milestones create argv"
 t_capture sed -n '3p' "$BOARD_FAKE_LOG"; t_assert_eq "issues create --project PTRD --title r1.s1 — x --task-type Spine --status planned --description-file $TMP/d.md --json" "$T_OUT" "issue create (no parent) argv"
@@ -39,5 +40,6 @@ t_capture sed -n '5p' "$BOARD_FAKE_LOG"; t_assert_eq "issues update PTRD PTRD-3 
 t_capture sed -n '6p' "$BOARD_FAKE_LOG"; t_assert_eq "issues milestone set --project PTRD --identifier PTRD-3 --milestone r1 — Release 1 --json" "$T_OUT" "milestone set argv"
 t_capture sed -n '7p' "$BOARD_FAKE_LOG"; t_assert_eq "issues labels add --project PTRD --identifier PTRD-3 --label spine:bone --json" "$T_OUT" "label add argv"
 t_capture sed -n '8p' "$BOARD_FAKE_LOG"; t_assert_eq "issues relations add --project PTRD --issue-identifier PTRD-4 --target-issue PTRD-3 --relation-type is-blocked-by --json" "$T_OUT" "relation add argv"
-t_capture sed -n '9p' "$BOARD_FAKE_LOG"; t_assert_eq "issues list --project PTRD --title-regex ^r1\\.s1  --limit 200 --json" "$T_OUT" "issues list argv"
+t_capture sed -n '9p' "$BOARD_FAKE_LOG"; t_assert_eq "issues list --project PTRD --title-search r1.s1  --limit 200 --json" "$T_OUT" "issues list argv"
+t_capture sed -n '10p' "$BOARD_FAKE_LOG"; t_assert_eq 'spaces roles create Ossify project agent ["p1","p2"] --confirm --yes --json' "$T_OUT" "role create argv requires both --confirm and --yes"
 t_summary

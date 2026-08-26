@@ -30,9 +30,11 @@ run `bash ${CLAUDE_PLUGIN_ROOT}/bin/board sync "$PWD"`.
   works and mirrors nothing; say so. Derive the proposed identifier from the directory
   name here.
 - rc 5: print the tool's message verbatim — it contains the one-time UI step for the
-  `Ossify project` space type. Stop.
-- rc 6: the typed create did not yield a Tracker project. Print the message verbatim; the
-  user creates the project in Tracker with the `Ossify project` type and reruns with `--bind`.
+  `Ossify project` space type, including seeding its first task type `Spine` (the CLI can
+  only copy an existing task type onto a new one, never create the first one). Stop.
+- rc 6: the CLI cannot create a typed project — that is UI-only. Print the message verbatim;
+  the user creates the project in Tracker by hand (name, identifier, project type
+  `Ossify project`) and reruns with `--bind`.
 
 ## 3. Force the reconcile
 
