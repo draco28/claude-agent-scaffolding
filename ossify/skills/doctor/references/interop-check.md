@@ -173,7 +173,22 @@ the same repository while reading as separate. `boundary-audit.md` §2 already
 specifies the exact-root form and says why; this is the same check, and the two
 must not disagree about what "is a repo" means.
 
-The comparison must hold — rc 0 alone is not the pass. A declared repo whose
+The comparison must hold — rc 0 alone is not the pass.
+
+**And the top levels must be DISTINCT across declared repos.** Two keys whose
+roots resolve to the same git top level are accepted everywhere else as
+independent repos: the two-pass branch setup in
+`work-item/references/round-orchestration.md` §2 sees the spine branch absent
+for both, cuts it on the first key's iteration, and fails `checkout -b` on the
+second — and re-running hits the existing-branch guard, which that document says
+is not resumable. Collect the resolved top levels and report a duplicate as a
+`fail:` line naming both keys.
+
+This check lives HERE and not in `_oss_topology_shape` deliberately. Distinctness
+is a filesystem question — it needs a `git rev-parse` per declared repo — and the
+shape function runs on every `oss` invocation, so answering it there would put N
+git subprocesses behind every state read. Doctor is the surface that already
+walks the roots. A declared repo whose
 root is an ordinary directory (`.git` removed, the manifest hand-edited) fails the
 probe outright; a **bare repository or a `.git` directory** answers rc 0 to
 weaker probes like `--git-dir` — and even *survives* `oss worktree_add`, since

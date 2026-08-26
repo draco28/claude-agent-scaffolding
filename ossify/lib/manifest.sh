@@ -320,10 +320,22 @@ _oss_manifest_resolve() { # $1=ai-root $2=string
   # then sails straight past the unresolved-token guard downstream. So an empty
   # `$nroot` is treated exactly like an empty `$aw`/`$cn`/`$HOME` above and below:
   # skipped, leaving the token in place for that guard to catch by name.
-  while IFS=$'\t' read -r name nroot; do
-    [ -n "$name" ] && [ -n "$nroot" ] || continue
+  # KEYS through @tsv-free iteration, then each root fetched RAW. `@tsv` escapes
+  # backslashes - a declared root of `/tmp/a\b` comes back as `/tmp/a\\b`, and
+  # `read -r` preserves both characters - so the substitution produced a path
+  # that does not exist and `oss init` wrote state beside the declared repo
+  # rather than at its routed destination. Repo keys are grammar-checked
+  # (`[a-z][a-z0-9_-]*`) so they can carry no tab, newline or backslash of their
+  # own; roots can carry anything a filesystem allows, so they never go through
+  # a delimiter-encoded channel.
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    nroot="$(printf '%s' "$shape" | jq -r --arg k "$name" '.repos[$k].root // empty' 2>/dev/null)" || continue
+    [ -n "$nroot" ] || continue
     result="$(_oss_subst_literal "$result" "\${repos.$name.root}" "$nroot")"
-  done < <(printf '%s' "$shape" | jq -r '.repos | to_entries[] | select(.value.root != null) | [.key, .value.root] | @tsv')
+  done <<EOF
+$(printf '%s' "$shape" | jq -r '.repos | keys[]' 2>/dev/null)
+EOF
   # Legacy alias: ${canonical.root} resolves iff a repo named canonical is
   # declared - always true under the pairing fallback, optional under a
   # topology declaration. When no such repo is declared the token is left in

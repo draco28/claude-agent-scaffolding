@@ -248,6 +248,27 @@ for fn in oss_topology_discover oss_manifest_discover; do
   esac
 done
 
+# --- a repo root carrying a backslash resolves to ITSELF ----------------------
+# The resolver read `[.key, .value.root] | @tsv`, and @tsv ESCAPES backslashes:
+# a declared `/tmp/a\b` came back as `/tmp/a\\b`, `read -r` preserved both
+# characters, and the substitution produced a path that does not exist - so
+# `oss init` wrote state beside the declared repo instead of at its routed
+# destination. Keys are grammar-checked and cannot carry a backslash; roots can.
+BSW="$(mktemp -d)"; mkdir -p "$BSW/.ossify"
+BSROOT="$BSW/a\\b"
+mkdir -p "$BSROOT"
+jq -n --arg r "$BSROOT" \
+  '{schema_version:1,repos:{core:{root:$r}},well_known_paths:{project_state:"${repos.core.root}/ps.json"}}' \
+  > "$BSW/.ossify/topology.json"
+cd "$BSW"
+t_capture _oss_repo_root core
+t_assert_rc 0 "a repo root containing a backslash resolves"
+t_assert_eq "$BSROOT" "$T_OUT" "...to the literal declared path, not a re-escaped one"
+t_capture oss_manifest_state_path
+t_assert_rc 0 "a \${repos.<name>.root} token over that root resolves"
+t_assert_eq "$BSROOT/ps.json" "$T_OUT" "...to the routed destination, not a manufactured sibling"
+cd "$HERE"; rm -rf "$BSW"
+
 # --- schema_version is a boundary too ----------------------------------------
 # The projection read v1 field semantics off whatever it was given. A file
 # declaring schema_version 2 (or omitting it) resolved, /start preserved it as

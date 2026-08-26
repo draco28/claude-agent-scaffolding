@@ -155,12 +155,22 @@ printf '%s\n' "$merge_shas" > "$pairs"
 # a repo that cannot reach its first parent halts here with the repos ahead of
 # it still detached - a diagnostic check leaving the workspace half rolled back,
 # which is worse than the failure it was reporting.
+# A failed restore is a HALT, not a warning. `checkout || echo` returns zero, so
+# a repo whose checkout refuses - the parent demo run dirtied a file that
+# differs on the base branch is the ordinary way - left the trap satisfied, the
+# trap cleared, and the close continuing with that repo detached at a first
+# parent. Every repo is still ATTEMPTED before the halt, so one stuck repo does
+# not strand the rest.
+_oss_restore_failed=0
 _oss_restore_checkouts() {
   while IFS="$(printf '\t')" read -r r w; do
     [ -n "$r" ] || continue
-    git -C "$r" checkout -q "$w" \
-      || echo "WARNING: $r is still detached - restore it to '$w' by hand"
+    git -C "$r" checkout -q "$w" || {
+      echo "close: cannot restore $r to '$w' - it is left detached; resolve it by hand"
+      _oss_restore_failed=1
+    }
   done < "$restore"
+  [ "$_oss_restore_failed" -eq 0 ]
 }
 trap _oss_restore_checkouts EXIT
 while IFS=: read -r repo sha; do
@@ -179,7 +189,8 @@ done < "$pairs"
 
 # Restore every checkout before judging anything. A repo left detached is a
 # close that continues against a tree nobody meant to be on.
-_oss_restore_checkouts
+_oss_restore_checkouts \
+  || { echo "close: the quarantine comparison left a repo detached - HALT before judging anything, the workspace is not in the state this check assumes"; exit 1; }
 trap - EXIT
 
 diff /tmp/oss-head.txt /tmp/oss-parent.txt
