@@ -1,0 +1,1920 @@
+{
+  "schema_version": 3,
+  "project": {
+    "name": "pulse-trader",
+    "posture": "source-available",
+    "composition_root": null,
+    "overlay_wiring": "$PULSE_PROMPT_DIR, $PULSE_CONFIG_DIR"
+  },
+  "counters": {
+    "demo_line": 4
+  },
+  "releases": [
+    {
+      "name": "Release 0",
+      "goal": "adopted baseline: everything shipped under scaffold-dev through 49f229a (sprints 1.1-1.3, the last closed at 2/4 slices)",
+      "status": "closed",
+      "created_at": "2026-08-23T12:01:17Z",
+      "id": "r0"
+    },
+    {
+      "name": "Release 1",
+      "goal": "A crypto-futures trader runs the full 10-minute round trip - describe a strategy, watch it compose, backtest it, get one coached change, accept it, re-backtest - inside the PulseTrader desktop app and sees expectancy move, with every step persisted and attributable",
+      "status": "planned",
+      "created_at": "2026-08-24T17:03:24Z",
+      "id": "r1",
+      "real_use_findings": [
+        "the product has never been used; it is not usable without a UI"
+      ],
+      "exit_criteria": [
+        "At close, a trader can launch PulseTrader.app from Finder and see every strategy and version persisted in pulse.db in the Strategy Library, with its DSL summary and recent backtest runs — and on a first run with none, an empty state naming the one next action rather than a blank pane.",
+        "At close, a trader can describe a strategy in natural language in the Strategy Designer, watch the composer's tool-call steps stream in as they happen, and find the resulting StrategyVersion in the Library.",
+        "At close, a trader can select a strategy version in the app, run a backtest, and read expectancy, win rate, equity curve, MFE/MAE, the trade log and the run's provenance header (pair, timeframe, data_version, date range, cost settings) back from the persisted run - a fresh run id, not a cached one.",
+        "At close, a trader can ask the coach about a persisted backtest run in the Backtest Lab and get back exactly one validated proposed mutation (it applies to the version's DSL and compiles) with a stated hypothesis - or a recorded failed turn, never silence - then accept, reject or modify it; accepting creates exactly one child StrategyVersion attributed to the coach, re-runs the backtest with the parent run's persisted inputs, and shows expectancy before and after side by side, with the turn's LLM cost and coach-prompt version in the LlmCall ledger. A failure at any step leaves no accepted proposal without its child and no child without its run or a recorded failure.",
+        "At close, the operator can run describe -> compose -> backtest -> coach -> accept -> re-backtest inside a Finder-launched PulseTrader.app in under 10 minutes wall-clock, timed from the first keystroke in the Designer, starting from the seeded fixture (a fetched BTCUSDT M15+H4 snapshot at a pinned data_version, a migrated empty pulse.db, a credential file in the app data dir); the expectancy assertion is non-directional - the loop must complete and attribute, not improve."
+      ],
+      "ledger_budget": "600s",
+      "spine_dag": [
+        [
+          "r1.s1",
+          []
+        ],
+        [
+          "r1.s2",
+          []
+        ],
+        [
+          "r1.s3",
+          [
+            "r1.s1"
+          ]
+        ],
+        [
+          "r1.s4",
+          [
+            "r1.s2",
+            "r1.s3"
+          ]
+        ]
+      ],
+      "next_sketch": {
+        "goal": "A trader installs a signed, notarized PulseTrader.app, provisions their LLM credential in Settings (Keychain), and iterates a strategy toward a stated R:R / win-rate target",
+        "candidates": [
+          "Secret provisioning (pulse setup-keys)",
+          "Iterate the compose-backtest-coach loop to a target",
+          "Signed + notarized PulseTrader.app distribution"
+        ]
+      }
+    }
+  ],
+  "spines": [
+    {
+      "release": "r1",
+      "name": "Desktop shell: Strategy Library + Designer with streaming compose",
+      "class": "bone",
+      "target_repo": "canonical",
+      "status": "planned",
+      "created_at": "2026-08-24T17:03:24Z",
+      "id": "r1.s1"
+    },
+    {
+      "release": "r1",
+      "name": "Coach agent + one-mutation framework",
+      "class": "bone",
+      "target_repo": "canonical",
+      "status": "planned",
+      "created_at": "2026-08-24T17:03:24Z",
+      "id": "r1.s2"
+    },
+    {
+      "release": "r1",
+      "name": "Backtest Lab on real runs with provenance (#112 then #110)",
+      "class": "bone",
+      "target_repo": "canonical",
+      "status": "planned",
+      "created_at": "2026-08-24T17:03:24Z",
+      "id": "r1.s3"
+    },
+    {
+      "release": "r1",
+      "name": "Coach rail: accept/reject/modify a proposal and re-backtest",
+      "class": "bone",
+      "target_repo": "canonical",
+      "status": "planned",
+      "created_at": "2026-08-24T17:03:24Z",
+      "id": "r1.s4"
+    },
+    {
+      "release": "r1",
+      "name": "Toolchain and specta bump: retire the pinned-1.92 workarounds",
+      "class": "bone",
+      "target_repo": "canonical",
+      "status": "planned",
+      "created_at": "2026-08-25T09:29:59Z",
+      "id": "r1.s5"
+    }
+  ],
+  "work_items": [
+    {
+      "spine": "r1.s1",
+      "title": "Tauri shell, command bus and the ported design system",
+      "target_repo": "canonical",
+      "status": "complete",
+      "created_at": "2026-08-24T17:51:28Z",
+      "id": "r1.s1.w1",
+      "branch": "work/r1.s1.w1-tauri-shell-topology-command-bus",
+      "worktree_path": "/Users/draco/projects/pluse-trader/pulse-trader/.worktrees/r1.s1.w1",
+      "base_sha": "f5ff39707397e4dc9e3cec149121faeac1487897"
+    },
+    {
+      "spine": "r1.s1",
+      "title": "Credential source for a bundled app",
+      "target_repo": "canonical",
+      "status": "complete",
+      "created_at": "2026-08-24T17:51:28Z",
+      "id": "r1.s1.w2",
+      "branch": "work/r1.s1.w2-credential-source-bundled-app",
+      "worktree_path": "/Users/draco/projects/pluse-trader/pulse-trader/.worktrees/r1.s1.w2",
+      "base_sha": "f5ff39707397e4dc9e3cec149121faeac1487897"
+    },
+    {
+      "spine": "r1.s1",
+      "title": "Strategy Library on real persisted strategies",
+      "target_repo": "canonical",
+      "status": "planned",
+      "created_at": "2026-08-24T17:51:28Z",
+      "id": "r1.s1.w3"
+    },
+    {
+      "spine": "r1.s1",
+      "title": "Strategy Designer with streaming compose",
+      "target_repo": "canonical",
+      "status": "planned",
+      "created_at": "2026-08-24T17:51:29Z",
+      "id": "r1.s1.w4"
+    },
+    {
+      "spine": "r1.s1",
+      "title": "The ported design system: tokens, shared.css and the window chrome",
+      "target_repo": "canonical",
+      "status": "complete",
+      "created_at": "2026-08-24T18:03:39Z",
+      "id": "r1.s1.w5",
+      "branch": "work/r1.s1.w5-ported-design-system",
+      "worktree_path": "/Users/draco/projects/pluse-trader/pulse-trader/.worktrees/r1.s1.w5",
+      "base_sha": "857ff1bb627e086998927eabe680e38e696c0292"
+    },
+    {
+      "spine": "r1.s5",
+      "title": "Bump the Rust toolchain off 1.92.0: lints, ADR-0022, fingerprint move",
+      "target_repo": "canonical",
+      "status": "complete",
+      "created_at": "2026-08-25T09:30:22Z",
+      "id": "r1.s5.w1",
+      "branch": "work/r1.s5.w1-toolchain-bump-lints-adr",
+      "worktree_path": "/Users/draco/projects/pluse-trader/pulse-trader/.worktrees/r1.s5.w1",
+      "base_sha": "9ed2da8e99000a0dcd6c3f595b924cf1c2ff2b8c"
+    },
+    {
+      "spine": "r1.s5",
+      "title": "Bump specta/tauri-specta and delete the generated-bindings workaround",
+      "target_repo": "canonical",
+      "status": "complete",
+      "created_at": "2026-08-25T09:30:22Z",
+      "id": "r1.s5.w2",
+      "branch": "work/r1.s5.w2-specta-bump-delete-workaround",
+      "worktree_path": "/Users/draco/projects/pluse-trader/pulse-trader/.worktrees/r1.s5.w2",
+      "base_sha": "81cb677a6481cfb70135b69e87672a7b0bb884c5"
+    },
+    {
+      "spine": "r1.s1",
+      "title": "Shell navigation: route state, active nav row, honest unbuilt destinations",
+      "target_repo": "canonical",
+      "status": "complete",
+      "created_at": "2026-08-25T18:35:12Z",
+      "id": "r1.s1.w6",
+      "branch": "work/r1.s1.w6-shell-navigation",
+      "worktree_path": "/Users/draco/projects/pluse-trader/pulse-trader/.worktrees/r1.s1.w6",
+      "base_sha": "1dd5396330fc6cb24476770582e662a5dd0ca267"
+    }
+  ],
+  "demo_ledger": [
+    {
+      "type": "user",
+      "text": "describe a strategy in natural language in the Designer and watch the composer's steps stream in until the finished strategy appears in the Library",
+      "outcome": "the tool-call steps appear one by one as they happen, and the finished strategy is listed in the Library with its DSL summary and its version tree",
+      "source_spine": "r1.s1",
+      "status": "active",
+      "status_reason": null,
+      "status_by": null,
+      "at": "2026-08-24T17:52:36Z",
+      "id": "d1"
+    },
+    {
+      "type": "auto",
+      "text": "the Strategy Library lists every strategy and version persisted in pulse.db, with per-version stats where a run exists",
+      "command": "cargo test --test tauri_library",
+      "expected": "exit:0",
+      "source_spine": "r1.s1",
+      "status": "active",
+      "status_reason": null,
+      "status_by": null,
+      "at": "2026-08-24T17:52:36Z",
+      "id": "d2"
+    },
+    {
+      "type": "auto",
+      "text": "a compose run driven from the desktop command bus streams tool-call steps and persists an attributable StrategyVersion",
+      "command": "cargo test --test tauri_compose",
+      "expected": "exit:0",
+      "source_spine": "r1.s1",
+      "status": "active",
+      "status_reason": null,
+      "status_by": null,
+      "at": "2026-08-24T17:52:36Z",
+      "id": "d3"
+    },
+    {
+      "type": "auto",
+      "text": "the desktop UI bundle builds from a clean checkout",
+      "command": "bash scripts/ui-build.sh",
+      "expected": "exit:0",
+      "source_spine": "r1.s1",
+      "status": "active",
+      "status_reason": null,
+      "status_by": null,
+      "at": "2026-08-24T17:52:36Z",
+      "id": "d4",
+      "pending_amendments": [
+        {
+          "status": "retired",
+          "by": "r1.s1",
+          "reason": "audit fold-in: a UI build is a work-item gate and a CI concern, not a product statement that must remain true. It ran dependency installation inside a cumulative suite re-run at every future spine close, putting registry latency into a 600s budget forever. Re-homed as an acceptance criterion on r1.s1.w5, where it fails before merge instead of after every future one.",
+          "at": "2026-08-24T18:03:39Z"
+        }
+      ]
+    }
+  ],
+  "bones": [
+    {
+      "adr": "ADR-0009",
+      "title": "data_version content-hash scheme for candle snapshots",
+      "touch": [
+        "src/domain/candle.rs",
+        "src/domain/series.rs",
+        "src/domain/fingerprint.rs",
+        "src/adapters/binance/**",
+        "src/adapters/store/**"
+      ],
+      "revisit_trigger": "a second market-data source lands, or snapshots stop being content-addressed",
+      "at": "2026-08-23T11:57:03Z"
+    },
+    {
+      "adr": "ADR-0010",
+      "title": "StrategyVersion identity, immutability and provenance storage",
+      "touch": [
+        "src/domain/strategy.rs",
+        "src/domain/version.rs",
+        "src/domain/llm_call.rs",
+        "src/adapters/db/strategy_repo.rs",
+        "src/adapters/db/llm_call_repo.rs",
+        "migrations/**"
+      ],
+      "revisit_trigger": "strategy mutation becomes in-place rather than versioned, or provenance stops being reconstructible from the ledger",
+      "at": "2026-08-23T11:57:03Z"
+    },
+    {
+      "adr": "ADR-0011",
+      "title": "PulseHive dual-license and commercial self-grant for PulseTrader linkage",
+      "touch": [
+        "Cargo.toml",
+        "LICENSE",
+        "NOTICE",
+        "COMMERCIAL.md",
+        "deny.toml"
+      ],
+      "revisit_trigger": "PulseHive ownership changes, or a third-party copyleft dependency enters the link graph",
+      "at": "2026-08-23T11:57:03Z"
+    },
+    {
+      "adr": "ADR-0012",
+      "title": "Thin PulseTrader-owned LlmProvider port over PulseHive",
+      "touch": [
+        "src/domain/llm.rs",
+        "src/domain/port.rs",
+        "src/adapters/llm/**",
+        "src/agent/**"
+      ],
+      "revisit_trigger": "a backend cannot be expressed behind the thin port without widening it",
+      "at": "2026-08-23T11:57:03Z"
+    },
+    {
+      "adr": "ADR-0013",
+      "title": "Extend the thin LlmProvider port with tool-calling over PulseHive HiveMind",
+      "touch": [
+        "src/domain/llm.rs",
+        "src/agent/tools.rs",
+        "src/adapters/llm/openai_compat.rs"
+      ],
+      "revisit_trigger": "a non-tool-native backend must be supported, or tool schemas stop being server-assembled",
+      "at": "2026-08-23T11:57:03Z"
+    },
+    {
+      "adr": "ADR-0014",
+      "title": "Posture: source-available canonical with a private data-overlay moat",
+      "touch": [
+        "src/agent/prompts/**",
+        "src/agent/config.rs",
+        "config/prices.toml",
+        "LICENSE",
+        "COMMERCIAL.md",
+        "src/cli/compose.rs"
+      ],
+      "revisit_trigger": "revenue intent moves from licence-restriction to a paid feature tier (open-core), or the prompt/price seam stops being overridable",
+      "at": "2026-08-23T11:59:53Z"
+    },
+    {
+      "adr": "ADR-0015",
+      "title": "System shape: modular monolith, hexagonal, one shippable artifact, zero sidecars",
+      "touch": [
+        "Cargo.toml",
+        "src/lib.rs",
+        "src/main.rs",
+        "src/tauri/**",
+        "build.rs"
+      ],
+      "revisit_trigger": "a second process, a sidecar runtime, or a network service becomes necessary",
+      "at": "2026-08-23T12:00:22Z"
+    },
+    {
+      "adr": "ADR-0016",
+      "title": "Trust boundaries: Keychain-only secrets, redact-before-persist, no order-placing path in v1",
+      "touch": [
+        "src/domain/secret.rs",
+        "src/adapters/secrets.rs",
+        "src/adapters/llm/redacting_logging.rs",
+        "src/adapters/broker/**"
+      ],
+      "revisit_trigger": "live execution lands, or any code path can place an order or move funds",
+      "at": "2026-08-23T12:00:22Z"
+    },
+    {
+      "adr": "ADR-0017",
+      "title": "Failure visibility: typed errors surfaced at the CLI edge; structured tracing deferred",
+      "touch": [
+        "src/domain/error.rs",
+        "src/cli/**"
+      ],
+      "revisit_trigger": "the native app shell lands, or any background/live process needs operator-visible health",
+      "at": "2026-08-23T12:00:22Z"
+    },
+    {
+      "adr": "ADR-0018",
+      "title": "Evolution: forward-only sqlx migrations, immutable content-addressed snapshots, immutable StrategyVersion",
+      "touch": [
+        "migrations/**",
+        "src/adapters/db/migrate.rs",
+        "src/domain/fingerprint.rs",
+        "src/adapters/store/**"
+      ],
+      "revisit_trigger": "a destructive or non-forward migration becomes necessary",
+      "at": "2026-08-23T12:00:22Z"
+    },
+    {
+      "adr": "ADR-0019",
+      "title": "Stack: Rust core + agent + Tauri backend, TypeScript/React UI, SQLite WAL + Parquet + Keychain",
+      "touch": [
+        "Cargo.toml",
+        "rust-toolchain.toml",
+        "deny.toml",
+        "migrations/**",
+        "config/**"
+      ],
+      "revisit_trigger": "a second backend language enters, or any server-side component is introduced",
+      "at": "2026-08-23T12:00:22Z"
+    },
+    {
+      "adr": "ADR-0020",
+      "title": "Desktop shell: Tauri v2 + React/Vite/TypeScript in WKWebView, tauri-specta command bus + event channel, undecorated window",
+      "touch": [
+        "src/tauri/**",
+        "ui/**",
+        "tauri.conf.json",
+        "package.json",
+        "capabilities/**"
+      ],
+      "revisit_trigger": "WKWebView cannot render a mock screen faithfully, or the command bus needs a second transport (sidecar or IPC)",
+      "at": "2026-08-24T17:03:25Z"
+    },
+    {
+      "adr": "ADR-0021",
+      "title": "Coach: one-mutation-per-turn contract, CoachingSession ownership, coach prompt shipped as an overlay asset",
+      "touch": [
+        "src/agent/coach.rs",
+        "src/agent/prompts/coach.md",
+        "src/domain/coaching.rs",
+        "src/adapters/db/coaching_repo.rs",
+        "src/domain/dsl/mutate.rs"
+      ],
+      "revisit_trigger": "a second coaching mode lands (multi-mutation or auto-optimizer), or the coach stops being stateless across turns",
+      "at": "2026-08-24T17:03:25Z"
+    }
+  ],
+  "risk_gates": [
+    {
+      "name": "LLM credential handling and redaction",
+      "touch": [
+        "src/domain/secret.rs",
+        "src/adapters/secrets.rs",
+        "src/adapters/llm/redacting_logging.rs",
+        "src/adapters/llm/openai_compat.rs"
+      ],
+      "controls": [
+        "audit trail",
+        "least privilege",
+        "no-secret-in-log"
+      ],
+      "at": "2026-08-23T12:01:10Z"
+    },
+    {
+      "name": "Money-math and backtest determinism",
+      "touch": [
+        "src/domain/backtest/**",
+        "src/domain/sizing.rs",
+        "src/domain/fingerprint.rs",
+        "src/adapters/backtest/**"
+      ],
+      "controls": [
+        "kill switch",
+        "audit trail",
+        "progressive exposure",
+        "determinism test"
+      ],
+      "at": "2026-08-23T12:01:10Z"
+    }
+  ],
+  "fakes": [
+    {
+      "boundary": "secret-provisioning",
+      "channel": "deferred",
+      "reason": "The real path is 'pulse setup-keys' plus code-signing, so the binary has a stable keychain identity that can read back what it wrote; that is the notarized-build work sketched for the next release. Until someone other than the operator installs the app, a credential file in the app data dir provisions the key at the same cost with none of the signing work, and the release's own exit criterion names that file as part of the fixture rather than claiming provisioning works.",
+      "replacement_trigger": "the first person other than the operator installs the app",
+      "expiry_release": "r2",
+      "status": "active",
+      "at": "2026-08-24T17:52:36Z",
+      "status_reason": "The product genuinely goes without in-app provisioning. The real path is 'pulse setup-keys' plus code-signing, so the binary has a stable code identity that can read back what it wrote; that is the notarized-build work sketched for r2. The stand-in is a credential file in the app data dir, and its security semantics are WEAKER than the Keychain replacement, not equal: plaintext, readable by any process running as this user, manually provisioned, no code-identity ACL. That delta is the reason this is 'deferred' and not 'real', and r1.s1.w2 bounds it by validating the file fail-closed (refuse it unless it is owner-only, mode 0600, and owned by the running user) so the weakening is enforced rather than assumed. Corrected 2026-08-24 after the spine-plan audit rejected the original 'at the same cost' claim as false.",
+      "status_at": "2026-08-24T18:03:39Z"
+    }
+  ],
+  "feature_map": [
+    {
+      "name": "Coach agent + one-mutation framework",
+      "value": "After a backtest, the trader is shown exactly one proposed change with a stated hypothesis",
+      "class_guess": "bone",
+      "source": "journey-map",
+      "at": "2026-08-23T12:00:45Z"
+    },
+    {
+      "name": "Accept/reject/modify a coach proposal",
+      "value": "The trader acts on a proposal and gets a new versioned strategy without leaving the loop",
+      "class_guess": "flesh",
+      "source": "journey-map",
+      "at": "2026-08-23T12:00:45Z"
+    },
+    {
+      "name": "Iterate the compose-backtest-coach loop to a target",
+      "value": "The trader keeps looping until the stated R:R and win-rate target is met",
+      "class_guess": "flesh",
+      "source": "journey-map",
+      "at": "2026-08-23T12:00:45Z"
+    },
+    {
+      "name": "Secret provisioning (pulse setup-keys)",
+      "value": "A trader on a fresh install can seed their API credential and run the composer",
+      "class_guess": "bone",
+      "source": "journey-map",
+      "at": "2026-08-23T12:00:45Z"
+    },
+    {
+      "name": "Paper trading with graduation",
+      "value": "A finalized strategy runs on live data without risking money, and its results are compared to the backtest",
+      "class_guess": "bone",
+      "source": "journey-map",
+      "at": "2026-08-23T12:00:45Z"
+    },
+    {
+      "name": "Live execution with capped capital",
+      "value": "A graduated strategy places real orders under a capital cap and a kill switch",
+      "class_guess": "bone",
+      "source": "journey-map",
+      "at": "2026-08-23T12:00:45Z"
+    },
+    {
+      "name": "Trade journal + P&L analytics",
+      "value": "Every trade lands in a permanent journal the trader can query and review",
+      "class_guess": "bone",
+      "source": "journey-map",
+      "at": "2026-08-23T12:00:45Z"
+    },
+    {
+      "name": "Desktop shell: Strategy Library + Designer in PulseTrader.app",
+      "value": "A trader opens PulseTrader.app, sees every persisted strategy, and composes a new one while the composer's steps stream in",
+      "class_guess": "bone",
+      "source": "real-use",
+      "at": "2026-08-24T17:03:24Z"
+    },
+    {
+      "name": "Signed + notarized PulseTrader.app distribution",
+      "value": "A trader installs PulseTrader.app from a download and opens it from the dock without Gatekeeper refusal",
+      "class_guess": "bone",
+      "source": "spec",
+      "at": "2026-08-24T17:09:35Z"
+    }
+  ],
+  "patch_records": [],
+  "class_overrides": [
+    {
+      "spine": "r1.s1",
+      "from": "bone",
+      "to": "bone",
+      "reason": "creates a bone: stack & system shape - Tauri v2 desktop shell + tauri-specta command bus + event channel; ADR-0020 | bone-touch: ADR-0015 (src/tauri/**, src/lib.rs, Cargo.toml, build.rs), ADR-0019 (Cargo.toml)",
+      "at": "2026-08-24T17:04:05Z"
+    },
+    {
+      "spine": "r1.s2",
+      "from": "bone",
+      "to": "bone",
+      "reason": "creates a bone: data ownership + public contract - CoachingSession, exactly one mutation per turn, coach prompt as overlay asset; ADR-0021 | bone-touch: ADR-0012 (src/agent/**), ADR-0013 (src/agent/tools.rs), ADR-0014 (src/agent/prompts/**, config/prices.toml), ADR-0010/0018/0019 (migrations/**), ADR-0017 (src/cli/**) | risk-gate: Money-math and backtest determinism (src/domain/backtest/result.rs read-across) - controls: kill switch, audit trail, progressive exposure, determinism test",
+      "at": "2026-08-24T17:04:05Z"
+    },
+    {
+      "spine": "r1.s3",
+      "from": "bone",
+      "to": "bone",
+      "reason": "bone-touch: ADR-0009 (src/adapters/store/**, src/domain/fingerprint.rs), ADR-0012 (src/domain/port.rs), ADR-0018 (migrations/**, src/adapters/store/**), ADR-0010/0019 (migrations/**), ADR-0015/ADR-0020 (src/tauri/**), ADR-0017 (src/cli/**) | risk-gate: Money-math and backtest determinism (src/domain/backtest/run.rs, src/domain/backtest/result.rs, src/adapters/backtest/engine.rs) - controls: kill switch, audit trail, progressive exposure, determinism test",
+      "at": "2026-08-24T17:04:05Z"
+    },
+    {
+      "spine": "r1.s4",
+      "from": "flesh",
+      "to": "bone",
+      "reason": "bone-touch: ADR-0021 (src/domain/dsl/mutate.rs, src/adapters/db/coaching_repo.rs, src/agent/coach.rs), ADR-0020 (src/tauri/**, ui/**), ADR-0010 (src/domain/strategy.rs, src/domain/version.rs, src/adapters/db/strategy_repo.rs), ADR-0012 (src/agent/**), ADR-0015 (src/tauri/**)",
+      "at": "2026-08-24T17:04:05Z"
+    },
+    {
+      "spine": "r1.s1",
+      "from": "bone",
+      "to": "bone",
+      "reason": "critic veto (cross-confirmed host+codex): the .app must reach a credential without a terminal env - S1 adds an app-data-dir .env source in src/adapters/secrets.rs and exposes composer events over a new Tauri IPC + capabilities boundary | risk-gate: LLM credential handling and redaction (src/adapters/secrets.rs; IPC event surface; capabilities/**) - controls: audit trail, least privilege, no-secret-in-log",
+      "at": "2026-08-24T17:09:34Z"
+    },
+    {
+      "spine": "r1.s2",
+      "from": "bone",
+      "to": "bone",
+      "reason": "escalation unresolved - fail-closed default (class already bone); recommended ruling: attach LLM credential handling and redaction controls (controls: audit trail, least privilege, no-secret-in-log) to S2 as required work",
+      "at": "2026-08-24T17:09:35Z"
+    },
+    {
+      "spine": "r1.s2",
+      "from": "bone",
+      "to": "bone",
+      "reason": "escalation resolved (operator ruling, 2026-08-24): ATTACH the LLM credential handling and redaction gate's controls to r1.s2 as required work — audit trail, least privilege, no-secret-in-log. The coach opens a new LLM path that ships strategy text and backtest numbers to an external model and persists the response, which is the path the gate exists for. Class already bone; this records the ruling and the controls.",
+      "at": "2026-08-24T18:28:56Z"
+    },
+    {
+      "spine": "r1.s2",
+      "from": "bone",
+      "to": "bone",
+      "reason": "internal-enabler admitted: consumed by r1.s4 (r1) — grill gate 2026-08-25 (G2/G3). r1.s2's journey was 'pulse coach <run-id>'; the operator ruled the CLI is a developer/debug surface that carries no user journey, so this spine has none and is an internal-enabler by rung 1. Admitted because r1.s4 (the coach rail) consumes it and is committed in this same release. Consequences: auto: demo lines ONLY, no user: line, and it may not claim product value in any exit criterion. Structural class stays bone (it creates ADR-0021 and hits the money-math risk gate). NOTE: the spine's NAME lacks the '[internal]' marker class-declaration.md §5 asks for, because ossify ships no spine-rename verb; this reason string and RELEASE.md are the durable carriers.",
+      "at": "2026-08-24T18:49:39Z"
+    },
+    {
+      "spine": "r1.s5",
+      "from": "bone",
+      "to": "bone",
+      "reason": "internal-enabler admitted: consumed by r1.s1 round 2 (r1). This spine has NO user journey — a toolchain bump is not something a user does — so it is an internal-enabler by rung 1, the same disposition as r1.s2 under the 2026-08-25 CLI/dev-surface ruling. Admitted because r1.s1's rounds 2-3 (w5 design-system port, w3 Library, w4 Designer) are committed in this same release and are cheaper to write once against the bumped toolchain than to re-lint afterwards. Consequences: auto: demo lines ONLY, no user: line, and it may not claim product value in any exit criterion. Structural class is bone and NOT a judgment call: oss touch_check over the actual file set returns rc 0 against six registered bones — ADR-0009 (binance/client.rs), ADR-0011 (Cargo.toml, deny.toml), ADR-0012 (agent/composer.rs), ADR-0015 (Cargo.toml, build.rs, src/tauri/**), ADR-0019 (rust-toolchain.toml, Cargo.toml, deny.toml), ADR-0020 (src/tauri/**, ui/**). Owes an ADR: the toolchain pin feeds engine_fingerprint, and rust-toolchain.toml's own comment requires a recorded decision to move it.",
+      "at": "2026-08-25T09:30:16Z"
+    }
+  ],
+  "veto_dispositions": [
+    {
+      "spine": "r1.s1",
+      "finding": "bone-touch: ADR-0015 (src/tauri/**), ADR-0019 (Cargo.toml), ADR-0011 (Cargo.toml), ADR-0012 (src/agent/composer.rs read-across), ADR-0010 (src/adapters/db/strategy_repo.rs read-across), ADR-0020 (own surface)",
+      "disposition": "auto-bone",
+      "reason": "touch-surface overlap",
+      "at": "2026-08-24T17:04:05Z"
+    },
+    {
+      "spine": "r1.s2",
+      "finding": "bone-touch: ADR-0012 (src/agent/**), ADR-0013 (src/agent/tools.rs), ADR-0014 (src/agent/prompts/**), ADR-0010/0018/0019 (migrations/**), ADR-0017 (src/cli/**), ADR-0021 (own surface)",
+      "disposition": "auto-bone",
+      "reason": "touch-surface overlap",
+      "at": "2026-08-24T17:04:05Z"
+    },
+    {
+      "spine": "r1.s2",
+      "finding": "risk-gate: Money-math and backtest determinism (src/domain/backtest/result.rs read-across)",
+      "disposition": "auto-bone",
+      "reason": "risk-surface overlap; gate controls attached",
+      "at": "2026-08-24T17:04:05Z"
+    },
+    {
+      "spine": "r1.s3",
+      "finding": "bone-touch: ADR-0009 (src/adapters/store/**), ADR-0012 (src/domain/port.rs), ADR-0018 (migrations/**), ADR-0010/0019 (migrations/**), ADR-0015/ADR-0020 (src/tauri/**), ADR-0017 (src/cli/**)",
+      "disposition": "auto-bone",
+      "reason": "touch-surface overlap",
+      "at": "2026-08-24T17:04:05Z"
+    },
+    {
+      "spine": "r1.s3",
+      "finding": "risk-gate: Money-math and backtest determinism (src/domain/backtest/run.rs, src/domain/backtest/result.rs, src/adapters/backtest/engine.rs)",
+      "disposition": "auto-bone",
+      "reason": "risk-surface overlap; gate controls attached",
+      "at": "2026-08-24T17:04:05Z"
+    },
+    {
+      "spine": "r1.s4",
+      "finding": "bone-touch: ADR-0021 (src/domain/dsl/mutate.rs, src/adapters/db/coaching_repo.rs), ADR-0020 (src/tauri/**), ADR-0010 (src/domain/version.rs), ADR-0012 (src/agent/**), ADR-0015 (src/tauri/**)",
+      "disposition": "auto-bone",
+      "reason": "touch-surface overlap",
+      "at": "2026-08-24T17:04:05Z"
+    },
+    {
+      "spine": "r1.s1",
+      "finding": "Exit criteria say 'launch PulseTrader.app' but the only credential path is a terminal-inherited env/.env; Finder-launched apps do not inherit the shell environment, so the .app proves neither installation nor ordinary desktop use",
+      "disposition": "auto-bone",
+      "reason": "trust surface: S1 gains a credential source (src/adapters/secrets.rs) - LLM-credential gate hit mechanically on re-check; controls attached",
+      "at": "2026-08-24T17:09:34Z"
+    },
+    {
+      "spine": "r1.s1",
+      "finding": "The LLM credential and redaction risk gate is silently bypassed: r1.s1 streams composer events across a new Tauri command/event boundary, and an undecorated webview with capabilities configuration is itself a new trust boundary requiring least-privilege command exposure",
+      "disposition": "auto-bone",
+      "reason": "new IPC + capabilities trust boundary; LLM-credential gate controls attached (audit trail, least privilege, no-secret-in-log)",
+      "at": "2026-08-24T17:09:34Z"
+    },
+    {
+      "spine": "r1.s2",
+      "finding": "The LLM credential and redaction risk gate is silently bypassed: r1.s2 introduces another LLM path, yet is not gated for secret-bearing errors, prompts, tool arguments, provider payloads, or persisted failures - 'covered in spirit by the risk registry but attaches none of its required controls'",
+      "disposition": "escalate",
+      "reason": "ambiguous - fail-closed: names no touched gate surface (the coach uses the LlmProvider port behind the existing redacting decorator); whether the gate's controls attach to S2 is the operator's ruling",
+      "at": "2026-08-24T17:09:34Z"
+    }
+  ],
+  "close_records": [],
+  "mutations": [
+    {
+      "seq": 0,
+      "op": "add_bone",
+      "ts": "2026-08-23T11:57:03Z",
+      "payload": {
+        "adr": "ADR-0009",
+        "title": "data_version content-hash scheme for candle snapshots",
+        "touch": [
+          "src/domain/candle.rs",
+          "src/domain/series.rs",
+          "src/domain/fingerprint.rs",
+          "src/adapters/binance/**",
+          "src/adapters/store/**"
+        ],
+        "revisit_trigger": "a second market-data source lands, or snapshots stop being content-addressed",
+        "at": "2026-08-23T11:57:03Z"
+      }
+    },
+    {
+      "seq": 1,
+      "op": "add_bone",
+      "ts": "2026-08-23T11:57:03Z",
+      "payload": {
+        "adr": "ADR-0010",
+        "title": "StrategyVersion identity, immutability and provenance storage",
+        "touch": [
+          "src/domain/strategy.rs",
+          "src/domain/version.rs",
+          "src/domain/llm_call.rs",
+          "src/adapters/db/strategy_repo.rs",
+          "src/adapters/db/llm_call_repo.rs",
+          "migrations/**"
+        ],
+        "revisit_trigger": "strategy mutation becomes in-place rather than versioned, or provenance stops being reconstructible from the ledger",
+        "at": "2026-08-23T11:57:03Z"
+      }
+    },
+    {
+      "seq": 2,
+      "op": "add_bone",
+      "ts": "2026-08-23T11:57:03Z",
+      "payload": {
+        "adr": "ADR-0011",
+        "title": "PulseHive dual-license and commercial self-grant for PulseTrader linkage",
+        "touch": [
+          "Cargo.toml",
+          "LICENSE",
+          "NOTICE",
+          "COMMERCIAL.md",
+          "deny.toml"
+        ],
+        "revisit_trigger": "PulseHive ownership changes, or a third-party copyleft dependency enters the link graph",
+        "at": "2026-08-23T11:57:03Z"
+      }
+    },
+    {
+      "seq": 3,
+      "op": "add_bone",
+      "ts": "2026-08-23T11:57:03Z",
+      "payload": {
+        "adr": "ADR-0012",
+        "title": "Thin PulseTrader-owned LlmProvider port over PulseHive",
+        "touch": [
+          "src/domain/llm.rs",
+          "src/domain/port.rs",
+          "src/adapters/llm/**",
+          "src/agent/**"
+        ],
+        "revisit_trigger": "a backend cannot be expressed behind the thin port without widening it",
+        "at": "2026-08-23T11:57:03Z"
+      }
+    },
+    {
+      "seq": 4,
+      "op": "add_bone",
+      "ts": "2026-08-23T11:57:03Z",
+      "payload": {
+        "adr": "ADR-0013",
+        "title": "Extend the thin LlmProvider port with tool-calling over PulseHive HiveMind",
+        "touch": [
+          "src/domain/llm.rs",
+          "src/agent/tools.rs",
+          "src/adapters/llm/openai_compat.rs"
+        ],
+        "revisit_trigger": "a non-tool-native backend must be supported, or tool schemas stop being server-assembled",
+        "at": "2026-08-23T11:57:03Z"
+      }
+    },
+    {
+      "seq": 5,
+      "op": "set_posture",
+      "ts": "2026-08-23T11:59:52Z",
+      "payload": {
+        "posture": "source-available"
+      }
+    },
+    {
+      "seq": 6,
+      "op": "set_overlay",
+      "ts": "2026-08-23T11:59:52Z",
+      "payload": {
+        "overlay_wiring": "$PULSE_PROMPT_DIR"
+      }
+    },
+    {
+      "seq": 7,
+      "op": "add_bone",
+      "ts": "2026-08-23T11:59:53Z",
+      "payload": {
+        "adr": "ADR-0014",
+        "title": "Posture: source-available canonical with a private data-overlay moat",
+        "touch": [
+          "src/agent/prompts/**",
+          "src/agent/config.rs",
+          "config/prices.toml",
+          "LICENSE",
+          "COMMERCIAL.md",
+          "src/cli/compose.rs"
+        ],
+        "revisit_trigger": "revenue intent moves from licence-restriction to a paid feature tier (open-core), or the prompt/price seam stops being overridable",
+        "at": "2026-08-23T11:59:53Z"
+      }
+    },
+    {
+      "seq": 8,
+      "op": "add_bone",
+      "ts": "2026-08-23T12:00:22Z",
+      "payload": {
+        "adr": "ADR-0015",
+        "title": "System shape: modular monolith, hexagonal, one shippable artifact, zero sidecars",
+        "touch": [
+          "Cargo.toml",
+          "src/lib.rs",
+          "src/main.rs",
+          "src/tauri/**",
+          "build.rs"
+        ],
+        "revisit_trigger": "a second process, a sidecar runtime, or a network service becomes necessary",
+        "at": "2026-08-23T12:00:22Z"
+      }
+    },
+    {
+      "seq": 9,
+      "op": "add_bone",
+      "ts": "2026-08-23T12:00:22Z",
+      "payload": {
+        "adr": "ADR-0016",
+        "title": "Trust boundaries: Keychain-only secrets, redact-before-persist, no order-placing path in v1",
+        "touch": [
+          "src/domain/secret.rs",
+          "src/adapters/secrets.rs",
+          "src/adapters/llm/redacting_logging.rs",
+          "src/adapters/broker/**"
+        ],
+        "revisit_trigger": "live execution lands, or any code path can place an order or move funds",
+        "at": "2026-08-23T12:00:22Z"
+      }
+    },
+    {
+      "seq": 10,
+      "op": "add_bone",
+      "ts": "2026-08-23T12:00:22Z",
+      "payload": {
+        "adr": "ADR-0017",
+        "title": "Failure visibility: typed errors surfaced at the CLI edge; structured tracing deferred",
+        "touch": [
+          "src/domain/error.rs",
+          "src/cli/**"
+        ],
+        "revisit_trigger": "the native app shell lands, or any background/live process needs operator-visible health",
+        "at": "2026-08-23T12:00:22Z"
+      }
+    },
+    {
+      "seq": 11,
+      "op": "add_bone",
+      "ts": "2026-08-23T12:00:22Z",
+      "payload": {
+        "adr": "ADR-0018",
+        "title": "Evolution: forward-only sqlx migrations, immutable content-addressed snapshots, immutable StrategyVersion",
+        "touch": [
+          "migrations/**",
+          "src/adapters/db/migrate.rs",
+          "src/domain/fingerprint.rs",
+          "src/adapters/store/**"
+        ],
+        "revisit_trigger": "a destructive or non-forward migration becomes necessary",
+        "at": "2026-08-23T12:00:22Z"
+      }
+    },
+    {
+      "seq": 12,
+      "op": "add_bone",
+      "ts": "2026-08-23T12:00:22Z",
+      "payload": {
+        "adr": "ADR-0019",
+        "title": "Stack: Rust core + agent + Tauri backend, TypeScript/React UI, SQLite WAL + Parquet + Keychain",
+        "touch": [
+          "Cargo.toml",
+          "rust-toolchain.toml",
+          "deny.toml",
+          "migrations/**",
+          "config/**"
+        ],
+        "revisit_trigger": "a second backend language enters, or any server-side component is introduced",
+        "at": "2026-08-23T12:00:22Z"
+      }
+    },
+    {
+      "seq": 13,
+      "op": "add_feature",
+      "ts": "2026-08-23T12:00:45Z",
+      "payload": {
+        "name": "Coach agent + one-mutation framework",
+        "value": "After a backtest, the trader is shown exactly one proposed change with a stated hypothesis",
+        "class_guess": "bone",
+        "source": "journey-map",
+        "at": "2026-08-23T12:00:45Z"
+      }
+    },
+    {
+      "seq": 14,
+      "op": "add_feature",
+      "ts": "2026-08-23T12:00:45Z",
+      "payload": {
+        "name": "Accept/reject/modify a coach proposal",
+        "value": "The trader acts on a proposal and gets a new versioned strategy without leaving the loop",
+        "class_guess": "flesh",
+        "source": "journey-map",
+        "at": "2026-08-23T12:00:45Z"
+      }
+    },
+    {
+      "seq": 15,
+      "op": "add_feature",
+      "ts": "2026-08-23T12:00:45Z",
+      "payload": {
+        "name": "Iterate the compose-backtest-coach loop to a target",
+        "value": "The trader keeps looping until the stated R:R and win-rate target is met",
+        "class_guess": "flesh",
+        "source": "journey-map",
+        "at": "2026-08-23T12:00:45Z"
+      }
+    },
+    {
+      "seq": 16,
+      "op": "add_feature",
+      "ts": "2026-08-23T12:00:45Z",
+      "payload": {
+        "name": "Secret provisioning (pulse setup-keys)",
+        "value": "A trader on a fresh install can seed their API credential and run the composer",
+        "class_guess": "bone",
+        "source": "journey-map",
+        "at": "2026-08-23T12:00:45Z"
+      }
+    },
+    {
+      "seq": 17,
+      "op": "add_feature",
+      "ts": "2026-08-23T12:00:45Z",
+      "payload": {
+        "name": "Paper trading with graduation",
+        "value": "A finalized strategy runs on live data without risking money, and its results are compared to the backtest",
+        "class_guess": "bone",
+        "source": "journey-map",
+        "at": "2026-08-23T12:00:45Z"
+      }
+    },
+    {
+      "seq": 18,
+      "op": "add_feature",
+      "ts": "2026-08-23T12:00:45Z",
+      "payload": {
+        "name": "Live execution with capped capital",
+        "value": "A graduated strategy places real orders under a capital cap and a kill switch",
+        "class_guess": "bone",
+        "source": "journey-map",
+        "at": "2026-08-23T12:00:45Z"
+      }
+    },
+    {
+      "seq": 19,
+      "op": "add_feature",
+      "ts": "2026-08-23T12:00:45Z",
+      "payload": {
+        "name": "Trade journal + P&L analytics",
+        "value": "Every trade lands in a permanent journal the trader can query and review",
+        "class_guess": "bone",
+        "source": "journey-map",
+        "at": "2026-08-23T12:00:45Z"
+      }
+    },
+    {
+      "seq": 20,
+      "op": "add_risk_gate",
+      "ts": "2026-08-23T12:01:10Z",
+      "payload": {
+        "name": "LLM credential handling and redaction",
+        "touch": [
+          "src/domain/secret.rs",
+          "src/adapters/secrets.rs",
+          "src/adapters/llm/redacting_logging.rs",
+          "src/adapters/llm/openai_compat.rs"
+        ],
+        "controls": [
+          "audit trail",
+          "least privilege",
+          "no-secret-in-log"
+        ],
+        "at": "2026-08-23T12:01:10Z"
+      }
+    },
+    {
+      "seq": 21,
+      "op": "add_risk_gate",
+      "ts": "2026-08-23T12:01:10Z",
+      "payload": {
+        "name": "Money-math and backtest determinism",
+        "touch": [
+          "src/domain/backtest/**",
+          "src/domain/sizing.rs",
+          "src/domain/fingerprint.rs",
+          "src/adapters/backtest/**"
+        ],
+        "controls": [
+          "kill switch",
+          "audit trail",
+          "progressive exposure",
+          "determinism test"
+        ],
+        "at": "2026-08-23T12:01:10Z"
+      }
+    },
+    {
+      "seq": 22,
+      "op": "add_release",
+      "ts": "2026-08-23T12:01:17Z",
+      "payload": {
+        "name": "Release 0",
+        "goal": "adopted baseline: everything shipped under scaffold-dev through 49f229a (sprints 1.1-1.3, the last closed at 2/4 slices)",
+        "status": "planned",
+        "created_at": "2026-08-23T12:01:17Z",
+        "id": "r0"
+      }
+    },
+    {
+      "seq": 23,
+      "op": "set_release_status",
+      "ts": "2026-08-23T12:01:17Z",
+      "payload": {
+        "release": "r0",
+        "status": "closed",
+        "at": "2026-08-23T12:01:17Z"
+      }
+    },
+    {
+      "seq": 24,
+      "op": "set_overlay",
+      "ts": "2026-08-23T14:55:00Z",
+      "payload": {
+        "overlay_wiring": "$PULSE_PROMPT_DIR, $PULSE_CONFIG_DIR"
+      }
+    },
+    {
+      "seq": 25,
+      "op": "add_feature",
+      "ts": "2026-08-24T17:03:24Z",
+      "payload": {
+        "name": "Desktop shell: Strategy Library + Designer in PulseTrader.app",
+        "value": "A trader opens PulseTrader.app, sees every persisted strategy, and composes a new one while the composer's steps stream in",
+        "class_guess": "bone",
+        "source": "real-use",
+        "at": "2026-08-24T17:03:24Z"
+      }
+    },
+    {
+      "seq": 26,
+      "op": "add_release",
+      "ts": "2026-08-24T17:03:24Z",
+      "payload": {
+        "name": "Release 1",
+        "goal": "A crypto-futures trader runs the full 10-minute round trip - describe a strategy, watch it compose, backtest it, get one coached change, accept it, re-backtest - inside the PulseTrader desktop app and sees expectancy move, with every step persisted and attributable",
+        "status": "planned",
+        "created_at": "2026-08-24T17:03:24Z",
+        "id": "r1"
+      }
+    },
+    {
+      "seq": 27,
+      "op": "set_release_meta",
+      "ts": "2026-08-24T17:03:24Z",
+      "payload": {
+        "release": "r1",
+        "patch": {
+          "real_use_findings": [
+            "the product has never been used; it is not usable without a UI"
+          ]
+        }
+      }
+    },
+    {
+      "seq": 28,
+      "op": "add_spine",
+      "ts": "2026-08-24T17:03:24Z",
+      "payload": {
+        "release": "r1",
+        "name": "Desktop shell: Strategy Library + Designer with streaming compose",
+        "class": "bone",
+        "target_repo": "canonical",
+        "status": "planned",
+        "created_at": "2026-08-24T17:03:24Z",
+        "id": "r1.s1"
+      }
+    },
+    {
+      "seq": 29,
+      "op": "add_spine",
+      "ts": "2026-08-24T17:03:24Z",
+      "payload": {
+        "release": "r1",
+        "name": "Coach agent + one-mutation framework",
+        "class": "bone",
+        "target_repo": "canonical",
+        "status": "planned",
+        "created_at": "2026-08-24T17:03:24Z",
+        "id": "r1.s2"
+      }
+    },
+    {
+      "seq": 30,
+      "op": "add_spine",
+      "ts": "2026-08-24T17:03:24Z",
+      "payload": {
+        "release": "r1",
+        "name": "Backtest Lab on real runs with provenance (#112 then #110)",
+        "class": "bone",
+        "target_repo": "canonical",
+        "status": "planned",
+        "created_at": "2026-08-24T17:03:24Z",
+        "id": "r1.s3"
+      }
+    },
+    {
+      "seq": 31,
+      "op": "add_spine",
+      "ts": "2026-08-24T17:03:24Z",
+      "payload": {
+        "release": "r1",
+        "name": "Coach rail: accept/reject/modify a proposal and re-backtest",
+        "class": "flesh",
+        "target_repo": "canonical",
+        "status": "planned",
+        "created_at": "2026-08-24T17:03:24Z",
+        "id": "r1.s4"
+      }
+    },
+    {
+      "seq": 32,
+      "op": "set_release_meta",
+      "ts": "2026-08-24T17:03:24Z",
+      "payload": {
+        "release": "r1",
+        "patch": {
+          "exit_criteria": [
+            "At close, a trader can launch PulseTrader.app and see every strategy and version persisted in pulse.db in the Strategy Library, with its DSL summary and recent backtest runs.",
+            "At close, a trader can describe a strategy in natural language in the Strategy Designer, watch the composer's tool-call steps stream in as they happen, and find the resulting StrategyVersion in the Library.",
+            "At close, a trader can select a strategy version in the app, run a backtest, and read expectancy, win rate, equity curve, MFE/MAE, the trade log and the run's provenance header (pair, timeframe, data_version, date range, cost settings) back from the persisted run.",
+            "At close, a trader can ask the coach about a persisted backtest run and receive exactly one proposed mutation with a stated hypothesis, with the turn's LLM cost recorded in the LlmCall ledger.",
+            "At close, a trader can accept, reject or modify the coach's proposal in the Backtest Lab; accepting creates a child StrategyVersion attributed to the coach, re-runs the backtest, and shows expectancy before and after side by side.",
+            "At close, the operator can run describe -> compose -> backtest -> coach -> accept -> re-backtest inside the app in under 10 minutes wall-clock from a cold start."
+          ]
+        }
+      }
+    },
+    {
+      "seq": 33,
+      "op": "set_release_meta",
+      "ts": "2026-08-24T17:03:24Z",
+      "payload": {
+        "release": "r1",
+        "patch": {
+          "ledger_budget": "600s"
+        }
+      }
+    },
+    {
+      "seq": 34,
+      "op": "set_release_meta",
+      "ts": "2026-08-24T17:03:25Z",
+      "payload": {
+        "release": "r1",
+        "patch": {
+          "spine_dag": [
+            [
+              "r1.s1",
+              []
+            ],
+            [
+              "r1.s2",
+              []
+            ],
+            [
+              "r1.s3",
+              [
+                "r1.s1"
+              ]
+            ],
+            [
+              "r1.s4",
+              [
+                "r1.s2",
+                "r1.s3"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "seq": 35,
+      "op": "add_bone",
+      "ts": "2026-08-24T17:03:25Z",
+      "payload": {
+        "adr": "ADR-0020",
+        "title": "Desktop shell: Tauri v2 + React/Vite/TypeScript in WKWebView, tauri-specta command bus + event channel, undecorated window",
+        "touch": [
+          "src/tauri/**",
+          "ui/**",
+          "tauri.conf.json",
+          "package.json",
+          "capabilities/**"
+        ],
+        "revisit_trigger": "WKWebView cannot render a mock screen faithfully, or the command bus needs a second transport (sidecar or IPC)",
+        "at": "2026-08-24T17:03:25Z"
+      }
+    },
+    {
+      "seq": 36,
+      "op": "add_bone",
+      "ts": "2026-08-24T17:03:25Z",
+      "payload": {
+        "adr": "ADR-0021",
+        "title": "Coach: one-mutation-per-turn contract, CoachingSession ownership, coach prompt shipped as an overlay asset",
+        "touch": [
+          "src/agent/coach.rs",
+          "src/agent/prompts/coach.md",
+          "src/domain/coaching.rs",
+          "src/adapters/db/coaching_repo.rs",
+          "src/domain/dsl/mutate.rs"
+        ],
+        "revisit_trigger": "a second coaching mode lands (multi-mutation or auto-optimizer), or the coach stops being stateless across turns",
+        "at": "2026-08-24T17:03:25Z"
+      }
+    },
+    {
+      "seq": 37,
+      "op": "set_spine_class",
+      "ts": "2026-08-24T17:04:05Z",
+      "payload": {
+        "spine": "r1.s1",
+        "from": "bone",
+        "to": "bone",
+        "reason": "creates a bone: stack & system shape - Tauri v2 desktop shell + tauri-specta command bus + event channel; ADR-0020 | bone-touch: ADR-0015 (src/tauri/**, src/lib.rs, Cargo.toml, build.rs), ADR-0019 (Cargo.toml)",
+        "at": "2026-08-24T17:04:05Z"
+      }
+    },
+    {
+      "seq": 38,
+      "op": "add_veto_disposition",
+      "ts": "2026-08-24T17:04:05Z",
+      "payload": {
+        "spine": "r1.s1",
+        "finding": "bone-touch: ADR-0015 (src/tauri/**), ADR-0019 (Cargo.toml), ADR-0011 (Cargo.toml), ADR-0012 (src/agent/composer.rs read-across), ADR-0010 (src/adapters/db/strategy_repo.rs read-across), ADR-0020 (own surface)",
+        "disposition": "auto-bone",
+        "reason": "touch-surface overlap",
+        "at": "2026-08-24T17:04:05Z"
+      }
+    },
+    {
+      "seq": 39,
+      "op": "set_spine_class",
+      "ts": "2026-08-24T17:04:05Z",
+      "payload": {
+        "spine": "r1.s2",
+        "from": "bone",
+        "to": "bone",
+        "reason": "creates a bone: data ownership + public contract - CoachingSession, exactly one mutation per turn, coach prompt as overlay asset; ADR-0021 | bone-touch: ADR-0012 (src/agent/**), ADR-0013 (src/agent/tools.rs), ADR-0014 (src/agent/prompts/**, config/prices.toml), ADR-0010/0018/0019 (migrations/**), ADR-0017 (src/cli/**) | risk-gate: Money-math and backtest determinism (src/domain/backtest/result.rs read-across) - controls: kill switch, audit trail, progressive exposure, determinism test",
+        "at": "2026-08-24T17:04:05Z"
+      }
+    },
+    {
+      "seq": 40,
+      "op": "add_veto_disposition",
+      "ts": "2026-08-24T17:04:05Z",
+      "payload": {
+        "spine": "r1.s2",
+        "finding": "bone-touch: ADR-0012 (src/agent/**), ADR-0013 (src/agent/tools.rs), ADR-0014 (src/agent/prompts/**), ADR-0010/0018/0019 (migrations/**), ADR-0017 (src/cli/**), ADR-0021 (own surface)",
+        "disposition": "auto-bone",
+        "reason": "touch-surface overlap",
+        "at": "2026-08-24T17:04:05Z"
+      }
+    },
+    {
+      "seq": 41,
+      "op": "add_veto_disposition",
+      "ts": "2026-08-24T17:04:05Z",
+      "payload": {
+        "spine": "r1.s2",
+        "finding": "risk-gate: Money-math and backtest determinism (src/domain/backtest/result.rs read-across)",
+        "disposition": "auto-bone",
+        "reason": "risk-surface overlap; gate controls attached",
+        "at": "2026-08-24T17:04:05Z"
+      }
+    },
+    {
+      "seq": 42,
+      "op": "set_spine_class",
+      "ts": "2026-08-24T17:04:05Z",
+      "payload": {
+        "spine": "r1.s3",
+        "from": "bone",
+        "to": "bone",
+        "reason": "bone-touch: ADR-0009 (src/adapters/store/**, src/domain/fingerprint.rs), ADR-0012 (src/domain/port.rs), ADR-0018 (migrations/**, src/adapters/store/**), ADR-0010/0019 (migrations/**), ADR-0015/ADR-0020 (src/tauri/**), ADR-0017 (src/cli/**) | risk-gate: Money-math and backtest determinism (src/domain/backtest/run.rs, src/domain/backtest/result.rs, src/adapters/backtest/engine.rs) - controls: kill switch, audit trail, progressive exposure, determinism test",
+        "at": "2026-08-24T17:04:05Z"
+      }
+    },
+    {
+      "seq": 43,
+      "op": "add_veto_disposition",
+      "ts": "2026-08-24T17:04:05Z",
+      "payload": {
+        "spine": "r1.s3",
+        "finding": "bone-touch: ADR-0009 (src/adapters/store/**), ADR-0012 (src/domain/port.rs), ADR-0018 (migrations/**), ADR-0010/0019 (migrations/**), ADR-0015/ADR-0020 (src/tauri/**), ADR-0017 (src/cli/**)",
+        "disposition": "auto-bone",
+        "reason": "touch-surface overlap",
+        "at": "2026-08-24T17:04:05Z"
+      }
+    },
+    {
+      "seq": 44,
+      "op": "add_veto_disposition",
+      "ts": "2026-08-24T17:04:05Z",
+      "payload": {
+        "spine": "r1.s3",
+        "finding": "risk-gate: Money-math and backtest determinism (src/domain/backtest/run.rs, src/domain/backtest/result.rs, src/adapters/backtest/engine.rs)",
+        "disposition": "auto-bone",
+        "reason": "risk-surface overlap; gate controls attached",
+        "at": "2026-08-24T17:04:05Z"
+      }
+    },
+    {
+      "seq": 45,
+      "op": "set_spine_class",
+      "ts": "2026-08-24T17:04:05Z",
+      "payload": {
+        "spine": "r1.s4",
+        "from": "flesh",
+        "to": "bone",
+        "reason": "bone-touch: ADR-0021 (src/domain/dsl/mutate.rs, src/adapters/db/coaching_repo.rs, src/agent/coach.rs), ADR-0020 (src/tauri/**, ui/**), ADR-0010 (src/domain/strategy.rs, src/domain/version.rs, src/adapters/db/strategy_repo.rs), ADR-0012 (src/agent/**), ADR-0015 (src/tauri/**)",
+        "at": "2026-08-24T17:04:05Z"
+      }
+    },
+    {
+      "seq": 46,
+      "op": "add_veto_disposition",
+      "ts": "2026-08-24T17:04:05Z",
+      "payload": {
+        "spine": "r1.s4",
+        "finding": "bone-touch: ADR-0021 (src/domain/dsl/mutate.rs, src/adapters/db/coaching_repo.rs), ADR-0020 (src/tauri/**), ADR-0010 (src/domain/version.rs), ADR-0012 (src/agent/**), ADR-0015 (src/tauri/**)",
+        "disposition": "auto-bone",
+        "reason": "touch-surface overlap",
+        "at": "2026-08-24T17:04:05Z"
+      }
+    },
+    {
+      "seq": 47,
+      "op": "set_spine_class",
+      "ts": "2026-08-24T17:09:34Z",
+      "payload": {
+        "spine": "r1.s1",
+        "from": "bone",
+        "to": "bone",
+        "reason": "critic veto (cross-confirmed host+codex): the .app must reach a credential without a terminal env - S1 adds an app-data-dir .env source in src/adapters/secrets.rs and exposes composer events over a new Tauri IPC + capabilities boundary | risk-gate: LLM credential handling and redaction (src/adapters/secrets.rs; IPC event surface; capabilities/**) - controls: audit trail, least privilege, no-secret-in-log",
+        "at": "2026-08-24T17:09:34Z"
+      }
+    },
+    {
+      "seq": 48,
+      "op": "add_veto_disposition",
+      "ts": "2026-08-24T17:09:34Z",
+      "payload": {
+        "spine": "r1.s1",
+        "finding": "Exit criteria say 'launch PulseTrader.app' but the only credential path is a terminal-inherited env/.env; Finder-launched apps do not inherit the shell environment, so the .app proves neither installation nor ordinary desktop use",
+        "disposition": "auto-bone",
+        "reason": "trust surface: S1 gains a credential source (src/adapters/secrets.rs) - LLM-credential gate hit mechanically on re-check; controls attached",
+        "at": "2026-08-24T17:09:34Z"
+      }
+    },
+    {
+      "seq": 49,
+      "op": "add_veto_disposition",
+      "ts": "2026-08-24T17:09:34Z",
+      "payload": {
+        "spine": "r1.s1",
+        "finding": "The LLM credential and redaction risk gate is silently bypassed: r1.s1 streams composer events across a new Tauri command/event boundary, and an undecorated webview with capabilities configuration is itself a new trust boundary requiring least-privilege command exposure",
+        "disposition": "auto-bone",
+        "reason": "new IPC + capabilities trust boundary; LLM-credential gate controls attached (audit trail, least privilege, no-secret-in-log)",
+        "at": "2026-08-24T17:09:34Z"
+      }
+    },
+    {
+      "seq": 50,
+      "op": "add_veto_disposition",
+      "ts": "2026-08-24T17:09:35Z",
+      "payload": {
+        "spine": "r1.s2",
+        "finding": "The LLM credential and redaction risk gate is silently bypassed: r1.s2 introduces another LLM path, yet is not gated for secret-bearing errors, prompts, tool arguments, provider payloads, or persisted failures - 'covered in spirit by the risk registry but attaches none of its required controls'",
+        "disposition": "escalate",
+        "reason": "ambiguous - fail-closed: names no touched gate surface (the coach uses the LlmProvider port behind the existing redacting decorator); whether the gate's controls attach to S2 is the operator's ruling",
+        "at": "2026-08-24T17:09:34Z"
+      }
+    },
+    {
+      "seq": 51,
+      "op": "set_spine_class",
+      "ts": "2026-08-24T17:09:35Z",
+      "payload": {
+        "spine": "r1.s2",
+        "from": "bone",
+        "to": "bone",
+        "reason": "escalation unresolved - fail-closed default (class already bone); recommended ruling: attach LLM credential handling and redaction controls (controls: audit trail, least privilege, no-secret-in-log) to S2 as required work",
+        "at": "2026-08-24T17:09:35Z"
+      }
+    },
+    {
+      "seq": 52,
+      "op": "set_release_meta",
+      "ts": "2026-08-24T17:09:35Z",
+      "payload": {
+        "release": "r1",
+        "patch": {
+          "exit_criteria": [
+            "At close, a trader can launch PulseTrader.app from Finder and see every strategy and version persisted in pulse.db in the Strategy Library, with its DSL summary and recent backtest runs.",
+            "At close, a trader can describe a strategy in natural language in the Strategy Designer, watch the composer's tool-call steps stream in as they happen, and find the resulting StrategyVersion in the Library.",
+            "At close, a trader can select a strategy version in the app, run a backtest, and read expectancy, win rate, equity curve, MFE/MAE, the trade log and the run's provenance header (pair, timeframe, data_version, date range, cost settings) back from the persisted run - a fresh run id, not a cached one.",
+            "At close, a trader can ask the coach about a persisted backtest run and receive exactly one validated proposed mutation (it applies to the version's DSL and compiles) with a stated hypothesis - or a recorded failed turn, never silence - with the turn's LLM cost and coach-prompt version recorded in the LlmCall ledger.",
+            "At close, a trader can accept, reject or modify (edit the proposed mutation's parameters) the coach's proposal in the Backtest Lab; accepting creates exactly one child StrategyVersion attributed to the coach with the turn recorded, re-runs the backtest with the parent run's persisted inputs, and shows expectancy before and after side by side; a failure at any step leaves no accepted proposal without its child and no child without its run or a recorded failure.",
+            "At close, the operator can run describe -> compose -> backtest -> coach -> accept -> re-backtest inside a Finder-launched PulseTrader.app in under 10 minutes wall-clock, timed from the first keystroke in the Designer, starting from the seeded fixture (a fetched BTCUSDT M15+H4 snapshot at a pinned data_version, a migrated empty pulse.db, a credential file in the app data dir); the expectancy assertion is non-directional - the loop must complete and attribute, not improve."
+          ]
+        }
+      }
+    },
+    {
+      "seq": 53,
+      "op": "add_feature",
+      "ts": "2026-08-24T17:09:35Z",
+      "payload": {
+        "name": "Signed + notarized PulseTrader.app distribution",
+        "value": "A trader installs PulseTrader.app from a download and opens it from the dock without Gatekeeper refusal",
+        "class_guess": "bone",
+        "source": "spec",
+        "at": "2026-08-24T17:09:35Z"
+      }
+    },
+    {
+      "seq": 54,
+      "op": "set_release_meta",
+      "ts": "2026-08-24T17:09:35Z",
+      "payload": {
+        "release": "r1",
+        "patch": {
+          "next_sketch": {
+            "goal": "A trader installs a signed, notarized PulseTrader.app, provisions their LLM credential in Settings (Keychain), and iterates a strategy toward a stated R:R / win-rate target",
+            "candidates": [
+              "Secret provisioning (pulse setup-keys)",
+              "Iterate the compose-backtest-coach loop to a target",
+              "Signed + notarized PulseTrader.app distribution"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "seq": 55,
+      "op": "add_work_item",
+      "ts": "2026-08-24T17:51:28Z",
+      "payload": {
+        "spine": "r1.s1",
+        "title": "Tauri shell, command bus and the ported design system",
+        "target_repo": "canonical",
+        "status": "planned",
+        "created_at": "2026-08-24T17:51:28Z",
+        "id": "r1.s1.w1"
+      }
+    },
+    {
+      "seq": 56,
+      "op": "add_work_item",
+      "ts": "2026-08-24T17:51:28Z",
+      "payload": {
+        "spine": "r1.s1",
+        "title": "Credential source for a bundled app",
+        "target_repo": "canonical",
+        "status": "planned",
+        "created_at": "2026-08-24T17:51:28Z",
+        "id": "r1.s1.w2"
+      }
+    },
+    {
+      "seq": 57,
+      "op": "add_work_item",
+      "ts": "2026-08-24T17:51:28Z",
+      "payload": {
+        "spine": "r1.s1",
+        "title": "Strategy Library on real persisted strategies",
+        "target_repo": "canonical",
+        "status": "planned",
+        "created_at": "2026-08-24T17:51:28Z",
+        "id": "r1.s1.w3"
+      }
+    },
+    {
+      "seq": 58,
+      "op": "add_work_item",
+      "ts": "2026-08-24T17:51:29Z",
+      "payload": {
+        "spine": "r1.s1",
+        "title": "Strategy Designer with streaming compose",
+        "target_repo": "canonical",
+        "status": "planned",
+        "created_at": "2026-08-24T17:51:29Z",
+        "id": "r1.s1.w4"
+      }
+    },
+    {
+      "seq": 59,
+      "op": "add_demo_line",
+      "ts": "2026-08-24T17:52:36Z",
+      "payload": {
+        "type": "user",
+        "text": "describe a strategy in natural language in the Designer and watch the composer's steps stream in until the finished strategy appears in the Library",
+        "outcome": "the tool-call steps appear one by one as they happen, and the finished strategy is listed in the Library with its DSL summary and its version tree",
+        "source_spine": "r1.s1",
+        "status": "active",
+        "status_reason": null,
+        "status_by": null,
+        "at": "2026-08-24T17:52:36Z",
+        "id": "d1"
+      }
+    },
+    {
+      "seq": 60,
+      "op": "add_demo_line",
+      "ts": "2026-08-24T17:52:36Z",
+      "payload": {
+        "type": "auto",
+        "text": "the Strategy Library lists every strategy and version persisted in pulse.db, with per-version stats where a run exists",
+        "command": "cargo test --test tauri_library",
+        "expected": "exit:0",
+        "source_spine": "r1.s1",
+        "status": "active",
+        "status_reason": null,
+        "status_by": null,
+        "at": "2026-08-24T17:52:36Z",
+        "id": "d2"
+      }
+    },
+    {
+      "seq": 61,
+      "op": "add_demo_line",
+      "ts": "2026-08-24T17:52:36Z",
+      "payload": {
+        "type": "auto",
+        "text": "a compose run driven from the desktop command bus streams tool-call steps and persists an attributable StrategyVersion",
+        "command": "cargo test --test tauri_compose",
+        "expected": "exit:0",
+        "source_spine": "r1.s1",
+        "status": "active",
+        "status_reason": null,
+        "status_by": null,
+        "at": "2026-08-24T17:52:36Z",
+        "id": "d3"
+      }
+    },
+    {
+      "seq": 62,
+      "op": "add_demo_line",
+      "ts": "2026-08-24T17:52:36Z",
+      "payload": {
+        "type": "auto",
+        "text": "the desktop UI bundle builds from a clean checkout",
+        "command": "bash scripts/ui-build.sh",
+        "expected": "exit:0",
+        "source_spine": "r1.s1",
+        "status": "active",
+        "status_reason": null,
+        "status_by": null,
+        "at": "2026-08-24T17:52:36Z",
+        "id": "d4"
+      }
+    },
+    {
+      "seq": 63,
+      "op": "add_fake",
+      "ts": "2026-08-24T17:52:36Z",
+      "payload": {
+        "boundary": "secret-provisioning",
+        "channel": "deferred",
+        "reason": "The real path is 'pulse setup-keys' plus code-signing, so the binary has a stable keychain identity that can read back what it wrote; that is the notarized-build work sketched for the next release. Until someone other than the operator installs the app, a credential file in the app data dir provisions the key at the same cost with none of the signing work, and the release's own exit criterion names that file as part of the fixture rather than claiming provisioning works.",
+        "replacement_trigger": "the first person other than the operator installs the app",
+        "expiry_release": "r2",
+        "status": "active",
+        "at": "2026-08-24T17:52:36Z"
+      }
+    },
+    {
+      "seq": 64,
+      "op": "add_work_item",
+      "ts": "2026-08-24T18:03:39Z",
+      "payload": {
+        "spine": "r1.s1",
+        "title": "The ported design system: tokens, shared.css and the window chrome",
+        "target_repo": "canonical",
+        "status": "planned",
+        "created_at": "2026-08-24T18:03:39Z",
+        "id": "r1.s1.w5"
+      }
+    },
+    {
+      "seq": 65,
+      "op": "set_demo_line_pending",
+      "ts": "2026-08-24T18:03:39Z",
+      "payload": {
+        "id": "d4",
+        "status": "retired",
+        "by": "r1.s1",
+        "reason": "audit fold-in: a UI build is a work-item gate and a CI concern, not a product statement that must remain true. It ran dependency installation inside a cumulative suite re-run at every future spine close, putting registry latency into a 600s budget forever. Re-homed as an acceptance criterion on r1.s1.w5, where it fails before merge instead of after every future one.",
+        "at": "2026-08-24T18:03:39Z"
+      }
+    },
+    {
+      "seq": 66,
+      "op": "set_fake_status",
+      "ts": "2026-08-24T18:03:39Z",
+      "payload": {
+        "boundary": "secret-provisioning",
+        "status": "active",
+        "reason": "The product genuinely goes without in-app provisioning. The real path is 'pulse setup-keys' plus code-signing, so the binary has a stable code identity that can read back what it wrote; that is the notarized-build work sketched for r2. The stand-in is a credential file in the app data dir, and its security semantics are WEAKER than the Keychain replacement, not equal: plaintext, readable by any process running as this user, manually provisioned, no code-identity ACL. That delta is the reason this is 'deferred' and not 'real', and r1.s1.w2 bounds it by validating the file fail-closed (refuse it unless it is owner-only, mode 0600, and owned by the running user) so the weakening is enforced rather than assumed. Corrected 2026-08-24 after the spine-plan audit rejected the original 'at the same cost' claim as false.",
+        "expiry": "",
+        "at": "2026-08-24T18:03:39Z"
+      }
+    },
+    {
+      "seq": 67,
+      "op": "set_spine_class",
+      "ts": "2026-08-24T18:28:56Z",
+      "payload": {
+        "spine": "r1.s2",
+        "from": "bone",
+        "to": "bone",
+        "reason": "escalation resolved (operator ruling, 2026-08-24): ATTACH the LLM credential handling and redaction gate's controls to r1.s2 as required work — audit trail, least privilege, no-secret-in-log. The coach opens a new LLM path that ships strategy text and backtest numbers to an external model and persists the response, which is the path the gate exists for. Class already bone; this records the ruling and the controls.",
+        "at": "2026-08-24T18:28:56Z"
+      }
+    },
+    {
+      "seq": 68,
+      "op": "set_spine_class",
+      "ts": "2026-08-24T18:49:39Z",
+      "payload": {
+        "spine": "r1.s2",
+        "from": "bone",
+        "to": "bone",
+        "reason": "internal-enabler admitted: consumed by r1.s4 (r1) — grill gate 2026-08-25 (G2/G3). r1.s2's journey was 'pulse coach <run-id>'; the operator ruled the CLI is a developer/debug surface that carries no user journey, so this spine has none and is an internal-enabler by rung 1. Admitted because r1.s4 (the coach rail) consumes it and is committed in this same release. Consequences: auto: demo lines ONLY, no user: line, and it may not claim product value in any exit criterion. Structural class stays bone (it creates ADR-0021 and hits the money-math risk gate). NOTE: the spine's NAME lacks the '[internal]' marker class-declaration.md §5 asks for, because ossify ships no spine-rename verb; this reason string and RELEASE.md are the durable carriers.",
+        "at": "2026-08-24T18:49:39Z"
+      }
+    },
+    {
+      "seq": 69,
+      "op": "set_release_meta",
+      "ts": "2026-08-24T18:49:39Z",
+      "payload": {
+        "release": "r1",
+        "patch": {
+          "exit_criteria": [
+            "At close, a trader can launch PulseTrader.app from Finder and see every strategy and version persisted in pulse.db in the Strategy Library, with its DSL summary and recent backtest runs — and on a first run with none, an empty state naming the one next action rather than a blank pane.",
+            "At close, a trader can describe a strategy in natural language in the Strategy Designer, watch the composer's tool-call steps stream in as they happen, and find the resulting StrategyVersion in the Library.",
+            "At close, a trader can select a strategy version in the app, run a backtest, and read expectancy, win rate, equity curve, MFE/MAE, the trade log and the run's provenance header (pair, timeframe, data_version, date range, cost settings) back from the persisted run - a fresh run id, not a cached one.",
+            "At close, a trader can ask the coach about a persisted backtest run in the Backtest Lab and get back exactly one validated proposed mutation (it applies to the version's DSL and compiles) with a stated hypothesis - or a recorded failed turn, never silence - then accept, reject or modify it; accepting creates exactly one child StrategyVersion attributed to the coach, re-runs the backtest with the parent run's persisted inputs, and shows expectancy before and after side by side, with the turn's LLM cost and coach-prompt version in the LlmCall ledger. A failure at any step leaves no accepted proposal without its child and no child without its run or a recorded failure.",
+            "At close, the operator can run describe -> compose -> backtest -> coach -> accept -> re-backtest inside a Finder-launched PulseTrader.app in under 10 minutes wall-clock, timed from the first keystroke in the Designer, starting from the seeded fixture (a fetched BTCUSDT M15+H4 snapshot at a pinned data_version, a migrated empty pulse.db, a credential file in the app data dir); the expectancy assertion is non-directional - the loop must complete and attribute, not improve."
+          ]
+        }
+      }
+    },
+    {
+      "seq": 70,
+      "op": "set_work_item_exec",
+      "ts": "2026-08-25T05:38:39Z",
+      "payload": {
+        "work_item": "r1.s1.w1",
+        "branch": "work/r1.s1.w1-tauri-shell-topology-command-bus",
+        "worktree_path": "/Users/draco/projects/pluse-trader/pulse-trader/.worktrees/r1.s1.w1",
+        "base_sha": "f5ff39707397e4dc9e3cec149121faeac1487897"
+      }
+    },
+    {
+      "seq": 71,
+      "op": "set_work_item_status",
+      "ts": "2026-08-25T05:38:39Z",
+      "payload": {
+        "work_item": "r1.s1.w1",
+        "status": "active",
+        "at": "2026-08-25T05:38:39Z"
+      }
+    },
+    {
+      "seq": 72,
+      "op": "set_work_item_exec",
+      "ts": "2026-08-25T05:38:46Z",
+      "payload": {
+        "work_item": "r1.s1.w2",
+        "branch": "work/r1.s1.w2-credential-source-bundled-app",
+        "worktree_path": "/Users/draco/projects/pluse-trader/pulse-trader/.worktrees/r1.s1.w2",
+        "base_sha": "f5ff39707397e4dc9e3cec149121faeac1487897"
+      }
+    },
+    {
+      "seq": 73,
+      "op": "set_work_item_status",
+      "ts": "2026-08-25T05:38:46Z",
+      "payload": {
+        "work_item": "r1.s1.w2",
+        "status": "active",
+        "at": "2026-08-25T05:38:46Z"
+      }
+    },
+    {
+      "seq": 74,
+      "op": "set_work_item_status",
+      "ts": "2026-08-25T07:36:21Z",
+      "payload": {
+        "work_item": "r1.s1.w1",
+        "status": "complete",
+        "at": "2026-08-25T07:36:21Z"
+      }
+    },
+    {
+      "seq": 75,
+      "op": "set_work_item_status",
+      "ts": "2026-08-25T07:45:04Z",
+      "payload": {
+        "work_item": "r1.s1.w2",
+        "status": "complete",
+        "at": "2026-08-25T07:45:04Z"
+      }
+    },
+    {
+      "seq": 76,
+      "op": "add_spine",
+      "ts": "2026-08-25T09:29:59Z",
+      "payload": {
+        "release": "r1",
+        "name": "Toolchain and specta bump: retire the pinned-1.92 workarounds",
+        "class": "bone",
+        "target_repo": "canonical",
+        "status": "planned",
+        "created_at": "2026-08-25T09:29:59Z",
+        "id": "r1.s5"
+      }
+    },
+    {
+      "seq": 77,
+      "op": "set_spine_class",
+      "ts": "2026-08-25T09:30:16Z",
+      "payload": {
+        "spine": "r1.s5",
+        "from": "bone",
+        "to": "bone",
+        "reason": "internal-enabler admitted: consumed by r1.s1 round 2 (r1). This spine has NO user journey — a toolchain bump is not something a user does — so it is an internal-enabler by rung 1, the same disposition as r1.s2 under the 2026-08-25 CLI/dev-surface ruling. Admitted because r1.s1's rounds 2-3 (w5 design-system port, w3 Library, w4 Designer) are committed in this same release and are cheaper to write once against the bumped toolchain than to re-lint afterwards. Consequences: auto: demo lines ONLY, no user: line, and it may not claim product value in any exit criterion. Structural class is bone and NOT a judgment call: oss touch_check over the actual file set returns rc 0 against six registered bones — ADR-0009 (binance/client.rs), ADR-0011 (Cargo.toml, deny.toml), ADR-0012 (agent/composer.rs), ADR-0015 (Cargo.toml, build.rs, src/tauri/**), ADR-0019 (rust-toolchain.toml, Cargo.toml, deny.toml), ADR-0020 (src/tauri/**, ui/**). Owes an ADR: the toolchain pin feeds engine_fingerprint, and rust-toolchain.toml's own comment requires a recorded decision to move it.",
+        "at": "2026-08-25T09:30:16Z"
+      }
+    },
+    {
+      "seq": 78,
+      "op": "add_work_item",
+      "ts": "2026-08-25T09:30:22Z",
+      "payload": {
+        "spine": "r1.s5",
+        "title": "Bump the Rust toolchain off 1.92.0: lints, ADR-0022, fingerprint move",
+        "target_repo": "canonical",
+        "status": "planned",
+        "created_at": "2026-08-25T09:30:22Z",
+        "id": "r1.s5.w1"
+      }
+    },
+    {
+      "seq": 79,
+      "op": "add_work_item",
+      "ts": "2026-08-25T09:30:23Z",
+      "payload": {
+        "spine": "r1.s5",
+        "title": "Bump specta/tauri-specta and delete the generated-bindings workaround",
+        "target_repo": "canonical",
+        "status": "planned",
+        "created_at": "2026-08-25T09:30:22Z",
+        "id": "r1.s5.w2"
+      }
+    },
+    {
+      "seq": 80,
+      "op": "set_work_item_exec",
+      "ts": "2026-08-25T09:39:02Z",
+      "payload": {
+        "work_item": "r1.s5.w1",
+        "branch": "work/r1.s5.w1-toolchain-bump-lints-adr",
+        "worktree_path": "/Users/draco/projects/pluse-trader/pulse-trader/.worktrees/r1.s5.w1",
+        "base_sha": "9ed2da8e99000a0dcd6c3f595b924cf1c2ff2b8c"
+      }
+    },
+    {
+      "seq": 81,
+      "op": "set_work_item_status",
+      "ts": "2026-08-25T09:39:02Z",
+      "payload": {
+        "work_item": "r1.s5.w1",
+        "status": "active",
+        "at": "2026-08-25T09:39:02Z"
+      }
+    },
+    {
+      "seq": 82,
+      "op": "set_work_item_status",
+      "ts": "2026-08-25T10:20:22Z",
+      "payload": {
+        "work_item": "r1.s5.w1",
+        "status": "complete",
+        "at": "2026-08-25T10:20:22Z"
+      }
+    },
+    {
+      "seq": 83,
+      "op": "set_work_item_exec",
+      "ts": "2026-08-25T11:06:58Z",
+      "payload": {
+        "work_item": "r1.s5.w2",
+        "branch": "work/r1.s5.w2-specta-bump-delete-workaround",
+        "worktree_path": "/Users/draco/projects/pluse-trader/pulse-trader/.worktrees/r1.s5.w2",
+        "base_sha": "81cb677a6481cfb70135b69e87672a7b0bb884c5"
+      }
+    },
+    {
+      "seq": 84,
+      "op": "set_work_item_status",
+      "ts": "2026-08-25T11:06:58Z",
+      "payload": {
+        "work_item": "r1.s5.w2",
+        "status": "active",
+        "at": "2026-08-25T11:06:58Z"
+      }
+    },
+    {
+      "seq": 85,
+      "op": "set_work_item_status",
+      "ts": "2026-08-25T12:14:29Z",
+      "payload": {
+        "work_item": "r1.s5.w2",
+        "status": "complete",
+        "at": "2026-08-25T12:14:29Z"
+      }
+    },
+    {
+      "seq": 86,
+      "op": "apply_demo_pending",
+      "ts": "2026-08-25T12:18:32Z",
+      "payload": {
+        "spine": "r1.s5"
+      }
+    },
+    {
+      "seq": 87,
+      "op": "set_work_item_exec",
+      "ts": "2026-08-25T12:23:29Z",
+      "payload": {
+        "work_item": "r1.s1.w5",
+        "branch": "work/r1.s1.w5-ported-design-system",
+        "worktree_path": "/Users/draco/projects/pluse-trader/pulse-trader/.worktrees/r1.s1.w5",
+        "base_sha": "857ff1bb627e086998927eabe680e38e696c0292"
+      }
+    },
+    {
+      "seq": 88,
+      "op": "set_work_item_status",
+      "ts": "2026-08-25T12:23:29Z",
+      "payload": {
+        "work_item": "r1.s1.w5",
+        "status": "active",
+        "at": "2026-08-25T12:23:29Z"
+      }
+    },
+    {
+      "seq": 89,
+      "op": "set_work_item_status",
+      "ts": "2026-08-25T12:54:08Z",
+      "payload": {
+        "work_item": "r1.s1.w5",
+        "status": "complete",
+        "at": "2026-08-25T12:54:08Z"
+      }
+    },
+    {
+      "seq": 90,
+      "op": "add_work_item",
+      "ts": "2026-08-25T18:35:12Z",
+      "payload": {
+        "spine": "r1.s1",
+        "title": "Shell navigation: route state, active nav row, honest unbuilt destinations",
+        "target_repo": "canonical",
+        "status": "planned",
+        "created_at": "2026-08-25T18:35:12Z",
+        "id": "r1.s1.w6"
+      }
+    },
+    {
+      "seq": 91,
+      "op": "set_work_item_exec",
+      "ts": "2026-08-26T06:15:01Z",
+      "payload": {
+        "work_item": "r1.s1.w6",
+        "branch": "work/r1.s1.w6-shell-navigation",
+        "worktree_path": "/Users/draco/projects/pluse-trader/pulse-trader/.worktrees/r1.s1.w6",
+        "base_sha": "1dd5396330fc6cb24476770582e662a5dd0ca267"
+      }
+    },
+    {
+      "seq": 92,
+      "op": "set_work_item_status",
+      "ts": "2026-08-26T06:15:01Z",
+      "payload": {
+        "work_item": "r1.s1.w6",
+        "status": "active",
+        "at": "2026-08-26T06:15:01Z"
+      }
+    },
+    {
+      "seq": 93,
+      "op": "set_work_item_status",
+      "ts": "2026-08-26T06:48:40Z",
+      "payload": {
+        "work_item": "r1.s1.w6",
+        "status": "complete",
+        "at": "2026-08-26T06:48:40Z"
+      }
+    }
+  ]
+}
