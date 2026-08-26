@@ -42,7 +42,10 @@ ossify and only a bare binding applies.
 Compute the desired board yourself, from the root's state file:
 `jq -f "$(dirname "$(command -v board)")/../lib/map.jq" <root>/.ossify/project-state.json`.
 Fetch the actual one: `huly-run issues list --project <IDENT> --limit 200 --json` and
-`huly-run milestones list --project <IDENT> --json`. Field shapes differ between the two
+`huly-run milestones list --project <IDENT> --limit 200 --json` (without `--limit`,
+milestones default to 50). If either list's length equals its limit it may be truncated —
+the CLI has no pagination — so report the drift comparison as inconclusive and stop rather
+than reporting phantom missing entities or orphans. Field shapes differ between the two
 lists: a milestone's title lives in `.label`, an issue's in `.title`, and an issue's status
 may be `.status` or `.status.name` — inspect the JSON you actually received before
 comparing. An issue's labels arrive as objects keyed `title` (`[{"title": "spine:bone", ...}]`),

@@ -8,6 +8,7 @@ _board_desc_file() { local f; f="$(mktemp "$BOARD_ACT_DIR/desc.XXXXXX")"; printf
 _board_search_for_key() { printf '%s ' "$1"; } # --title-search is a case-insensitive substring, not a regex
 _board_fail() { board_log "$1" "$2"; echo "board: $2" >&2; return 1; }
 _board_dest() { printf '%s|%s' "${HULY_URL:-}" "${HULY_WORKSPACE:-}"; }
+_board_locked_skip() { jq -nc --arg p "$1" '{project:$p, skipped:"locked", created:0, updated:0, unchanged:0, relations_added:0}'; }
 # key -> Huly identifier map for this run, as a TSV file (no bash-4 associative arrays: macOS ships bash 3.2)
 _board_ident_set() { printf '%s\t%s\n' "$1" "$2" >> "$BOARD_ACT_DIR/ident.tsv"; }
 _board_ident_get() { awk -F'\t' -v k="$1" '$1==k{print $2; f=1} END{exit f?0:1}' "$BOARD_ACT_DIR/ident.tsv"; }
@@ -55,16 +56,37 @@ board_sync() { # $1=ws-or-any-dir [--force] [--bind IDENT]
   # (two Stop events, or the hook racing a manual /board:sync) would both read an entity as
   # absent and create it twice. mkdir is the atomic take; a dead holder's lock is stolen
   # (the async hook's timeout can SIGKILL a run, which no trap can clean up after).
+  # Every ambiguity below resolves to SKIP: a skipped sync self-heals through the digest
+  # gate on the next run; a doubled sync creates permanent duplicates.
   mkdir -p "$ws/.board"; _board_gitignore "$ws"
   BOARD_LOCK_DIR="$ws/.board/lock"
   if ! mkdir "$BOARD_LOCK_DIR" 2>/dev/null; then
-    local holder; holder="$(cat "$BOARD_LOCK_DIR/pid" 2>/dev/null || true)"
+    local holder stolen
+    holder="$(cat "$BOARD_LOCK_DIR/pid" 2>/dev/null || true)"
     if [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; then
-      jq -nc --arg p "$project" '{project:$p, skipped:"locked", created:0, updated:0, unchanged:0, relations_added:0}'; return 0
+      _board_locked_skip "$project"; return 0
     fi
-    rm -rf "$BOARD_LOCK_DIR"
+    if [ -z "$holder" ] && [ -z "$(find "$BOARD_LOCK_DIR" -maxdepth 0 -mmin +10 2>/dev/null)" ]; then
+      # no pid yet and the lock is young: a holder between its mkdir and its pid write,
+      # not debris — do not steal what is being acquired
+      _board_locked_skip "$project"; return 0
+    fi
+    # stale: claim it by RENAME, which is atomic and exclusive — concurrent recoverers
+    # lose the mv with ENOENT, so no process ever deletes a lock another just acquired
+    # (delete-then-recreate let exactly that happen)
+    stolen="$BOARD_LOCK_DIR.stale.$$"
+    if mv "$BOARD_LOCK_DIR" "$stolen" 2>/dev/null; then
+      holder="$(cat "$stolen/pid" 2>/dev/null || true)"
+      if [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; then
+        # the staleness read was outdated — a fresh holder acquired between our check and
+        # the mv. Hand the lock back if the path is still free; either way, skip.
+        mv "$stolen" "$BOARD_LOCK_DIR" 2>/dev/null || rm -rf -- "$stolen"
+        _board_locked_skip "$project"; return 0
+      fi
+      rm -rf -- "$stolen"
+    fi
     if ! mkdir "$BOARD_LOCK_DIR" 2>/dev/null; then
-      jq -nc --arg p "$project" '{project:$p, skipped:"locked", created:0, updated:0, unchanged:0, relations_added:0}'; return 0
+      _board_locked_skip "$project"; return 0
     fi
   fi
   echo $$ > "$BOARD_LOCK_DIR/pid"

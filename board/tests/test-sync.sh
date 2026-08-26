@@ -99,6 +99,14 @@ t_capture board_sync "$WS" --force; t_assert_rc 0 "stale lock: stolen, sync ok"
 t_capture jq -r '.skipped' <<<"$T_OUT"; t_assert_eq "null" "$T_OUT" "stale lock: not skipped"
 [ ! -d "$WS/.board/lock" ] && T_PASS=$((T_PASS+1)) || { T_FAIL=$((T_FAIL+1)); echo "FAIL: stale lock: lock not cleaned up after the run"; }
 
+# 4e2. a young lock with no pid yet is a holder mid-acquisition, not debris: skip, don't steal
+mkdir -p "$WS/.board/lock"
+: > "$BOARD_FAKE_LOG"
+t_capture board_sync "$WS" --force; t_assert_rc 0 "young pid-less lock: rc 0"
+t_capture jq -r '.skipped' <<<"$T_OUT"; t_assert_eq "locked" "$T_OUT" "young pid-less lock: skipped, not stolen"
+[ -d "$WS/.board/lock" ] && T_PASS=$((T_PASS+1)) || { T_FAIL=$((T_FAIL+1)); echo "FAIL: young pid-less lock must be left alone"; }
+rm -rf "$WS/.board/lock"
+
 # 4f. --bind conflicting with the existing binding: rc 7, nothing touched; a matching
 # --bind (the documented rerun path after rc 6) still proceeds
 : > "$BOARD_FAKE_LOG"
