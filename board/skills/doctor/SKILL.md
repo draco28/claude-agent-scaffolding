@@ -30,7 +30,10 @@ applies.
 
 Compute the desired board yourself: `jq -f ${CLAUDE_PLUGIN_ROOT}/lib/map.jq .ossify/project-state.json`.
 Fetch the actual one: `bash ${CLAUDE_PLUGIN_ROOT}/bin/huly-run issues list --project <IDENT> --limit 200 --json`
-and `... milestones list --project <IDENT> --json`. Then report, as short lists:
+and `... milestones list --project <IDENT> --json`. Field shapes differ between the two
+lists: a milestone's title lives in `.label`, an issue's in `.title`, and an issue's status
+may be `.status` or `.status.name` — inspect the JSON you actually received before
+comparing. Then report, as short lists:
 
 - **Status mismatches** — same title key, different status. These are hand edits on Huly
   the next sync will overwrite, or a failed sync. Say which, using §2.

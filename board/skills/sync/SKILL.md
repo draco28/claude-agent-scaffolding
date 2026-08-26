@@ -17,14 +17,18 @@ user which variable and where it belongs (the harness's shell wrapper — never
 
 ## 2. First run in a repo: the binding
 
-Run `bash ${CLAUDE_PLUGIN_ROOT}/bin/board sync "$PWD"`.
+If the user already gave an identifier (`--bind IDENT` arrived via the command), run
+`bash ${CLAUDE_PLUGIN_ROOT}/bin/board sync "$PWD" --bind IDENT` directly and skip the
+proposal below — never substitute your own identifier for one the user chose. Otherwise
+run `bash ${CLAUDE_PLUGIN_ROOT}/bin/board sync "$PWD"`.
 
 - rc 4 means no binding. Propose an identifier: 2–6 upper-case letters derived from the
-  project name in `.ossify/project-state.json` (`pulse-trader` → `PTRD`; no state file →
-  from the directory name). **Ask the user to confirm or replace it** — the identifier is
-  permanent on Huly. Then run `bash ${CLAUDE_PLUGIN_ROOT}/bin/board sync "$PWD" --bind <IDENT>`.
+  project name in `.ossify/project-state.json` (`pulse-trader` → `PTRD`). **Ask the user
+  to confirm or replace it** — the identifier is permanent on Huly. Then run
+  `bash ${CLAUDE_PLUGIN_ROOT}/bin/board sync "$PWD" --bind <IDENT>`.
 - rc 3 with no state file is the bare-binding case (a repo not on ossify): `--bind` still
-  works and mirrors nothing; say so.
+  works and mirrors nothing; say so. Derive the proposed identifier from the directory
+  name here.
 - rc 5: print the tool's message verbatim — it contains the one-time UI step for the
   `Ossify project` space type. Stop.
 - rc 6: the typed create did not yield a Tracker project. Print the message verbatim; the
