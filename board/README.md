@@ -11,6 +11,12 @@ stays the source of truth; the board is regenerated from it and never read back.
 
     HULY_URL=http://100.94.13.43:8087  HULY_WORKSPACE=pulse-labs  HULY_TOKEN=<harness token>  HULY_CLI_TELEMETRY=0
 
+`HULY_EMAIL=<harness account email>` is optional: when set, sync self-ensures the harness
+account is a member of the project's space before mirroring. Huly gates read visibility by
+space membership — a non-member's writes persist but its own list reads come back empty, which
+would otherwise create blind duplicates. Without it, the harness must already be a member (see
+below).
+
 ## One-time workspace step
 
 Create a space type named exactly `Ossify project` (Settings › Space types › +, category Tracker,
@@ -47,4 +53,6 @@ reporting zero drift and no hand edits.
     BOARD_LIVE=1 bash board/tests/live/smoke.sh
 
 The live smoke needs a project `SMK` created once, by hand, in Tracker with the `Ossify project`
-type — typed project creation is UI-only, so the smoke can no longer create (or delete) it.
+type — typed project creation is UI-only, so the smoke can no longer create (or delete) it. Add
+the harness account under Members in the create dialog (or set `HULY_EMAIL` so sync self-ensures
+it).

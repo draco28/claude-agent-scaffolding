@@ -10,6 +10,7 @@ fresh_fake() { export BOARD_FAKE_LOG="$1/calls.log" BOARD_FAKE_DIR="$1/fake" BOA
   echo '{"blockedBy":[],"blocks":[],"relations":[],"documents":[]}' > "$BOARD_FAKE_DIR/issues.relations.list.json"; }
 # sync-scope ops only: setup's idempotent task-type/status/role creates are not drift mutations
 mutations() { awk 'index($0,"milestones create ")||index($0,"milestones update ")||index($0,"issues create ")||index($0,"issues update ")||index($0,"relations add")||index($0,"milestone set")||index($0,"labels add"){n++} END{print n+0}' "$BOARD_FAKE_LOG"; }
+unset HULY_EMAIL   # hermeticity: every case below runs with it unset unless a case exports it itself
 
 # 1. no workspace / no binding
 t_capture board_sync "$(mktemp -d)"; t_assert_rc 3 "no workspace -> 3"
@@ -57,6 +58,9 @@ jq '{blockedBy: [.relations[] | {identifier: ("PTRD-" + (.to_key|gsub("\\.";""))
 t_capture board_sync "$WS" --force; t_assert_rc 0 "force on matching board ok"
 t_assert_eq 0 "$(mutations)" "matching board: zero mutations"
 t_capture jq -r '.unchanged' <<<"$T_OUT"; t_assert_eq 15 "$T_OUT" "all 15 reported unchanged"
+# zero-call witness for HULY_EMAIL unset (case 10 below covers it set): a --force sync that
+# reaches mirroring still makes no membership call when the email is not configured
+t_capture grep -c 'spaces members add' "$BOARD_FAKE_LOG"; t_assert_eq 0 "$T_OUT" "HULY_EMAIL unset: zero members-add calls"
 
 # 5. known-answer negative: flip one work item status -> exactly one issues update, nothing else
 jq '(.work_items[] | select(.id=="r1.s1.w3") | .status) = "active"' "$F/pulse-trader.json" > "$WS/.ossify/project-state.json"
@@ -121,4 +125,16 @@ t_capture bash "$ROOT/bin/board" digest "$WS"; t_assert_eq 64 "${#T_OUT}" "dispa
 echo 1 > "$BOARD_FAKE_DIR/task-types.list.rc.once"
 echo '{"code":"INTEGRATION_FAILED","message":"did not resolve to exactly one project type"}' > "$BOARD_FAKE_DIR/task-types.list.err.once"
 t_capture bash "$ROOT/bin/board" sync "$WS" --force; t_assert_rc 5 "dispatcher: type missing propagates rc 5 under strict mode"; t_assert_contains "$T_OUT" "Spine" "dispatcher: rc-5 message still prints"
+
+# 10. HULY_EMAIL set: membership self-ensure fires exactly once, argv carries the project name
+# (from projects.get.json: "pulse-trader") and the email
+fresh_fake "$(dirname "$WS")"
+: > "$BOARD_FAKE_LOG"
+export HULY_EMAIL=agent@x.local
+t_capture board_sync "$WS" --force; t_assert_rc 0 "HULY_EMAIL set: force sync ok"
+unset HULY_EMAIL
+t_capture grep -c 'spaces members add' "$BOARD_FAKE_LOG"; t_assert_eq 1 "$T_OUT" "HULY_EMAIL set: exactly one members-add call"
+t_capture grep 'spaces members add' "$BOARD_FAKE_LOG"
+t_assert_contains "$T_OUT" "pulse-trader" "members-add argv carries the project name"
+t_assert_contains "$T_OUT" "agent@x.local" "members-add argv carries the email"
 t_summary

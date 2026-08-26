@@ -32,6 +32,7 @@ board_cli_project_create()     { board_cli projects create "$1" "$2" --descripti
 board_cli_task_type_create()   { board_cli task-types create "$1" --project-type "$2"; }     # name type
 board_cli_issue_status_create(){ board_cli issue-statuses create "$1" "$2" --project-type "$3"; } # name category type
 board_cli_role_create()        { board_cli spaces roles create "$1" "$2" "$3" --confirm --yes; } # type role permissionsJSON
+board_cli_space_members_add()  { board_cli spaces members add "$1" "$2" --yes; }               # spaceName membersJSON
 board_cli_milestone_create()   { board_cli milestones create "$1" "$2" "$3" --description-file "$4"; } # project label targetDateMs file
 board_cli_milestone_update()   { local p="$1" m="$2"; shift 2; board_cli milestones update "$p" "$m" "$@"; }
 board_cli_issue_create() { # project title taskType status parent(''=none) descFile

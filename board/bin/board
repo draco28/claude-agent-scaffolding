@@ -17,6 +17,8 @@ board_cmd_env_check() {
   local v; for v in HULY_URL HULY_WORKSPACE HULY_TOKEN; do
     if [ -n "${!v:-}" ]; then echo "$v: set"; else echo "$v: MISSING"; fi
   done
+  if [ -n "${HULY_EMAIL:-}" ]; then echo "HULY_EMAIL: set (optional — enables membership self-ensure)"
+  else echo "HULY_EMAIL: not set (optional — enables membership self-ensure)"; fi
 }
 main() {
   local cmd="${1:-help}"; shift || true

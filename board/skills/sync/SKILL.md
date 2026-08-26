@@ -13,7 +13,9 @@ hooks, and for "I want to see it happen now".
 
 Run `bash ${CLAUDE_PLUGIN_ROOT}/bin/board env-check`. If any line says `MISSING`, tell the
 user which variable and where it belongs (the harness's shell wrapper — never
-`~/.claude/settings.json`) and stop.
+`~/.claude/settings.json`) and stop. `HULY_EMAIL` is optional — its line says `not set` rather
+than `MISSING` and never blocks; when set, sync self-ensures the harness account is a member of
+the project's space before mirroring (Huly gates read visibility by space membership).
 
 ## 2. First run in a repo: the binding
 

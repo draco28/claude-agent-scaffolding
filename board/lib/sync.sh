@@ -48,6 +48,14 @@ Then rerun /board:sync --bind $project.
 EOF
     return 6
   fi
+  # Huly gates read visibility by space membership: a non-member account's writes persist
+  # but its own reads (milestones/issues list) come back empty, so the mirror would create
+  # blind duplicates and its create-then-update-by-label would fail to resolve. HULY_EMAIL is
+  # optional; skip silently when unset. Fail-closed on the add itself is deliberate.
+  local pname; pname="$(jq -r '.name // ""' "$BOARD_CLI_OUT")"
+  if [ -n "${HULY_EMAIL:-}" ] && [ -n "$pname" ]; then
+    board_cli_space_members_add "$pname" "[\"$HULY_EMAIL\"]" || _board_fail "$ws" "members add $pname: $(board_cli_err_code)" || return 1
+  fi
   [ -n "$bind" ] && board_binding_write "$ws" "$project"
   if [ "$bare" = 1 ]; then
     jq -nc --arg p "$project" '{project:$p, skipped:"bare-binding", created:0, updated:0, unchanged:0, relations_added:0}'; return 0

@@ -11,3 +11,6 @@
 - Never deletes on Huly. Bare binding for repos not on ossify.
 - Typed project creation is UI-only — the CLI cannot do it. `/board:sync` reports rc 6 with
   instructions to create the project in Tracker by hand, then rerun with `--bind`.
+- Optional `HULY_EMAIL`: sync self-ensures the harness account is a member of the project's
+  space before mirroring — Huly gates read visibility by space membership, so a non-member's
+  writes persist but its own reads come back empty, silently producing blind duplicates.

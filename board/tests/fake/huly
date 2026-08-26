@@ -10,7 +10,7 @@ for a in "$@"; do
   # positional values after the verb are not part of the key: stop after the verb word
   case "$key" in
     projects.create|projects.get|projects.statuses|projects.list|projects.delete|\
-    spaces.types.list|spaces.permissions.list|spaces.create|spaces.roles.create|\
+    spaces.types.list|spaces.permissions.list|spaces.create|spaces.roles.create|spaces.members.add|\
     task-types.list|task-types.create|issue-statuses.create|\
     milestones.list|milestones.create|milestones.update|\
     issues.list|issues.create|issues.update|issues.get|issues.milestone.set|issues.labels.add|\
