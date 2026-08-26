@@ -102,6 +102,14 @@ _oss_topology_shape() { # $1=manifest-path ; echoes shape JSON ; rc 1 unparseabl
       # repos" for what is actually a syntax error, and sending the reader to
       # the wrong half of the file. rc 1 here lets the caller say so.
       jq -e . "$m" >/dev/null 2>&1 || return 1
+      # EXACTLY ONE top-level value. `jq -e .` accepts a concatenated JSON
+      # STREAM, so two objects in one file passed every check below once per
+      # value and the projection emitted TWO shapes - `oss state_path` returned
+      # a multiline "path" and `oss init` could create a directory with an
+      # embedded newline in its name. `-s` slurps the stream into an array, so
+      # its length is the value count.
+      [ "$(jq -s 'length' "$m" 2>/dev/null)" = "1" ] || {
+        echo "oss: topology '$m' holds more than one top-level JSON value - schema v1 is exactly one object" >&2; return 3; }
       jq -e 'type == "object"' "$m" >/dev/null 2>&1 || {
         echo "oss: topology '$m' is not a JSON object - schema v1 is one object carrying .schema_version, .repos and .well_known_paths" >&2; return 3; }
       jq -e '(.repos // {}) | type == "object" and (length > 0)' "$m" >/dev/null 2>&1 || {
@@ -124,6 +132,13 @@ $(jq -r '.repos | keys[]' "$m" 2>/dev/null)
 EOF
       jq -e '.repos | to_entries | all((.value | type) == "object" and (.value.root | type) == "string" and (.value.root | length) > 0)' "$m" >/dev/null 2>&1 || {
         echo "oss: topology '$m' has a repo entry that is not {\"root\": \"<path>\"} - every declared repo needs an object carrying a non-empty root: $(jq -r '[.repos | to_entries[] | select(((.value|type) != "object") or ((.value.root|type) != "string") or ((.value.root|length) == 0)) | .key] | join(", ")' "$m" 2>/dev/null)" >&2; return 3; }
+      # `well_known_paths` when present must be an OBJECT. `(.well_known_paths
+      # // {})` preserved a string or array verbatim; the later
+      # `.well_known_paths.project_state` read then errors, the error is
+      # swallowed as an empty route, and /start initializes state at the default
+      # path instead of refusing a malformed routing declaration.
+      jq -e '(.well_known_paths == null) or ((.well_known_paths | type) == "object")' "$m" >/dev/null 2>&1 || {
+        echo "oss: topology '$m' has a well_known_paths that is not an object - it routes named artifacts, so it must be {} or a map of <key>:<path>" >&2; return 3; }
       jq -c --arg ws "$(dirname "$(dirname "$m")")" '{schema_version,
           repos: .repos, well_known_paths: (.well_known_paths // {}),
           workspace: $ws, source: "topology"}' "$m" 2>/dev/null || return 1 ;;

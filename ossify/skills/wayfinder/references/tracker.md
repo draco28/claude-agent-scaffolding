@@ -115,10 +115,18 @@ if [ -n "$ORIGIN" ]; then
   # scheme that was NOT enumerated rode a credential straight through - a
   # plain http:// remote, or git://, are unlikely but real: a self-hosted
   # GHE reachable over http, or a stale copy-pasted origin). The rule
-  # `^([a-z][a-z0-9+.-]*://)[^/]*@` matches any RFC-3986-shaped scheme
+  # `^([A-Za-z][A-Za-z0-9+.-]*://)[^/]*@` matches any RFC-3986-shaped scheme
   # (letter, then letters/digits/+/./-, then `://`) followed by userinfo, and
   # captures the scheme so the replacement can put it back unchanged - this
-  # is shorter than enumerating schemes AND does not miss the next one. It
+  # is shorter than enumerating schemes AND does not miss the next one.
+  #
+  # EVERY class here spans BOTH cases, and that is the round-3 fix. Schemes and
+  # hosts are case-insensitive per RFC 3986, git PRESERVES whatever spelling the
+  # remote was typed in, and the lowercase-only rules matched none of
+  # `HTTPS://tok@github.com/...` - so the credential survived into $OWNER_REPO
+  # and branch 0 and branch 4 printed it to the transcript. Typing the remote in
+  # caps reopened the exact leak #337 closed. Bracket classes rather than sed's
+  # `I` flag or GNU `\L`: neither is portable to the BSD sed on macOS. It
   # cannot fire on the scp-style git@host:owner/repo form, which has no
   # `://` at all, so that spelling is untouched by construction rather than
   # by a separate exclusion.
@@ -142,7 +150,7 @@ if [ -n "$ORIGIN" ]; then
   # before either scheme-specific rewrite, so neither rewrite below needs
   # its own userinfo handling any more.
   OWNER_REPO="$(printf '%s' "$ORIGIN" \
-    | sed -E 's#^([a-z][a-z0-9+.-]*://)[^/]*@#\1#; s#^ssh://github\.com/#https://github.com/#; s#^git@github\.com:#https://github.com/#; s#^https://github\.com/##; s#\.git$##')"
+    | sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://)[^/]*@#\1#; s#^[Ss][Ss][Hh]://[Gg][Ii][Tt][Hh][Uu][Bb]\.[Cc][Oo][Mm]/#https://github.com/#; s#^[Gg][Ii][Tt]@[Gg][Ii][Tt][Hh][Uu][Bb]\.[Cc][Oo][Mm]:#https://github.com/#; s#^[Hh][Tt][Tt][Pp][Ss]?://[Gg][Ii][Tt][Hh][Uu][Bb]\.[Cc][Oo][Mm]/##; s#\.git$##')"
 
   # BRANCH 0 RUNS HERE, and only here. It compares the RESOLVED origin against
   # the dotfile, so it needs both - and this is the only arm that has an

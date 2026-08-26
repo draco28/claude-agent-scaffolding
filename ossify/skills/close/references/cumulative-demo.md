@@ -129,6 +129,16 @@ which is required and absolute once more than one repo is declared, and the sole
 declared repo's root when exactly one is):
 
 ```bash
+# $wd is NOT ambient. `oss demo_run` resolves its workdir internally and never
+# exports it, and neither spine-close.md nor this file ever assigned it - so
+# under the close's `set -u` this block aborted on the first reference, and
+# without it BOTH runs did `cd ""`, failed identically, and the matching output
+# read as "already broken" - manufacturing the quarantine evidence. Bind it
+# from the same resolution the runner uses before either invocation.
+wd="$(oss demo_workdir)" \
+  || { echo "halt: cannot resolve the demo working directory - see cumulative-demo.md section 1; the comparison is void without it"; exit 1; }
+[ -d "$wd" ] || { echo "halt: resolved demo workdir '$wd' does not exist"; exit 1; }
+
 # same command, both trees, and diff the OUTPUT before believing the rc
 cmd="$(oss get ".demo_ledger[] | select(.id==\"<line-id>\") | .command")"
 ( cd "$wd" && bash -c "$cmd" ) > /tmp/oss-head.txt 2>&1; echo "head rc=$?"
@@ -141,6 +151,18 @@ cmd="$(oss get ".demo_ledger[] | select(.id==\"<line-id>\") | .command")"
 # broken" and "this spine broke it" - come back looking like evidence.
 pairs="$(mktemp)"; restore="$(mktemp)"
 printf '%s\n' "$merge_shas" > "$pairs"
+# The restore runs on EVERY exit path, not just the happy one. Without the trap
+# a repo that cannot reach its first parent halts here with the repos ahead of
+# it still detached - a diagnostic check leaving the workspace half rolled back,
+# which is worse than the failure it was reporting.
+_oss_restore_checkouts() {
+  while IFS="$(printf '\t')" read -r r w; do
+    [ -n "$r" ] || continue
+    git -C "$r" checkout -q "$w" \
+      || echo "WARNING: $r is still detached - restore it to '$w' by hand"
+  done < "$restore"
+}
+trap _oss_restore_checkouts EXIT
 while IFS=: read -r repo sha; do
   [ -n "$repo" ] || continue
   root="$(oss repo_root "$repo")" \
@@ -157,11 +179,8 @@ done < "$pairs"
 
 # Restore every checkout before judging anything. A repo left detached is a
 # close that continues against a tree nobody meant to be on.
-while IFS="$(printf '\t')" read -r root was; do
-  [ -n "$root" ] || continue
-  git -C "$root" checkout -q "$was" \
-    || echo "WARNING: $root is still detached - restore it to '$was' by hand before continuing"
-done < "$restore"
+_oss_restore_checkouts
+trap - EXIT
 
 diff /tmp/oss-head.txt /tmp/oss-parent.txt
 ```

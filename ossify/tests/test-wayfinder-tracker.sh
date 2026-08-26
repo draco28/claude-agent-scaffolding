@@ -135,6 +135,25 @@ else
   T_PASS=$((T_PASS+1))
 fi
 
+# #337, second half: git PRESERVES the scheme's spelling, and the redaction
+# rules were lowercase-only. `HTTPS://tok@...` matched none of them, so the
+# credential survived into $OWNER_REPO and the branch-0/branch-4 diagnostics
+# printed it to the transcript - the exact leak #337 exists to close, reachable
+# by typing the remote in caps.
+for scheme in HTTPS Https hTTps; do
+  _run_ladder "$scheme://x-access-token:ghs_capstoken456@github.com/acme/repo.git"
+  t_assert_rc 0 "$scheme:// credentialed origin: ladder runs clean"
+  t_assert_eq "acme/repo acme repo" "$T_OUT" "$scheme:// credentialed origin normalizes to acme/repo"
+  if printf '%s' "$T_OUT" | grep -q 'ghs_capstoken456'; then
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: the token survived a $scheme:// origin - the redaction is case-sensitive"
+  else
+    T_PASS=$((T_PASS+1))
+  fi
+done
+_run_ladder "GIT@GitHub.com:acme/repo.git"
+t_assert_rc 0 "mixed-case scp-style origin: ladder runs clean"
+t_assert_eq "acme/repo acme repo" "$T_OUT" "mixed-case scp-style origin normalizes to acme/repo"
+
 # Two more userinfo shapes: a bare token with no colon/password, and a
 # percent-encoded password (the encoded %40 must not be mistaken for the
 # userinfo-terminating @ and over-match into the host).

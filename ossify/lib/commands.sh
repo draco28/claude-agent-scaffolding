@@ -287,6 +287,16 @@ oss_cmd_demo_run() { # [$1=state-file] [$2=workdir]
   local sf; sf="$(_oss_resolve_state "${1:-}")" || return $?
   oss_demo_run_auto "$sf" "${2:-}"
 }
+# The workdir `demo_run` would use, without running anything. cumulative-demo.md
+# section 2's quarantine check has to execute the failing command in exactly
+# that directory, and it had no way to ask: `oss_demo_workdir` was lib-private,
+# so the recipe referenced a `$wd` nothing ever assigned. Exposing the existing
+# resolver is the fix rather than restating its tier rules in prose, which would
+# drift from them the first time they changed.
+oss_cmd_demo_workdir() { # [$1=state-file] [$2=explicit-workdir]
+  local sf; sf="$(_oss_resolve_state "${1:-}")" || return $?
+  oss_demo_workdir "$sf" "${2:-}"
+}
 oss_cmd_demo_user_lines() { local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_user_lines "$sf" "${1:-}"; }
 oss_cmd_demo_record()     { _oss_need 4 demo_record "<work_item|spine|release> <id> <true|false> <line-count> [notes]" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_record_close "$sf" "$1" "$2" "$3" "$4" "${5:-}"; }
 

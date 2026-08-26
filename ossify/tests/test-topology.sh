@@ -202,6 +202,32 @@ for bad in topo-k topo-e topo-s; do
 done
 cd "$HERE"
 
+# --- one top-level value, and a well_known_paths that is an object ------------
+# `jq -e .` accepts a concatenated JSON STREAM, so two objects in one file
+# passed every check once per value and the projection emitted TWO shapes -
+# `oss state_path` then returned a multiline "path" and `oss init` could create
+# a directory with an embedded newline in its name. And `(.well_known_paths //
+# {})` preserved a string or array verbatim: the later `.well_known_paths
+# .project_state` read errors, the error is swallowed as an empty route, and
+# /start initializes state at the default path instead of refusing.
+mkdir -p "$TMP/topo-2/.ossify" "$TMP/topo-w/.ossify"
+{ printf '%s\n' '{"schema_version":1,"repos":{"a":{"root":"/tmp/a"}},"well_known_paths":{}}'
+  printf '%s\n' '{"schema_version":1,"repos":{"b":{"root":"/tmp/b"}},"well_known_paths":{}}'
+} > "$TMP/topo-2/.ossify/topology.json"
+printf '%s\n' '{"schema_version":1,"repos":{"a":{"root":"/tmp/a"}},"well_known_paths":"nope"}' \
+  > "$TMP/topo-w/.ossify/topology.json"
+cd "$TMP/topo-2"
+t_capture _oss_shape_file
+t_assert_rc 1 "a topology holding two concatenated JSON values refuses"
+t_assert_contains "$T_OUT" "exactly one" "the stream refusal says exactly one top-level value is required"
+t_capture oss_manifest_state_path
+t_assert_rc 1 "...and no multiline state path is produced"
+cd "$TMP/topo-w"
+t_capture _oss_shape_file
+t_assert_rc 1 "a non-object well_known_paths refuses"
+t_assert_contains "$T_OUT" "well_known_paths" "the refusal names the field"
+cd "$HERE"
+
 # --- grammar is an injection boundary, refused BEFORE any jq read ---
 cd "$TMP/ws"   # declares core + ui only
 # rc 2 alone does NOT prove the grammar fired: an undeclared-but-well-formed key
