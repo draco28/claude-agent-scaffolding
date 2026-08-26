@@ -55,7 +55,9 @@ So the one-time UI step is: create the space type **and seed its first task type
 
 - `task-types.list.json`: `{"taskTypes":[{id,name,projectTypeId,projectTypeName,kind,issueClass,statusCount}],"total":N}` — wrapper object, no per-type status names.
 - `permissions.list.json`: `{"permissions":[{id,label,scope,objectClass,…}]}` — wrapper
-  object; select allow/deny words over `id`+`label`, output `.id`.
+  object; the role is built from exact `.id` values (the listing carries **no Read
+  permission ids at all** — substring selection over `id`+`label` was measured to grant
+  card/document/drive/training writes plus `core:permission:UpdateSpace`, and no reads).
 - `spaces.list.json`: `{"spaces":[{id,name,class,type,private,archived,…}]}`.
 - `milestones.list.json`: **bare array** `[{id,label,status,targetDate,modifiedOn}]`.
 - `issues.list.json`: **bare array** `[{issueId,identifier,title,status:<string>,priority,creator,labels:[{title,color}],milestone:{id,label}|absent,modifiedOn}]` —
@@ -70,5 +72,9 @@ So the one-time UI step is: create the space type **and seed its first task type
 - `projects.statuses.json`: `{"statuses":[{name,category,isDefault}]}`.
 - `projects.get.json`: `{identifier,name,archived,defaultStatus,statuses:[<names>]}`;
   missing project → rc 5, stderr `{"code":"NOT_FOUND",…}`.
+- **No pagination anywhere** (measured on 0.48.2): every list verb takes `--limit N` only —
+  no offset/page/cursor flag (`milestones list` defaults to 50). A listing whose length
+  equals the requested limit is treated as possibly truncated and the sync refuses to
+  reconcile rather than duplicate what it cannot see.
 - Creates return small receipts: issues `{identifier,issueId}`, milestones
   `{id,label}`, mutations `{…,"updated"|"milestoneSet"|"labelAdded"|"added": true}`.

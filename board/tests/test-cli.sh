@@ -20,6 +20,16 @@ echo 5 > "$BOARD_FAKE_DIR/issues.get.rc"; echo '{"code":"NOT_FOUND","message":"n
 board_cli issues get PTRD PTRD-999; RC=$?
 t_assert_eq 5 "$RC" "failure rc propagated"; t_capture board_cli_err_code; t_assert_eq "NOT_FOUND" "$T_OUT" "error code parsed"
 
+# failure with server warning debris before the document (recorded live: "no document found,
+# failed to apply model transaction, skipping …" lines precede the JSON): the code is the
+# LAST stderr line — a whole-file parse read every real code as UNKNOWN
+printf '%s\n%s\n%s\n' 'no document found, failed to apply model transaction, skipping _id="x"' 'no document found, failed to apply model transaction, skipping _id="y"' '{"code":"CONFLICT","message":"Role name exists","retryable":false}' > "$BOARD_FAKE_DIR/issues.get.err"
+echo 5 > "$BOARD_FAKE_DIR/issues.get.rc"
+board_cli issues get PTRD PTRD-999; RC=$?
+t_capture board_cli_err_code; t_assert_eq "CONFLICT" "$T_OUT" "code parsed through warning debris"
+t_capture board_cli_err_message; t_assert_eq "Role name exists" "$T_OUT" "message parsed through warning debris"
+rm -f "$BOARD_FAKE_DIR/issues.get.rc" "$BOARD_FAKE_DIR/issues.get.err"
+
 # operation wrappers produce the exact argv (positional vs flag forms)
 : > "$BOARD_FAKE_LOG"
 board_cli_project_create "pulse-trader" PTRD "desc"

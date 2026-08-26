@@ -21,7 +21,10 @@ board_state_digest() { # $1=ws
   if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1/.ossify/project-state.json" | cut -d' ' -f1
   else shasum -a 256 "$1/.ossify/project-state.json" | cut -d' ' -f1; fi
 }
-_board_gitignore() { [ -f "$1/.board/.gitignore" ] || printf 'sync.json\nsync.log\n' > "$1/.board/.gitignore"; }
+_board_gitignore() {
+  [ -f "$1/.board/.gitignore" ] || { printf 'sync.json\nsync.log\nlock\n' > "$1/.board/.gitignore"; return 0; }
+  grep -qx 'lock' "$1/.board/.gitignore" || printf 'lock\n' >> "$1/.board/.gitignore"
+}
 board_sync_read()  { # $1=ws $2=jq-expr ; prints null when the file is missing or corrupt
   [ -f "$1/.board/sync.json" ] || { echo null; return 0; }
   jq -r "$2" "$1/.board/sync.json" 2>/dev/null || echo null

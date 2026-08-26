@@ -9,42 +9,50 @@ You force the mirror. The Stop hook does this automatically after any session th
 `.ossify/project-state.json`; this skill exists for the first binding, for harnesses without
 hooks, and for "I want to see it happen now".
 
+Every command below invokes `board` bare, from `PATH` — the harness puts each installed
+plugin's `bin/` there. Never spell the path with `${CLAUDE_PLUGIN_ROOT}`: that variable is
+not exported into Bash-tool subprocesses and expands empty. If `command -v board` finds
+nothing, say the board plugin is not installed and stop.
+
 ## 1. Preconditions — say what is missing, then stop
 
-Run `bash ${CLAUDE_PLUGIN_ROOT}/bin/board env-check`. If any line says `MISSING`, tell the
-user which variable and where it belongs (the harness's shell wrapper — never
-`~/.claude/settings.json`) and stop. `HULY_EMAIL` is optional — its line says `not set` rather
-than `MISSING` and never blocks; when set, sync self-ensures the harness account is a member of
-the project's space before mirroring (Huly gates read visibility by space membership).
+Run `board env-check`. If any line says `MISSING`, tell the user which variable and where it
+belongs (the harness's shell wrapper — never `~/.claude/settings.json`) and stop.
+`HULY_EMAIL` is optional — its line says `not set` rather than `MISSING` and never blocks;
+when set, sync self-ensures the harness account is a member of the project's space before
+mirroring (Huly gates read visibility by space membership).
 
 ## 2. First run in a repo: the binding
 
 If the user already gave an identifier (`--bind IDENT` arrived via the command), run
-`bash ${CLAUDE_PLUGIN_ROOT}/bin/board sync "$PWD" --bind IDENT` directly and skip the
-proposal below — never substitute your own identifier for one the user chose. Otherwise
-run `bash ${CLAUDE_PLUGIN_ROOT}/bin/board sync "$PWD"`.
+`board sync "$PWD" --bind IDENT` directly and skip the proposal below — never substitute
+your own identifier for one the user chose. Otherwise run `board sync "$PWD"`.
 
-- rc 4 means no binding. Propose an identifier: 2–6 upper-case letters derived from the
-  project name in `.ossify/project-state.json` (`pulse-trader` → `PTRD`). **Ask the user
-  to confirm or replace it** — the identifier is permanent on Huly. Then run
-  `bash ${CLAUDE_PLUGIN_ROOT}/bin/board sync "$PWD" --bind <IDENT>`.
+- rc 4 means no binding. Propose an identifier: 2–5 upper-case characters derived from the
+  project name in `.ossify/project-state.json` (`pulse-trader` → `PTRD`). Huly caps
+  identifiers at 5 characters (`^[A-Z][A-Z0-9_]{0,4}$`) — never propose a longer one.
+  **Ask the user to confirm or replace it** — the identifier is permanent on Huly. Then run
+  `board sync "$PWD" --bind <IDENT>`.
 - rc 3 with no state file is the bare-binding case (a repo not on ossify): `--bind` still
   works and mirrors nothing; say so. Derive the proposed identifier from the directory
-  name here.
+  name here, under the same 5-character cap.
 - rc 5: print the tool's message verbatim — it contains the one-time UI step for the
   `Ossify project` space type, including seeding its first task type `Spine` (the CLI can
   only copy an existing task type onto a new one, never create the first one). Stop.
 - rc 6: the CLI cannot create a typed project — that is UI-only. Print the message verbatim;
   the user creates the project in Tracker by hand (name, identifier, project type
   `Ossify project`) and reruns with `--bind`.
+- rc 7: the repo is already bound to a different identifier. Print the message verbatim —
+  rebinding is deliberate (edit `.board/config.json`), never something you do unasked.
 
 ## 3. Force the reconcile
 
-Run `bash ${CLAUDE_PLUGIN_ROOT}/bin/board sync "$PWD" --force` and report the JSON line it
-prints as one sentence: created, updated, unchanged, relations added. A non-zero rc prints
-the failing step on stderr and appends to `.board/sync.log`; show both and do not retry
-blindly — `AUTHENTICATION_FAILED` means the token, `NOT_FOUND` on the project means the
-binding names a project that no longer exists.
+Run `board sync "$PWD" --force` and report the JSON line it prints as one sentence: created,
+updated, unchanged, relations added. `skipped: "locked"` means another sync of this
+workspace is running right now (usually the Stop hook) — wait for it and rerun. A non-zero
+rc prints the failing step on stderr and appends to `.board/sync.log`; show both and do not
+retry blindly — `AUTHENTICATION_FAILED` means the token, `NOT_FOUND` on the project means
+the binding names a project that no longer exists.
 
 ## 4. What you never do
 

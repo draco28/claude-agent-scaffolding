@@ -6,4 +6,8 @@ for t in "$HERE"/test-*.sh; do
   echo "== $t"
   bash "$t" || fail=1
 done
-[ "$fail" -eq 0 ] && echo "ALL GREEN" || { echo "FAILURES"; exit 1; }
+if [ "$fail" -eq 0 ]; then
+  echo "ALL GREEN"
+else
+  echo "FAILURES"; exit 1
+fi

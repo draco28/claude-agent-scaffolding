@@ -4,8 +4,9 @@ ROOT="$HERE/.."; . "$ROOT/lib/resolve.sh"
 HOOK="$ROOT/hooks-handlers/stop.sh"; F="$HERE/fixtures/state"
 TMP="$(mktemp -d)"; export BOARD_FAKE_LOG="$TMP/calls.log" BOARD_FAKE_DIR="$TMP/fake" BOARD_HULY_BIN="$HERE/fake/huly"; mkdir -p "$BOARD_FAKE_DIR"; : > "$BOARD_FAKE_LOG"
 echo '{"taskTypes":[{"id":"tt1","name":"Spine","projectTypeName":"Ossify project"},{"id":"tt2","name":"Work item","projectTypeName":"Ossify project"}],"total":2}' > "$BOARD_FAKE_DIR/task-types.list.json"
-echo '{"permissions":[{"id":"p1","label":"Create object"},{"id":"p2","label":"Update object"},{"id":"p5","label":"Read object"}],"total":3}' > "$BOARD_FAKE_DIR/spaces.permissions.list.json"
+echo '{"permissions":[{"id":"core:permission:CreateObject","label":"Create object"},{"id":"core:permission:UpdateObject","label":"Update object"},{"id":"core:permission:DeleteObject","label":"Delete object"}],"total":3}' > "$BOARD_FAKE_DIR/spaces.permissions.list.json"
 echo '{"identifier":"PTRD"}' > "$BOARD_FAKE_DIR/projects.get.json"
+unset HULY_URL HULY_WORKSPACE HULY_TOKEN HULY_EMAIL   # hermeticity: the digest gate compares the destination too
 run_hook() { printf '{"session_id":"s1","cwd":"%s","hook_event_name":"Stop"}' "$1" | bash "$HOOK"; }
 
 # no workspace: exit 0, no CLI
@@ -30,5 +31,5 @@ t_capture tail -1 "$WS/.board/sync.log"; t_assert_contains "$T_OUT" "AUTHENTICAT
 t_capture bash -c "echo 'not json' | bash '$HOOK'"; t_assert_rc 0 "garbage stdin: exit 0"
 # hooks.json shape
 t_capture jq -r '.hooks.Stop[0].hooks[0].async' "$ROOT/hooks/hooks.json"; t_assert_eq "true" "$T_OUT" "Stop hook is async"
-t_capture jq -r '.hooks.Stop[0].hooks[0].timeout' "$ROOT/hooks/hooks.json"; t_assert_eq "30" "$T_OUT" "Stop hook timeout 30"
+t_capture jq -r '.hooks.Stop[0].hooks[0].timeout' "$ROOT/hooks/hooks.json"; t_assert_eq "600" "$T_OUT" "Stop hook timeout 600 (a full reconcile is one npx process per CLI call; 30s truncated it)"
 t_summary

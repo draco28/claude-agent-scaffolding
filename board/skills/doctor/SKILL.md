@@ -7,36 +7,54 @@ description: Diagnose the board mirror — env present, Huly reachable, repo bou
 
 You read and report. Nothing here writes to Huly or to the repo.
 
+Every command below invokes `board` and `huly-run` bare, from `PATH` — the harness puts each
+installed plugin's `bin/` there. Never spell paths with `${CLAUDE_PLUGIN_ROOT}`: that
+variable is not exported into Bash-tool subprocesses and expands empty. If `command -v
+board` finds nothing, say the board plugin is not installed and stop.
+
 ## 1. Environment and reachability
 
-Run `bash ${CLAUDE_PLUGIN_ROOT}/bin/board env-check` and report the three lines. If all are
-set, run `bash ${CLAUDE_PLUGIN_ROOT}/bin/huly-run auth status --json` and report the
-workspace it resolves and whether it is authenticated. A failure here is the finding; stop
-after reporting it.
+Run `board env-check` and report the three lines. If all are set, run
+`huly-run auth status --json` and report the workspace it resolves and whether it is
+authenticated. A failure here is the finding; stop after reporting it.
 
 ## 2. Binding and last sync
 
-Read `.board/config.json` (the project identifier) and `.board/sync.json` (`synced_at`,
-`digest`). Compare the digest with `bash ${CLAUDE_PLUGIN_ROOT}/bin/board digest "$PWD"`:
-equal means the board reflects the current file; different means a sync is pending or
-failed. Show the last five lines of `.board/sync.log` if it exists — each line is one
-failed sync with the CLI's error code.
+First resolve the workspace root: the nearest ancestor of `$PWD` (including itself) carrying
+`.ossify/project-state.json` — the same walk `board digest "$PWD"` does. Every read below is
+against that root, never bare `$PWD`: run from a subdirectory, a relative read misses the
+root-level `.board/` and misreports a bound repo as unbound.
 
-No `.board/config.json` but a `.ossify/project-state.json`: the repo is not bound; point at
-`/board:sync`. No `.ossify/` at all: say the repo is not on ossify and only a bare binding
-applies.
+Read `<root>/.board/config.json` (the project identifier) and `<root>/.board/sync.json`
+(`synced_at`, `digest`). Compare the digest with `board digest "$PWD"`: equal means the
+source file is unchanged since the last successful sync — it does not prove the board
+matches, because a hand edit on Huly leaves the digest equal; §3 is what detects that.
+Different means a sync is pending or failed. Show the last five lines of
+`<root>/.board/sync.log` if it exists — each line is one failed sync with the CLI's error
+code.
+
+No `.board/config.json` at the root but a `.ossify/project-state.json`: the repo is not
+bound; point at `/board:sync`. No `.ossify/` anywhere up the walk: say the repo is not on
+ossify and only a bare binding applies.
 
 ## 3. Drift
 
-Compute the desired board yourself: `jq -f ${CLAUDE_PLUGIN_ROOT}/lib/map.jq .ossify/project-state.json`.
-Fetch the actual one: `bash ${CLAUDE_PLUGIN_ROOT}/bin/huly-run issues list --project <IDENT> --limit 200 --json`
-and `... milestones list --project <IDENT> --json`. Field shapes differ between the two
+Compute the desired board yourself, from the root's state file:
+`jq -f "$(dirname "$(command -v board)")/../lib/map.jq" <root>/.ossify/project-state.json`.
+Fetch the actual one: `huly-run issues list --project <IDENT> --limit 200 --json` and
+`huly-run milestones list --project <IDENT> --json`. Field shapes differ between the two
 lists: a milestone's title lives in `.label`, an issue's in `.title`, and an issue's status
 may be `.status` or `.status.name` — inspect the JSON you actually received before
 comparing. An issue's labels arrive as objects keyed `title` (`[{"title": "spine:bone", ...}]`),
 not bare strings. Either list may arrive wrapped in a top-level `result` field
 (`{"result": [...]}`) instead of a bare array — this happens when the result set includes an
-issue created by an account with no person record; unwrap before comparing. Then report, as
+issue created by an account with no person record; unwrap before comparing.
+
+One shape of report is untrustworthy: **both lists empty while the desired board is not**.
+Huly gates read visibility by space membership — a token that is authenticated but not a
+member of the project's space gets empty lists, not errors, and "everything is missing"
+would send the user to a sync that creates blind duplicates. Report that case as
+inconclusive and point at membership (#350 tracks a first-class check). Then report, as
 short lists:
 
 - **Status, label, or milestone mismatches** — same title key but a different status; a

@@ -8,13 +8,20 @@ BOARD_HULY_BIN="${BOARD_HULY_BIN:-$BOARD_LIB_DIR/../bin/huly-run}"
 BOARD_CLI_OUT="${BOARD_CLI_OUT:-}"; BOARD_CLI_ERR="${BOARD_CLI_ERR:-}"
 
 board_cli() { # runs the CLI with --json; rc = CLI rc; $BOARD_CLI_OUT/$BOARD_CLI_ERR are files
-  BOARD_CLI_OUT="$(mktemp)"; BOARD_CLI_ERR="$(mktemp)"
+  # under a sync the files live in BOARD_ACT_DIR, which board_sync removes whole at exit —
+  # a reconcile makes hundreds of CLI calls and each leaves two files. Previous files are
+  # never deleted here: callers stash "$BOARD_CLI_OUT" across later calls (setup.sh does).
+  BOARD_CLI_OUT="$(mktemp "${BOARD_ACT_DIR:-${TMPDIR:-/tmp}}/board-cli.out.XXXXXX")"
+  BOARD_CLI_ERR="$(mktemp "${BOARD_ACT_DIR:-${TMPDIR:-/tmp}}/board-cli.err.XXXXXX")"
   local rc=0
   "$BOARD_HULY_BIN" "$@" --json >"$BOARD_CLI_OUT" 2>"$BOARD_CLI_ERR" || rc=$?
   return $rc
 }
-board_cli_err_code() { jq -r '.code // "UNKNOWN"' "$BOARD_CLI_ERR" 2>/dev/null || echo UNKNOWN; }
-board_cli_err_message() { jq -r '.message // ""' "$BOARD_CLI_ERR" 2>/dev/null || true; }
+# the failure document is the LAST stderr line: the server prepends non-JSON warning lines
+# ("no document found, failed to apply model transaction, …"), and a whole-file jq parse
+# dies on the first one — every real code (CONFLICT included) then read as UNKNOWN
+board_cli_err_code() { tail -1 "$BOARD_CLI_ERR" 2>/dev/null | jq -r '.code // "UNKNOWN"' 2>/dev/null || echo UNKNOWN; }
+board_cli_err_message() { tail -1 "$BOARD_CLI_ERR" 2>/dev/null | jq -r '.message // ""' 2>/dev/null || true; }
 
 # --- reads ---
 board_cli_projects_list()      { board_cli projects list; }

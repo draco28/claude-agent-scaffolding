@@ -9,7 +9,6 @@
   ],
   "role": {
     "name": "agent",
-    "permission_name_allow": ["Create", "Update", "Read"],
-    "permission_name_deny":  ["Delete", "Archive", "Forbid"]
+    "permission_ids": ["core:permission:CreateObject", "core:permission:UpdateObject"]
   }
 }

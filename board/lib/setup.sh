@@ -54,13 +54,18 @@ board_setup_workspace_type() {
 
   # role: no roles enumeration exists, so this is create-and-tolerate every run
   # (a duplicate create returns CONFLICT without overwriting the existing role).
+  # Exact permission ids only: substring matching over the live listing measurably
+  # over-granted (card/document/drive/training writes plus core UpdateSpace) and matched
+  # no Read id at all — the listing has none. Reconcile needs object create + update in
+  # the space; an expected id absent from the listing is a loud stop, not a smaller role.
   board_cli_permissions_list || { echo "board: cannot list permissions: $(board_cli_err_code)" >&2; return 1; }
-  local ids
-  ids="$(jq -c --argjson allow "$(jq -c '.role.permission_name_allow' "$BOARD_TYPE_DEF")" --argjson deny "$(jq -c '.role.permission_name_deny' "$BOARD_TYPE_DEF")" '
-    [ .permissions[] | . as $p | (($p.id // "") + " " + ($p.label // "")) | ascii_downcase as $s
-      | select( ($allow | map(ascii_downcase) | map(. as $w | $s | contains($w)) | any)
-            and ($deny  | map(ascii_downcase) | map(. as $w | $s | contains($w)) | any | not) )
-      | $p.id ]' "$BOARD_CLI_OUT")"
+  local want ids missing
+  want="$(jq -c '.role.permission_ids' "$BOARD_TYPE_DEF")"
+  missing="$(jq -r --argjson want "$want" '[.permissions[].id] as $have | $want | map(select(. as $w | $have | index($w) | not)) | join(", ")' "$BOARD_CLI_OUT")"
+  if [ -n "$missing" ]; then
+    echo "board: permissions listing is missing expected id(s): $missing" >&2; return 1
+  fi
+  ids="$want"
   board_cli_role_create "$BOARD_SPACE_TYPE" "$(jq -r '.role.name' "$BOARD_TYPE_DEF")" "$ids" || _board_tolerate_conflict "spaces roles create agent" || return 1
   return 0
 }

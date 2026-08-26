@@ -5,12 +5,12 @@ F="$HERE/fixtures/state"
 mkws() { local d; d="$(mktemp -d)/pt-ai"; mkdir -p "$d/.ossify"; cp "$1" "$d/.ossify/project-state.json"; echo "$d"; }
 fresh_fake() { export BOARD_FAKE_LOG="$1/calls.log" BOARD_FAKE_DIR="$1/fake" BOARD_HULY_BIN="$HERE/fake/huly"; mkdir -p "$BOARD_FAKE_DIR"; : > "$BOARD_FAKE_LOG"
   echo '{"taskTypes":[{"id":"tt1","name":"Spine","projectTypeName":"Ossify project"},{"id":"tt2","name":"Work item","projectTypeName":"Ossify project"}],"total":2}' > "$BOARD_FAKE_DIR/task-types.list.json"
-  echo '{"permissions":[{"id":"p1","label":"Create object"},{"id":"p2","label":"Update object"},{"id":"p5","label":"Read object"}],"total":3}' > "$BOARD_FAKE_DIR/spaces.permissions.list.json"
+  echo '{"permissions":[{"id":"core:permission:CreateObject","label":"Create object"},{"id":"core:permission:UpdateObject","label":"Update object"},{"id":"core:permission:DeleteObject","label":"Delete object"}],"total":3}' > "$BOARD_FAKE_DIR/spaces.permissions.list.json"
   echo '{"identifier":"PTRD","name":"pulse-trader"}' > "$BOARD_FAKE_DIR/projects.get.json"
   echo '{"blockedBy":[],"blocks":[],"relations":[],"documents":[]}' > "$BOARD_FAKE_DIR/issues.relations.list.json"; }
 # sync-scope ops only: setup's idempotent task-type/status/role creates are not drift mutations
 mutations() { awk 'index($0,"milestones create ")||index($0,"milestones update ")||index($0,"issues create ")||index($0,"issues update ")||index($0,"relations add")||index($0,"milestone set")||index($0,"labels add"){n++} END{print n+0}' "$BOARD_FAKE_LOG"; }
-unset HULY_EMAIL   # hermeticity: every case below runs with it unset unless a case exports it itself
+unset HULY_EMAIL HULY_URL HULY_WORKSPACE HULY_TOKEN   # hermeticity: the digest gate compares the destination too; every case runs with these unset unless it exports its own
 
 # 1. no workspace / no binding
 t_capture board_sync "$(mktemp -d)"; t_assert_rc 3 "no workspace -> 3"
@@ -71,6 +71,52 @@ t_assert_eq 0 "$(mutations)" "result-wrapped issues list: zero mutations"
 # reset to the bare-array shape: case 5 and after expect it
 jq '.result' "$BOARD_FAKE_DIR/issues.list.json" > "$BOARD_FAKE_DIR/issues.list.json.bare" && mv "$BOARD_FAKE_DIR/issues.list.json.bare" "$BOARD_FAKE_DIR/issues.list.json"
 
+# 4c. destination change defeats the digest gate: same file, different HULY_WORKSPACE ->
+# a full (non-skipped) run; against the matching board it still mutates nothing
+: > "$BOARD_FAKE_LOG"
+export HULY_WORKSPACE=elsewhere
+t_capture board_sync "$WS"; t_assert_rc 0 "dest change: rc 0"
+t_capture jq -r '.skipped' <<<"$T_OUT"; t_assert_eq "null" "$T_OUT" "dest change: gate falls through, not skipped"
+t_assert_eq 0 "$(mutations)" "dest change: zero mutations against a matching board"
+unset HULY_WORKSPACE
+: > "$BOARD_FAKE_LOG"
+t_capture board_sync "$WS"; t_assert_rc 0 "dest restored: rc 0"
+t_capture jq -r '.skipped' <<<"$T_OUT"; t_assert_eq "null" "$T_OUT" "dest restored: one more full run rewrites dest"
+
+# 4d. a live holder's lock: sync skips as "locked", zero CLI calls, lock left alone
+mkdir -p "$WS/.board/lock"; echo $$ > "$WS/.board/lock/pid"
+: > "$BOARD_FAKE_LOG"
+t_capture board_sync "$WS" --force; t_assert_rc 0 "locked: rc 0"
+t_capture jq -r '.skipped' <<<"$T_OUT"; t_assert_eq "locked" "$T_OUT" "locked: skipped"
+t_assert_eq 0 "$(wc -l < "$BOARD_FAKE_LOG" | tr -d ' ')" "locked: zero CLI calls"
+[ -d "$WS/.board/lock" ] && T_PASS=$((T_PASS+1)) || { T_FAIL=$((T_FAIL+1)); echo "FAIL: locked: another holder's lock must not be removed"; }
+
+# 4e. a dead holder's lock is stolen, the sync proceeds, and the lock is gone afterwards
+( : ) & DEAD=$!; wait "$DEAD" 2>/dev/null
+echo "$DEAD" > "$WS/.board/lock/pid"
+: > "$BOARD_FAKE_LOG"
+t_capture board_sync "$WS" --force; t_assert_rc 0 "stale lock: stolen, sync ok"
+t_capture jq -r '.skipped' <<<"$T_OUT"; t_assert_eq "null" "$T_OUT" "stale lock: not skipped"
+[ ! -d "$WS/.board/lock" ] && T_PASS=$((T_PASS+1)) || { T_FAIL=$((T_FAIL+1)); echo "FAIL: stale lock: lock not cleaned up after the run"; }
+
+# 4f. --bind conflicting with the existing binding: rc 7, nothing touched; a matching
+# --bind (the documented rerun path after rc 6) still proceeds
+: > "$BOARD_FAKE_LOG"
+t_capture board_sync "$WS" --bind OTHER; t_assert_rc 7 "bind conflict -> rc 7"
+t_assert_contains "$T_OUT" "already bound to 'PTRD'" "bind conflict: names the existing binding"
+t_capture board_binding_read "$WS"; t_assert_eq "PTRD" "$T_OUT" "bind conflict: binding unchanged"
+t_assert_eq 0 "$(wc -l < "$BOARD_FAKE_LOG" | tr -d ' ')" "bind conflict: zero CLI calls"
+t_capture board_sync "$WS" --force --bind PTRD; t_assert_rc 0 "matching --bind: proceeds"
+
+# 4g. milestone listing at the 200 cap: refuse to reconcile (the CLI has no pagination —
+# a truncated listing would re-create anything past the cap as a permanent duplicate)
+jq -n '[range(200) | {label: ("m\(.) — x"), status: "planned"}]' > "$BOARD_FAKE_DIR/milestones.list.json"
+: > "$BOARD_FAKE_LOG"
+t_capture board_sync "$WS" --force; t_assert_rc 1 "milestones at cap -> rc 1"
+t_assert_eq 0 "$(mutations)" "milestones at cap: zero mutations"
+t_capture tail -1 "$WS/.board/sync.log"; t_assert_contains "$T_OUT" "200-item limit" "milestones at cap: logged"
+jq '[.milestones[] | {label: .title, status: .status, _id: .key}]' "$BOARD_FAKE_DIR/desired.json" > "$BOARD_FAKE_DIR/milestones.list.json"
+
 # 5. known-answer negative: flip one work item status -> exactly one issues update, nothing else
 jq '(.work_items[] | select(.id=="r1.s1.w3") | .status) = "active"' "$F/pulse-trader.json" > "$WS/.ossify/project-state.json"
 : > "$BOARD_FAKE_LOG"
@@ -102,6 +148,15 @@ t_capture board_sync "$WS"; t_assert_rc 1 "failure -> rc 1"
 t_assert_eq "$D_BEFORE" "$(board_sync_read "$WS" '.digest')" "failure: digest untouched"
 t_capture tail -1 "$WS/.board/sync.log"; t_assert_contains "$T_OUT" "AUTHENTICATION_FAILED" "failure logged with code"
 rm -f "$BOARD_FAKE_DIR/milestones.create.rc" "$BOARD_FAKE_DIR/milestones.create.err"
+
+# 6b. issues-list failure: the log carries THIS call's error code. (The lookup used to run
+# inside a command substitution, so board_cli's error file update was lost to the subshell
+# and the log showed a stale code from the previous parent-shell CLI call.)
+echo 3 > "$BOARD_FAKE_DIR/issues.list.rc"; echo '{"code":"INTEGRATION_FAILED","message":"integration down"}' > "$BOARD_FAKE_DIR/issues.list.err"
+t_capture board_sync "$WS" --force; t_assert_rc 1 "issues-list failure -> rc 1"
+t_capture tail -1 "$WS/.board/sync.log"; t_assert_contains "$T_OUT" "issues list" "issues-list failure: step named"
+t_capture tail -1 "$WS/.board/sync.log"; t_assert_contains "$T_OUT" "INTEGRATION_FAILED" "issues-list failure: the real code, not a stale one"
+rm -f "$BOARD_FAKE_DIR/issues.list.rc" "$BOARD_FAKE_DIR/issues.list.err"
 
 # 7. task-types gate fails INTEGRATION_FAILED (the type doesn't exist) -> rc 5 before any mutation
 : > "$BOARD_FAKE_LOG"

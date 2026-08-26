@@ -4,9 +4,10 @@
 # after every step succeeded.
 BOARD_LIBS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-_board_desc_file() { local f; f="$(mktemp)"; printf '%s\n' "$1" > "$f"; echo "$f"; }
+_board_desc_file() { local f; f="$(mktemp "$BOARD_ACT_DIR/desc.XXXXXX")"; printf '%s\n' "$1" > "$f"; echo "$f"; }
 _board_search_for_key() { printf '%s ' "$1"; } # --title-search is a case-insensitive substring, not a regex
 _board_fail() { board_log "$1" "$2"; echo "board: $2" >&2; return 1; }
+_board_dest() { printf '%s|%s' "${HULY_URL:-}" "${HULY_WORKSPACE:-}"; }
 # key -> Huly identifier map for this run, as a TSV file (no bash-4 associative arrays: macOS ships bash 3.2)
 _board_ident_set() { printf '%s\t%s\n' "$1" "$2" >> "$BOARD_ACT_DIR/ident.tsv"; }
 _board_ident_get() { awk -F'\t' -v k="$1" '$1==k{print $2; f=1} END{exit f?0:1}' "$BOARD_ACT_DIR/ident.tsv"; }
@@ -18,10 +19,18 @@ _board_ident_get() { awk -F'\t' -v k="$1" '$1==k{print $2; f=1} END{exit f?0:1}'
 # `{"result":[...]}` wrapper instead — same flags, different shape. `.result? // .` unwraps
 # both (the `?` matters: `.result` alone errors on a bare array, and jq's `//` does not catch
 # runtime type errors, only null/false/empty results).
-_board_actual_milestones() { board_cli_milestones_list "$1" || return 1; jq '(.result? // .)' "$BOARD_CLI_OUT" > "$BOARD_ACT_DIR/milestones.json"; }
-_board_actual_issue() { # $1=project $2=key ; echoes JSON of the matching issue or "null"
+_board_actual_milestones() { # $1=project ; rc 8 = listing hit the 200 cap (no pagination in the CLI)
+  board_cli_milestones_list "$1" || return 1
+  jq '(.result? // .)' "$BOARD_CLI_OUT" > "$BOARD_ACT_DIR/milestones.json" || return 1
+  [ "$(jq 'length' "$BOARD_ACT_DIR/milestones.json")" -lt 200 ] || return 8
+}
+_board_actual_issue() { # $1=project $2=key ; writes JSON of the matching issue or "null" to
+  # $BOARD_ACT_DIR/actual.json. NOT run in a command substitution: board_cli's error files are
+  # globals, and a subshell would discard them — the caller's _board_fail would then log a
+  # stale code from the previous CLI call instead of this one's. rc 8 = listing at the cap.
   board_cli_issues_list "$1" "$(_board_search_for_key "$2")" || return 1
-  jq -c --arg k "$2 " '(.result? // .) | map(select(.title | startswith($k))) | .[0] // null' "$BOARD_CLI_OUT"
+  [ "$(jq '(.result? // .) | length' "$BOARD_CLI_OUT")" -lt 200 ] || return 8
+  jq -c --arg k "$2 " '(.result? // .) | map(select(.title | startswith($k))) | .[0] // null' "$BOARD_CLI_OUT" > "$BOARD_ACT_DIR/actual.json"
 }
 
 board_sync() { # $1=ws-or-any-dir [--force] [--bind IDENT]
@@ -35,11 +44,40 @@ board_sync() { # $1=ws-or-any-dir [--force] [--bind IDENT]
     [ -n "$bind" ] || return 4
     project="$bind"
   }
-  export BOARD_ACT_DIR; BOARD_ACT_DIR="$(mktemp -d)"
+  # an explicit --bind that disagrees with the existing binding is a conflict, not a rebind:
+  # honouring the old binding would sync the wrong project while looking like success
+  if [ -n "$bind" ] && [ "$bind" != "$project" ]; then
+    echo "board: already bound to '$project'; --bind $bind conflicts. Rebinding is deliberate: edit .board/config.json by hand, then rerun." >&2
+    return 7
+  fi
 
-  # digest gate
+  # one reconcile per workspace at a time: creates are list-then-create, so overlapping syncs
+  # (two Stop events, or the hook racing a manual /board:sync) would both read an entity as
+  # absent and create it twice. mkdir is the atomic take; a dead holder's lock is stolen
+  # (the async hook's timeout can SIGKILL a run, which no trap can clean up after).
+  mkdir -p "$ws/.board"; _board_gitignore "$ws"
+  BOARD_LOCK_DIR="$ws/.board/lock"
+  if ! mkdir "$BOARD_LOCK_DIR" 2>/dev/null; then
+    local holder; holder="$(cat "$BOARD_LOCK_DIR/pid" 2>/dev/null || true)"
+    if [ -n "$holder" ] && kill -0 "$holder" 2>/dev/null; then
+      jq -nc --arg p "$project" '{project:$p, skipped:"locked", created:0, updated:0, unchanged:0, relations_added:0}'; return 0
+    fi
+    rm -rf "$BOARD_LOCK_DIR"
+    if ! mkdir "$BOARD_LOCK_DIR" 2>/dev/null; then
+      jq -nc --arg p "$project" '{project:$p, skipped:"locked", created:0, updated:0, unchanged:0, relations_added:0}'; return 0
+    fi
+  fi
+  echo $$ > "$BOARD_LOCK_DIR/pid"
+  export BOARD_ACT_DIR; BOARD_ACT_DIR="$(mktemp -d)"
+  # one owner for every temp this run makes: board_cli's files land in BOARD_ACT_DIR too
+  trap 'rm -rf -- "$BOARD_ACT_DIR" "$BOARD_LOCK_DIR"' EXIT
+  trap 'rm -rf -- "$BOARD_ACT_DIR" "$BOARD_LOCK_DIR"; exit 1' TERM INT HUP
+
+  # digest gate — the state digest AND the destination: a changed HULY_URL/HULY_WORKSPACE
+  # means that board has never seen this state, even though the file is unchanged
   local digest=""; if [ "$bare" = 0 ]; then digest="$(board_state_digest "$ws")"; fi
-  if [ "$force" = 0 ] && [ "$bare" = 0 ] && [ "$digest" = "$(board_sync_read "$ws" '.digest')" ]; then
+  if [ "$force" = 0 ] && [ "$bare" = 0 ] && [ "$digest" = "$(board_sync_read "$ws" '.digest')" ] \
+     && [ "$(_board_dest)" = "$(board_sync_read "$ws" '.dest')" ]; then
     jq -nc --arg p "$project" '{project:$p, skipped:"unchanged", created:0, updated:0, unchanged:0, relations_added:0}'; return 0
   fi
 
@@ -73,7 +111,12 @@ EOF
   : > "$BOARD_ACT_DIR/ident.tsv"
 
   # milestones
-  _board_actual_milestones "$project" || _board_fail "$ws" "milestones list: $(board_cli_err_code) $(board_cli_err_message)" || return 1
+  local mrc=0; _board_actual_milestones "$project" || mrc=$?
+  if [ "$mrc" = 8 ]; then
+    _board_fail "$ws" "milestones list: 200-item limit reached; refusing to reconcile against a possibly truncated listing (the CLI has no pagination)" || return 1
+  elif [ "$mrc" != 0 ]; then
+    _board_fail "$ws" "milestones list: $(board_cli_err_code) $(board_cli_err_message)" || return 1
+  fi
   local key title status target desc actual
   while IFS=$'\t' read -r key title status target; do
     desc="$(jq -r --arg k "$key" '.milestones[] | select(.key==$k) | .description' "$desired")"
@@ -99,20 +142,27 @@ EOF
   done < <(jq -r '.milestones[] | "\(.key)\t\(.title)\t\(.status)\t\(.target_ms)"' "$desired")
 
   # issues, spines then work items (map.jq order guarantees parents first)
-  local tt parent_key milestone_key label parent_id
+  local tt parent_key milestone_key label parent_id irc
   while IFS=$'\t' read -r key title tt status milestone_key parent_key label; do
     desc="$(jq -r --arg k "$key" '.issues[] | select(.key==$k) | .description' "$desired")"
-    actual="$(_board_actual_issue "$project" "$key")" || _board_fail "$ws" "issues list $key: $(board_cli_err_code)" || return 1
+    irc=0; _board_actual_issue "$project" "$key" || irc=$?
+    if [ "$irc" = 8 ]; then
+      _board_fail "$ws" "issues list $key: 200-item limit reached; refusing to reconcile against a possibly truncated listing" || return 1
+    elif [ "$irc" != 0 ]; then
+      _board_fail "$ws" "issues list $key: $(board_cli_err_code) $(board_cli_err_message)" || return 1
+    fi
+    actual="$(cat "$BOARD_ACT_DIR/actual.json")"
     parent_id=""; [ "$parent_key" != "null" ] && parent_id="$(_board_ident_get "$parent_key" || true)"
     if [ "$parent_key" != "null" ] && [ -z "$parent_id" ]; then
-      local pj; pj="$(_board_actual_issue "$project" "$parent_key")" || return 1
-      parent_id="$(jq -r '.identifier // ""' <<<"$pj")"
+      irc=0; _board_actual_issue "$project" "$parent_key" || irc=$?
+      [ "$irc" = 0 ] || _board_fail "$ws" "issues list $parent_key: $(board_cli_err_code) $(board_cli_err_message)" || return 1
+      parent_id="$(jq -r '.identifier // ""' "$BOARD_ACT_DIR/actual.json")"
     fi
     if [ "$actual" = "null" ]; then
       board_cli_issue_create "$project" "$title" "$tt" "$status" "$parent_id" "$(_board_desc_file "$desc")" || _board_fail "$ws" "issues create $key: $(board_cli_err_code) $(board_cli_err_message)" || return 1
       _board_ident_set "$key" "$(jq -r '.identifier' "$BOARD_CLI_OUT")"
-      [ "$milestone_key" != "null" ] && { board_cli_issue_milestone_set "$project" "$(_board_ident_get "$key")" "$(jq -r --arg k "$milestone_key" '.milestones[] | select(.key==$k) | .title' "$desired")" || _board_fail "$ws" "milestone set $key" || return 1; }
-      [ "$label" != "null" ] && { board_cli_issue_label_add "$project" "$(_board_ident_get "$key")" "$label" || _board_fail "$ws" "labels add $key" || return 1; }
+      [ "$milestone_key" != "null" ] && { board_cli_issue_milestone_set "$project" "$(_board_ident_get "$key")" "$(jq -r --arg k "$milestone_key" '.milestones[] | select(.key==$k) | .title' "$desired")" || _board_fail "$ws" "milestone set $key: $(board_cli_err_code) $(board_cli_err_message)" || return 1; }
+      [ "$label" != "null" ] && { board_cli_issue_label_add "$project" "$(_board_ident_get "$key")" "$label" || _board_fail "$ws" "labels add $key: $(board_cli_err_code) $(board_cli_err_message)" || return 1; }
       created=$((created+1))
     else
       _board_ident_set "$key" "$(jq -r '.identifier' <<<"$actual")"
@@ -131,7 +181,7 @@ EOF
         local a_ms; a_ms="$(jq -r '.milestone.label // ""' <<<"$actual")"
         case "$a_ms" in
           "$milestone_key "*) : ;;
-          *) board_cli_issue_milestone_set "$project" "$iid" "$(jq -r --arg k "$milestone_key" '.milestones[] | select(.key==$k) | .title' "$desired")" || _board_fail "$ws" "milestone set $key" || return 1
+          *) board_cli_issue_milestone_set "$project" "$iid" "$(jq -r --arg k "$milestone_key" '.milestones[] | select(.key==$k) | .title' "$desired")" || _board_fail "$ws" "milestone set $key: $(board_cli_err_code) $(board_cli_err_message)" || return 1
              changed=1 ;;
         esac
       fi
@@ -139,7 +189,7 @@ EOF
       if [ "$label" != "null" ] && jq -e 'has("labels")' <<<"$actual" >/dev/null; then
         if ! jq -e --arg l "$label" '[.labels[]? | if type=="object" then (.title // .label // .name // "") else . end] | index($l)' <<<"$actual" >/dev/null; then
           if board_cli_issue_label_add "$project" "$iid" "$label"; then changed=1
-          else [ "$(board_cli_err_code)" = "CONFLICT" ] || _board_fail "$ws" "labels add $key" || return 1; fi
+          else [ "$(board_cli_err_code)" = "CONFLICT" ] || _board_fail "$ws" "labels add $key: $(board_cli_err_code) $(board_cli_err_message)" || return 1; fi
         fi
       fi
       if [ "$changed" = 1 ]; then updated=$((updated+1)); else unchanged=$((unchanged+1)); fi
@@ -150,13 +200,13 @@ EOF
   local from to fid tid
   while IFS=$'\t' read -r from to; do
     fid="$(_board_ident_get "$from" || true)"; tid="$(_board_ident_get "$to" || true)"; [ -n "$fid" ] && [ -n "$tid" ] || continue
-    board_cli_relations_list "$project" "$fid" || _board_fail "$ws" "relations list $from" || return 1
+    board_cli_relations_list "$project" "$fid" || _board_fail "$ws" "relations list $from: $(board_cli_err_code) $(board_cli_err_message)" || return 1
     if ! jq -e --arg t "$tid" '(.result? // .) | .blockedBy[]? | select(.identifier == $t)' "$BOARD_CLI_OUT" >/dev/null; then
       if board_cli_relation_add "$project" "$fid" "$tid" is-blocked-by; then rel=$((rel+1))
       else [ "$(board_cli_err_code)" = "CONFLICT" ] || _board_fail "$ws" "relations add $from -> $to: $(board_cli_err_code)" || return 1; fi
     fi
   done < <(jq -r '.relations[] | "\(.from_key)\t\(.to_key)"' "$desired")
 
-  board_sync_write "$ws" "$(jq -nc --arg p "$project" --arg d "$digest" --arg t "$(_board_now)" '{project:$p, digest:$d, synced_at:$t, branches:{}, sessions:{}, handoffs_seen:[]}')"
+  board_sync_write "$ws" "$(jq -nc --arg p "$project" --arg d "$digest" --arg dest "$(_board_dest)" --arg t "$(_board_now)" '{project:$p, digest:$d, dest:$dest, synced_at:$t, branches:{}, sessions:{}, handoffs_seen:[]}')"
   jq -nc --arg p "$project" --argjson c "$created" --argjson u "$updated" --argjson n "$unchanged" --argjson r "$rel" '{project:$p, skipped:null, created:$c, updated:$u, unchanged:$n, relations_added:$r}'
 }

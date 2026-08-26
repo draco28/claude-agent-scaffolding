@@ -20,17 +20,28 @@ t_capture board_setup_workspace_type; t_assert_rc 5 "empty type -> rc 5"; t_asse
 t_assert_eq 0 "$(mut)" "empty type: nothing created"
 
 # type has only the hand-seeded Spine: exactly one task-types create ("Work item"),
-# 4 issue-statuses create, 1 spaces roles create
+# 4 issue-statuses create, 1 spaces roles create. The permissions fake mirrors the recorded
+# live listing's shape: real ids, over-grant bait present (UpdateSpace, CreateCard), and —
+# as on the live server — no Read-permission id at all.
 : > "$BOARD_FAKE_LOG"
 echo '{"taskTypes":[{"id":"tt1","name":"Spine","projectTypeId":"pt1","projectTypeName":"Ossify project","kind":"issue","issueClass":"tracker:class:Issue","statusCount":0}],"total":1}' > "$BOARD_FAKE_DIR/task-types.list.json"
-echo '{"permissions":[{"id":"p1","label":"Create object"},{"id":"p2","label":"Update object"},{"id":"p3","label":"Delete object"},{"id":"p4","label":"Archive space"},{"id":"p5","label":"Read object"}],"total":5}' > "$BOARD_FAKE_DIR/spaces.permissions.list.json"
+echo '{"permissions":[{"id":"core:permission:CreateObject","label":"Create object"},{"id":"core:permission:UpdateObject","label":"Update object"},{"id":"core:permission:DeleteObject","label":"Delete object"},{"id":"core:permission:UpdateSpace","label":"Update space"},{"id":"card:permission:CreateCard","label":"Create card"}],"total":5}' > "$BOARD_FAKE_DIR/spaces.permissions.list.json"
 t_capture board_setup_workspace_type; t_assert_rc 0 "Spine-only type: setup ok"
 t_capture grep -c 'task-types create' "$BOARD_FAKE_LOG"; t_assert_eq 1 "$T_OUT" "exactly one task type created"
 t_capture sed -n '2p' "$BOARD_FAKE_LOG"; t_assert_eq "task-types create Work item --project-type Ossify project --json" "$T_OUT" "Work item argv (after the task-types list call)"
 t_capture grep -c 'issue-statuses create' "$BOARD_FAKE_LOG"; t_assert_eq 4 "$T_OUT" "four statuses created"
 t_capture grep -c 'spaces roles create' "$BOARD_FAKE_LOG"; t_assert_eq 1 "$T_OUT" "one role created"
-t_capture grep 'spaces roles create' "$BOARD_FAKE_LOG"; t_assert_contains "$T_OUT" '["p1","p2","p5"]' "role gets create/update/read ids only"
+t_capture grep 'spaces roles create' "$BOARD_FAKE_LOG"; t_assert_contains "$T_OUT" '["core:permission:CreateObject","core:permission:UpdateObject"]' "role gets exactly the two object ids — no substring over-grant"
+t_capture grep 'spaces roles create' "$BOARD_FAKE_LOG"; case "$T_OUT" in *UpdateSpace*|*CreateCard*) T_FAIL=$((T_FAIL+1)); echo "FAIL: over-grant id in role argv";; *) T_PASS=$((T_PASS+1));; esac
 t_capture grep 'spaces roles create' "$BOARD_FAKE_LOG"; t_assert_contains "$T_OUT" "--confirm --yes" "role create requires both --confirm and --yes"
+
+# an expected permission id absent from the listing is a loud stop, not a smaller role
+: > "$BOARD_FAKE_LOG"
+echo '{"permissions":[{"id":"core:permission:CreateObject","label":"Create object"}],"total":1}' > "$BOARD_FAKE_DIR/spaces.permissions.list.json"
+t_capture board_setup_workspace_type; t_assert_rc 1 "missing expected id -> rc 1"
+t_assert_contains "$T_OUT" "core:permission:UpdateObject" "missing id named"
+t_capture grep -c 'spaces roles create' "$BOARD_FAKE_LOG"; t_assert_eq 0 "$T_OUT" "missing id: no role created"
+echo '{"permissions":[{"id":"core:permission:CreateObject","label":"Create object"},{"id":"core:permission:UpdateObject","label":"Update object"},{"id":"core:permission:DeleteObject","label":"Delete object"},{"id":"core:permission:UpdateSpace","label":"Update space"},{"id":"card:permission:CreateCard","label":"Create card"}],"total":5}' > "$BOARD_FAKE_DIR/spaces.permissions.list.json"
 
 # type complete (both task types present): no task-type create, but statuses and role are
 # still attempted every run — creation is idempotent by design, not diffed against a listing
