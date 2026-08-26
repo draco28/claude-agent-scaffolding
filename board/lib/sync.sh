@@ -66,6 +66,12 @@ EOF
     actual="$(jq -c --arg k "$key " 'map(select(.label | startswith($k))) | .[0] // null' "$BOARD_ACT_DIR/milestones.json")"
     if [ "$actual" = "null" ]; then
       board_cli_milestone_create "$project" "$title" "$target" "$(_board_desc_file "$desc")" || _board_fail "$ws" "milestones create $key: $(board_cli_err_code) $(board_cli_err_message)" || return 1
+      # milestones create has no status flag: it always lands as "planned". A non-planned
+      # desired status is set right here, as part of creation, so it doesn't take a second
+      # run to converge.
+      if [ "$status" != "planned" ]; then
+        board_cli_milestone_update "$project" "$title" --status "$status" || _board_fail "$ws" "milestones update $key status: $(board_cli_err_code)" || return 1
+      fi
       created=$((created+1))
     else
       local a_label a_status; a_label="$(jq -r '.label' <<<"$actual")"; a_status="$(jq -r '.status // ""' <<<"$actual")"

@@ -26,6 +26,10 @@ JSON
 t_capture board_sync "$WS"; t_assert_rc 0 "first sync ok"
 t_capture jq -r '.created' <<<"$T_OUT"; t_assert_eq 15 "$T_OUT" "created = 2 milestones + 5 spines + 8 items"
 t_capture grep -c 'milestones create' "$BOARD_FAKE_LOG"; t_assert_eq 2 "$T_OUT" "two milestone creates"
+# milestones create has no status flag (always lands "planned"): a non-planned desired status
+# is set right after creation, in the same run — known-answer: releases whose mapped status != planned
+NON_PLANNED_MS="$(jq -f "$ROOT/lib/map.jq" "$F/pulse-trader.json" | jq '[.milestones[] | select(.status != "planned")] | length')"
+t_capture grep -c 'milestones update' "$BOARD_FAKE_LOG"; t_assert_eq "$NON_PLANNED_MS" "$T_OUT" "non-planned milestone status set at creation, not a second run"
 t_capture grep -c 'issues create' "$BOARD_FAKE_LOG";     t_assert_eq 13 "$T_OUT" "thirteen issue creates"
 t_capture grep -c 'issues create .*--parent-issue' "$BOARD_FAKE_LOG"; t_assert_eq 8 "$T_OUT" "eight are sub-issues"
 t_capture grep -c 'issues milestone set' "$BOARD_FAKE_LOG"; t_assert_eq 5 "$T_OUT" "five milestone sets (spines only)"
