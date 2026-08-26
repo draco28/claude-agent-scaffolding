@@ -1,4 +1,4 @@
-# ossify (v1.2.0)
+# ossify (v1.3.0)
 
 Skeleton-first lifecycle plugin: Release 0 → MVP → v1, driven by bone and flesh
 spines against a cumulative demo ledger. Nine entry skills (`start`, `adopt`,
@@ -38,8 +38,10 @@ fixes its first run prompted (#250, #251). That is two runs on one scenario, not
 a measured property of the prose — #254 stands over both. The two real-project
 pilots are operator-owned and post-v1.
 
-Ossify requires `workspace-init`: `start` refuses fail-fast until a
-workspace-init pairing manifest exists. Round execution dispatches the
+Ossify requires a topology declaration and nothing else: `/ossify:start` and
+`/ossify:adopt` author `.ossify/topology.json` themselves, and a workspace-init
+`.workspace/pairing.json` is read as a translated fallback when one exists.
+`workspace-init` is optional. Round execution dispatches the
 `ossify:implementer-agent` subagent. Claude Code registers it natively, and the
 OpenCode adapter registers `ossify-implementer-agent` as well, so rounds run on
 both. **Codex** has no worker path: its planning, diagnosis and close skills

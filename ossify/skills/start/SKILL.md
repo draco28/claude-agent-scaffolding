@@ -1,6 +1,6 @@
 ---
 name: start
-description: Drive ossify spec-core onboarding for a new project — the Patton journey map, the skeleton cut that fixes Release 0, the bones registry, and the privacy posture with its moat channels — producing a lean MASTER-SPEC, memory bank, bones ADRs and a seed feature map. Use when the user wants to start a new project, onboard a project into ossify, kick off a skeleton-first build, or runs /start. Refuses without a workspace-init pairing manifest. Not release planning (/plan-release), spine decomposition (/plan-spine), or amending an existing spec (/amend-spec).
+description: Drive ossify spec-core onboarding for a new project — the Patton journey map, the skeleton cut that fixes Release 0, the bones registry, and the privacy posture with its moat channels — producing a lean MASTER-SPEC, memory bank, bones ADRs and a seed feature map. Use when the user wants to start a new project, onboard a project into ossify, kick off a skeleton-first build, or runs /start. Resolves or authors the topology declaration; halts only if it still fails to resolve. Not release planning (/plan-release), spine decomposition (/plan-spine), or amending an existing spec (/amend-spec).
 ---
 
 # start
@@ -22,9 +22,11 @@ stuff reasoning steps inside `bash -c '...'` wrappers.
 
 ## 1. Overview
 
-The five stations: **pair** (workspace-init) → **spec-core onboarding** (you are
-here) → **feasibility spike** (optional, §9a) → **Release 0, the skeleton** →
-**rolling releases**.
+The five stations: **declare the topology** (this ceremony authors
+`.ossify/topology.json` itself; workspace-init's `/init-workspace` or
+`/pair-workspace` is an alternative, not a prerequisite) → **spec-core
+onboarding** (you are here) → **feasibility spike** (optional, §9a) →
+**Release 0, the skeleton** → **rolling releases**.
 
 When invoked, work §3 through §13 below in order — each numbered block is one
 step of the conversation.
@@ -68,30 +70,37 @@ macOS). Call form: `oss <subcommand> [args...]` resolves to `oss_cmd_<subcommand
 Never `source` the lib files directly from a skill body — under zsh
 `BASH_SOURCE` is unset and the libs break. Use `oss help` for discovery.
 
-**Manifest probe (refuses fail-fast).** ossify's state lives in the AI
-workspace, discovered by walking up for `.workspace/pairing.json`:
+**Topology probe (resolves, authors, or refuses fail-closed).** ossify's state lives in
+the AI workspace: walk up for `.ossify/topology.json`, then `.workspace/pairing.json`:
 
 ```bash
-if ! oss state_path >/dev/null 2>&1; then
-  printf '%s\n' "ossify requires a workspace-init pairing manifest; run /init-workspace or /pair-workspace first (on Codex, invoke the workspace-init skill initializing-dual-repo-workspace or pairing-canonical-repo — that surface publishes skills, not commands)."
-  exit 0
+if probe="$(oss state_path 2>&1)"; then
+  printf '%s\n' "topology: resolved - author nothing, proceed to the journey map"
+else
+  printf '%s\n' "$probe"   # the verb's OWN diagnostic, never swallowed
+  printf '%s\n' "ossify requires a topology declaration (none found on the walk-up path). /ossify:start and /ossify:adopt author one (.ossify/topology.json); an existing dual-repo workspace can instead pair via /init-workspace or /pair-workspace. On Codex, invoke the ossify skills start or adopt - that surface publishes skills, not commands."
 fi
 ```
 
-The literal tokens `/init-workspace` and `/pair-workspace` are load-bearing —
-do not paraphrase the refusal. The skill names beside them are load-bearing for
-the same reason on a different surface: `workspace-init`'s Codex manifest
-publishes `./skills/` only, so on Codex those commands do not exist and the
-command tokens alone are a dead end. Name both; drop neither. On refusal: author
-nothing, probe nothing else, stop.
+**Not a halt — the block carries no `exit`.** The only halt here is a re-probe
+that still refuses AFTER authoring. **Read `$probe` first:** a declaration that
+exists but is INVALID (bad repo name, entry with no root, empty `.repos`) refuses
+with its own message naming the file, and the fix is that file. Authoring is only
+for the nothing-found case; it never overwrites. Print the refusal's tokens verbatim even so — they name the
+alternatives and the Codex surface. To author: `.ossify/topology.json` at the
+AI-workspace root, schema v1 `{schema_version, repos:{<name>:{root}},
+well_known_paths:{}}`, names `[a-z][a-z0-9_-]*`, roots absolute, from the repo
+set the journey-map station asks about next (`canonical` only if that is
+genuinely the name). Then re-probe `oss state_path` and `oss repo_root <name>`
+for every declared repo, halting only if one still refuses.
 
 **Canonical-content gate (refuses fail-fast).** `/start` is pre-code ceremony:
-establish whether the canonical (`oss repo_root canonical`) already carries the
-product's own source or its own history — either alone refuses, and a bare
-pairing scaffold is neither. If so, author nothing and refuse, naming what you
-found and routing to **`/ossify:adopt` — the adopt-forward path for a project
-that already has code (on Codex/OpenCode, the native `adopt` skill).** Those
-tokens are load-bearing too. Past both gates:
+establish whether any declared repo (`oss repo_root <name>` per name) already
+carries the product's own source or its own history — either alone refuses,
+and a bare pairing scaffold is neither. If so, author nothing and refuse,
+naming what you found and routing to **`/ossify:adopt` — the adopt-forward
+path for a project that already has code (on Codex/OpenCode, the native
+`adopt` skill).** Those tokens are load-bearing too. Past both gates:
 `oss init "<project-name>"`, which refuses if ossify state already exists — the
 "already onboarded" signal; route per §2 rather than forcing past it.
 
@@ -335,7 +344,7 @@ fully-private project authors it; route the **private boundary inventory** (item
 → channel → location → seam → leak-risk) to the AI workspace. Provisioning is
 deferred to Plan D: never call `add-private-core`, never edit the pairing
 manifest (ossify writes `project-state.json`; workspace-init owns the manifest).
-Leave `project.composition_root` unset unless Release 0 is trivially single-repo
+Set `project.composition_root` — **required and absolute** when more than one repo is declared, optional when exactly one is (posture-block §10)
 and the root is unambiguous (then `oss composition_set "<root>"`).
 
 ---

@@ -50,7 +50,9 @@ oss_cmd_release_add() { # $1=name $2=goal
 }
 oss_cmd_spine_add() { # $1=release $2=name $3=class [$4=target_repo]
   _oss_need 3 spine_add "<release> <name> <class> [target_repo]" "$@" || return 2;
-  local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_add_spine "$sf" "$1" "$2" "$3" "${4:-canonical}"
+  local sf tr; sf="$(_oss_resolve_state)" || return $?
+  tr="$(_oss_repo_key_for_write "${4:-}")" || return $?
+  oss_entity_add_spine "$sf" "$1" "$2" "$3" "$tr"
 }
 oss_cmd_class_set() { # $1=spine $2=new-class $3=reason
   _oss_need 3 class_set "<spine> <new-class> <reason>" "$@" || return 2;
@@ -100,9 +102,15 @@ oss_cmd_fake_status()          { _oss_need 3 fake_status "<boundary> <active|rep
 # `touch_check`, which is 0 = hit. Read-only selectors: no mutation, no op.
 oss_cmd_expired_fakes()        { _oss_need 1 expired_fakes "<release>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_reg_expired_fakes "$sf" "$1"; }
 oss_cmd_expired_quarantines()  { _oss_need 1 expired_quarantines "<release>" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_expired_quarantines "$sf" "$1"; }
-oss_cmd_patch_add() { # $1=commit $2=text
-  _oss_need 2 patch_add "<commit-sha> <text>" "$@" || return 2;
-  local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_add_patch "$sf" "$1" "$2"
+oss_cmd_patch_add() { # $1=commit $2=text [$3=repo-key]
+  _oss_need 2 patch_add "<commit-sha> <text> [repo-key]" "$@" || return 2;
+  local sf repo; sf="$(_oss_resolve_state)" || return $?
+  # Resolved to a CHECKED key here, not left for `oss_ledger_add_patch`'s own
+  # default tier: the explicit half of that tier was trusted verbatim, so a
+  # typo'd or undeclared key entered the journal and failed much later, during
+  # routing, with nothing left to say which ceremony wrote it.
+  repo="$(_oss_repo_key_for_write "${3:-}")" || return $?
+  oss_ledger_add_patch "$sf" "$1" "$2" "$repo"
 }
 # Explicit state file beats the environment. Without this argument a pre-flight
 # probe in one project silently reads another project's state via a stale
@@ -145,7 +153,9 @@ oss_cmd_spine_list()        { local sf; sf="$(_oss_resolve_state)" || return $?;
 oss_cmd_ledger_active_auto(){ local sf; sf="$(_oss_resolve_state)" || return $?; oss_ledger_active_auto "$sf"; }
 oss_cmd_work_item_add() { # $1=spine $2=title [$3=target_repo]
   _oss_need 2 work_item_add "<spine> <title> [target_repo]" "$@" || return 2;
-  local sf; sf="$(_oss_resolve_state)" || return $?; oss_entity_add_work_item "$sf" "$1" "$2" "${3:-canonical}"
+  local sf tr; sf="$(_oss_resolve_state)" || return $?
+  tr="$(_oss_repo_key_for_write "${3:-}")" || return $?
+  oss_entity_add_work_item "$sf" "$1" "$2" "$tr"
 }
 oss_cmd_release_set_meta() { # $1=release $2=patch-json
   _oss_need 2 release_set_meta "<release> <patch-json>" "$@" || return 2;
@@ -243,10 +253,15 @@ oss_cmd_redgate()             { _oss_need 3 redgate "<workdir> <command> <expect
 oss_cmd_zero_tests_guard()    { _oss_need 1 zero_tests_guard "<runner-command>" "$@" || return 2; oss_verify_zero_tests_guard "$1"; }
 oss_cmd_report_cross_check()  { _oss_need 2 report_cross_check "<report-path> <spec-path>" "$@" || return 2; oss_verify_report_cross_check "$1" "$2"; }
 
-# Per-work-item worktree layer (Task 4). D4: repo-parameterized - only
-# `canonical` resolves today, Plan D adds `private_core` by extending
-# _oss_repo_root alone. Thin dispatcher wrappers, no judgment logic.
-oss_cmd_repo_root()        { _oss_repo_root "${1:-canonical}"; }
+# Per-work-item worktree layer (Task 4). D4: repo-parameterized - every
+# declared repo resolves via _oss_repo_root; an omitted key routes through the
+# sole-repo default rule (#272/#310 Task 4). Thin dispatcher wrappers, no
+# judgment logic.
+oss_cmd_repo_root() {
+  local key
+  if [ -z "${1:-}" ]; then key="$(_oss_default_repo_key)" || return $?; else key="$1"; fi
+  _oss_repo_root "$key"
+}
 oss_cmd_worktree_add()     { _oss_need 3 worktree_add "<repo-key> <wi-id> <slug> [base-ref]" "$@" || return 2; oss_worktree_add "$1" "$2" "$3" "${4:-HEAD}"; }
 oss_cmd_worktree_resolve() { _oss_need 2 worktree_resolve "<repo-key> <wi-id>" "$@" || return 2; oss_worktree_resolve "$1" "$2"; }
 oss_cmd_worktree_remove()  { _oss_need 2 worktree_remove "<repo-key> <wi-id>" "$@" || return 2; oss_worktree_remove "$1" "$2"; }
@@ -259,7 +274,11 @@ oss_cmd_worktree_remove()  { _oss_need 2 worktree_remove "<repo-key> <wi-id>" "$
 # THAT REQUIREMENT in v0.3 as `oss worktree_orphans` below - the disagreement,
 # not the listing. The retired verb stays retired: `test-worktree.sh` asserts it
 # is still an unknown subcommand (rc 2).
-oss_cmd_worktree_orphans() { oss_worktree_orphans "${1:-canonical}" "${2:-}"; }
+oss_cmd_worktree_orphans() {
+  local key
+  if [ -z "${1:-}" ]; then key="$(_oss_default_repo_key)" || return $?; else key="$1"; fi
+  oss_worktree_orphans "$key" "${2:-}"
+}
 
 # Cumulative demo runner (spec §6.1 + companion §4.3). Thin dispatcher
 # wrappers, no judgment logic - resolution (workdir, composition root) lives in
@@ -267,6 +286,16 @@ oss_cmd_worktree_orphans() { oss_worktree_orphans "${1:-canonical}" "${2:-}"; }
 oss_cmd_demo_run() { # [$1=state-file] [$2=workdir]
   local sf; sf="$(_oss_resolve_state "${1:-}")" || return $?
   oss_demo_run_auto "$sf" "${2:-}"
+}
+# The workdir `demo_run` would use, without running anything. cumulative-demo.md
+# section 2's quarantine check has to execute the failing command in exactly
+# that directory, and it had no way to ask: `oss_demo_workdir` was lib-private,
+# so the recipe referenced a `$wd` nothing ever assigned. Exposing the existing
+# resolver is the fix rather than restating its tier rules in prose, which would
+# drift from them the first time they changed.
+oss_cmd_demo_workdir() { # [$1=state-file] [$2=explicit-workdir]
+  local sf; sf="$(_oss_resolve_state "${1:-}")" || return $?
+  oss_demo_workdir "$sf" "${2:-}"
 }
 oss_cmd_demo_user_lines() { local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_user_lines "$sf" "${1:-}"; }
 oss_cmd_demo_record()     { _oss_need 4 demo_record "<work_item|spine|release> <id> <true|false> <line-count> [notes]" "$@" || return 2; local sf; sf="$(_oss_resolve_state)" || return $?; oss_demo_record_close "$sf" "$1" "$2" "$3" "$4" "${5:-}"; }

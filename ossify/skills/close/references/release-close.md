@@ -34,18 +34,32 @@ is named rather than left to read as executed:
 A missing step and a step that silently does nothing are indistinguishable to
 every later reader, which is why they are a table rather than an omission.
 
-**The repo dimension is single-repo for every step but the audit.** The
-companion design
-gives a release close a pin/publish step before the walkthrough for open-core
-postures, and one PR per touched repo at the gate. Neither is built; both attach
-to steps this file does not ship. Nothing below assumes one repo *forever* — the
-walkthrough and both blocking gates read state, not a checkout — and the one
-step that does read checkouts, the boundary audit, reads **every repository
-object the pairing manifest carries**, each with per-role arms (git repos via
-`git -C`, never a worktree; a plain non-repo root via its filesystem-only
-policy, determined per the audit's own §2 whatever the manifest field says);
-the audit's own §9 names what remains outside its shipped
-scope.
+**Every step here is per-repo except the boundary audit and the release
+ladder.** Spines and work items carry a `target_repo`, and Tasks 8/9 (#272/#310)
+made the spine and work-item close layers merge each item's work into that
+item's own repo (`work-item-close.md` §4, `spine-close.md` §3) — so the
+walkthrough (§3) and both blocking gates (§4/§5) below are already repo-general
+the moment those merges are: they read state `oss demo_user_lines`,
+`oss expired_fakes`, `oss expired_quarantines` write and select from, never a
+checkout, so a spine that landed across three repos contributes to them exactly
+as one confined to canonical would — nothing in this file has to loop over
+repos for that to be true, because the state it reads already spans however
+many are declared. The companion design gives a release close a pin/publish
+step before the walkthrough for open-core postures, and one PR per touched repo
+at the gate; neither is built, and both attach to steps this file does not
+ship. The one step that does read checkouts, the boundary audit, reads **every
+repo the resolved topology declares** — `.ossify/topology.json` first, a
+translated `.workspace/pairing.json` as the fallback, which is the same order
+`references/boundary-audit.md` §2 walks — each with per-role arms (git
+repos via `git -C`, never a worktree; a plain non-repo root via its
+filesystem-only policy, determined per the audit's own §2 whatever the
+manifest field says) — that step alone iterates the repo set explicitly,
+because it audits the manifest's roles rather than a spine's items; the
+audit's own §9 names what remains outside its shipped scope. **The release
+ladder has no repo dimension at all**: Skeleton (Release 0) → MVP → v1 → vN
+(`plan-release/references/rolling-wave.md` §4) is one maturity position for the
+whole project, and step 6's `next_sketch` writes it there once, regardless of
+how many repos the closing release actually touched.
 
 ---
 
@@ -344,7 +358,7 @@ reads this key as its starting point.
 
 ## 8. Step 7 — the boundary audit, the last refusal
 
-**Every repository object the pairing manifest carries, each gated on its
+**Every repo the resolved topology declares, each gated on its
 observed visibility with per-role arms, fail-closed, and confirmed findings
 block the close.** The whole step — the repo set and its visibility gate and
 its two recorded deltas from the companion spec, the tracked-file audit

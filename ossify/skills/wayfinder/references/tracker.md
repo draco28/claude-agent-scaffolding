@@ -57,7 +57,7 @@ forms:
 {"tracker": "github:owner/repo"}
 ```
 
-`github:owner/repo` is the only form 1.2.0 accepts. Branch 3 writes
+`github:owner/repo` is the only form 1.3.0 accepts. Branch 3 writes
 **exactly this key name** — a session that invents
 its own leaves a dotfile the next session cannot read, which orphans every
 map on it just as surely as the silent tracker switch branch 0 exists to
@@ -98,12 +98,59 @@ fi
 # and branch-3 repo and hand it straight to the guard below, which is the
 # standalone path failing in the one shape that looks like a resolution bug.
 if [ -n "$ORIGIN" ]; then
-  # BRANCH 1. Git documents three remote spellings for the same repo and all
-  # three reach here: scp-style (git@host:owner/repo), https, and the ssh://
-  # URL form. Miss the third and OWNER binds to "ssh:", which then queries a
-  # repo that does not exist rather than failing at the parse.
+  # BRANCH 1. Git documents four remote spellings for the same repo and all
+  # four reach here: scp-style (git@host:owner/repo), the ssh:// URL form,
+  # plain https, and https carrying userinfo - an authenticated remote whose
+  # token or password sits between scheme and host
+  # (https://x-access-token:TOKEN@github.com/owner/repo). Miss the ssh://
+  # form and OWNER binds to "ssh:", which then queries a repo that does not
+  # exist rather than failing at the parse. Miss the userinfo form (#337) and
+  # $OWNER_REPO keeps the credential verbatim - it then flows into every
+  # `gh -R "$OWNER_REPO"` call and gets printed on every later failure: the
+  # reachability guard below, branch 4's stop, and branch 0's own stop
+  # message all echo $OWNER_REPO to the terminal.
+  #
+  # THE USERINFO STRIP IS ONE RULE FOR EVERY SCHEME, not one per scheme
+  # (#337 rounds 1-2 tried ssh-only then ssh-plus-https, and each time the
+  # scheme that was NOT enumerated rode a credential straight through - a
+  # plain http:// remote, or git://, are unlikely but real: a self-hosted
+  # GHE reachable over http, or a stale copy-pasted origin). The rule
+  # `^([A-Za-z][A-Za-z0-9+.-]*://)[^/]*@` matches any RFC-3986-shaped scheme
+  # (letter, then letters/digits/+/./-, then `://`) followed by userinfo, and
+  # captures the scheme so the replacement can put it back unchanged - this
+  # is shorter than enumerating schemes AND does not miss the next one.
+  #
+  # EVERY class here spans BOTH cases, and that is the round-3 fix. Schemes and
+  # hosts are case-insensitive per RFC 3986, git PRESERVES whatever spelling the
+  # remote was typed in, and the lowercase-only rules matched none of
+  # `HTTPS://tok@github.com/...` - so the credential survived into $OWNER_REPO
+  # and branch 0 and branch 4 printed it to the transcript. Typing the remote in
+  # caps reopened the exact leak #337 closed. Bracket classes rather than sed's
+  # `I` flag or GNU `\L`: neither is portable to the BSD sed on macOS. It
+  # cannot fire on the scp-style git@host:owner/repo form, which has no
+  # `://` at all, so that spelling is untouched by construction rather than
+  # by a separate exclusion.
+  #
+  # THE CLASS EXCLUDES / ONLY, NOT @. A userinfo field can itself carry a
+  # raw, unescaped @ (a password containing one) - excluding @ from the class
+  # as well stops the match at the FIRST @ rather than the last one before
+  # the host, so `user:p@ss@github.com/...` would strip only `user:p@` and
+  # leave `ss@github.com/...` still credential-bearing. `[^/]*` is greedy and
+  # POSIX ERE takes the longest leftmost match, so it runs all the way to the
+  # last @ before the first /, which is the actual userinfo terminator - and
+  # `*` rather than `+` so an empty userinfo (`https://@github.com/...`)
+  # still matches instead of falling through untouched.
+  #
+  # WHAT THIS RULE DOES NOT DO: turn every scheme into owner/repo. Only ssh
+  # and https get a github.com-specific rewrite below; a credential-free
+  # http:// or git:// origin is left as `http://github.com/owner/repo` or
+  # similar rather than reduced further, which is fine - the reachability
+  # guard fails it the same way an unsupported scheme was always going to
+  # fail, just without printing a secret on the way. This rule runs FIRST,
+  # before either scheme-specific rewrite, so neither rewrite below needs
+  # its own userinfo handling any more.
   OWNER_REPO="$(printf '%s' "$ORIGIN" \
-    | sed -E 's#^ssh://([^@/]+@)?github\.com/#https://github.com/#; s#^git@github\.com:#https://github.com/#; s#^https://github\.com/##; s#\.git$##')"
+    | sed -E 's#^([A-Za-z][A-Za-z0-9+.-]*://)[^/]*@#\1#; s#^[Ss][Ss][Hh]://[Gg][Ii][Tt][Hh][Uu][Bb]\.[Cc][Oo][Mm]/#https://github.com/#; s#^[Gg][Ii][Tt]@[Gg][Ii][Tt][Hh][Uu][Bb]\.[Cc][Oo][Mm]:#https://github.com/#; s#^[Hh][Tt][Tt][Pp][Ss]?://[Gg][Ii][Tt][Hh][Uu][Bb]\.[Cc][Oo][Mm]/##; s#\.git$##')"
 
   # BRANCH 0 RUNS HERE, and only here. It compares the RESOLVED origin against
   # the dotfile, so it needs both - and this is the only arm that has an

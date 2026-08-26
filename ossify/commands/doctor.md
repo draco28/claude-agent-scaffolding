@@ -28,8 +28,9 @@ validation → machine-checkable-rule authoring → the Claude/Codex interop che
 It shells out to `oss` for mechanical facts **where a verb exists**. The interop
 surface no longer has one: `interop_check` was 175 lines of bash that opened
 files and described them, and the skill performs that surface by reading — the
-manifest walk and parse, both roots as directories, a raw `git -C` probe on
-canonical, and the `AGENTS.md` scan. What stays mechanical there is path
+manifest walk and parse, `ai_workspace`'s and every declared repo's root as
+directories, a raw `git -C` probe on each declared repo, and the `AGENTS.md`
+scan. What stays mechanical there is path
 *resolution* (`oss repo_root`, `oss state_path`), because every mutating verb
 routes through it.
 
@@ -38,5 +39,5 @@ nothing here halts on a failure and nothing here is a gate: `doctor` reports, an
 the only thing it writes is a rule block the user asked for.
 
 It also runs on a **broken** project by design — an uninitialised project, a
-corrupt state file or a missing pairing manifest is the finding, not a reason to
-refuse.
+corrupt state file or a missing topology declaration is the finding, not a
+reason to refuse.

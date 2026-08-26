@@ -376,6 +376,19 @@ _spine_unreached() { # $1=label ; the spine must NOT have landed on base
   fi
 }
 
+# E2-E5 inject `repo_base_branches`, one "<repo>:<base_branch>" line per hosting
+# repo, instead of a bare `base_branch` - Task 9 (#272/#310) turned the once-per-
+# spine merge into a loop over every repo hosting the spine's items, keyed off
+# `oss get .work_items[].target_repo`. This fixture declares one repo
+# ("canonical"), and both $WI and $WI2 default to it, so the block's own loop
+# resolves the very same single iteration the old single-repo form ran - the
+# assertions below exercise the loop body's guards against that one hosting
+# repo, not the multi-repo iteration itself (the same scope note
+# round-orchestration.md's `checkout -q -b` row carries in block-ledger.tsv).
+# The messages are BYTE-IDENTICAL to the old single-`canonical` wording,
+# because the block interpolates the resolved repo NAME ("canonical") in
+# exactly the position the old block hardcoded the literal word.
+
 # E2. Canonical parked somewhere other than the spine branch. This is the guard
 # the whole step turns on: reading the branch off HEAD instead of deriving it
 # makes the switch-back a no-op, the merge "Already up to date" at rc 0, and
@@ -384,17 +397,18 @@ _spine_unreached() { # $1=label ; the spine must NOT have landed on base
 git -C "$CANON" checkout -q "$BASE_BRANCH"
 t_assert_eq "$BASE_BRANCH" "$(git -C "$CANON" rev-parse --abbrev-ref HEAD)" "the wrong-branch fixture really is parked off the spine branch (the guard's precondition)"
 t_capture env "PATH=$SHIM:$PATH" bash -c \
-  "set -euo pipefail; spine_id='$SP'; spine_slug='$SPINE_SLUG'; base_branch='$BASE_BRANCH'; . '$MERGE_BLOCK'"
+  "set -euo pipefail; spine_id='$SP'; spine_slug='$SPINE_SLUG'; repo_base_branches='canonical:$BASE_BRANCH'; . '$MERGE_BLOCK'"
 t_assert_rc 1 "a spine close with canonical parked elsewhere halts BEFORE the merge"
 t_assert_contains "$T_OUT" "canonical is on '$BASE_BRANCH', not '$SPINE_BRANCH'" "...naming both the branch it found and the branch it derived"
 _spine_unreached "wrong-branch halt"
 
-# E3. base_branch unresolvable. The plan doc's spine-context section is the only
-# record of it, so an empty read is reachable. Unguarded, `git checkout -q ""`
-# fails at rc 128 and the ceremony merges the spine branch into ITSELF at rc 0.
+# E3. base_branch unresolvable for the hosting repo. The plan doc's
+# spine-context section is the only record of it, so an empty read is
+# reachable. Unguarded, `git checkout -q ""` fails at rc 128 and the ceremony
+# merges the spine branch into ITSELF at rc 0.
 git -C "$CANON" checkout -q "$SPINE_BRANCH"
 t_capture env "PATH=$SHIM:$PATH" bash -c \
-  "set -euo pipefail; spine_id='$SP'; spine_slug='$SPINE_SLUG'; base_branch=''; . '$MERGE_BLOCK'"
+  "set -euo pipefail; spine_id='$SP'; spine_slug='$SPINE_SLUG'; repo_base_branches=''; . '$MERGE_BLOCK'"
 t_assert_rc 1 "an unresolvable base_branch halts"
 t_assert_contains "$T_OUT" "no base_branch recorded for $SP" "...naming the spine whose base branch is missing"
 t_assert_eq "$SPINE_BRANCH" "$(git -C "$CANON" rev-parse --abbrev-ref HEAD)" "...leaving canonical where it was"
@@ -403,7 +417,7 @@ _spine_unreached "empty base_branch halt"
 # E3b. base_branch naming a branch that does not exist (a typo in the plan doc's
 # spine-context line). The checkout fails, and its rc must be read.
 t_capture env "PATH=$SHIM:$PATH" bash -c \
-  "set -euo pipefail; spine_id='$SP'; spine_slug='$SPINE_SLUG'; base_branch='no-such-base'; . '$MERGE_BLOCK'"
+  "set -euo pipefail; spine_id='$SP'; spine_slug='$SPINE_SLUG'; repo_base_branches='canonical:no-such-base'; . '$MERGE_BLOCK'"
 t_assert_rc 1 "a base_branch naming no ref halts"
 t_assert_contains "$T_OUT" "cannot check out base branch 'no-such-base'" "...from the checkout's own rc, naming the branch it could not reach"
 _spine_unreached "missing base_branch halt"
@@ -414,14 +428,15 @@ _spine_unreached "missing base_branch halt"
 git -C "$CANON" rev-parse --verify --quiet "refs/heads/f.txt" >/dev/null \
   && { T_FAIL=$((T_FAIL+1)); echo "FAIL: 'f.txt' names a branch here - the tracked-file case is not what this exercises"; }
 t_capture env "PATH=$SHIM:$PATH" bash -c \
-  "set -euo pipefail; spine_id='$SP'; spine_slug='$SPINE_SLUG'; base_branch='f.txt'; . '$MERGE_BLOCK'"
+  "set -euo pipefail; spine_id='$SP'; spine_slug='$SPINE_SLUG'; repo_base_branches='canonical:f.txt'; . '$MERGE_BLOCK'"
 t_assert_rc 1 "a base_branch naming a tracked file halts even though the checkout exits 0"
 t_assert_contains "$T_OUT" "switch-back left canonical on '$SPINE_BRANCH', not 'f.txt'" "...from the post-checkout HEAD assertion, not from the checkout's rc"
 _spine_unreached "tracked-file base_branch halt"
 
 # E5. The happy path, and the changed-path list the touch check reads. Both
-# blocks run in ONE shell so $merge_sha really crosses the seam from step 2 to
-# step 5 rather than being handed over by this test.
+# blocks run in ONE shell so $merge_shas really crosses the seam from step 2 to
+# step 5 (repo:sha pairs, one per hosting repo - never a bash associative array)
+# rather than being handed over by this test.
 #
 # Two bones make the path computation observable:
 #   ADR-0101 covers the file only the SPINE changed  -> must HIT
@@ -432,7 +447,7 @@ bash "$OSS" bone_add ADR-0101 "the surface the spine moved" "spine.txt" >/dev/nu
 bash "$OSS" bone_add ADR-0102 "a surface the spine never touched" "sibling.txt" >/dev/null
 git -C "$CANON" checkout -q "$SPINE_BRANCH"
 t_capture env "PATH=$SHIM:$PATH" bash -c \
-  "set -euo pipefail; spine_id='$SP'; spine_slug='$SPINE_SLUG'; base_branch='$BASE_BRANCH'; . '$MERGE_BLOCK'; . '$TOUCH_BLOCK'"
+  "set -euo pipefail; spine_id='$SP'; spine_slug='$SPINE_SLUG'; repo_base_branches='canonical:$BASE_BRANCH'; . '$MERGE_BLOCK'; . '$TOUCH_BLOCK'"
 t_assert_rc 0 "the merge block plus the touch block run clean end to end"
 t_assert_eq "$BASE_BRANCH" "$(git -C "$CANON" rev-parse --abbrev-ref HEAD)" "the switch-back left canonical on the base branch"
 if git -C "$CANON" merge-base --is-ancestor "$SPINE_TIP" "$BASE_BRANCH"; then
@@ -448,6 +463,38 @@ fi
 t_assert_contains "$T_OUT" "bone ADR-0101" "the changed-path list contains the file the SPINE changed (the merge's own first-parent diff)"
 case "$T_OUT" in
   *"ADR-0102"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: the changed-path list named a file only the BASE branch changed - this is 'git diff \$base..\$spine', which is inverted after the merge";;
+  *) T_PASS=$((T_PASS+1));;
+esac
+
+# E5b. RESUME. E5 left canonical merged and parked on its base branch - exactly
+# the state a close halted at step 5 leaves behind. Re-entering the merge block
+# used to be impossible: it asserted HEAD == $spine_branch and halted on a repo
+# it had itself finished, and $merge_shas (a shell variable) was gone, so §6's
+# touch check had nothing to compute a first-parent diff from. The resume arm
+# now lives inside the loop, so this is the same block run twice.
+FIRST_MERGE="$(git -C "$CANON" rev-parse "$BASE_BRANCH")"
+MERGES_BEFORE="$(git -C "$CANON" rev-list --merges --count "$BASE_BRANCH")"
+t_capture env "PATH=$SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='$SP'; spine_slug='$SPINE_SLUG'; repo_base_branches='canonical:$BASE_BRANCH'; . '$MERGE_BLOCK'; printf 'PAIRS%s\n' \"\$merge_shas\""
+t_assert_rc 0 "resume: the merge block re-runs clean against an already-landed repo"
+t_assert_contains "$T_OUT" "already landed at $FIRST_MERGE" "resume: the landed repo is recognised and its merge sha reconstructed from history"
+t_assert_contains "$T_OUT" "canonical:$FIRST_MERGE" "resume: \$merge_shas is repopulated for the landed repo - the touch check reads it"
+t_assert_eq "$MERGES_BEFORE" "$(git -C "$CANON" rev-list --merges --count "$BASE_BRANCH")" "resume: no second, spurious merge commit was created"
+t_assert_eq "$BASE_BRANCH" "$(git -C "$CANON" rev-parse --abbrev-ref HEAD)" "resume: the repo is left on its base branch"
+
+# E5c. A PARTIAL changed-path list must halt, not read as clean. The per-repo
+# diff loop used to sit inside a process substitution, so the outer loop saw its
+# stdout and never its exit status: a repo failing AFTER an earlier one emitted
+# paths contributed nothing silently, `$#` stayed non-zero, and touch_check ran
+# over a list missing that repo's changes. The good pair comes FIRST here on
+# purpose - that is the ordering the old form could not detect.
+t_capture env "PATH=$SHIM:$PATH" bash -c \
+  "set -euo pipefail; merge_shas='canonical:$FIRST_MERGE
+nosuchrepo:$FIRST_MERGE'; . '$TOUCH_BLOCK'"
+t_assert_rc 1 "a repo failing after another already emitted paths halts the touch check"
+t_assert_contains "$T_OUT" "INCOMPLETE" "...and says the changed-path list would be incomplete"
+case "$T_OUT" in
+  *"touch check: clean"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: touch_check reported CLEAN over a partial path list - the exact false negative this guard exists to prevent";;
   *) T_PASS=$((T_PASS+1));;
 esac
 
@@ -469,15 +516,17 @@ t_assert_contains "$T_OUT" "INCONCLUSIVE, not clean" "...saying so in the lib's 
 
 # E7. The shipped block's rc-2 arm: inconclusive must HALT, not fall through to
 # the clean branch. Driven by pointing the block's touch_check at that same
-# unreadable state.
+# unreadable state. `merge_shas` is one "<repo>:<sha>" pair - the aggregation
+# form §6 now reads, never a bare `merge_sha`/`canonical` pair (Task 9).
 MERGE_SHA="$(git -C "$CANON" rev-parse "$BASE_BRANCH")"
 t_capture env "PATH=$SHIM:$PATH" "OSS_STATE_FILE=$BROKEN" bash -c \
-  "set -euo pipefail; canonical='$CANON'; merge_sha='$MERGE_SHA'; . '$TOUCH_BLOCK'"
+  "set -euo pipefail; merge_shas='canonical:$MERGE_SHA'; . '$TOUCH_BLOCK'"
 t_assert_rc 1 "the shipped block HALTS on touch_check rc 2 rather than treating it as clean"
 t_assert_contains "$T_OUT" "INCONCLUSIVE, not clean - halt" "...with the halt naming the reason"
 
-# E8. A merge that changed no paths. touch_check would answer rc 2 for it, so the
-# block halts BEFORE the call and says which of the two rc-2 causes this is.
+# E8. A merge that changed no paths in the one hosting repo. touch_check would
+# answer rc 2 for it, so the block halts BEFORE the call and says which of the
+# two rc-2 causes this is.
 git -C "$CANON" checkout -q -b empty-spine "$BASE_BRANCH"
 echo transient > "$CANON/transient.txt"; git -C "$CANON" add transient.txt
 git -C "$CANON" commit -qm "add a file"
@@ -487,7 +536,7 @@ git -C "$CANON" merge --no-ff empty-spine -m "a spine that netted no change" >/d
 EMPTY_MERGE="$(git -C "$CANON" rev-parse HEAD)"
 t_assert_eq "" "$(git -C "$CANON" diff --name-only "$EMPTY_MERGE^1" "$EMPTY_MERGE")" "the empty-merge fixture really does change no path (the guard's precondition)"
 t_capture env "PATH=$SHIM:$PATH" bash -c \
-  "set -euo pipefail; canonical='$CANON'; merge_sha='$EMPTY_MERGE'; . '$TOUCH_BLOCK'"
+  "set -euo pipefail; merge_shas='canonical:$EMPTY_MERGE'; . '$TOUCH_BLOCK'"
 t_assert_rc 1 "a merge that changed no paths halts"
 t_assert_contains "$T_OUT" "the merge changed no paths" "...distinguishing the empty-input cause from an unreadable registry"
 
@@ -717,14 +766,26 @@ for _pair in "$W_GUARD:rev-parse --abbrev-ref" "$W_CUT:checkout -q -b"; do
   fi
 done
 
-# Both blocks OPEN by self-assigning `canonical` from `oss repo_root`, so a
-# caller-injected value is overwritten. Shim the two resolver verbs to point at
-# the scratch repo and delegate everything else to the real dispatcher.
-_wshim() { # $1=dir-to-return $2=spine-branch $3=wi-branch $4=shim-dir
+# Both blocks resolve `canonical` via `oss repo_root`, so a caller-injected
+# value is overwritten. Shim the resolver verbs to point at the scratch repo
+# and delegate everything else to the real dispatcher. $3 doubles as the `oss
+# get` return for whichever call site is under test: W1's guard now makes TWO
+# `oss get` calls (Task 9, #272/#310 - `.target_repo` first, to resolve the
+# item's own repo, then `.branch`), and only the second is $3's job - the
+# first must answer "canonical" regardless of $3 so the guard's own
+# `oss repo_root "$target_repo"` call lands on the first case arm below,
+# exactly as W2's per-repo loop (round-orchestration.md §2) already needs for
+# its one `target_repo` value to iterate. A case arm matching on the literal
+# substring "target_repo" wins over the generic `"get "*` arm (case tries arms
+# in order), so it answers BOTH calls the same way without knowing which test
+# is running - and it does not disturb W2, whose own $3 was already
+# "canonical" for the exact query this arm now intercepts.
+_wshim() { # $1=dir-to-return $2=spine-branch $3=wi-branch-or-repo $4=shim-dir
   mkdir -p "$4"
   { printf '#!/usr/bin/env bash\ncase "$1 $2" in\n'
     printf '  "repo_root canonical") echo %s ;;\n' "$1"
     printf '  "branch_name "*)       echo %s ;;\n' "$2"
+    printf '  *"target_repo"*)       echo canonical ;;\n'
     printf '  "get "*)               echo %s ;;\n' "$3"
     printf '  *) exec bash "%s" "$@" ;;\nesac\n' "$OSS"
   } > "$4/oss"; chmod +x "$4/oss"
@@ -761,13 +822,15 @@ t_assert_eq "seed" "$(git -C "$W1" show -s --format=%s "$W1_BASE")" \
 t_assert_eq "" "$(git -C "$W1" log --oneline "$W1_BASE" --grep='merge r0.s1.w1' 2>/dev/null)" \
   "W1: ...and no work-item merge commit exists on it"
 
-# W2 — the spine cut must (a) cut from the PLANNED base recorded in the spine
-# plan, not from whatever branch canonical is parked on, and (b) CHECK OUT the
-# branch rather than merely creating it. `git branch` leaves canonical on its
-# previous branch and every downstream step still returns rc 0, which is
-# precisely how the spine silently never receives the work. Deriving the base
-# from HEAD is the same silent wrong-branch class one step earlier: the close
-# then merges back into the unintended branch with every guard passing.
+# W2 — the spine cut must (a) CHECK OUT the branch rather than merely
+# creating it, and (b) cut from wherever the repo is CURRENTLY parked
+# (HEAD) - NOT from a planned base recorded in the spine plan. `git branch`
+# leaves the repo on its previous branch and every downstream step still
+# returns rc 0, which is precisely how the spine silently never receives the
+# work. Reading the PLANNED base out of SPINE.md instead of HEAD is a known,
+# disclosed limitation deferred to #133 - 07a0bd8 reverted an attempt at
+# doing that here - and this block deliberately does NOT have that coverage
+# (see this file's block-ledger.tsv row for the same disclaimer).
 W2="$TMP/w2"; mkdir -p "$W2"; git -C "$W2" init -q
 git -C "$W2" config user.email t@t; git -C "$W2" config user.name t
 echo seed > "$W2/f"; git -C "$W2" add .; git -C "$W2" commit -qm seed
@@ -779,7 +842,10 @@ git -C "$W2" checkout -q -b w2-parked
 echo parked > "$W2/parked.txt"; git -C "$W2" add parked.txt
 git -C "$W2" commit -qm parked
 W2_PARKED_SHA="$(git -C "$W2" rev-parse w2-parked)"
-_wshim "$W2" "spine/r0.s9-demo" "unused" "$TMP/shim-w2"
+# "canonical" is the value the per-repo loop's `oss get ... | .target_repo`
+# must yield here - the loop calls `oss repo_root "$repo"` on whatever comes
+# back, and only "canonical" resolves through this shim's first case arm.
+_wshim "$W2" "spine/r0.s9-demo" "canonical" "$TMP/shim-w2"
 # RUN IT WITH NOTHING INJECTED. An earlier revision of this test passed
 # `base_branch=...` into the block, which made it blind to the block not
 # assigning the variable at all - the lane then halted on every fresh run and
@@ -806,7 +872,7 @@ W2C="$TMP/w2c"; mkdir -p "$W2C"; git -C "$W2C" init -q
 git -C "$W2C" config user.email t@t; git -C "$W2C" config user.name t
 echo seed > "$W2C/f"; git -C "$W2C" add .; git -C "$W2C" commit -qm seed
 git -C "$W2C" checkout -q --detach HEAD
-_wshim "$W2C" "spine/r0.s9-demo" "unused" "$TMP/shim-w2c"
+_wshim "$W2C" "spine/r0.s9-demo" "canonical" "$TMP/shim-w2c"
 t_capture env "PATH=$TMP/shim-w2c:$PATH" bash -c "set -euo pipefail; . '$W_CUT'"
 t_assert_rc 1 "W2c: a DETACHED HEAD halts - there is no branch name to record as base_branch"
 t_assert_contains "$T_OUT" "DETACHED HEAD" "W2c: ...naming the condition"

@@ -61,21 +61,39 @@ contaminated by the other.
 ### Getting the diff
 
 ```bash
-canonical="$(oss repo_root canonical)"
-# $base_branch and $spine_branch are ALREADY RESOLVED by the ceremony — step 2
-# resolves base_branch from the handoffs' recorded value with SPINE.md's planned
-# base as the cross-check, halting on disagreement, and derives the spine branch
-# with `oss branch_name` (spine-close.md §3). Reuse them.
-git -C "$canonical" diff --stat "$base_branch...$spine_branch"   # scope first
-git -C "$canonical" diff "$base_branch...$spine_branch"          # the review surface
+# $spine_branch and $repo_base_branches (one "<repo>:<base_branch>" pair per
+# line, one line per hosting repo) are ALREADY RESOLVED by the ceremony —
+# spine-close.md §3 recovers both, once, before sending you here. Reuse them;
+# re-deriving either is a SECOND resolver for the same fact, which is exactly
+# what "one resolver, one halt, one source of truth" below is protecting.
+#
+# EVERY hosting repo, never canonical alone: the distinct target_repo values
+# across the spine's work items, the same set spine-close.md §3's merge loop
+# iterates. A cross-repo spine's diff spans every one of them, and reading
+# only one repo's diff reviews PART of the spine dressed up as the whole of
+# it — which is worse than skipping the review, because it reads as done.
+hosting_repos="$(oss get ".work_items[] | select(.spine==\"$spine_id\") | .target_repo" | sort -u)"
+[ -n "$hosting_repos" ] \
+  || { echo "code-review: no work items found for $spine_id - halt, cannot scope the diff"; exit 1; }
+while IFS= read -r repo; do
+  [ -n "$repo" ] || continue
+  repo_root="$(oss repo_root "$repo")" \
+    || { echo "code-review: $spine_id names undeclared repo '$repo' - halt"; exit 1; }
+  base_branch="$(printf '%s\n' "$repo_base_branches" | awk -F: -v r="$repo" '$1==r{print $2; exit}')"
+  [ -n "$base_branch" ] \
+    || { echo "code-review: no base_branch recorded for $spine_id in $repo - halt"; exit 1; }
+  echo "=== $repo ($base_branch...$spine_branch) ==="
+  git -C "$repo_root" diff --stat "$base_branch...$spine_branch"   # scope first
+  git -C "$repo_root" diff "$base_branch...$spine_branch"          # the review surface
+done < <(printf '%s\n' "$hosting_repos")
 ```
 
 **Do not re-parse `SPINE.md` here.** A private `grep -A5 … | sed` reads a fixed
 window and a fixed shape, so a spine-context block that runs past five lines,
 writes the field as a paragraph, or wraps it in Markdown emphasis yields an
-empty or markup-laden value. Both `git diff` calls then fail, and this review —
+empty or markup-laden value. The `git diff` calls then fail, and this review —
 which is advisory and does not halt — is **silently skipped** on a spine whose
-merge step resolves the same field perfectly well one step later. One resolver,
+merge step resolves the same fields perfectly well one step later. One resolver,
 one halt, one source of truth.
 
 **`base...spine_branch` (three dots), not `base..spine_branch`.** Three dots diffs

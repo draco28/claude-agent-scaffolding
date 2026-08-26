@@ -38,7 +38,9 @@ Five surfaces:
 | Budget check | Does the front-loaded surface still cost what it claims? | §8 |
 
 **The guarantee, and it is the inverse of every other entry skill's:
-`doctor` runs on a broken project.** `start` refuses without a pairing manifest;
+`doctor` runs on a broken project.** `start` refuses when a declared repo
+already carries code (it authors a topology rather than refusing for a missing
+one);
 `plan-release` requires an onboarded project; `close` refuses without a green
 `oss doctor`. This skill **never refuses for the condition it exists to report**.
 An uninitialised project, a corrupt state file, a missing manifest — each is a
@@ -71,8 +73,9 @@ the verb, let the user run it.
 - The user wants to **run a gate** — the work-item gate, the cumulative demo, a
   release's blocking findings. Those are `/close`, and they halt; you do not.
 - The user wants to **author or amend the spec itself**. Fresh authoring is
-  `/start`, which refuses on a canonical that already carries code; a project
-  that already has code adopts via `/ossify:adopt`. Amending an existing spec
+  `/start`, which refuses on a declared repo that already carries code; a
+  project that already has code adopts via `/ossify:adopt`. Amending an
+  existing spec
   is not this surface's job — you validate what exists and never edit it.
 - The user wants to **plan, decompose, or execute** anything. Those are
   `/plan-release`, `/plan-spine`, `/work-item`.
@@ -172,11 +175,14 @@ count.
 It reports directories under `<repo>/.worktrees/` that no work item claims — why
 that matters at all (spine close removes worktrees by reading state) is
 `references/state-inspection.md` §4's account. Being repo-reading also makes
-it the only one that can be legitimately *unavailable*: with no pairing manifest
-there is no repo root to look in, so emit `skip:` rather than falling silent.
+it the only one that can be legitimately *unavailable*: with no topology
+declaration resolving — neither `.ossify/topology.json` nor a
+`.workspace/pairing.json` on the walk-up path — there is no repo root to look
+in, so emit `skip:` rather than falling silent.
 
 **Print one line per repository**, tagged `worktrees(<repo-key>)` — the keys are
-`_oss_repo_root`'s enum, so read that rather than a list here. A key the manifest
+every repo the manifest declares, plus `ai_workspace`, resolved from the
+manifest at run time rather than trusted from a list written here. A key the manifest
 does not configure, or whose root is not on this machine, still costs a `skip:`
 line. Do not summarise the lines into one verdict; the whole point is that
 "clean" and "not looked at" stay distinguishable per repo (the #156 history that
@@ -189,9 +195,13 @@ An unkeyed line means the surface did not run at all, and it names why.
 
 `oss worktree_orphans <repo-key> <state>` names the directories individually.
 **Pass both arguments, every time.** doctor used to print this line for you with
-both pinned; it does not any more, so the discipline is yours. Omitting the key
-silently defaults to `canonical` (the exact habit #156 punished), and omitting
-the state lets an exported `$OSS_STATE_FILE` answer about a different project.
+both pinned; it does not any more, so the discipline is yours. Omitting the
+key resolves to the sole declared repo under one, and refuses outright —
+naming the declared set — under more than one (#272/#310 Task 4); relying on
+that default is still the #156 habit, because a project that grows a second
+repo turns every omitted call into a refusal instead of the per-repo
+read-out this section exists to produce. Omitting the state lets an exported
+`$OSS_STATE_FILE` answer about a different project.
 Pin it once with `sf="${OSS_STATE_FILE:-$(oss state_path)}"` — **override first**,
 matching what `oss doctor` itself resolves — and pass `"$sf"` to every read,
 including to `oss doctor`. `references/state-inspection.md` §2 carries the
@@ -283,9 +293,13 @@ every mutating verb routes through it.
 
 Emit the same line grammar as `oss doctor` — `ok:` / `fail:` per check — and,
 since there is no exit code now, **state plainly at the end whether anything
-failed**. Checks, in order: the pairing manifest (and that it is *exactly one*
-JSON object), both repo roots resolving to real directories with `canonical`
-also being a git **work tree** (a bare repository or a `.git` directory is not
+failed**. Checks, in order: the resolved topology declaration —
+`.ossify/topology.json` first, `.workspace/pairing.json` as the translated
+fallback, and that whichever resolves is *exactly one* JSON object — the
+`ai_workspace` root and every declared repo's root
+resolving to real directories, with each declared repo — never
+`ai_workspace`, which is legitimately allowed to be untracked — also being a
+git **work tree** (a bare repository or a `.git` directory is not
 one and fails), the state path resolving and not silently
 overridden, and **`AGENTS.md` existing and naming ossify**. That last one is the
 check that is actually about Codex: `AGENTS.md` is the only file Codex reads for
