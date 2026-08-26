@@ -23,6 +23,7 @@ t_capture m "$F/dag.json" '.issues[]|select(.key=="r1.s2.w1")|.status'; t_assert
 t_capture m "$F/dag.json" '.milestones[0].status';          t_assert_eq "in-progress" "$T_OUT" "active release -> in-progress"
 t_capture m "$F/dag.json" '.milestones[0].target_ms';       t_assert_eq "1787220000000" "$T_OUT" "target_ms from created_at (2026-08-20T10:00:00Z)"
 t_capture m "$F/dag.json" '.issues[]|select(.key=="r1.s2.w1")|.description'; t_assert_contains "$T_OUT" "spine/r1.s2/w1" "item description carries branch"
+t_capture m "$F/dag.json" '.milestones[0].description | contains("goal: g\n\nexit criteria:")'; t_assert_eq "true" "$T_OUT" "milestone description keeps the blank line before exit criteria"
 
 # known-answer negative: flip one status, exactly that entity changes
 jq '.spines[1].status="abandoned"' "$F/dag.json" > /tmp/dag-mut.json

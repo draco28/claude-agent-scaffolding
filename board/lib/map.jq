@@ -3,7 +3,7 @@ def em: " — ";                                   # U+2014 with spaces: the tit
 def issue_status: if . == "closed" then "complete" else . end;
 def milestone_status:
   {planned:"planned", active:"in-progress", complete:"completed", closed:"completed", abandoned:"canceled"}[.] // "planned";
-def lines: map(select(. != null and . != "")) | join("\n");
+def lines: map(select(. != null)) | join("\n");
 
 {
   project: .project.name,
