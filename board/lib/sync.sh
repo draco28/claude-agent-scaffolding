@@ -38,7 +38,7 @@ board_sync() { # $1=ws-or-any-dir [--force] [--bind IDENT]
   fi
 
   # workspace type + project
-  board_setup_workspace_type; local rc=$?; [ $rc -ne 0 ] && return $rc
+  local rc=0; board_setup_workspace_type || rc=$?; [ "$rc" -ne 0 ] && return "$rc"
   if ! board_cli_project_get "$project"; then
     [ "$(board_cli_err_code)" = "NOT_FOUND" ] || _board_fail "$ws" "projects get $project: $(board_cli_err_code)" || return 1
     board_cli_space_create_typed "$BOARD_SPACE_TYPE" "$project" || _board_fail "$ws" "spaces create $project: $(board_cli_err_code) $(board_cli_err_message)" || return 1

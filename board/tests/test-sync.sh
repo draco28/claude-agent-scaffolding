@@ -83,4 +83,6 @@ t_capture grep -c 'issues create' "$BOARD_FAKE_LOG"; t_assert_eq 0 "$T_OUT" "bar
 : > "$BOARD_FAKE_LOG"; cp "$F/empty.json" "$WS/.ossify/project-state.json"; echo '[{"name":"Ossify project","roles":[{"name":"agent"}]}]' > "$BOARD_FAKE_DIR/spaces.types.list.json"
 t_capture bash "$ROOT/bin/board" sync "$WS" --force; t_assert_rc 0 "dispatcher: empty state syncs"
 t_capture bash "$ROOT/bin/board" digest "$WS"; t_assert_eq 64 "${#T_OUT}" "dispatcher: digest"
+echo '[{"name":"Classic project"}]' > "$BOARD_FAKE_DIR/spaces.types.list.json"
+t_capture bash "$ROOT/bin/board" sync "$WS" --force; t_assert_rc 5 "dispatcher: type missing propagates rc 5 under strict mode"; t_assert_contains "$T_OUT" "Settings" "dispatcher: rc-5 message still prints"
 t_summary
