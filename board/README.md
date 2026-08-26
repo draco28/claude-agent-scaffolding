@@ -20,3 +20,21 @@ based on Classic project). The CLI cannot create space types; the sync fills in 
 
 - `/board:sync [--bind IDENT]` — force a full reconcile; first run binds the repo to a Huly project.
 - `/board:doctor` — env, reachability, binding, last sync, drift.
+
+## Pilot
+
+Planned bindings for the VS1 pilot, one Huly project per repo:
+
+- pulse-trader → `PTRD`
+- pulsebase → `PBASE`
+- PulseHive → `PHIVE`
+- PulseDB → `PDB`
+- pulse-guard → `PGRD`
+
+The exit criterion for VS1 is one week of normal work on pulse-trader with `/board:doctor`
+reporting zero drift and no hand edits.
+
+## Tests
+
+    bash board/tests/run-all.sh
+    BOARD_LIVE=1 bash board/tests/live/smoke.sh
