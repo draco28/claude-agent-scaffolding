@@ -35,12 +35,16 @@ lists: a milestone's title lives in `.label`, an issue's in `.title`, and an iss
 may be `.status` or `.status.name` — inspect the JSON you actually received before
 comparing. Then report, as short lists:
 
-- **Status mismatches** — same title key, different status. These are hand edits on Huly
-  the next sync will overwrite, or a failed sync. Say which, using §2.
+- **Status, label, or milestone mismatches** — same title key but a different status; a
+  spine whose `spine:<class>` label disagrees with the file; an issue attached to a
+  milestone whose title does not start with its release key (compare labels and milestone
+  only when those fields are present in the JSON you received). These are hand edits on
+  Huly the next sync will overwrite, or a failed sync. Say which, using §2.
 - **Unowned issues** — titles that do not start with an ossify id (`r1`, `r1.s1`,
   `r1.s1.w3`) and carry no `wayfinder:` label. Usually a title someone edited; the next
   sync will create a duplicate beside it.
 - **Orphans** — ossify-keyed issues with no matching id in the file.
 - **Missing** — desired entities with no issue or milestone yet.
 
-Zero in all four is the healthy report; say so in one line.
+Zero in all four is the healthy report; say so in one line. Descriptions are not compared
+in VS1 — do not report description drift.

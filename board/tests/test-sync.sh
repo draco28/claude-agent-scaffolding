@@ -58,6 +58,21 @@ t_capture board_sync "$WS"; t_assert_rc 0 "flip: ok"
 t_assert_eq 1 "$(mutations)" "flip: exactly one mutation"
 t_capture grep 'issues update' "$BOARD_FAKE_LOG"; t_assert_contains "$T_OUT" "PTRD-r1s1w3 --status active" "flip: the right item, the right status"
 
+# 5b. label drift: actual exposes labels and one spine lacks its class label -> exactly one labels add
+jq -f "$ROOT/lib/map.jq" "$WS/.ossify/project-state.json" > "$BOARD_FAKE_DIR/desired.json"
+jq '[.issues[] | {identifier: ("PTRD-" + (.key|gsub("\\.";""))), title: .title, status: {name: .status}, taskType: {name: .task_type}, milestone: (if .milestone_key then {label: (.milestone_key + " — x")} else null end), parentIssue: (if .parent_key then ("PTRD-" + (.parent_key|gsub("\\.";""))) else null end), labels: (if .label then [.label] else [] end)}] | map(if (.title|startswith("r1.s1 ")) then .labels = [] else . end)' "$BOARD_FAKE_DIR/desired.json" > "$BOARD_FAKE_DIR/issues.list.json"
+: > "$BOARD_FAKE_LOG"
+t_capture board_sync "$WS" --force; t_assert_rc 0 "label drift: ok"
+t_assert_eq 1 "$(mutations)" "label drift: exactly one mutation"
+t_capture grep 'labels add' "$BOARD_FAKE_LOG"; t_assert_contains "$T_OUT" "PTRD-r1s1 --label spine:bone" "label drift: the spine, the class label"
+
+# 5c. milestone drift: one spine attached to the wrong milestone -> exactly one milestone set
+jq '[.issues[] | {identifier: ("PTRD-" + (.key|gsub("\\.";""))), title: .title, status: {name: .status}, taskType: {name: .task_type}, milestone: (if .milestone_key then {label: (.milestone_key + " — x")} else null end), parentIssue: (if .parent_key then ("PTRD-" + (.parent_key|gsub("\\.";""))) else null end), labels: (if .label then [.label] else [] end)}] | map(if (.title|startswith("r1.s2 ")) then .milestone = {label:"r0 — Release 0"} else . end)' "$BOARD_FAKE_DIR/desired.json" > "$BOARD_FAKE_DIR/issues.list.json"
+: > "$BOARD_FAKE_LOG"
+t_capture board_sync "$WS" --force; t_assert_rc 0 "milestone drift: ok"
+t_assert_eq 1 "$(mutations)" "milestone drift: exactly one mutation"
+t_capture grep 'milestone set' "$BOARD_FAKE_LOG"; t_assert_contains "$T_OUT" "--milestone r1 " "milestone drift: reattached to r1"
+
 # 6. failure mid-run: digest untouched, log written, rc 1
 cp "$F/dag.json" "$WS/.ossify/project-state.json"; D_BEFORE="$(board_sync_read "$WS" '.digest')"
 rm -f "$BOARD_FAKE_DIR/milestones.list.json"   # empty board again, so the milestone create is attempted

@@ -95,12 +95,33 @@ board_sync() { # $1=ws-or-any-dir [--force] [--bind IDENT]
       created=$((created+1))
     else
       _board_ident_set "$key" "$(jq -r '.identifier' <<<"$actual")"
-      local a_title a_status iid; a_title="$(jq -r '.title' <<<"$actual")"; a_status="$(jq -r '.status.name // .status // ""' <<<"$actual")"; iid="$(_board_ident_get "$key")"
-      if [ "$a_title" != "$title" ] || [ "$a_status" != "$status" ]; then
-        [ "$a_title" != "$title" ] && { board_cli_issue_update "$project" "$iid" --title "$title" || _board_fail "$ws" "issues update $key title: $(board_cli_err_code) $(board_cli_err_message)" || return 1; }
-        [ "$a_status" != "$status" ] && { board_cli_issue_update "$project" "$iid" --status "$status" || _board_fail "$ws" "issues update $key status: $(board_cli_err_code) $(board_cli_err_message)" || return 1; }
-        updated=$((updated+1))
-      else unchanged=$((unchanged+1)); fi
+      local a_title a_status iid changed=0
+      a_title="$(jq -r '.title' <<<"$actual")"; a_status="$(jq -r '.status.name // .status // ""' <<<"$actual")"; iid="$(_board_ident_get "$key")"
+      if [ "$a_title" != "$title" ]; then
+        board_cli_issue_update "$project" "$iid" --title "$title" || _board_fail "$ws" "issues update $key title: $(board_cli_err_code) $(board_cli_err_message)" || return 1
+        changed=1
+      fi
+      if [ "$a_status" != "$status" ]; then
+        board_cli_issue_update "$project" "$iid" --status "$status" || _board_fail "$ws" "issues update $key status: $(board_cli_err_code) $(board_cli_err_message)" || return 1
+        changed=1
+      fi
+      # milestone attachment: keyed by title prefix; reattach on mismatch, never detach
+      if [ "$milestone_key" != "null" ]; then
+        local a_ms; a_ms="$(jq -r '.milestone.label // ""' <<<"$actual")"
+        case "$a_ms" in
+          "$milestone_key "*) : ;;
+          *) board_cli_issue_milestone_set "$project" "$iid" "$(jq -r --arg k "$milestone_key" '.milestones[] | select(.key==$k) | .title' "$desired")" || _board_fail "$ws" "milestone set $key" || return 1
+             changed=1 ;;
+        esac
+      fi
+      # label: compare only when the actual object exposes a labels field; add-only, never remove
+      if [ "$label" != "null" ] && jq -e 'has("labels")' <<<"$actual" >/dev/null; then
+        if ! jq -e --arg l "$label" '[.labels[]? | if type=="object" then (.label // .name // "") else . end] | index($l)' <<<"$actual" >/dev/null; then
+          if board_cli_issue_label_add "$project" "$iid" "$label"; then changed=1
+          else [ "$(board_cli_err_code)" = "CONFLICT" ] || _board_fail "$ws" "labels add $key" || return 1; fi
+        fi
+      fi
+      if [ "$changed" = 1 ]; then updated=$((updated+1)); else unchanged=$((unchanged+1)); fi
     fi
   done < <(jq -r '.issues[] | "\(.key)\t\(.title)\t\(.task_type)\t\(.status)\t\(.milestone_key)\t\(.parent_key)\t\(.label)"' "$desired")
 

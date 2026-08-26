@@ -26,7 +26,8 @@ t_capture m "$F/dag.json" '.issues[]|select(.key=="r1.s2.w1")|.description'; t_a
 t_capture m "$F/dag.json" '.milestones[0].description | contains("goal: g\n\nexit criteria:")'; t_assert_eq "true" "$T_OUT" "milestone description keeps the blank line before exit criteria"
 
 # known-answer negative: flip one status, exactly that entity changes
-jq '.spines[1].status="abandoned"' "$F/dag.json" > /tmp/dag-mut.json
-t_capture m /tmp/dag-mut.json '.issues[]|select(.key=="r1.s2")|.status'; t_assert_eq "abandoned" "$T_OUT" "mutation: s2 abandoned"
-t_capture m /tmp/dag-mut.json '.issues[]|select(.key=="r1.s1")|.status'; t_assert_eq "complete"  "$T_OUT" "mutation: s1 untouched"
+MUT="$(mktemp)"
+jq '.spines[1].status="abandoned"' "$F/dag.json" > "$MUT"
+t_capture m "$MUT" '.issues[]|select(.key=="r1.s2")|.status'; t_assert_eq "abandoned" "$T_OUT" "mutation: s2 abandoned"
+t_capture m "$MUT" '.issues[]|select(.key=="r1.s1")|.status'; t_assert_eq "complete"  "$T_OUT" "mutation: s1 untouched"
 t_summary
