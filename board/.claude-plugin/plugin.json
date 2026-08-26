@@ -1,0 +1,7 @@
+{
+  "name": "board",
+  "version": "0.1.0",
+  "description": "Projects an ossify project's lifecycle (.ossify/project-state.json) onto a self-hosted Huly board: releases become milestones, spines issues, work items sub-issues, spine_dag blocked-by relations. Huly is a regenerable mirror, never the source of truth. A digest-gated Stop hook syncs after any session that changed the state file; /board:sync forces a full reconcile; /board:doctor reports drift, unowned issues and what the last sync overwrote. Requires HULY_URL, HULY_WORKSPACE, HULY_TOKEN in the harness environment and a one-time 'Ossify project' space type in the workspace.",
+  "author": { "name": "Pras" },
+  "category": "workflow"
+}

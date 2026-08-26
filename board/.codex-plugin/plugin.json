@@ -1,0 +1,24 @@
+{
+  "name": "board",
+  "version": "0.1.0",
+  "description": "Mirror an ossify project's lifecycle onto a self-hosted Huly board. Huly is a projection of .ossify/project-state.json, never the source of truth.",
+  "author": { "name": "Pras" },
+  "repository": "https://github.com/draco28/claude-agent-scaffolding",
+  "license": "MIT",
+  "keywords": ["huly", "board", "ossify", "lifecycle", "mirror"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Board",
+    "shortDescription": "See every ossify project's lifecycle on one Huly board.",
+    "longDescription": "Board projects ossify state onto a self-hosted Huly workspace: releases become milestones, spines become issues, work items become sub-issues and the spine DAG becomes blocked-by relations. The state file stays authoritative; the board is regenerated from it. /board:sync forces a reconcile and /board:doctor reports drift. Codex has no hook system, so run /board:sync when a task that changed ossify state ends.",
+    "developerName": "Pras",
+    "category": "Coding",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "defaultPrompt": [
+      "Sync this project's ossify state to the Huly board.",
+      "Check whether the board matches the ossify state."
+    ],
+    "websiteURL": "https://github.com/draco28/claude-agent-scaffolding/tree/main/board",
+    "brandColor": "#0EA5E9"
+  }
+}
