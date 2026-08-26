@@ -314,6 +314,14 @@ case "$tc" in
 esac
 ```
 
+**Known limitation, tracked as #348: the union carries no repo identity.** Bone
+and risk-gate records hold repo-relative globs with no owning repo, so two
+hosting repos that both contain `src/adapters/foo` cross-match — a change in one
+can fire a bone authored for the other. It fails SAFE: the union is a superset,
+so a bone is never MISSED, only spuriously hit, and a spurious hit routes the
+spine to extra scrutiny rather than past it. When a hit looks wrong for the
+spine at hand, check which repo actually changed the path before acting on it.
+
 **One `oss touch_check` call over the union of every repo's paths, never one call
 per repo.** A bone or a risk gate is a project-wide surface, not a per-repo one,
 and `touch_check`'s own rc contract (0 = HIT, 1 = clean, 2 = could-not-check) has
