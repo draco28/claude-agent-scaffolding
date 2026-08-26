@@ -47,17 +47,23 @@ Pinned sections, in this order:
 
 ## Spine context          class (`bone`|`flesh` as recorded in state; add `—
                           [internal] (admitted, consumer <spine-id>)` when the
-                          spine's name carries the marker), target repo,
-                          base_branch, the bones this spine rides
+                          spine's name carries the marker), the bones this
+                          spine rides, and a BASE-BRANCH TABLE: one row per
+                          hosting repo, `<repo-key> | <base_branch>`
 ## Decomposition          the 1-5 work items, one line each: id, title, target repo
 ## Rounds                 Round 1: w1, w2 (parallel) / Round 2: w3 (depends on w1)
 ## Demo contribution      the ledger lines this spine adds (§4's ledger half)
 ## Fakes                  each fake with its replacement trigger and expiry release
 ```
 
-`base_branch` is the branch the spine cuts from and merges back to — record it
-here at planning time, because at close the checkout has moved and there is
-nothing left to derive it from.
+`base_branch` is the branch the spine cuts from and merges back to, **per
+hosting repo** — one row for every repo the Decomposition names, not one value
+for the spine. A cross-repo spine can legitimately cut from `main` in one repo
+and a release branch in another; spine close cross-checks each repo's
+handoff-recorded base against the planned value **for that repo**
+(`close/references/spine-close.md` §3), so a single planned value makes every
+repo whose base differs a halt. Record the table at planning time, because at
+close the checkout has moved and there is nothing left to derive it from.
 
 ---
 

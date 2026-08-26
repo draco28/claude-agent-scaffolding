@@ -38,8 +38,9 @@ Five surfaces:
 | Budget check | Does the front-loaded surface still cost what it claims? | §8 |
 
 **The guarantee, and it is the inverse of every other entry skill's:
-`doctor` runs on a broken project.** `start` refuses without a resolvable
-topology declaration;
+`doctor` runs on a broken project.** `start` refuses when a declared repo
+already carries code (it authors a topology rather than refusing for a missing
+one);
 `plan-release` requires an onboarded project; `close` refuses without a green
 `oss doctor`. This skill **never refuses for the condition it exists to report**.
 An uninitialised project, a corrupt state file, a missing manifest — each is a

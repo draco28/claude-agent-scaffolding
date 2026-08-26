@@ -86,9 +86,10 @@ The two facts this step needs are not in state and are recovered, not guessed:
   handoffs' `## 2. Spine context` `base_branch:` lines
   (`work-item/references/handoff-contract.md` §2) — the lane records there the
   branch *that repo* was ACTUALLY on when it cut the spine branch — with
-  `SPINE.md`'s spine-context section (`plan-spine/references/spec-authoring.md`
-  §1), where `plan-spine` authored the planned base at planning time, as the
-  cross-check. **If the two disagree for a repo, halt and name both, and the
+  `SPINE.md`'s spine-context **base-branch table**
+  (`plan-spine/references/spec-authoring.md` §1), where `plan-spine` authored
+  one planned base **per hosting repo** at planning time, as the cross-check —
+  read that repo's row, never a single spine-wide value. **If the two disagree for a repo, halt and name both, and the
   repo** — the lane cuts from HEAD (issue 133), so a planned base that never
   matched the cut base is exactly the wrong-merge hazard, repo by repo. **If
   either cannot be resolved for a repo, halt** — guessing the default branch

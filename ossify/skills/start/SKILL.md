@@ -74,25 +74,25 @@ Never `source` the lib files directly from a skill body — under zsh
 the AI workspace: walk up for `.ossify/topology.json`, then `.workspace/pairing.json`:
 
 ```bash
-if oss state_path >/dev/null 2>&1; then
+if probe="$(oss state_path 2>&1)"; then
   printf '%s\n' "topology: resolved - author nothing, proceed to the journey map"
 else
+  printf '%s\n' "$probe"   # the verb's OWN diagnostic, never swallowed
   printf '%s\n' "ossify requires a topology declaration (none found on the walk-up path). /ossify:start and /ossify:adopt author one (.ossify/topology.json); an existing dual-repo workspace can instead pair via /init-workspace or /pair-workspace. On Codex, invoke the ossify skills start or adopt - that surface publishes skills, not commands."
-  printf '%s\n' "topology: none on the walk-up path - AUTHOR one per the paragraph below, then re-probe"
 fi
 ```
 
-**Not a halt — the block carries no `exit`.** A no-manifest project is the case
-this ceremony exists to serve; the only halt here is a re-probe that still
-refuses AFTER authoring. Print the refusal's tokens verbatim even though the
-ceremony proceeds — they name the alternatives and the Codex surface. On refusal
-`/start` is itself the remedy: author `.ossify/topology.json` at the AI-workspace root —
-schema v1 `{schema_version, repos:{<name>:{root}}, well_known_paths:{}}`, names
-`[a-z][a-z0-9_-]*`, roots absolute — from the repo set the journey-map station is about to
-ask about (one entry per repo the product spans; `canonical` only if that is genuinely the
-name). Then re-probe `oss state_path` and `oss repo_root <name>` for every declared repo,
-halting only if a probe still refuses. Nothing else in this ceremony may write the file;
-an existing topology or pairing manifest is never overwritten.
+**Not a halt — the block carries no `exit`.** The only halt here is a re-probe
+that still refuses AFTER authoring. **Read `$probe` first:** a declaration that
+exists but is INVALID (bad repo name, entry with no root, empty `.repos`) refuses
+with its own message naming the file, and the fix is that file. Authoring is only
+for the nothing-found case; it never overwrites. Print the refusal's tokens verbatim even so — they name the
+alternatives and the Codex surface. To author: `.ossify/topology.json` at the
+AI-workspace root, schema v1 `{schema_version, repos:{<name>:{root}},
+well_known_paths:{}}`, names `[a-z][a-z0-9_-]*`, roots absolute, from the repo
+set the journey-map station asks about next (`canonical` only if that is
+genuinely the name). Then re-probe `oss state_path` and `oss repo_root <name>`
+for every declared repo, halting only if one still refuses.
 
 **Canonical-content gate (refuses fail-fast).** `/start` is pre-code ceremony:
 establish whether any declared repo (`oss repo_root <name>` per name) already

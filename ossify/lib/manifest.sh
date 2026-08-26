@@ -108,6 +108,22 @@ _oss_topology_shape() { # $1=manifest-path ; echoes shape JSON ; rc 1 unparseabl
         echo "oss: topology '$m' declares no repos - .repos must be a non-empty object of <name>:{root}" >&2; return 3; }
       jq -e '(.repos | has("ai_workspace")) | not' "$m" >/dev/null 2>&1 || {
         echo "oss: topology '$m' declares 'ai_workspace', which is reserved for the AI workspace itself and cannot be declared as a product repo - rename that entry" >&2; return 3; }
+      # EVERY ENTRY, not just the map. Validating only that `.repos` is a
+      # non-empty object let an uppercase key or a `{}`/string entry through:
+      # `oss state_path` succeeded, /start read the topology as resolved and
+      # preserved the file, state was initialized, and the first `oss repo_root`
+      # failed AFTER onboarding had partially proceeded. The name check calls
+      # `_oss_repo_key_valid` rather than restating the grammar as a jq regex -
+      # one grammar, one definition, or the two drift.
+      while IFS= read -r _k; do
+        [ -n "$_k" ] || continue
+        _oss_repo_key_valid "$_k" || {
+          echo "oss: topology '$m' declares '$_k', which is not a valid repo name - names match [a-z][a-z0-9_-]* (lower case, starting with a letter)" >&2; return 3; }
+      done <<EOF
+$(jq -r '.repos | keys[]' "$m" 2>/dev/null)
+EOF
+      jq -e '.repos | to_entries | all((.value | type) == "object" and (.value.root | type) == "string" and (.value.root | length) > 0)' "$m" >/dev/null 2>&1 || {
+        echo "oss: topology '$m' has a repo entry that is not {\"root\": \"<path>\"} - every declared repo needs an object carrying a non-empty root: $(jq -r '[.repos | to_entries[] | select(((.value|type) != "object") or ((.value.root|type) != "string") or ((.value.root|length) == 0)) | .key] | join(", ")' "$m" 2>/dev/null)" >&2; return 3; }
       jq -c --arg ws "$(dirname "$(dirname "$m")")" '{schema_version,
           repos: .repos, well_known_paths: (.well_known_paths // {}),
           workspace: $ws, source: "topology"}' "$m" 2>/dev/null || return 1 ;;

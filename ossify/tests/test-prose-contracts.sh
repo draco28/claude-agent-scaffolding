@@ -122,9 +122,24 @@ fi
 REF_LIST="$(mktemp)"; printf '%s\n' "$REF_COPIES" > "$REF_LIST"
 while IFS= read -r f; do
   [ -n "$f" ] || continue
-  got="$({ grep -F 'ossify requires a topology declaration' "$f" || true; } | head -1 | sed 's/^[^"]*"//; s/"$//')"
-  t_assert_eq "$REF_LIB" "$got" \
-    "$(basename "$(dirname "$f")")/$(basename "$f") prints OSS_MANIFEST_REFUSAL byte-identically"
+  # EVERY occurrence in the file, not `head -1`. A file carrying two copies had
+  # only its first checked, so the second could drift silently - which is the
+  # same hole one file up: this guard exists because copies drift, and a guard
+  # that checks one copy per file reintroduces it within the file.
+  n=0
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    n=$((n+1))
+    t_assert_eq "$REF_LIB" "$(printf '%s' "$line" | sed 's/^[^"]*"//; s/"$//')" \
+      "$(basename "$(dirname "$f")")/$(basename "$f") copy #$n prints OSS_MANIFEST_REFUSAL byte-identically"
+  done <<EOF
+$({ grep -F 'ossify requires a topology declaration' "$f" || true; })
+EOF
+  if [ "$n" -gt 0 ]; then
+    T_PASS=$((T_PASS+1))
+  else
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: $f matched the refusal grep but yielded no line to compare - the assertions above are vacuous"
+  fi
 done < "$REF_LIST"
 rm -f "$REF_LIST"
 

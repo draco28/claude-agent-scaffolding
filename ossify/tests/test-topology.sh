@@ -167,6 +167,41 @@ t_assert_rc 0 "ai_workspace remains resolvable as the reserved alias on a valid 
 t_assert_eq "$TMP/ws" "$T_OUT" "reserved alias still returns the workspace root"
 cd "$HERE"
 
+# --- every .repos ENTRY is a boundary, not just the map ------------------------
+# The first cut of these checks validated only that `.repos` was a non-empty
+# object without `ai_workspace`. An uppercase key, or an entry that is not
+# `{root: "..."}`, sailed through: `oss state_path` succeeded, /start read the
+# topology as resolved and preserved the file, state was initialized - and the
+# first `oss repo_root` failed AFTER onboarding had partially proceeded. Both
+# reviewers found this independently on the same commit.
+mkdir -p "$TMP/topo-k/.ossify" "$TMP/topo-e/.ossify" "$TMP/topo-s/.ossify"
+cat > "$TMP/topo-k/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"UI":{"root":"$TMP/ui"}},"well_known_paths":{}}
+JSON
+printf '%s\n' '{"schema_version":1,"repos":{"ui":{}},"well_known_paths":{}}' > "$TMP/topo-e/.ossify/topology.json"
+printf '%s\n' '{"schema_version":1,"repos":{"ui":"/tmp/ui"},"well_known_paths":{}}' > "$TMP/topo-s/.ossify/topology.json"
+cd "$TMP/topo-k"
+t_capture _oss_shape_file
+t_assert_rc 1 "a topology key outside [a-z][a-z0-9_-]* refuses"
+# Not just "UI": the SHAPE echoes the repo map, so before the fix this
+# assertion passed on the very output the bug produced.
+t_assert_contains "$T_OUT" "is not a valid repo name" "the bad-key refusal says the name is invalid, naming it"
+t_assert_contains "$T_OUT" "UI" "...and names the offending key"
+cd "$TMP/topo-e"
+t_capture _oss_shape_file
+t_assert_rc 1 "a repo entry with no root refuses"
+t_assert_contains "$T_OUT" "root" "the no-root refusal names the missing field"
+cd "$TMP/topo-s"
+t_capture _oss_shape_file
+t_assert_rc 1 "a repo entry that is a string rather than an object refuses"
+# And none of them lets /start read the workspace as already onboarded.
+for bad in topo-k topo-e topo-s; do
+  cd "$TMP/$bad"
+  t_capture oss_manifest_state_path
+  t_assert_rc 1 "$bad does not resolve a state path"
+done
+cd "$HERE"
+
 # --- grammar is an injection boundary, refused BEFORE any jq read ---
 cd "$TMP/ws"   # declares core + ui only
 # rc 2 alone does NOT prove the grammar fired: an undeclared-but-well-formed key
@@ -240,21 +275,33 @@ t_assert_rc 0 "repos.canonical.root spelling resolves for a repo literally named
 t_assert_eq "$TMP/canon/ps.json" "$T_OUT" "both spellings resolve to the identical value"
 cd "$HERE"
 
-# --- review round 1, Finding 1: a declared-but-empty repo root must NOT
-# substitute to the empty string. `${repos.core.root}/ps.json` with an empty
-# core root collapses to `/ps.json` - a well-formed, root-anchored path
-# manufactured out of an absent value, exactly the trap the ${HOME} comment
-# in _oss_manifest_resolve already names and guards against. The token must
-# be LEFT IN PLACE so the unresolved-token guard catches it, the same
-# substituting-when-present discipline every other substitution in that
-# function already follows.
+# --- review round 1, Finding 1: an UNRESOLVABLE repo-root token must NOT
+# substitute to the empty string. `${repos.<name>.root}/ps.json` collapsing to
+# `/ps.json` is a well-formed, root-anchored path manufactured out of an absent
+# value, exactly the trap the ${HOME} comment in _oss_manifest_resolve already
+# names and guards against. The token must be LEFT IN PLACE so the
+# unresolved-token guard catches it, the same substituting-when-present
+# discipline every other substitution in that function follows.
+#
+# This used to reach that guard via `"core":{"root":""}` - a DECLARED repo with
+# an empty root. `_oss_topology_shape` now refuses that entry outright, which is
+# strictly better: the workspace never resolves at all rather than resolving and
+# failing later. So the token here names an UNDECLARED repo instead, which is
+# the remaining way a repo-root token fails to substitute.
 cat > "$TMP/ws/.ossify/topology.json" <<JSON
-{"schema_version":1,"repos":{"core":{"root":""}},"well_known_paths":{"project_state":"\${repos.core.root}/ps.json"}}
+{"schema_version":1,"repos":{"core":{"root":"$TMP/core"}},"well_known_paths":{"project_state":"\${repos.nosuch.root}/ps.json"}}
 JSON
 cd "$TMP/ws"
 t_capture oss_manifest_state_path
-t_assert_rc 1 "a declared-but-empty repo root leaves its token in place, not substituted to empty"
+t_assert_rc 1 "an unresolvable repo-root token is left in place, not substituted to empty"
 t_assert_contains "$T_OUT" "unresolved" "guard names it unresolved rather than manufacturing a root-anchored path"
+# And the entry-shape refusal is what an empty declared root gets now.
+cat > "$TMP/ws/.ossify/topology.json" <<JSON
+{"schema_version":1,"repos":{"core":{"root":""}},"well_known_paths":{}}
+JSON
+t_capture oss_manifest_state_path
+t_assert_rc 1 "a declared-but-empty repo root refuses at the shape"
+t_assert_contains "$T_OUT" "non-empty root" "...naming the entry rather than a downstream token"
 cd "$HERE"
 
 # --- sole-repo default: any name resolves; N>1 refuses listing ---

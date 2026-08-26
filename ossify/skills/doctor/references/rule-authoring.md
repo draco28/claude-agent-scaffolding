@@ -30,7 +30,7 @@ the topology declaration's `.well_known_paths.memory_bank`, token-expanded, with
 relative or unresolved route a STOP, never a fallback to the cwd. A cwd-rooted
 path writes rules into whichever repo the session happened to start in.
 When the lane cannot run at all, emit its line anyway — never drop it silently:
-`skip: rules - no topology declaration, so the memory bank cannot be located`
+`skip: rules - no topology declaration resolves (neither .ossify/topology.json nor a .workspace/pairing.json fallback), so the memory bank cannot be located`
 (remedy `/ossify:start`, `/ossify:adopt`, `/init-workspace` or
 `/pair-workspace`); `skip: rules - memory-bank
 route '<value>' is not absolute` (the STOP case, surfaced not written around);
