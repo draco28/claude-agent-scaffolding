@@ -1,0 +1,39 @@
+[
+  {
+    "issueId": "6a8f16ccc4e8fc85d394a99c",
+    "identifier": "SPIKE-1",
+    "title": "r0.s1 — spike a",
+    "status": "Todo",
+    "priority": "no-priority",
+    "creator": {
+      "id": "6a8f09e3d54a8583405bc724",
+      "name": "Code,Claude",
+      "email": "claude-code@pulseai.local"
+    },
+    "labels": [
+      {
+        "title": "spine:bone",
+        "color": 0
+      }
+    ],
+    "milestone": {
+      "id": "6a8f16c83c28d292bfdb89fa",
+      "label": "r0 — spike"
+    },
+    "modifiedOn": 1787762481353
+  },
+  {
+    "issueId": "6a8f16dcd7f719de41637ea6",
+    "identifier": "SPIKE-2",
+    "title": "r0.s2 — spike b",
+    "status": "Backlog",
+    "priority": "no-priority",
+    "creator": {
+      "id": "6a8f09e3d54a8583405bc724",
+      "name": "Code,Claude",
+      "email": "claude-code@pulseai.local"
+    },
+    "labels": [],
+    "modifiedOn": 1787762413859
+  }
+]

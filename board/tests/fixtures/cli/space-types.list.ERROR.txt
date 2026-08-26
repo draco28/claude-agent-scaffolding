@@ -1,0 +1,1 @@
+{"code":"INTERNAL_ERROR","message":"Tool list_space_types produced invalid output.","retryable":false}
