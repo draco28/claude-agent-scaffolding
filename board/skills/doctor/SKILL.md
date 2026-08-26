@@ -34,7 +34,10 @@ and `... milestones list --project <IDENT> --json`. Field shapes differ between 
 lists: a milestone's title lives in `.label`, an issue's in `.title`, and an issue's status
 may be `.status` or `.status.name` — inspect the JSON you actually received before
 comparing. An issue's labels arrive as objects keyed `title` (`[{"title": "spine:bone", ...}]`),
-not bare strings. Then report, as short lists:
+not bare strings. Either list may arrive wrapped in a top-level `result` field
+(`{"result": [...]}`) instead of a bare array — this happens when the result set includes an
+issue created by an account with no person record; unwrap before comparing. Then report, as
+short lists:
 
 - **Status, label, or milestone mismatches** — same title key but a different status; a
   spine whose `spine:<class>` label disagrees with the file; an issue attached to a

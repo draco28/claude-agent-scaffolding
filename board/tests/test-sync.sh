@@ -62,6 +62,15 @@ t_capture jq -r '.unchanged' <<<"$T_OUT"; t_assert_eq 15 "$T_OUT" "all 15 report
 # reaches mirroring still makes no membership call when the email is not configured
 t_capture grep -c 'spaces members add' "$BOARD_FAKE_LOG"; t_assert_eq 0 "$T_OUT" "HULY_EMAIL unset: zero members-add calls"
 
+# 4b. known-answer: the result-wrapped issues-list shape (data-dependent — a creator with no
+# person record) must not change behavior against the same matching board
+jq '{result: .}' "$BOARD_FAKE_DIR/issues.list.json" > "$BOARD_FAKE_DIR/issues.list.json.wrapped" && mv "$BOARD_FAKE_DIR/issues.list.json.wrapped" "$BOARD_FAKE_DIR/issues.list.json"
+: > "$BOARD_FAKE_LOG"
+t_capture board_sync "$WS" --force; t_assert_rc 0 "result-wrapped issues list: force sync ok"
+t_assert_eq 0 "$(mutations)" "result-wrapped issues list: zero mutations"
+# reset to the bare-array shape: case 5 and after expect it
+jq '.result' "$BOARD_FAKE_DIR/issues.list.json" > "$BOARD_FAKE_DIR/issues.list.json.bare" && mv "$BOARD_FAKE_DIR/issues.list.json.bare" "$BOARD_FAKE_DIR/issues.list.json"
+
 # 5. known-answer negative: flip one work item status -> exactly one issues update, nothing else
 jq '(.work_items[] | select(.id=="r1.s1.w3") | .status) = "active"' "$F/pulse-trader.json" > "$WS/.ossify/project-state.json"
 : > "$BOARD_FAKE_LOG"

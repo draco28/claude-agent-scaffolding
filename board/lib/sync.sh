@@ -12,10 +12,16 @@ _board_ident_set() { printf '%s\t%s\n' "$1" "$2" >> "$BOARD_ACT_DIR/ident.tsv"; 
 _board_ident_get() { awk -F'\t' -v k="$1" '$1==k{print $2; f=1} END{exit f?0:1}' "$BOARD_ACT_DIR/ident.tsv"; }
 
 # actual-board readers (answers cached per run in $BOARD_ACT_DIR)
-_board_actual_milestones() { board_cli_milestones_list "$1" || return 1; cp "$BOARD_CLI_OUT" "$BOARD_ACT_DIR/milestones.json"; }
+# list shapes are data-dependent: when every matched record's creator has a person record the
+# CLI emits a bare array (the recorded shape); when the result set includes a creator with NO
+# person record (a fresh API-created agent account that never web-logged-in) it emits the raw
+# `{"result":[...]}` wrapper instead — same flags, different shape. `.result? // .` unwraps
+# both (the `?` matters: `.result` alone errors on a bare array, and jq's `//` does not catch
+# runtime type errors, only null/false/empty results).
+_board_actual_milestones() { board_cli_milestones_list "$1" || return 1; jq '(.result? // .)' "$BOARD_CLI_OUT" > "$BOARD_ACT_DIR/milestones.json"; }
 _board_actual_issue() { # $1=project $2=key ; echoes JSON of the matching issue or "null"
   board_cli_issues_list "$1" "$(_board_search_for_key "$2")" || return 1
-  jq -c --arg k "$2 " 'map(select(.title | startswith($k))) | .[0] // null' "$BOARD_CLI_OUT"
+  jq -c --arg k "$2 " '(.result? // .) | map(select(.title | startswith($k))) | .[0] // null' "$BOARD_CLI_OUT"
 }
 
 board_sync() { # $1=ws-or-any-dir [--force] [--bind IDENT]
@@ -145,7 +151,7 @@ EOF
   while IFS=$'\t' read -r from to; do
     fid="$(_board_ident_get "$from" || true)"; tid="$(_board_ident_get "$to" || true)"; [ -n "$fid" ] && [ -n "$tid" ] || continue
     board_cli_relations_list "$project" "$fid" || _board_fail "$ws" "relations list $from" || return 1
-    if ! jq -e --arg t "$tid" '.blockedBy[]? | select(.identifier == $t)' "$BOARD_CLI_OUT" >/dev/null; then
+    if ! jq -e --arg t "$tid" '(.result? // .) | .blockedBy[]? | select(.identifier == $t)' "$BOARD_CLI_OUT" >/dev/null; then
       if board_cli_relation_add "$project" "$fid" "$tid" is-blocked-by; then rel=$((rel+1))
       else [ "$(board_cli_err_code)" = "CONFLICT" ] || _board_fail "$ws" "relations add $from -> $to: $(board_cli_err_code)" || return 1; fi
     fi
