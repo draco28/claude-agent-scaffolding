@@ -63,7 +63,8 @@ So the one-time UI step is: create the space type **and seed its first task type
 - `issues list` (and by the same mechanism, any list verb) may instead wrap the same array as
   `{"result":[…]}` — same flags, **data-dependent shape**: it happens when the result set
   contains an issue whose creator has no person record (an agent account created via the API
-  that never web-logged-in). Readers must accept both (`.result // .`).
+  that never web-logged-in). Readers must accept both (`.result? // .` — the `?` is
+  load-bearing: plain `.result // .` hard-errors on the bare-array shape).
 - `relations.list.json`: `{"blockedBy":[{identifier,_id,_class}],"blocks":[],"relations":[],"documents":[]}` —
   existence check reads `.blockedBy[]?.identifier`.
 - `projects.statuses.json`: `{"statuses":[{name,category,isDefault}]}`.
