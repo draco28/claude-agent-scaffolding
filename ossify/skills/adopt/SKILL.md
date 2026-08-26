@@ -60,8 +60,20 @@ slice close, then re-run — never "clean your tree", which fixes a symptom.
   `_oss_resolve_state` lets it override the manifest for every verb below —
   adoption would mint into another project's state while A1/A2 inspected
   this one. Unset it and re-run (same guard as plan-release §3).
-- **A1 — topology declaration resolves.** `oss state_path` (probe; refuse
-  exactly as `/start` §3's topology probe does — verbatim, never paraphrased).
+- **A1 — topology declaration resolves, or is authored here.** Run `/start`
+  §3's topology probe block verbatim, never paraphrased. It **resolves,
+  authors, or refuses** — it is not a refusal-only gate, and reading it as one
+  is what left `/adopt` unable to onboard a legacy project that never used
+  workspace-init, which this skill's own refusal text and the plugin metadata
+  both promise it can. The halt is a re-probe that STILL refuses after
+  authoring. Authoring is the nothing-found case only: a declaration that
+  exists but is invalid refuses with its own message naming the file, and
+  adoption halts there rather than overwriting it — the operator fixes that
+  file. **Where the repo set comes from differs from `/start`:** `/start` reads
+  it from the journey-map station it is about to run, and adoption has no such
+  station, so ask the operator which repos hold the product and confirm each
+  root against a checkout that actually carries its code — every gate below,
+  and C3's project-wide ADR scan, iterates exactly this set.
 - **A2 — no ossify state at the routed path.** State exists: already
   onboarded → route to `doctor`, full stop — every `/start` project has
   state and no adoption record, so the record's absence distinguishes
@@ -154,6 +166,24 @@ silent re-mark.
 1. Scan **each declared repo's** `docs/adr/` with `bones-registry.md` §3's scan
    (already conversion-correct; use it, do not rewrite it) and aggregate: any
    ADR in the product's repos owes the registry an entry.
+1a. **Collision preflight, before minting anything.** `bones-registry.md` §3
+   keeps new identifiers unique *by construction*, and that construction only
+   governs numbers ossify mints. Adoption imports numbers that already exist,
+   from repos that kept **independent** sequences — two of them starting at
+   `ADR-0001` is the normal case, not the exotic one. Passing those through
+   unchanged puts two different decisions under one identifier, and from there
+   nothing downstream can separate them: not a citation, not a reclassification
+   reason, not a `touch_check` hit, which reports a bare `bone <adr>`. Collect
+   every scanned ADR reference across every declared repo and compare the full
+   set; **any reference appearing in two repos halts adoption**, naming each
+   colliding reference and the repos that hold it. The remedy is the operator's
+   and it is one-time: renumber in the source repo so the project's references
+   are distinct, then re-run `/adopt`. Do not renumber for them — an ADR
+   filename is a shipped, cited artifact, and C2's rule that the checkout wins
+   applies with most force to the record adoption exists to preserve. Do not
+   qualify the reference with a repo key either: a bone record stores no repo
+   key, so a qualified identifier would be legible in the registry and bare
+   everywhere it is read.
 2. Map each ADR to one of the nine categories (`/start` §7's checklist).
    Multiple ADRs may share a category; a category may have none.
 3. Mint each: `oss bone_add "<ADR-ref>" "<title>" "<touch-glob-csv>" "<revisit

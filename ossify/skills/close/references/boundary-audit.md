@@ -173,13 +173,23 @@ a finding — the exposure question for this repo is the recorded
 
 ### Determining observed visibility
 
-Enumerate **every** remote, redacted — `git -C "<root>" remote -v | sed -E 's#(https?://)[^/@]+@#\1***@#g'` — not just
+Enumerate **every** remote, redacted — `git -C "<root>" remote -v | sed -E 's#([A-Za-z][A-Za-z0-9+.-]*://)[^/[:space:]]*@#\1***@#g'` — not just
 `origin`: a remote may be named `upstream` or `github`, `origin` may be a
 private fork of a public upstream, and a repo may push to both. The redaction
-is not cosmetic: an HTTPS remote can carry its credential inline
+is not cosmetic: a remote can carry its credential inline
 (`https://<token>@github.com/...`), and printing that bare puts the token
 into the transcript before the audit has even started — the §3 rule reaches
-the enumeration too. For each remote, derive
+the enumeration too.
+
+**The pattern is scheme-generic and case-blind on purpose**, and each of those
+three properties has its own leak behind it. Git preserves the scheme's
+spelling, so an `https?://`-only pattern prints `HTTPS://secret@github.com/…`
+unchanged. Credentials are not an HTTPS-only affair — `ssh://user:pass@host/…`
+is a valid remote. And `[^/[:space:]]*@` reaches the LAST `@` before the first
+`/`, where `[^/@]+@` stops at the first one and leaves the tail of a password
+containing `@` (`https://user:p@ss@host/…` → `https://***@ss@host/…`) in the
+transcript. `tracker.md` §5 redacts the same three ways for the same reasons;
+these are the only two redaction sites in the plugin, and they agree. For each remote, derive
 **`host/owner/name`** from the redacted form and read
 `gh repo view "<host>/<owner>/<name>" --json visibility`. **Gate on the most
 public answer**: one public remote makes the repo observed-public, whatever the
