@@ -237,7 +237,7 @@ else
 fi
 for tok in 'The completion floor comes first' 'journey table is absent' \
            'per step it marks' 'operator-confirmed' 'the posture bone is absent' \
-           'outside its four' 'no closed `Release 0`' \
+           'outside its four' 'no closed `Release 0`' 'its stub retrospective absent' \
            'lacks the per-station lines'; do
   case "$_adopt6" in
     *"$tok"*) T_PASS=$((T_PASS+1)) ;;
