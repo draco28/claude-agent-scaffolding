@@ -9,14 +9,15 @@ The PR to work, and any flags: $ARGUMENTS
 Read `${CLAUDE_PLUGIN_ROOT}/references/work-pr/loop.md` end to end and follow
 it. It owns the whole lane: the preflight (resolve the target repo, refuse a
 dirty tree, verify the checked-out head), fetching both finding signals, the
-disposition contract, driving the fixes, re-review on the new head, tracked
-deferral, and the merge ask.
+set-level pass that collapses those findings into classes before each edit
+pass, the disposition contract, driving the fixes, re-review on the new head,
+tracked deferral, and the merge ask.
 
 Three rails survive any adaptation:
 
 - **A P1 is never ack-to-merged.** Correctness, security, data loss, or a
-  broken contract gets fixed before merge — no round limit and no deferral
-  applies to that class.
+  broken contract gets fixed before merge — or refuted with evidence — no
+  round limit and no deferral applies to that class.
 - **A deferral is a tracked issue, never a silent pass.** Every finding ends
   as `fixed in <sha>`, `deferred → #N`, or `invalid — <why>` (an
   evidence-shaped refutation) in the ledger you surface.
