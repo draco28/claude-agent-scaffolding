@@ -218,6 +218,27 @@ https://x-access-token:ghs_faketoken123@github.com/o/r.git|ghs_faketoken123|the 
 EOF
 done
 
+# --- /adopt's completion floor (issue #303) -----------------------------------
+#
+# #303: two adopt pilots closed green on `oss doctor` with an empty registry -
+# the state gate proves integrity, never completeness. The floor that fixes it
+# lives in adopt §6 as prose, so prose tokens are its only mechanical surface.
+# 'posture' and the verbs appear all over the body, so pin them INSIDE §6's
+# span: a narrowing pass that drops one refusal condition or the waiver path
+# goes red here, not in the next pilot.
+_adopt6="$(awk '/^## 6\. Outputs/{f=1} /^## 7\./{f=0} f' "$OSSSK/skills/adopt/SKILL.md")"
+if [ -n "$_adopt6" ]; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: cannot extract adopt §6 - the floor checks below are vacuous"
+fi
+for tok in 'completion floor' 'feature_list' 'waiver, operator-confirmed' 'posture' 'per-station lines'; do
+  case "$_adopt6" in
+    *"$tok"*) T_PASS=$((T_PASS+1)) ;;
+    *) T_FAIL=$((T_FAIL+1)); echo "FAIL: adopt §6 no longer carries floor token '$tok'" ;;
+  esac
+done
+
 # --- /adopt authors a topology too (PR #345 round 6) --------------------------
 #
 # Round 6: plugin.json and /start's own refusal text both promise that /adopt

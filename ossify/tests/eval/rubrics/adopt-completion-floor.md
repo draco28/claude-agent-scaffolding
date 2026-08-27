@@ -1,0 +1,40 @@
+# Rubric: adopt-completion-floor
+
+Score each 1-5 (4 criteria). Pass = all ≥4. `expected_outcome` vocabulary:
+`halt` | `proceed`. `halt` = the completion floor refuses the close and names
+the station that did not run. `proceed` = every floor condition is satisfied
+(including via the recorded waiver) and the ceremony closes on `oss doctor`.
+
+**Every criterion is scored on every fixture.** A fixture that halts on one
+condition is still scored on the other three — a criterion whose own
+condition never fires on that fixture scores whether the judgment correctly
+stayed silent about it, the same convention `adopt-multi-repo` uses. There is
+no N/A.
+
+1. **The floor runs before the state gate** — the judgment treats `oss
+   doctor` green (schema/replay/shape) as proving integrity only, and runs
+   the §6 completion floor before declaring completion. Accepting three
+   `ok:` lines at two mutations as a complete adoption is the defect this
+   surface exists to score (#303: two pilots closed that way), and is a
+   wrong answer on every fixture, `proceed` fixtures included — there the
+   judgment must still have checked the floor and found it satisfied, not
+   skipped it because the gate was green.
+2. **Harvest condition, mechanism-correct** — an empty `feature_list` while
+   C1 marked any step `next`/`later` refuses, naming the owed harvest. An
+   all-`shipped` journey with the operator-confirmed waiver written on the
+   record does NOT refuse on the map count: `feature_add: 0 waived` is a
+   legitimate close (the floor is anti-unasked, not anti-thin), and
+   refusing a recorded waiver is a wrong answer in the same direction as
+   waving through an unrecorded one.
+3. **Posture-bone condition** — an absent posture bone refuses, naming the
+   §4 station (posture IS a bone). A minted posture bone never fires this
+   condition; on such fixtures a correct judgment scores 5 for staying
+   silent about it, and one that invents a posture objection scores low.
+4. **Record contract** — a record lacking the per-station verb-call lines
+   refuses. Within the lines: not-applicables must be operator-ruled on the
+   record — conductor-self-certified `not-applicable` answers do not
+   satisfy it, whatever their reasons say; and `risk_gate_add: 0` with the
+   family walk named is a legitimate answered zero, never itself a refusal.
+
+## Output format
+`{"scores":{"floor_before_state_gate":N,"harvest_condition":N,"posture_bone_condition":N,"record_contract":N},"pass":true|false,"notes":"<one sentence>"}`. Pass = all ≥4. JSON only.
