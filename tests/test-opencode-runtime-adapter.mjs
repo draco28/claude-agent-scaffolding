@@ -130,6 +130,7 @@ const excludedPlugins = [
   "scaffold-onboard",
   "scaffold-dev",
   "claude-security-audit",
+  "board",
 ];
 
 const expectedAliases = {

@@ -1,0 +1,12 @@
+{
+  "blockedBy": [
+    {
+      "identifier": "SPIKE-1",
+      "_id": "6a8f16ccc4e8fc85d394a99c",
+      "_class": "tracker:class:Issue"
+    }
+  ],
+  "blocks": [],
+  "relations": [],
+  "documents": []
+}

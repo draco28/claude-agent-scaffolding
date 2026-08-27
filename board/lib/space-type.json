@@ -1,0 +1,14 @@
+{
+  "name": "Ossify project",
+  "task_types": ["Spine", "Work item"],
+  "statuses": [
+    { "name": "planned",   "category": "ToDo"   },
+    { "name": "active",    "category": "Active" },
+    { "name": "complete",  "category": "Won"    },
+    { "name": "abandoned", "category": "Lost"   }
+  ],
+  "role": {
+    "name": "agent",
+    "permission_ids": ["core:permission:CreateObject", "core:permission:UpdateObject"]
+  }
+}

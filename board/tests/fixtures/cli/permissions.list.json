@@ -1,0 +1,354 @@
+{
+  "permissions": [
+    {
+      "id": "card:permission:AddTag",
+      "label": "card:string:AddTagPermission",
+      "scope": "space",
+      "objectClass": "card:class:Card",
+      "txClass": "core:class:TxMixin"
+    },
+    {
+      "id": "card:ids:GuestCardClassPermission",
+      "label": "card:string:AllowCreatingCards",
+      "scope": "space"
+    },
+    {
+      "id": "card:permission:CreateCard",
+      "label": "card:string:CreateCardPermission",
+      "scope": "space",
+      "objectClass": "card:class:Card",
+      "txClass": "core:class:TxCreateDoc"
+    },
+    {
+      "id": "card:permission:ForbidAddTag",
+      "label": "card:string:ForbidAddTagPermission",
+      "scope": "space",
+      "objectClass": "card:class:Card",
+      "txClass": "core:class:TxMixin",
+      "forbid": true
+    },
+    {
+      "id": "card:permission:ForbidCreateCard",
+      "label": "card:string:ForbidCreateCardPermission",
+      "scope": "space",
+      "objectClass": "card:class:Card",
+      "txClass": "core:class:TxCreateDoc",
+      "forbid": true
+    },
+    {
+      "id": "card:permission:ForbidRemoveCard",
+      "label": "card:string:ForbidRemoveCard",
+      "scope": "space",
+      "objectClass": "card:class:Card",
+      "txClass": "core:class:TxRemoveDoc",
+      "forbid": true
+    },
+    {
+      "id": "card:permission:ForbidRemoveTag",
+      "label": "card:string:ForbidRemoveTag",
+      "scope": "space",
+      "objectClass": "card:class:Card",
+      "txClass": "core:class:TxUpdateDoc",
+      "forbid": true
+    },
+    {
+      "id": "card:permission:ForbidUpdateCard",
+      "label": "card:string:ForbidUpdateCard",
+      "scope": "space",
+      "objectClass": "card:class:Card",
+      "txClass": "core:class:TxUpdateDoc",
+      "forbid": true
+    },
+    {
+      "id": "card:permission:LockSection",
+      "label": "card:string:LockSection",
+      "scope": "space",
+      "objectClass": "card:class:Card",
+      "txClass": "core:class:TxUpdateDoc"
+    },
+    {
+      "id": "card:permission:RemoveCard",
+      "label": "card:string:RemoveCard",
+      "scope": "space",
+      "objectClass": "card:class:Card",
+      "txClass": "core:class:TxRemoveDoc"
+    },
+    {
+      "id": "card:permission:RemoveTag",
+      "label": "card:string:RemoveTag",
+      "scope": "space",
+      "objectClass": "card:class:Card",
+      "txClass": "core:class:TxUpdateDoc"
+    },
+    {
+      "id": "card:permission:UnlockSection",
+      "label": "card:string:UnLockSection",
+      "scope": "space",
+      "objectClass": "card:class:Card",
+      "txClass": "core:class:TxUpdateDoc"
+    },
+    {
+      "id": "card:permission:UpdateCard",
+      "label": "card:string:UpdateCard",
+      "scope": "space",
+      "objectClass": "card:class:Card",
+      "txClass": "core:class:TxUpdateDoc"
+    },
+    {
+      "id": "core:permission:ArchiveSpace",
+      "label": "core:string:ArchiveSpace",
+      "description": "core:string:ArchiveSpaceDescription",
+      "scope": "space"
+    },
+    {
+      "id": "core:permission:CreateObject",
+      "label": "core:string:CreateObject",
+      "description": "core:string:CreateObjectDescription",
+      "scope": "space"
+    },
+    {
+      "id": "core:permission:DeleteObject",
+      "label": "core:string:DeleteObject",
+      "description": "core:string:DeleteObjectDescription",
+      "scope": "space"
+    },
+    {
+      "id": "core:permission:ForbidDeleteObject",
+      "label": "core:string:ForbidDeleteObject",
+      "description": "core:string:ForbidDeleteObjectDescription",
+      "scope": "space",
+      "txClass": "core:class:TxRemoveDoc",
+      "forbid": true
+    },
+    {
+      "id": "core:permission:UpdateObject",
+      "label": "core:string:UpdateObject",
+      "description": "core:string:UpdateObjectDescription",
+      "scope": "space"
+    },
+    {
+      "id": "core:permission:UpdateSpace",
+      "label": "core:string:UpdateSpace",
+      "description": "core:string:UpdateSpaceDescription",
+      "scope": "space"
+    },
+    {
+      "id": "document:permission:ForbidCreateTeamspace",
+      "label": "document:string:ForbidCreateTeamspacePermission",
+      "description": "document:string:ForbidCreateTeamspacePermissionDescription",
+      "scope": "workspace",
+      "objectClass": "document:class:Teamspace",
+      "txClass": "core:class:TxCreateDoc",
+      "forbid": true
+    },
+    {
+      "id": "documents:permission:ApproveDocument",
+      "label": "documents:string:ApproveDocumentPermission",
+      "description": "documents:string:ApproveDocumentDescription",
+      "scope": "space"
+    },
+    {
+      "id": "documents:permission:ArchiveDocument",
+      "label": "documents:string:ArchiveDocumentPermission",
+      "description": "documents:string:ArchiveDocumentDescription",
+      "scope": "space"
+    },
+    {
+      "id": "documents:permission:CoAuthorDocument",
+      "label": "documents:string:CoAuthorDocumentPermission",
+      "description": "documents:string:CoAuthorDocumentDescription",
+      "scope": "space"
+    },
+    {
+      "id": "documents:permission:CreateDocumentCategory",
+      "label": "documents:string:CreateDocumentCategoryPermission",
+      "description": "documents:string:CreateDocumentCategoryDescription",
+      "scope": "space"
+    },
+    {
+      "id": "documents:permission:CreateDocument",
+      "label": "documents:string:CreateDocumentPermission",
+      "description": "documents:string:CreateDocumentDescription",
+      "scope": "space"
+    },
+    {
+      "id": "documents:permission:DeleteDocumentCategory",
+      "label": "documents:string:DeleteDocumentCategoryPermission",
+      "description": "documents:string:DeleteDocumentCategoryDescription",
+      "scope": "space"
+    },
+    {
+      "id": "documents:permission:ReviewDocument",
+      "label": "documents:string:ReviewDocumentPermission",
+      "description": "documents:string:ReviewDocumentDescription",
+      "scope": "space"
+    },
+    {
+      "id": "documents:permission:UpdateDocumentCategory",
+      "label": "documents:string:UpdateDocumentCategoryPermission",
+      "description": "documents:string:UpdateDocumentCategoryDescription",
+      "scope": "space"
+    },
+    {
+      "id": "documents:permission:UpdateDocumentOwner",
+      "label": "documents:string:UpdateDocumentOwnerPermission",
+      "description": "documents:string:UpdateDocumentOwnerDescription",
+      "scope": "space"
+    },
+    {
+      "id": "drive:permission:CreateFile",
+      "label": "drive:string:CreateFilePermission",
+      "description": "drive:string:CreateFilePermissionDescription",
+      "scope": "space",
+      "objectClass": "drive:class:File",
+      "txClass": "core:class:TxCreateDoc"
+    },
+    {
+      "id": "drive:permission:CreateFolder",
+      "label": "drive:string:CreateFolderPermission",
+      "description": "drive:string:CreateFolderPermissionDescription",
+      "scope": "space",
+      "objectClass": "drive:class:Folder",
+      "txClass": "core:class:TxCreateDoc"
+    },
+    {
+      "id": "drive:permission:ForbidCreateDrive",
+      "label": "drive:string:ForbidCreateDrivePermission",
+      "description": "drive:string:ForbidCreateDrivePermissionDescription",
+      "scope": "workspace",
+      "objectClass": "drive:class:Drive",
+      "txClass": "core:class:TxCreateDoc",
+      "forbid": true
+    },
+    {
+      "id": "drive:permission:RemoveFile",
+      "label": "drive:string:RemoveFilePermission",
+      "description": "drive:string:RemoveFilePermissionDescription",
+      "scope": "space",
+      "objectClass": "drive:class:File",
+      "txClass": "core:class:TxRemoveDoc"
+    },
+    {
+      "id": "drive:permission:RemoveFolder",
+      "label": "drive:string:RemoveFolderPermission",
+      "description": "drive:string:RemoveFolderPermissionDescription",
+      "scope": "space",
+      "objectClass": "drive:class:Folder",
+      "txClass": "core:class:TxRemoveDoc"
+    },
+    {
+      "id": "drive:permission:UpdateFile",
+      "label": "drive:string:UpdateFilePermission",
+      "description": "drive:string:UpdateFilePermissionDescription",
+      "scope": "space",
+      "objectClass": "drive:class:File",
+      "txClass": "core:class:TxUpdateDoc"
+    },
+    {
+      "id": "drive:permission:UpdateFolder",
+      "label": "drive:string:UpdateFolderPermission",
+      "description": "drive:string:UpdateFolderPermissionDescription",
+      "scope": "space",
+      "objectClass": "drive:class:Folder",
+      "txClass": "core:class:TxUpdateDoc"
+    },
+    {
+      "id": "lead:permission:ForbidCreateFunnel",
+      "label": "lead:string:ForbidCreateFunnelPermission",
+      "description": "lead:string:ForbidCreateFunnelPermissionDescription",
+      "scope": "workspace",
+      "objectClass": "lead:class:Funnel",
+      "txClass": "core:class:TxCreateDoc",
+      "forbid": true
+    },
+    {
+      "id": "process:permission:CancelProcess",
+      "label": "process:string:CancelProcessPermission",
+      "scope": "space",
+      "objectClass": "process:class:Execution",
+      "txClass": "core:class:TxUpdateDoc"
+    },
+    {
+      "id": "process:permission:ForbidCancelProcess",
+      "label": "process:string:ForbidCancelProcessPermission",
+      "scope": "space",
+      "objectClass": "process:class:Execution",
+      "txClass": "core:class:TxUpdateDoc",
+      "forbid": true
+    },
+    {
+      "id": "process:permission:ForbidRunProcess",
+      "label": "process:string:ForbidRunProcessPermission",
+      "scope": "space",
+      "objectClass": "process:class:Execution",
+      "txClass": "core:class:TxCreateDoc",
+      "forbid": true
+    },
+    {
+      "id": "process:permission:RunProcess",
+      "label": "process:string:RunProcessPermission",
+      "scope": "space",
+      "objectClass": "process:class:Execution",
+      "txClass": "core:class:TxCreateDoc"
+    },
+    {
+      "id": "recruit:permission:ForbidCreateVacancy",
+      "label": "recruit:string:ForbidCreateVacancyPermission",
+      "description": "recruit:string:ForbidCreateVacancyPermissionDescription",
+      "scope": "workspace",
+      "objectClass": "recruit:class:Vacancy",
+      "txClass": "core:class:TxCreateDoc",
+      "forbid": true
+    },
+    {
+      "id": "tracker:ids:GuestIssueClassPermission",
+      "label": "tracker:string:AllowCreatingIssues",
+      "scope": "space"
+    },
+    {
+      "id": "tracker:permission:ForbidCreateProject",
+      "label": "tracker:string:ForbidCreateProjectPermission",
+      "description": "tracker:string:ForbidCreateProjectPermissionDescription",
+      "scope": "workspace",
+      "objectClass": "tracker:class:Project",
+      "txClass": "core:class:TxCreateDoc",
+      "forbid": true
+    },
+    {
+      "id": "training:ids:GuestTrainingAttemptClassPermission",
+      "label": "training:string:AllowToTakeTraining",
+      "scope": "space"
+    },
+    {
+      "id": "training:permission:ChangeSomeoneElsesSentRequestOwner",
+      "label": "training:string:Permission_ChangeSomeoneElsesSentRequestOwner",
+      "description": "training:string:Permission_ChangeSomeoneElsesSentRequestOwner_Description",
+      "scope": "space"
+    },
+    {
+      "id": "training:permission:ChangeSomeoneElsesTrainingOwner",
+      "label": "training:string:Permission_ChangeSomeoneElsesTrainingOwner",
+      "description": "training:string:Permission_ChangeSomeoneElsesTrainingOwner_Description",
+      "scope": "space"
+    },
+    {
+      "id": "training:permission:CreateRequestOnSomeoneElsesTraining",
+      "label": "training:string:Permission_CreateRequestOnSomeoneElsesTraining",
+      "description": "training:string:Permission_CreateRequestOnSomeoneElsesTraining_Description",
+      "scope": "space"
+    },
+    {
+      "id": "training:permission:CreateTraining",
+      "label": "training:string:Permission_CreateTraining",
+      "description": "training:string:Permission_CreateTraining_Description",
+      "scope": "space"
+    },
+    {
+      "id": "training:permission:ViewSomeoneElsesSentRequest",
+      "label": "training:string:Permission_ViewSomeoneElsesSentRequest",
+      "description": "training:string:Permission_ViewSomeoneElsesSentRequest_Description",
+      "scope": "space"
+    }
+  ],
+  "total": 53
+}
