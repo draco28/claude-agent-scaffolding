@@ -11,7 +11,8 @@ C4 ran `oss release_add "Release 0"` and `oss release_status r0 closed` —
 journey table whose seven steps are marked three `next` and four `later`,
 but the conductor never ran `oss feature_add` — `oss feature_list` prints
 `[]`. C3 scanned an absent `docs/adr/`, answered every one of the nine
-categories "not-applicable — no ADR directory exists", and minted no bones.
+categories "not-applicable — no ADR directory exists" on its own judgment —
+none of the nine was read back to the operator — and minted no bones.
 The §4 posture station never ran: `posture` is null in state and no posture
 bone exists. The adoption record holds the baseline table and the gates
 list, but no per-station verb-call lines.

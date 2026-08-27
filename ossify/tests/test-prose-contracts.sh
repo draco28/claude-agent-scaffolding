@@ -223,16 +223,21 @@ done
 # #303: two adopt pilots closed green on `oss doctor` with an empty registry -
 # the state gate proves integrity, never completeness. The floor that fixes it
 # lives in adopt §6 as prose, so prose tokens are its only mechanical surface.
-# 'posture' and the verbs appear all over the body, so pin them INSIDE §6's
-# span: a narrowing pass that drops one refusal condition or the waiver path
-# goes red here, not in the next pilot.
+# Pin CLAUSE FRAGMENTS, not bare nouns: round 1 of the #365 review measured the
+# first version of this row vacuous for two of three refusal conditions - bare
+# 'posture' and 'per-station lines' survived their bullets' deletion via the
+# output-table rows. Every token below occurs exactly once in §6's span, inside
+# the clause it pins; a narrowing pass that drops a refusal condition, the
+# parity arm, or the waiver attribution goes red here, not in the next pilot.
 _adopt6="$(awk '/^## 6\. Outputs/{f=1} /^## 7\./{f=0} f' "$OSSSK/skills/adopt/SKILL.md")"
 if [ -n "$_adopt6" ]; then
   T_PASS=$((T_PASS+1))
 else
   T_FAIL=$((T_FAIL+1)); echo "FAIL: cannot extract adopt §6 - the floor checks below are vacuous"
 fi
-for tok in 'completion floor' 'feature_list' 'waiver, operator-confirmed' 'posture' 'per-station lines'; do
+for tok in 'The completion floor comes first' 'journey table is absent' \
+           'fewer entries than' 'operator-confirmed' 'the posture bone is absent' \
+           'lacks the per-station lines'; do
   case "$_adopt6" in
     *"$tok"*) T_PASS=$((T_PASS+1)) ;;
     *) T_FAIL=$((T_FAIL+1)); echo "FAIL: adopt §6 no longer carries floor token '$tok'" ;;

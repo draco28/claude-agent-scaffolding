@@ -244,17 +244,18 @@ exists the vacuous-window risk stands, named rather than hidden.
 | **Adoption record** | `<ai-workspace>/ADOPTION.md` | author — baseline table, gates passed, merged-vs-authored, **every C2 gap**, the C6 seed candidates, and the per-station lines the floor requires: `feature_add`/`bone_add`/`risk_gate_add`/`posture_set` counts; each C3 category `answered` (bone ref) or `not-applicable` **operator-ruled** with its reason; critic `ran\|skip`; smoke verified/unverified counts |
 
 The adoption record is the point: the only artifact saying what adoption
-did; `doctor` consults it when spec and state disagree (§1).
+did; `doctor` consults it when spec and state disagree (doctor §1).
 
 **The completion floor comes first — `oss doctor` proves integrity, not
 completeness; it is green at two mutations and an empty registry (#303).**
 Refuse to declare completion, naming the station that never ran, when:
 
-- `oss feature_list` is empty while C1 marked any step `next`/`later` — the
-  harvest is owed. A zero-map close exists only as an **all-`shipped`
-  waiver, operator-confirmed on the record**.
-- the posture bone is absent — posture **is** a bone (§4); absent means the
-  station never ran.
+- C1's journey table is absent, or the feature map holds fewer entries than
+  it marks `next`/`later` — the harvest is owed in full. A map owing
+  nothing (all `shipped`) closes at zero only via an **operator-confirmed
+  waiver on the record**.
+- the posture bone is absent or `posture` is null — posture **is** a bone
+  and always gets set (§4).
 - the adoption record lacks the per-station lines its row requires — a zero
   must be visible and answered, never unasked (`/start` §12: thin succeeds
   provided every category was asked).
