@@ -28,7 +28,7 @@ is named rather than left to read as executed:
 | 4. Feature-map re-groom + next-release sketch | **built** — §7 |
 | **5. Docs increment (spec §8)** | **not shipped.** The trigger table lives in spec §8 and has no executable surface yet |
 | **6. Handoff cleanup for the closed release** | **not shipped.** `/ossify:handoff` authors session handoffs as a standalone utility, but it has no retention policy by design — handoffs accumulate and the user prunes — so there is nothing for a close to clean up; the same non-wiring `spine-close.md` §9 records for the spine boundary |
-| **7. Release tag / PR gate** | **not shipped.** The spine→release / release→main tier question is unsettled, and a PR gate written before it is settled would harden the wrong tier |
+| **7. Release tag / PR gate** | **shipped as the tag half (#339).** The tier question is settled: the PR gate lives at the **spine** boundary — spine close lands each hosting repo by PR through `/ossify:work-pr` (`spine-close.md` §3), work-item merges stay local — so a release needs no merge of its own; this ceremony tags the merged `main` (§9). A release branch would add a third merge with no reviewer, and does not exist |
 | **8. Boundary audit (companion §6)** | **built — core scope over the full repo set** — §8, full depth in `references/boundary-audit.md`. Re-derived under the skill-first freeze: prose driving `git`/`gh`/`gitleaks` plus agent judgment, **every manifest repo object audited with per-role arms, observed-visibility gated**, fail-closed — the tracked-file audit, the secrets scan, the scan-first untracked sweep, the semantic pass over tracked prose, the recorded history pass and the working-tree pass over uncommitted tracked modifications, each tracked submodule's pinned tree audited by that same arm. Confirmed findings block the close; the one other unblock is a recorded accepted-disclosure override. The dimensions this scope still omits — divergence on public refs other than the audited one after a recorded history pass, and every submodule pin but the audited ref's together with a non-manifest pinned submodule repository's own history — are named in that file's own not-shipped table |
 
 A missing step and a step that silently does nothing are indistinguishable to
@@ -398,7 +398,26 @@ re-audited.
 
 ---
 
-## 9. Step 8 — the state writes, and only after every step above reached the end
+## 9. Step 8 — tag the release, then the state writes, and only after every step above reached the end
+
+**The tag first, because the tag is the release's only landing act.** The PR
+tier sits at the spine boundary (#339): every spine closed means every spine's
+hosting repos landed by PR and merged, so `main` already carries the release —
+there is no release branch and no release-level merge to gate. Tag it where it
+stands:
+
+```bash
+git tag -a "$rel" -m "release $rel" "$base"
+git push origin "$rel"
+```
+
+**`$base` is main — or whatever the project's published line is, resolved the
+same way every ceremony resolves it, never assumed.** The tag is annotated: a
+lightweight tag names a commit and says nothing about the release. An existing
+`$rel` tag halts — a re-tag is history rewriting on a published ref, and the
+operator decides whether that is ever true. A refused tag push (a ruleset can
+protect tags the way it protects branches) surfaces the refusal verbatim and
+halts like any other blocked landing: never `--force`, never delete-and-retag.
 
 ```bash
 oss release_status "$rel" closed
@@ -450,6 +469,12 @@ executed.
 
 - **Reading `abandoned` as `closed`** — or hard-halting on it and making the
   release uncloseable (§2).
+- **Gating a release-level merge.** There is none to gate: the PR tier is the
+  spine boundary's, and this ceremony only tags the already-merged `main` (§1,
+  §9).
+- **Re-tagging, force-pushing, or delete-and-retagging a published release
+  tag.** An existing tag halts; rewriting a published ref is the operator's
+  call, made explicitly (§9).
 - **Testing the rc of `oss get` instead of its output.** An empty `select` exits
   0 (§2).
 - **Passing a spine id to `oss demo_user_lines` here.** The release walk takes no

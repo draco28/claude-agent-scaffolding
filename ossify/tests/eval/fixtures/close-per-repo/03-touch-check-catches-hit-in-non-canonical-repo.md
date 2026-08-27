@@ -23,3 +23,6 @@ canonical's merge commit's first-parent diff is exactly one path,
 is exactly one path, `payments/ledger.go` — the file `ADR-0301` covers. No
 other bones or risk gates are registered. `/close r1.s6` has reached step 5,
 the changed-path list and the touch check.
+
+
+Neither repo has a git remote — spine close's PR arm (#339) never fires here; the local merge arm is the correct one for this world.

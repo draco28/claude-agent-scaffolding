@@ -61,21 +61,46 @@ after its merge is verified landed, precisely so this step can read it that way.
 
 ---
 
-## 3. Step 2 — switch each hosting repo back to its base branch, then merge
+## 3. Step 2 — land each hosting repo: by PR where a remote exists, locally where none does
 
-**Read `references/code-review.md` before this merge.** It is the last moment the
-spine's accumulated diff is reviewable as one thing, and the only reader in the
-ceremony that judges *craft and fidelity* — impl-check verified the ACs pass and
-that no **documented** pattern is violated; nothing has yet asked whether the code
-is good, or whether it is the code the spine set out to write. Advisory: it
-produces findings and a decision per finding, not a halt.
+**Read `references/code-review.md` before this step's merge happens — before a
+PR is opened, on the PR-armed repos.** It is the last moment the spine's
+accumulated diff is reviewable as one thing, and the only reader in the ceremony
+that judges *craft and fidelity* — impl-check verified the ACs pass and that no
+**documented** pattern is violated; nothing has yet asked whether the code is
+good, or whether it is the code the spine set out to write. Advisory: it
+produces findings and a decision per finding, not a halt. Its findings are fixed
+before the PR opens, which shrinks the review loop the PR then runs.
 
 **This step repeats once per hosting repo** — the distinct `target_repo` values
 across the spine's work items, the same set `round-orchestration.md` §2 looped to
 cut the branch in before round 1. A spine confined to one repo loops once; a
-cross-repo spine merges into every repo it touched, and none of them is optional
-— a hosting repo left unmerged is work the spine did that never reached its base
+cross-repo spine lands into every repo it touched, and none of them is optional
+— a hosting repo left unlanded is work the spine did that never reached its base
 branch, however green the repos that DID land make the close look.
+
+**Which landing arm a repo takes is decided by evidence, never by taste, and the
+rule is one line: a repo with a remote lands by PR; a repo without one merges
+locally (#339).** The base branch of a remote repo is a *published* line — every
+canonical this operator runs holds it under a ruleset with PR + review as the
+merge gate — so a local `--no-ff` merge there produces a commit that can never
+be pushed while every later step reports green. A no-remote repo has no such
+line between itself and its base branch, and the local merge is correct there.
+No protection sniffing: the ruleset API is admin-gated and the branch-protection
+endpoint 404s, so a probe would be a guess where a decidable rule exists, and a
+PR onto an unprotected remote is valid everywhere `gh` reaches. **The third leg
+is a halt, never a re-route: a remote exists but `gh` cannot operate on it — a
+non-GitHub remote, or gh unauthenticated/unreachable — halts naming the two
+remedies (fix gh: auth, or the remote's actual host; or an operator-decided
+local merge, recorded as such). Silently falling back to the local arm on a
+published line is exactly the defect this step exists to prevent.**
+
+**The step runs as two passes with prose between them.** Pass one arms every
+hosting repo: local repos merge now, remote repos push their spine branch and
+open a PR against that repo's base branch. The prose between the passes hands
+each open PR to `/ossify:work-pr`. Pass two records the merged PRs against
+freshly fetched refs. `$merge_shas` — the `repo:sha` pairs §6's touch check
+reads — accumulates across both passes.
 
 The two facts this step needs are not in state and are recovered, not guessed:
 
@@ -93,7 +118,7 @@ The two facts this step needs are not in state and are recovered, not guessed:
   repo** — the lane cuts from HEAD (issue 133), so a planned base that never
   matched the cut base is exactly the wrong-merge hazard, repo by repo. **If
   either cannot be resolved for a repo, halt** — guessing the default branch
-  merges that repo's share of the spine into the wrong line of development, and
+  lands that repo's share of the spine into the wrong line of development, and
   every downstream step then reports green.
 
 ```bash
@@ -115,6 +140,7 @@ spine_branch="$(oss branch_name "$spine_id" "$spine_slug")"
 # it), so splitting each line on the first colon is unambiguous.
 
 merge_shas=""
+pr_lines=""
 while IFS= read -r repo; do
   [ -n "$repo" ] || continue
 
@@ -127,49 +153,84 @@ while IFS= read -r repo; do
   pre="$(git -C "$repo_root" rev-parse "$spine_branch")" \
     || { echo "close: cannot resolve '$spine_branch' in $repo - halt"; exit 1; }
 
-  # ALREADY LANDED? This is the resume arm, and it lives inside the merge loop
-  # rather than in a probe of its own: a separate probe can only report, and
-  # step 2 would still halt on its own HEAD assertion the moment it ran.
-  # Against $base_branch, NOT HEAD. On a first close HEAD *is* $spine_branch, so
-  # the tip is trivially its own ancestor and this arm would fire every time,
-  # skipping the merge and leaving the repo parked on the spine branch.
-  if git -C "$repo_root" merge-base --is-ancestor "$pre" "$base_branch" 2>/dev/null; then
-    # Recover this repo's merge commit from history - the commit on this branch
-    # whose SECOND parent is the spine tip. $merge_shas is a shell variable that
-    # does not outlive the invocation, and §6's touch check needs every pair, so
-    # a resumed close has to reconstruct what the first one recorded.
-    merges="$(git -C "$repo_root" log --format='%H %P' --merges "$base_branch")"
-    merge_sha="$(printf '%s\n' "$merges" \
-      | awk -v t="$pre" 'found=="" { for (i = 3; i <= NF; i++) if ($i == t) found = $1 } END { print found }')"
-    [ -n "$merge_sha" ] \
-      || { echo "close: $base_branch in $repo already contains $spine_branch but no merge commit has it as a second parent - a fast-forward or a rebase landed it, and §6 cannot compute this repo's first-parent diff - halt"; exit 1; }
-    git -C "$repo_root" checkout -q "$base_branch" \
-      || { echo "close: $repo already landed but cannot check out '$base_branch' - halt"; exit 1; }
-    echo "close: $repo already landed at $merge_sha - not re-merging"
-  else
-    head_branch="$(git -C "$repo_root" rev-parse --abbrev-ref HEAD)"
-    [ "$head_branch" = "$spine_branch" ] \
-      || { echo "close: $repo is on '$head_branch', not '$spine_branch', and does not contain $spine_branch - halt"; exit 1; }
+  if [ -z "$(git -C "$repo_root" remote)" ]; then
+    # LOCAL ARM — no remote: nothing stands between this repo and its own base
+    # branch, so the merge is local.
+    #
+    # ALREADY LANDED? This is the resume arm, and it lives inside the merge loop
+    # rather than in a probe of its own: a separate probe can only report, and
+    # step 2 would still halt on its own HEAD assertion the moment it ran.
+    # Against $base_branch, NOT HEAD. On a first close HEAD *is* $spine_branch,
+    # so the tip is trivially its own ancestor and this arm would fire every
+    # time, skipping the merge and leaving the repo parked on the spine branch.
+    if git -C "$repo_root" merge-base --is-ancestor "$pre" "$base_branch" 2>/dev/null; then
+      # Recover this repo's merge commit from history - the commit on this branch
+      # whose SECOND parent is the spine tip. $merge_shas is a shell variable that
+      # does not outlive the invocation, and §6's touch check needs every pair, so
+      # a resumed close has to reconstruct what the first one recorded.
+      merges="$(git -C "$repo_root" log --format='%H %P' --merges "$base_branch")"
+      merge_sha="$(printf '%s\n' "$merges" \
+        | awk -v t="$pre" 'found=="" { for (i = 3; i <= NF; i++) if ($i == t) found = $1 } END { print found }')"
+      [ -n "$merge_sha" ] \
+        || { echo "close: $base_branch in $repo already contains $spine_branch but no merge commit has it as a second parent - a fast-forward or a rebase landed it, and §6 cannot compute this repo's first-parent diff - halt"; exit 1; }
+      git -C "$repo_root" checkout -q "$base_branch" \
+        || { echo "close: $repo already landed but cannot check out '$base_branch' - halt"; exit 1; }
+      echo "close: $repo already landed at $merge_sha - not re-merging"
+    else
+      head_branch="$(git -C "$repo_root" rev-parse --abbrev-ref HEAD)"
+      [ "$head_branch" = "$spine_branch" ] \
+        || { echo "close: $repo is on '$head_branch', not '$spine_branch', and does not contain $spine_branch - halt"; exit 1; }
 
-    git -C "$repo_root" checkout -q "$base_branch" \
-      || { echo "close: cannot check out base branch '$base_branch' in $repo - halt"; exit 1; }
-    now_on="$(git -C "$repo_root" rev-parse --abbrev-ref HEAD)"
-    [ "$now_on" = "$base_branch" ] \
-      || { echo "close: switch-back left $repo on '$now_on', not '$base_branch' - halt"; exit 1; }
+      git -C "$repo_root" checkout -q "$base_branch" \
+        || { echo "close: cannot check out base branch '$base_branch' in $repo - halt"; exit 1; }
+      now_on="$(git -C "$repo_root" rev-parse --abbrev-ref HEAD)"
+      [ "$now_on" = "$base_branch" ] \
+        || { echo "close: switch-back left $repo on '$now_on', not '$base_branch' - halt"; exit 1; }
 
-    git -C "$repo_root" merge --no-ff "$spine_branch" -m "merge $spine_id" \
-      || { echo "close: merge conflict in $repo - halt"; exit 1; }
-    git -C "$repo_root" merge-base --is-ancestor "$pre" HEAD \
-      || { echo "close: merge reported success but $pre is not reachable from HEAD in $repo - halt"; exit 1; }
-    merge_sha="$(git -C "$repo_root" rev-parse HEAD)"
-  fi
-  merge_shas="$merge_shas
+      git -C "$repo_root" merge --no-ff "$spine_branch" -m "merge $spine_id" \
+        || { echo "close: merge conflict in $repo - halt"; exit 1; }
+      git -C "$repo_root" merge-base --is-ancestor "$pre" HEAD \
+        || { echo "close: merge reported success but $pre is not reachable from HEAD in $repo - halt"; exit 1; }
+      merge_sha="$(git -C "$repo_root" rev-parse HEAD)"
+    fi
+    merge_shas="$merge_shas
 $repo:$merge_sha"
+  else
+    # PR ARM — the base branch is a published line: the merge goes by PR, and
+    # the record pass below finishes it after work-pr drives the loop.
+    #
+    # RESUME PROBE FIRST, and gh inoperability is a halt on either gh call —
+    # never a silent fall-through to the local arm. The probe looks for a PR
+    # headed by the spine branch in ANY state: an OPEN one resumes the loop, a
+    # MERGED one resumes the record pass, and only the absence of one pushes
+    # and opens (a merged PR may have had its branch auto-deleted on the
+    # remote; the probe is by head name, which survives the deletion).
+    probe="$( (cd "$repo_root" && gh pr list --head "$spine_branch" --state all --json number --limit 1) 2>&1 )" \
+      || { echo "close: gh cannot operate on $repo's remote ($probe) - fix gh (auth, host) or record an operator-decided local merge - never a silent local fall-through - halt"; exit 1; }
+    pr_num="$(printf '%s\n' "$probe" | jq -r '.[0].number // ""')"
+    if [ -n "$pr_num" ]; then
+      echo "close: $repo already has PR #$pr_num for $spine_branch - not re-pushing, not re-opening"
+    else
+      git -C "$repo_root" push -u origin "$spine_branch" \
+        || { echo "close: cannot push '$spine_branch' to origin in $repo - halt"; exit 1; }
+      # The body carries the pushed tip: the lineage guard's durable input.
+      # It lives on the PR, so it survives the halt/resume boundary and session
+      # death - no shell state is trusted across the loop.
+      pr_body="spine close $spine_id -> $base_branch in $repo
+pushed-tip: $pre"
+      pr_num="$( (cd "$repo_root" && gh pr create --base "$base_branch" \
+        --title "merge $spine_id" --body "$pr_body") 2>&1 )" \
+        || { echo "close: gh cannot open the PR in $repo ($pr_num) - fix gh (auth, host) or record an operator-decided local merge - never a silent local fall-through - halt"; exit 1; }
+      echo "close: $repo PR #$pr_num opened against $base_branch - hand it to /ossify:work-pr"
+    fi
+    pr_lines="$pr_lines
+$repo:$pr_num"
+  fi
 done < <(oss get ".work_items[] | select(.spine==\"$spine_id\") | .target_repo" | sort -u)
 ```
 
-**Four guards per repo, and every one of them exists because the failure it
-catches is rc 0 all the way to a green close.**
+**The local arm keeps its four guards, and every one of them exists because the
+failure it catches is rc 0 all the way to a green close.**
 
 - **Derive the spine branch and assert HEAD matches it, in this repo.** Reading
   it off HEAD instead makes the switch-back a no-op and the merge "Already up to
@@ -191,41 +252,134 @@ catches is rc 0 all the way to a green close.**
   assertion: on a self-merge `$pre` is trivially its own ancestor, so
   `--is-ancestor` returns 0. Both legs, always, every repo.
 
-**A merge conflict halts with rc-8 semantics — in whichever repo it happens.**
-Surface the conflicted paths verbatim, leave that repo's merge in progress for
-the human, and run **no** later step in any repo, including one this loop has
-not reached yet. Never `--abort` on the user's behalf, never auto-resolve,
+**A merge conflict halts with rc-8 semantics — in whichever repo it happens, and
+the PR arm is not exempt: a conflict the remote reports blocks the PR exactly as
+a local conflict blocks the local arm.** Surface the conflicted paths verbatim,
+leave them for the human — locally, the merge in progress; on a PR, the PR's own
+conflict state — and run **no** later step in any repo, including one this loop
+has not reached yet. Never `--abort` on the user's behalf, never auto-resolve,
 never `-X` a strategy option. If the operator says *resolve it*, the discipline
 is `merge-conflict-resolution.md` — hunk by hunk, by each side's recorded
-intent. Resuming means finishing *this* repo's merge and continuing the loop
-from there, not re-running the layer or restarting a repo that already landed.
+intent. Resuming means finishing *this* repo's landing and continuing from
+there, not re-running the layer or restarting a repo that already landed.
 
-**Resuming a halted spine close.** A halt at steps 4-11 leaves step 2's merge
-already landed in **every** hosting repo. A halt **inside** step 2 is the other
-case a cross-repo spine introduces: the loop may have landed the merge in one or
-two hosting repos before a later one failed, so "already landed" is a per-repo
-question now, not one yes/no for the whole step.
+**Between the passes: hand every open PR to `/ossify:work-pr`, one at a time.**
+The invocation states, in full: the spine context (this PR *is* the spine's
+accumulated diff landing — the smallest independently meaningful diff, which is
+why the tier sits here and not at the work item, whose merges stay local); the
+**merge convention is a merge commit** — a rebase or squash landing cannot feed
+§6's first-parent diff and is turned away at the record pass below; and that
+deferrals land as tracked issues **in that repo**, linked from the spine's
+retrospective (§8). The merge is the operator's explicit call inside work-pr —
+this ceremony does not ack on anyone's behalf. **If the operator leaves any PR
+open, the close halts here, recording nothing**: surface the PR URLs, say which
+steps remain, and stop. That is the named halt state; re-invoke `/close
+<spine-id>` once the PR has merged.
 
-**Step 2's loop above is itself the resume path — there is no separate probe.**
+```bash
+# SECOND PASS — record the PR-armed repos. work-pr has driven each PR to an
+# operator-acked merge; every guard binds to the PR's MERGED headRefOid from
+# gh, evaluated against freshly fetched refs - never to a tip recorded at push
+# time. work-pr lands fix commits ON the spine branch during the loop, so the
+# merged head is a DESCENDANT of what this ceremony pushed, not the same
+# commit, and any guard shaped as equality fails on every legitimately-merged
+# PR that had one fix round.
+while IFS=: read -r repo pr_num; do
+  [ -n "$repo" ] || continue
+  repo_root="$(oss repo_root "$repo")" \
+    || { echo "close: pr_lines names undeclared repo '$repo' - halt"; exit 1; }
+  base_branch="$(printf '%s\n' "$repo_base_branches" | awk -F: -v r="$repo" '$1==r{print $2; exit}')"
+  [ -n "$base_branch" ] \
+    || { echo "close: no base_branch recorded for $spine_id in $repo - halt"; exit 1; }
+
+  pr_json="$( (cd "$repo_root" && gh pr view "$pr_num" --json state,mergeCommit,headRefOid,body) 2>&1 )" \
+    || { echo "close: gh cannot read PR #$pr_num in $repo ($pr_json) - halt"; exit 1; }
+  pr_state="$(printf '%s\n' "$pr_json" | jq -r '.state')"
+  case "$pr_state" in
+    MERGED) ;;
+    OPEN) echo "close: $repo PR #$pr_num is still open - hand it to /ossify:work-pr and merge on the operator's ack, then re-invoke close - halt"; exit 1 ;;
+    *) echo "close: $repo PR #$pr_num is $pr_state, not MERGED - the spine's work never landed in $repo - halt"; exit 1 ;;
+  esac
+  merge_sha="$(printf '%s\n' "$pr_json" | jq -r '.mergeCommit.oid // .mergeCommit')"
+  head_oid="$(printf '%s\n' "$pr_json" | jq -r '.headRefOid')"
+  pushed_tip="$(printf '%s\n' "$pr_json" | jq -r '.body' | awk '/^pushed-tip: /{print $2; exit}')"
+  [ -n "$merge_sha" ] && [ -n "$head_oid" ] && [ -n "$pushed_tip" ] \
+    || { echo "close: PR #$pr_num in $repo is missing its mergeCommit, headRefOid, or pushed-tip body line - halt"; exit 1; }
+
+  git -C "$repo_root" fetch origin "$base_branch" \
+    || { echo "close: cannot fetch '$base_branch' in $repo - halt"; exit 1; }
+
+  # THE STRANDED-MERGE GUARD. A local base branch with commits origin lacks is
+  # the signature of the pre-PR ceremony (#339): a local merge that could never
+  # be pushed. The repair is named, never run - resetting is a destructive call
+  # on durable state and belongs to the operator.
+  if ! git -C "$repo_root" merge-base --is-ancestor "$base_branch" "origin/$base_branch"; then
+    echo "close: $repo's local '$base_branch' has commits origin lacks (a stranded pre-PR merge?) - repair: verify 'git merge-base --is-ancestor $spine_branch $base_branch' holds, then 'git reset --hard origin/$base_branch' (the PR re-lands the content); if it does not hold, a human decides - halt"
+    exit 1
+  fi
+
+  head_branch="$(git -C "$repo_root" rev-parse --abbrev-ref HEAD)"
+  if [ "$head_branch" != "$base_branch" ]; then
+    git -C "$repo_root" checkout -q "$base_branch" \
+      || { echo "close: cannot check out base branch '$base_branch' in $repo - halt"; exit 1; }
+  fi
+  git -C "$repo_root" merge --ff-only "origin/$base_branch" \
+    || { echo "close: local '$base_branch' cannot fast-forward to origin in $repo - halt"; exit 1; }
+
+  # HEAD IDENTITY - the merge merged exactly the PR's reviewed head. A rebase-
+  # or squash-landed PR fails HERE, at record time with the method named,
+  # instead of obscurely in §6's touch check.
+  [ "$(git -C "$repo_root" rev-parse "$merge_sha^2" 2>/dev/null)" = "$head_oid" ] \
+    || { echo "close: $repo PR #$pr_num did not land as a two-parent merge commit - a rebase or squash merge cannot feed step 5's first-parent diff - halt"; exit 1; }
+
+  # LINEAGE - the merged head DESCENDS from what this close pushed. Ancestry,
+  # not equality: work-pr's fix commits sit on top of the pushed tip. A
+  # rewritten or diverged head fails.
+  git -C "$repo_root" merge-base --is-ancestor "$pushed_tip" "$head_oid" \
+    || { echo "close: $repo PR #$pr_num's merged head does not descend from the tip this close pushed ($pushed_tip) - the branch was rewritten or diverged - halt"; exit 1; }
+
+  # BASE LANDED - the fetched base contains the merge commit gh reported.
+  git -C "$repo_root" merge-base --is-ancestor "$merge_sha" "$base_branch" \
+    || { echo "close: $base_branch in $repo does not contain merge commit $merge_sha - halt"; exit 1; }
+
+  merge_shas="$merge_shas
+$repo:$merge_sha"
+  echo "close: $repo landed PR #$pr_num at $merge_sha"
+done <<EOF
+$pr_lines
+EOF
+```
+
+**Resuming a halted spine close.** A halt at steps 4-11 leaves step 2's landing
+already done in **every** hosting repo. A halt **inside** step 2 is the other
+case a cross-repo spine introduces: the loop may have landed one or two hosting
+repos before a later one failed — or opened one or two PRs before the operator
+deferred a merge — so "already landed" is a per-repo question, not one yes/no
+for the whole step. The PR-open halt adds its own resume state: **PRs open, no
+merge yet.** Nothing is recorded for it, so re-invoking after the merge is the
+whole recovery.
+
+**Both loops above are themselves the resume path — there is no separate probe.**
 An earlier draft had one: a loop that tested containment and printed
 `already landed` / `NOT landed` per repo, next to a step 2 that still asserted
 `HEAD == $spine_branch`. Nothing consumed the probe's result, so a resumed close
 read a correct report and then halted in the very next step on a repo the report
-had just called finished. The containment test now lives in the merge loop and
-decides what that iteration does, which also means `$merge_shas` comes out
-populated for **every** repo — reconstructed for the ones that already landed —
-rather than only for the ones this invocation happened to merge.
+had just called finished. The containment test now lives in the landing loops
+and decides what that iteration does — and the PR arm's probe is the PR's own
+existence, by head branch, in any state — which also means `$merge_shas` comes
+out populated for **every** repo, reconstructed for the ones that already
+landed, rather than only for the ones this invocation happened to land.
 
-Re-invoke `/close <spine-id>` and let step 2 run. It re-merges only the repos
-that have not landed, and never re-merges one that has (that repeats the merge
-into a tree already containing it — at best a no-op, at worst a second, spurious
-merge commit). Step 2 is complete only once **every** hosting repo is landed;
-then continue at the first unfinished step, saying which. Restart properties,
-one line each: the demo (§5) re-runs whole; the touch check (§6) re-runs from
-`$merge_shas`, which step 2 has just rebuilt; the critic (§7) re-runs; the retro
-(§8) is **amended, never re-authored** (the same rule `release-close.md` §8
-states); the harvest is idempotent by `harvest.md` §7's skip-identical rule, and
-cleanup is idempotent (both §9).
+Re-invoke `/close <spine-id>` and let step 2 run. Local repos re-merge only if
+they have not landed, and never re-merge one that has; PR repos re-probe, skip
+the push and the create, and record a MERGED PR or halt on an OPEN one. Step 2
+is complete only once **every** hosting repo is landed; then continue at the
+first unfinished step, saying which. Restart properties, one line each: the demo
+(§5) re-runs whole; the touch check (§6) re-runs from `$merge_shas`, which step
+2 has just rebuilt; the critic (§7) re-runs; the retro (§8) is **amended, never
+re-authored** (the same rule `release-close.md` §8 states); the harvest is
+idempotent by `harvest.md` §7's skip-identical rule, and cleanup is idempotent
+(both §9).
 
 The one resume this cannot serve is a spine whose branch was already deleted by
 §9's cleanup — then the tip is unresolvable and step 2 halts naming it. That is
@@ -351,7 +505,15 @@ moved, the two trees are identical and that repo's list comes back **empty**.
 When the base *did* move, that repo's list names the files the **other** work
 changed and omits the spine's own. The first-parent diff is the only form that
 answers "what did this merge bring in," per repo, and it is stable whether or
-not that repo's base moved.
+not that repo's base moved. **This holds identically for a PR-landed repo: its
+pair's SHA is the remote merge commit, and the first-parent diff of the fetched
+merge commit — planned changes and review-fix commits alike — is that repo's
+list.** Fix commits are not filtered out and are not compared against the
+spine's declared surfaces: nothing in steps 3-11 performs a plan-scope
+comparison, so a test file or version surface a fix commit moved is simply part
+of the union `touch_check` judges. A fix commit that hits a registered bone or
+risk-gate surface escalates through §6.1/§6.2 below exactly as a planned change
+would — the guard working, not a false halt.
 
 **Feed one argument per path, still.** `set --` plus `"$@"` does that without
 breaking on a path containing a space and without depending on `$IFS` — true of
@@ -540,3 +702,23 @@ clean, and an unreadable registry.
 - **Cleaning up before the harvest**, or before the merge (§9).
 - **Writing `spine_status closed` after any halt.** A halt records nothing.
 - **Re-running the touch check after a mid-flight reclassification** (§6.1).
+- **Merging a remote-backed repo locally** instead of the PR arm — the local
+  merge commits to a published line that can never be pushed, and every later
+  step reports green against a landing that never reaches anyone (§3).
+- **Falling through to the local arm when `gh` cannot operate on the remote.**
+  The third leg halts, naming both remedies — fix gh, or an operator-decided
+  local merge (§3).
+- **Treating an unmerged PR as landed**, or recording a merge SHA gh reported
+  without proving it locally — identity, lineage, and base-contained, against
+  freshly fetched refs (§3).
+- **Binding the record guards to the push-time tip.** work-pr lands fix commits
+  on the spine branch; the merged head is a *descendant* of the pushed tip, and
+  an equality-shaped guard fails every PR that had one fix round (§3).
+- **Accepting a rebase- or squash-landed PR.** §6's first-parent diff needs a
+  two-parent merge commit; the record pass turns the landing away at record
+  time (§3).
+- **Running the stranded-merge repair automatically.** The halt names
+  `git reset --hard origin/<base>` and its containment precondition; resetting
+  is the operator's call (§3).
+- **Pushing the base branch directly** — the base branch of a remote repo
+  lands by PR, full stop; the ceremony never pushes it (§3).

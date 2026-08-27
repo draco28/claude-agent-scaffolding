@@ -330,9 +330,14 @@ SPINE_CLOSE="$SKILLS/close/references/spine-close.md"
 # silently REBOUND if a block were inserted above it. Every anchor used below
 # is asserted unique, and bound to its source file, by test-block-ledger.sh.
 OPEN_BLOCK="$TMP/spine-open.sh";  _extract_block "$SPINE_CLOSE" 'work items that are not complete' "$OPEN_BLOCK"
-MERGE_BLOCK="$TMP/spine-merge.sh"; _extract_block "$SPINE_CLOSE" 'is-ancestor' "$MERGE_BLOCK"
+# The merge pass anchors on 'merge --no-ff', not 'is-ancestor' (#339): the PR
+# record pass added its own --is-ancestor lineage guard, and the harness refuses
+# an anchor matching two blocks — a duplicated 'is-ancestor' would bind to
+# whichever block came first and silently REBIND when the other is edited.
+MERGE_BLOCK="$TMP/spine-merge.sh"; _extract_block "$SPINE_CLOSE" 'merge --no-ff' "$MERGE_BLOCK"
+PRRECORD_BLOCK="$TMP/spine-prrecord.sh"; _extract_block "$SPINE_CLOSE" 'headRefOid' "$PRRECORD_BLOCK"
 TOUCH_BLOCK="$TMP/spine-touch.sh"; _extract_block "$SPINE_CLOSE" 'touch_check' "$TOUCH_BLOCK"
-for _pair in "$OPEN_BLOCK:work_items" "$MERGE_BLOCK:merge --no-ff" "$TOUCH_BLOCK:touch_check"; do
+for _pair in "$OPEN_BLOCK:work_items" "$MERGE_BLOCK:merge --no-ff" "$PRRECORD_BLOCK:headRefOid" "$TOUCH_BLOCK:touch_check"; do
   _bf="${_pair%%:*}"; _bn="${_pair#*:}"
   if [ -s "$_bf" ] && grep -Fq "$_bn" "$_bf"; then
     T_PASS=$((T_PASS+1))
@@ -935,6 +940,218 @@ t_capture env "PATH=$TMP/shim-d4:$PATH" bash -c "set -euo pipefail; . '$DEMO_BLO
 t_assert_rc 1 "D4: the same failing demo re-raises under errexit"
 t_assert_contains "$T_OUT" "within the 60s budget" "D4: ...and the timing is still reported first"
 
+# ---------------------------------------------------------------------------
+# P-series — the PR tier at spine close (#339). A repo WITH a remote merges
+# spine -> base by PR through /ossify:work-pr; the local --no-ff merge survives
+# only where no remote exists (the E-series above already drives that arm on a
+# repo with no origin). Every fixture here is a standalone repo with a BARE
+# origin standing in for GitHub, plus a gh stub whose behavior is staged
+# entirely from $GH_STATE files — the stub never touches a network, and each
+# scenario stages its own remote reality.
+# ---------------------------------------------------------------------------
+PR_BRANCH="spine/r0.s5-tier"
+GHSTUB="$TMP/ghbin"; mkdir -p "$GHSTUB"
+# A quoted heredoc, NOT a printf format string: the stub's own printfs carry %s
+# directives, and generating it through printf lets the OUTER format consume
+# them - the stub lands with empty holes and every arm emits invalid JSON.
+cat > "$GHSTUB/gh" <<'GHSTUB_EOF'
+#!/usr/bin/env bash
+# gh stub for the P-series: staged from $GH_STATE, no network.
+set -u
+st="${GH_STATE:?GH_STATE not set}"
+case "$1" in
+  pr)
+    case "$2" in
+      list)
+        [ -f "$st/nongithub" ] && { echo "gh: HTTP 404 - not a GitHub repository" >&2; exit 1; }
+        if [ -f "$st/pr" ]; then
+          n="$(awk '{print $1}' "$st/pr")"; s="$(awk '{print $2}' "$st/pr")"
+          printf '[{"number": %s, "state": "%s"}]\n' "$n" "$s"
+        else
+          printf '[]\n'
+        fi ;;
+      create)
+        [ -f "$st/nongithub" ] && { echo "gh: HTTP 404 - not a GitHub repository" >&2; exit 1; }
+        body=""; while [ $# -gt 0 ]; do case "$1" in --body) body="$2"; shift 2 ;; *) shift ;; esac; done
+        printf '%s\n' "$body" | awk '/^pushed-tip: /{print $2}' > "$st/pushed_tip"
+        printf '7 OPEN\n' > "$st/pr"
+        echo 7 ;;
+      view)
+        s="$(awk '{print $2}' "$st/pr")"
+        m="$(cat "$st/merge_commit" 2>/dev/null || true)"
+        h="$(cat "$st/head_oid" 2>/dev/null || true)"
+        pt="$(cat "$st/pushed_tip" 2>/dev/null || true)"
+        printf '{"state": "%s", "mergeCommit": {"oid": "%s"}, "headRefOid": "%s", "body": "spine close\\npushed-tip: %s\\n"}\n' "$s" "$m" "$h" "$pt" ;;
+      *) echo "stub: unhandled gh pr $2" >&2; exit 64 ;;
+    esac ;;
+  *) echo "stub: unhandled gh $1" >&2; exit 64 ;;
+esac
+GHSTUB_EOF
+chmod +x "$GHSTUB/gh"
+
+_pr_fixture() { # $1=name — sets PR_REPO/PR_ORIGIN/PR_STATE/PR_SHIM; repo parked on the spine branch
+  PR_REPO="$TMP/$1"; PR_ORIGIN="$TMP/$1-origin.git"; PR_STATE="$TMP/$1-gh"; PR_SHIM="$TMP/$1-shim"
+  mkdir -p "$PR_REPO" "$PR_STATE"
+  git -C "$PR_REPO" init -q
+  git -C "$PR_REPO" config user.email t@t; git -C "$PR_REPO" config user.name t
+  echo seed > "$PR_REPO/seed.txt"; git -C "$PR_REPO" add seed.txt; git -C "$PR_REPO" commit -qm seed
+  git -C "$PR_REPO" branch -m main
+  git -C "$PR_REPO" branch "$PR_BRANCH"
+  git -C "$PR_REPO" checkout -q "$PR_BRANCH"
+  echo spine > "$PR_REPO/spine.txt"; git -C "$PR_REPO" add spine.txt; git -C "$PR_REPO" commit -qm spine
+  git init -q --bare "$PR_ORIGIN"
+  git -C "$PR_REPO" remote add origin "$PR_ORIGIN"
+  git -C "$PR_REPO" push -q origin main
+  git --git-dir="$PR_ORIGIN" symbolic-ref HEAD refs/heads/main
+  _wshim "$PR_REPO" "$PR_BRANCH" "canonical" "$PR_SHIM"
+}
+
+# The remote "GitHub" merges the PR: the merge is made in a SEPARATE clone and
+# pushed to the bare origin, so the ceremony repo stays BEHIND its base and the
+# record pass's fast-forward is real work, not a no-op. Also stages the gh
+# state a merged PR reports.
+_pr_simulate_merge() { # $1=spine-tip-the-PR-merged (the headRefOid)
+  local clone="$TMP/sim-clone"; rm -rf "$clone"
+  git clone -q "$PR_ORIGIN" "$clone"
+  git -C "$clone" config user.email t@t; git -C "$clone" config user.name t
+  git -C "$clone" checkout -q main
+  git -C "$clone" merge --no-ff "$1" -m "merge r0.s5" >/dev/null
+  git -C "$clone" push -q origin main
+  git -C "$clone" rev-parse main > "$PR_STATE/merge_commit"
+  printf "%s\n" "$1" > "$PR_STATE/head_oid"
+  printf "7 MERGED\n" > "$PR_STATE/pr"
+  rm -rf "$clone"
+}
+
+_pr_main_unreached() { # $1=label — the spine must NOT be on the LOCAL main
+  if git -C "$PR_REPO" merge-base --is-ancestor "$PR_BRANCH" main 2>/dev/null; then
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: $1 - the spine reached local main anyway"
+  else
+    T_PASS=$((T_PASS+1))
+  fi
+}
+
+# P1. ARM CHOICE: a remote exists, so the merge pass PUSHES and OPENS a PR — it
+# must not merge locally. Against the old block this is RED in the intended
+# direction: the old ceremony merges local main at rc 0 and never calls gh.
+_pr_fixture p1
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'; printf 'PRLINES%s\n' \"\$pr_lines\""
+t_assert_rc 0 "P1: the PR-arm pass runs clean on a repo with a remote"
+t_assert_contains "$T_OUT" "PR #7 opened against main" "P1: ...announcing the PR it opened for /ossify:work-pr"
+t_assert_contains "$T_OUT" "canonical:7" "P1: ...and recording repo:pr pairs for the record pass"
+_pr_main_unreached "P1: no local merge"
+if git --git-dir="$PR_ORIGIN" rev-parse --verify -q "refs/heads/$PR_BRANCH" >/dev/null; then
+  t_assert_eq "$(git --git-dir="$PR_ORIGIN" rev-parse "refs/heads/$PR_BRANCH")" "$(git -C "$PR_REPO" rev-parse "$PR_BRANCH")" \
+    "P1: the pushed branch on origin is the spine tip"
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: P1 - the spine branch was never pushed to origin"
+fi
+t_assert_eq "$(git -C "$PR_REPO" rev-parse "$PR_BRANCH")" "$(cat "$PR_STATE/pushed_tip")" \
+  "P1: the PR body records the pushed tip (the lineage guard's durable input)"
+
+# P2. THE THIRD LEG (A1): gh cannot operate on the remote — fail closed. The
+# probe runs before any push, and the halt never falls through to a local merge.
+_pr_fixture p2; touch "$PR_STATE/nongithub"
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'"
+t_assert_rc 1 "P2: a gh-inoperable remote halts the close"
+t_assert_contains "$T_OUT" "silent local fall-through" "P2: ...naming that a local merge was NOT silently taken"
+_pr_main_unreached "P2: no local fall-through merge"
+if git --git-dir="$PR_ORIGIN" rev-parse --verify -q "refs/heads/$PR_BRANCH" >/dev/null; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: P2 - the branch was pushed although gh could not operate"
+else
+  T_PASS=$((T_PASS+1))
+fi
+
+# P3. THE A2 FLOW, end to end: a PR that carried ONE FIX ROUND before merging.
+# work-pr lands fix commits ON the spine branch, so the merged head descends
+# from — but is not equal to — the tip this close pushed. Both guards must bind
+# to the merged headRefOid; an equality-shaped guard fails exactly here.
+_pr_fixture p3
+MAIN_BEFORE="$(git -C "$PR_REPO" rev-parse main)"
+PUSHED_TIP="$(git -C "$PR_REPO" rev-parse "$PR_BRANCH")"
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'" >/dev/null
+# The loop, as work-pr drives it: a fix commit lands on the spine branch and is
+# pushed to the PR head.
+echo fix > "$PR_REPO/fix.txt"; git -C "$PR_REPO" add fix.txt; git -C "$PR_REPO" commit -qm "review fix"
+MERGED_HEAD="$(git -C "$PR_REPO" rev-parse "$PR_BRANCH")"
+git -C "$PR_REPO" push -q origin "$PR_BRANCH"
+if [ "$PUSHED_TIP" = "$MERGED_HEAD" ]; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: P3 fixture is vacuous - no fix commit beyond the pushed tip"
+else
+  T_PASS=$((T_PASS+1))
+fi
+if git -C "$PR_REPO" merge-base --is-ancestor "$PUSHED_TIP" "$MERGED_HEAD"; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: P3 fixture is wrong - the merged head does not descend from the pushed tip"
+fi
+_pr_simulate_merge "$MERGED_HEAD"
+SIM_MERGE="$(cat "$PR_STATE/merge_commit")"
+# RESUME FLOW, as a re-invoked close runs it: pass one re-probes (PR exists —
+# not re-opened), pass two records against freshly fetched refs.
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'; . '$PRRECORD_BLOCK'; printf 'PAIRS%s\n' \"\$merge_shas\""
+t_assert_rc 0 "P3: a merged PR with a fix round records clean (ancestry, not equality)"
+t_assert_contains "$T_OUT" "already has PR #7" "P3: ...the resume probe recognises the existing PR"
+t_assert_contains "$T_OUT" "landed PR #7 at $SIM_MERGE" "P3: ...and records the REMOTE merge sha"
+t_assert_contains "$T_OUT" "canonical:$SIM_MERGE" "P3: ...into \$merge_shas for the touch check"
+t_assert_eq "$(git -C "$PR_REPO" rev-parse origin/main)" "$(git -C "$PR_REPO" rev-parse main)" \
+  "P3: local main was fast-forwarded to the fetched origin"
+t_assert_eq "main" "$(git -C "$PR_REPO" rev-parse --abbrev-ref HEAD)" "P3: the repo is left on its base branch"
+# The seam the touch check consumes: the merge's first-parent diff carries BOTH
+# the spine's own change AND the fix round's — fix-commit paths join the union.
+DIFF_LIST="$(git -C "$PR_REPO" diff --name-only "$SIM_MERGE^1" "$SIM_MERGE")"
+case "$DIFF_LIST" in *spine.txt*) T_PASS=$((T_PASS+1));; *) T_FAIL=$((T_FAIL+1)); echo "FAIL: P3 - the spine's own file missing from the merge diff";; esac
+case "$DIFF_LIST" in *fix.txt*) T_PASS=$((T_PASS+1));; *) T_FAIL=$((T_FAIL+1)); echo "FAIL: P3 - the fix round's file missing from the merge diff (fix paths must join the union)";; esac
+
+# P4. THE PR-OPEN HALT (D9): the operator has not merged; the ceremony halts
+# recording nothing, and local main stays untouched.
+_pr_fixture p4
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'; . '$PRRECORD_BLOCK'"
+t_assert_rc 1 "P4: an OPEN PR halts the record pass"
+t_assert_contains "$T_OUT" "still open" "P4: ...saying the merge is the operator's, via work-pr"
+_pr_main_unreached "P4: no local merge while the PR is open"
+
+# P5. HEAD IDENTITY: a PR that landed without a two-parent merge commit (a
+# rebase or squash merge) halts at RECORD time — not obscurely in the touch
+# check. Stage gh reporting a non-merge commit as the mergeCommit. P5-P7 reuse
+# the P3 fixture — re-point the globals P4's fixture call moved.
+PR_REPO="$TMP/p3"; PR_ORIGIN="$TMP/p3-origin.git"; PR_STATE="$TMP/p3-gh"; PR_SHIM="$TMP/p3-shim"
+printf "%s\n" "$MAIN_BEFORE" > "$PR_STATE/merge_commit"
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'; . '$PRRECORD_BLOCK'"
+t_assert_rc 1 "P5: a non-merge landing halts the record pass"
+t_assert_contains "$T_OUT" "two-parent merge commit" "P5: ...naming the shape the touch check needs"
+case "$T_OUT" in *"landed PR"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: P5 - a non-merge landing was recorded anyway";; *) T_PASS=$((T_PASS+1));; esac
+
+# P6. LINEAGE: the merged head must DESCEND from the tip this close pushed. A
+# rewritten or diverged head fails even though every other fact is real. The
+# forged pushed-tip must be a commit that EXISTS but is NOT an ancestor of the
+# merged head — the root commit would quietly pass, and the assertion with it.
+git --git-dir="$PR_ORIGIN" rev-parse main > "$PR_STATE/merge_commit"
+UNRELATED="$(git -C "$PR_REPO" commit-tree 'HEAD^{tree}' -m forged)"
+printf "%s\n" "$UNRELATED" > "$PR_STATE/pushed_tip"
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'; . '$PRRECORD_BLOCK'"
+t_assert_rc 1 "P6: a head that does not descend from the pushed tip halts"
+t_assert_contains "$T_OUT" "rewritten or diverged" "P6: ...naming the lineage failure"
+# Restore honest state for P7.
+printf "%s\n" "$PUSHED_TIP" > "$PR_STATE/pushed_tip"
+
+# P7. THE STRANDED-MERGE GUARD (D5): a local base with commits origin lacks is
+# the pre-PR ceremony's signature. The halt names the repair and NEVER runs it.
+echo stranded > "$PR_REPO/stranded.txt"; git -C "$PR_REPO" add stranded.txt; git -C "$PR_REPO" commit -qm stranded
+STRANDED_SHA="$(git -C "$PR_REPO" rev-parse main)"
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'; . '$PRRECORD_BLOCK'"
+t_assert_rc 1 "P7: a local base ahead of origin halts the record pass"
+t_assert_contains "$T_OUT" "reset --hard origin/main" "P7: ...naming the repair command, not running it"
+t_assert_eq "$STRANDED_SHA" "$(git -C "$PR_REPO" rev-parse main)" "P7: ...and local main was left exactly as it was (never auto-reset)"
+
 cd /; rm -rf "$TMP"
 
 # A FLOOR ON THE ASSERTION COUNT. Every check in test-block-ledger.sh proves
@@ -943,8 +1160,8 @@ cd /; rm -rf "$TMP"
 # are gone reports pass=0 fail=0 and exits 0. The floor is what makes wholesale
 # removal loud. Raise it when the file grows; never lower it to make a run go
 # green. (Codex P2 round 3 on PR #144.)
-if [ "$T_PASS" -lt 180 ]; then
-  echo "FAIL: test-close.sh ran only $T_PASS assertions (floor 180) - assertions were removed, not just skipped"
+if [ "$T_PASS" -lt 220 ]; then
+  echo "FAIL: test-close.sh ran only $T_PASS assertions (floor 220) - assertions were removed, not just skipped"
   T_FAIL=$((T_FAIL+1))
 fi
 t_summary
