@@ -6,26 +6,18 @@ description: Adopt an existing project into ossify — five fail-closed gates, s
 # adopt
 
 You are the conductor of ossify's **adoption** — the on-ramp for a project
-that already has code; `/start` is pre-code ceremony and refuses such a
-project on its content gate.
+that already has code; `/start` refuses it on its content gate.
 
-**This body is thin by design, not under budget pressure.** The stations that
-transfer unchanged live in `/start` — every pointer in §4 is a
-do-not-restate pointer. Restating them here is how a second 500-line body goes
-stale against the first. The target is enforced as a stated self-cap in §7.
+**Thin by design, not under budget pressure** — §4's pointers are
+do-not-restate pointers, and §7 states the self-cap.
 
 ---
 
 ## 1. The station map
 
-`/start`'s stations, and what each becomes here — **§4 carries the
-transfers** (vision confirmed, not elicited; risk gates derived from the
-legacy spec's constraints; smoke narrowed to unverified external pins; spike
-and posture unchanged; critic moment on the reconciled spec), and **§5
-carries the replacements** (C1 re-marks the journey `shipped|next|later`;
-C2 replaces the skeleton cut with the current cut; C3 back-derives bones;
-C4 replaces the Release-0 minimums with the closed baseline; C5 reconciles
-outputs instead of authoring them).
+`/start`'s stations, and what each becomes here: **§4 carries the
+transfers, §5 the replacements** — the inventories live there, never
+restated here.
 
 ---
 
@@ -42,10 +34,9 @@ outputs instead of authoring them).
 - The project has no scaffold-dev legacy stack — no roadmap state, no
   active-context cursor, no legacy spec. This version adopts THAT stack;
   anything else is out of scope today.
-- Ossify state already exists at the routed path — already onboarded; route to
-  `doctor`.
-- The ask is state-schema migration — `oss migrate` is a different thing and a
-  dispatcher concern, not a ceremony.
+- Ossify state already exists at the routed path — route to `doctor`.
+- The ask is state-schema migration — `oss migrate` is a dispatcher concern,
+  not a ceremony.
 - A slice is open on the legacy stack — §3 A5 refuses.
 
 ---
@@ -245,19 +236,32 @@ exists the vacuous-window risk stands, named rather than hidden.
 
 | Output | Routed to | Mode |
 |---|---|---|
-| Lean spec sections 1–7 | AI workspace | merge into the existing MASTER-SPEC |
-| Memory bank | AI workspace | append-with-trailer; author only what is absent |
-| `CLAUDE.md` | AI workspace | merge |
+| Lean spec sections 1–7, memory bank, `CLAUDE.md` | AI workspace | merge (spec, `CLAUDE.md`); append-with-trailer, author only what is absent (memory bank) |
 | Bones ADRs | each declared repo's `docs/adr/` | append, continuing the series |
-| Bones / risk gates / feature map / posture | `project-state.json` | `oss` verbs — into §3's init state |
-| Release 0, closed | `project-state.json` | `oss` verbs |
+| Bones / risk gates / feature map / posture / Release 0 closed | `project-state.json` | `oss` verbs — into §3's init state |
 | `PUBLIC_BOUNDARY.md` | each public repo root | author |
 | Stub retrospective | `"$(oss release_dir r0)/release-retrospective.md"` | author — records the adoption |
-| **Adoption record** | `<ai-workspace>/ADOPTION.md` | author — baseline table, gates passed, merged-vs-authored, **every C2 gap**, the C6 seed candidates |
+| **Adoption record** | `<ai-workspace>/ADOPTION.md` | author — baseline table, gates passed, merged-vs-authored, **every C2 gap**, the C6 seed candidates, and the per-station lines the floor requires: `feature_add`/`bone_add`/`risk_gate_add`/`posture_set` counts; each C3 category `answered` (bone ref) or `not-applicable` **operator-ruled** with its reason; critic `ran\|skip`, a skip being the operator's typed bypass; smoke verified/unverified counts; **a zero names what produced it** — the §8 family walk behind `risk_gate_add: 0`, the empty external-pin inventory behind `smoke 0/0` |
 
-The adoption record is the point: it is the only artifact that says what
-adoption actually did, and it is what a later `doctor` run reads when the spec
-and the state disagree (doctor §1's routing list routes it there).
+The adoption record is the point: the only artifact saying what adoption
+did; `doctor` consults it when spec and state disagree (doctor §1).
+
+**The completion floor comes first — `oss doctor` proves integrity, not
+completeness; it is green at two mutations and an empty registry (#303).**
+Refuse to declare completion, naming the station that never ran, when:
+
+- C1's journey table is absent, or the feature map does not hold one entry
+  per step it marks `next`/`later` — the harvest is owed in full. A map
+  owing nothing (all `shipped`) closes at zero only via an
+  **operator-confirmed waiver on the record**.
+- the posture bone is absent, or `posture` is null or outside its four
+  values — posture **is** a bone and always gets set (§4).
+- no closed `Release 0` in state, or its stub retrospective absent — C4
+  never finished, and `plan-release` would plan the greenfield
+  `Release 0`, not Release 1.
+- the adoption record lacks the per-station lines its row requires — a zero
+  must be visible and answered, never unasked (`/start` §12: thin succeeds
+  provided every category was asked).
 
 Close with `oss doctor` (the state gate: `state`, `schema`, `replay`,
 `shape`) and name the next step: **`/plan-release`** for Release 1.

@@ -218,6 +218,33 @@ https://x-access-token:ghs_faketoken123@github.com/o/r.git|ghs_faketoken123|the 
 EOF
 done
 
+# --- /adopt's completion floor (issue #303) -----------------------------------
+#
+# #303: two adopt pilots closed green on `oss doctor` with an empty registry -
+# the state gate proves integrity, never completeness. The floor that fixes it
+# lives in adopt §6 as prose, so prose tokens are its only mechanical surface.
+# Pin CLAUSE FRAGMENTS, not bare nouns: round 1 of the #365 review measured the
+# first version of this row vacuous for two of three refusal conditions - bare
+# 'posture' and 'per-station lines' survived their bullets' deletion via the
+# output-table rows. Every token below occurs exactly once in §6's span, inside
+# the clause it pins; a narrowing pass that drops a refusal condition, the
+# parity arm, or the waiver attribution goes red here, not in the next pilot.
+_adopt6="$(awk '/^## 6\. Outputs/{f=1} /^## 7\./{f=0} f' "$OSSSK/skills/adopt/SKILL.md")"
+if [ -n "$_adopt6" ]; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: cannot extract adopt §6 - the floor checks below are vacuous"
+fi
+for tok in 'The completion floor comes first' 'journey table is absent' \
+           'per step it marks' 'operator-confirmed' 'the posture bone is absent' \
+           'outside its four' 'no closed `Release 0`' 'its stub retrospective absent' \
+           'lacks the per-station lines'; do
+  case "$_adopt6" in
+    *"$tok"*) T_PASS=$((T_PASS+1)) ;;
+    *) T_FAIL=$((T_FAIL+1)); echo "FAIL: adopt §6 no longer carries floor token '$tok'" ;;
+  esac
+done
+
 # --- /adopt authors a topology too (PR #345 round 6) --------------------------
 #
 # Round 6: plugin.json and /start's own refusal text both promise that /adopt
