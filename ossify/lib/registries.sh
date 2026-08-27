@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 # Bones / risk gates / fakes / feature map + touch-surface matching.
 
-_oss_csv_to_json() { printf '%s\n' "$1" | jq -R 'split(",") | map(gsub("^ +| +$";"")) | map(select(length>0))'; }
+# CSV grammar (#340): a bare "," separates entries; "\," is a literal comma
+# inside one (a control phrase or a brace-glob like src/{exec\,api}/**). The
+# escaped comma is parked on a private-use codepoint for the split and
+# restored after, so it never collides with real input.
+_oss_csv_to_json() { printf '%s\n' "$1" | jq -R '
+  gsub("\\\\,"; "\uE000")
+  | split(",")
+  | map(gsub("\uE000"; ",") | gsub("^ +| +$";""))
+  | map(select(length>0))'; }
 
 oss_reg_add_bone() { # $1=state $2=adr-ref $3=title $4=touch-csv $5=revisit(optional)
   oss_state_mutate "$1" add_bone \
@@ -15,6 +23,24 @@ oss_reg_add_risk_gate() { # $1=state $2=name $3=touch-csv $4=controls-csv
     "$(jq -n --arg n "$2" --argjson touch "$(_oss_csv_to_json "$3")" \
         --argjson c "$(_oss_csv_to_json "$4")" --arg ts "$(_oss_now)" \
       '{name:$n,touch:$touch,controls:$c,at:$ts}')"
+}
+
+# Corrective append (#340): replaces a named gate's controls with a fresh
+# journaled mutation — the journal is never edited, so replay stays
+# authoritative and state_restore rebuilds the CORRECTED state. Duplicate
+# gate names are #305's defect; this verb refuses rather than guessing.
+oss_reg_set_risk_gate_controls() { # $1=state $2=name $3=controls-csv
+  local sf="$1" name="$2" n
+  n="$(jq --arg n "$name" '[.risk_gates[] | select(.name == $n)] | length' "$sf")"
+  if [ "$n" -eq 0 ]; then
+    echo "oss: unknown risk gate '$name'" >&2; return 7
+  fi
+  if [ "$n" -gt 1 ]; then
+    echo "oss: risk gate '$name' matches $n gates - duplicate names are #305; refusing rather than guessing. Repair the duplicate first" >&2; return 7
+  fi
+  oss_state_mutate "$sf" set_risk_gate_controls \
+    "$(jq -n --arg n "$name" --argjson c "$(_oss_csv_to_json "$3")" --arg ts "$(_oss_now)" \
+      '{name:$n,controls:$c,at:$ts}')"
 }
 
 oss_reg_add_fake() { # $1=state $2=boundary $3=channel $4=reason $5=trigger $6=expiry-release

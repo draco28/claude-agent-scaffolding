@@ -63,6 +63,8 @@ _oss_apply_op() { # $1=op $2=payload-json
         | .class_overrides += [{spine:$p.spine,from:$p.from,to:$p.to,reason:$p.reason,at:$p.at}]' ;;
     add_bone)      jq --argjson p "$payload" '.bones += [$p]' ;;
     add_risk_gate) jq --argjson p "$payload" '.risk_gates += [$p]' ;;
+    set_risk_gate_controls)
+      jq --argjson p "$payload" '(.risk_gates[] | select(.name == $p.name) | .controls) = $p.controls' ;;
     add_fake)      jq --argjson p "$payload" '.fakes += [$p]' ;;
     add_feature)   jq --argjson p "$payload" '.feature_map += [$p]' ;;
     add_demo_line)

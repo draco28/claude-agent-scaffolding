@@ -74,5 +74,59 @@ t_capture oss_reg_touch_check "$S5" src/domain/dsl/compile.rs
 t_assert_rc 1 "empty-but-valid registries are CLEAN (rc 1), not inconclusive"
 rm -rf "$T5"
 
+
+# --- #340: the CSV grammar — bare "," separates; "\," is a literal comma ----
+# The pilot defect: a phrase control split into fragments that no supported
+# path could repair (append-only journal, no set verb). These pin the escape
+# round-trip for BOTH verbs (gate controls, bone/gate touch globs) and the
+# corrective-append repair verb.
+t_capture _oss_csv_to_json "paper env,audit trail: record image\, mounts\, egress,kill switch"
+t_assert_eq '[
+  "paper env",
+  "audit trail: record image, mounts, egress",
+  "kill switch"
+]' "$T_OUT" "escaped commas keep one phrase as ONE control"
+t_capture _oss_csv_to_json "src/{exec\,api}/**,src/broker/**"
+t_assert_eq '[
+  "src/{exec,api}/**",
+  "src/broker/**"
+]' "$T_OUT" "brace-glob comma written through the escape round-trips to the literal glob"
+t_capture _oss_csv_to_json "a\, b,c ,d\,"
+t_assert_eq '[
+  "a, b",
+  "c",
+  "d,"
+]' "$T_OUT" "trim happens around restored commas, not inside them"
+t_capture _oss_csv_to_json "plain\\path\,still-one,x"
+t_assert_eq '[
+  "plain\\path,still-one",
+  "x"
+]' "$T_OUT" "a backslash NOT before a comma passes through untouched"
+
+t_capture oss_reg_add_risk_gate "$S" phrase-gate "src/exec/**" "paper env,audit trail: record image\, mounts,kill switch"
+t_assert_rc 0 "gate with an escaped phrase control added"
+t_capture jq -c '.risk_gates[] | select(.name=="phrase-gate") | .controls' "$S"
+t_assert_eq '["paper env","audit trail: record image, mounts","kill switch"]' "$T_OUT" "minted controls hold the phrase whole"
+
+# Corrective append: repair, not history edit — replay stays authoritative.
+t_capture oss_reg_set_risk_gate_controls "$S" phrase-gate "paper env,human confirm,audit trail: record image\, mounts\, egress,kill switch"
+t_assert_rc 0 "set_controls appends the correction"
+t_capture jq -c '.risk_gates[] | select(.name=="phrase-gate") | .controls' "$S"
+t_assert_eq '["paper env","human confirm","audit trail: record image, mounts, egress","kill switch"]' "$T_OUT" "controls replaced through the verb"
+t_capture oss_state_replay "$S"
+t_assert_rc 0 "replay reproduces the corrected state — the journal is authoritative"
+t_capture oss_reg_set_risk_gate_controls "$S" no-such-gate "x"
+t_assert_rc 7 "unknown gate name refuses"
+t_capture oss_reg_add_risk_gate "$S" phrase-gate "src/**" "dup"   # #305 shape
+t_capture oss_reg_set_risk_gate_controls "$S" phrase-gate "x"
+t_assert_rc 7 "duplicate gate names refuse rather than guess"
+t_assert_contains "$T_OUT" "#305" "the duplicate refusal names the issue"
+
+# bone_add shares the splitter: a brace-glob touch entry stays one entry.
+t_capture oss_reg_add_bone "$S" ADR-77 "brace touch" "src/{exec\,api}/**" ""
+t_assert_rc 0 "bone with brace-glob touch added"
+t_capture jq -c '.bones[] | select(.adr=="ADR-77") | .touch' "$S"
+t_assert_eq '["src/{exec,api}/**"]' "$T_OUT" "bone touch holds the literal brace glob"
+
 rm -rf "$TMP"
 t_summary

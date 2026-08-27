@@ -178,7 +178,7 @@ D	skills/start/references/bones-registry.md	1	#138	the ADR-number minting block 
 I	skills/start/references/bones-registry.md	2	a bone_add shape and a worked bone_add example
 I	skills/start/references/journey-map.md	1	a single feature_add call
 I	skills/start/references/posture-block.md	4	single-verb calls: posture_set, overlay_set, bone_add, composition_set
-I	skills/start/references/risk-gates.md	2	a risk_gate_add shape and a worked example
+I	skills/start/references/risk-gates.md	3	a risk_gate_add shape, a worked example (one control escapes its commas, #340), and the risk_gate_set_controls corrective append
 D	skills/work-item/references/pre-flight.md	1	#138	the verify_acs read loop that Gate 2 uses to detect a malformed AC table
 I	skills/work-item/references/pre-flight.md	2	a verify_acs call and a porcelain cleanliness read
 I	skills/work-item/SKILL.md	5	single-verb calls with <placeholder> args: verify_acs, porcelain read, redgate, verify_step, git add
@@ -239,7 +239,7 @@ H	skills/start/SKILL.md	2296906047-1003
 H	skills/start/references/bones-registry.md	2885489214-1035
 H	skills/start/references/journey-map.md	3044115941-97
 H	skills/start/references/posture-block.md	3185799305-572
-H	skills/start/references/risk-gates.md	2376839325-381
+H	skills/start/references/risk-gates.md	918098467-563
 H	skills/work-item/SKILL.md	3727345778-528
 H	skills/work-item/references/debugging.md	2424723308-562
 H	skills/work-item/references/handoff-contract.md	797876821-82
