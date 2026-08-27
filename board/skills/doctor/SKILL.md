@@ -28,7 +28,13 @@ against that root, never bare `$PWD`: run from a subdirectory, a relative read m
 root-level `.board/` and misreports a bound repo as unbound.
 
 Read `<root>/.board/config.json` (the project identifier) and `<root>/.board/sync.json`
-(`synced_at`, `digest`). Compare the digest with `board digest "$PWD"`: equal means the
+(`synced_at`, `digest`, `dest`, `project`). Before reading anything into the digest,
+compare the recorded destination and project with the present ones: `dest` is
+`"$HULY_URL|$HULY_WORKSPACE"` as sync records it, and `project` is what the last sync
+actually wrote to. A `dest` that differs from the current environment means the current
+destination has never been synced — say so and treat §3 against it as first-sync-pending,
+not drift. A `project` that differs from `config.json`'s means a rebind is recorded but
+not yet synced. Then compare the digest with `board digest "$PWD"`: equal means the
 source file is unchanged since the last successful sync — it does not prove the board
 matches, because a hand edit on Huly leaves the digest equal; §3 is what detects that.
 Different means a sync is pending or failed. Show the last five lines of

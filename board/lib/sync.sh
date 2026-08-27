@@ -37,7 +37,11 @@ _board_actual_issue() { # $1=project $2=key ; writes JSON of the matching issue 
 board_sync() { # $1=ws-or-any-dir [--force] [--bind IDENT]
   local start="$1"; shift
   local force=0 bind=""
-  while [ $# -gt 0 ]; do case "$1" in --force) force=1;; --bind) bind="$2"; shift;; esac; shift; done
+  while [ $# -gt 0 ]; do case "$1" in
+    --force) force=1;;
+    --bind) [ $# -ge 2 ] || { echo "board: --bind requires an identifier" >&2; return 2; }
+            bind="$2"; shift;;
+  esac; shift; done
   local ws project bare=0
   ws="$(board_resolve_workspace "$start")" || { [ -n "$bind" ] && { bare=1; ws="$(git -C "$start" rev-parse --show-toplevel 2>/dev/null || echo "$start")"; } || return 3; }
   [ -d "$ws/.ossify" ] || bare=1

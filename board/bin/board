@@ -11,8 +11,12 @@ board_cmd_help() {
   echo "  digest <dir>                          sha256 of the state file"
   echo "  env-check                             report which HULY_* variables are set (values never printed)"
 }
-board_cmd_sync()   { board_sync "$@"; }
-board_cmd_digest() { local ws; ws="$(board_resolve_workspace "$1")"; board_state_digest "$ws"; }
+board_cmd_sync()   { [ $# -ge 1 ] || { echo "board: sync requires a directory" >&2; exit 2; }; board_sync "$@"; }
+board_cmd_digest() {
+  [ $# -ge 1 ] || { echo "board: digest requires a directory" >&2; exit 2; }
+  local ws; ws="$(board_resolve_workspace "$1")" || { echo "board: no .ossify workspace at or above '$1'" >&2; exit 3; }
+  board_state_digest "$ws"
+}
 board_cmd_env_check() {
   local v; for v in HULY_URL HULY_WORKSPACE HULY_TOKEN; do
     if [ -n "${!v:-}" ]; then echo "$v: set"; else echo "$v: MISSING"; fi

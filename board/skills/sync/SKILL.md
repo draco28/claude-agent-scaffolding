@@ -45,7 +45,8 @@ your own identifier for one the user chose. Otherwise run `board sync "$PWD"`.
 - rc 7: the repo is already bound to a different identifier. Print the message verbatim —
   rebinding is deliberate (edit `.board/config.json`), never something you do unasked.
 - rc 9: the identifier names an existing project of the wrong type (not `Ossify project`).
-  Print the message verbatim; nothing was mutated.
+  Print the message verbatim; no project-scoped Huly data was mutated (the local `.board/`
+  directory may already exist).
 
 ## 3. The reconcile — one pass, not two
 
@@ -54,7 +55,9 @@ the result** — report it as one sentence (created, updated, unchanged, relatio
 stop; do not run a second, forced pass on top (each pass is one CLI process per entity, so
 a doubled pass doubles runtime and API load for nothing). Run `board sync "$PWD" --force`
 only when §2 skipped as `"unchanged"` — the user invoked the command to see it happen now —
-and report that JSON line the same way. `skipped: "locked"` means another sync of this
+and report that JSON line the same way. `skipped: "bare-binding"` is the successful no-op
+for a repo with no ossify state — say the binding is recorded and nothing was mirrored,
+and stop (no forced pass). `skipped: "locked"` means another sync of this
 workspace is running right now (usually the Stop hook) — wait for it and rerun. A non-zero
 rc prints the failing step on stderr and appends to `.board/sync.log`; show both and do not
 retry blindly — `AUTHENTICATION_FAILED` means the token, `NOT_FOUND` on the project means

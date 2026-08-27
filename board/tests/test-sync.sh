@@ -115,6 +115,8 @@ t_assert_contains "$T_OUT" "already bound to 'PTRD'" "bind conflict: names the e
 t_capture board_binding_read "$WS"; t_assert_eq "PTRD" "$T_OUT" "bind conflict: binding unchanged"
 t_assert_eq 0 "$(wc -l < "$BOARD_FAKE_LOG" | tr -d ' ')" "bind conflict: zero CLI calls"
 t_capture board_sync "$WS" --force --bind PTRD; t_assert_rc 0 "matching --bind: proceeds"
+t_capture board_sync "$WS" --bind; t_assert_rc 2 "--bind without a value -> usage error rc 2"
+t_assert_contains "$T_OUT" "requires an identifier" "--bind without a value: message"
 
 # 4g. milestone listing at the 200 cap: refuse to reconcile (the CLI has no pagination —
 # a truncated listing would re-create anything past the cap as a permanent duplicate)
@@ -243,6 +245,13 @@ t_capture bash "$ROOT/bin/board" digest "$WS"; t_assert_eq 64 "${#T_OUT}" "dispa
 echo 1 > "$BOARD_FAKE_DIR/task-types.list.rc.once"
 echo '{"code":"INTEGRATION_FAILED","message":"did not resolve to exactly one project type"}' > "$BOARD_FAKE_DIR/task-types.list.err.once"
 t_capture bash "$ROOT/bin/board" sync "$WS" --force; t_assert_rc 5 "dispatcher: type missing propagates rc 5 under strict mode"; t_assert_contains "$T_OUT" "Spine" "dispatcher: rc-5 message still prints"
+# no-argument invocations are usage errors, not set -u aborts or silent exits
+t_capture bash "$ROOT/bin/board" sync; t_assert_rc 2 "dispatcher: sync without a directory -> rc 2"
+t_assert_contains "$T_OUT" "requires a directory" "dispatcher: sync usage message"
+t_capture bash "$ROOT/bin/board" digest; t_assert_rc 2 "dispatcher: digest without a directory -> rc 2"
+t_capture bash "$ROOT/bin/board" sync "$WS" --bind; t_assert_rc 2 "dispatcher: --bind without a value under strict mode -> rc 2"
+t_capture bash "$ROOT/bin/board" digest "$(mktemp -d)"; t_assert_rc 3 "dispatcher: digest outside any workspace -> rc 3 with a message"
+t_assert_contains "$T_OUT" "no .ossify workspace" "dispatcher: digest no-workspace message"
 
 # 10. HULY_EMAIL set: membership self-ensure fires exactly once, argv carries the project name
 # (from projects.get.json: "pulse-trader") and the email

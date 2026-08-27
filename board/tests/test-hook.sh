@@ -27,6 +27,16 @@ echo 3 > "$BOARD_FAKE_DIR/milestones.create.rc"; echo '{"code":"AUTHENTICATION_F
 t_capture run_hook "$WS"; t_assert_rc 0 "failing sync: hook still exits 0"
 t_assert_eq "$D" "$(board_sync_read "$WS" '.digest')" "failing sync: digest untouched"
 t_capture tail -1 "$WS/.board/sync.log"; t_assert_contains "$T_OUT" "AUTHENTICATION_FAILED" "failing sync: logged"
+# lock held by a live process: the hook retries while locked (BOARD_HOOK_RETRY_SLEEP=0
+# keeps the test fast), stays bounded, exits 0, and syncs nothing
+mkdir -p "$WS/.board/lock"; echo $$ > "$WS/.board/lock/pid"
+: > "$BOARD_FAKE_LOG"
+export BOARD_HOOK_RETRY_SLEEP=0
+t_capture run_hook "$WS"; t_assert_rc 0 "locked workspace: hook exits 0 (bounded retries)"
+unset BOARD_HOOK_RETRY_SLEEP
+t_assert_eq 0 "$(wc -l < "$BOARD_FAKE_LOG" | tr -d ' ')" "locked workspace: no CLI calls"
+rm -rf "$WS/.board/lock"
+
 # malformed stdin: exit 0
 t_capture bash -c "echo 'not json' | bash '$HOOK'"; t_assert_rc 0 "garbage stdin: exit 0"
 # hooks.json shape
