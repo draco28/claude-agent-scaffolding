@@ -141,9 +141,9 @@ normal terminus. This one is categorical, not a round count:
   stop shrinking but the findings have shifted off your fixes and onto the
   design the PR always had, the reviewers are excavating, not reacting. That
   loop ends by dispositioning — fix or refute the P1s, and give the rest their
-  per-finding disposition, fixing or deferring each on its own merits, never a
-  bulk deferral because the count plateaued — not by waiting for a clean round
-  that will not come.
+  per-finding disposition, fixing, refuting, or deferring each on its own
+  merits, never a bulk deferral because the count plateaued — not by waiting
+  for a clean round that will not come.
   Measured on PR #349: findings ran 17 → 4 → 6 → 5 → 7 across five rounds, and
   the categorical exit closed it, not convergence.
 
@@ -154,7 +154,10 @@ deferred; a finding that it **admits what it cannot handle** is a fix.
 Incoherence this diff introduced is always this diff's to fix.
 
 Neither exit touches the P1 rail. A P1 is fixed, or the change is cut. It is
-never merged.
+never merged. And neither exit bypasses staleness: cutting, narrowing, or
+unclaiming lands commits like any other fix — prior verdicts go stale, §2
+re-runs on the new head, and the reviewer signal must be complete on the head
+that carries the final shape before the terminus ask.
 
 ## 4. Terminus — surface everything, then ask
 
