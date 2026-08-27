@@ -65,6 +65,8 @@ holds two genuinely separable decisions). Four required parts:
 oss bone_add "<ADR-ref>" "<title>" "<touch-glob-csv>" "<revisit trigger>"
 ```
 
+Touch CSV entries follow risk-gates.md §3's grammar — a bare `,` separates entries, `\,` is a literal comma inside one; multiple directories are multiple entries (case-globs do not brace-expand).
+
 Worked example:
 
 ```bash

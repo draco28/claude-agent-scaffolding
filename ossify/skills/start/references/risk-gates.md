@@ -77,11 +77,13 @@ Touch surfaces use the same `case`-glob semantics as bones — see
 literal comma inside an entry.** A control is a short, checkable phrase a
 human reads back at spine planning — and phrases may need commas, so escape
 them (`audit trail: record image\, mounts\, egress per bootstrap` is ONE
-control). The same rule carries a brace-glob touch entry
-(`src/{exec\,api}/**`). Unescaped commas split — that was #340's defect:
-split fragments could not be repaired afterward, because the journal is
-append-only. A gate minted before you knew this is repaired NOT by editing
-state but by a corrective append:
+control). Unescaped commas split — that was #340's defect: split fragments
+could not be repaired afterward, because the journal is append-only. For
+TOUCH surfaces, spell multiple directories as multiple entries
+(`src/exec/**,src/api/**`): `case`-globs do not brace-expand, so a single
+`src/{exec,api}/**` entry would match only the literal brace path and the
+gate would never fire. A gate minted before you knew the grammar is
+repaired NOT by editing state but by a corrective append:
 
 ```bash
 oss risk_gate_set_controls "<name>" "<controls-csv>"   # refuses unknown names; refuses duplicate names (#305)

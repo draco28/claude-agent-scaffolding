@@ -256,7 +256,7 @@ done
 # prose names must exist in the dispatcher surface.
 RG="$OSSSK/skills/start/references/risk-gates.md"
 for tok in 'bare `,` separates entries' 'literal comma inside an entry' \
-           'risk_gate_set_controls' 'src/{exec\,api}/**'; do
+           'risk_gate_set_controls' 'spell multiple directories as multiple entries'; do
   if /usr/bin/grep -Fq "$tok" "$RG"; then
     T_PASS=$((T_PASS+1))
   else

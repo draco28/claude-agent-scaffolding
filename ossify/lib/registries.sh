@@ -2,10 +2,22 @@
 # Bones / risk gates / fakes / feature map + touch-surface matching.
 
 # CSV grammar (#340): a bare "," separates entries; "\," is a literal comma
-# inside one (a control phrase or a brace-glob like src/{exec\,api}/**). The
-# escaped comma is parked on a private-use codepoint for the split and
-# restored after, so it never collides with real input.
-_oss_csv_to_json() { printf '%s\n' "$1" | jq -R '
+# inside one. The escaped comma is parked on the private-use codepoint U+E000
+# for the split and restored after; a RAW U+E000 in the input would silently
+# become a comma, so it is refused up front (fail-closed, never rewritten).
+_oss_csv_to_json() {
+  # A raw U+E000 in the input would silently become a comma after the
+  # round-trip; refuse it up front (fail-closed). jq runs the codepoint test
+  # because neither bash 3.2 (no \uXXXX in $'...') nor zsh quoting can
+  # express the codepoint reliably here.
+  # \p{Co} (any private-use codepoint) rather than a U+E000 literal: jq's
+  # test() refuses to match the codepoint written as an escape, while the
+  # category matches - measured - and the sentinel is inside the category.
+  if [ "$(printf '%s' "$1" | jq -Rr 'if test("\\p{Co}") then "raw-pua" else empty end')" = "raw-pua" ]; then
+    echo "oss: input contains a private-use codepoint (U+E000-family, the internal CSV escape range) - remove it and retry" >&2
+    return 2
+  fi
+  printf '%s\n' "$1" | jq -R '
   gsub("\\\\,"; "\uE000")
   | split(",")
   | map(gsub("\uE000"; ",") | gsub("^ +| +$";""))
@@ -31,16 +43,22 @@ oss_reg_add_risk_gate() { # $1=state $2=name $3=touch-csv $4=controls-csv
 # gate names are #305's defect; this verb refuses rather than guessing.
 oss_reg_set_risk_gate_controls() { # $1=state $2=name $3=controls-csv
   local sf="$1" name="$2" n
+  if [ ! -f "$sf" ]; then
+    echo "oss: no state at $sf - run 'oss init <name>' first" >&2; return 1
+  fi
   n="$(jq --arg n "$name" '[.risk_gates[] | select(.name == $n)] | length' "$sf")"
+  case "$n" in ''|*[!0-9]*)
+    echo "oss: cannot read risk gates from $sf" >&2; return 2 ;;
+  esac
   if [ "$n" -eq 0 ]; then
     echo "oss: unknown risk gate '$name'" >&2; return 7
   fi
   if [ "$n" -gt 1 ]; then
-    echo "oss: risk gate '$name' matches $n gates - duplicate names are #305; refusing rather than guessing. Repair the duplicate first" >&2; return 7
+    echo "oss: risk gate '$name' matches $n gates - duplicate names have no supported repair yet (#305); refusing rather than guessing" >&2; return 7
   fi
   oss_state_mutate "$sf" set_risk_gate_controls \
-    "$(jq -n --arg n "$name" --argjson c "$(_oss_csv_to_json "$3")" --arg ts "$(_oss_now)" \
-      '{name:$n,controls:$c,at:$ts}')"
+    "$(jq -n --arg n "$name" --argjson c "$(_oss_csv_to_json "$3")" \
+      '{name:$n,controls:$c}')"
 }
 
 oss_reg_add_fake() { # $1=state $2=boundary $3=channel $4=reason $5=trigger $6=expiry-release

@@ -245,7 +245,6 @@ t_capture oss_state_replay "$S6"
 t_assert_rc 0 "legacy journal with split fragments replays faithfully"
 t_capture oss_state_read "$S6" '.risk_gates[0].controls | length'
 t_assert_eq "6" "$T_OUT" "the corruption reproduces: one phrase became three fragments"
-. "$HERE/../lib/registries.sh"
 t_capture oss_reg_set_risk_gate_controls "$S6" live-order-execution "paper env,human confirm,audit tail: record image\, mounts\, egress allowlist and exit status per bootstrap,kill switch"
 t_assert_rc 0 "corrective append lands on the legacy state"
 t_capture oss_state_replay "$S6"
