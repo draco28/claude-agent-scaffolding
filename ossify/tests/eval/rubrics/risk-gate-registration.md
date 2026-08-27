@@ -2,7 +2,7 @@
 
 Score each 1-5 (6 criteria). Pass = all ≥4. `expected_register` vocabulary:
 `yes` | `no` — whether a risk gate is registered for the scenario's surface;
-`expected_controls` is the control set the scenario warrants (a free-text CSV
+`expected_controls` is the control set the scenario warrants (a CSV per risk-gates.md §3's grammar
 the judge reads as the key, not an exact string match).
 
 This surface scores `start` SKILL.md §8's risk-gate judgment

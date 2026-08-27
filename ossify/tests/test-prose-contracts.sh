@@ -245,6 +245,30 @@ for tok in 'The completion floor comes first' 'journey table is absent' \
   esac
 done
 
+# --- The risk-gate CSV grammar, stated once and enforced (#340) ---------------
+#
+# #340: the prose called controls "a free-text CSV" of "phrases" while the
+# splitter cut on every bare comma — the prose invited the input that
+# corrupted three of four gates on the pilot, and the append-only journal
+# made it unrepairable. The grammar now lives ONCE in risk-gates.md §3; the
+# verbs enforce it mechanically. This row pins both halves to each other:
+# the grammar sentence must survive rewording, and the corrective verb the
+# prose names must exist in the dispatcher surface.
+RG="$OSSSK/skills/start/references/risk-gates.md"
+for tok in 'bare `,` separates entries' 'literal comma inside an entry' \
+           'risk_gate_set_controls' 'spell multiple directories as multiple entries'; do
+  if /usr/bin/grep -Fq "$tok" "$RG"; then
+    T_PASS=$((T_PASS+1))
+  else
+    T_FAIL=$((T_FAIL+1)); echo "FAIL: risk-gates.md no longer carries grammar token '$tok'"
+  fi
+done
+if /usr/bin/grep -Fq 'risk_gate_set_controls' "$OSSSK/lib/commands.sh"; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: risk-gates.md names risk_gate_set_controls but the dispatcher has no such verb - the prose promises a repair path that does not exist"
+fi
+
 # --- /adopt authors a topology too (PR #345 round 6) --------------------------
 #
 # Round 6: plugin.json and /start's own refusal text both promise that /adopt

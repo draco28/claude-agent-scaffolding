@@ -63,7 +63,7 @@ Worked example:
 ```bash
 oss risk_gate_add "live-order-execution" \
   "src/exec/**,src/broker/**" \
-  "paper env,human confirm,kill switch,audit trail,progressive exposure"
+  "paper env,human confirm,kill switch,audit trail: record symbol\, side\, qty and outcome per order,progressive exposure"
 
 oss risk_gate_add "user-data-deletion" \
   "src/admin/purge.rs" \
@@ -71,8 +71,23 @@ oss risk_gate_add "user-data-deletion" \
 ```
 
 Touch surfaces use the same `case`-glob semantics as bones — see
-`references/bones-registry.md` §4. Controls are a free-text CSV: use short,
-checkable phrases, because a human reads them back at spine planning.
+`references/bones-registry.md` §4.
+
+**The CSV grammar, once (#340): a bare `,` separates entries; `\,` is a
+literal comma inside an entry.** A control is a short, checkable phrase a
+human reads back at spine planning — and phrases may need commas, so escape
+them (`audit trail: record image\, mounts\, egress per bootstrap` is ONE
+control). Unescaped commas split — that was #340's defect: split fragments
+could not be repaired afterward, because the journal is append-only. For
+TOUCH surfaces, spell multiple directories as multiple entries
+(`src/exec/**,src/api/**`): `case`-globs do not brace-expand, so a single
+`src/{exec,api}/**` entry would match only the literal brace path and the
+gate would never fire. A gate minted before you knew the grammar is
+repaired NOT by editing state but by a corrective append:
+
+```bash
+oss risk_gate_set_controls "<name>" "<controls-csv>"   # refuses unknown names; refuses duplicate names (#305)
+```
 
 ---
 
