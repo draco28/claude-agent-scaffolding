@@ -52,13 +52,14 @@ line ending in exactly one of `fixed in <sha>` / `deferred → #N` /
 `invalid — <why>`. The ledger is the loop's working memory and its terminus
 report; a finding missing from it was never dispositioned.
 
-## 2.5 Read the findings as a set, before you edit anything
+## 2.5 Read the findings as a set before each edit pass
 
 §2 hands you a list; editing straight down it is this loop's main failure mode.
 Independent fixes to overlapping prose re-anchor the sentences the next finding
 cites, and round N+1 arrives built out of round N's own fixes.
 
-So before the first edit, collapse the ledger into **classes**. A class is one
+So before each edit pass — the first one, and again after every re-review —
+collapse the ledger into **classes**. A class is one
 defect however many findings name it: the same mistake at several sites, two
 reviewers on one site, or several symptoms of one wrong condition. Fix a class
 in one commit, or record why it splits.
@@ -68,8 +69,10 @@ satisfy it is yours:
 
 - **You close the class, not the finding.** A finding names one site; the class
   is every site reachable at that boundary. The reviewers saw a sample, so
-  enumerate the rest yourself and close them together, or name what you left
-  and why. A fix that closes only the cited site guarantees the class returns.
+  enumerate the rest yourself and close them together. What you name and leave
+  must be non-blocking: a member of a blocking class — correctness, security,
+  data loss, a broken contract — is fixed or the change is cut (§3), never
+  left. A fix that closes only the cited site guarantees the class returns.
 - **Grep the condition's old form first.** When a fix changes a rule, the
   defects that remain are phrased in what you replaced, not in what you wrote.
   The old form is the search term, and the fix is often deleting a stale clause
@@ -129,19 +132,26 @@ normal terminus. This one is categorical, not a round count:
   so — do not restructure twice.
 - **A claim the change cannot honour ends the loop by being unclaimed.**
   Designing under review pressure at round N produces round N+1; a documented
-  refusal is complete, an unhonoured promise is not.
+  refusal is complete, an unhonoured promise is not. Unclaiming is two edits,
+  not one: the findings behind the claim keep their ledger lines — the
+  unclaiming commit is the fix — and the claim itself comes out of the PR
+  description, the changelog, and the commit message. A refusal still promised
+  is the same unhonoured promise.
 - **A plateau of *original-design* findings is not a cut signal.** When rounds
   stop shrinking but the findings have shifted off your fixes and onto the
   design the PR always had, the reviewers are excavating, not reacting. That
-  loop ends by dispositioning — fix or refute the P1s, defer the rest as
-  tracked issues — not by waiting for a clean round that will not come.
+  loop ends by dispositioning — fix or refute the P1s, and give the rest their
+  per-finding disposition, fixing or deferring each on its own merits, never a
+  bulk deferral because the count plateaued — not by waiting for a clean round
+  that will not come.
   Measured on PR #349: findings ran 17 → 4 → 6 → 5 → 7 across five rounds, and
   the categorical exit closed it, not convergence.
 
 Sort by failure direction before acting on either: a finding that the boundary
-**refuses a valid input** is the boundary working, and defers; a finding that it
-**admits what it cannot handle** is a fix. Incoherence this diff introduced is
-always this diff's to fix.
+**refuses a valid input** is a fix — the boundary is breaking its own contract;
+a finding that it **correctly refuses an unsupported input** is invalid or
+deferred; a finding that it **admits what it cannot handle** is a fix.
+Incoherence this diff introduced is always this diff's to fix.
 
 Neither exit touches the P1 rail. A P1 is fixed, or the change is cut. It is
 never merged.
@@ -181,7 +191,7 @@ report the PR URL and stop — the loop does not poll.
 - **Growing the loop into tooling.** No wrapper scripts, no state files — the
   ledger lives in the conversation and the terminus report.
 - **Editing straight down the ledger.** N findings are not N fixes. Classify
-  before the first edit (§2.5).
+  before each edit pass (§2.5).
 - **Closing only the site the reviewer cited**, when the same defect sits at
   three more the reviewer never reached.
 - **Counting rounds instead of reading them.** Round six is not a signal;
