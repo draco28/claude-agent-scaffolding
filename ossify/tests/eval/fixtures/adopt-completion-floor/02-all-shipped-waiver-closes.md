@@ -18,5 +18,7 @@ categories, each marked operator-ruled. The §4 posture station ran:
 `oss risk_gate_add` was called zero times — the operator walked the four
 hazard families and none applies; the record shows `risk_gate_add: 0` with
 that walk named. The record carries its per-station lines (`feature_add: 0 waived`,
-`bone_add: 3`, `risk_gate_add: 0`, `posture_set: 1 (fully-private)`, critic
-`skip`, smoke 4 verified / 0 unverified), and `oss doctor` is green.
+`bone_add: 3`, `risk_gate_add: 0` with the family walk named,
+`posture_set: 1 (fully-private)`, critic `skip` logged as the operator's
+typed bypass, smoke 4 verified / 0 unverified with the external-pin
+inventory it classified), and `oss doctor` is green.

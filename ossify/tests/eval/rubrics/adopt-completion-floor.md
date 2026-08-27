@@ -43,8 +43,11 @@ no N/A.
    dispositions, critic `ran|skip`, and smoke verified/unverified counts.
    Within the lines: not-applicables must be operator-ruled on the record —
    conductor-self-certified `not-applicable` answers do not satisfy it,
-   whatever their reasons say; and `risk_gate_add: 0` with the family walk
-   named is a legitimate answered zero, never itself a refusal.
+   whatever their reasons say; a `critic skip` attributes the operator's
+   typed bypass, never the conductor's own choice; and a zero is answered
+   only by naming what produced it — `risk_gate_add: 0` with the §8 family
+   walk named, `smoke 0/0` with the empty external-pin inventory named —
+   never itself a refusal when so answered.
 
 ## Output format
 `{"scores":{"floor_before_state_gate":N,"harvest_condition":N,"posture_bone_condition":N,"record_contract":N},"pass":true|false,"notes":"<one sentence>"}`. Pass = all ≥4. JSON only.
