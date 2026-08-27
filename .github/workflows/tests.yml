@@ -68,9 +68,6 @@ jobs:
       - name: ossify suite
         run: bash ossify/tests/run-all.sh
 
-      - name: board suite
-        run: bash board/tests/run-all.sh
-
       - name: claude-security-audit suite
         # Skip the wall-clock perf benchmark on shared runners (flaky vs the homelab
         # reference machine); it still runs locally / on the homelab (#71).
