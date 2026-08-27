@@ -245,12 +245,14 @@ t_capture oss_state_replay "$S6"
 t_assert_rc 0 "legacy journal with split fragments replays faithfully"
 t_capture oss_state_read "$S6" '.risk_gates[0].controls | length'
 t_assert_eq "6" "$T_OUT" "the corruption reproduces: one phrase became three fragments"
-t_capture oss_reg_set_risk_gate_controls "$S6" live-order-execution "paper env,human confirm,audit tail: record image\, mounts\, egress allowlist and exit status per bootstrap,kill switch"
+t_capture oss_reg_set_risk_gate_controls "$S6" live-order-execution "paper env,human confirm,audit trail: record image\, mounts\, egress allowlist and exit status per bootstrap,kill switch"
 t_assert_rc 0 "corrective append lands on the legacy state"
 t_capture oss_state_replay "$S6"
 t_assert_rc 0 "replay derives the CORRECTED state from base+journal"
 t_capture oss_state_read "$S6" '.risk_gates[0].controls | length'
 t_assert_eq "4" "$T_OUT" "repaired controls hold the phrase whole (4, not 6)"
+t_capture oss_state_read "$S6" '.risk_gates[0].controls[2]'
+t_assert_eq "audit trail: record image, mounts, egress allowlist and exit status per bootstrap" "$T_OUT" "the repaired control holds the phrase TEXT, not just a count"
 t_capture oss_state_read "$S6" '.mutations | length'
 t_assert_eq "2" "$T_OUT" "the journal kept BOTH mutations - append, not edit"
 rm -rf "$T6"

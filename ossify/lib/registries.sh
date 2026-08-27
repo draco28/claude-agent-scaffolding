@@ -24,16 +24,20 @@ _oss_csv_to_json() {
   | map(select(length>0))'; }
 
 oss_reg_add_bone() { # $1=state $2=adr-ref $3=title $4=touch-csv $5=revisit(optional)
+  local touch; touch="$(_oss_csv_to_json "$4")" || return $?
   oss_state_mutate "$1" add_bone \
-    "$(jq -n --arg adr "$2" --arg t "$3" --argjson touch "$(_oss_csv_to_json "$4")" \
+    "$(jq -n --arg adr "$2" --arg t "$3" --argjson touch "$touch" \
         --arg rv "${5:-}" --arg ts "$(_oss_now)" \
       '{adr:$adr,title:$t,touch:$touch,revisit_trigger:(if $rv=="" then null else $rv end),at:$ts}')"
 }
 
 oss_reg_add_risk_gate() { # $1=state $2=name $3=touch-csv $4=controls-csv
+  local touch c
+  touch="$(_oss_csv_to_json "$3")" || return $?
+  c="$(_oss_csv_to_json "$4")" || return $?
   oss_state_mutate "$1" add_risk_gate \
-    "$(jq -n --arg n "$2" --argjson touch "$(_oss_csv_to_json "$3")" \
-        --argjson c "$(_oss_csv_to_json "$4")" --arg ts "$(_oss_now)" \
+    "$(jq -n --arg n "$2" --argjson touch "$touch" \
+        --argjson c "$c" --arg ts "$(_oss_now)" \
       '{name:$n,touch:$touch,controls:$c,at:$ts}')"
 }
 
@@ -56,8 +60,9 @@ oss_reg_set_risk_gate_controls() { # $1=state $2=name $3=controls-csv
   if [ "$n" -gt 1 ]; then
     echo "oss: risk gate '$name' matches $n gates - duplicate names have no supported repair yet (#305); refusing rather than guessing" >&2; return 7
   fi
+  local c; c="$(_oss_csv_to_json "$3")" || return $?
   oss_state_mutate "$sf" set_risk_gate_controls \
-    "$(jq -n --arg n "$name" --argjson c "$(_oss_csv_to_json "$3")" \
+    "$(jq -n --arg n "$name" --argjson c "$c" \
       '{name:$n,controls:$c}')"
 }
 
