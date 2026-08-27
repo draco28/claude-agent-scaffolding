@@ -50,7 +50,11 @@ oss_reg_set_risk_gate_controls() { # $1=state $2=name $3=controls-csv
   if [ ! -f "$sf" ]; then
     echo "oss: no state at $sf - run 'oss init <name>' first" >&2; return 1
   fi
-  n="$(jq --arg n "$name" '[.risk_gates[] | select(.name == $n)] | length' "$sf")"
+  # Explicit failure routing: under bin/oss errexit, an unguarded failing
+  # assignment here hard-exits with jq's raw parse error before the case
+  # below can label it (rc 5, not our rc 2).
+  n="$(jq --arg n "$name" '[.risk_gates[] | select(.name == $n)] | length' "$sf" 2>/dev/null)" || {
+    echo "oss: cannot read risk gates from $sf" >&2; return 2; }
   case "$n" in ''|*[!0-9]*)
     echo "oss: cannot read risk gates from $sf" >&2; return 2 ;;
   esac

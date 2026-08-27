@@ -64,7 +64,11 @@ _oss_apply_op() { # $1=op $2=payload-json
     add_bone)      jq --argjson p "$payload" '.bones += [$p]' ;;
     add_risk_gate) jq --argjson p "$payload" '.risk_gates += [$p]' ;;
     set_risk_gate_controls)
-      jq --argjson p "$payload" '(.risk_gates[] | select(.name == $p.name) | .controls) = $p.controls' ;;
+      # first()-targeted: a duplicate name minted in the check-to-append race
+      # would otherwise take the correction on BOTH entries; the verb refuses
+      # duplicates pre-lock (#305) and this bounds the race to one target,
+      # identically on live apply and replay.
+      jq --argjson p "$payload" '(first(.risk_gates[] | select(.name == $p.name)) | .controls) = $p.controls' ;;
     add_fake)      jq --argjson p "$payload" '.fakes += [$p]' ;;
     add_feature)   jq --argjson p "$payload" '.feature_map += [$p]' ;;
     add_demo_line)
