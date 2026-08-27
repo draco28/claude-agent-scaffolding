@@ -7,7 +7,8 @@ expected_reason: the completion floor refuses the close — feature_list is empt
 The adoption ceremony has run its cheapest legal course on a single-repo
 legacy stack. Pre-flight A0–A5 all passed. `oss init` minted the state,
 C4 ran `oss release_add "Release 0"` and `oss release_status r0 closed` —
-`project-state.json` holds exactly those two mutations. C1 authored a
+`project-state.json` holds exactly those two mutations — and authored the
+stub retrospective at Release 0's release dir. C1 authored a
 journey table whose seven steps are marked three `next` and four `later`,
 but the conductor never ran `oss feature_add` — `oss feature_list` prints
 `[]`. C3 scanned an absent `docs/adr/`, answered every one of the nine

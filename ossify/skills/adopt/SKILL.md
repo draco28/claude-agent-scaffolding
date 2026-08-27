@@ -256,8 +256,9 @@ Refuse to declare completion, naming the station that never ran, when:
   **operator-confirmed waiver on the record**.
 - the posture bone is absent, or `posture` is null or outside its four
   values — posture **is** a bone and always gets set (§4).
-- no closed `Release 0` in state — C4 never ran, and `plan-release` would
-  plan the greenfield `Release 0`, not Release 1.
+- no closed `Release 0` in state, or its stub retrospective absent — C4
+  never finished, and `plan-release` would plan the greenfield
+  `Release 0`, not Release 1.
 - the adoption record lacks the per-station lines its row requires — a zero
   must be visible and answered, never unasked (`/start` §12: thin succeeds
   provided every category was asked).

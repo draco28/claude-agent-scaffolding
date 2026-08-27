@@ -5,7 +5,7 @@ expected_reason: the record contract is the half of the floor this run breaks �
 ---
 
 A second cheap reading, closer to the PulseDB pilot. A0–A5 passed; C4
-closed Release 0 retroactively. The repo has six ADRs, all scanned and
+closed Release 0 retroactively, stub retrospective authored. The repo has six ADRs, all scanned and
 minted as bones with status Accepted — six of the nine C3 categories are
 covered. The conductor then answered the remaining three categories
 ("trust boundaries", "failure visibility", "rollback strategy")

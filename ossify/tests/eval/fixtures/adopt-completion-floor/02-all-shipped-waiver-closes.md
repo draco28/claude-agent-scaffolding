@@ -6,7 +6,7 @@ expected_reason: the floor is anti-unasked, not anti-thin — every journey step
 
 A small but genuinely complete adoption on a single-repo legacy stack.
 A0–A5 passed, `oss init` minted state, and C4 closed Release 0
-retroactively. C1's journey table has four steps, every one marked
+retroactively, with the stub retrospective authored at its release dir. C1's journey table has four steps, every one marked
 `shipped` — the product is in maintenance with no planned work. The
 conductor read the empty harvest back to the operator, who confirmed there
 is nothing to harvest, and the record carries the waiver line: "all
