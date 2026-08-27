@@ -16,8 +16,8 @@ tracked deferral, and the merge ask.
 Three rails survive any adaptation:
 
 - **A P1 is never ack-to-merged.** Correctness, security, data loss, or a
-  broken contract gets fixed before merge — no round limit and no deferral
-  applies to that class.
+  broken contract gets fixed before merge — or refuted with evidence — no
+  round limit and no deferral applies to that class.
 - **A deferral is a tracked issue, never a silent pass.** Every finding ends
   as `fixed in <sha>`, `deferred → #N`, or `invalid — <why>` (an
   evidence-shaped refutation) in the ledger you surface.

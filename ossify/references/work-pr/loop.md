@@ -89,8 +89,8 @@ you are about to cause.
 
 Then ask one question of the whole set, which no single finding can answer:
 **is the PR's headline claim still true?** A round of fixes can leave the
-description, the changelog entry, or the commit message promising work the diff
-no longer does.
+description, a changelog entry, a commit message, or any doc line the diff
+touched promising work the diff no longer does.
 
 The ledger stays one line per finding. Classes are how you **fix**; the ledger
 is how you **report**.
@@ -100,8 +100,9 @@ is how you **report**.
 This section is authoritative for this lane.
 
 - **P1 / blocking** — correctness, security, data loss, a broken public
-  contract: **must be fixed before merge.** Never ack-to-merge, never
-  deferrable, no matter which review round surfaced it or who asks.
+  contract: **must be fixed before merge, or refuted with evidence like any
+  other false finding.** Never ack-to-merge, never deferrable, no matter
+  which review round surfaced it or who asks.
 - **Non-blocking** — fix it or defer it. A deferral is a **tracked issue in
   the target repo** recorded as `deferred → #N`; a silent pass is not a
   disposition. File it with `gh issue create` and enough body that a stranger
@@ -120,8 +121,9 @@ This section is authoritative for this lane.
   current head. Do not busy-wait a queued reviewer: say it is pending and let
   the operator decide.
 
-Loop §2→§2.5→§3 until every finding is dispositioned, every P1 is fixed, and the
-reviewer signal is complete on the current head.
+Loop §2→§2.5→§3 until every finding is dispositioned, every P1 is fixed or
+evidence-refuted, never deferred, and the reviewer signal is complete on the
+current head.
 
 **The second exit — stop looping and change the change.** The line above is the
 normal terminus. This one is categorical, not a round count:
@@ -134,8 +136,10 @@ normal terminus. This one is categorical, not a round count:
   Designing under review pressure at round N produces round N+1; a documented
   refusal is complete, an unhonoured promise is not. Unclaiming is two edits,
   not one: the findings behind the claim keep their ledger lines — the
-  unclaiming commit is the fix — and the claim itself comes out of the PR
-  description and the changelog. A claim baked into a commit message comes
+  unclaiming commit is the fix — and the claim itself comes out of every
+  artifact that promises it: the PR description, the changelog, and any
+  README, doc, or release-metadata line the diff wrote it into. A claim
+  baked into a commit message comes
   out only by rewriting history; a rewrite re-mints every descendant sha, so
   remap each `fixed in <sha>` line onto the rewritten head before the
   terminus, or the ledger cites commits no head contains. A refusal still
@@ -156,8 +160,8 @@ a finding that it **correctly refuses an unsupported input** is invalid or
 deferred; a finding that it **admits what it cannot handle** is a fix.
 Incoherence this diff introduced is always this diff's to fix.
 
-Neither exit touches the P1 rail. A P1 is fixed, or the change is cut. It is
-never merged. And neither exit bypasses staleness: cutting, narrowing, or
+Neither exit touches the P1 rail. A P1 is fixed, evidence-refuted, or the
+change is cut. It is never merged. And neither exit bypasses staleness: cutting, narrowing, or
 unclaiming lands commits like any other fix — prior verdicts go stale, the
 loop re-runs on the new head, and the reviewer signal must be complete on the
 head that carries the final shape before the terminus ask.
