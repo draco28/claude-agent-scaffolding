@@ -120,7 +120,7 @@ This section is authoritative for this lane.
   current head. Do not busy-wait a queued reviewer: say it is pending and let
   the operator decide.
 
-Loop §2→§3 until every finding is dispositioned, every P1 is fixed, and the
+Loop §2→§2.5→§3 until every finding is dispositioned, every P1 is fixed, and the
 reviewer signal is complete on the current head.
 
 **The second exit — stop looping and change the change.** The line above is the
@@ -135,8 +135,11 @@ normal terminus. This one is categorical, not a round count:
   refusal is complete, an unhonoured promise is not. Unclaiming is two edits,
   not one: the findings behind the claim keep their ledger lines — the
   unclaiming commit is the fix — and the claim itself comes out of the PR
-  description, the changelog, and the commit message. A refusal still promised
-  is the same unhonoured promise.
+  description and the changelog. A claim baked into a commit message comes
+  out only by rewriting history; a rewrite re-mints every descendant sha, so
+  remap each `fixed in <sha>` line onto the rewritten head before the
+  terminus, or the ledger cites commits no head contains. A refusal still
+  promised is the same unhonoured promise.
 - **A plateau of *original-design* findings is not a cut signal.** When rounds
   stop shrinking but the findings have shifted off your fixes and onto the
   design the PR always had, the reviewers are excavating, not reacting. That
@@ -155,9 +158,9 @@ Incoherence this diff introduced is always this diff's to fix.
 
 Neither exit touches the P1 rail. A P1 is fixed, or the change is cut. It is
 never merged. And neither exit bypasses staleness: cutting, narrowing, or
-unclaiming lands commits like any other fix — prior verdicts go stale, §2
-re-runs on the new head, and the reviewer signal must be complete on the head
-that carries the final shape before the terminus ask.
+unclaiming lands commits like any other fix — prior verdicts go stale, the
+loop re-runs on the new head, and the reviewer signal must be complete on the
+head that carries the final shape before the terminus ask.
 
 ## 4. Terminus — surface everything, then ask
 
