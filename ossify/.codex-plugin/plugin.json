@@ -1,6 +1,6 @@
 {
   "name": "ossify",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Skeleton-first lifecycle from Release 0 through MVP and v1. An alternate replacement for scaffold-onboard + scaffold-dev, not a stage alongside them. workspace-init is optional - /ossify:start and /ossify:adopt author the topology declaration themselves.",
   "author": {
     "name": "Pras"
