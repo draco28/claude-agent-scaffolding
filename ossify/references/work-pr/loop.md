@@ -89,8 +89,9 @@ you are about to cause.
 
 Then ask one question of the whole set, which no single finding can answer:
 **is the PR's headline claim still true?** A round of fixes can leave the
-description, a changelog entry, a commit message, or any doc line the diff
-touched promising work the diff no longer does.
+description, a changelog entry, a commit message, any doc line, or any
+release-metadata field the diff touched promising work the diff no longer
+does.
 
 The ledger stays one line per finding. Classes are how you **fix**; the ledger
 is how you **report**.
@@ -139,10 +140,13 @@ normal terminus. This one is categorical, not a round count:
   unclaiming commit is the fix — and the claim itself comes out of every
   artifact that promises it: the PR description, the changelog, and any
   README, doc, or release-metadata line the diff wrote it into. A claim
-  baked into a commit message comes
-  out only by rewriting history; a rewrite re-mints every descendant sha, so
-  remap each `fixed in <sha>` line onto the rewritten head before the
-  terminus, or the ledger cites commits no head contains. A refusal still
+  baked into a commit message comes out only by rewriting history; a rewrite
+  re-mints every descendant sha, so remap each `fixed in <sha>` line onto the
+  rewritten head before the terminus, or the ledger cites commits no head
+  contains. A rewrite pushes non-fast-forward, so lease it —
+  `git push --force-with-lease=<branch>:<verified-head-oid>` against the head
+  the preflight verified — and a refused lease re-enters §1: someone advanced
+  the branch, and a bare force would discard their commits. A refusal still
   promised is the same unhonoured promise.
 - **A plateau of *original-design* findings is not a cut signal.** When rounds
   stop shrinking but the findings have shifted off your fixes and onto the
