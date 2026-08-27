@@ -6,7 +6,7 @@ mkws() { local d; d="$(mktemp -d)/pt-ai"; mkdir -p "$d/.ossify"; cp "$1" "$d/.os
 fresh_fake() { export BOARD_FAKE_LOG="$1/calls.log" BOARD_FAKE_DIR="$1/fake" BOARD_HULY_BIN="$HERE/fake/huly"; mkdir -p "$BOARD_FAKE_DIR"; : > "$BOARD_FAKE_LOG"
   echo '{"taskTypes":[{"id":"tt1","name":"Spine","projectTypeName":"Ossify project"},{"id":"tt2","name":"Work item","projectTypeName":"Ossify project"}],"total":2}' > "$BOARD_FAKE_DIR/task-types.list.json"
   echo '{"permissions":[{"id":"core:permission:CreateObject","label":"Create object"},{"id":"core:permission:UpdateObject","label":"Update object"},{"id":"core:permission:DeleteObject","label":"Delete object"}],"total":3}' > "$BOARD_FAKE_DIR/spaces.permissions.list.json"
-  echo '{"identifier":"PTRD","name":"pulse-trader"}' > "$BOARD_FAKE_DIR/projects.get.json"
+  echo '{"identifier":"PTRD","name":"pulse-trader","defaultStatus":"Backlog","statuses":["Backlog","Todo","New state","Won","Lost","planned","active","complete","abandoned"]}' > "$BOARD_FAKE_DIR/projects.get.json"
   echo '{"blockedBy":[],"blocks":[],"relations":[],"documents":[]}' > "$BOARD_FAKE_DIR/issues.relations.list.json"; }
 # sync-scope ops only: setup's idempotent task-type/status/role creates are not drift mutations
 mutations() { awk 'index($0,"milestones create ")||index($0,"milestones update ")||index($0,"issues create ")||index($0,"issues update ")||index($0,"relations add")||index($0,"milestone set")||index($0,"labels add"){n++} END{print n+0}' "$BOARD_FAKE_LOG"; }
@@ -50,7 +50,7 @@ t_assert_eq 0 "$(wc -l < "$BOARD_FAKE_LOG" | tr -d ' ')" "unchanged: zero CLI ca
 # 4. --force against a board that already matches: zero mutations (idempotency)
 jq -f "$ROOT/lib/map.jq" "$WS/.ossify/project-state.json" > "$BOARD_FAKE_DIR/desired.json"
 jq '[.milestones[] | {label: .title, status: .status, _id: .key}]' "$BOARD_FAKE_DIR/desired.json" > "$BOARD_FAKE_DIR/milestones.list.json"
-jq '[.issues[] | {identifier: ("PTRD-" + (.key|gsub("\\.";""))), title: .title, status: .status, milestone: (if .milestone_key then {label: (.milestone_key + " — x")} else null end)}]' "$BOARD_FAKE_DIR/desired.json" > "$BOARD_FAKE_DIR/issues.list.json"
+jq '[.issues[] | {identifier: ("PTRD-" + (.key|gsub("\\.";""))), title: .title, status: .status, milestone: (if .milestone_key then {label: (.milestone_key + " — x")} else null end), labels: (if .label then [{title: .label}] else [] end)}]' "$BOARD_FAKE_DIR/desired.json" > "$BOARD_FAKE_DIR/issues.list.json"
 # the fake answers every relations.list call with the same file: the union of every edge's target,
 # so each from-issue's blockedBy check finds its target regardless of which identifier asked
 jq '{blockedBy: [.relations[] | {identifier: ("PTRD-" + (.to_key|gsub("\\.";"")))}]}' "$BOARD_FAKE_DIR/desired.json" > "$BOARD_FAKE_DIR/issues.relations.list.json"
@@ -125,6 +125,33 @@ t_assert_eq 0 "$(mutations)" "milestones at cap: zero mutations"
 t_capture tail -1 "$WS/.board/sync.log"; t_assert_contains "$T_OUT" "200-item limit" "milestones at cap: logged"
 jq '[.milestones[] | {label: .title, status: .status, _id: .key}]' "$BOARD_FAKE_DIR/desired.json" > "$BOARD_FAKE_DIR/milestones.list.json"
 
+# 4h. a hand-rebound .board/config.json defeats the digest gate: same digest + dest, new
+# project -> full run, not skipped:"unchanged"
+board_binding_write "$WS" PTRD2
+: > "$BOARD_FAKE_LOG"
+t_capture board_sync "$WS"; t_assert_rc 0 "rebind: rc 0"
+t_capture jq -r '.skipped' <<<"$T_OUT"; t_assert_eq "null" "$T_OUT" "rebind: gate falls through"
+board_binding_write "$WS" PTRD
+t_capture board_sync "$WS" --force; t_assert_rc 0 "rebind restored"
+
+# 4i. a tab in a title would shift the TSV records the reconcile iterates: refuse loudly,
+# mutate nothing
+jq '(.work_items[0].title) = "Tauri\tshell"' "$F/pulse-trader.json" > "$WS/.ossify/project-state.json"
+: > "$BOARD_FAKE_LOG"
+t_capture board_sync "$WS" --force; t_assert_rc 1 "tab in title -> rc 1"
+t_assert_eq 0 "$(mutations)" "tab in title: zero mutations"
+t_capture tail -1 "$WS/.board/sync.log"; t_assert_contains "$T_OUT" "tab or newline" "tab in title: logged"
+cp "$F/pulse-trader.json" "$WS/.ossify/project-state.json"
+
+# 4j. a listing that omits the labels field must not freeze the label out: the add is
+# attempted (CONFLICT would mean already there); exactly one labels-add for the one entry
+jq 'map(if (.title|startswith("r1.s1 ")) then del(.labels) else . end)' "$BOARD_FAKE_DIR/issues.list.json" > "$BOARD_FAKE_DIR/issues.list.json.t" && mv "$BOARD_FAKE_DIR/issues.list.json.t" "$BOARD_FAKE_DIR/issues.list.json"
+: > "$BOARD_FAKE_LOG"
+t_capture board_sync "$WS" --force; t_assert_rc 0 "labels field absent: ok"
+t_capture grep -c 'labels add' "$BOARD_FAKE_LOG"; t_assert_eq 1 "$T_OUT" "labels field absent: exactly one add"
+t_capture grep 'labels add' "$BOARD_FAKE_LOG"; t_assert_contains "$T_OUT" "PTRD-r1s1 --label spine:bone" "labels field absent: the right spine, the right label"
+jq '[.issues[] | {identifier: ("PTRD-" + (.key|gsub("\\.";""))), title: .title, status: .status, milestone: (if .milestone_key then {label: (.milestone_key + " — x")} else null end), labels: (if .label then [{title: .label}] else [] end)}]' "$BOARD_FAKE_DIR/desired.json" > "$BOARD_FAKE_DIR/issues.list.json"
+
 # 5. known-answer negative: flip one work item status -> exactly one issues update, nothing else
 jq '(.work_items[] | select(.id=="r1.s1.w3") | .status) = "active"' "$F/pulse-trader.json" > "$WS/.ossify/project-state.json"
 : > "$BOARD_FAKE_LOG"
@@ -186,6 +213,25 @@ t_capture board_sync "$BARE2" --bind SCF2; t_assert_rc 6 "bare bind (project mis
 t_assert_contains "$T_OUT" "Tracker" "bare bind (project missing): message points at Tracker"
 t_capture board_binding_read "$BARE2"; t_assert_rc 4 "bare bind (project missing): binding not written"
 t_capture grep -c 'issues create' "$BOARD_FAKE_LOG"; t_assert_eq 0 "$T_OUT" "bare (project missing): no creation attempted"
+
+# 8c. --bind onto an existing project of the WRONG type (Classic statuses): rc 9 before
+# any project-scoped action — no members-add, no mutation, no binding written
+BARE4="$(mktemp -d)/scf4-ai"; mkdir -p "$BARE4"; fresh_fake "$(dirname "$BARE4")"
+echo '{"identifier":"SCF4","name":"x","defaultStatus":"Backlog","statuses":["Backlog","Todo","In Progress","Done","Canceled"]}' > "$BOARD_FAKE_DIR/projects.get.json"
+export HULY_EMAIL=agent@x.local
+t_capture board_sync "$BARE4" --bind SCF4; t_assert_rc 9 "wrong-type project -> rc 9"
+unset HULY_EMAIL
+t_assert_contains "$T_OUT" "not an Ossify project" "wrong type: message names the problem"
+t_capture grep -c 'spaces members add' "$BOARD_FAKE_LOG"; t_assert_eq 0 "$T_OUT" "wrong type: members-add blocked too"
+t_assert_eq 0 "$(mutations)" "wrong type: zero mutations"
+t_capture board_binding_read "$BARE4"; t_assert_rc 4 "wrong type: binding not written"
+
+# 8d. bare binding from a git subdirectory: .board lands at the repository root, not the cwd
+BARE5="$(mktemp -d)/repo"; mkdir -p "$BARE5/docs"; git -C "$(dirname "$BARE5")" init -q "$BARE5" 2>/dev/null || git init -q "$BARE5"
+fresh_fake "$(dirname "$BARE5")"
+t_capture board_sync "$BARE5/docs" --bind SCF5; t_assert_rc 0 "bare bind from subdir: ok"
+[ -f "$BARE5/.board/config.json" ] && T_PASS=$((T_PASS+1)) || { T_FAIL=$((T_FAIL+1)); echo "FAIL: bare bind from subdir: config not at the git root"; }
+[ ! -e "$BARE5/docs/.board" ] && T_PASS=$((T_PASS+1)) || { T_FAIL=$((T_FAIL+1)); echo "FAIL: bare bind from subdir: .board created in the subdir"; }
 
 # 9. dispatcher path (set -euo pipefail) — the lib must survive strict mode
 # re-point the fake at $WS's own directory: 8a/8b repointed BOARD_FAKE_DIR/LOG at their

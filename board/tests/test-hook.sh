@@ -5,7 +5,7 @@ HOOK="$ROOT/hooks-handlers/stop.sh"; F="$HERE/fixtures/state"
 TMP="$(mktemp -d)"; export BOARD_FAKE_LOG="$TMP/calls.log" BOARD_FAKE_DIR="$TMP/fake" BOARD_HULY_BIN="$HERE/fake/huly"; mkdir -p "$BOARD_FAKE_DIR"; : > "$BOARD_FAKE_LOG"
 echo '{"taskTypes":[{"id":"tt1","name":"Spine","projectTypeName":"Ossify project"},{"id":"tt2","name":"Work item","projectTypeName":"Ossify project"}],"total":2}' > "$BOARD_FAKE_DIR/task-types.list.json"
 echo '{"permissions":[{"id":"core:permission:CreateObject","label":"Create object"},{"id":"core:permission:UpdateObject","label":"Update object"},{"id":"core:permission:DeleteObject","label":"Delete object"}],"total":3}' > "$BOARD_FAKE_DIR/spaces.permissions.list.json"
-echo '{"identifier":"PTRD"}' > "$BOARD_FAKE_DIR/projects.get.json"
+echo '{"identifier":"PTRD","statuses":["Backlog","planned","active","complete","abandoned"]}' > "$BOARD_FAKE_DIR/projects.get.json"
 unset HULY_URL HULY_WORKSPACE HULY_TOKEN HULY_EMAIL   # hermeticity: the digest gate compares the destination too
 run_hook() { printf '{"session_id":"s1","cwd":"%s","hook_event_name":"Stop"}' "$1" | bash "$HOOK"; }
 

@@ -39,7 +39,7 @@ board_sync() { # $1=ws-or-any-dir [--force] [--bind IDENT]
   local force=0 bind=""
   while [ $# -gt 0 ]; do case "$1" in --force) force=1;; --bind) bind="$2"; shift;; esac; shift; done
   local ws project bare=0
-  ws="$(board_resolve_workspace "$start")" || { [ -n "$bind" ] && { ws="$start"; bare=1; } || return 3; }
+  ws="$(board_resolve_workspace "$start")" || { [ -n "$bind" ] && { bare=1; ws="$(git -C "$start" rev-parse --show-toplevel 2>/dev/null || echo "$start")"; } || return 3; }
   [ -d "$ws/.ossify" ] || bare=1
   project="$(board_binding_read "$ws" 2>/dev/null)" || {
     [ -n "$bind" ] || return 4
@@ -95,11 +95,13 @@ board_sync() { # $1=ws-or-any-dir [--force] [--bind IDENT]
   trap 'rm -rf -- "$BOARD_ACT_DIR" "$BOARD_LOCK_DIR"' EXIT
   trap 'rm -rf -- "$BOARD_ACT_DIR" "$BOARD_LOCK_DIR"; exit 1' TERM INT HUP
 
-  # digest gate — the state digest AND the destination: a changed HULY_URL/HULY_WORKSPACE
-  # means that board has never seen this state, even though the file is unchanged
+  # digest gate — the state digest, the destination AND the bound project: a changed
+  # HULY_URL/HULY_WORKSPACE or a hand-rebound .board/config.json means that board has
+  # never seen this state, even though the file is unchanged
   local digest=""; if [ "$bare" = 0 ]; then digest="$(board_state_digest "$ws")"; fi
   if [ "$force" = 0 ] && [ "$bare" = 0 ] && [ "$digest" = "$(board_sync_read "$ws" '.digest')" ] \
-     && [ "$(_board_dest)" = "$(board_sync_read "$ws" '.dest')" ]; then
+     && [ "$(_board_dest)" = "$(board_sync_read "$ws" '.dest')" ] \
+     && [ "$project" = "$(board_sync_read "$ws" '.project')" ]; then
     jq -nc --arg p "$project" '{project:$p, skipped:"unchanged", created:0, updated:0, unchanged:0, relations_added:0}'; return 0
   fi
 
@@ -113,6 +115,19 @@ cannot do it): New project — name of the repo, identifier '$project', project 
 Then rerun /board:sync --bind $project.
 EOF
     return 6
+  fi
+  # the project must actually BE an Ossify project before anything project-scoped runs:
+  # `projects get` carries no type field, but the type's own statuses discriminate — an
+  # Ossify-typed project lists planned/active/complete/abandoned, a Classic one lists none
+  # of them. Binding a Classic project would create milestones in it before the first
+  # task-type rejection surfaced (milestones reconcile first, and are type-agnostic).
+  if ! jq -e '[.statuses[]?] as $s | ["planned","active","complete","abandoned"] | all(. as $x | $s | index($x))' "$BOARD_CLI_OUT" >/dev/null; then
+    cat <<EOF
+board: project '$project' exists but is not an Ossify project (its status set lacks
+planned/active/complete/abandoned). Binding it would mutate a project of the wrong type.
+Create a new Tracker project with project type '$BOARD_SPACE_TYPE' and bind that instead.
+EOF
+    return 9
   fi
   # Huly gates read visibility by space membership: a non-member account's writes persist
   # but its own reads (milestones/issues list) come back empty, so the mirror would create
@@ -129,6 +144,12 @@ EOF
 
   local desired; desired="$BOARD_ACT_DIR/desired.json"
   jq -f "$BOARD_LIBS/map.jq" "$ws/.ossify/project-state.json" > "$desired" || _board_fail "$ws" "map.jq failed on project-state.json" || return 1
+  # titles feed the TSV loops below: a tab or newline in one would shift or split records
+  # and create malformed entities. Refuse loudly; delimiter-safe iteration is a tracked
+  # follow-up. (Ossify accepts unrestricted strings as names, so this state is reachable.)
+  if jq -e '[.milestones[].title, .issues[].title] | map(test("[\t\n]")) | any' "$desired" >/dev/null; then
+    _board_fail "$ws" "a milestone or issue title contains a tab or newline; refusing to reconcile" || return 1
+  fi
   local created=0 updated=0 unchanged=0 rel=0
   : > "$BOARD_ACT_DIR/ident.tsv"
 
@@ -207,9 +228,13 @@ EOF
              changed=1 ;;
         esac
       fi
-      # label: compare only when the actual object exposes a labels field; add-only, never remove
-      if [ "$label" != "null" ] && jq -e 'has("labels")' <<<"$actual" >/dev/null; then
-        if ! jq -e --arg l "$label" '[.labels[]? | if type=="object" then (.title // .label // .name // "") else . end] | index($l)' <<<"$actual" >/dev/null; then
+      # label: add-only, never remove. A listing that omits the labels field says nothing
+      # about the issue's labels — attempt the add anyway (CONFLICT = already there) rather
+      # than skip and let the digest freeze the label out; the membership check applies
+      # only when the field is present.
+      if [ "$label" != "null" ]; then
+        if ! jq -e 'has("labels")' <<<"$actual" >/dev/null \
+           || ! jq -e --arg l "$label" '[.labels[]? | if type=="object" then (.title // .label // .name // "") else . end] | index($l)' <<<"$actual" >/dev/null; then
           if board_cli_issue_label_add "$project" "$iid" "$label"; then changed=1
           else [ "$(board_cli_err_code)" = "CONFLICT" ] || _board_fail "$ws" "labels add $key: $(board_cli_err_code) $(board_cli_err_message)" || return 1; fi
         fi

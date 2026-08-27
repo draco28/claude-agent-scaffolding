@@ -14,9 +14,11 @@ board` finds nothing, say the board plugin is not installed and stop.
 
 ## 1. Environment and reachability
 
-Run `board env-check` and report the three lines. If all are set, run
-`huly-run auth status --json` and report the workspace it resolves and whether it is
-authenticated. A failure here is the finding; stop after reporting it.
+Run `board env-check` and report all four lines — the three required variables and the
+optional `HULY_EMAIL` status (it says whether membership self-ensure is available). If the
+three required ones are set, run `huly-run auth status --json` and report the workspace it
+resolves and whether it is authenticated. A failure here is the finding; stop after
+reporting it.
 
 ## 2. Binding and last sync
 
