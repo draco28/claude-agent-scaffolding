@@ -250,12 +250,14 @@ did; `doctor` consults it when spec and state disagree (doctor §1).
 completeness; it is green at two mutations and an empty registry (#303).**
 Refuse to declare completion, naming the station that never ran, when:
 
-- C1's journey table is absent, or the feature map holds fewer entries than
-  it marks `next`/`later` — the harvest is owed in full. A map owing
-  nothing (all `shipped`) closes at zero only via an **operator-confirmed
-  waiver on the record**.
-- the posture bone is absent or `posture` is null — posture **is** a bone
-  and always gets set (§4).
+- C1's journey table is absent, or the feature map does not hold one entry
+  per step it marks `next`/`later` — the harvest is owed in full. A map
+  owing nothing (all `shipped`) closes at zero only via an
+  **operator-confirmed waiver on the record**.
+- the posture bone is absent, or `posture` is null or outside its four
+  values — posture **is** a bone and always gets set (§4).
+- no closed `Release 0` in state — C4 never ran, and `plan-release` would
+  plan the greenfield `Release 0`, not Release 1.
 - the adoption record lacks the per-station lines its row requires — a zero
   must be visible and answered, never unasked (`/start` §12: thin succeeds
   provided every category was asked).
