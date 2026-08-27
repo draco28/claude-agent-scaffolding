@@ -144,10 +144,11 @@ normal terminus. This one is categorical, not a round count:
   re-mints every descendant sha, so remap each `fixed in <sha>` line onto the
   rewritten head before the terminus, or the ledger cites commits no head
   contains. A rewrite pushes non-fast-forward, so lease it —
-  `git push --force-with-lease=<branch>:<verified-head-oid>` against the head
-  the preflight verified — and a refused lease re-enters §1: someone advanced
-  the branch, and a bare force would discard their commits. A refusal still
-  promised is the same unhonoured promise.
+  `git push --force-with-lease=<branch>:<current-remote-oid>`, captured
+  immediately before the rewrite rather than at the original preflight,
+  which rounds of fix pushes have already moved — and a refused lease
+  re-enters §1: someone advanced the branch, and a bare force would discard
+  their commits. A refusal still promised is the same unhonoured promise.
 - **A plateau of *original-design* findings is not a cut signal.** When rounds
   stop shrinking but the findings have shifted off your fixes and onto the
   design the PR always had, the reviewers are excavating, not reacting. That
