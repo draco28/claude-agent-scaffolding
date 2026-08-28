@@ -429,39 +429,48 @@ while IFS= read -r repo; do
 
   # The remote, resolved - never assumed to be named origin. Same rule the
   # spine-close PR arm uses: origin if present, a single remote otherwise,
-  # several-with-no-origin halts naming them.
-  remote_name="$(printf '%s\n' "$(git -C "$repo_root" remote)" | awk 'NR==1{first=$0} $0=="origin"{o=1} END{if(o) print "origin"; else if(NR==1) print first; else print ""}')"
-  [ -n "$remote_name" ] \
-    || { echo "close: $repo has several remotes and none is 'origin' - name the one to tag through and re-run - halt"; exit 1; }
+  # several-with-no-origin halts naming them. NO remote at all is not an error
+  # here - it is the same no-remote world the landing tier serves: the repo
+  # landed its spines by local merge all release, and its tag is local too,
+  # verified by the same checks minus the remote leg.
+  remotes="$(git -C "$repo_root" remote)"
+  remote_name="$(printf '%s\n' "$remotes" | awk 'NR==1{first=$0} $0=="origin"{o=1} END{if(o) print "origin"; else if(NR==1) print first; else print ""}')"
+  if [ -n "$remotes" ] && [ -z "$remote_name" ]; then
+    echo "close: $repo has several remotes and none is 'origin' - name the one to tag through and re-run - halt"; exit 1
+  fi
 
   if git -C "$repo_root" rev-parse -q --verify "refs/tags/$rel" >/dev/null 2>&1; then
     # RESUME: a tag from an earlier run that stopped between here and the state
     # writes. Continuable only when it points at this repo's base branch tip
-    # locally AND the remote carries the same object - anything else is a human
-    # decision, never a clobber. Two different shas are in play and comparing
-    # the wrong pair resumes a mismatched tag: the tag OBJECT (what ls-remote
-    # reports and what the remote comparison uses) and its PEELED commit (what
-    # the base comparison uses - `rev-parse refs/tags/x` yields the object,
-    # never the commit, for an annotated tag).
+    # locally AND - for a remote repo - the remote carries the same object:
+    # anything else is a human decision, never a clobber. Two different shas
+    # are in play and comparing the wrong pair resumes a mismatched tag: the
+    # tag OBJECT (what ls-remote reports and what the remote comparison uses)
+    # and its PEELED commit (what the base comparison uses - `rev-parse
+    # refs/tags/x` yields the object, never the commit, for an annotated tag).
     local_obj="$(git -C "$repo_root" rev-parse "refs/tags/$rel")"
     base_tip="$(git -C "$repo_root" rev-parse "$base_branch")"
     local_target="$(git -C "$repo_root" rev-parse "refs/tags/$rel^{}")"
     [ "$local_target" = "$base_tip" ] \
       || { echo "close: tag '$rel' in $repo points at $local_target, not $base_branch ($base_tip) - a human decides - halt"; exit 1; }
-    remote_line="$(git -C "$repo_root" ls-remote "$remote_name" "refs/tags/$rel")"
-    [ -n "$remote_line" ] \
-      || { echo "close: tag '$rel' exists in $repo but not on '$remote_name' - push it (never force) or delete it deliberately - halt"; exit 1; }
-    remote_tag="${remote_line%%[[:space:]]*}"
-    [ "$remote_tag" = "$local_obj" ] \
-      || { echo "close: tag '$rel' in $repo ($local_obj) and on '$remote_name' ($remote_tag) disagree - a human decides - halt"; exit 1; }
+    if [ -n "$remote_name" ]; then
+      remote_line="$(git -C "$repo_root" ls-remote "$remote_name" "refs/tags/$rel")"
+      [ -n "$remote_line" ] \
+        || { echo "close: tag '$rel' exists in $repo but not on '$remote_name' - push it (never force) or delete it deliberately - halt"; exit 1; }
+      remote_tag="${remote_line%%[[:space:]]*}"
+      [ "$remote_tag" = "$local_obj" ] \
+        || { echo "close: tag '$rel' in $repo ($local_obj) and on '$remote_name' ($remote_tag) disagree - a human decides - halt"; exit 1; }
+    fi
     echo "close: $repo already tagged $rel at $base_tip - not re-tagging"
   else
     # ANNOTATED, always: a lightweight tag names a commit and says nothing
     # about the release.
     git -C "$repo_root" tag -a "$rel" -m "release $rel" "$base_branch" \
       || { echo "close: cannot tag $rel at $base_branch in $repo - halt"; exit 1; }
-    git -C "$repo_root" push "$remote_name" "$rel" \
-      || { echo "close: tag push for $rel refused in $repo - surface the refusal verbatim, never force - halt"; exit 1; }
+    if [ -n "$remote_name" ]; then
+      git -C "$repo_root" push "$remote_name" "$rel" \
+        || { echo "close: tag push for $rel refused in $repo - surface the refusal verbatim, never force - halt"; exit 1; }
+    fi
     echo "close: $repo tagged $rel"
   fi
 done < <(oss get ".work_items[] | select(.spine | startswith(\"$rel.\")) | .target_repo" | sort -u)

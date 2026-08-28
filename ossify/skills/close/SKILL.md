@@ -322,7 +322,9 @@ enforceable at a release boundary). Eight steps, in **binding order**:
    The whole step is
    **`references/boundary-audit.md`**.
 8. **The release tag** — tag **each hosting repo this release landed in**, at
-   that repo's recovered base branch, and push the tag: the PR tier lives at
+   that repo's recovered base branch, and push the tag where a remote exists
+   (a no-remote repo's tag is local, verified the same way minus the remote
+   leg): the PR tier lives at
    the spine boundary (#339), so by the time every spine has closed the base
    branches already carry the release; the tag is the only release-level
    landing there is, and it is repo-scoped because a cross-repo release's code

@@ -1256,6 +1256,36 @@ t_capture env "PATH=$PR_SHIM:$PATH" bash -c \
 t_assert_rc 1 "R3: a tag pointing away from base halts"
 t_assert_contains "$T_OUT" "points at" "R3: ...naming where it points and where it should"
 
+# R4. THE NO-REMOTE TAG ARM (round 3, T12): a repo that landed its spines
+# locally all release long - the same no-remote world the landing arm serves -
+# must still be release-taggable. The tag is local; no push, no remote leg.
+mkdir -p "$TMP/r4" "$TMP/r4-gh"
+git -C "$TMP/r4" init -q
+git -C "$TMP/r4" config user.email t@t; git -C "$TMP/r4" config user.name t
+echo seed > "$TMP/r4/seed.txt"; git -C "$TMP/r4" add seed.txt; git -C "$TMP/r4" commit -qm seed
+git -C "$TMP/r4" branch -m main
+PR_REPO="$TMP/r4"; PR_ORIGIN=""; PR_STATE="$TMP/r4-gh"; PR_SHIM="$TMP/r4-shim"
+_wshim "$PR_REPO" "$PR_BRANCH" "canonical" "$PR_SHIM"
+t_capture env "PATH=$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; rel='r9'; repo_base_branches='canonical:main'; . '$TAG_BLOCK'"
+t_assert_rc 0 "R4: a no-remote repo tags its release locally"
+t_assert_contains "$T_OUT" "tagged r9" "R4: ...saying so, same as a remote repo"
+if [ -n "$(git -C "$PR_REPO" rev-parse -q --verify 'refs/tags/r9' 2>/dev/null)" ] \
+  && [ "$(git -C "$PR_REPO" rev-parse -q --verify 'refs/tags/r9' 2>/dev/null)" != "$(git -C "$PR_REPO" rev-parse -q --verify 'refs/tags/r9^{}' 2>/dev/null)" ]; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: R4 - the local tag is missing or lightweight"
+fi
+t_assert_eq "$(git -C "$PR_REPO" rev-parse main)" "$(git -C "$PR_REPO" rev-parse -q --verify 'refs/tags/r9^{}')" \
+  "R4: the local tag points at the base branch tip"
+R4_TAG_OBJ="$(git -C "$PR_REPO" rev-parse 'refs/tags/r9')"
+t_capture env "PATH=$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; rel='r9'; repo_base_branches='canonical:main'; . '$TAG_BLOCK'"
+t_assert_rc 0 "R4: the no-remote resume arm continues on a matching local tag"
+t_assert_contains "$T_OUT" "already tagged" "R4: ...without re-tagging"
+t_assert_eq "$R4_TAG_OBJ" "$(git -C "$PR_REPO" rev-parse 'refs/tags/r9')" "R4: the tag object is unchanged by the resume"
+PR_REPO="$TMP/r1"; PR_ORIGIN="$TMP/r1-origin.git"; PR_STATE="$TMP/r1-gh"; PR_SHIM="$TMP/r1-shim"
+
 cd /; rm -rf "$TMP"
 
 # A FLOOR ON THE ASSERTION COUNT. Every check in test-block-ledger.sh proves
