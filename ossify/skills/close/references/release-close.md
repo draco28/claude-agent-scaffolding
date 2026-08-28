@@ -16,9 +16,9 @@ step 11 and never escalates.
 ## 1. What this release ships, and what it deliberately does not
 
 Spec §6.2 lists seven steps; the companion boundary spec appends an eighth.
-**This ceremony runs steps 1-4, the two blocking §6.1 findings, and the
-companion's boundary audit. Three of the spec's steps are not here**, and each
-is named rather than left to read as executed:
+**This ceremony runs steps 1-4, the two blocking §6.1 findings, the release
+tag (§9), and the companion's boundary audit. Two of the spec's steps are not
+here**, and each is named rather than left to read as executed:
 
 | Spec §6.2 step | Status here |
 |---|---|
@@ -455,6 +455,23 @@ while IFS= read -r repo; do
   remote_name="$(printf '%s\n' "$remotes" | awk 'NR==1{first=$0} $0=="origin"{o=1} END{if(o) print "origin"; else if(NR==1) print first; else print ""}')"
   if [ -n "$remotes" ] && [ -z "$remote_name" ]; then
     echo "close: $repo has several remotes and none is 'origin' - name the one to tag through and re-run - halt"; exit 1
+  fi
+
+  # CONSULT THE REMOTE BEFORE CREATING (round 7, T28): an earlier halted
+  # close may already have pushed this tag, and this checkout - fresh, or
+  # cloned --no-tags - does not carry it. Creating anyway mints a second,
+  # different annotated object (tagger and timestamp differ) and the push is
+  # then refused as a non-fast-forward: the resume wedges on a tag that was
+  # correct all along. Fetching the remote's tag in installs it, and the
+  # verification below judges the REAL object.
+  if ! git -C "$repo_root" rev-parse -q --verify "refs/tags/$rel" >/dev/null 2>&1 \
+     && [ -n "$remote_name" ] \
+     && [ -n "$(git -C "$repo_root" ls-remote "$remote_name" "refs/tags/$rel")" ]; then
+    # A refspec with a DESTINATION: a bare `fetch <remote> <ref>` populates
+    # only FETCH_HEAD and installs no ref, which reads back as "no local tag"
+    # and re-enters the creation arm this exists to prevent.
+    git -C "$repo_root" fetch "$remote_name" "refs/tags/$rel:refs/tags/$rel" \
+      || { echo "close: tag '$rel' exists on '$remote_name' but cannot be fetched into $repo - halt"; exit 1; }
   fi
 
   if git -C "$repo_root" rev-parse -q --verify "refs/tags/$rel" >/dev/null 2>&1; then

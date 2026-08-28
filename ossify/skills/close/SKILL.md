@@ -321,17 +321,16 @@ enforceable at a release boundary). Eight steps, in **binding order**:
    verdict).
    The whole step is
    **`references/boundary-audit.md`**.
-8. **The release tag** — tag **each hosting repo this release landed in**, at
-   that repo's recovered base branch, and push the tag where a remote exists
-   (a no-remote repo's tag is local, verified the same way minus the remote
-   leg): the PR tier lives at
-   the spine boundary (#339), so by the time every spine has closed the base
-   branches already carry the release; the tag is the only release-level
-   landing there is, and it is repo-scoped because a cross-repo release's code
-   lives in every repo that hosted one of its spines.
-9. **State updates**: `oss release_status <rel> closed` and
-   `oss demo_record release <rel> <passed> <line-count> "<notes>"` — never
-   after a halt in any step above.
+8. **The release tag, then the state writes** — tag **each hosting repo this
+   release landed in**, at that repo's recovered base branch, and push the tag
+   where a remote exists (a no-remote repo's tag is local, verified the same
+   way minus the remote leg): the PR tier lives at the spine boundary (#339),
+   so by the time every spine has closed the base branches already carry the
+   release; the tag is the only release-level landing there is, and it is
+   repo-scoped because a cross-repo release's code lives in every repo that
+   hosted one of its spines. Then the state writes — `oss release_status <rel>
+   closed` and `oss demo_record release <rel> <passed> <line-count>
+   "<notes>"` — never after a halt in any step above.
 
 **Both blocking gates are rc 0 = CLEAN / 1 = BLOCKING / 2 = could-not-check —
 the opposite polarity from `oss touch_check`, where rc 0 is a hit.** Copying the

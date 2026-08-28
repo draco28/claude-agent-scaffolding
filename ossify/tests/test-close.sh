@@ -1443,6 +1443,66 @@ else
   T_PASS=$((T_PASS+1))
 fi
 
+# P15. A RESUMED PR WHOSE HEAD EXISTS ONLY REMOTELY (round 7, T27): work-pr or
+# a hand-driven loop can push fix commits from ANOTHER checkout, so gh reports
+# a headRefOid this checkout does not have. The pre-handoff lineage check must
+# fetch the head before judging it, or every such resume halts on "unknown
+# revision".
+_pr_fixture p15
+# The spine branch must be on the remote before the clone can build on it;
+# _pr_fixture leaves it local-only (the landing pass is what pushes it).
+git -C "$PR_REPO" push -q origin "$PR_BRANCH"
+# A commit on the spine branch made and pushed from a SEPARATE clone - the
+# ceremony checkout never sees it locally.
+CL15="$TMP/p15-clone"; rm -rf "$CL15"; git clone -q "$PR_ORIGIN" "$CL15"
+git -C "$CL15" config user.email t@t; git -C "$CL15" config user.name t
+git -C "$CL15" checkout -q "$PR_BRANCH"
+echo remotefix > "$CL15/remotefix.txt"; git -C "$CL15" add remotefix.txt; git -C "$CL15" commit -qm remotefix
+git -C "$CL15" push -q origin "$PR_BRANCH"
+REMOTE_HEAD15="$(git -C "$CL15" rev-parse "$PR_BRANCH")"
+if git -C "$PR_REPO" cat-file -e "$REMOTE_HEAD15" 2>/dev/null; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: P15 fixture is vacuous - the ceremony checkout already has the remote head"
+else
+  T_PASS=$((T_PASS+1))
+fi
+printf "7 OPEN\n" > "$PR_STATE/pr"
+printf "%s\n" "$REMOTE_HEAD15" > "$PR_STATE/head_oid"
+P15_LOCAL_TIP="$(git -C "$PR_REPO" rev-parse "$PR_BRANCH")"
+git -C "$PR_REPO" rev-parse "$PR_BRANCH" > /tmp/p15-tip; mv /tmp/p15-tip "$PR_STATE/pushed_tip"
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'"
+t_assert_rc 0 "P15: a remotely-only resumed head is fetched and lineage-checked, not halted as unknown"
+t_assert_contains "$T_OUT" "already has PR #7" "P15: ...and the resume proceeds to the handoff"
+t_assert_eq "$P15_LOCAL_TIP" "$(git -C "$PR_REPO" rev-parse "$PR_BRANCH")" \
+  "P15: ...without moving the local spine branch (the fetch installed the object, nothing more)"
+
+# R9. THE TAG THAT EXISTS ONLY ON THE REMOTE (round 7, T28): an earlier
+# multi-repo close pushed the tag and halted; the resumed close runs from a
+# fresh, no-tags checkout. Local-only existence testing takes the creation
+# arm, mints a different annotated object, and the push is refused - the
+# resume wedges. The remote must be consulted before creating.
+_pr_fixture r9
+CL9="$TMP/r9-clone"; rm -rf "$CL9"; git clone -q "$PR_ORIGIN" "$CL9"
+git -C "$CL9" config user.email t@t; git -C "$CL9" config user.name t
+git -C "$CL9" checkout -q main
+# A DIFFERENT message than the block's own "release $rel" mint: two annotated
+# tags minted in the same second with identical tagger and message produce the
+# SAME object sha, the push then reads "up-to-date", and the fixture loses its
+# discrimination entirely.
+git -C "$CL9" tag -a r9 -m "tagged by the earlier halted close" main
+git -C "$CL9" push -q origin r9
+R9_REMOTE_TAG="$(git --git-dir="$PR_ORIGIN" rev-parse 'refs/tags/r9')"
+if git -C "$PR_REPO" rev-parse -q --verify 'refs/tags/r9' >/dev/null 2>&1; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: R9 fixture is vacuous - the local checkout already has the tag"
+else
+  T_PASS=$((T_PASS+1))
+fi
+t_capture env "PATH=$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; rel='r9'; repo_base_branches='canonical:main'; . '$TAG_BLOCK'"
+t_assert_rc 0 "R9: a remote-only existing tag is fetched and resumed, not re-created"
+t_assert_contains "$T_OUT" "already tagged" "R9: ...through the same verification arm"
+t_assert_eq "$R9_REMOTE_TAG" "$(git -C "$PR_REPO" rev-parse 'refs/tags/r9')" "R9: the remote tag object stands - no second annotation was minted"
+
 cd /; rm -rf "$TMP"
 
 # A FLOOR ON THE ASSERTION COUNT. Every check in test-block-ledger.sh proves

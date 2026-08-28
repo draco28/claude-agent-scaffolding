@@ -270,6 +270,13 @@ $repo:$merge_sha"
       res_tip="$(printf '%s\n' "$prj" | jq -r '.body' | awk '/^pushed-tip: /{print $2; exit}')"
       [ -n "$res_tip" ] \
         || { echo "close: $repo PR #$pr_num carries no pushed-tip body line - it is not this close's PR - halt"; exit 1; }
+      # The reported head may exist only remotely (round 7, T27): work-pr or a
+      # hand-driven loop can have pushed fix commits from ANOTHER checkout, and
+      # gh reporting an object does not install it here. Fetch it best-effort -
+      # if it truly cannot be fetched, the lineage check below fails and halts
+      # naming it; it must never fail as an "unknown revision" on a legitimate
+      # resume.
+      git -C "$repo_root" fetch "$remote_name" "$res_head" >/dev/null 2>&1 || true
       git -C "$repo_root" merge-base --is-ancestor "$res_tip" "$res_head" \
         || { echo "close: $repo PR #$pr_num's head does not descend from the tip this close pushed ($res_tip) - the branch was rewritten or diverged - a human decides - halt"; exit 1; }
       echo "close: $repo already has PR #$pr_num for $spine_branch - not re-pushing, not re-opening"
