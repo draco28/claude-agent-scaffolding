@@ -209,6 +209,16 @@ $repo:$merge_sha"
     # PR ARM — the base branch is a published line: the merge goes by PR, and
     # the record pass below finishes it after work-pr drives the loop.
     #
+    # Pin every gh call to THIS repo's remote with --repo (derived from the
+    # resolved remote's own URL): gh otherwise follows its configured default
+    # repository, which a checkout can point at another remote entirely - and a
+    # same-number PR in the wrong repository is indistinguishable from this
+    # one until something lands somewhere it should not.
+    pr_slug="$(git -C "$repo_root" remote get-url "$remote_name" \
+      | awk '/\.git$/{sub(/\.git$/,"")} {n=split($0,a,/[:\/]/); print a[n-1]"/"a[n]}')"
+    [ -n "$pr_slug" ] \
+      || { echo "close: cannot derive an owner/repo from remote '$remote_name' in $repo - halt"; exit 1; }
+    #
     # RESUME PROBE FIRST, and gh inoperability is a halt on either gh call —
     # never a silent fall-through to the local arm. The probe looks for a PR
     # headed by the spine branch INTO THIS BASE BRANCH, in ANY state: an OPEN
@@ -219,10 +229,23 @@ $repo:$merge_sha"
     # OTHER branch out of this arm's hands - accepting one by head alone would
     # hand work-pr a PR whose merge lands in the wrong branch, and the record
     # pass's baseRefName check would only catch it afterwards.
-    probe="$( (cd "$repo_root" && gh pr list --head "$spine_branch" --base "$base_branch" --state all --json number --limit 1) 2>&1 )" \
+    probe="$( (cd "$repo_root" && gh --repo "$pr_slug" pr list --head "$spine_branch" --base "$base_branch" --state all --json number --limit 1) 2>&1 )" \
       || { echo "close: gh cannot operate on $repo's remote ($probe) - fix gh (auth, host) or record an operator-decided local merge - never a silent local fall-through - halt"; exit 1; }
     pr_num="$(printf '%s\n' "$probe" | jq -r '.[0].number // ""')"
     if [ -n "$pr_num" ]; then
+      # A RESUMED PR is this ceremony's PR only if its head DESCENDS from the
+      # tip this close pushed - proven HERE, before the handoff, because the
+      # record pass would catch a force-pushed or foreign head only after the
+      # operator has merged it. A PR with no pushed-tip body line is not this
+      # close's PR at all, whatever its head branch is named.
+      prj="$( (cd "$repo_root" && gh --repo "$pr_slug" pr view "$pr_num" --json state,headRefOid,body) 2>&1 )" \
+        || { echo "close: gh cannot read PR #$pr_num in $repo ($prj) - halt"; exit 1; }
+      res_head="$(printf '%s\n' "$prj" | jq -r '.headRefOid')"
+      res_tip="$(printf '%s\n' "$prj" | jq -r '.body' | awk '/^pushed-tip: /{print $2; exit}')"
+      [ -n "$res_tip" ] \
+        || { echo "close: $repo PR #$pr_num carries no pushed-tip body line - it is not this close's PR - halt"; exit 1; }
+      git -C "$repo_root" merge-base --is-ancestor "$res_tip" "$res_head" \
+        || { echo "close: $repo PR #$pr_num's head does not descend from the tip this close pushed ($res_tip) - the branch was rewritten or diverged - a human decides - halt"; exit 1; }
       echo "close: $repo already has PR #$pr_num for $spine_branch - not re-pushing, not re-opening"
     else
       git -C "$repo_root" push -u "$remote_name" "$spine_branch" \
@@ -234,7 +257,7 @@ $repo:$merge_sha"
       # which after a resume or a work-pr loop is not necessarily the spine's.
       pr_body="spine close $spine_id -> $base_branch in $repo
 pushed-tip: $pre"
-      pr_num="$( (cd "$repo_root" && gh pr create --base "$base_branch" --head "$spine_branch" \
+      pr_num="$( (cd "$repo_root" && gh --repo "$pr_slug" pr create --base "$base_branch" --head "$spine_branch" \
         --title "merge $spine_id" --body "$pr_body") 2>&1 )" \
         || { echo "close: gh cannot open the PR in $repo ($pr_num) - fix gh (auth, host) or record an operator-decided local merge - never a silent local fall-through - halt"; exit 1; }
       echo "close: $repo PR #$pr_num opened against $base_branch - hand it to /ossify:work-pr"
@@ -318,12 +341,17 @@ while IFS=: read -r repo pr_num; do
     || { echo "close: no base_branch recorded for $spine_id in $repo - halt"; exit 1; }
 
   # Same remote resolution the landing pass used - the PR lives on whatever
-  # remote this repo actually has, and origin is a convention, not a law.
+  # remote this repo actually has, and origin is a convention, not a law. The
+  # view is pinned to that remote's repo for the same reason the probe is.
   remote_name="$(printf '%s\n' "$(git -C "$repo_root" remote)" | awk 'NR==1{first=$0} $0=="origin"{o=1} END{if(o) print "origin"; else if(NR==1) print first; else print ""}')"
   [ -n "$remote_name" ] \
     || { echo "close: $repo has several remotes and none is 'origin' - the PR was opened through one of them; name it and re-run - halt"; exit 1; }
+  pr_slug="$(git -C "$repo_root" remote get-url "$remote_name" \
+    | awk '/\.git$/{sub(/\.git$/,"")} {n=split($0,a,/[:\/]/); print a[n-1]"/"a[n]}')"
+  [ -n "$pr_slug" ] \
+    || { echo "close: cannot derive an owner/repo from remote '$remote_name' in $repo - halt"; exit 1; }
 
-  pr_json="$( (cd "$repo_root" && gh pr view "$pr_num" --json state,baseRefName,mergeCommit,headRefOid,body) 2>&1 )" \
+  pr_json="$( (cd "$repo_root" && gh --repo "$pr_slug" pr view "$pr_num" --json state,baseRefName,mergeCommit,headRefOid,body) 2>&1 )" \
     || { echo "close: gh cannot read PR #$pr_num in $repo ($pr_json) - halt"; exit 1; }
   pr_state="$(printf '%s\n' "$pr_json" | jq -r '.state')"
   case "$pr_state" in

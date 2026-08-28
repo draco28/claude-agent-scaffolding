@@ -106,7 +106,7 @@ I	skills/adopt/SKILL.md	1	single-verb calls with <placeholder> args: release_add
 D	skills/challenge/references/adversaries.md	3	#138	the plugin-root resolution (oss-dispatcher shape, the budget-check workaround), and the codex and claude adversary invocation recipes - schema-backed exec forms the close-depth audit runs; documented shell the agent runs, never executed by the suite, and a wrong shape fails loudly into host-only
 O	skills/close/references/spine-close.md	work items that are not complete	tests/test-close.sh	the open-work-item gate refuses to close a spine with incomplete items
 O	skills/close/references/spine-close.md	merge --no-ff	tests/test-close.sh	the landing pass: the local arm's merge guard (the spine tip must actually reach the base branch) and the PR arm's push/create with the gh-inoperable third-leg halt. #339 re-anchored this row from 'is-ancestor' - the record pass added its own --is-ancestor lineage guard and the harness refuses a duplicated anchor
-O	skills/close/references/spine-close.md	headRefOid	tests/test-close.sh	the record pass (#339): a MERGED PR is proven locally - head identity (mergeCommit^2 == headRefOid, a rebase/squash landing halts), lineage (the pushed tip from the PR body is an ANCESTOR of the merged head, so fix rounds pass and rewrites halt), the stranded-merge guard (local base ahead of origin halts, repair named, never run), then repo:mergeCommit lands in $merge_shas
+O	skills/close/references/spine-close.md	mergeCommit	tests/test-close.sh	the record pass (#339): a MERGED PR is proven locally - head identity (mergeCommit^2 == headRefOid, a rebase/squash landing halts), lineage (the pushed tip from the PR body is an ANCESTOR of the merged head, so fix rounds pass and rewrites halt), the stranded-merge guard (local base ahead of origin halts, repair named, never run), then repo:mergeCommit lands in $merge_shas
 O	skills/close/references/spine-close.md	touch_check	tests/test-close.sh	bone-touch at close re-classifies the spine rather than trusting the plan
 D	skills/close/references/spine-close.md	1	#138	the resume containment probe inside the local arm (audit #47, operative, unexecuted). #272/#310 Task 9 turned the once-per-spine probe into a loop over every hosting repo, same shape as round-orchestration.md's `checkout -q -b` conversion
 I	skills/close/references/spine-close.md	4	single-verb calls with <placeholder> args: ledger_apply_pending, class_set, risk-gate read, worktree_remove, spine_status
@@ -210,10 +210,10 @@ H	skills/close/references/fake-expiry.md	3542365026-715
 H	skills/close/references/harvest.md	1726645723-663
 H	skills/close/references/impl-check.md	3364110005-836
 H	skills/close/references/patch-lane.md	3173812713-2590
-H	skills/close/references/release-close.md	3336892907-6647
+H	skills/close/references/release-close.md	601017984-7741
 H	skills/close/references/retrospective.md	2875153190-110
 H	skills/close/references/routing.md	948295148-232
-H	skills/close/references/spine-close.md	4051037499-15909
+H	skills/close/references/spine-close.md	211003558-18123
 H	skills/close/references/work-item-close.md	1880909893-3459
 H	commands/doctor.md	729179949-141
 H	skills/doctor/SKILL.md	630905567-126

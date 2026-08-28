@@ -423,7 +423,16 @@ while IFS= read -r repo; do
   [ -n "$repo" ] || continue
   repo_root="$(oss repo_root "$repo")" \
     || { echo "close: $rel names undeclared repo '$repo' - halt"; exit 1; }
-  base_branch="$(printf '%s\n' "$repo_base_branches" | awk -F: -v r="$repo" '$1==r{print $2; exit}')"
+  # The base must be UNAMBIGUOUS per repo: two closed spines recording
+  # different bases in the same repo is a halt, not a first-wins pick - the
+  # first-wins form silently tags one of the two landed lines and publishes a
+  # release the other line never reached.
+  _bases="$(printf '%s\n' "$repo_base_branches" | awk -F: -v r="$repo" '$1==r{print $2}' | sort -u)"
+  _nbases="$(printf '%s\n' "$_bases" | awk 'END{print NR}')"
+  if [ "$_nbases" -gt 1 ]; then
+    echo "close: conflicting base branches recorded for $rel in $repo: $(printf '%s' "$_bases" | tr '\n' ' ')- a human decides which line to tag - halt"; exit 1
+  fi
+  base_branch="$_bases"
   [ -n "$base_branch" ] \
     || { echo "close: no base_branch recorded for $rel in $repo - halt"; exit 1; }
 
@@ -449,6 +458,12 @@ while IFS= read -r repo; do
     # and its PEELED commit (what the base comparison uses - `rev-parse
     # refs/tags/x` yields the object, never the commit, for an annotated tag).
     local_obj="$(git -C "$repo_root" rev-parse "refs/tags/$rel")"
+    # ANNOTATED, always - including on resume: a lightweight tag and its peel
+    # both resolve to the commit, so the target check alone would accept one,
+    # and the release would close over a tag with no release annotation.
+    tag_type="$(git -C "$repo_root" cat-file -t "$local_obj")"
+    [ "$tag_type" = "tag" ] \
+      || { echo "close: existing tag '$rel' in $repo is $tag_type, not an annotated release tag - a lightweight tag names a commit and says nothing about the release - halt"; exit 1; }
     base_tip="$(git -C "$repo_root" rev-parse "$base_branch")"
     local_target="$(git -C "$repo_root" rev-parse "refs/tags/$rel^{}")"
     [ "$local_target" = "$base_tip" ] \
@@ -473,7 +488,7 @@ while IFS= read -r repo; do
     fi
     echo "close: $repo tagged $rel"
   fi
-done < <(oss get ".work_items[] | select(.spine | startswith(\"$rel.\")) | .target_repo" | sort -u)
+done < <(oss get ".work_items[] | select(.spine as \$s | any(.spines[]; .id == \$s and .status == \"closed\")) | .target_repo" | sort -u)
 ```
 
 **Resumable by construction:** the flat "an existing tag halts" rule made a

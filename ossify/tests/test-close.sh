@@ -335,9 +335,9 @@ OPEN_BLOCK="$TMP/spine-open.sh";  _extract_block "$SPINE_CLOSE" 'work items that
 # an anchor matching two blocks — a duplicated 'is-ancestor' would bind to
 # whichever block came first and silently REBIND when the other is edited.
 MERGE_BLOCK="$TMP/spine-merge.sh"; _extract_block "$SPINE_CLOSE" 'merge --no-ff' "$MERGE_BLOCK"
-PRRECORD_BLOCK="$TMP/spine-prrecord.sh"; _extract_block "$SPINE_CLOSE" 'headRefOid' "$PRRECORD_BLOCK"
+PRRECORD_BLOCK="$TMP/spine-prrecord.sh"; _extract_block "$SPINE_CLOSE" 'mergeCommit' "$PRRECORD_BLOCK"
 TOUCH_BLOCK="$TMP/spine-touch.sh"; _extract_block "$SPINE_CLOSE" 'touch_check' "$TOUCH_BLOCK"
-for _pair in "$OPEN_BLOCK:work_items" "$MERGE_BLOCK:merge --no-ff" "$PRRECORD_BLOCK:headRefOid" "$TOUCH_BLOCK:touch_check"; do
+for _pair in "$OPEN_BLOCK:work_items" "$MERGE_BLOCK:merge --no-ff" "$PRRECORD_BLOCK:mergeCommit" "$TOUCH_BLOCK:touch_check"; do
   _bf="${_pair%%:*}"; _bn="${_pair#*:}"
   if [ -s "$_bf" ] && grep -Fq "$_bn" "$_bf"; then
     T_PASS=$((T_PASS+1))
@@ -787,7 +787,7 @@ done
 # "canonical" for the exact query this arm now intercepts.
 _wshim() { # $1=dir-to-return $2=spine-branch $3=wi-branch-or-repo $4=shim-dir
   mkdir -p "$4"
-  { printf '#!/usr/bin/env bash\ncase "$1 $2" in\n'
+  { printf '#!/usr/bin/env bash\nprintf "%%s\\n" "$*" >> "%s/args.log"\ncase "$1 $2" in\n' "$4"
     printf '  "repo_root canonical") echo %s ;;\n' "$1"
     printf '  "branch_name "*)       echo %s ;;\n' "$2"
     printf '  *"target_repo"*)       echo canonical ;;\n'
@@ -959,6 +959,12 @@ cat > "$GHSTUB/gh" <<'GHSTUB_EOF'
 # gh stub for the P-series: staged from $GH_STATE, no network.
 set -u
 st="${GH_STATE:?GH_STATE not set}"
+# The blocks pin every call with a leading --repo <owner/repo> (T17): consume
+# it the way the real gh does, and record it so a test can prove the pin.
+while [ "${1:-}" = "--repo" ]; do
+  printf '%s\n' "$2" > "$st/gh_repo"
+  shift 2
+done
 case "$1" in
   pr)
     case "$2" in
@@ -1180,6 +1186,7 @@ else
 fi
 t_assert_contains "$(cat "$PR_STATE/create_args")" "--head $PR_BRANCH" "P8: PR creation pins the head to the spine branch (never the ambient branch)"
 t_assert_contains "$(cat "$PR_STATE/create_args")" "--base main" "P8: ...and the base to the recovered base branch"
+t_assert_contains "$(cat "$PR_STATE/gh_repo")" "p8-origin" "P8: every gh call is pinned to the resolved remote's repo (--repo), not gh's default"
 
 # P9. BASE VALIDATION (round 2, T5/T9): a PR that merged into some OTHER branch
 # is not this repo's landing, whatever its merge commit reaches later. Rejected
@@ -1285,6 +1292,55 @@ t_assert_rc 0 "R4: the no-remote resume arm continues on a matching local tag"
 t_assert_contains "$T_OUT" "already tagged" "R4: ...without re-tagging"
 t_assert_eq "$R4_TAG_OBJ" "$(git -C "$PR_REPO" rev-parse 'refs/tags/r9')" "R4: the tag object is unchanged by the resume"
 PR_REPO="$TMP/r1"; PR_ORIGIN="$TMP/r1-origin.git"; PR_STATE="$TMP/r1-gh"; PR_SHIM="$TMP/r1-shim"
+
+# P10. DIVERGENT RESUMED PR, pre-handoff (round 4, T15): the probe finds a
+# same-head/same-base PR whose remote head was force-pushed past the pushed
+# tip. Catching it in the record pass is AFTER the operator merged an
+# unrelated head - the landing pass must verify lineage BEFORE the handoff.
+_pr_fixture p10
+printf "7 OPEN\n" > "$PR_STATE/pr"
+git -C "$PR_REPO" rev-parse "$PR_BRANCH" > "$PR_STATE/head_oid"
+UNRELATED10="$(git -C "$PR_REPO" commit-tree 'HEAD^{tree}' -m forged10)"
+printf "%s\n" "$UNRELATED10" > "$PR_STATE/pushed_tip"
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'"
+t_assert_rc 1 "P10: a resumed PR whose head does not descend from the pushed tip halts at discovery"
+t_assert_contains "$T_OUT" "rewritten or diverged" "P10: ...naming the lineage failure before work-pr touches it"
+case "$T_OUT" in *"hand it to"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: P10 - the divergent PR was handed to work-pr anyway";; *) T_PASS=$((T_PASS+1));; esac
+
+# R5. A LIGHTWEIGHT existing tag is not resumable (round 4, T18/T19,
+# convergent from both gates): refs/tags/x and refs/tags/x^{} both resolve to
+# the commit, so the target check alone accepts it - and the release closes
+# over a tag with no annotation, against the ANNOTATED-always contract.
+_pr_fixture r5
+git -C "$PR_REPO" tag r9 main
+git -C "$PR_REPO" push -q origin r9
+t_capture env "PATH=$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; rel='r9'; repo_base_branches='canonical:main'; . '$TAG_BLOCK'"
+t_assert_rc 1 "R5: a lightweight existing tag halts the resume arm"
+t_assert_contains "$T_OUT" "annotated" "R5: ...naming the ANNOTATED-always contract it violates"
+
+# R6. ABANDONED SPINES ARE NOT IN THE TAG SET (round 4, T14): the selector
+# filters by spine-id prefix only, so an abandoned spine's work items drag
+# their repos into the tag pass. The block's selector must filter to spines
+# whose landing actually completed - asserted on the query the block actually
+# runs, via the shim's argument log.
+t_capture env "PATH=$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; rel='r9'; repo_base_branches='canonical:main'; . '$TAG_BLOCK'" >/dev/null 2>&1 || true
+_last_get="$(grep 'get ' "$PR_SHIM/args.log" | tail -1)"
+case "$_last_get" in
+  *closed*target_repo*|*target_repo*closed*) T_PASS=$((T_PASS+1));;
+  *) T_FAIL=$((T_FAIL+1)); echo "FAIL: R6 - the tag-set query does not filter to closed spines: $_last_get";;
+esac
+
+# R7. CONFLICTING BASE BRANCHES IN ONE REPO (round 4, T16): two closed spines
+# recording different bases in the same repo must halt - first-wins silently
+# tags one of the two landed lines.
+t_capture env "PATH=$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; rel='r9'; repo_base_branches='canonical:main
+canonical:release-line'; . '$TAG_BLOCK'"
+t_assert_rc 1 "R7: two recorded bases for one repo halt the tag pass"
+t_assert_contains "$T_OUT" "conflicting base" "R7: ...naming the conflict, not silently picking a line"
 
 cd /; rm -rf "$TMP"
 
