@@ -402,22 +402,81 @@ re-audited.
 
 **The tag first, because the tag is the release's only landing act.** The PR
 tier sits at the spine boundary (#339): every spine closed means every spine's
-hosting repos landed by PR and merged, so `main` already carries the release —
-there is no release branch and no release-level merge to gate. Tag it where it
-stands:
+hosting repos landed by PR and merged, so the base branches already carry the
+release — there is no release branch and no release-level merge to gate. Tag
+where it stands — **once per hosting repo this release landed in**, because a
+cross-repo release's code lives in every repo that hosted one of its spines,
+and a tag run from whatever directory the ceremony was invoked from tags
+whichever repo that happens to be:
 
 ```bash
-git tag -a "$rel" -m "release $rel" "$base"
-git push origin "$rel"
+# The repo set: the distinct target_repos across this release's spines' work
+# items - a repo that hosted nothing this release has no release to tag. Each
+# repo's base branch is recovered EXACTLY as spine close step 2 recovers it
+# (that repo's handoff `base_branch:` lines, cross-checked against SPINE.md's
+# base-branch table - spine-close.md §3) and arrives in $repo_base_branches,
+# one "<repo>:<base_branch>" line per repo. Nothing here guesses a default
+# branch, and nothing here runs unscoped git: release close is invoked from
+# the AI workspace as often as from a product repo, and a bare `git tag`
+# lands in whichever of those the caller stood in.
+while IFS= read -r repo; do
+  [ -n "$repo" ] || continue
+  repo_root="$(oss repo_root "$repo")" \
+    || { echo "close: $rel names undeclared repo '$repo' - halt"; exit 1; }
+  base_branch="$(printf '%s\n' "$repo_base_branches" | awk -F: -v r="$repo" '$1==r{print $2; exit}')"
+  [ -n "$base_branch" ] \
+    || { echo "close: no base_branch recorded for $rel in $repo - halt"; exit 1; }
+
+  # The remote, resolved - never assumed to be named origin. Same rule the
+  # spine-close PR arm uses: origin if present, a single remote otherwise,
+  # several-with-no-origin halts naming them.
+  remote_name="$(printf '%s\n' "$(git -C "$repo_root" remote)" | awk 'NR==1{first=$0} $0=="origin"{o=1} END{if(o) print "origin"; else if(NR==1) print first; else print ""}')"
+  [ -n "$remote_name" ] \
+    || { echo "close: $repo has several remotes and none is 'origin' - name the one to tag through and re-run - halt"; exit 1; }
+
+  if git -C "$repo_root" rev-parse -q --verify "refs/tags/$rel" >/dev/null 2>&1; then
+    # RESUME: a tag from an earlier run that stopped between here and the state
+    # writes. Continuable only when it points at this repo's base branch tip
+    # locally AND the remote carries the same object - anything else is a human
+    # decision, never a clobber. Two different shas are in play and comparing
+    # the wrong pair resumes a mismatched tag: the tag OBJECT (what ls-remote
+    # reports and what the remote comparison uses) and its PEELED commit (what
+    # the base comparison uses - `rev-parse refs/tags/x` yields the object,
+    # never the commit, for an annotated tag).
+    local_obj="$(git -C "$repo_root" rev-parse "refs/tags/$rel")"
+    base_tip="$(git -C "$repo_root" rev-parse "$base_branch")"
+    local_target="$(git -C "$repo_root" rev-parse "refs/tags/$rel^{}")"
+    [ "$local_target" = "$base_tip" ] \
+      || { echo "close: tag '$rel' in $repo points at $local_target, not $base_branch ($base_tip) - a human decides - halt"; exit 1; }
+    remote_line="$(git -C "$repo_root" ls-remote "$remote_name" "refs/tags/$rel")"
+    [ -n "$remote_line" ] \
+      || { echo "close: tag '$rel' exists in $repo but not on '$remote_name' - push it (never force) or delete it deliberately - halt"; exit 1; }
+    remote_tag="${remote_line%%[[:space:]]*}"
+    [ "$remote_tag" = "$local_obj" ] \
+      || { echo "close: tag '$rel' in $repo ($local_obj) and on '$remote_name' ($remote_tag) disagree - a human decides - halt"; exit 1; }
+    echo "close: $repo already tagged $rel at $base_tip - not re-tagging"
+  else
+    # ANNOTATED, always: a lightweight tag names a commit and says nothing
+    # about the release.
+    git -C "$repo_root" tag -a "$rel" -m "release $rel" "$base_branch" \
+      || { echo "close: cannot tag $rel at $base_branch in $repo - halt"; exit 1; }
+    git -C "$repo_root" push "$remote_name" "$rel" \
+      || { echo "close: tag push for $rel refused in $repo - surface the refusal verbatim, never force - halt"; exit 1; }
+    echo "close: $repo tagged $rel"
+  fi
+done < <(oss get ".work_items[] | select(.spine | startswith(\"$rel.\")) | .target_repo" | sort -u)
 ```
 
-**`$base` is main — or whatever the project's published line is, resolved the
-same way every ceremony resolves it, never assumed.** The tag is annotated: a
-lightweight tag names a commit and says nothing about the release. An existing
-`$rel` tag halts — a re-tag is history rewriting on a published ref, and the
-operator decides whether that is ever true. A refused tag push (a ruleset can
-protect tags the way it protects branches) surfaces the refusal verbatim and
-halts like any other blocked landing: never `--force`, never delete-and-retag.
+**Resumable by construction:** the flat "an existing tag halts" rule made a
+re-invoked close unfinishable whenever the earlier run stopped between the tag
+and the state writes — the tag had landed, the writes had not, and the only way
+forward read as retagging. The continuation condition is mechanical (the same
+object, locally and on the remote, at the recovered base); every other
+existing-tag state still halts, because a re-tag is history rewriting on a
+published ref and that is the operator's call. A refused tag push (a ruleset
+can protect tags the way it protects branches) surfaces the refusal verbatim
+and halts like any other blocked landing: never `--force`, never
+delete-and-retag.
 
 ```bash
 oss release_status "$rel" closed

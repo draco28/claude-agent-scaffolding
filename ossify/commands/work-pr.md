@@ -26,8 +26,9 @@ Three rails survive any adaptation:
 
 This is a generic utility: it needs no pairing manifest and works on any
 repository `gh` can reach. Since #339 it is also the spine-close merge lane: a
-spine's hosting repos land on their base branches by PR, and the spine close
-hands each opened PR to this command with the ceremony's requirements stated in
-the invocation — the merge convention is a **merge commit**, and deferrals land
-as tracked issues in the target repo. The ceremony owns the tier; this lane
-owns the loop.
+spine's **remote-hosted** repos land on their base branches by PR, and the spine
+close hands each opened PR to this command with the ceremony's requirements
+stated in the invocation — the merge convention is a **merge commit**, and
+deferrals land as tracked issues in the target repo. Repos with no remote never
+reach this lane; the ceremony merges them locally. The ceremony owns the tier;
+this lane owns the loop.

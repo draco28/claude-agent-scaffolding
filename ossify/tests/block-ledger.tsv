@@ -113,7 +113,8 @@ I	skills/close/references/spine-close.md	4	single-verb calls with <placeholder> 
 O	skills/close/references/release-close.md	spines that are not closed	tests/test-close.sh	the release gate blocks on any spine still open
 O	skills/close/references/release-close.md	expired_fakes	tests/test-close.sh	the fake-expiry gate blocks on fakes past their expiry release
 O	skills/close/references/release-close.md	expired_quarantines	tests/test-close.sh	the quarantine gate blocks on quarantines that have come due
-D	skills/close/references/release-close.md	2	#138	the ai_workspace path composition for the release retro is unexecuted; the #339 release-tag block (git tag -a + push) is operative and unexecuted - it needs a published remote
+D	skills/close/references/release-close.md	1	#138	the ai_workspace path composition for the release retro is unexecuted
+O	skills/close/references/release-close.md	git tag	tests/test-close.sh	the #339 release-tag block, round 2 (T1/T2/T8): per hosting repo via oss repo_root + the recovered base branch, remote resolved never assumed origin, annotated always, resumable only when an existing tag matches the base tip locally AND on the remote (R1-R3 in test-close.sh)
 I	skills/close/references/release-close.md	6	single-verb calls: demo_user_lines, ledger_retire, release goal read, feature_list, release_status, release_dir (the retro destination became a release_dir call - the verb is test-worktree.sh's)
 O	skills/close/references/patch-lane.md	touch_check	tests/test-close.sh	a patch touching a bone surface must escalate out of the patch lane
 D	skills/close/references/patch-lane.md	1	#138	the patch commit's branch placement block - CL-1 says the target branch is unspecified, so executing it needs the design decision first. #272/#310 Task 9 keyed the block to a `repo_key` (any declared repo, not only canonical); the underlying CL-1 gap is unchanged
@@ -209,10 +210,10 @@ H	skills/close/references/fake-expiry.md	3542365026-715
 H	skills/close/references/harvest.md	1726645723-663
 H	skills/close/references/impl-check.md	3364110005-836
 H	skills/close/references/patch-lane.md	3173812713-2590
-H	skills/close/references/release-close.md	979813706-2540
+H	skills/close/references/release-close.md	154961081-6241
 H	skills/close/references/retrospective.md	2875153190-110
 H	skills/close/references/routing.md	948295148-232
-H	skills/close/references/spine-close.md	2617313133-13512
+H	skills/close/references/spine-close.md	4051037499-15909
 H	skills/close/references/work-item-close.md	1880909893-3459
 H	commands/doctor.md	729179949-141
 H	skills/doctor/SKILL.md	630905567-126

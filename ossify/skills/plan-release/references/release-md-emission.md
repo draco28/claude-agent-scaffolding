@@ -56,10 +56,12 @@ findings** that shaped selection, and the **next-release sketch**.
 Nothing else. No work items, no demo lines, no specs, no schedule, no estimates —
 those are `plan-spine`'s or they do not exist in this methodology at all.
 
-**Exit criteria are phrased against a spine that lands by PR (#339).** The tier
-is settled: a spine's hosting repos merge to their base branches by PR at spine
-close, work-item merges stay local, and a release is a tag on the merged line —
-so an exit criterion that says "merged" means *merged by PR*, and nothing in a
+**Exit criteria are phrased against the settled landing tier (#339).** A
+spine's hosting repos merge to their base branches **by PR where a remote
+exists**; a repo with no remote lands by the local `--no-ff` merge instead —
+work-item merges stay local either way, and a release is a tag on each landed
+base branch, not a merge of its own. So an exit criterion that says "merged"
+means merged by whichever arm that repo's topology selects, and nothing in a
 release's phrasing implies a release-level branch or a release-level merge. A
 criterion that cannot be judged on a PR-landed spine is a planning defect to fix
 here, not a landing detail to work out at close.

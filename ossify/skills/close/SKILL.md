@@ -321,10 +321,12 @@ enforceable at a release boundary). Eight steps, in **binding order**:
    verdict).
    The whole step is
    **`references/boundary-audit.md`**.
-8. **The release tag** — tag the merged `main` with the release id and push the
-   tag: the PR tier lives at the spine boundary (#339), so by the time every
-   spine has closed, `main` already carries the release; the tag is the only
-   release-level landing there is.
+8. **The release tag** — tag **each hosting repo this release landed in**, at
+   that repo's recovered base branch, and push the tag: the PR tier lives at
+   the spine boundary (#339), so by the time every spine has closed the base
+   branches already carry the release; the tag is the only release-level
+   landing there is, and it is repo-scoped because a cross-repo release's code
+   lives in every repo that hosted one of its spines.
 9. **State updates**: `oss release_status <rel> closed` and
    `oss demo_record release <rel> <passed> <line-count> "<notes>"` — never
    after a halt in any step above.

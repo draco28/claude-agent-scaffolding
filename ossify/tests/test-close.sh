@@ -964,14 +964,23 @@ case "$1" in
     case "$2" in
       list)
         [ -f "$st/nongithub" ] && { echo "gh: HTTP 404 - not a GitHub repository" >&2; exit 1; }
+        # Honor --base the way the real gh does, so a probe filtered to the
+        # recovered base cannot see a PR that targets another branch.
+        want_base=""; while [ $# -gt 0 ]; do case "$1" in --base) want_base="$2"; shift 2 ;; *) shift ;; esac; done
         if [ -f "$st/pr" ]; then
-          n="$(awk '{print $1}' "$st/pr")"; s="$(awk '{print $2}' "$st/pr")"
-          printf '[{"number": %s, "state": "%s"}]\n' "$n" "$s"
+          pb="$(cat "$st/pr_base" 2>/dev/null || printf 'main')"
+          if [ -n "$want_base" ] && [ "$pb" != "$want_base" ]; then
+            printf '[]\n'
+          else
+            n="$(awk '{print $1}' "$st/pr")"; s="$(awk '{print $2}' "$st/pr")"
+            printf '[{"number": %s, "state": "%s"}]\n' "$n" "$s"
+          fi
         else
           printf '[]\n'
         fi ;;
       create)
         [ -f "$st/nongithub" ] && { echo "gh: HTTP 404 - not a GitHub repository" >&2; exit 1; }
+        printf '%s\n' "$*" > "$st/create_args"
         body=""; while [ $# -gt 0 ]; do case "$1" in --body) body="$2"; shift 2 ;; *) shift ;; esac; done
         printf '%s\n' "$body" | awk '/^pushed-tip: /{print $2}' > "$st/pushed_tip"
         printf '7 OPEN\n' > "$st/pr"
@@ -981,7 +990,8 @@ case "$1" in
         m="$(cat "$st/merge_commit" 2>/dev/null || true)"
         h="$(cat "$st/head_oid" 2>/dev/null || true)"
         pt="$(cat "$st/pushed_tip" 2>/dev/null || true)"
-        printf '{"state": "%s", "mergeCommit": {"oid": "%s"}, "headRefOid": "%s", "body": "spine close\\npushed-tip: %s\\n"}\n' "$s" "$m" "$h" "$pt" ;;
+        pb="$(cat "$st/pr_base" 2>/dev/null || printf 'main')"
+        printf '{"state": "%s", "baseRefName": "%s", "mergeCommit": {"oid": "%s"}, "headRefOid": "%s", "body": "spine close\\npushed-tip: %s\\n"}\n' "$s" "$pb" "$m" "$h" "$pt" ;;
       *) echo "stub: unhandled gh pr $2" >&2; exit 64 ;;
     esac ;;
   *) echo "stub: unhandled gh $1" >&2; exit 64 ;;
@@ -1151,6 +1161,100 @@ t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
 t_assert_rc 1 "P7: a local base ahead of origin halts the record pass"
 t_assert_contains "$T_OUT" "reset --hard origin/main" "P7: ...naming the repair command, not running it"
 t_assert_eq "$STRANDED_SHA" "$(git -C "$PR_REPO" rev-parse main)" "P7: ...and local main was left exactly as it was (never auto-reset)"
+
+# P8. A NON-ORIGIN REMOTE (round 2, T3/T10): the arm test selects the PR arm on
+# any non-empty remote, so a repo whose only remote is named something else
+# must have that remote RESOLVED and used for the push - and the PR creation
+# must pin the head branch explicitly (T6): gh defaults --head to the CURRENT
+# branch, which is not necessarily the spine branch this pass just pushed.
+_pr_fixture p8
+git -C "$PR_REPO" remote rename origin upstream
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'"
+t_assert_rc 0 "P8: an upstream-named remote runs the PR arm, not a push failure"
+t_assert_contains "$T_OUT" "PR #7 opened against main" "P8: ...opening the PR"
+if git --git-dir="$PR_ORIGIN" rev-parse --verify -q "refs/heads/$PR_BRANCH" >/dev/null; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: P8 - the spine branch never reached the upstream-named remote"
+fi
+t_assert_contains "$(cat "$PR_STATE/create_args")" "--head $PR_BRANCH" "P8: PR creation pins the head to the spine branch (never the ambient branch)"
+t_assert_contains "$(cat "$PR_STATE/create_args")" "--base main" "P8: ...and the base to the recovered base branch"
+
+# P9. BASE VALIDATION (round 2, T5/T9): a PR that merged into some OTHER branch
+# is not this repo's landing, whatever its merge commit reaches later. Rejected
+# TWICE: at discovery (the probe filters by base, so a wrong-base PR is never
+# handed to the loop) and at record time (baseRefName re-proved, because a PR's
+# base can be retargeted between the two).
+_pr_fixture p9
+printf "7 MERGED\n" > "$PR_STATE/pr"
+git -C "$PR_REPO" rev-parse "$PR_BRANCH" > "$PR_STATE/head_oid"
+git -C "$PR_REPO" rev-parse "$PR_BRANCH" > "$PR_STATE/merge_commit"
+printf "other\n" > "$PR_STATE/pr_base"
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'"
+t_assert_rc 0 "P9: the landing pass runs clean when the only PR targets another base"
+case "$T_OUT" in
+  *"already has PR #7"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: P9 - the probe accepted a PR targeting another base branch";;
+  *) T_PASS=$((T_PASS+1));;
+esac
+t_assert_contains "$(cat "$PR_STATE/create_args")" "--base main" "P9: the probe's rejection led to a NEW, correctly-based PR instead"
+# Re-stage the retargeted-MERGED state the record pass must catch: same PR
+# number, now reported MERGED with baseRefName 'other' (the retarget-between-
+# discovery-and-record case the probe cannot see).
+printf "7 MERGED\n" > "$PR_STATE/pr"
+printf "other\n" > "$PR_STATE/pr_base"
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; pr_lines='canonical:7'; . '$PRRECORD_BLOCK'"
+t_assert_rc 1 "P9: a PR merged into another base halts the record pass"
+t_assert_contains "$T_OUT" "targets 'other', not 'main'" "P9: ...naming both branches"
+_pr_main_unreached "P9: nothing landed locally"
+
+# ---------------------------------------------------------------------------
+# R-series — the release tag (round 2, T1/T2/T8): per hosting repo, resumable,
+# and every git command scoped to that repo. The tag block's fixtures give it a
+# bare origin, the same stand-in the P-series uses for GitHub.
+# ---------------------------------------------------------------------------
+REL_CLOSE="$SKILLS/close/references/release-close.md"
+TAG_BLOCK="$TMP/rel-tag.sh"; _extract_block "$REL_CLOSE" 'git tag' "$TAG_BLOCK"
+if [ -s "$TAG_BLOCK" ] && grep -Fq 'git tag' "$TAG_BLOCK"; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract the release-tag block from release-close.md - R1-R3 are vacuous"
+fi
+
+_pr_fixture r1
+# R1. Fresh tag: created on the repo's base, pushed, ANNOTATED, per repo.
+t_capture env "PATH=$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; rel='r9'; repo_base_branches='canonical:main'; . '$TAG_BLOCK'"
+t_assert_rc 0 "R1: the tag pass tags a fresh release"
+t_assert_contains "$T_OUT" "tagged r9" "R1: ...saying so per repo"
+if [ -n "$(git --git-dir="$PR_ORIGIN" rev-parse -q --verify 'refs/tags/r9' 2>/dev/null)" ] \
+  && [ "$(git --git-dir="$PR_ORIGIN" rev-parse -q --verify 'refs/tags/r9' 2>/dev/null)" != "$(git --git-dir="$PR_ORIGIN" rev-parse -q --verify 'refs/tags/r9^{}' 2>/dev/null)" ]; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: R1 - the pushed tag is missing or lightweight (not annotated)"
+fi
+t_assert_eq "$(git -C "$PR_REPO" rev-parse main)" "$(git --git-dir="$PR_ORIGIN" rev-parse -q --verify 'refs/tags/r9^{}' 2>/dev/null)" \
+  "R1: the tag on the remote points at the repo's base branch tip"
+TAG_BEFORE="$(git --git-dir="$PR_ORIGIN" rev-parse 'refs/tags/r9')"
+
+# R2. RESUME (T2): an existing tag pointing at base, present on the remote, is
+# continuable - the state writes failed last time, not the tag. No re-tag.
+t_capture env "PATH=$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; rel='r9'; repo_base_branches='canonical:main'; . '$TAG_BLOCK'"
+t_assert_rc 0 "R2: a matching existing tag resumes instead of halting"
+t_assert_contains "$T_OUT" "already tagged" "R2: ...and says so"
+t_assert_eq "$TAG_BEFORE" "$(git --git-dir="$PR_ORIGIN" rev-parse 'refs/tags/r9')" "R2: the tag object was not replaced"
+
+# R3. A MISMATCHED existing tag halts (T2's other arm): the tag points
+# somewhere else - that is a human decision, never a clobber.
+git -C "$PR_REPO" tag -d r9 >/dev/null
+git -C "$PR_REPO" tag -a r9 -m moved "$PR_BRANCH"
+t_capture env "PATH=$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; rel='r9'; repo_base_branches='canonical:main'; . '$TAG_BLOCK'"
+t_assert_rc 1 "R3: a tag pointing away from base halts"
+t_assert_contains "$T_OUT" "points at" "R3: ...naming where it points and where it should"
 
 cd /; rm -rf "$TMP"
 

@@ -153,7 +153,15 @@ while IFS= read -r repo; do
   pre="$(git -C "$repo_root" rev-parse "$spine_branch")" \
     || { echo "close: cannot resolve '$spine_branch' in $repo - halt"; exit 1; }
 
-  if [ -z "$(git -C "$repo_root" remote)" ]; then
+  # RESOLVE THE REMOTE, never assume its name is origin (round 2): a repo whose
+  # only remote is named "upstream" selects the PR arm on the same remote-
+  # exists evidence and would then push to a nonexistent origin. Origin wins
+  # when present; otherwise a SINGLE remote wins; several remotes with no
+  # origin is a halt naming them - guessing merges into a line nobody named.
+  remotes="$(git -C "$repo_root" remote)"
+  remote_name="$(printf '%s\n' "$remotes" | awk 'NR==1{first=$0} $0=="origin"{o=1} END{if(o) print "origin"; else if(NR==1) print first; else print ""}')"
+
+  if [ -z "$remotes" ]; then
     # LOCAL ARM — no remote: nothing stands between this repo and its own base
     # branch, so the merge is local.
     #
@@ -195,30 +203,38 @@ while IFS= read -r repo; do
     fi
     merge_shas="$merge_shas
 $repo:$merge_sha"
+  elif [ -z "$remote_name" ]; then
+    echo "close: $repo has several remotes ($(printf '%s' "$remotes" | tr '\n' ' ')) and none is 'origin' - name the remote to land through and re-run - halt"; exit 1
   else
     # PR ARM — the base branch is a published line: the merge goes by PR, and
     # the record pass below finishes it after work-pr drives the loop.
     #
     # RESUME PROBE FIRST, and gh inoperability is a halt on either gh call —
     # never a silent fall-through to the local arm. The probe looks for a PR
-    # headed by the spine branch in ANY state: an OPEN one resumes the loop, a
-    # MERGED one resumes the record pass, and only the absence of one pushes
-    # and opens (a merged PR may have had its branch auto-deleted on the
-    # remote; the probe is by head name, which survives the deletion).
-    probe="$( (cd "$repo_root" && gh pr list --head "$spine_branch" --state all --json number --limit 1) 2>&1 )" \
+    # headed by the spine branch INTO THIS BASE BRANCH, in ANY state: an OPEN
+    # one resumes the loop, a MERGED one resumes the record pass, and only the
+    # absence of one pushes and opens (a merged PR may have had its branch
+    # auto-deleted on the remote; the probe is by head name, which survives the
+    # deletion). The --base filter is what keeps a same-headed PR targeting some
+    # OTHER branch out of this arm's hands - accepting one by head alone would
+    # hand work-pr a PR whose merge lands in the wrong branch, and the record
+    # pass's baseRefName check would only catch it afterwards.
+    probe="$( (cd "$repo_root" && gh pr list --head "$spine_branch" --base "$base_branch" --state all --json number --limit 1) 2>&1 )" \
       || { echo "close: gh cannot operate on $repo's remote ($probe) - fix gh (auth, host) or record an operator-decided local merge - never a silent local fall-through - halt"; exit 1; }
     pr_num="$(printf '%s\n' "$probe" | jq -r '.[0].number // ""')"
     if [ -n "$pr_num" ]; then
       echo "close: $repo already has PR #$pr_num for $spine_branch - not re-pushing, not re-opening"
     else
-      git -C "$repo_root" push -u origin "$spine_branch" \
-        || { echo "close: cannot push '$spine_branch' to origin in $repo - halt"; exit 1; }
+      git -C "$repo_root" push -u "$remote_name" "$spine_branch" \
+        || { echo "close: cannot push '$spine_branch' to '$remote_name' in $repo - halt"; exit 1; }
       # The body carries the pushed tip: the lineage guard's durable input.
       # It lives on the PR, so it survives the halt/resume boundary and session
-      # death - no shell state is trusted across the loop.
+      # death - no shell state is trusted across the loop. --head pins the PR to
+      # the branch this pass just pushed: gh defaults it to the CURRENT branch,
+      # which after a resume or a work-pr loop is not necessarily the spine's.
       pr_body="spine close $spine_id -> $base_branch in $repo
 pushed-tip: $pre"
-      pr_num="$( (cd "$repo_root" && gh pr create --base "$base_branch" \
+      pr_num="$( (cd "$repo_root" && gh pr create --base "$base_branch" --head "$spine_branch" \
         --title "merge $spine_id" --body "$pr_body") 2>&1 )" \
         || { echo "close: gh cannot open the PR in $repo ($pr_num) - fix gh (auth, host) or record an operator-decided local merge - never a silent local fall-through - halt"; exit 1; }
       echo "close: $repo PR #$pr_num opened against $base_branch - hand it to /ossify:work-pr"
@@ -252,7 +268,7 @@ failure it catches is rc 0 all the way to a green close.**
   assertion: on a self-merge `$pre` is trivially its own ancestor, so
   `--is-ancestor` returns 0. Both legs, always, every repo.
 
-**A merge conflict halts with rc-8 semantics — in whichever repo it happens, and
+**A merge conflict halts — in whichever repo it happens, and
 the PR arm is not exempt: a conflict the remote reports blocks the PR exactly as
 a local conflict blocks the local arm.** Surface the conflicted paths verbatim,
 leave them for the human — locally, the merge in progress; on a PR, the PR's own
@@ -276,6 +292,15 @@ open, the close halts here, recording nothing**: surface the PR URLs, say which
 steps remain, and stop. That is the named halt state; re-invoke `/close
 <spine-id>` once the PR has merged.
 
+**On a surface that does not carry `/ossify:work-pr` — OpenCode today, where the
+utility commands are a Claude Code-only surface (#131) — the operator drives the
+review-fix-merge loop by their own means and says so.** What this ceremony
+REQUIRES is a merge-commit landing of the PR it opened; who drove the loop to
+that merge is the operator's affair. The record pass below still proves the
+landing — identity, lineage, base — against fetched refs, so a hand-driven loop
+gets exactly the same verification a work-pr-driven one does. The port of the
+work-pr lane to the remaining surfaces is #131's scope, not this step's.
+
 ```bash
 # SECOND PASS — record the PR-armed repos. work-pr has driven each PR to an
 # operator-acked merge; every guard binds to the PR's MERGED headRefOid from
@@ -292,7 +317,13 @@ while IFS=: read -r repo pr_num; do
   [ -n "$base_branch" ] \
     || { echo "close: no base_branch recorded for $spine_id in $repo - halt"; exit 1; }
 
-  pr_json="$( (cd "$repo_root" && gh pr view "$pr_num" --json state,mergeCommit,headRefOid,body) 2>&1 )" \
+  # Same remote resolution the landing pass used - the PR lives on whatever
+  # remote this repo actually has, and origin is a convention, not a law.
+  remote_name="$(printf '%s\n' "$(git -C "$repo_root" remote)" | awk 'NR==1{first=$0} $0=="origin"{o=1} END{if(o) print "origin"; else if(NR==1) print first; else print ""}')"
+  [ -n "$remote_name" ] \
+    || { echo "close: $repo has several remotes and none is 'origin' - the PR was opened through one of them; name it and re-run - halt"; exit 1; }
+
+  pr_json="$( (cd "$repo_root" && gh pr view "$pr_num" --json state,baseRefName,mergeCommit,headRefOid,body) 2>&1 )" \
     || { echo "close: gh cannot read PR #$pr_num in $repo ($pr_json) - halt"; exit 1; }
   pr_state="$(printf '%s\n' "$pr_json" | jq -r '.state')"
   case "$pr_state" in
@@ -300,21 +331,28 @@ while IFS=: read -r repo pr_num; do
     OPEN) echo "close: $repo PR #$pr_num is still open - hand it to /ossify:work-pr and merge on the operator's ack, then re-invoke close - halt"; exit 1 ;;
     *) echo "close: $repo PR #$pr_num is $pr_state, not MERGED - the spine's work never landed in $repo - halt"; exit 1 ;;
   esac
+  # BASE IDENTITY - a PR merged into some OTHER branch is not this repo's
+  # landing, whatever its merge commit goes on to reach. The probe filtered by
+  # base at discovery; this re-proves it at record time, because a PR's base
+  # can be retargeted between the two.
+  pr_base="$(printf '%s\n' "$pr_json" | jq -r '.baseRefName')"
+  [ "$pr_base" = "$base_branch" ] \
+    || { echo "close: $repo PR #$pr_num targets '$pr_base', not '$base_branch' - the merge landed in the wrong branch - halt"; exit 1; }
   merge_sha="$(printf '%s\n' "$pr_json" | jq -r '.mergeCommit.oid // .mergeCommit')"
   head_oid="$(printf '%s\n' "$pr_json" | jq -r '.headRefOid')"
   pushed_tip="$(printf '%s\n' "$pr_json" | jq -r '.body' | awk '/^pushed-tip: /{print $2; exit}')"
   [ -n "$merge_sha" ] && [ -n "$head_oid" ] && [ -n "$pushed_tip" ] \
     || { echo "close: PR #$pr_num in $repo is missing its mergeCommit, headRefOid, or pushed-tip body line - halt"; exit 1; }
 
-  git -C "$repo_root" fetch origin "$base_branch" \
-    || { echo "close: cannot fetch '$base_branch' in $repo - halt"; exit 1; }
+  git -C "$repo_root" fetch "$remote_name" "$base_branch" \
+    || { echo "close: cannot fetch '$base_branch' from '$remote_name' in $repo - halt"; exit 1; }
 
-  # THE STRANDED-MERGE GUARD. A local base branch with commits origin lacks is
-  # the signature of the pre-PR ceremony (#339): a local merge that could never
-  # be pushed. The repair is named, never run - resetting is a destructive call
-  # on durable state and belongs to the operator.
-  if ! git -C "$repo_root" merge-base --is-ancestor "$base_branch" "origin/$base_branch"; then
-    echo "close: $repo's local '$base_branch' has commits origin lacks (a stranded pre-PR merge?) - repair: verify 'git merge-base --is-ancestor $spine_branch $base_branch' holds, then 'git reset --hard origin/$base_branch' (the PR re-lands the content); if it does not hold, a human decides - halt"
+  # THE STRANDED-MERGE GUARD. A local base branch with commits the remote lacks
+  # is the signature of the pre-PR ceremony (#339): a local merge that could
+  # never be pushed. The repair is named, never run - resetting is a
+  # destructive call on durable state and belongs to the operator.
+  if ! git -C "$repo_root" merge-base --is-ancestor "$base_branch" "$remote_name/$base_branch"; then
+    echo "close: $repo's local '$base_branch' has commits $remote_name lacks (a stranded pre-PR merge?) - repair: verify 'git merge-base --is-ancestor $spine_branch $base_branch' holds, then 'git reset --hard $remote_name/$base_branch' (the PR re-lands the content); if it does not hold, a human decides - halt"
     exit 1
   fi
 
@@ -323,8 +361,8 @@ while IFS=: read -r repo pr_num; do
     git -C "$repo_root" checkout -q "$base_branch" \
       || { echo "close: cannot check out base branch '$base_branch' in $repo - halt"; exit 1; }
   fi
-  git -C "$repo_root" merge --ff-only "origin/$base_branch" \
-    || { echo "close: local '$base_branch' cannot fast-forward to origin in $repo - halt"; exit 1; }
+  git -C "$repo_root" merge --ff-only "$remote_name/$base_branch" \
+    || { echo "close: local '$base_branch' cannot fast-forward to $remote_name in $repo - halt"; exit 1; }
 
   # HEAD IDENTITY - the merge merged exactly the PR's reviewed head. A rebase-
   # or squash-landed PR fails HERE, at record time with the method named,
@@ -718,7 +756,7 @@ clean, and an unreadable registry.
   two-parent merge commit; the record pass turns the landing away at record
   time (§3).
 - **Running the stranded-merge repair automatically.** The halt names
-  `git reset --hard origin/<base>` and its containment precondition; resetting
+  `git reset --hard <remote>/<base>` and its containment precondition; resetting
   is the operator's call (§3).
 - **Pushing the base branch directly** — the base branch of a remote repo
   lands by PR, full stop; the ceremony never pushes it (§3).
