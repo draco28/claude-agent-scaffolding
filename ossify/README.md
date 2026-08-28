@@ -1,4 +1,4 @@
-# ossify (v1.5.0)
+# ossify (v1.6.0)
 
 Skeleton-first lifecycle plugin: Release 0 → MVP → v1, driven by bone and flesh
 spines against a cumulative demo ledger. Nine entry skills (`start`, `adopt`,
@@ -10,7 +10,10 @@ loop (`/ossify:work-pr`) — which work in any repository, ossify-initialised
 or not. Since 1.5.0 (#339) `work-pr` is also the spine-close merge lane: a
 spine's hosting repos land on their base branches by PR where a remote exists
 (merged locally only where none does), and a release is a tag on the merged
-line.
+line. Since 1.6.0 (#139) `close`'s impl-check gate gains Layer 4: a delegated
+semantic review over three lenses (fidelity, pattern, absence) at work-item
+close, applied inline on every harness or by a dedicated Workflow-tool pass
+on Claude Code on Anthropic.
 
 `wayfinder` is both at once, which is why it is listed above rather than
 below: an entry skill with its own skill directory, and an any-repo one. It
