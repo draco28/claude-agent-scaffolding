@@ -49,7 +49,13 @@ done
 # --- T2: lens-id parity ----------------------------------------------------
 IC="$ROOT/skills/close/references/impl-check.md"
 WC="$ROOT/skills/close/references/work-item-close.md"
-sec4b="$(awk '/^## 4b\./{f=1;next} /^## 5\./{f=0} f' "$IC" | grep -oE '^- `[a-z]+`' | tr -d '`- ' | sort -u)"
+# NOT `tr -d '`- '`: with the hyphen between two other characters, GNU tr on
+# the CI runner parses it as the range `` `-<space> `` (backtick to space) -
+# a REVERSED range since backtick's code point is higher - and errors out,
+# leaving sec4b empty and this check failing for the wrong reason (caught on
+# PR #380's own CI; BSD tr on this machine accepted it silently). A bracket
+# expression with the hyphen placed FIRST is unambiguous on both.
+sec4b="$(awk '/^## 4b\./{f=1;next} /^## 5\./{f=0} f' "$IC" | grep -oE '^- `[a-z]+`' | sed 's/[-` ]//g' | sort -u)"
 wipass="$(awk '/^## 2\. The gate/{f=1;next} /^## 3\./{f=0} f' "$WC" | grep -oE '`[a-z]+`' | tr -d '`' | sort -u | grep -E '^(fidelity|pattern|absence)$')"
 EXPECT="$(printf 'absence\nfidelity\npattern')"
 [ "$sec4b" = "$EXPECT" ] || { echo "FAIL: impl-check §4b lens ids are: [$sec4b]"; ck 1; }
