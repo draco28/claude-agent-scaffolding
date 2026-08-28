@@ -105,14 +105,16 @@
 I	skills/adopt/SKILL.md	1	single-verb calls with <placeholder> args: release_add, release_status (the C4 retroactive baseline pair)
 D	skills/challenge/references/adversaries.md	3	#138	the plugin-root resolution (oss-dispatcher shape, the budget-check workaround), and the codex and claude adversary invocation recipes - schema-backed exec forms the close-depth audit runs; documented shell the agent runs, never executed by the suite, and a wrong shape fails loudly into host-only
 O	skills/close/references/spine-close.md	work items that are not complete	tests/test-close.sh	the open-work-item gate refuses to close a spine with incomplete items
-O	skills/close/references/spine-close.md	is-ancestor	tests/test-close.sh	the merge guard: the spine tip must actually reach the base branch
+O	skills/close/references/spine-close.md	merge --no-ff	tests/test-close.sh	the landing pass: the local arm's merge guard (the spine tip must actually reach the base branch) and the PR arm's push/create with the gh-inoperable third-leg halt. #339 re-anchored this row from 'is-ancestor' - the record pass added its own --is-ancestor lineage guard and the harness refuses a duplicated anchor
+O	skills/close/references/spine-close.md	mergeCommit	tests/test-close.sh	the record pass (#339): a MERGED PR is proven locally - head identity (mergeCommit^2 == headRefOid, a rebase/squash landing halts), lineage (the pushed tip from the PR body is an ANCESTOR of the merged head, so fix rounds pass and rewrites halt), the stranded-merge guard (local base ahead of origin halts, repair named, never run), then repo:mergeCommit lands in $merge_shas
 O	skills/close/references/spine-close.md	touch_check	tests/test-close.sh	bone-touch at close re-classifies the spine rather than trusting the plan
-D	skills/close/references/spine-close.md	1	#138	the resume containment probe (audit #47, operative, unexecuted). #272/#310 Task 9 turned the once-per-spine probe into a loop over every hosting repo, same shape as round-orchestration.md's `checkout -q -b` conversion
+D	skills/close/references/spine-close.md	1	#138	the resume containment probe inside the local arm (audit #47, operative, unexecuted). #272/#310 Task 9 turned the once-per-spine probe into a loop over every hosting repo, same shape as round-orchestration.md's `checkout -q -b` conversion
 I	skills/close/references/spine-close.md	4	single-verb calls with <placeholder> args: ledger_apply_pending, class_set, risk-gate read, worktree_remove, spine_status
 O	skills/close/references/release-close.md	spines that are not closed	tests/test-close.sh	the release gate blocks on any spine still open
 O	skills/close/references/release-close.md	expired_fakes	tests/test-close.sh	the fake-expiry gate blocks on fakes past their expiry release
 O	skills/close/references/release-close.md	expired_quarantines	tests/test-close.sh	the quarantine gate blocks on quarantines that have come due
 D	skills/close/references/release-close.md	1	#138	the ai_workspace path composition for the release retro is unexecuted
+O	skills/close/references/release-close.md	git tag	tests/test-close.sh	the #339 release-tag block, round 2 (T1/T2/T8): per hosting repo via oss repo_root + the recovered base branch, remote resolved never assumed origin, annotated always, resumable only when an existing tag matches the base tip locally AND on the remote (R1-R3 in test-close.sh)
 I	skills/close/references/release-close.md	6	single-verb calls: demo_user_lines, ledger_retire, release goal read, feature_list, release_status, release_dir (the retro destination became a release_dir call - the verb is test-worktree.sh's)
 O	skills/close/references/patch-lane.md	touch_check	tests/test-close.sh	a patch touching a bone surface must escalate out of the patch lane
 D	skills/close/references/patch-lane.md	1	#138	the patch commit's branch placement block - CL-1 says the target branch is unspecified, so executing it needs the design decision first. #272/#310 Task 9 keyed the block to a `repo_key` (any declared repo, not only canonical); the underlying CL-1 gap is unchanged
@@ -208,10 +210,10 @@ H	skills/close/references/fake-expiry.md	3542365026-715
 H	skills/close/references/harvest.md	1726645723-663
 H	skills/close/references/impl-check.md	3364110005-836
 H	skills/close/references/patch-lane.md	3173812713-2590
-H	skills/close/references/release-close.md	3882829569-2451
+H	skills/close/references/release-close.md	1294179990-11159
 H	skills/close/references/retrospective.md	2875153190-110
 H	skills/close/references/routing.md	948295148-232
-H	skills/close/references/spine-close.md	1077288017-6739
+H	skills/close/references/spine-close.md	3412651679-21470
 H	skills/close/references/work-item-close.md	1880909893-3459
 H	commands/doctor.md	729179949-141
 H	skills/doctor/SKILL.md	630905567-126

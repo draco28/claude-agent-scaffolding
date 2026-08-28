@@ -225,16 +225,22 @@ steps, in **binding order**:
 
 1. **Every work item `complete`**, else refuse and **name the offender**. Test
    the *output* of the `oss get` — a `select` matching nothing exits 0.
-2. **Switch each hosting repo back to its own `base_branch`, then merge the spine branch in**,
-   halting on conflict (at that halt, `references/merge-conflict-resolution.md`
-   is the resolution discipline — operator-sanctioned, never automatic). **Derive the spine branch with `oss branch_name` and
-   assert HEAD matches it — never read it off HEAD**; then assert the switch-back
-   actually moved HEAD, and check reachability after the merge. Each of those
-   guards catches a distinct failure that is otherwise rc 0 all the way to a
-   green close. **Read `references/code-review.md` before this merge** — the last
-   moment the spine's diff is reviewable as one thing, and the only reader that
-   judges craft and fidelity rather than whether the ACs passed. Advisory: it
-   yields findings and a per-finding decision, never a halt.
+2. **Land each hosting repo on its own `base_branch` — by PR where a remote
+   exists, locally where none does (#339)**. The PR arm pushes the spine branch,
+   opens the PR, and hands it to `/ossify:work-pr`; the record pass proves the
+   remote merge locally (identity, lineage, base-contained) before anything is
+   recorded. A remote `gh` cannot operate on halts — never a silent local
+   fall-through. The local arm keeps all four guards: **derive the spine branch
+   with `oss branch_name` and assert HEAD matches it — never read it off HEAD**;
+   assert the switch-back actually moved HEAD; check reachability after the
+   merge. Each catches a distinct failure that is otherwise rc 0 all the way to
+   a green close. Halting on conflict (at that halt,
+   `references/merge-conflict-resolution.md` is the resolution discipline —
+   operator-sanctioned, never automatic). **Read `references/code-review.md`
+   before the merge happens** — the last moment the spine's diff is reviewable
+   as one thing, and the only reader that judges craft and fidelity rather than
+   whether the ACs passed. Advisory: it yields findings and a per-finding
+   decision, never a halt.
 3. **`oss ledger_apply_pending <spine>`** — after the merge, before the demo.
 4. **The cumulative demo**: `oss demo_run` for every active `auto:` line, then
    walk **this spine's own** `user:` lines (`oss demo_user_lines <spine>`) with
@@ -252,9 +258,9 @@ steps, in **binding order**:
 10. **Worktree + branch cleanup**, per work item. Only now.
 11. **State updates**: `oss spine_status <spine> closed` and `oss demo_record`.
 
-Full step detail — the merge block with its four guards, the changed-path
-computation, the class-scoped critic bridge, and the bone/flesh column from spec
-§6.1 as a table — in **`references/spine-close.md`**.
+Full step detail — the two landing passes and their guards, the PR handoff
+contract, the changed-path computation, the class-scoped critic bridge, and the
+bone/flesh column from spec §6.1 as a table — in **`references/spine-close.md`**.
 
 The demo layer — the cumulative `auto:` half, the spine-scoped `user:` half, the
 halt discipline, quarantine as a parking ticket, and the ledger's wall-clock
@@ -315,21 +321,30 @@ enforceable at a release boundary). Eight steps, in **binding order**:
    verdict).
    The whole step is
    **`references/boundary-audit.md`**.
-8. **State updates**: `oss release_status <rel> closed` and
-   `oss demo_record release <rel> <passed> <line-count> "<notes>"` — never
-   after a halt in any step above.
+8. **The release tag, then the state writes** — tag **each hosting repo this
+   release landed in**, at that repo's recovered base branch, and push the tag
+   where a remote exists (a no-remote repo's tag is local, verified the same
+   way minus the remote leg): the PR tier lives at the spine boundary (#339),
+   so by the time every spine has closed the base branches already carry the
+   release; the tag is the only release-level landing there is, and it is
+   repo-scoped because a cross-repo release's code lives in every repo that
+   hosted one of its spines. Then the state writes — `oss release_status <rel>
+   closed` and `oss demo_record release <rel> <passed> <line-count>
+   "<notes>"` — never after a halt in any step above.
 
 **Both blocking gates are rc 0 = CLEAN / 1 = BLOCKING / 2 = could-not-check —
 the opposite polarity from `oss touch_check`, where rc 0 is a hit.** Copying the
 touch-check branch shape inverts the judge and passes exactly the releases the
 gates exist to block. rc 2 halts in both; it is never folded into clean.
 
-**Three of spec §6.2's steps are deliberately not shipped** and are named as
+**Two of spec §6.2's steps are deliberately not shipped** and are named as
 such rather than left to read as executed: the **docs increment** (§8's trigger
-table), **handoff cleanup** for the closed release (session handoffs are
+table), and **handoff cleanup** for the closed release (session handoffs are
 `/ossify:handoff`'s, a standalone utility with no retention policy by design —
-handoffs accumulate and the user prunes), and the **release tag / PR gate**
-(the spine→release / release→main tier question is unsettled).
+handoffs accumulate and the user prunes). The **release tag** ships: the PR tier
+is settled at the spine boundary (#339 — each spine lands its hosting repos by
+PR through `/ossify:work-pr`), so a release close tags the merged `main` rather
+than gating a merge of its own.
 
 Full step detail — the two-arm spine gate, the walkthrough's scoping and its
 derived feature grouping, both blocking gates' branch blocks, the retro's

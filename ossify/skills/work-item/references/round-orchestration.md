@@ -102,6 +102,13 @@ done < "$repo_bases"
 
 Each of these is load-bearing:
 
+**A spine branch cut here is local until spine close pushes it.** The branch is
+created, never pushed — rounds land work items onto it locally, and only spine
+close's PR arm pushes it and opens the PR against the repo's base branch
+(`close/references/spine-close.md` §3, #339). Nothing in the lane pushes, and
+nothing else should: a premature push creates a PR-shaped artifact the close's
+resume probe would then find and have to reason about.
+
 **Check every repo before cutting a branch in any of them.** This was one loop
 that checked and mutated per repo. With an earlier-sorted repo clean and a later
 one dirty, detached, or already carrying the spine branch, the first repo's

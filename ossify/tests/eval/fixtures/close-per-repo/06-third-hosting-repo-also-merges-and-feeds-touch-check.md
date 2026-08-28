@@ -21,6 +21,8 @@ matching `SPINE.md`'s spine-context section for that repo. No repo's working
 tree is dirty, and merging the spine branch into `main` applies cleanly in
 all three — there is no conflict anywhere.
 
+None of the three repos has a git remote — spine close's PR arm (#339) never fires here; the local merge arm is the correct one for this world.
+
 No bone or risk gate is registered over any path any of the three repos'
 diffs touch. The cumulative demo's `auto:` lines all pass against the
 composed tree. `/close r1.s10` is now invoked.

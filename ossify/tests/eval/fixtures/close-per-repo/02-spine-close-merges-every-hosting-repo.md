@@ -21,6 +21,8 @@ context` sections record `base_branch: main` for their own repo, matching
 dirty. No merge conflicts are present in either repo — a plain fast-forward-free
 merge of the spine branch into `main` applies cleanly in both.
 
+Neither repo has a git remote — spine close's PR arm (#339) never fires here; the local merge arm is the correct one for this world.
+
 The cumulative demo's `auto:` lines all pass against the composed tree. No
 bone or risk-gate surface is touched by either repo's diff. `/close r1.s4` is
 now invoked.
