@@ -125,7 +125,13 @@ gate invoked on `<spec path>` runs against a file called `<spec path>`.
 
 **Layer 4 runs delegated where it can, inline where it cannot.** If
 `OSSIFY_NO_WORKFLOWS` is unset and a tool named `Workflow` is available, call it
-with `ossify/workflows/verify-work-item.js`, passing in `args` the three §4b
+with `${CLAUDE_PLUGIN_ROOT}/workflows/verify-work-item.js` — **not** a
+plugin-relative `ossify/workflows/…`: an installed close runs in the consumer
+project's own directory, not the plugin's, so a bare relative path resolves
+against whatever `ossify/` the consumer happens to have (usually none) and the
+call errors on every normal install, silently taking the fallback every time
+(the same reason `commands/close.md` reads its own SKILL.md through
+`${CLAUDE_PLUGIN_ROOT}`, not a relative path) — passing in `args` the three §4b
 lenses — `fidelity`, `pattern`, `absence` — each as `{id, text}` taken verbatim
 from `impl-check.md` §4b, plus the input paths: `spec`, `report`, `handoff`
 (the work item's, beside `spec`), `patterns` (the memory-bank

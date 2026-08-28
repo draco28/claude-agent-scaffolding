@@ -33,7 +33,12 @@ purify() { # file -> violations on stdout
   # every legitimate workflow script. Static purity is a grep concern, not a
   # parser concern - T1's own scope (spec T1) never asked for a parse check.
   grep -nE '\brequire[ (]|\bimport\b|\bprocess\.|child_process|\bexec(Sync)?\s*\(|\bspawn(Sync)?\s*\(|\bfs\.|node:' "$f"
-  grep -nE '["'"'"'](\.{1,2}/|/)' "$f"
+  # Absolute (/x), dot-relative (./x, ../x), AND bare relative (docs/spec.md) -
+  # a quote immediately followed by word characters then a slash. Anchored to
+  # right-after-the-quote so a mid-sentence slash in ordinary prose - e.g. the
+  # meta block's own "one Sonnet/medium reader per lens" - does not false-fire;
+  # only a slash that could plausibly start a path does.
+  grep -nE '["'"'"'](\.{1,2}/|/|[A-Za-z0-9_.-]+/)' "$f"
 }
 VIOL=""
 for f in "$WF"/*.js; do
@@ -63,9 +68,11 @@ EXPECT="$(printf 'absence\nfidelity\npattern')"
 
 # --- self-test: planted defects must be caught -----------------------------
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
-printf 'const x = require("fs");\nconst p = "/etc/passwd";\n' > "$TMP/bad.js"
+printf 'const x = require("fs");\nconst p = "/etc/passwd";\nconst q = "docs/spec.md";\n' > "$TMP/bad.js"
 BAD="$(purify "$TMP/bad.js")"
 [ -n "$BAD" ] || { echo "FAIL: purity checker missed the planted require/fs/path defects"; ck 1; }
+printf '%s\n' "$BAD" | grep -q 'docs/spec.md' \
+  || { echo "FAIL: purity checker missed the planted BARE-RELATIVE path (docs/spec.md) - the anchored regex may be too narrow again"; ck 1; }
 
 AWK1="$(awk '/^## 4b\./{f=1;next} /^## 5\./{f=0} f' "$IC" | grep -cE '^- `[a-z]+`')"
 [ "$AWK1" -ge 3 ] || { echo "FAIL: §4b lens extractor is blind (found $AWK1 ids)"; ck 1; }

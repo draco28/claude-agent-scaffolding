@@ -101,6 +101,24 @@ against the merge base, so you see what the spine *added*; two dots also shows
 everything that landed on the base branch meanwhile, which is not this spine's
 work and not yours to review.
 
+### Reading Layer 4's advisories
+
+Before running either axis, read each of the spine's work items'
+`<work-item-dir>/verify.md`, if one exists — resolve the directory the way
+`work-item-close.md` §1 Route B does (the spine dir, glob-recovered, then
+`work-<wi>/`); every item has already closed by the time you run, so Route B's
+reconstruction is always the one in scope here, never Route A's return
+payload. Absent is a clean signal, not a gap — not every close writes one
+(impl-check.md §4b: `pattern`, `absence`, and a declared `fidelity` finding,
+never a halt).
+
+Where one exists, its findings are additional input, not a third axis: a
+`pattern` finding folds into Axis A, an `absence` or declared-`fidelity`
+finding into Axis B. Carry it into the finding you report there. Do not
+re-print Layer 4's text verbatim as if it were your own reading, and do not
+re-judge whether Layer 4 was right — that already happened at work-item close;
+this pass reads it as evidence, not as something to re-litigate.
+
 ---
 
 ## 3. Axis A — Standards

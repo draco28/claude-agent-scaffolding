@@ -218,9 +218,12 @@ Each lens is a reading of the staged diff. Apply them as written — they are th
 contract, not a summary of one:
 
 - `fidelity` — the diff does something `spec.md` does not ask for, or fails to do
-  something it does ask for, and **report §7 (Deviations from spec) does not declare
-  the deviation**. The judge of "declared" is the report's own §7 text, not your
-  reconstruction of what the implementer meant.
+  something it does ask for. Report **every** such drift as a finding, whether or
+  not report §7 discloses it — declaration is not a gate on whether this is a
+  finding, it is a field *on* the finding. Set `declared_in_report_s7` from the
+  report's own §7 text, not your reconstruction of what the implementer meant;
+  the verdict rule below, not this lens, decides what a `true` or `false` value
+  means for the close.
 - `pattern` — the diff contradicts a convention the repo follows in fact. The
   written half is `03-code-patterns.md`, and that half is Layer 3's — do not re-run
   it. What is left is the defect classes a documented rule never captures: guards
@@ -237,12 +240,16 @@ contract, not a summary of one:
 Every finding, from either execution path, is exactly:
 
 ```text
-{lens, claim, evidence: {file, line}, declared_in_report_s7}
+{lens, claim, evidence: {file, line?}, declared_in_report_s7}
 ```
 
 `lens` is one of the three ids above; `claim` is one sentence naming the deviation
-and what it costs; `evidence` points into the staged diff; `declared_in_report_s7`
-is answered from report §7's own text.
+and what it costs; `evidence.file` points into the staged diff, always — `line`
+is required for `fidelity` and `pattern` findings but optional for `absence`:
+the whole point of an absence finding is something the diff never contains, so
+there may be no line to cite, only the file where it should exist. Never invent
+a line number to satisfy the shape. `declared_in_report_s7` is answered from
+report §7's own text.
 
 ### The verdict rule — identical on both paths
 

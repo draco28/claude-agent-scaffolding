@@ -28,9 +28,15 @@ const schemaFor = (lensId) => ({
         properties: {
           lens: { type: 'string', enum: [lensId] },
           claim: { type: 'string' },
+          // `line` is NOT required: an `absence` finding is about something
+          // the diff never contains at all, so there is no line in the staged
+          // diff to cite. Forcing one would make the reader/refuter fabricate
+          // a number to satisfy the schema, or silently drop the finding.
+          // `file` still is - it names where the artifact should exist, which
+          // is knowable, even when the artifact itself is not.
           evidence: {
             type: 'object',
-            required: ['file', 'line'],
+            required: ['file'],
             additionalProperties: false,
             properties: { file: { type: 'string' }, line: { type: 'integer' } },
           },
@@ -42,7 +48,8 @@ const schemaFor = (lensId) => ({
 })
 
 const inputsBlock = () =>
-  '- the staged diff: git -C ' + args.inputs.wt + ' diff --cached\n' +
+  '- the staged diff: git -C "' + args.inputs.wt + '" diff --cached (quote the' +
+  ' path yourself if you run this - it may contain spaces)\n' +
   '- spec: ' + args.inputs.spec + '\n' +
   '- handoff: ' + args.inputs.handoff + '\n' +
   '- report (§7, Deviations from spec, decides declared_in_report_s7): ' + args.inputs.report + '\n' +
@@ -60,9 +67,12 @@ const reviewed = await pipeline(
     'You are the "' + lens.id + '" lens of an ossify work-item close (impl-check.md §4b).\n\n' +
     'LENS TEXT (apply exactly as written):\n' + lens.text + '\n\n' +
     'Inputs (read them yourself):\n' + inputsBlock() +
-    'Return AT MOST 5 findings in the schema. Every finding cites evidence {file, line} ' +
-    'in the staged diff. declared_in_report_s7 is true only when report §7 declares the ' +
-    'deviation the claim describes.',
+    'Return AT MOST 5 findings in the schema. Every finding cites evidence.file. For ' +
+    'fidelity and pattern findings, also cite evidence.line in the staged diff. For an ' +
+    'absence finding - something the spec requires that the diff does not contain at all ' +
+    '- evidence.file names where it should exist and evidence.line may be omitted; never ' +
+    'invent a line number to satisfy the schema. declared_in_report_s7 is true only when ' +
+    'report §7 declares the deviation the claim describes.',
     { label: 'read:' + lens.id, phase: 'Read', model: 'sonnet', effort: 'medium', schema: schemaFor(lens.id) },
   ),
   (found, lens) => {
@@ -71,8 +81,9 @@ const reviewed = await pipeline(
       'You are the refuter for the "' + lens.id + '" lens of an ossify work-item close. ' +
       'Try to knock down EACH finding below by re-reading the same inputs. ' +
       'Default to refuted=true when uncertain; a finding survives only if the evidence ' +
-      'holds at the named file and line, and (for a fidelity claim) report §7 really ' +
-      'does not declare the deviation.\n\nInputs:\n' + inputsBlock() +
+      'holds at the named file (and line, when one is given - an absence finding may ' +
+      'have none), and the declared_in_report_s7 value is actually correct against ' +
+      'report §7\'s own text.\n\nInputs:\n' + inputsBlock() +
       'Findings:\n' + JSON.stringify(found.findings, null, 2) +
       '\n\nReturn ONLY the survivors, in the same schema.',
       { label: 'refute:' + lens.id, phase: 'Refute', model: 'sonnet', effort: 'low', schema: schemaFor(lens.id) },
