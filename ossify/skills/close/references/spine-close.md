@@ -279,6 +279,12 @@ $repo:$merge_sha"
       git -C "$repo_root" fetch "$remote_name" "$res_head" >/dev/null 2>&1 || true
       git -C "$repo_root" merge-base --is-ancestor "$res_tip" "$res_head" \
         || { echo "close: $repo PR #$pr_num's head does not descend from the tip this close pushed ($res_tip) - the branch was rewritten or diverged - a human decides - halt"; exit 1; }
+      # AND the CURRENT local tip is contained (round 8, T32): proving only the
+      # pushed tip lets a locally-advanced branch merge the OLD PR and close
+      # the spine while silently omitting the newer commits. A halt naming
+      # both tips - which to keep is not this ceremony's guess.
+      git -C "$repo_root" merge-base --is-ancestor "$pre" "$res_head" \
+        || { echo "close: $repo's local spine tip ($pre) advanced past what PR #$pr_num contains - push the branch and update the PR, or re-open - halt"; exit 1; }
       echo "close: $repo already has PR #$pr_num for $spine_branch - not re-pushing, not re-opening"
     else
       git -C "$repo_root" push -u "$remote_name" "$spine_branch" \
@@ -506,6 +512,16 @@ idempotent by `harvest.md` §7's skip-identical rule, and cleanup is idempotent
 The one resume this cannot serve is a spine whose branch was already deleted by
 §9's cleanup — then the tip is unresolvable and step 2 halts naming it. That is
 a completed close, not a halted one.
+
+**The resume policy, stated once and deliberately narrow (#339 round 8):** each
+resume arm recovers its ONE straightforward case — the case its fixture drives
+(a landed repo, an existing OPEN/MERGED PR carrying this close's pushed tip and
+containing the current tip, a matching tag). Every state outside those cases
+halts, names the state it found, and names the manual remedy — the stranded-base
+discipline. Automatic recovery across every halt edge is explicitly NOT
+claimed; the edges reviewers have enumerated across this PR's review history
+are tracked as one follow-up issue rather than grown here, because each new
+auto-recovery edge has been a new review finding in its own right.
 
 Issue #133 is the execution-lane counterpart, not a substitute for
 this.

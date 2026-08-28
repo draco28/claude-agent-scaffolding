@@ -1503,6 +1503,57 @@ t_assert_rc 0 "R9: a remote-only existing tag is fetched and resumed, not re-cre
 t_assert_contains "$T_OUT" "already tagged" "R9: ...through the same verification arm"
 t_assert_eq "$R9_REMOTE_TAG" "$(git -C "$PR_REPO" rev-parse 'refs/tags/r9')" "R9: the remote tag object stands - no second annotation was minted"
 
+# P16. THE RESUMED PR MUST CONTAIN THE CURRENT TIP (round 8, T32): the
+# pre-handoff check proves the PUSHED tip's ancestry, but the local spine
+# branch can have advanced after the PR was opened - merging the old PR would
+# close the spine while silently omitting the newer commits. A halt naming
+# both tips, never a guess about which to keep.
+_pr_fixture p16
+git -C "$PR_REPO" push -q origin "$PR_BRANCH"
+CL16="$TMP/p16-clone"; rm -rf "$CL16"; git clone -q "$PR_ORIGIN" "$CL16"
+git -C "$CL16" config user.email t@t; git -C "$CL16" config user.name t
+git -C "$CL16" checkout -q "$PR_BRANCH"
+printf "7 OPEN\n" > "$PR_STATE/pr"
+P16_PUBLISHED_TIP="$(git -C "$PR_REPO" rev-parse "$PR_BRANCH")"
+printf "%s\n" "$P16_PUBLISHED_TIP" > "$PR_STATE/pushed_tip"
+printf "%s\n" "$P16_PUBLISHED_TIP" > "$PR_STATE/head_oid"
+# The local spine branch advances AFTER the PR was opened - not pushed.
+echo late > "$PR_REPO/late.txt"; git -C "$PR_REPO" add late.txt; git -C "$PR_REPO" commit -qm "late local work"
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'"
+t_assert_rc 1 "P16: a resumed PR missing the current local tip halts"
+t_assert_contains "$T_OUT" "advanced past" "P16: ...naming the local tip the PR does not contain"
+
+# R10. A BRANCH NAMED LIKE THE RELEASE (round 8, T30): refs/heads/r9 and
+# refs/tags/r9 coexist, and a bare `git push <remote> r9` cannot resolve the
+# source. The push uses a fully qualified tag refspec.
+_pr_fixture r10
+git -C "$PR_REPO" branch r9
+t_capture env "PATH=$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; rel='r9'; repo_base_branches='canonical:main'; . '$TAG_BLOCK'"
+t_assert_rc 0 "R10: the tag push resolves under a branch/tag name collision"
+t_assert_contains "$T_OUT" "tagged r9" "R10: ...and lands"
+
+# R11. THE BASE AHEAD OF THE REMOTE (round 8, T31): unpushed local commits on
+# the base would be TAGGED and the tag object published while the published
+# base branch never carries the commit the tag claims to mark. Halt naming
+# the state - the D5 discipline.
+_pr_fixture r11
+# The fixture parks the repo on the SPINE branch; the unpushed commit must
+# land on the BASE branch or the guard is never exercised.
+git -C "$PR_REPO" checkout -q main
+echo unpushed > "$PR_REPO/unpushed.txt"; git -C "$PR_REPO" add unpushed.txt
+git -C "$PR_REPO" commit -qm unpushed
+t_capture env "PATH=$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; rel='r9'; repo_base_branches='canonical:main'; . '$TAG_BLOCK'"
+t_assert_rc 1 "R11: a base ahead of the remote halts before tagging"
+t_assert_contains "$T_OUT" "published line does not carry" "R11: ...naming what the tag would falsely mark"
+if git -C "$PR_REPO" rev-parse -q --verify 'refs/tags/r9' >/dev/null 2>&1; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: R11 - a tag was created despite the halt"
+else
+  T_PASS=$((T_PASS+1))
+fi
+
 cd /; rm -rf "$TMP"
 
 # A FLOOR ON THE ASSERTION COUNT. Every check in test-block-ledger.sh proves

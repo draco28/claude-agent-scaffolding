@@ -457,6 +457,19 @@ while IFS= read -r repo; do
     echo "close: $repo has several remotes and none is 'origin' - name the one to tag through and re-run - halt"; exit 1
   fi
 
+  # THE BASE THE TAG WOULD MARK MUST BE THE PUBLISHED ONE (round 8, T31):
+  # unpushed local commits on the base would be tagged and the tag object
+  # published while the published base branch never carries the commit the
+  # tag claims to mark. The same D5 discipline as the stranded base: halt,
+  # name the state, name the remedy - never tag past the published line.
+  if [ -n "$remote_name" ]; then
+    git -C "$repo_root" fetch "$remote_name" "$base_branch" >/dev/null 2>&1 \
+      || { echo "close: cannot fetch '$base_branch' from '$remote_name' in $repo - halt"; exit 1; }
+    if ! git -C "$repo_root" merge-base --is-ancestor "$base_branch" "$remote_name/$base_branch"; then
+      echo "close: $repo's local '$base_branch' has commits the published line does not carry - a release tag would mark a commit '$remote_name/$base_branch' never receives - push the base or reset to it - halt"; exit 1
+    fi
+  fi
+
   # CONSULT THE REMOTE BEFORE CREATING (round 7, T28): an earlier halted
   # close may already have pushed this tag, and this checkout - fresh, or
   # cloned --no-tags - does not carry it. Creating anyway mints a second,
@@ -509,7 +522,10 @@ while IFS= read -r repo; do
     git -C "$repo_root" tag -a "$rel" -m "release $rel" "$base_branch" \
       || { echo "close: cannot tag $rel at $base_branch in $repo - halt"; exit 1; }
     if [ -n "$remote_name" ]; then
-      git -C "$repo_root" push "$remote_name" "$rel" \
+      # A FULLY QUALIFIED refspec: a branch named like the release makes a
+      # bare `<remote> $rel` ambiguous between refs/heads/$rel and
+      # refs/tags/$rel, and the push fails to resolve its own source.
+      git -C "$repo_root" push "$remote_name" "refs/tags/$rel:refs/tags/$rel" \
         || { echo "close: tag push for $rel refused in $repo - surface the refusal verbatim, never force - halt"; exit 1; }
     fi
     echo "close: $repo tagged $rel"
@@ -519,10 +535,16 @@ $tag_repos
 EOF
 ```
 
-**Resumable by construction:** the flat "an existing tag halts" rule made a
-re-invoked close unfinishable whenever the earlier run stopped between the tag
-and the state writes — the tag had landed, the writes had not, and the only way
-forward read as retagging. The continuation condition is mechanical (the same
+**Resumable by construction, and narrowly so (#339 round 8):** the flat "an
+existing tag halts" rule made a re-invoked close unfinishable whenever the
+earlier run stopped between the tag and the state writes — the tag had landed,
+the writes had not, and the only way forward read as retagging. The recovery
+claimed here is exactly the one straightforward case — the tag this close
+created, matching the base tip, present locally and on the remote (fetched in
+when the checkout lacks it); every other existing-tag state, and any base
+ahead of the published line, halts naming the state and the manual remedy.
+Broader auto-recovery is not claimed — see spine-close.md §3's resume policy
+and the follow-up issue. The continuation condition is mechanical (the same
 object, locally and on the remote, at the recovered base); every other
 existing-tag state still halts, because a re-tag is history rewriting on a
 published ref and that is the operator's call. A refused tag push (a ruleset
