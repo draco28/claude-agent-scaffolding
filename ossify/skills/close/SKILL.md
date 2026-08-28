@@ -185,7 +185,7 @@ Six steps, in **binding order**:
    by one of two routes (the round flow's return payload, or a standalone
    reconstruction from the id). Neither is optional to know: `/close <id>` is
    supported with no round in scope.
-2. **Run the gate** (§4's three layers, below).
+2. **Run the gate** (§4's four layers, below).
 3. **Prove there is something to commit** — a green gate over an empty index
    means the work is not where the commit will look for it.
 4. **On green:** commit **in the worktree**, merge its branch into the spine
@@ -202,7 +202,7 @@ Full step detail — both path-resolution routes, the staging proof, the merge
 block with its merge-target check, and why cleanup is deliberately absent — in
 **`references/work-item-close.md`**.
 
-The gate itself — the three layers, their halt semantics, the literal error tags
+The gate itself — the four layers, their halt semantics, the literal error tags
 and the recovery menu — is in **`references/impl-check.md`**. Read it before
 running step 2; it is what "impl-check" means everywhere else in this plugin.
 
@@ -469,7 +469,7 @@ It carries, in this order:
 1. **What closed** — the id and scope, and whether every step ran or the ceremony
    halted partway.
 2. **Gate outcomes** — each blocking gate with its verdict, source-tagged the way
-   the step reported it (`[AC]`, `[report cross-check]`, `[rule]`).
+   the step reported it (`[AC]`, `[report cross-check]`, `[rule]`, `[fidelity]`).
 3. **Anything a step told you to record here.** Several steps route their output
    to the summary rather than to a file: `harvest.md` §2's missing-report gaps,
    §5's rule-authoring referrals, and §8's harvest outcomes. If a step says "record it in the

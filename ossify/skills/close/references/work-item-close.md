@@ -119,9 +119,26 @@ re-derives them, and nothing anywhere in this layer `cd`s (SKILL.md §3).
 
 ## 2. The gate
 
-Run the three-layer implementation gate per **`references/impl-check.md`**, using
+Run the four-layer implementation gate per **`references/impl-check.md`**, using
 the `$spec`, `$report` and `$wt` resolved above. Never a bare placeholder: a
 gate invoked on `<spec path>` runs against a file called `<spec path>`.
+
+**Layer 4 runs delegated where it can, inline where it cannot.** If
+`OSSIFY_NO_WORKFLOWS` is unset and a tool named `Workflow` is available, call it
+with `ossify/workflows/verify-work-item.js`, passing in `args` the three §4b
+lenses — `fidelity`, `pattern`, `absence` — each as `{id, text}` taken verbatim
+from `impl-check.md` §4b, plus the input paths: `spec`, `report`, `handoff`
+(the work item's, beside `spec`), `patterns` (the memory-bank
+`03-code-patterns.md`, resolved as Layer 3 resolved it), and `wt`. On any error,
+a null lens result, a `findings: null` return, or `agents_run` below 6: run the
+inline path and print `layer 4: inline (workflow unavailable: <reason>)`. No
+retry, no resume. A clean delegated run prints `layer 4: workflow (6 agents)`.
+The close summary states which path ran.
+
+Apply the §4b verdict rule to the findings from whichever path ran: an undeclared
+`fidelity` finding fires the `[fidelity]` halt; the advisory findings are written
+to `<work-item-dir>/verify.md` — `$(dirname "$report")` on Route A, `$wi_dir` on
+Route B — and echoed in the close summary.
 
 Green → step 3. Anything else → step 5.
 
@@ -238,7 +255,7 @@ Terminal, at every layer. No later step runs, no status is written, nothing is
 recorded as closed.
 
 1. Surface the errors with their **source tags** — `[AC]`,
-   `[report cross-check]`, `[rule]` (`impl-check.md`).
+   `[report cross-check]`, `[rule]`, `[fidelity]` (`impl-check.md`).
 2. Present the **recovery menu**.
 3. **Stop. No auto-select.** The user picks.
 

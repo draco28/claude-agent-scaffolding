@@ -9,8 +9,10 @@
 # the standalone path reconstruction, and the state-recorded merge target.
 #
 # NOT COVERED, and not coverable by a bash test: **the router itself, the
-# three-layer gate's ordering, the halt semantics and the recovery menu are
-# prose contracts with no executable surface.** Task 13's bash-block harness
+# four-layer gate's ordering, the halt semantics and the recovery menu are
+# prose contracts with no executable surface** (Layer 4's *workflow script* is
+# the one exception — its static purity and its lens-id parity with
+# impl-check.md §4b are covered separately, `test-workflows.sh`). Task 13's bash-block harness
 # checks that every `oss` verb they name resolves; beyond that they have no
 # automated coverage in this release. An assertion that "each id shape routes to
 # its own scope" would be testing `oss id_parse` (already covered in
