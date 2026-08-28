@@ -1017,6 +1017,11 @@ _pr_fixture() { # $1=name — sets PR_REPO/PR_ORIGIN/PR_STATE/PR_SHIM; repo park
   echo spine > "$PR_REPO/spine.txt"; git -C "$PR_REPO" add spine.txt; git -C "$PR_REPO" commit -qm spine
   git init -q --bare "$PR_ORIGIN"
   git -C "$PR_REPO" remote add origin "$PR_ORIGIN"
+  # The RAW configured URL carries the host the selector derivation reads
+  # (hostless local paths are refused, T35); insteadOf keeps every push and
+  # fetch on the local bare - no fixture touches a network.
+  git -C "$PR_REPO" remote set-url origin git@github.com:owner/repo.git
+  git -C "$PR_REPO" config "url.$PR_ORIGIN.insteadOf" "git@github.com:owner/repo.git"
   git -C "$PR_REPO" push -q origin main
   git --git-dir="$PR_ORIGIN" symbolic-ref HEAD refs/heads/main
   _wshim "$PR_REPO" "$PR_BRANCH" "canonical" "$PR_SHIM"
@@ -1186,7 +1191,7 @@ else
 fi
 t_assert_contains "$(cat "$PR_STATE/create_args")" "--head $PR_BRANCH" "P8: PR creation pins the head to the spine branch (never the ambient branch)"
 t_assert_contains "$(cat "$PR_STATE/create_args")" "--base main" "P8: ...and the base to the recovered base branch"
-t_assert_contains "$(cat "$PR_STATE/gh_repo")" "p8-origin" "P8: every gh call is pinned to the resolved remote's repo (--repo), not gh's default"
+t_assert_eq "owner/repo" "$(cat "$PR_STATE/gh_repo")" "P8: every gh call is pinned to the resolved remote's repo (--repo), not gh's default"
 
 # P9. BASE VALIDATION (round 2, T5/T9): a PR that merged into some OTHER branch
 # is not this repo's landing, whatever its merge commit reaches later. Rejected
@@ -1550,6 +1555,41 @@ t_assert_rc 1 "R11: a base ahead of the remote halts before tagging"
 t_assert_contains "$T_OUT" "published line does not carry" "R11: ...naming what the tag would falsely mark"
 if git -C "$PR_REPO" rev-parse -q --verify 'refs/tags/r9' >/dev/null 2>&1; then
   T_FAIL=$((T_FAIL+1)); echo "FAIL: R11 - a tag was created despite the halt"
+else
+  T_PASS=$((T_PASS+1))
+fi
+
+# R12. A BASE BEHIND THE PUBLISHED TIP (round 9, T34): another checkout merged
+# the final spine PR, so the remote base advanced past this checkout's. The
+# behind state passes an ancestor check - the tag would mark the STALE local
+# commit and the release could close omitting merged work. The pass
+# fast-forwards to the published tip and tags THAT.
+_pr_fixture r12
+CL12="$TMP/r12-clone"; rm -rf "$CL12"; git clone -q "$PR_ORIGIN" "$CL12"
+git -C "$CL12" config user.email t@t; git -C "$CL12" config user.name t
+git -C "$CL12" checkout -q main
+echo final > "$CL12/final.txt"; git -C "$CL12" add final.txt; git -C "$CL12" commit -qm "the final spine PR merged elsewhere"
+git -C "$CL12" push -q origin main
+R12_REMOTE_TIP="$(git --git-dir="$PR_ORIGIN" rev-parse main)"
+t_capture env "PATH=$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; rel='r9'; repo_base_branches='canonical:main'; . '$TAG_BLOCK'"
+t_assert_rc 0 "R12: a base behind the published tip fast-forwards and tags"
+t_assert_eq "$R12_REMOTE_TIP" "$(git -C "$PR_REPO" rev-parse -q --verify 'refs/tags/r9^{}' 2>/dev/null)" \
+  "R12: the tag marks the PUBLISHED tip, not the stale local commit"
+
+# P17. A HOSTLESS REMOTE (round 9, T35): a filesystem remote path parses into
+# a plausible owner/repo selector, aiming every gh call at an unrelated
+# GitHub repository. The derivation must refuse hostless URLs - the empty
+# selector trips the existing non-GitHub halt, never a wrong-repo handoff.
+_pr_fixture p17
+git -C "$PR_REPO" config --unset "url.$PR_ORIGIN.insteadOf"
+git -C "$PR_REPO" remote set-url origin "$PR_ORIGIN"
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'"
+t_assert_rc 1 "P17: a filesystem-path remote halts instead of deriving a selector"
+t_assert_contains "$T_OUT" "cannot derive an owner/repo" "P17: ...naming the derivation failure, not acting on a wrong repo"
+if [ -f "$PR_STATE/gh_repo" ]; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: P17 - a gh call fired despite the hostless remote"
 else
   T_PASS=$((T_PASS+1))
 fi

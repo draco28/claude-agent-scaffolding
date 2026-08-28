@@ -467,6 +467,18 @@ while IFS= read -r repo; do
       || { echo "close: cannot fetch '$base_branch' from '$remote_name' in $repo - halt"; exit 1; }
     if ! git -C "$repo_root" merge-base --is-ancestor "$base_branch" "$remote_name/$base_branch"; then
       echo "close: $repo's local '$base_branch' has commits the published line does not carry - a release tag would mark a commit '$remote_name/$base_branch' never receives - push the base or reset to it - halt"; exit 1
+    elif [ "$(git -C "$repo_root" rev-parse "$base_branch")" != "$(git -C "$repo_root" rev-parse "$remote_name/$base_branch")" ]; then
+      # BEHIND (round 9, T34): an ancestor check passes here too - another
+      # checkout landed the final spine PR and this one is stale - and the tag
+      # would mark the stale local commit. Fast-forward to the published tip
+      # first, the record pass's own discipline, then tag THAT.
+      if [ "$(git -C "$repo_root" rev-parse --abbrev-ref HEAD)" = "$base_branch" ]; then
+        git -C "$repo_root" merge --ff-only "$remote_name/$base_branch" \
+          || { echo "close: cannot fast-forward '$base_branch' to the published tip in $repo - halt"; exit 1; }
+      else
+        git -C "$repo_root" fetch "$remote_name" "+refs/heads/$base_branch:refs/heads/$base_branch" \
+          || { echo "close: cannot fast-forward '$base_branch' to the published tip in $repo - halt"; exit 1; }
+      fi
     fi
   fi
 

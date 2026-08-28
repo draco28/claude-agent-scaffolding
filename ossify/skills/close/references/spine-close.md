@@ -229,14 +229,15 @@ $repo:$merge_sha"
     # Host-aware: a GitHub Enterprise remote must pin gh to ITS host or the
     # selector silently resolves on gh's default. github.com is omitted (the
     # default); a ported ssh:// URL yields a selector gh refuses, loudly.
-    pr_slug="$(git -C "$repo_root" remote get-url "$remote_name" | awk '
+    pr_slug="$(git -C "$repo_root" config "remote.$remote_name.url" | awk '
       /\.git$/ { sub(/\.git$/, "") }
       {
         if (match($0, /@[^:\/]+[:\/]/)) host = substr($0, RSTART+1, RLENGTH-2)
         else if (match($0, /https?:\/\/[^\/]+\//)) { host = substr($0, RSTART, RLENGTH-1); sub(/^https?:\/\//, "", host) }
         n = split($0, a, /[:\/]/)
         sel = a[n-1] "/" a[n]
-        if (host != "" && host != "github.com") sel = host "/" sel
+        if (host == "") sel = ""
+        else if (host != "github.com") sel = host "/" sel
         print sel
       }')"
     [ -n "$pr_slug" ] \
@@ -400,17 +401,18 @@ while IFS=: read -r repo pr_num; do
   [ -n "$remote_name" ] \
     || { echo "close: $repo has several remotes and none is 'origin' - the PR was opened through one of them; name it and re-run - halt"; exit 1; }
   # Host-aware (T24): a GitHub Enterprise remote must pin gh to ITS host.
-  pr_slug="$(git -C "$repo_root" remote get-url "$remote_name" | awk '
-    /\.git$/ { sub(/\.git$/, "") }
-    {
-      if (match($0, /@[^:\/]+[:\/]/)) host = substr($0, RSTART+1, RLENGTH-2)
-      else if (match($0, /https?:\/\/[^\/]+\//)) { host = substr($0, RSTART, RLENGTH-1); sub(/^https?:\/\//, "", host) }
-      n = split($0, a, /[:\/]/)
-      sel = a[n-1] "/" a[n]
-      if (host != "" && host != "github.com") sel = host "/" sel
-      print sel
-  }')"
-  [ -n "$pr_slug" ] \
+  pr_slug="$(git -C "$repo_root" config "remote.$remote_name.url" | awk '
+      /\.git$/ { sub(/\.git$/, "") }
+      {
+        if (match($0, /@[^:\/]+[:\/]/)) host = substr($0, RSTART+1, RLENGTH-2)
+        else if (match($0, /https?:\/\/[^\/]+\//)) { host = substr($0, RSTART, RLENGTH-1); sub(/^https?:\/\//, "", host) }
+        n = split($0, a, /[:\/]/)
+        sel = a[n-1] "/" a[n]
+        if (host == "") sel = ""
+        else if (host != "github.com") sel = host "/" sel
+        print sel
+      }')"
+    [ -n "$pr_slug" ] \
     || { echo "close: cannot derive an owner/repo from remote '$remote_name' in $repo - halt"; exit 1; }
 
   pr_json="$( (cd "$repo_root" && gh --repo "$pr_slug" pr view "$pr_num" --json state,baseRefName,mergeCommit,headRefOid,body) 2>&1 )" \
