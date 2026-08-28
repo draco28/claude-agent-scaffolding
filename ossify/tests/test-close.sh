@@ -1371,40 +1371,41 @@ t_assert_rc 1 "P12: an unreachable Enterprise host halts at the third leg (befor
 t_assert_contains "$T_OUT" "silent local fall-through" "P12: ...the gh-inoperable halt, not a network attempt"
 t_assert_eq "ghe.example.com/owner/repo" "$(cat "$PR_STATE/gh_repo")" "P12: the selector carries the remote's host"
 
-# R8. THE TAG-SET SELECTOR against REAL STATE (round 5, T22/T23/T25): the
-# arg-log pin could not see that the query fails inside the process
-# substitution and the loop then tags NOTHING at rc 0. This drives the
-# selector line itself - extracted from the shipped block - through the real
-# dispatcher against real state: one closed spine in THIS release, one
-# abandoned spine, one closed spine in an EARLIER release.
-EARLY_REL="$(bash "$OSS" release_add "earlier" "an earlier goal")"
-EARLY_SP="$(bash "$OSS" spine_add "$EARLY_REL" "earlier spine" flesh)"
-bash "$OSS" work_item_add "$EARLY_SP" "earlier item" >/dev/null
-bash "$OSS" spine_status "$EARLY_SP" closed >/dev/null
-ABANDON_SP="$(bash "$OSS" spine_add "$REL" "abandoned spine" flesh)"
-bash "$OSS" work_item_add "$ABANDON_SP" "abandoned item" >/dev/null
-bash "$OSS" spine_status "$ABANDON_SP" abandoned >/dev/null
-bash "$OSS" work_item_status "$WI" complete >/dev/null
-bash "$OSS" spine_status "$SP" closed >/dev/null
-# Extract the query from the tag_repos assignment line: an inner-escaped-
-# quote-aware strip (prefix to 'oss get "', suffix from '" | sort'), because a
-# naive '[^"]*' truncates at the first escaped quote inside the jq program.
-SEL_LINE_ALL="$(grep 'tag_repos=' "$TAG_BLOCK" | head -1)"
-SEL_QUERY="${SEL_LINE_ALL#*oss get \"}"
-SEL_QUERY="${SEL_QUERY%\" | sort*}"
+# R8. THE TAG-SET SELECTOR against REAL STATE and DISTINCT REPOS (round 5
+# T22/T23/T25; discriminating form per round 6 T26): presence assertions
+# cannot tell a scoped selector from an unscoped one when every spine targets
+# the same repo, so this fixture declares three - the CURRENT release's
+# closed spine lands in "current", an earlier closed release's in "earlier",
+# an abandoned spine's in "abandon" - and the assertion is EQUALITY.
+mkdir -p "$TMP/r8ws/.ossify" "$TMP/r8cur" "$TMP/r8earl" "$TMP/r8aband"
+cat > "$TMP/r8ws/.ossify/topology.json" <<R8TOPO
+{"schema_version":1,"repos":{"current":{"root":"$TMP/r8cur"},"earlier":{"root":"$TMP/r8earl"},"abandon":{"root":"$TMP/r8aband"}},"well_known_paths":{}}
+R8TOPO
+( cd "$TMP/r8ws"
+  bash "$OSS" init r8f >/dev/null
+  R8REL="$(bash "$OSS" release_add g goal)"
+  R8EARLY_REL="$(bash "$OSS" release_add e "earlier goal")"
+  R8EARLY_SP="$(bash "$OSS" spine_add "$R8EARLY_REL" es flesh earlier)"
+  bash "$OSS" work_item_add "$R8EARLY_SP" ei earlier >/dev/null
+  bash "$OSS" spine_status "$R8EARLY_SP" closed >/dev/null
+  R8ABANDON_SP="$(bash "$OSS" spine_add "$R8REL" as flesh abandon)"
+  bash "$OSS" work_item_add "$R8ABANDON_SP" ai abandon >/dev/null
+  bash "$OSS" spine_status "$R8ABANDON_SP" abandoned >/dev/null
+  R8CLOSED_SP="$(bash "$OSS" spine_add "$R8REL" cs flesh current)"
+  bash "$OSS" work_item_add "$R8CLOSED_SP" ci current >/dev/null
+  bash "$OSS" spine_status "$R8CLOSED_SP" closed >/dev/null
+  printf '%s\n' "$R8REL" > "$TMP/r8ws/.rel"
+)
+R8REL="$(cat "$TMP/r8ws/.rel")"
 # Run the assignment line AS BASH SOURCE (eval), so the shell processes the
 # jq escapes exactly as the shipped script does - passing the extracted text
 # through quotes leaves the backslashes as data and jq fails on \$root.
 SEL_ASSIGN="$(grep 'tag_repos=' "$TAG_BLOCK" | head -1 | sed 's/ *\\$//')"
-sel_rc=0; SEL_OUT="$(cd "$TMP/ws" && rel="$REL" PATH="$(dirname "$OSS"):$PATH" eval "$SEL_ASSIGN" && printf '%s' "$tag_repos")" || sel_rc=$?
+sel_rc=0; SEL_OUT="$(cd "$TMP/r8ws" && rel="$R8REL" PATH="$(dirname "$OSS"):$PATH" eval "$SEL_ASSIGN" && printf '%s' "$tag_repos")" || sel_rc=$?
 # Assert on $sel_rc directly - there is no t_capture here, so T_RC would hold
 # the PREVIOUS capture's status and read green or red for the wrong scenario.
 t_assert_eq 0 "$sel_rc" "R8: the tag-set selector executes against real state (a jq failure would abort)"
-t_assert_contains "$SEL_OUT" "canonical" "R8: ...and yields the closed THIS-release spine's repo"
-case "$SEL_OUT" in
-  *"$ABANDON_SP"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: R8 - the selector leaks an abandoned spine's items into the query path";;
-  *) T_PASS=$((T_PASS+1));;
-esac
+t_assert_eq "current" "$SEL_OUT" "R8: the selector yields EXACTLY the current release's closed-spine repo (an unscoped selector would name earlier/abandon too)"
 
 # P13. THE CLASS SWEEP, instance 1 (T16's class, landing + record passes):
 # a per-repo base mapping with TWO entries for one repo is a halt everywhere
