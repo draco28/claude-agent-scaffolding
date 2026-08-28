@@ -1342,6 +1342,106 @@ canonical:release-line'; . '$TAG_BLOCK'"
 t_assert_rc 1 "R7: two recorded bases for one repo halt the tag pass"
 t_assert_contains "$T_OUT" "conflicting base" "R7: ...naming the conflict, not silently picking a line"
 
+# P11. A CLOSED-UNMERGED PR is not a resumable landing (round 5, T20):
+# --state all selects it, creation is suppressed, work-pr refuses it and the
+# record pass rejects CLOSED - a wedge. Only OPEN and MERGED resume.
+_pr_fixture p11
+printf "7 CLOSED\n" > "$PR_STATE/pr"
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'"
+t_assert_rc 0 "P11: a closed-unmerged PR does not wedge the landing pass"
+case "$T_OUT" in
+  *"already has PR"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: P11 - the probe resumed a CLOSED-unmerged PR";;
+  *) T_PASS=$((T_PASS+1));;
+esac
+t_assert_contains "$T_OUT" "PR #7 opened against main" "P11: ...a replacement PR is opened instead"
+
+# P12. THE GHE HOST SURVIVES the --repo derivation (round 5, T24): an
+# Enterprise remote must pin the selector to ITS host, not gh's default.
+_pr_fixture p12
+# The remote's URL carries an Enterprise host the stub will declare
+# unoperable: the slug derivation runs BEFORE the probe, and the probe before
+# any push, so the block halts at the third leg with the derived selector
+# already on record - no network, and the host pinning is what the stub saw.
+git -C "$PR_REPO" remote set-url origin https://ghe.example.com/owner/repo.git
+touch "$PR_STATE/nongithub"
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'"
+t_assert_rc 1 "P12: an unreachable Enterprise host halts at the third leg (before any push)"
+t_assert_contains "$T_OUT" "silent local fall-through" "P12: ...the gh-inoperable halt, not a network attempt"
+t_assert_eq "ghe.example.com/owner/repo" "$(cat "$PR_STATE/gh_repo")" "P12: the selector carries the remote's host"
+
+# R8. THE TAG-SET SELECTOR against REAL STATE (round 5, T22/T23/T25): the
+# arg-log pin could not see that the query fails inside the process
+# substitution and the loop then tags NOTHING at rc 0. This drives the
+# selector line itself - extracted from the shipped block - through the real
+# dispatcher against real state: one closed spine in THIS release, one
+# abandoned spine, one closed spine in an EARLIER release.
+EARLY_REL="$(bash "$OSS" release_add "earlier" "an earlier goal")"
+EARLY_SP="$(bash "$OSS" spine_add "$EARLY_REL" "earlier spine" flesh)"
+bash "$OSS" work_item_add "$EARLY_SP" "earlier item" >/dev/null
+bash "$OSS" spine_status "$EARLY_SP" closed >/dev/null
+ABANDON_SP="$(bash "$OSS" spine_add "$REL" "abandoned spine" flesh)"
+bash "$OSS" work_item_add "$ABANDON_SP" "abandoned item" >/dev/null
+bash "$OSS" spine_status "$ABANDON_SP" abandoned >/dev/null
+bash "$OSS" work_item_status "$WI" complete >/dev/null
+bash "$OSS" spine_status "$SP" closed >/dev/null
+# Extract the query from the tag_repos assignment line: an inner-escaped-
+# quote-aware strip (prefix to 'oss get "', suffix from '" | sort'), because a
+# naive '[^"]*' truncates at the first escaped quote inside the jq program.
+SEL_LINE_ALL="$(grep 'tag_repos=' "$TAG_BLOCK" | head -1)"
+SEL_QUERY="${SEL_LINE_ALL#*oss get \"}"
+SEL_QUERY="${SEL_QUERY%\" | sort*}"
+# Run the assignment line AS BASH SOURCE (eval), so the shell processes the
+# jq escapes exactly as the shipped script does - passing the extracted text
+# through quotes leaves the backslashes as data and jq fails on \$root.
+SEL_ASSIGN="$(grep 'tag_repos=' "$TAG_BLOCK" | head -1 | sed 's/ *\\$//')"
+sel_rc=0; SEL_OUT="$(cd "$TMP/ws" && rel="$REL" PATH="$(dirname "$OSS"):$PATH" eval "$SEL_ASSIGN" && printf '%s' "$tag_repos")" || sel_rc=$?
+# Assert on $sel_rc directly - there is no t_capture here, so T_RC would hold
+# the PREVIOUS capture's status and read green or red for the wrong scenario.
+t_assert_eq 0 "$sel_rc" "R8: the tag-set selector executes against real state (a jq failure would abort)"
+t_assert_contains "$SEL_OUT" "canonical" "R8: ...and yields the closed THIS-release spine's repo"
+case "$SEL_OUT" in
+  *"$ABANDON_SP"*) T_FAIL=$((T_FAIL+1)); echo "FAIL: R8 - the selector leaks an abandoned spine's items into the query path";;
+  *) T_PASS=$((T_PASS+1));;
+esac
+
+# P13. THE CLASS SWEEP, instance 1 (T16's class, landing + record passes):
+# a per-repo base mapping with TWO entries for one repo is a halt everywhere
+# it is consumed - the tag pass fixed this in round 4; the landing and record
+# passes still first-wins.
+_pr_fixture p13
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main
+canonical:release-line'; . '$MERGE_BLOCK'"
+t_assert_rc 1 "P13: conflicting bases halt the LANDING pass"
+t_assert_contains "$T_OUT" "conflicting base" "P13: ...naming both lines, not first-wins"
+_pr_fixture p13b
+printf "7 MERGED\n" > "$PR_STATE/pr"
+git -C "$PR_REPO" rev-parse "$PR_BRANCH" > "$PR_STATE/head_oid"
+git -C "$PR_REPO" rev-parse "$PR_BRANCH" > "$PR_STATE/merge_commit"
+printf "%s\n" "$(git -C "$PR_REPO" rev-parse "$PR_BRANCH")" > "$PR_STATE/pushed_tip"
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; spine_branch='spine/r0.s5-tier'; repo_base_branches='canonical:main
+canonical:release-line'; pr_lines='canonical:7'; . '$PRRECORD_BLOCK'"
+t_assert_rc 1 "P13b: conflicting bases halt the RECORD pass"
+t_assert_contains "$T_OUT" "conflicting base" "P13b: ...same guard, same halt"
+
+# P14. THE CLASS SWEEP, instance 2 (T23's class, landing pass): a selector
+# failure inside the process substitution silently yields ZERO repos and the
+# pass succeeds having landed nothing. The repo list is read as an
+# assignment whose failure aborts, never as a silent empty loop.
+mkdir -p "$TMP/p14-shim"
+{ printf '#!/usr/bin/env bash\ncase "$1 $2" in\n  "repo_root canonical") echo %s ;;\n  "branch_name "*) echo %s ;;\n  *"target_repo"*) exit 5 ;;\n  *) exit 5 ;;\nesac\n' "$TMP/p13" "$PR_BRANCH"; } > "$TMP/p14-shim/oss"
+chmod +x "$TMP/p14-shim/oss"
+t_capture env "PATH=$TMP/p14-shim:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'"
+if [ "$T_RC" -eq 0 ]; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: P14 - a repo-list read failure succeeded silently, landing nothing"
+else
+  T_PASS=$((T_PASS+1))
+fi
+
 cd /; rm -rf "$TMP"
 
 # A FLOOR ON THE ASSERTION COUNT. Every check in test-block-ledger.sh proves

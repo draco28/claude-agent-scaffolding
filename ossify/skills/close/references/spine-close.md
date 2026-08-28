@@ -139,6 +139,12 @@ spine_branch="$(oss branch_name "$spine_id" "$spine_slug")"
 # hoisted once, same as the slug. Branch names cannot contain ":" (git refuses
 # it), so splitting each line on the first colon is unambiguous.
 
+# THE REPO SET IS READ AS AN ASSIGNMENT, never from a process substitution
+# (round 5 sweep): a selector failure inside `< <(...)` is invisible - the
+# loop receives zero repos and the pass succeeds having landed nothing.
+landing_repos="$(oss get ".work_items[] | select(.spine==\"$spine_id\") | .target_repo" | sort -u)" \
+  || { echo "close: the hosting-repo set could not be read from state - halt"; exit 1; }
+
 merge_shas=""
 pr_lines=""
 while IFS= read -r repo; do
@@ -146,8 +152,14 @@ while IFS= read -r repo; do
 
   repo_root="$(oss repo_root "$repo")" \
     || { echo "close: $spine_id names undeclared repo '$repo' - halt"; exit 1; }
-  base_branch="$(printf '%s\n' "$repo_base_branches" | awk -F: -v r="$repo" '$1==r{print $2; exit}')"
-
+  _bases="$(printf '%s\n' "$repo_base_branches" | awk -F: -v r="$repo" '$1==r{print $2}' | sort -u)"
+  _nbases="$(printf '%s\n' "$_bases" | awk 'END{print NR}')"
+  # UNAMBIGUOUS per repo (round 5 sweep, T16's class): first-wins silently
+  # lands into whichever base sorted first.
+  if [ "$_nbases" -gt 1 ]; then
+    echo "close: conflicting base branches recorded for $spine_id in $repo: $(printf '%s' "$_bases" | tr '\n' ' ')- a human decides which line - halt"; exit 1
+  fi
+  base_branch="$_bases"
   [ -n "$base_branch" ] \
     || { echo "close: no base_branch recorded for $spine_id in $repo - halt"; exit 1; }
   pre="$(git -C "$repo_root" rev-parse "$spine_branch")" \
@@ -214,8 +226,19 @@ $repo:$merge_sha"
     # repository, which a checkout can point at another remote entirely - and a
     # same-number PR in the wrong repository is indistinguishable from this
     # one until something lands somewhere it should not.
-    pr_slug="$(git -C "$repo_root" remote get-url "$remote_name" \
-      | awk '/\.git$/{sub(/\.git$/,"")} {n=split($0,a,/[:\/]/); print a[n-1]"/"a[n]}')"
+    # Host-aware: a GitHub Enterprise remote must pin gh to ITS host or the
+    # selector silently resolves on gh's default. github.com is omitted (the
+    # default); a ported ssh:// URL yields a selector gh refuses, loudly.
+    pr_slug="$(git -C "$repo_root" remote get-url "$remote_name" | awk '
+      /\.git$/ { sub(/\.git$/, "") }
+      {
+        if (match($0, /@[^:\/]+[:\/]/)) host = substr($0, RSTART+1, RLENGTH-2)
+        else if (match($0, /https?:\/\/[^\/]+\//)) { host = substr($0, RSTART, RLENGTH-1); sub(/^https?:\/\//, "", host) }
+        n = split($0, a, /[:\/]/)
+        sel = a[n-1] "/" a[n]
+        if (host != "" && host != "github.com") sel = host "/" sel
+        print sel
+      }')"
     [ -n "$pr_slug" ] \
       || { echo "close: cannot derive an owner/repo from remote '$remote_name' in $repo - halt"; exit 1; }
     #
@@ -229,9 +252,12 @@ $repo:$merge_sha"
     # OTHER branch out of this arm's hands - accepting one by head alone would
     # hand work-pr a PR whose merge lands in the wrong branch, and the record
     # pass's baseRefName check would only catch it afterwards.
-    probe="$( (cd "$repo_root" && gh --repo "$pr_slug" pr list --head "$spine_branch" --base "$base_branch" --state all --json number --limit 1) 2>&1 )" \
+    # OPEN and MERGED resume; CLOSED-unmerged does NOT (round 5, T20): a
+    # closed PR suppresses neither the push nor a replacement PR - resuming it
+    # wedges the close between work-pr's refusal and the record pass's.
+    probe="$( (cd "$repo_root" && gh --repo "$pr_slug" pr list --head "$spine_branch" --base "$base_branch" --state all --json number,state --limit 5) 2>&1 )" \
       || { echo "close: gh cannot operate on $repo's remote ($probe) - fix gh (auth, host) or record an operator-decided local merge - never a silent local fall-through - halt"; exit 1; }
-    pr_num="$(printf '%s\n' "$probe" | jq -r '.[0].number // ""')"
+    pr_num="$(printf '%s\n' "$probe" | jq -r 'map(select(.state == "OPEN" or .state == "MERGED")) | .[0].number // ""')"
     if [ -n "$pr_num" ]; then
       # A RESUMED PR is this ceremony's PR only if its head DESCENDS from the
       # tip this close pushed - proven HERE, before the handoff, because the
@@ -265,7 +291,9 @@ pushed-tip: $pre"
     pr_lines="$pr_lines
 $repo:$pr_num"
   fi
-done < <(oss get ".work_items[] | select(.spine==\"$spine_id\") | .target_repo" | sort -u)
+done <<EOF
+$landing_repos
+EOF
 ```
 
 **The local arm keeps its four guards, and every one of them exists because the
@@ -309,7 +337,12 @@ why the tier sits here and not at the work item, whose merges stay local); the
 **merge convention is a merge commit** — a rebase or squash landing cannot feed
 §6's first-parent diff and is turned away at the record pass below; and that
 deferrals land as tracked issues **in that repo**, linked from the spine's
-retrospective (§8). The merge is the operator's explicit call inside work-pr —
+retrospective (§8). **History rewrites are not available on a spine PR**:
+work-pr's second exit — unclaiming by rewrite and force-with-lease — is
+REPLACED here by unclaiming in a follow-up commit, because the record pass's
+lineage guard binds to the pushed tip and a rewritten head cannot be recorded;
+if a rewrite has already happened, re-land the PR from the pushed tip or
+record an operator decision. The merge is the operator's explicit call inside work-pr —
 this ceremony does not ack on anyone's behalf. **If the operator leaves any PR
 open, the close halts here, recording nothing**: surface the PR URLs, say which
 steps remain, and stop. That is the named halt state; re-invoke `/close
@@ -336,7 +369,14 @@ while IFS=: read -r repo pr_num; do
   [ -n "$repo" ] || continue
   repo_root="$(oss repo_root "$repo")" \
     || { echo "close: pr_lines names undeclared repo '$repo' - halt"; exit 1; }
-  base_branch="$(printf '%s\n' "$repo_base_branches" | awk -F: -v r="$repo" '$1==r{print $2; exit}')"
+  _bases="$(printf '%s\n' "$repo_base_branches" | awk -F: -v r="$repo" '$1==r{print $2}' | sort -u)"
+  _nbases="$(printf '%s\n' "$_bases" | awk 'END{print NR}')"
+  # UNAMBIGUOUS per repo (round 5 sweep, T16's class): first-wins silently
+  # lands into whichever base sorted first.
+  if [ "$_nbases" -gt 1 ]; then
+    echo "close: conflicting base branches recorded for $spine_id in $repo: $(printf '%s' "$_bases" | tr '\n' ' ')- a human decides which line - halt"; exit 1
+  fi
+  base_branch="$_bases"
   [ -n "$base_branch" ] \
     || { echo "close: no base_branch recorded for $spine_id in $repo - halt"; exit 1; }
 
@@ -346,8 +386,17 @@ while IFS=: read -r repo pr_num; do
   remote_name="$(printf '%s\n' "$(git -C "$repo_root" remote)" | awk 'NR==1{first=$0} $0=="origin"{o=1} END{if(o) print "origin"; else if(NR==1) print first; else print ""}')"
   [ -n "$remote_name" ] \
     || { echo "close: $repo has several remotes and none is 'origin' - the PR was opened through one of them; name it and re-run - halt"; exit 1; }
-  pr_slug="$(git -C "$repo_root" remote get-url "$remote_name" \
-    | awk '/\.git$/{sub(/\.git$/,"")} {n=split($0,a,/[:\/]/); print a[n-1]"/"a[n]}')"
+  # Host-aware (T24): a GitHub Enterprise remote must pin gh to ITS host.
+  pr_slug="$(git -C "$repo_root" remote get-url "$remote_name" | awk '
+    /\.git$/ { sub(/\.git$/, "") }
+    {
+      if (match($0, /@[^:\/]+[:\/]/)) host = substr($0, RSTART+1, RLENGTH-2)
+      else if (match($0, /https?:\/\/[^\/]+\//)) { host = substr($0, RSTART, RLENGTH-1); sub(/^https?:\/\//, "", host) }
+      n = split($0, a, /[:\/]/)
+      sel = a[n-1] "/" a[n]
+      if (host != "" && host != "github.com") sel = host "/" sel
+      print sel
+  }')"
   [ -n "$pr_slug" ] \
     || { echo "close: cannot derive an owner/repo from remote '$remote_name' in $repo - halt"; exit 1; }
 
@@ -402,7 +451,7 @@ while IFS=: read -r repo pr_num; do
   # not equality: work-pr's fix commits sit on top of the pushed tip. A
   # rewritten or diverged head fails.
   git -C "$repo_root" merge-base --is-ancestor "$pushed_tip" "$head_oid" \
-    || { echo "close: $repo PR #$pr_num's merged head does not descend from the tip this close pushed ($pushed_tip) - the branch was rewritten or diverged - halt"; exit 1; }
+    || { echo "close: $repo PR #$pr_num's merged head does not descend from the tip this close pushed ($pushed_tip) - the branch was rewritten or diverged (work-pr's rewrite exit is not available on a spine PR) - re-land from the pushed tip or record an operator decision - halt"; exit 1; }
 
   # BASE LANDED - the fetched base contains the merge commit gh reported.
   git -C "$repo_root" merge-base --is-ancestor "$merge_sha" "$base_branch" \

@@ -419,6 +419,15 @@ whichever repo that happens to be:
 # branch, and nothing here runs unscoped git: release close is invoked from
 # the AI workspace as often as from a product repo, and a bare `git tag`
 # lands in whichever of those the caller stood in.
+# Root-bound, release-scoped, and read as a FAILING ASSIGNMENT (round 5,
+# T22/T23/T25): inside `.work_items[]` the jq input is a single work item, so
+# `.spines` must come from a captured root or jq fails - and a selector
+# failure in a process substitution is invisible, the loop tags NOTHING and
+# the pass still returns 0. jq variables crossing a shell double-quoted
+# string need the backslash (\$root, \$s); $rel is shell-expanded on purpose.
+tag_repos="$(oss get ". as \$root | .work_items[] | select(.spine as \$s | any(\$root.spines[]; .id == \$s and .status == \"closed\" and .release == \"$rel\")) | .target_repo" | sort -u)" \
+  || { echo "close: the release-tag repo set could not be read from state - halt"; exit 1; }
+
 while IFS= read -r repo; do
   [ -n "$repo" ] || continue
   repo_root="$(oss repo_root "$repo")" \
@@ -488,7 +497,9 @@ while IFS= read -r repo; do
     fi
     echo "close: $repo tagged $rel"
   fi
-done < <(oss get ".work_items[] | select(.spine as \$s | any(.spines[]; .id == \$s and .status == \"closed\")) | .target_repo" | sort -u)
+done <<EOF
+$tag_repos
+EOF
 ```
 
 **Resumable by construction:** the flat "an existing tag halts" rule made a
