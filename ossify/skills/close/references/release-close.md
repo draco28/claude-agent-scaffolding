@@ -445,16 +445,15 @@ while IFS= read -r repo; do
   [ -n "$base_branch" ] \
     || { echo "close: no base_branch recorded for $rel in $repo - halt"; exit 1; }
 
-  # The remote, resolved - never assumed to be named origin. Same rule the
-  # spine-close PR arm uses: origin if present, a single remote otherwise,
-  # several-with-no-origin halts naming them. NO remote at all is not an error
-  # here - it is the same no-remote world the landing tier serves: the repo
-  # landed its spines by local merge all release, and its tag is local too,
-  # verified by the same checks minus the remote leg.
+  # The remote, resolved: a SINGLE remote is used whatever its name; SEVERAL
+  # halt naming them, origin preference included (T36, fork shapes). NO remote
+  # at all is not an error here - it is the same no-remote world the landing
+  # tier serves: the repo landed its spines by local merge all release, and
+  # its tag is local too, verified by the same checks minus the remote leg.
   remotes="$(git -C "$repo_root" remote)"
-  remote_name="$(printf '%s\n' "$remotes" | awk 'NR==1{first=$0} $0=="origin"{o=1} END{if(o) print "origin"; else if(NR==1) print first; else print ""}')"
+  remote_name="$(printf '%s\n' "$remotes" | awk 'NR==1{first=$0} END{if(NR==1) print first; else print ""}')"
   if [ -n "$remotes" ] && [ -z "$remote_name" ]; then
-    echo "close: $repo has several remotes and none is 'origin' - name the one to tag through and re-run - halt"; exit 1
+    echo "close: $repo has several remotes (fork shapes included) - name the one to tag through and re-run - halt"; exit 1
   fi
 
   # THE BASE THE TAG WOULD MARK MUST BE THE PUBLISHED ONE (round 8, T31):
@@ -468,17 +467,11 @@ while IFS= read -r repo; do
     if ! git -C "$repo_root" merge-base --is-ancestor "$base_branch" "$remote_name/$base_branch"; then
       echo "close: $repo's local '$base_branch' has commits the published line does not carry - a release tag would mark a commit '$remote_name/$base_branch' never receives - push the base or reset to it - halt"; exit 1
     elif [ "$(git -C "$repo_root" rev-parse "$base_branch")" != "$(git -C "$repo_root" rev-parse "$remote_name/$base_branch")" ]; then
-      # BEHIND (round 9, T34): an ancestor check passes here too - another
-      # checkout landed the final spine PR and this one is stale - and the tag
-      # would mark the stale local commit. Fast-forward to the published tip
-      # first, the record pass's own discipline, then tag THAT.
-      if [ "$(git -C "$repo_root" rev-parse --abbrev-ref HEAD)" = "$base_branch" ]; then
-        git -C "$repo_root" merge --ff-only "$remote_name/$base_branch" \
-          || { echo "close: cannot fast-forward '$base_branch' to the published tip in $repo - halt"; exit 1; }
-      else
-        git -C "$repo_root" fetch "$remote_name" "+refs/heads/$base_branch:refs/heads/$base_branch" \
-          || { echo "close: cannot fast-forward '$base_branch' to the published tip in $repo - halt"; exit 1; }
-      fi
+      # BEHIND (round 10, T37): the round-9 fast-forward mutated the base AFTER
+      # the boundary audit had examined the stale tree - the tag then marked
+      # commits the audit never saw. A stale checkout REFUSES instead: pull
+      # and re-run the close. Nothing mutates the base after the audit.
+      echo "close: $repo's local '$base_branch' is behind the published tip - a stale checkout must not tag past what its boundary audit saw - pull and re-run the close - halt"; exit 1
     fi
   fi
 

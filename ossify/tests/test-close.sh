@@ -1559,11 +1559,11 @@ else
   T_PASS=$((T_PASS+1))
 fi
 
-# R12. A BASE BEHIND THE PUBLISHED TIP (round 9, T34): another checkout merged
-# the final spine PR, so the remote base advanced past this checkout's. The
-# behind state passes an ancestor check - the tag would mark the STALE local
-# commit and the release could close omitting merged work. The pass
-# fast-forwards to the published tip and tags THAT.
+# R12. A BASE BEHIND THE PUBLISHED TIP (round 10, T37): the round-9
+# fast-forward ran AFTER the boundary audit had examined the stale tree, so
+# the tag marked commits the audit never saw. Behind is now a REFUSAL: halt,
+# name the state, pull-and-re-run is the remedy. No mutation of the base
+# after the audit, ever.
 _pr_fixture r12
 CL12="$TMP/r12-clone"; rm -rf "$CL12"; git clone -q "$PR_ORIGIN" "$CL12"
 git -C "$CL12" config user.email t@t; git -C "$CL12" config user.name t
@@ -1571,11 +1571,17 @@ git -C "$CL12" checkout -q main
 echo final > "$CL12/final.txt"; git -C "$CL12" add final.txt; git -C "$CL12" commit -qm "the final spine PR merged elsewhere"
 git -C "$CL12" push -q origin main
 R12_REMOTE_TIP="$(git --git-dir="$PR_ORIGIN" rev-parse main)"
+R12_STALE_TIP="$(git -C "$PR_REPO" rev-parse main)"
 t_capture env "PATH=$PR_SHIM:$PATH" bash -c \
   "set -euo pipefail; rel='r9'; repo_base_branches='canonical:main'; . '$TAG_BLOCK'"
-t_assert_rc 0 "R12: a base behind the published tip fast-forwards and tags"
-t_assert_eq "$R12_REMOTE_TIP" "$(git -C "$PR_REPO" rev-parse -q --verify 'refs/tags/r9^{}' 2>/dev/null)" \
-  "R12: the tag marks the PUBLISHED tip, not the stale local commit"
+t_assert_rc 1 "R12: a base behind the published tip halts - never mutated after the audit"
+t_assert_contains "$T_OUT" "behind the published tip" "R12: ...naming the state and the pull-and-re-run remedy"
+if git -C "$PR_REPO" rev-parse -q --verify 'refs/tags/r9' >/dev/null 2>&1; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: R12 - a tag was created despite the halt"
+else
+  T_PASS=$((T_PASS+1))
+fi
+t_assert_eq "$R12_STALE_TIP" "$(git -C "$PR_REPO" rev-parse main)" "R12: the local base was left untouched (no post-audit mutation)"
 
 # P17. A HOSTLESS REMOTE (round 9, T35): a filesystem remote path parses into
 # a plausible owner/repo selector, aiming every gh call at an unrelated
@@ -1593,6 +1599,17 @@ if [ -f "$PR_STATE/gh_repo" ]; then
 else
   T_PASS=$((T_PASS+1))
 fi
+
+# P18. SEVERAL REMOTES HALT, origin preference included (round 10, T36): in a
+# fork checkout origin is the FORK and upstream the canonical repo - an
+# origin-preferring rule PRs the fork. Any multi-remote shape halts naming
+# them; the single-remote case (whatever its name) is the straightforward one.
+_pr_fixture p18
+git -C "$PR_REPO" remote add upstream "$PR_ORIGIN"
+t_capture env "GH_STATE=$PR_STATE" "PATH=$GHSTUB:$PR_SHIM:$PATH" bash -c \
+  "set -euo pipefail; spine_id='r0.s5'; spine_slug='tier'; repo_base_branches='canonical:main'; . '$MERGE_BLOCK'"
+t_assert_rc 1 "P18: a two-remote (fork-shaped) repo halts the landing pass"
+t_assert_contains "$T_OUT" "several remotes" "P18: ...naming them, never silently preferring origin"
 
 cd /; rm -rf "$TMP"
 

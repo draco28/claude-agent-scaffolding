@@ -165,13 +165,12 @@ while IFS= read -r repo; do
   pre="$(git -C "$repo_root" rev-parse "$spine_branch")" \
     || { echo "close: cannot resolve '$spine_branch' in $repo - halt"; exit 1; }
 
-  # RESOLVE THE REMOTE, never assume its name is origin (round 2): a repo whose
-  # only remote is named "upstream" selects the PR arm on the same remote-
-  # exists evidence and would then push to a nonexistent origin. Origin wins
-  # when present; otherwise a SINGLE remote wins; several remotes with no
-  # origin is a halt naming them - guessing merges into a line nobody named.
+  # RESOLVE THE REMOTE (round 10, T36): a SINGLE remote is used whatever its
+  # name; SEVERAL remotes halt naming them, origin preference included - in a
+  # fork checkout origin is the FORK and upstream the canonical repo, and
+  # preferring origin would open and merge the PR against the fork.
   remotes="$(git -C "$repo_root" remote)"
-  remote_name="$(printf '%s\n' "$remotes" | awk 'NR==1{first=$0} $0=="origin"{o=1} END{if(o) print "origin"; else if(NR==1) print first; else print ""}')"
+  remote_name="$(printf '%s\n' "$remotes" | awk 'NR==1{first=$0} END{if(NR==1) print first; else print ""}')"
 
   if [ -z "$remotes" ]; then
     # LOCAL ARM — no remote: nothing stands between this repo and its own base
@@ -216,7 +215,7 @@ while IFS= read -r repo; do
     merge_shas="$merge_shas
 $repo:$merge_sha"
   elif [ -z "$remote_name" ]; then
-    echo "close: $repo has several remotes ($(printf '%s' "$remotes" | tr '\n' ' ')) and none is 'origin' - name the remote to land through and re-run - halt"; exit 1
+    echo "close: $repo has several remotes ($(printf '%s' "$remotes" | tr '\n' ' '))- a fork checkout's origin is the fork, so no preference is safe - name the remote to land through and re-run - halt"; exit 1
   else
     # PR ARM — the base branch is a published line: the merge goes by PR, and
     # the record pass below finishes it after work-pr drives the loop.
@@ -351,7 +350,11 @@ why the tier sits here and not at the work item, whose merges stay local); the
 **merge convention is a merge commit** — a rebase or squash landing cannot feed
 §6's first-parent diff and is turned away at the record pass below; and that
 deferrals land as tracked issues **in that repo**, linked from the spine's
-retrospective (§8). **History rewrites are not available on a spine PR**:
+retrospective (§8). **Review-fix commits are not re-gated** (#377): they land
+after every work item's acceptance and impl-check gates have passed and the
+items were marked complete; this ceremony's coverage of them is the cumulative
+demo (§5) and the touch check (§6), and re-gating the fix lane is a tracked
+design question, not a hidden behavior. **History rewrites are not available on a spine PR**:
 work-pr's second exit — unclaiming by rewrite and force-with-lease — is
 REPLACED here by unclaiming in a follow-up commit, because the record pass's
 lineage guard binds to the pushed tip and a rewritten head cannot be recorded;
@@ -394,12 +397,11 @@ while IFS=: read -r repo pr_num; do
   [ -n "$base_branch" ] \
     || { echo "close: no base_branch recorded for $spine_id in $repo - halt"; exit 1; }
 
-  # Same remote resolution the landing pass used - the PR lives on whatever
-  # remote this repo actually has, and origin is a convention, not a law. The
-  # view is pinned to that remote's repo for the same reason the probe is.
-  remote_name="$(printf '%s\n' "$(git -C "$repo_root" remote)" | awk 'NR==1{first=$0} $0=="origin"{o=1} END{if(o) print "origin"; else if(NR==1) print first; else print ""}')"
+  # Same single-remote-or-halt rule the landing pass uses (T36): several
+  # remotes halt, origin preference included.
+  remote_name="$(printf '%s\n' "$(git -C "$repo_root" remote)" | awk 'NR==1{first=$0} END{if(NR==1) print first; else print ""}')"
   [ -n "$remote_name" ] \
-    || { echo "close: $repo has several remotes and none is 'origin' - the PR was opened through one of them; name it and re-run - halt"; exit 1; }
+    || { echo "close: $repo has several remotes (fork shapes included) - the PR was opened through one of them; name it and re-run - halt"; exit 1; }
   # Host-aware (T24): a GitHub Enterprise remote must pin gh to ITS host.
   pr_slug="$(git -C "$repo_root" config "remote.$remote_name.url" | awk '
       /\.git$/ { sub(/\.git$/, "") }
