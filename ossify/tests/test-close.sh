@@ -887,93 +887,135 @@ t_assert_eq "" "$(git -C "$W2C" branch --list 'spine/*')" \
   "W2c: ...and cut no spine branch on the way out"
 
 # ---------------------------------------------------------------------------
-# W3: the Layer 4 staged-index identity guard (round 9, PR #380; redesigned
-# after a round-10 self-review caught the first shape as vacuous). The six
-# delegated reader/refuter agents get ordinary worktree tool access, and the
-# read-only instruction in their prompts is prose, not enforcement (spec
+# W3: the Layer 4 input-fingerprint guard (round 9, PR #380; redesigned round
+# 10 for the tool-call boundary; extended round 12 to cover every input Layer
+# 4's delegated call reads, not just the staged index). The six delegated
+# reader/refuter agents get ordinary worktree and filesystem tool access, and
+# the read-only instruction in their prompts is prose, not enforcement (spec
 # residual R4) - an injected instruction in the staged diff or a reviewed doc
-# could get one of them to mutate the index mid-review, and nothing else in
-# the gate re-inspects what actually gets committed.
+# could get one of them to mutate the index OR one of the review documents
+# mid-review (report.md in particular, since it drives declared_in_report_s7),
+# and nothing else in the gate re-inspects what actually gets committed or
+# what report.md says by the time the verdict rule reads it.
 #
-# THE BUG THE FIRST VERSION OF THIS TEST MISSED: the two guard blocks are
-# separated by the Workflow tool call, which is NOT a bash block - it is a
-# separate tool invocation, and this environment's own Bash tool does not
-# carry shell state across separate invocations (only cwd persists). The
-# original prose assigned `pre_tree=` in block 1 and read it back in block 2,
-# which cannot survive that boundary - it would halt "possible injection" on
-# every real clean run. The original W3 sourced both blocks into ONE `bash -c`
-# call, which shares process state a real close never would, and so never saw
-# the bug. The fix: block 1 only PRINTS the tree hash; the prose has the agent
-# carry it forward as a literal and substitute it into block 2's
-# `pre_tree="<placeholder>"` line, exactly like `$report`'s own
-# `<report_path from the complete return>` convention (§1). This test proves
-# that shape survives TWO GENUINELY SEPARATE bash processes with the
-# placeholder substituted exactly as an agent would, never sourcing the two
-# blocks into a shared shell.
+# THE BUG ROUND 10 CAUGHT: the two guard blocks are separated by the Workflow
+# tool call, which is NOT a bash block - it is a separate tool invocation, and
+# this environment's own Bash tool does not carry shell state across separate
+# invocations (only cwd persists). The fix: block 1 only PRINTS the
+# fingerprint; the prose has the agent carry it forward as a literal and
+# substitute it into block 2's `pre_fp="<placeholder>"` line, exactly like
+# `$report`'s own `<report_path from the complete return>` convention (§1).
+# `patterns` is carried the same way in BOTH blocks, since - like `$report` -
+# nothing derives it from an already-carried variable. This test proves that
+# shape survives TWO GENUINELY SEPARATE bash processes with every placeholder
+# substituted exactly as an agent would, never sourcing the two blocks into a
+# shared shell.
+#
+# THE ROUND-12 GAP: `git write-tree` fingerprints only $wt's index. report.md/
+# spec.md/handoff.md/patterns live outside $wt entirely (the AI workspace, a
+# different repo) - round 9-10's guard gave them zero coverage. W3c below
+# mutates report.md, not the index, and asserts the guard still halts.
 # ---------------------------------------------------------------------------
 W3_PRE="$TMP/w3-pre.sh";   _extract_block "$WIC" 'before the delegated call' "$W3_PRE"
-W3_POST="$TMP/w3-post.sh"; _extract_block "$WIC" 'post_tree=' "$W3_POST"
-if [ -s "$W3_PRE" ] && grep -Fq 'write-tree' "$W3_PRE" && [ -s "$W3_POST" ] && grep -Fq 'write-tree' "$W3_POST"; then
+W3_POST="$TMP/w3-post.sh"; _extract_block "$WIC" 'post_fp=' "$W3_POST"
+if [ -s "$W3_PRE" ] && grep -Fq 'shasum' "$W3_PRE" && [ -s "$W3_POST" ] && grep -Fq 'shasum' "$W3_POST"; then
   T_PASS=$((T_PASS+1))
 else
-  T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract the W3 identity-guard blocks - the assertions below are vacuous"
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract the W3 fingerprint-guard blocks - the assertions below are vacuous"
 fi
-# THE VACUOUSNESS GUARD ITSELF. If block 2 stopped taking a placeholder and
-# went back to reading a bare `$pre_tree` (the original bug's exact shape),
-# this fixture would still happen to work, because it is a real placeholder
-# substitution either way - so assert the placeholder is actually THERE,
-# which a regression to the old shape would remove.
-if grep -Fq '<the tree hash the capture above printed>' "$W3_POST"; then
+# THE VACUOUSNESS GUARD ITSELF. If block 2 stopped taking pre_fp as a
+# placeholder (the round-10 bug's exact shape) or dropped report/spec/handoff/
+# patterns from the shasum call (a silent round-12 regression), this fixture
+# would still happen to run - so assert both survive.
+if grep -Fq '<the fingerprint the capture above printed>' "$W3_POST"; then
   T_PASS=$((T_PASS+1))
 else
-  T_FAIL=$((T_FAIL+1)); echo "FAIL: W3_POST no longer takes pre_tree as a placeholder - the cross-tool-call bug may be back"
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: W3_POST no longer takes pre_fp as a placeholder - the cross-tool-call bug may be back"
+fi
+if grep -Fq '"$report" "$spec" "$handoff" "$patterns"' "$W3_POST"; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: W3_POST no longer fingerprints all four review documents - the round-12 gap may be back"
 fi
 
+# Every fixture needs report/spec/patterns as REAL files outside $wt entirely -
+# a separate directory, mirroring the AI workspace being a different repo from
+# the code worktree the write-tree half of the guard already covers.
+_w3_setup_docs() { # $1=docs-dir ; writes report.md/spec.md/handoff.md/patterns.md
+  mkdir -p "$1"
+  printf 'report v1\n' > "$1/report.md"
+  printf 'spec v1\n' > "$1/spec.md"
+  printf 'handoff v1\n' > "$1/handoff.md"
+  printf 'patterns v1\n' > "$1/patterns.md"
+}
+
 # Run block 1 in its OWN bash process, nothing else in scope, exactly as the
-# real close would after the Workflow call has not yet happened.
-_w3_capture_pre() { # $1=worktree ; echoes the printed tree hash, sets T_RC
-  t_capture bash -c "set -euo pipefail; wt='$1'; . '$W3_PRE'"
+# real close would after the Workflow call has not yet happened. Block 1 ALSO
+# carries its own `patterns="<placeholder>"` line - an injected `patterns='...'`
+# prefix would be silently clobbered by it, so substitute in place first,
+# exactly as _w3_run_post already does for block 2.
+_w3_capture_pre() { # $1=worktree $2=report $3=spec $4=patterns
+  _extract_block "$WIC" 'before the delegated call' "$W3_PRE"
+  sed "s#<the absolute 03-code-patterns.md path Layer 3 resolved>#$4#" \
+    "$W3_PRE" > "$TMP/w3-pre-sub.sh" && mv "$TMP/w3-pre-sub.sh" "$W3_PRE"
+  t_capture bash -c "set -euo pipefail; wt='$1'; report='$2'; spec='$3'; . '$W3_PRE'"
 }
 # Re-extract fresh (never accumulate a prior call's substitution) and
-# substitute the captured value into block 2's placeholder line IN PLACE on
-# $W3_POST itself, then source $W3_POST directly - not a copy under a
+# substitute BOTH placeholders (pre_fp AND patterns - block 2 carries patterns
+# forward too, since nothing derives it from an already-carried variable) IN
+# PLACE on $W3_POST itself, then source $W3_POST directly - not a copy under a
 # different name - in a SECOND, independent bash process. Never the same
-# process as block 1, and never with `pre_tree` pre-seeded in the environment.
-_w3_run_post() { # $1=worktree $2=captured-pre-tree-value
-  _extract_block "$WIC" 'post_tree=' "$W3_POST"
-  sed "s/<the tree hash the capture above printed>/$2/" "$W3_POST" > "$TMP/w3-post-sub.sh" \
-    && mv "$TMP/w3-post-sub.sh" "$W3_POST"
-  t_capture bash -c "set -euo pipefail; wt='$1'; . '$W3_POST'; echo reached"
+# process as block 1, and never with `pre_fp`/`patterns` pre-seeded in the
+# environment.
+_w3_run_post() { # $1=worktree $2=report $3=spec $4=patterns $5=captured-pre-fp
+  _extract_block "$WIC" 'post_fp=' "$W3_POST"
+  sed -e "s#<the fingerprint the capture above printed>#$5#" \
+      -e "s#<the absolute 03-code-patterns.md path Layer 3 resolved>#$4#" \
+      "$W3_POST" > "$TMP/w3-post-sub.sh" && mv "$TMP/w3-post-sub.sh" "$W3_POST"
+  t_capture bash -c "set -euo pipefail; wt='$1'; report='$2'; spec='$3'; . '$W3_POST'; echo reached"
 }
 
 W3="$TMP/w3"; mkdir -p "$W3"; git -C "$W3" init -q
 git -C "$W3" config user.email t@t; git -C "$W3" config user.name t
 echo seed > "$W3/f"; git -C "$W3" add .; git -C "$W3" commit -qm seed
 echo implementer > "$W3/change.txt"; git -C "$W3" add change.txt
+W3DOCS="$TMP/w3-docs"; _w3_setup_docs "$W3DOCS"
+W3_REPORT="$W3DOCS/report.md"; W3_SPEC="$W3DOCS/spec.md"; W3_PATTERNS="$W3DOCS/patterns.md"
 
-# W3a - nothing touches the index between the two (separate!) invocations,
-# the ordinary case: the guard is silent and execution reaches past it.
-_w3_capture_pre "$W3"
-t_assert_rc 0 "W3a: capturing the pre-call identity succeeds"
+# W3a - nothing touches the index OR the documents between the two (separate!)
+# invocations, the ordinary case: the guard is silent and execution reaches
+# past it.
+_w3_capture_pre "$W3" "$W3_REPORT" "$W3_SPEC" "$W3_PATTERNS"
+t_assert_rc 0 "W3a: capturing the pre-call fingerprint succeeds"
 W3A_PRE="$T_OUT"
-_w3_run_post "$W3" "$W3A_PRE"
-t_assert_rc 0 "W3a: the identity guard is silent when nothing mutates the index mid-review"
+_w3_run_post "$W3" "$W3_REPORT" "$W3_SPEC" "$W3_PATTERNS" "$W3A_PRE"
+t_assert_rc 0 "W3a: the fingerprint guard is silent when nothing mutates mid-review"
 t_assert_contains "$T_OUT" "reached" "W3a: ...and execution reaches past the guard"
 
-# W3b - THE LOAD-BEARING ASSERTION. Something stages a file BETWEEN the two
-# independent processes, exactly as an injected agent would during the real
-# Workflow call - the guard must HALT rather than let step 4 commit it
-# silently. Capturing pre in one process, mutating with plain shell commands
-# (standing in for the Workflow call), then checking in a SECOND fresh
-# process is what actually mirrors where the real call sits - not two
-# sourced blocks sharing one shell's variables.
-_w3_capture_pre "$W3"
+# W3b - the index-mutation case rounds 9-10 already covered: something stages
+# a file BETWEEN the two independent processes, exactly as an injected agent
+# would during the real Workflow call.
+_w3_setup_docs "$W3DOCS"
+_w3_capture_pre "$W3" "$W3_REPORT" "$W3_SPEC" "$W3_PATTERNS"
 W3B_PRE="$T_OUT"
 echo injected > "$W3/injected.txt"; git -C "$W3" add injected.txt
-_w3_run_post "$W3" "$W3B_PRE"
-t_assert_rc 1 "W3b: the identity guard HALTS when the index changed mid-review"
+_w3_run_post "$W3" "$W3_REPORT" "$W3_SPEC" "$W3_PATTERNS" "$W3B_PRE"
+t_assert_rc 1 "W3b: the fingerprint guard HALTS when the staged index changed mid-review"
 t_assert_contains "$T_OUT" "possible injection" "W3b: ...naming the risk"
-t_assert_contains "$T_OUT" "unstage anything the review added" "W3b: ...and the remedy"
+t_assert_contains "$T_OUT" "revert or unstage whatever the review added" "W3b: ...and the remedy"
+
+# W3c - THE LOAD-BEARING ROUND-12 ASSERTION. report.md changes, the index does
+# NOT - proving coverage extends past write-tree's blind spot. This is
+# exactly the round-12 finding's scenario: an injected reader edits report §7
+# between the two reads.
+git -C "$W3" reset -q --hard HEAD
+_w3_setup_docs "$W3DOCS"
+_w3_capture_pre "$W3" "$W3_REPORT" "$W3_SPEC" "$W3_PATTERNS"
+W3C_PRE="$T_OUT"
+printf 'report v1\nsection 7: declared\n' > "$W3_REPORT"
+_w3_run_post "$W3" "$W3_REPORT" "$W3_SPEC" "$W3_PATTERNS" "$W3C_PRE"
+t_assert_rc 1 "W3c: the fingerprint guard HALTS when report.md changed mid-review, even though the staged index did not"
+t_assert_contains "$T_OUT" "possible injection" "W3c: ...naming the risk"
 
 # ---------------------------------------------------------------------------
 # D1-D4: the cumulative-demo MEASUREMENT block. Timing is advisory; the demo

@@ -136,17 +136,31 @@ still reaches 6, and the gate reports green having verified nothing.
 
 **Layer 4 runs delegated where it can, inline where it cannot.** If
 `OSSIFY_NO_WORKFLOWS` is unset and a tool named `Workflow` is available, first
-capture the staged index's identity — the six delegated agents get ordinary
-worktree tool access, and the read-only instruction in their prompts is prose,
-not enforcement (the accepted spec residual R4); an injected instruction in the
-staged diff or a reviewed doc could get one of them to mutate or re-stage
-something mid-review, and nothing downstream would notice:
+fingerprint every input the delegated agents read — the six delegated agents
+get ordinary worktree and filesystem tool access, and the read-only
+instruction in their prompts is prose, not enforcement (the accepted spec
+residual R4); an injected instruction in the staged diff or a reviewed doc
+could get one of them to mutate the staged index OR one of the review
+documents mid-review (`report.md` in particular — it drives
+`declared_in_report_s7`, the one field standing between a real fidelity gap
+and a silent advisory), and nothing downstream would notice:
 
 ```bash
-git -C "$wt" write-tree || { echo "close: could not capture the staged index's identity in $wt before the delegated call - halt"; exit 1; }
+handoff="$(dirname "$spec")/handoff.md"
+patterns="<the absolute 03-code-patterns.md path Layer 3 resolved>"
+tree_id="$(git -C "$wt" write-tree)" || { echo "close: could not capture the staged index's identity in $wt before the delegated call - halt"; exit 1; }
+file_hashes="$(shasum -a 256 "$report" "$spec" "$handoff" "$patterns")" || { echo "close: could not fingerprint report.md/spec.md/handoff.md/03-code-patterns.md before the delegated call - halt"; exit 1; }
+printf '%s\n%s\n' "$tree_id" "$file_hashes" | shasum -a 256 | awk '{print $1}'
 ```
 
-**Hold this command's output as `pre_tree` and carry it forward as a literal
+**The invariant this states in one sentence: every input the delegated review
+reads is fingerprinted across the run; nothing else is.** `wt` (via
+`write-tree`, covering the staged index), `report`, `spec`, `handoff` and
+`patterns` are the complete list Layer 4 hands the Workflow call (below) — if
+a future input joins that list, it joins this fingerprint too, in the same
+pass, or this sentence is being violated knowingly rather than patched blind.
+
+**Hold this command's output as `pre_fp` and carry it forward as a literal
 value, exactly as `$spec`/`$report`/`$wt` are carried (§1).** The Workflow call
 below is a separate tool invocation, not more of this shell — nothing assigned
 in a bash block survives into the block after it on its own, and there is no
@@ -169,20 +183,28 @@ retry, no resume. A clean delegated run prints `layer 4: workflow (6 agents)`.
 The close summary states which path ran.
 
 **Whatever the outcome — clean, errored, or fallen back — immediately
-re-derive the same identity and compare, substituting the literal value you
-are carrying for `pre_tree` below:**
+re-derive the same fingerprint and compare, substituting the literal value you
+are carrying for `pre_fp` below:**
 
 ```bash
-pre_tree="<the tree hash the capture above printed>"
-post_tree="$(git -C "$wt" write-tree)" || { echo "close: could not re-derive the staged index's identity in $wt after the delegated call - halt"; exit 1; }
-[ "$pre_tree" = "$post_tree" ] || { echo "close: staged index changed during Layer 4's delegated call in $wt - possible injection; inspect 'git -C $wt status' and 'git -C $wt diff --cached', unstage anything the review added, and re-run - halt"; exit 1; }
+pre_fp="<the fingerprint the capture above printed>"
+handoff="$(dirname "$spec")/handoff.md"
+patterns="<the absolute 03-code-patterns.md path Layer 3 resolved>"
+tree_id="$(git -C "$wt" write-tree)" || { echo "close: could not re-derive the staged index's identity in $wt after the delegated call - halt"; exit 1; }
+file_hashes="$(shasum -a 256 "$report" "$spec" "$handoff" "$patterns")" || { echo "close: could not re-fingerprint report.md/spec.md/handoff.md/03-code-patterns.md after the delegated call - halt"; exit 1; }
+post_fp="$(printf '%s\n%s\n' "$tree_id" "$file_hashes" | shasum -a 256 | awk '{print $1}')"
+[ "$pre_fp" = "$post_fp" ] || { echo "close: a fingerprinted Layer 4 input (the staged index, report.md, spec.md, handoff.md, or 03-code-patterns.md) changed during the delegated call in $wt - possible injection; inspect 'git -C $wt status'/'diff --cached' and diff report.md/spec.md/handoff.md/03-code-patterns.md against their pre-call state, revert or unstage whatever the review added, and re-run - halt"; exit 1; }
 ```
 
-A mismatch means one of the six agents wrote to the index this pass never
-asked for. This closes the mutation path at the one boundary that matters —
-the index step 4 commits — not the working tree a delegated agent can still
-touch outside it; that read-path exposure is R4's accepted remainder, not
-this gate's job.
+A mismatch means one of the six agents wrote to something this pass never
+asked it to touch — the staged index, or one of the four review documents,
+including a `report.md` edit that would otherwise let an injected §7
+declaration turn a real undeclared-fidelity finding into a silently advisory
+one. This closes the mutation path across every input the delegated review
+actually reads — not the working tree files a delegated agent can still touch
+outside that list (an unfingerprinted neighbour file the `pattern` lens
+inspects, say); that read-path exposure is R4's accepted remainder, not this
+gate's job.
 
 Apply the §4b verdict rule to the findings from whichever path ran: an undeclared
 `fidelity` finding fires the `[fidelity]` halt; the advisory findings are written
