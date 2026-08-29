@@ -15,12 +15,13 @@ bundle.
 | [`architect-critic`](./architect-critic/) | v0.6.0 | User-level | Anti-sycophancy reviewer (skill-first). 6 auto-invocable skills: `critiquing-spec` (audit + sequential rebuttal with T=4 concession scoring), `managing-async-critique` (background Codex audits: status/result/cancel/resume), `checking-adversary-readiness` (doctor), `reviewing-critique-history`, `listing-principles`, `promoting-principle`. Ships ghost-notes (Wald survivor-bias) + CORE protocol as default principles. Full auto-promotion (vote-recurrence T=4, instinct N=3, 30/90-day suppression). Codex 0.125+ adversarial fresh-frame at close-depth — synchronous OR async (defer-to-resume unified rebuttal, durable state.json v3 job memory). Standalone-invocable; consumer plugins invoke skills in-conversation (no file IPC). `critiquing-spec` opens with a "📍 You are here" orientation preamble (#88). |
 | [`ossify`](./ossify/) | v1.5.0 | Project-level (continuous) | Skeleton-first replacement lifecycle for `scaffold-onboard` + `scaffold-dev` — install one lifecycle or the other, not both. Self-sufficient since 1.1.0: the grill and the adversarial critic ship in-tree as `challenge` (interview + audit modes, configurable external adversary via `OSSIFY_ADVERSARY`), so the bone grill gate, the spec-core audit, the release veto, and the spine close audits run with no ai-mentor or architect-critic install. 9 native skills (wayfinder, added at 1.2.0, charts a question into decision tickets on the issue tracker and works an existing map's frontier one ticket per session), an implementer subagent, and the standalone commands that run in any repository — `/ossify:handoff`, `/ossify:handoff-resume`, `/ossify:work-pr`, `/ossify:wayfinder`. The first three have no skill directory, so they are a Claude Code command surface only and the OpenCode bundle does not carry them (#131); `/ossify:wayfinder` is an entry skill as well as an any-repo one, so the bundle does expose it. Since 1.5.0 (#339) `/ossify:work-pr` is also the spine-close merge lane: a spine's hosting repos land on their base branches by PR where a remote exists, merged locally only where none does, and a release is a tag on the merged line. In the Claude and Codex marketplaces as of v1.0.0. The boundary audit is complete across 5 dimensions, and the consolidated eval covers all 10 acceptance scenarios — scenario 10 is a run rather than a standing fixture, and its second run agreed **5 of 5 with no divergence**, after the prose fixes its first run prompted (#250, #251). That is two runs on one scenario, not a measured property of the prose; #254 remains open over both. The two pilots are operator-owned and post-v1. OpenCode bundle installability begins only after an immutable bundle tag is published. |
 | [`claude-security-audit`](./claude-security-audit/) | v0.1.3 | Project-level | Static-analysis security audit for Claude Code project configs and enabled plugins. 28 rules across 7 aspects (secrets, permissions incl. PERM-005 schema-typo, hooks, MCP, CLAUDE.md, prompt-injection, marketplace). Two-flag auto-fix + 5-layer defense-in-depth (T2-H). Durable `finding_uid` survives whitespace edits (T2-I). Self-tamper detection on state + suppressions (T1-F). Critical-cannot-suppress; 60s race-window refusal. Zero ambient surface — SessionStart reminder is opt-in (T1-C). 28 rules / 182 tests / 5 clean-fixture release gate. Inspired by ECC's AgentShield (MIT). |
+| [`code-judo`](./code-judo/) | v0.1.0 | Project-level (on demand) | Strict quality review and architecture deepening. 4 prose skills, 4 slash commands, no runtime library. `deep-review` is a human-invoked maintainability audit of a diff or branch — the code-judo ambition standard (restructurings that *delete* complexity rather than rearrange it), the 1000-line rule with its waiver path, spaghetti-growth suspicion, wrapper/cast/boundary rules, a 7-tier prioritized output order, and a categorical approval bar with 6 presumptive blockers. It produces **one report and one disposition pass and never re-reviews its own fixes**, and its verdict is advisory rather than a merge gate. `deepen-architecture` scans a codebase for shallow modules using the deletion test, writes a self-contained HTML report to the OS temp dir with before/after diagrams and `Strong` / `Worth exploring` / `Speculative` badges, opens it in the browser, and grills through the candidate you pick. `codebase-design` ships the deep-module vocabulary (module, interface, depth, seam, adapter, leverage, locality), the four dependency categories, seam discipline, and design-it-twice. `domain-modeling` owns `CONTEXT.md` and ADRs. No hard cross-plugin dependencies — the grilling step resolves softly to `ossify:challenge`, then `ai-mentor:grill-me`, then an in-plugin protocol. Not a correctness or security review; that axis stays with `claude-security-audit`. Adapted from Cursor's thermo-nuclear code-quality review and Matt Pocock's improve-codebase-architecture (#382). |
 
-Seven of the eight marketplace plugins are designed to **compose without overlap**, ordered by where they fire in the project lifecycle: `workspace-init` (chain head) bootstraps the dual-repo topology (AI workspace + canonical) and writes the pairing manifest every downstream plugin reads; `scaffold-onboard` runs once per project to author the source-of-truth spec, derive its scaffolding, and emit the R1/R2/R3 contract (roadmap hierarchy, machine-checkable rules, demo criteria) that `scaffold-dev` consumes; `scaffold-dev` owns the continuous sprint-by-sprint orchestrator-implementer workflow with a custom subagent type and handoff escape valve (superseding the deprecated `scaffold` v1.0.0); `architect-critic` provides anti-sycophancy reviews on demand or when invoked in-conversation by `scaffold-onboard v0.2+` / `scaffold-dev v0.1+` (no file IPC); `ai-mentor` provides decision-making mentor surfaces (interrogation, multi-angle validation, simplification, beginner's mind) at any point; `claude-security-audit` provides on-demand static-analysis review of project configs and enabled plugins. Disjoint slash command namespaces, distinct state paths.
+Eight of the nine marketplace plugins are designed to **compose without overlap**, ordered by where they fire in the project lifecycle: `workspace-init` (chain head) bootstraps the dual-repo topology (AI workspace + canonical) and writes the pairing manifest every downstream plugin reads; `scaffold-onboard` runs once per project to author the source-of-truth spec, derive its scaffolding, and emit the R1/R2/R3 contract (roadmap hierarchy, machine-checkable rules, demo criteria) that `scaffold-dev` consumes; `scaffold-dev` owns the continuous sprint-by-sprint orchestrator-implementer workflow with a custom subagent type and handoff escape valve (superseding the deprecated `scaffold` v1.0.0); `architect-critic` provides anti-sycophancy reviews on demand or when invoked in-conversation by `scaffold-onboard v0.2+` / `scaffold-dev v0.1+` (no file IPC); `ai-mentor` provides decision-making mentor surfaces (interrogation, multi-angle validation, simplification, beginner's mind) at any point; `claude-security-audit` provides on-demand static-analysis review of project configs and enabled plugins; `code-judo` provides on-demand strict quality review and architecture deepening, a distinct axis from `claude-security-audit`'s correctness-and-configuration scan and from `architect-critic`'s spec audit. Disjoint slash command namespaces, distinct state paths.
 
 Ossify is an alternate replacement lifecycle for `scaffold-onboard` and
-`scaffold-dev`, not another disjoint stage in that composition — the eighth
-plugin, and the exception to the paragraph above. It is in the Claude and Codex
+`scaffold-dev`, not another disjoint stage in that composition — the one
+exception to the paragraph above. It is in the Claude and Codex
 marketplaces as of v1.0.0: install ossify or the `scaffold-onboard` +
 `scaffold-dev` pair, not both.
 
@@ -37,6 +38,7 @@ marketplaces as of v1.0.0: install ossify or the `scaffold-onboard` +
 /plugin install scaffold@claude-agent-scaffolding
 /plugin install architect-critic@claude-agent-scaffolding
 /plugin install claude-security-audit@claude-agent-scaffolding
+/plugin install code-judo@claude-agent-scaffolding
 ```
 
 `ossify` is an **alternative** to `scaffold-onboard` + `scaffold-dev`, not an
@@ -61,6 +63,7 @@ Codex support is dual-published from the same repo through
 - `scaffold-dev`
 - `architect-critic`
 - `claude-security-audit`
+- `code-judo`
 - `ossify` (replaces `scaffold-onboard` + `scaffold-dev`; rounds are driven from
   Claude Code or OpenCode, which register the implementer subagent — Codex does
   not)
@@ -95,6 +98,7 @@ update, and troubleshooting guide](./.opencode/INSTALL.md).
 /plugin install scaffold@claude-agent-scaffolding
 /plugin install architect-critic@claude-agent-scaffolding
 /plugin install claude-security-audit@claude-agent-scaffolding
+/plugin install code-judo@claude-agent-scaffolding
 ```
 
 Ossify, instead of `scaffold-onboard` + `scaffold-dev`:
@@ -166,6 +170,7 @@ Don't run `/grill-me` and `/council` in the same session — different interacti
 ├── architect-critic/                  # architect-critic plugin (v0.6.0)
 ├── claude-security-audit/             # security-audit plugin (v0.1.3)
 ├── ossify/                            # skeleton-first replacement lifecycle (v1.5.0)
+├── code-judo/                         # code-judo plugin (v0.1.0)
 ├── docs/
 │   ├── SPEC-ai-mentor.md              # ai-mentor spec (v1.1 amendments)
 │   ├── SPEC-scaffold.md               # scaffold spec (v1.0 amendments)
