@@ -80,12 +80,14 @@ const reviewed = await pipeline(
   (found, lens) => {
     if (!found) { throw new Error('reader for ' + lens.id + ' returned nothing') }
     return counted(
-      'You are the refuter for the "' + lens.id + '" lens of an ossify work-item close. ' +
+      'You are the refuter for the "' + lens.id + '" lens of an ossify work-item close ' +
+      '(impl-check.md §4b).\n\nLENS TEXT (the reader was held to this; check scope against ' +
+      'it too, not just evidence):\n' + lens.text + '\n\n' +
       'Try to knock down EACH finding below by re-reading the same inputs. ' +
-      'Default to refuted=true when uncertain; a finding survives only if the evidence ' +
-      'holds at the named file (and line, when one is given - an absence finding may ' +
-      'have none), and the declared_in_report_s7 value is actually correct against ' +
-      'report §7\'s own text.\n\nInputs:\n' + inputsBlock() +
+      'Default to refuted=true when uncertain; a finding survives only if it is actually ' +
+      'within this lens\'s scope, the evidence holds at the named file (and line, when one ' +
+      'is given - an absence finding may have none), and the declared_in_report_s7 value is ' +
+      'actually correct against report §7\'s own text.\n\nInputs:\n' + inputsBlock() +
       'Findings:\n' + JSON.stringify(found.findings, null, 2) +
       '\n\nReturn ONLY the survivors, in the same schema.',
       { label: 'refute:' + lens.id, phase: 'Refute', model: 'sonnet', effort: 'low', schema: schemaFor(lens.id) },
