@@ -37,9 +37,18 @@ const readerSchemaFor = (lensId) => ({
         required: ['id', 'lens', 'claim', 'evidence', 'declared_in_report_s7'],
         additionalProperties: false,
         properties: {
-          id: { type: 'string', minLength: 1 },
+          // `pattern: '\S'` alongside `minLength: 1` on every string field
+          // below (round-19 finding J1): `minLength` counts raw characters,
+          // so a whitespace-only string like "   " satisfies it while
+          // carrying no actual content. Round 11's own precedent treated
+          // "reject empty" as one sweep across every string field in both
+          // schemas, not a per-field patch; this is the same sweep for
+          // "reject whitespace-only". Structural only (ratified policy #7) -
+          // whether a non-whitespace claim is MEANINGFUL is the refuter's
+          // and the operator's job, not the schema's.
+          id: { type: 'string', minLength: 1, pattern: '\\S' },
           lens: { type: 'string', enum: [lensId] },
-          claim: { type: 'string', minLength: 1 },
+          claim: { type: 'string', minLength: 1, pattern: '\\S' },
           // `line` is required for `fidelity` and `pattern` - both point at a
           // hunk that exists in the staged diff - but NOT for `absence`: that
           // lens is about something the diff never contains at all, so there
@@ -52,7 +61,7 @@ const readerSchemaFor = (lensId) => ({
             type: 'object',
             required: lensId === 'absence' ? ['file'] : ['file', 'line'],
             additionalProperties: false,
-            properties: { file: { type: 'string', minLength: 1 }, line: { type: 'integer', minimum: 1 } },
+            properties: { file: { type: 'string', minLength: 1, pattern: '\\S' }, line: { type: 'integer', minimum: 1 } },
           },
           declared_in_report_s7: { type: 'boolean' },
         },
@@ -87,7 +96,7 @@ const refuterSchema = {
         required: ['id', 'retain', 'declared_in_report_s7'],
         additionalProperties: false,
         properties: {
-          id: { type: 'string', minLength: 1 },
+          id: { type: 'string', minLength: 1, pattern: '\\S' },
           retain: { type: 'boolean' },
           declared_in_report_s7: { type: 'boolean' },
         },
