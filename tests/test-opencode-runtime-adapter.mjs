@@ -436,6 +436,25 @@ test("Task 9 keeps root README versions aligned with parsed plugin manifests", a
   }
 });
 
+test("ossify/README.md version stays aligned with its manifest (#366)", async () => {
+  // #366: ossify/README.md:1 drifted from the manifest version twice before
+  // (f20474e, e2a9566) and nothing caught it — the check above only reads the
+  // ROOT README. ossify is the only plugin whose own README stamps a version
+  // in its title line, so this is a dedicated assertion rather than a loop
+  // over `manifests` like the check above.
+  const [ossifyReadme, ossifyManifestSource] = await Promise.all([
+    readFile(ossifyReadmeUrl, "utf8"),
+    readFile(ossifyManifestUrl, "utf8"),
+  ]);
+  const manifest = JSON.parse(ossifyManifestSource);
+  const firstLine = ossifyReadme.split("\n", 1)[0];
+  assert.equal(
+    firstLine,
+    `# ossify (v${manifest.version})`,
+    "ossify/README.md:1 must match ossify/.claude-plugin/plugin.json's version",
+  );
+});
+
 test("Task 8 documents actual OpenCode collision and cache diagnostics", async () => {
   const guide = await readFile(installGuideUrl, "utf8");
   const diagnostics = markdownSection(guide, "Diagnostics");
