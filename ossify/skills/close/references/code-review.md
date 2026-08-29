@@ -127,6 +127,16 @@ reading, and do not re-judge whether Layer 4 was right — that already happened
 at work-item close; this pass reads it as evidence, not as something to
 re-litigate.
 
+**Before folding either pass's findings in, revalidate against the final
+tree.** A `verify.md` finding is evidence about the work item's own staged
+diff, frozen at that item's own close time; by spine close every item has
+already merged, and a later item may have reshaped or already fixed the code
+a finding cites. Check only whether the finding's cited evidence still holds
+in the spine diff resolved above (`base...spine_branch`) — a mechanical
+citation check, not a second read of whether Layer 4 was right. If the cited
+evidence no longer holds in that form, mark the finding **superseded** and do
+not fold it into either axis as current.
+
 ---
 
 ## 3. Axis A — Standards
