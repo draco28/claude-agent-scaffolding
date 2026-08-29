@@ -103,8 +103,10 @@ work and not yours to review.
 
 ### Reading Layer 4's advisories
 
-Before running either axis, read each of the spine's work items'
-`<work-item-dir>/verify.md`, if one exists — resolve the directory the way
+Layer 4's findings are additional input to the two axes below, not a third
+axis — but they carry the same rationalization risk §2's axis order exists to
+prevent, so read them in **two passes, not one**. Each spine work item's
+`<work-item-dir>/verify.md`, if one exists, is resolved the way
 `work-item-close.md` §1 Route B does (the spine dir, glob-recovered, then
 `work-<wi>/`); every item has already closed by the time you run, so Route B's
 reconstruction is always the one in scope here, never Route A's return
@@ -112,12 +114,18 @@ payload. Absent is a clean signal, not a gap — not every close writes one
 (impl-check.md §4b: `pattern`, `absence`, and a declared `fidelity` finding,
 never a halt).
 
-Where one exists, its findings are additional input, not a third axis: a
-`pattern` finding folds into Axis A, an `absence` or declared-`fidelity`
-finding into Axis B. Carry it into the finding you report there. Do not
-re-print Layer 4's text verbatim as if it were your own reading, and do not
-re-judge whether Layer 4 was right — that already happened at work-item close;
-this pass reads it as evidence, not as something to re-litigate.
+**Before Axis A:** read only each file's `pattern`-tagged findings and fold
+them into your Axis A findings. Leave the rest of the file unread.
+
+**Before Axis B, once Axis A is written down:** go back to the same files and
+read the `absence` and declared-`fidelity` findings you skipped — spec
+material, exactly what §2 says not to hold in mind while judging Axis A. Fold
+each into your Axis B findings.
+
+Either pass: do not re-print Layer 4's text verbatim as if it were your own
+reading, and do not re-judge whether Layer 4 was right — that already happened
+at work-item close; this pass reads it as evidence, not as something to
+re-litigate.
 
 ---
 

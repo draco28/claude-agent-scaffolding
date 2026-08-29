@@ -71,7 +71,13 @@ TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 printf 'const x = require("fs");\nconst p = "/etc/passwd";\nconst q = "docs/spec.md";\n' > "$TMP/bad.js"
 BAD="$(purify "$TMP/bad.js")"
 [ -n "$BAD" ] || { echo "FAIL: purity checker missed the planted require/fs/path defects"; ck 1; }
-printf '%s\n' "$BAD" | grep -q 'docs/spec.md' \
+# A here-string, not `printf ... | grep -q`: this file never sets pipefail
+# (bash's default is off, and each test runs as a fresh `bash "$t"`), so the
+# pipe form is not currently broken here - but grep -q exiting at the first
+# match can SIGPIPE the producer, and pipefail would then report the
+# pipeline's exit status as the producer's, not grep's. Cheap to avoid outright
+# rather than depend on this file never gaining `set -o pipefail`.
+grep -q 'docs/spec.md' <<<"$BAD" \
   || { echo "FAIL: purity checker missed the planted BARE-RELATIVE path (docs/spec.md) - the anchored regex may be too narrow again"; ck 1; }
 
 AWK1="$(awk '/^## 4b\./{f=1;next} /^## 5\./{f=0} f' "$IC" | grep -cE '^- `[a-z]+`')"

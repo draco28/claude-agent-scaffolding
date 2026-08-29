@@ -28,15 +28,17 @@ const schemaFor = (lensId) => ({
         properties: {
           lens: { type: 'string', enum: [lensId] },
           claim: { type: 'string' },
-          // `line` is NOT required: an `absence` finding is about something
-          // the diff never contains at all, so there is no line in the staged
-          // diff to cite. Forcing one would make the reader/refuter fabricate
-          // a number to satisfy the schema, or silently drop the finding.
-          // `file` still is - it names where the artifact should exist, which
-          // is knowable, even when the artifact itself is not.
+          // `line` is required for `fidelity` and `pattern` - both point at a
+          // hunk that exists in the staged diff - but NOT for `absence`: that
+          // lens is about something the diff never contains at all, so there
+          // is no line to cite. A prompt instruction alone is not enforcement
+          // (a reader can drift), so the schema itself gates it per lens
+          // rather than trusting every agent to have read the prompt closely.
+          // `file` is required for every lens - it can always name where the
+          // artifact should exist, even when the artifact itself is not.
           evidence: {
             type: 'object',
-            required: ['file'],
+            required: lensId === 'absence' ? ['file'] : ['file', 'line'],
             additionalProperties: false,
             properties: { file: { type: 'string' }, line: { type: 'integer' } },
           },

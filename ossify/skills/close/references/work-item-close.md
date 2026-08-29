@@ -123,6 +123,17 @@ Run the four-layer implementation gate per **`references/impl-check.md`**, using
 the `$spec`, `$report` and `$wt` resolved above. Never a bare placeholder: a
 gate invoked on `<spec path>` runs against a file called `<spec path>`.
 
+**Layer 4 needs one input Layers 1–3 never touch: `handoff.md`.** `$spec`,
+`$report` and `$wt` are already proven to exist by step 1 and Layer 1/2's own
+reads; `handoff.md` (`$(dirname "$spec")/handoff.md`) is not, and neither path
+below validates it before use. Check it exists and is readable **before**
+choosing a path — a missing or unreadable handoff is a halt, named
+(`close: no handoff.md for $wi at <path> - halt`), not a silent empty-findings
+result from an agent that could not read what it was told to. Skipping this
+check does not fail loudly: a reader or refuter can still return a
+schema-valid empty `findings` object having never read the file, `agents_run`
+still reaches 6, and the gate reports green having verified nothing.
+
 **Layer 4 runs delegated where it can, inline where it cannot.** If
 `OSSIFY_NO_WORKFLOWS` is unset and a tool named `Workflow` is available, call it
 with `${CLAUDE_PLUGIN_ROOT}/workflows/verify-work-item.js` — **not** a
@@ -145,6 +156,17 @@ Apply the §4b verdict rule to the findings from whichever path ran: an undeclar
 `fidelity` finding fires the `[fidelity]` halt; the advisory findings are written
 to `<work-item-dir>/verify.md` — `$(dirname "$report")` on Route A, `$wi_dir` on
 Route B — and echoed in the close summary.
+
+**Every completed Layer 4 run overwrites `verify.md`, even when there are zero
+advisory findings — delete the file rather than leave a stale one.** A work
+item can reach this step more than once: a `[fidelity]` halt sends it back to
+the recovery menu (§5), and Layer 4 runs again on the next attempt. If that
+retry is clean, an old `verify.md` from the halted attempt is still sitting
+there — code-review.md treats an existing file as current evidence and does
+not re-judge it (its own text says so), so a stale file would carry forward
+findings the retry already resolved. There is no "no run happened" state to
+distinguish from "this run found nothing": every completed Layer 4 run,
+delegated or inline, writes the current truth.
 
 Green → step 3. Anything else → step 5.
 
