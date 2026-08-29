@@ -40,7 +40,7 @@ const schemaFor = (lensId) => ({
             type: 'object',
             required: lensId === 'absence' ? ['file'] : ['file', 'line'],
             additionalProperties: false,
-            properties: { file: { type: 'string' }, line: { type: 'integer' } },
+            properties: { file: { type: 'string' }, line: { type: 'integer', minimum: 1 } },
           },
           declared_in_report_s7: { type: 'boolean' },
         },
@@ -83,11 +83,13 @@ const reviewed = await pipeline(
       'You are the refuter for the "' + lens.id + '" lens of an ossify work-item close ' +
       '(impl-check.md §4b).\n\nLENS TEXT (the reader was held to this; check scope against ' +
       'it too, not just evidence):\n' + lens.text + '\n\n' +
-      'Try to knock down EACH finding below by re-reading the same inputs. ' +
-      'Default to refuted=true when uncertain; a finding survives only if it is actually ' +
-      'within this lens\'s scope, the evidence holds at the named file (and line, when one ' +
-      'is given - an absence finding may have none), and the declared_in_report_s7 value is ' +
-      'actually correct against report §7\'s own text.\n\nInputs:\n' + inputsBlock() +
+      'Try to knock down EACH finding below by re-reading the same inputs. This gate must ' +
+      'not fail open: retain a finding UNLESS you find concrete evidence that refutes it - ' +
+      'never discard one merely because you are uncertain. A finding is refuted only when ' +
+      'it is actually out of this lens\'s scope, the evidence does not hold at the named ' +
+      'file (and line, when one is given - an absence finding may have none), or the ' +
+      'declared_in_report_s7 value is actually wrong against report §7\'s own ' +
+      'text.\n\nInputs:\n' + inputsBlock() +
       'Findings:\n' + JSON.stringify(found.findings, null, 2) +
       '\n\nReturn ONLY the survivors, in the same schema.',
       { label: 'refute:' + lens.id, phase: 'Refute', model: 'sonnet', effort: 'low', schema: schemaFor(lens.id) },
