@@ -149,6 +149,35 @@ let agentsRun = 0
 const counted = (prompt, opts) =>
   agent(prompt, opts).then((r) => { if (r) { agentsRun += 1 } return r })
 
+// Fail-closed lens-set gate (round-17 finding G2): the runtime complement of
+// tests/test-workflows.sh's T2 static parity check. T2 confirms impl-check.md
+// §4b and work-item-close.md §2 AGREE on the id set at rest; it cannot see a
+// close-prose regression or a consumer edit that drifts what args.lenses
+// actually carries at execution time. A duplicate id that silently drops one
+// of the three (e.g. pattern/absence/absence) would otherwise let
+// results.length === args.lenses.length and agents_run reach 6 while
+// fidelity was never reviewed at all - fidelityResult stays undefined,
+// fidelity_truncated defaults false, and zero fidelity findings reads as "no
+// undeclared deviation" rather than "not reviewed". Checked before any agent
+// is dispatched, so the reject path costs nothing; composes with the existing
+// findings:null -> inline-fallback contract (C4) the same as every other
+// early-exit in this script.
+const isLensSetValid = (lensIds) => {
+  // T5-ANCHOR-START (tests/test-workflows.sh extracts and executes this
+  // exact block against fixture id arrays - keep it self-contained: `lensIds`
+  // is its only free variable, and it must end in `return`.)
+  const REQUIRED_LENS_IDS = ['fidelity', 'pattern', 'absence']
+  return (
+    lensIds.length === REQUIRED_LENS_IDS.length &&
+    new Set(lensIds).size === REQUIRED_LENS_IDS.length &&
+    REQUIRED_LENS_IDS.every((id) => lensIds.includes(id))
+  )
+  // T5-ANCHOR-END
+}
+if (!isLensSetValid(args.lenses.map((l) => l.id))) {
+  return { findings: null, agents_run: 0 }
+}
+
 phase('Read')
 const reviewed = await pipeline(
   args.lenses,

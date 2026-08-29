@@ -28,10 +28,19 @@
 #      executes it against fixture `results` arrays: a truncated fidelity
 #      lens must produce fidelity_truncated:true regardless of what the
 #      surviving findings say; an untruncated one must produce false.
+# T5 - lens-set validation (round-17 finding G2): the runtime complement of
+#      T2 - T2 checks impl-check.md/work-item-close.md agree on the id set
+#      AT REST; T5 checks the script itself refuses to dispatch when the
+#      SUPPLIED lens ids at execution time are not exactly one each of
+#      fidelity/pattern/absence (a close-prose regression or a consumer edit
+#      T2 cannot see). Extracts the anchored predicate and executes it
+#      against fixture id arrays: the correct set passes, a duplicate that
+#      silently drops fidelity fails, wrong count and wrong members fail.
 #
-# Self-test: T1, T2, T3 and T4 each run a second time against a planted-defect
-# fixture and must report exactly that defect (testing discipline: a green
-# sweep that was never proved to be looking certifies nothing).
+# Self-test: T1, T2, T3, T4 and T5 each run a second time against a
+# planted-defect fixture and must report exactly that defect (testing
+# discipline: a green sweep that was never proved to be looking certifies
+# nothing).
 # ---------------------------------------------------------------------------
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
@@ -197,6 +206,64 @@ T4_BROKEN="$(run_t4 "$T4TMP/broken.txt" "$TRUNC_RESULTS" 6)" \
 printf '%s' "$T4_BROKEN" | grep -q '"fidelity_truncated":false' \
   || { echo "FAIL: T4's own mutation-check is blind - the broken consumer should have dropped the truncated signal and did not: $T4_BROKEN"; ck 1; }
 rm -rf "$T4TMP"
+
+# --- T5: lens-set validation -------------------------------------------------
+extract_t5() { # $1=source file -> the anchored predicate block's body lines
+  sed -n '/T5-ANCHOR-START/,/T5-ANCHOR-END/p' "$1" | grep -v 'T5-ANCHOR'
+}
+run_t5() { # $1=extracted-body-file $2=lens-ids-json-array -> "true"/"false"
+  local body="$1" TMP5
+  TMP5="$(mktemp -d)"
+  {
+    echo 'function isLensSetValid(lensIds) {'
+    cat "$body"
+    echo '}'
+    echo "console.log(JSON.stringify(isLensSetValid($2)))"
+  } > "$TMP5/harness.cjs"
+  node "$TMP5/harness.cjs"
+  local rc=$?
+  rm -rf "$TMP5"
+  return "$rc"
+}
+T5TMP="$(mktemp -d)"
+extract_t5 "$VWI" > "$T5TMP/real.txt"
+[ -s "$T5TMP/real.txt" ] || { echo "FAIL: T5 anchor extraction found nothing in $VWI - anchors moved or renamed"; ck 1; }
+
+# The correct set, any order - order must not matter, only membership.
+T5_OK="$(run_t5 "$T5TMP/real.txt" '["pattern","fidelity","absence"]')" \
+  || { echo "FAIL: T5 harness errored on the correct lens set: $T5_OK"; ck 1; }
+[ "$T5_OK" = "true" ] \
+  || { echo "FAIL: the correct lens set (fidelity/pattern/absence, any order) was rejected: $T5_OK"; ck 1; }
+
+# THE LOAD-BEARING ROUND-17 CASE: a duplicate silently drops fidelity. Same
+# length as the correct set (3), so a length-only check would miss this.
+T5_DUP="$(run_t5 "$T5TMP/real.txt" '["pattern","absence","absence"]')" \
+  || { echo "FAIL: T5 harness errored on the duplicate-lens case: $T5_DUP"; ck 1; }
+[ "$T5_DUP" = "false" ] \
+  || { echo "FAIL: a duplicate lens id silently dropping fidelity should be rejected, got: $T5_DUP"; ck 1; }
+
+# Wrong count (missing entirely) and wrong membership (an id outside the
+# known three) must also fail, not just duplicates.
+T5_SHORT="$(run_t5 "$T5TMP/real.txt" '["fidelity","pattern"]')" \
+  || { echo "FAIL: T5 harness errored on the too-short case: $T5_SHORT"; ck 1; }
+[ "$T5_SHORT" = "false" ] \
+  || { echo "FAIL: a two-lens set (missing absence) should be rejected, got: $T5_SHORT"; ck 1; }
+T5_WRONG="$(run_t5 "$T5TMP/real.txt" '["fidelity","pattern","bogus"]')" \
+  || { echo "FAIL: T5 harness errored on the wrong-member case: $T5_WRONG"; ck 1; }
+[ "$T5_WRONG" = "false" ] \
+  || { echo "FAIL: a lens set with an unknown id should be rejected, got: $T5_WRONG"; ck 1; }
+
+# Mutation-verify the harness itself: feed it a planted-broken predicate that
+# only checks LENGTH (the exact round-17 gap - "results.length ===
+# args.lenses.length" alone) and confirm the duplicate-lens attack now
+# passes - proving run_t5 can tell a length-only check from a membership
+# check, not just always agreeing with whatever it is handed.
+printf '%s\n' 'return lensIds.length === 3' > "$T5TMP/broken.txt"
+T5_BROKEN="$(run_t5 "$T5TMP/broken.txt" '["pattern","absence","absence"]')" \
+  || { echo "FAIL: T5 harness errored on the planted-broken predicate: $T5_BROKEN"; ck 1; }
+[ "$T5_BROKEN" = "true" ] \
+  || { echo "FAIL: T5's own mutation-check is blind - the length-only predicate should have let the duplicate through and did not: $T5_BROKEN"; ck 1; }
+rm -rf "$T5TMP"
 
 # --- self-test: planted defects must be caught -----------------------------
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
