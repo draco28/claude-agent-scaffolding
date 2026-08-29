@@ -14,7 +14,7 @@ logs").
 
 `r1.s7.w1` has already been implemented, gated green, staged, and closed —
 canonical is parked on `spine/r1.s7-webhook-status-everywhere` with `r1.s7.w1`'s
-merge commit on it. `r1.s7.w2`'s three-layer gate is also green, and its
+merge commit on it. `r1.s7.w2`'s four-layer gate is also green, and its
 worktree under `svc-billing/.worktrees/r1.s7.w2` has a real staged change
 (`git -C .../r1.s7.w2 diff --cached --name-only` prints `worker/logging.go`).
 

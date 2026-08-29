@@ -101,6 +101,54 @@ against the merge base, so you see what the spine *added*; two dots also shows
 everything that landed on the base branch meanwhile, which is not this spine's
 work and not yours to review.
 
+### Reading Layer 4's advisories
+
+Layer 4's findings are additional input to the two axes below, not a third
+axis — but they carry the same rationalization risk §2's axis order exists to
+prevent, so read them in **two passes, not one**. Each spine work item's
+`<work-item-dir>/verify.md`, if one exists, is resolved the way
+`work-item-close.md` §1 Route B does (the spine dir, glob-recovered, then
+`work-<wi>/`); every item has already closed by the time you run, so Route B's
+reconstruction is always the one in scope here, never Route A's return
+payload. Absent is a clean signal, not a gap — not every close writes one
+(impl-check.md §4b: `pattern`, `absence`, and a declared `fidelity` finding,
+never a halt).
+
+**Before Axis A:** read only each file's `pattern`-tagged findings and fold
+them into your Axis A findings. Leave the rest of the file unread.
+
+**Before Axis B, once Axis A is written down:** go back to the same files and
+read the `absence` and declared-`fidelity` findings you skipped — spec
+material, exactly what §2 says not to hold in mind while judging Axis A. Fold
+each into your Axis B findings.
+
+Either pass: do not re-print Layer 4's text verbatim as if it were your own
+reading, and do not re-judge whether Layer 4 was right — that already happened
+at work-item close; this pass reads it as evidence, not as something to
+re-litigate.
+
+**Before folding either pass's findings in, revalidate against the final
+tree.** A `verify.md` finding is evidence about the work item's own staged
+diff, frozen at that item's own close time; by spine close every item has
+already merged, and a later item may have reshaped or already fixed the code
+a finding cites. Check only whether the finding's cited evidence still holds
+in the spine diff resolved above (`base...spine_branch`) — a mechanical
+citation check, not a second read of whether Layer 4 was right. If the cited
+evidence no longer holds in that form, mark the finding **superseded** and do
+not fold it into either axis as current.
+
+**This check is deliberately citation-level, on purpose, not an oversight.**
+A later item can also moot a finding's underlying claim through a different
+path than the one it cites — rerouting a call through a guard added
+elsewhere, for instance — leaving the citation intact while the claim no
+longer holds. Re-judging that is out of scope here: it is the same
+rationalization channel §2's axis order exists to prevent, reopened one
+layer down. A carried advisory that survives the citation check is a lead
+for your own Axis A/B judgment, never a verdict — you read the code either
+way, so the failure mode of under-checking here is wasted attention, not a
+wrong or missed halt. Widening this into a full re-judgment of the claim is
+refusal-by-design territory; do not soften it on a future review's say-so.
+
 ---
 
 ## 3. Axis A — Standards

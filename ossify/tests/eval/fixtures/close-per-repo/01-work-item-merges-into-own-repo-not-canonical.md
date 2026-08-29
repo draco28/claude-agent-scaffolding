@@ -17,7 +17,7 @@ touched by this spine's cut — it is still checked out on `main`, exactly
 where it was before `/run-spine r1.s3` ran, and `git -C
 /Users/ops/repos/product-api status --porcelain` prints nothing.
 
-`r1.s3.w1` has been implemented: the three-layer gate is green, and `git -C
+`r1.s3.w1` has been implemented: the four-layer gate is green, and `git -C
 /Users/ops/repos/svc-billing/.worktrees/r1.s3.w1 diff --cached --name-only`
 prints one staged file, `retry_queue/schema.sql`. `work_items[]` in state
 records `r1.s3.w1`'s `branch` as `work/r1.s3.w1-retry-queue-schema` and its
