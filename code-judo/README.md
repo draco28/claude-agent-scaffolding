@@ -27,18 +27,20 @@ not to collect nits.
 
 ## What `deep-review` is not
 
-It is not a correctness review and not a security review, and this plugin ships nothing that
-is. It does not look for bugs, breaking changes, or vulnerabilities; that is a separate
-review with separate questions, and mixing the two into one pass makes both worse. Run
-whatever your project already uses for that axis.
+It is not a correctness review and not a security review. This plugin does not provide those,
+and neither does anything else in this marketplace: it looks for nothing about bugs, breaking
+changes, or vulnerabilities. That is a separate review with separate questions, and mixing the
+two into one pass makes both worse. Run whatever your project already uses for that axis.
 
 It produces **one report and one disposition pass, and never re-reviews its own fixes.** A
-review that grades its own remedies always finds something, because every fix is new code and
-new code has findings; a self-reviewing loop has no natural end, and its later rounds measure
-the review rather than the change. A second review is a new human decision.
+second review is a new human decision. Its verdict is **advisory** and has two outcomes — the
+bar is met, or "the bar is not met, because …" naming the clauses it fails. Either way it is
+never a merge gate.
 
-Its verdict is **advisory** and has two outcomes — the bar is met, or "the bar is not met,
-because …" naming the clauses it fails. Either way it is never a merge gate.
+Why it is built that way, and how findings are sorted, is in
+`skills/deep-review/references/disposition.md`. That file is the only place the reasoning is
+written down; everywhere else states the rule and points here, because one rule in two files
+drifts by construction.
 
 ## The report
 
@@ -65,6 +67,7 @@ Adapted, with thanks, from two upstreams:
   `grilling` (`mattpocock/skills`) — hot-spot scoping, the deletion test, the HTML report
   format, the grilling loop, and the ADR side effects.
 
-Two things were deliberately changed: `deep-review` gained the stopping discipline described
-above, and the cross-skill dependency web was internalized so the plugin is complete on its
-own. See issue #382 for the full port record, including what was knowingly left out and why.
+Several things were deliberately changed rather than ported — the stopping discipline above is
+one. `CHANGELOG.md` carries the canonical list of departures; issue #382 carries the full port
+record, including what was knowingly left out and why. Neither is restated here, because a
+count kept in two places is a count that drifts.

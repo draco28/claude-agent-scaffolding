@@ -11,28 +11,14 @@ Parse the argument from `$ARGUMENTS` via the env-var bridge below — no positio
 ```bash
 ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
   set -u
-  BASE="${ARGS_FROM_CLAUDE:-}"
-  if [ -z "$BASE" ]; then
-    # No argument: resolve the repository default. Never assume "main" - on a
-    # master/trunk repo that ref does not exist and the diff fails outright.
-    # NOT the upstream of HEAD: that is usually this branch own remote ref, and
-    # diffing a branch against itself yields an empty review that looks clean.
-    BASE="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)"
-    for candidate in origin/main origin/master origin/trunk main master trunk; do
-      [ -n "$BASE" ] && break
-      git rev-parse --verify --quiet "$candidate" >/dev/null 2>&1 && BASE="$candidate"
-    done
-  fi
-  echo "deep-review: base=${BASE:-<unresolved>}"
+  echo "deep-review: base=${ARGS_FROM_CLAUDE:-<none given, resolve per SKILL.md §1>}"
 '
 ```
 
-Now load the skill body and follow it:
-
-**Read `${CLAUDE_PLUGIN_ROOT}/skills/deep-review/SKILL.md` end to end and follow it**, using
-the base ref parsed above. If the bridge printed `<unresolved>`, say so and ask for an
-explicit base rather than guessing one — a review scoped against the wrong ref reports on
-commits the author never wrote.
+**Read `${CLAUDE_PLUGIN_ROOT}/skills/deep-review/SKILL.md` end to end and follow it**, passing
+the base above if one was given. **Base resolution lives in the skill, not here** — Codex
+publishes `./skills/` and never loads this file, so a resolver written here would exist on one
+surface and not the other, which is how the two came to disagree in the first place.
 `references/rubric.md` carries the standards, questions, flags, and remedies;
 `references/disposition.md` carries the approval bar and the stopping rule.
 

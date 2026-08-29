@@ -55,15 +55,19 @@ complexity, or just move it? A "yes, concentrates" is the signal you want.
 ## 2. Present the candidates as an HTML report
 
 Write the report as a **single HTML file** to the OS temp directory, so nothing lands in the
-repo. Resolve the temp directory from `$TMPDIR`, falling back to `/tmp` (or `%TEMP%` on
-Windows), and write `<tmpdir>/architecture-review-<timestamp>-<unique>.html` so every run gets
-a fresh file. Open it for the user and tell them the **absolute path**.
+repo. Resolve the temp directory from `$TMPDIR`, then `$TEMP`, then `$TMP`, then `/tmp`, and
+write `<tmpdir>/architecture-review-<timestamp>-<unique>.html` so every run gets a fresh file.
+Open it for the user and tell them the **absolute path**.
+
+The `$TEMP` and `$TMP` steps are what make this work on Windows shells, where `$TMPDIR` is
+usually unset. `%TEMP%` is `cmd` syntax and expands to nothing in a POSIX shell, so naming it
+in prose does not make the snippet portable — the variable has to be in the chain.
 
 One file, but **not offline-capable**: styling and diagrams load from CDNs, so say plainly
 that the report needs network access to render. Do not describe it as self-contained.
 
 ```bash
-dir="${TMPDIR:-/tmp}"; dir="${dir%/}"
+dir="${TMPDIR:-${TEMP:-${TMP:-/tmp}}}"; dir="${dir%/}"
 # The timestamp is for the reader; the pid and random suffix are what make the
 # path unique. Two runs in the same second would otherwise resolve to one file
 # and the second would overwrite the first.
@@ -137,7 +141,9 @@ These happen as decisions crystallize, not in a batch at the end. Call the Skill
   me to record this as an ADR so future architecture reviews don't re-suggest it?"* Offer it
   only when the reason is one a future explorer would actually need in order to avoid
   re-suggesting the same thing. Skip ephemeral reasons ("not worth it right now") and
-  self-evident ones.
+  self-evident ones. On yes, `code-judo:domain-modeling` composes it and names where it goes —
+  it does not file it, because the ADR sequence belongs to whatever already owns that
+  directory.
 - **Want to explore alternative interfaces for the deepened module?** Call the Skill tool
   with `code-judo:codebase-design` and use its design-it-twice parallel sub-agent pattern.
 

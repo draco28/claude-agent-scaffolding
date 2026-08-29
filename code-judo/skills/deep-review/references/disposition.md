@@ -57,6 +57,7 @@ Sort by **failure direction**, not by severity feel:
 
 | The finding says | Disposition |
 |---|---|
+| **structural** — a file crossed 1000 lines, an existing flow got more tangled, an abstraction was added that does not earn its keep, a boundary leaked | **fix, or the author justifies it explicitly**; these are the presumptive blockers above |
 | the code **admits what it cannot handle** — a case it silently mishandles, an invariant it breaks, an incoherence this change introduced | **fix** |
 | the code **refuses a valid input** — it rejects something it promises to accept, so it is breaking its own contract | **fix** |
 | the code **correctly refuses an unsupported input** — the boundary is doing its job and the finding wants the boundary moved | **invalid, or defer**; a documented refusal is complete |
@@ -66,8 +67,12 @@ Sort by **failure direction**, not by severity feel:
 The sort is categorical on purpose. "How bad does this feel" produces a different answer on a
 different day, and a review whose severity drifts is a review nobody can act on consistently.
 
-The distinction that carries the weight is between the middle two rows, and collapsing them
-is the common mistake. *Refuses a valid input* and *correctly refuses an unsupported input*
+The structural row comes first because it is what this review exists to produce. Without it
+the sort has nowhere to put its own presumptive blockers, and a 1000-line file has to be
+miscast as taste to fit the table — which quietly converts a blocker into a shrug.
+
+The distinction that carries the weight after that is between the two refusal rows, and
+collapsing them is the common mistake. *Refuses a valid input* and *correctly refuses an unsupported input*
 look identical from the outside — both are a rejection someone is unhappy about. What
 separates them is the contract: read what the code promises to accept, then decide which one
 you are looking at. Only then does the disposition follow.

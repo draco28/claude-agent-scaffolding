@@ -18,17 +18,21 @@
 #
 # skills/*/agents/openai.yaml — the Codex contract, which is a SEPARATE
 # declaration because Codex does not read `disable-model-invocation`:
-#   - the file exists for every skill
-#   - the human-invoked-only skills carry `allow_implicit_invocation: false`,
-#     and the model-invocable ones do not
+#   - the file matches one of exactly TWO shapes, byte for byte once the two
+#     quoted strings are blanked: with a `policy:` block, or without one
 #
-# Both postures are asserted in BOTH directions, and that is the point rather
-# than thoroughness for its own sake. A one-directional check passes just as
-# happily when every skill is human-only as when the split is right, so it
-# would not notice a skill drifting to the wrong side. The same reasoning
-# covers the unknown-key check: allowing a third frontmatter field is a
-# LOOSENING of ai-mentor's exactly-two rule, and the control that keeps it from
-# becoming "anything goes" is that any OTHER key is still rejected.
+# Posture is DERIVED, never listed here. A skill is human-invoked-only if its
+# description says so, and the lint then requires all three surfaces to agree:
+# the description prose, the frontmatter flag, and the Codex policy block. A
+# hand list of which skills are human-only is the same drift class as #385, and
+# it fails OPEN — a fifth skill nobody adds to the list is silently treated as
+# model-invocable. Deriving it means a fifth skill is checked the day it lands,
+# and flipping a posture takes three deliberate edits that show up in the diff.
+#
+# The Codex file is compared by SHAPE rather than parsed. An earlier version
+# grepped for `allow_implicit_invocation: false` and passed when the key sat at
+# the wrong nesting entirely — under `interface:` instead of `policy:`. Shape
+# comparison has no indentation semantics to get wrong.
 #
 # Usage:   bash code-judo/tests/test-frontmatter-lint.sh
 # Exit:    0 if every skill passes every check; 1 if any check fails.
@@ -39,9 +43,6 @@ set -u  # failures are counted explicitly; do not `set -e`
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SKILLS_DIR="$PLUGIN_ROOT/skills"
-
-# Skills that must be human-invoked only (space-separated, matched whole-word).
-HUMAN_ONLY="deep-review deepen-architecture"
 
 PASS=0
 FAIL=0
@@ -121,9 +122,14 @@ is_kebab_case() {
   esac
 }
 
-is_human_only() {
-  case " $HUMAN_ONLY " in
-    *" $1 "*) return 0 ;;
+# A skill declares its own posture in the description users actually read.
+# That prose is the source; the frontmatter flag and the Codex policy block are
+# the two machine-readable restatements of it, and all three must agree.
+HUMAN_ONLY_MARKER="Human-invoked only."
+
+describes_human_only() {
+  case "$1" in
+    *"$HUMAN_ONLY_MARKER"*) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -207,32 +213,45 @@ check_skill() {
     fail "$rel_path: 'description' length ≤1024" "actual=${desc_len} (over by $((desc_len-1024)))"
   fi
 
-  # Invocation posture — asserted in BOTH directions.
+  # Invocation posture — derived from the description, then asserted in BOTH
+  # directions against the frontmatter flag.
   dmi_count="$(count_key "$keys" disable-model-invocation)"
   dmi_val="$(extract_value "$fm" disable-model-invocation)"
-  if is_human_only "$skill_name"; then
+  if describes_human_only "$desc_val"; then
     if [ "$dmi_count" -eq 1 ] && [ "$dmi_val" = "true" ]; then
-      pass "$rel_path: human-invoked only (disable-model-invocation: true)"
+      pass "$rel_path: description says human-invoked only, and the flag agrees"
     else
-      fail "$rel_path: human-invoked only (disable-model-invocation: true)" \
-        "count=$dmi_count value='$dmi_val' — this skill must never be model-triggered"
+      fail "$rel_path: description says human-invoked only, and the flag agrees" \
+        "description carries '$HUMAN_ONLY_MARKER' but disable-model-invocation is count=$dmi_count value='$dmi_val'"
     fi
   else
     if [ "$dmi_count" -eq 0 ]; then
-      pass "$rel_path: model-invocable (no disable-model-invocation key)"
+      pass "$rel_path: description does not claim human-invoked only, and no flag is set"
     else
-      fail "$rel_path: model-invocable (no disable-model-invocation key)" \
-        "found the key with value '$dmi_val'; this skill is meant to be reachable by trigger"
+      fail "$rel_path: description does not claim human-invoked only, and no flag is set" \
+        "the flag is set to '$dmi_val' but the description never tells the user this skill cannot be triggered"
     fi
   fi
 }
 
-# Codex does not read `disable-model-invocation`; it reads skills/<name>/agents/openai.yaml.
-# The two surfaces therefore declare the same posture in two files, and the failure mode is
-# that one is updated and the other is not — an "explicit only" skill quietly implicitly
-# invocable on Codex. Asserted in both directions, like the frontmatter check above.
+# Codex reads skills/<name>/agents/openai.yaml, not the frontmatter flag. The
+# file is compared by SHAPE: blank the two quoted strings, then require an exact
+# match against one of two literals. Nothing to mis-parse, nothing to nest wrong.
+codex_shape() {
+  sed -e 's/"[^"]*"/<STR>/g' -e 's/[[:space:]]*$//' "$1"
+}
+
+CODEX_SHAPE_OPEN='interface:
+  display_name: <STR>
+  short_description: <STR>'
+
+CODEX_SHAPE_DENIED="$CODEX_SHAPE_OPEN
+policy:
+  allow_implicit_invocation: false"
+
 check_codex_policy() {
   skill_name="$1"
+  human_only="$2"
   yaml="$SKILLS_DIR/$skill_name/agents/openai.yaml"
   rel="skills/$skill_name/agents/openai.yaml"
 
@@ -240,24 +259,21 @@ check_codex_policy() {
     fail "$rel: exists" "every skill declares its Codex interface here"
     return 0
   fi
-  pass "$rel: exists"
 
-  # `allow_implicit_invocation: false`, flat, one line — the only shape we author.
-  denies="$(awk '/^[[:space:]]*allow_implicit_invocation:[[:space:]]*false[[:space:]]*$/ { n++ } END { print n+0 }' "$yaml")"
-  if is_human_only "$skill_name"; then
-    if [ "$denies" -eq 1 ]; then
-      pass "$rel: denies implicit invocation, matching its frontmatter"
-    else
-      fail "$rel: denies implicit invocation, matching its frontmatter" \
-        "found $denies occurrences of 'allow_implicit_invocation: false'; on Codex this skill is currently implicitly invocable"
-    fi
+  actual="$(codex_shape "$yaml")"
+  if [ "$human_only" = "yes" ]; then
+    expected="$CODEX_SHAPE_DENIED"
+    label="$rel: exact denied shape, matching the description and the flag"
   else
-    if [ "$denies" -eq 0 ]; then
-      pass "$rel: leaves implicit invocation open, matching its frontmatter"
-    else
-      fail "$rel: leaves implicit invocation open, matching its frontmatter" \
-        "this skill is model-invocable on Claude Code but denied on Codex; the two surfaces disagree"
-    fi
+    expected="$CODEX_SHAPE_OPEN"
+    label="$rel: exact open shape, matching the description and the flag"
+  fi
+
+  if [ "$actual" = "$expected" ]; then
+    pass "$label"
+  else
+    fail "$label" "shape mismatch; got:
+$actual"
   fi
 }
 
@@ -274,23 +290,19 @@ for skill_md in "$SKILLS_DIR"/*/SKILL.md; do
   [ -e "$skill_md" ] || continue
   found_any=1
   check_skill "$skill_md"
-  check_codex_policy "$(basename "$(dirname "$skill_md")")"
+  skill_dir_name="$(basename "$(dirname "$skill_md")")"
+  skill_desc="$(extract_value "$(extract_frontmatter "$skill_md")" description)"
+  if describes_human_only "$skill_desc"; then
+    check_codex_policy "$skill_dir_name" yes
+  else
+    check_codex_policy "$skill_dir_name" no
+  fi
 done
 
 if [ "$found_any" -eq 0 ]; then
   printf '\n%s✗%s no skills found under %s/*/SKILL.md\n' "$RED" "$RST" "$SKILLS_DIR"
   exit 1
 fi
-
-# Every skill named human-only must actually exist, or the posture assertions
-# above passed vacuously by iterating over a set that never contained them.
-for expected in $HUMAN_ONLY; do
-  if [ -f "$SKILLS_DIR/$expected/SKILL.md" ]; then
-    pass "human-invoked skill '$expected' exists"
-  else
-    fail "human-invoked skill '$expected' exists" "no skills/$expected/SKILL.md"
-  fi
-done
 
 printf '\n%s──%s %d passed, %d failed\n' "$DIM" "$RST" "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ] || exit 1

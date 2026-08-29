@@ -91,10 +91,12 @@ If any of the three is missing, skip it. Easy to reverse? You will just reverse 
 Unsurprising? Nobody will wonder. No real alternative? There is nothing to record beyond "we
 did the obvious thing."
 
-**Resolve which `docs/adr/` before you write or number.** In a repo with a `CONTEXT-MAP.md`,
-a decision local to one context belongs in that context's own directory and takes its number
-from that directory's sequence; the root directory is for system-wide decisions. The format,
-the numbering, and the full list of what qualifies are in `references/adr-format.md`.
+**This skill composes ADRs; it does not file them.** An ADR directory is a numbered sequence
+with one owner, and in these repos something else usually owns it — ossify's ceremonies write
+`docs/adr/`, as did the deprecated `scaffold-dev`. Two tools scanning the same directory for
+the next number collide silently. So compose the content, name the destination, and hand it to
+whoever owns the sequence. Write the file yourself only if the user asks you to. The format,
+the destination rule, and the full list of what qualifies are in `references/adr-format.md`.
 
 **A recorded ADR is not re-litigated.** Once a decision is written down, a later review does
 not get to re-open it as though it were never made. Surface a conflict with an ADR only when

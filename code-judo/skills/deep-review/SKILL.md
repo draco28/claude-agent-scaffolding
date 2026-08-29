@@ -32,11 +32,17 @@ Everything below is applied on top of this:
 
 Gather two things, and do not start reviewing until you have both:
 
-- **The diff.** `git diff <base>...HEAD`, where `<base>` defaults to `main` unless the user
-  named one.
-- **The full contents of every changed file.** A diff shows what moved, not what it landed
-  in. A hunk that looks fine in isolation is often the sixth special case bolted onto a
-  function you cannot see.
+- **The diff**, against a base you have actually resolved. If the user named a base, use it.
+  Otherwise resolve `origin/HEAD` — and if that does not give you a ref that exists, **ask
+  which base to review against.** Do not walk a list of likely names hoping one of them is
+  there. A review scoped against a ref the author never branched from reports on commits they
+  did not write, and it looks exactly like a real review while doing it. Asking costs one
+  turn; guessing costs the whole review, silently.
+- **The full contents of every changed file** *that still exists*. A diff shows what moved,
+  not what it landed in, and a hunk that looks fine in isolation is often the sixth special
+  case bolted onto a function you cannot see. Deleted paths have no current contents: read
+  them at `<base>:<path>` if you need to judge what was removed, and never treat a deletion as
+  a missing file that blocks the review.
 
 Then:
 
@@ -71,9 +77,8 @@ Prefer a smaller number of high-conviction comments over a long list of cosmetic
 
 ## 4. Disposition, once
 
-Read `references/disposition.md`. It carries the approval bar, the presumptive blockers, and
-the stopping rule.
+**One report, one disposition pass, no loop.** This skill does not re-review its own fixes; a
+second review is a new decision, made by a human.
 
-The stopping rule is the part that differs from every review skill this one descends from,
-and it is not optional: **one report, one disposition pass, no loop.** This skill does not
-re-review its own fixes. A second review is a new decision, made by a human.
+Read `references/disposition.md` and follow it. It carries the approval bar, the presumptive
+blockers, the failure-direction sort, and the reasoning behind the stopping rule.

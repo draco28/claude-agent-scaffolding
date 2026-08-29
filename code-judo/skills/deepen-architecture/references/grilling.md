@@ -28,12 +28,16 @@ Take the first of these that works:
 2. **`ai-mentor:grill-me`**.
 3. **The protocol below** — in-plugin, no dependency, always available.
 
-**How to probe: just call it.** Invoke the Skill tool with the name. If that plugin is not
-installed the call fails, and that failure *is* the answer — move to the next option without
-comment. Do not try to detect installation by looking for plugin directories on disk: the
-install path differs by host and by install mode, so a wrong guess reports "not installed"
-for a plugin that is right there, and silently downgrades a user who has the better griller.
-A failed Skill call costs one turn; a wrong filesystem guess costs the whole resolution.
+**How to probe: just call it.** Invoke the Skill tool with the name. Do not try to detect
+installation by looking for plugin directories on disk — the install path differs by host and
+by install mode, so a wrong guess reports "not installed" for a plugin that is right there and
+silently downgrades a user who has the better griller.
+
+**Fall through only when the skill is genuinely absent.** "No such skill" is the answer that
+means move on. A registry error, a plugin that failed to load, a permission refusal — none of
+those mean the skill is not installed, and swallowing them as absence hides a real fault while
+looking like a clean fallback. Surface anything that is not a plain not-found, say what
+happened, and then continue with the in-plugin protocol so the user is not blocked.
 
 These are **soft** dependencies. Nothing about the correctness of this skill changes when
 neither plugin is installed; the third option is a complete griller, not a degraded one. Do

@@ -21,13 +21,21 @@ Invocation posture is declared on both surfaces, because they read different fil
 `policy.allow_implicit_invocation: false` in `skills/*/agents/openai.yaml` for Codex, which
 does not read the frontmatter field. The lint asserts the two agree, in both directions.
 
-Three deliberate departures from upstream. `deep-review` produces one report and one
-categorical disposition pass and never loops, and its verdict is advisory rather than a merge
-gate. The cross-skill dependency web is internalized, with the grilling step resolving softly
-to `ossify:challenge`, then `ai-mentor:grill-me`, then an in-plugin protocol. And
-`deepen-architecture` reads path-bearing history (`git log --name-only`) for its hot-spot
-scan: upstream specifies `--oneline`, which prints commit subjects and no file names, so it
-cannot answer the question it is asked. The requirement is ported; the command is corrected.
+**Deliberate departures from upstream — this list is canonical; no other file restates it.**
+
+1. `deep-review` produces one report and one categorical disposition pass and never loops,
+   and its verdict is advisory rather than a merge gate.
+2. The cross-skill dependency web is internalized, with the grilling step resolving softly to
+   `ossify:challenge`, then `ai-mentor:grill-me`, then an in-plugin protocol.
+3. `deepen-architecture` reads path-bearing history (`git log --name-only`) for its hot-spot
+   scan. Upstream specifies `--oneline`, which prints commit subjects and no file names, so it
+   cannot answer the question it is asked. The requirement is ported; the command is corrected.
+4. `domain-modeling` **composes** ADRs but does not file them — it names the destination and
+   hands off. Upstream writes the file and mints the number by scanning the directory. An ADR
+   directory is a numbered sequence with one owner, and in these repos something else already
+   owns it (ossify's ceremonies, and the deprecated `scaffold-dev`), so two tools scanning for
+   "the next number" collide silently. The guarantee is that the skill's flow never mutates a
+   shared sequence unprompted; asked directly by the user, it will still write the file.
 
 Deferred to a later release: the OpenCode adapter surface, eval fixtures for the two review
 skills, and the upstream security/correctness review axis. Tracked on #382.

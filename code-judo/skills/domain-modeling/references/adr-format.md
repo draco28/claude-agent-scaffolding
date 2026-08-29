@@ -1,22 +1,33 @@
 # ADR format
 
-## Which directory
+## This skill's flow does not write the file
 
-**Resolve the ADR directory before writing or numbering anything.** ADRs are numbered
-sequentially within their own directory — `0001-slug.md`, `0002-slug.md` — so writing into
-the wrong one both files the decision away from the context it belongs to and mints a number
-from the wrong sequence.
+**Compose the ADR, name where it belongs, and hand it off.** Do not create the file, do not
+scan for the next number, and do not create `docs/adr/`.
 
-- **No `CONTEXT-MAP.md` at the root** — single context. ADRs live in `docs/adr/`.
-- **`CONTEXT-MAP.md` exists** — several contexts. A decision local to one context goes in
-  that context's own `docs/adr/` (`src/ordering/docs/adr/`, and so on, as laid out in
-  `SKILL.md`). The root `docs/adr/` is reserved for **system-wide** decisions: ones that
-  bind more than one context, or none in particular.
-- If it is genuinely unclear which context a decision belongs to, ask. Guessing files it
-  somewhere a future reader will not look.
+The reason is shared mutable state. An ADR directory is a **sequence**, and a sequence has
+exactly one owner. In the repos this plugin is built for, something else already owns it:
+ossify's ceremonies author into `docs/adr/`, and so does the deprecated `scaffold-dev`. Two
+tools scanning the same directory for "the highest existing number" will both find the same
+answer and both write it, and the collision is silent — two ADR-0007s, discovered months
+later by someone trying to cite one.
 
-Create the resolved directory lazily — only when the first ADR that belongs in it is
-actually needed.
+So the flow is:
+
+1. **Compose the content** — title and the one-to-three sentences, in the format below.
+2. **Name the destination.** Single context: `docs/adr/`. A repo with a `CONTEXT-MAP.md`: the
+   context's own `docs/adr/`, with the root reserved for decisions that bind more than one
+   context or none. If it is genuinely unclear which context owns the decision, ask — do not
+   pick one, because a decision filed in the wrong context is a decision nobody finds.
+3. **Hand it to whoever owns the sequence.** In an ossify repo, say which ceremony files it;
+   that path registers the decision properly rather than just leaving a file behind. Where
+   nothing owns the directory, hand the composed ADR to the user and say where to put it.
+
+**What this guarantees is that the skill never mutates a shared sequence unprompted.** It is
+not a refusal to be useful: if the user reads the composed ADR and tells you to write it,
+write it — that is their call in their own repository, and it is outside this skill's flow
+rather than a violation of it. What must never happen is this skill deciding on its own to
+mint a number in a directory another tool is also numbering.
 
 ## Template
 
@@ -40,10 +51,11 @@ Include these only when they add something. Most ADRs need none of them.
 
 ## Numbering
 
-Scan **the resolved directory** — the one chosen above, not the root by default — for the
-highest existing number and add one. Each context's sequence is its own; numbering a
-context-local ADR from the root sequence produces two decisions with the same number in
-different places.
+**Not yours to assign.** Whoever owns the directory owns its sequence. When you hand off a
+composed ADR, hand over the title and the body and let the owner number it. If you are asked
+directly to write the file yourself, take the number from the destination directory at that
+moment — never from a scan you ran earlier in the conversation, which a concurrent write may
+already have invalidated.
 
 ## When to offer an ADR
 
