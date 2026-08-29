@@ -824,9 +824,10 @@ clean, and an unreadable registry.
   leaves HEAD where it was (§3).
 - **Guessing the default branch** when `base_branch` cannot be resolved.
 - **Merging canonical alone and calling the spine closed** when other repos
-  host the spine's items too. Every hosting repo needs its own switch-back and
-  merge — a partially-merged spine that only canonical's share reached is not
-  a closed spine, however green the close otherwise looks (§3).
+  host the spine's items too. Every hosting repo needs its own landing —
+  switch-back and merge for the local arm, PR push and record-pass proof for
+  the remote arm (§3) — a partially-merged spine that only canonical's share
+  reached is not a closed spine, however green the close otherwise looks.
 - **Computing the changed paths as `$base_branch..$spine_branch`** after the
   merge. Empty when the base never moved, wrong when it did (§6).
 - **Calling `touch_check` once per repo and combining the verdicts by hand**
