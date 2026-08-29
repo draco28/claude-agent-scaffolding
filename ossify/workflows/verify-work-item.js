@@ -100,18 +100,20 @@ const inputsBlock = () =>
   '- documented patterns: ' + args.inputs.patterns + '\n\n' +
   'Read-only: do not write, edit, or run any mutating command.\n'
 
+// The lens text (impl-check.md §4b) is the policy: read neighbouring files
+// from the committed tree, never the worktree. This is mechanics only - the
+// concrete command and the reason - not a restatement of that rule; keep it
+// that way, or a fourth copy of "committed, not worktree" is what round 13
+// exists to prevent.
 const patternExtra = (lensId) =>
   lensId === 'pattern'
-    ? 'This lens is about conventions the repo follows IN FACT, not just what ' +
-      '03-code-patterns.md documents - the inputs above are a floor, not a ' +
-      'ceiling. Read the relevant neighbouring files yourself before judging, ' +
-      'from the COMMITTED tree only (git -C ' + shellQuote(args.inputs.wt) + ' show HEAD:<path>), ' +
-      'never the raw worktree filesystem. An explained `partial` stage ' +
-      '(work-item-close.md §3) is allowed and can leave uncommitted edits sitting ' +
-      'in the worktree that were never meant to inform this judgment either ' +
-      'direction - inventing a convention from an edit that will not land, or ' +
-      'hiding a violation the committed diff actually has. The fixed input list ' +
-      'alone cannot establish an undocumented convention.\n\n'
+    ? 'Read those neighbouring files from the COMMITTED tree only (git -C ' +
+      shellQuote(args.inputs.wt) + ' show HEAD:<path>), never the raw worktree ' +
+      'filesystem. An explained `partial` stage (work-item-close.md §3) is ' +
+      'allowed and can leave uncommitted edits sitting in the worktree that ' +
+      'were never meant to inform this judgment either direction - inventing ' +
+      'a convention from an edit that will not land, or hiding a violation ' +
+      'the committed diff actually has.\n\n'
     : ''
 
 let agentsRun = 0

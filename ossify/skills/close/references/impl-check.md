@@ -231,9 +231,12 @@ contract, not a summary of one:
   close.
 - `pattern` — the diff contradicts a convention the repo follows **in fact**, not
   one written down — which means the diff and the four documents alone cannot
-  answer this lens; **read the relevant neighbouring files in the worktree** to
+  answer this lens; **read the relevant neighbouring files from the committed
+  tree** (`git show HEAD:<path>`, never the raw worktree filesystem — an
+  explained `partial` stage, `work-item-close.md` §3, can leave uncommitted
+  edits sitting there that were never meant to inform this judgment) to
   establish what the repo actually does before judging against it. (This is the
-  one lens the inline path and the delegated path both need worktree access
+  one lens the inline path and the delegated path both need read access
   beyond the diff for — the input list below is a floor, not a ceiling, here.)
   The written half is `03-code-patterns.md`, and that half is Layer 3's — do not
   re-run it. What is left is the defect classes a documented rule never captures:
@@ -301,15 +304,13 @@ spine-level intent. Neither re-runs the other.
 
 After Layer 3, read the staged diff, `spec.md`, `handoff.md`, report §7 and the
 patterns file, apply the three lenses yourself, and emit findings in the schema.
-For `pattern` specifically, that list is a floor, not a ceiling: also read the
-relevant neighbouring files yourself before judging it, from the COMMITTED
-tree only (`git show HEAD:<path>`), never the raw worktree filesystem — an
+`pattern`'s neighbouring-files read (§4b above) comes from the COMMITTED tree
+only (`git show HEAD:<path>`), never the raw worktree filesystem — an
 explained `partial` stage (`work-item-close.md` §3) can leave uncommitted
 edits sitting there that were never meant to inform this judgment, in either
-direction. The lens is about conventions the repo follows in fact, and the
-fixed document list cannot establish those on its own. This is not a degraded
-mode — it is the same judgment with the host's own context, and it is the
-universal fallback (`work-item-close.md` §2).
+direction. This is not a degraded mode — it is the same judgment with the
+host's own context, and it is the universal fallback (`work-item-close.md`
+§2).
 
 ### Delegated path — Claude Code on Anthropic only
 
