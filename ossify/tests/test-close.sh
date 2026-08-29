@@ -887,6 +887,47 @@ t_assert_eq "" "$(git -C "$W2C" branch --list 'spine/*')" \
   "W2c: ...and cut no spine branch on the way out"
 
 # ---------------------------------------------------------------------------
+# W3: the Layer 4 staged-index identity guard (round 9, PR #380). The six
+# delegated reader/refuter agents get ordinary worktree tool access, and the
+# read-only instruction in their prompts is prose, not enforcement (spec
+# residual R4) - an injected instruction in the staged diff or a reviewed doc
+# could get one of them to mutate the index mid-review, and nothing else in
+# the gate re-inspects what actually gets committed. Both blocks are EXTRACTED
+# from the shipped prose and run under real `set -euo pipefail`, sharing
+# `pre_tree` across the two sourced calls exactly as the close flow shares
+# state across its own bash blocks (§1's "carry $spec, $report and $wt
+# forward" convention).
+# ---------------------------------------------------------------------------
+W3_PRE="$TMP/w3-pre.sh";   _extract_block "$WIC" 'pre_tree=' "$W3_PRE"
+W3_POST="$TMP/w3-post.sh"; _extract_block "$WIC" 'post_tree=' "$W3_POST"
+if [ -s "$W3_PRE" ] && grep -Fq 'write-tree' "$W3_PRE" && [ -s "$W3_POST" ] && grep -Fq 'write-tree' "$W3_POST"; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract the W3 identity-guard blocks - the assertions below are vacuous"
+fi
+
+W3="$TMP/w3"; mkdir -p "$W3"; git -C "$W3" init -q
+git -C "$W3" config user.email t@t; git -C "$W3" config user.name t
+echo seed > "$W3/f"; git -C "$W3" add .; git -C "$W3" commit -qm seed
+echo implementer > "$W3/change.txt"; git -C "$W3" add change.txt
+
+# W3a - nothing touches the index between the two blocks, the ordinary case:
+# the guard is silent and execution reaches past it.
+t_capture bash -c "set -euo pipefail; wt='$W3'; . '$W3_PRE'; . '$W3_POST'; echo reached"
+t_assert_rc 0 "W3a: the identity guard is silent when nothing mutates the index mid-review"
+t_assert_contains "$T_OUT" "reached" "W3a: ...and execution reaches past the guard"
+
+# W3b - THE LOAD-BEARING ASSERTION. Something stages a file between the two
+# reads, exactly as an injected agent would - the guard must HALT rather than
+# let step 4 commit it silently. Injecting between the two `. ` calls, not
+# inside either block, mirrors where the real Workflow call sits: between the
+# prose that captures pre_tree and the prose that checks post_tree.
+t_capture bash -c "set -euo pipefail; wt='$W3'; . '$W3_PRE'; echo injected > '$W3/injected.txt'; git -C '$W3' add injected.txt; . '$W3_POST'; echo unreached"
+t_assert_rc 1 "W3b: the identity guard HALTS when the index changed mid-review"
+t_assert_contains "$T_OUT" "possible injection" "W3b: ...naming the risk"
+t_assert_contains "$T_OUT" "unstage anything the review added" "W3b: ...and the remedy"
+
+# ---------------------------------------------------------------------------
 # D1-D4: the cumulative-demo MEASUREMENT block. Timing is advisory; the demo
 # result is the gate. Written as a bare `oss demo_run` with the budget report
 # after it, the block's status becomes the trailing echo's — so a FAILING demo

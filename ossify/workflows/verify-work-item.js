@@ -41,7 +41,7 @@ const readerSchemaFor = (lensId) => ({
             type: 'object',
             required: lensId === 'absence' ? ['file'] : ['file', 'line'],
             additionalProperties: false,
-            properties: { file: { type: 'string' }, line: { type: 'integer', minimum: 1 } },
+            properties: { file: { type: 'string', minLength: 1 }, line: { type: 'integer', minimum: 1 } },
           },
           declared_in_report_s7: { type: 'boolean' },
         },

@@ -135,8 +135,18 @@ schema-valid empty `findings` object having never read the file, `agents_run`
 still reaches 6, and the gate reports green having verified nothing.
 
 **Layer 4 runs delegated where it can, inline where it cannot.** If
-`OSSIFY_NO_WORKFLOWS` is unset and a tool named `Workflow` is available, call it
-with `${CLAUDE_PLUGIN_ROOT}/workflows/verify-work-item.js` — **not** a
+`OSSIFY_NO_WORKFLOWS` is unset and a tool named `Workflow` is available, first
+capture the staged index's identity — the six delegated agents get ordinary
+worktree tool access, and the read-only instruction in their prompts is prose,
+not enforcement (the accepted spec residual R4); an injected instruction in the
+staged diff or a reviewed doc could get one of them to mutate or re-stage
+something mid-review, and nothing downstream would notice:
+
+```bash
+pre_tree="$(git -C "$wt" write-tree)"
+```
+
+Then call it with `${CLAUDE_PLUGIN_ROOT}/workflows/verify-work-item.js` — **not** a
 plugin-relative `ossify/workflows/…`: an installed close runs in the consumer
 project's own directory, not the plugin's, so a bare relative path resolves
 against whatever `ossify/` the consumer happens to have (usually none) and the
@@ -151,6 +161,20 @@ a null lens result, a `findings: null` return, or `agents_run` below 6: run the
 inline path and print `layer 4: inline (workflow unavailable: <reason>)`. No
 retry, no resume. A clean delegated run prints `layer 4: workflow (6 agents)`.
 The close summary states which path ran.
+
+**Whatever the outcome — clean, errored, or fallen back — immediately
+re-derive the same identity and compare:**
+
+```bash
+post_tree="$(git -C "$wt" write-tree)"
+[ "$pre_tree" = "$post_tree" ] || { echo "close: staged index changed during Layer 4's delegated call in $wt - possible injection; inspect 'git -C $wt status' and 'git -C $wt diff --cached', unstage anything the review added, and re-run - halt"; exit 1; }
+```
+
+A mismatch means one of the six agents wrote to the index this pass never
+asked for. This closes the mutation path at the one boundary that matters —
+the index step 4 commits — not the working tree a delegated agent can still
+touch outside it; that read-path exposure is R4's accepted remainder, not
+this gate's job.
 
 Apply the §4b verdict rule to the findings from whichever path ran: an undeclared
 `fidelity` finding fires the `[fidelity]` halt; the advisory findings are written

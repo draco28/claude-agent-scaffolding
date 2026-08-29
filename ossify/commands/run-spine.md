@@ -1,7 +1,7 @@
 ---
 description: Drive a planned ossify spine's rounds end to end (spine-branch cut, one worktree per work item, implementer dispatch in decomposition order, the round barrier)
 argument-hint: "<spine-id>"
-allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep, Task, Skill
+allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep, Task, Skill, Workflow
 ---
 
 Parse args from `$ARGUMENTS` via the env-var bridge (no positional `$1`/`$2`/`$N`),
