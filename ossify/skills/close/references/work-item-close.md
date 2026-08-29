@@ -162,7 +162,6 @@ so they are an accepted residual (R4-style), not a gap in this guard:
 
 ```bash
 handoff="$(dirname "$spec")/handoff.md"
-patterns="<the absolute 03-code-patterns.md path Layer 3 resolved>"
 tree_id="$(git -C "$wt" write-tree)" || { echo "close: could not capture the staged index's identity in $wt before the delegated call - halt"; exit 1; }
 head_id="$(git -C "$wt" rev-parse HEAD)" || { echo "close: could not capture HEAD's identity in $wt before the delegated call - halt"; exit 1; }
 report_id="$(git -C "$wt" hash-object "$report")" || { echo "close: could not fingerprint $report before the delegated call - halt"; exit 1; }
@@ -225,6 +224,17 @@ residual) or the working tree files a delegated agent can still touch
 outside this list (an unfingerprinted neighbour file the `pattern` lens
 inspects, say); that read-path exposure is R4's accepted remainder, not
 this gate's job.
+
+**What this guard claims, stated as a boundary, not left implicit: it
+catches persistent mutation — an alteration still present when the
+delegated call returns. It does not claim to police what an agent reads
+mid-review or whether its returned judgment is honest; an agent that lies
+in its return value, or that mutates a fingerprinted file and restores the
+original bytes before returning, corrupts nothing this guard can see and
+needed no file access to begin with — the judgment itself is the trust
+boundary (R4), which is exactly why a halt lands on the operator's recovery
+menu rather than auto-applying, and why `verify.md` is advisory input to a
+human review, not a verdict.**
 
 Apply the §4b verdict rule to the findings from whichever path ran: an undeclared
 `fidelity` finding fires the `[fidelity]` halt; on the delegated path, so does
