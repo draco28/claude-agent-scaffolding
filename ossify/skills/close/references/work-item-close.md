@@ -143,8 +143,14 @@ staged diff or a reviewed doc could get one of them to mutate or re-stage
 something mid-review, and nothing downstream would notice:
 
 ```bash
-pre_tree="$(git -C "$wt" write-tree)"
+git -C "$wt" write-tree || { echo "close: could not capture the staged index's identity in $wt before the delegated call - halt"; exit 1; }
 ```
+
+**Hold this command's output as `pre_tree` and carry it forward as a literal
+value, exactly as `$spec`/`$report`/`$wt` are carried (§1).** The Workflow call
+below is a separate tool invocation, not more of this shell — nothing assigned
+in a bash block survives into the block after it on its own, and there is no
+shell between here and there to survive in anyway.
 
 Then call it with `${CLAUDE_PLUGIN_ROOT}/workflows/verify-work-item.js` — **not** a
 plugin-relative `ossify/workflows/…`: an installed close runs in the consumer
@@ -163,10 +169,12 @@ retry, no resume. A clean delegated run prints `layer 4: workflow (6 agents)`.
 The close summary states which path ran.
 
 **Whatever the outcome — clean, errored, or fallen back — immediately
-re-derive the same identity and compare:**
+re-derive the same identity and compare, substituting the literal value you
+are carrying for `pre_tree` below:**
 
 ```bash
-post_tree="$(git -C "$wt" write-tree)"
+pre_tree="<the tree hash the capture above printed>"
+post_tree="$(git -C "$wt" write-tree)" || { echo "close: could not re-derive the staged index's identity in $wt after the delegated call - halt"; exit 1; }
 [ "$pre_tree" = "$post_tree" ] || { echo "close: staged index changed during Layer 4's delegated call in $wt - possible injection; inspect 'git -C $wt status' and 'git -C $wt diff --cached', unstage anything the review added, and re-run - halt"; exit 1; }
 ```
 
