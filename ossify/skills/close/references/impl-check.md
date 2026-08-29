@@ -323,13 +323,18 @@ delegated run changes who read the diff, never what the close asserts.
 
 **Refuter output is never trusted as free text.** The reader assigns each
 finding a stable `id`; the refuter is given the same findings back and returns
-only which `id`s survive — never a re-serialized finding. The script accepts a
-survivor only if its `id` is actually a member of what that lens's reader
-produced, so a refuter cannot rewrite a claim's content or invent a finding
-the reader never made; the content that reaches the verdict rule is always the
-reader's own, filtered by the refuter's yes/no per id. This is deterministic
-membership-checking, not judgment, and it is enforced in the script — see
-`tests/test-workflows.sh` T3.
+exactly one verdict per `id` — `{id, retain, declared_in_report_s7}` — never a
+re-serialized finding, and never fewer or more verdicts than there are
+findings. The script accepts a survivor only if coverage is exact (every
+reader `id` gets one verdict, no extra ids, no duplicates) and its `id` is
+actually a member of what that lens's reader produced; a fabricated id, a
+truncated response, or a duplicate nulls the whole lens rather than being
+silently absorbed. `claim` and `evidence` always come from the reader's own
+object — the refuter's only write access is `declared_in_report_s7`, so it can
+correct a reader's mistagging of that one field without having to discard an
+otherwise-real finding to do it, and it can never touch anything else. This is
+deterministic verdict-checking, not judgment, and it is enforced in the script
+— see `tests/test-workflows.sh` T3.
 
 ---
 

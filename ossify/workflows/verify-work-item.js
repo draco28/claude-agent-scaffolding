@@ -3,7 +3,7 @@ export const meta = {
   description: 'ossify impl-check Layer 4: one reader + one refuter per semantic lens at work-item close',
   phases: [
     { title: 'Read', detail: 'one Sonnet/medium reader per lens, at most 5 findings each' },
-    { title: 'Refute', detail: 'one Sonnet/low refuter per lens, id-membership only' },
+    { title: 'Refute', detail: 'one Sonnet/low refuter per lens, full-coverage verdicts only' },
   ],
 }
 
@@ -50,26 +50,50 @@ const readerSchemaFor = (lensId) => ({
   },
 })
 
-// The refuter NEVER returns a finding object - only which ids survive. This
-// is the integrity boundary: a refuter that could re-emit full findings could
-// rewrite a claim's text or invent a finding the reader never made, and a
-// schema-valid result would sail through with no way to tell it apart from a
-// real survivor. Restricting the refuter's own output to an id list, and
-// having the SCRIPT (not the refuter) filter the reader's original objects by
-// that list, makes fabrication structurally impossible rather than merely
-// discouraged by prompt text.
+// The refuter returns a VERDICT PER FINDING ID, never a finding object - this
+// is the integrity boundary. Three properties fall out of "one verdict per
+// input id, always":
+//   - retain/discard is explicit per id, so an incomplete or truncated
+//     response is DETECTABLE (missing or extra ids fail coverage) instead of
+//     silently reading as "everything not mentioned was refuted".
+//   - declared_in_report_s7 is the refuter's OWN re-verified value, so a
+//     refuter that catches the reader mis-tagging that field can correct it
+//     without having to discard an otherwise-real finding to do so.
+//   - claim/evidence/lens never appear in this schema at all, so there is no
+//     channel for the refuter to rewrite or invent finding content - the
+//     script assembles the final object from the READER's own data, with
+//     only declared_in_report_s7 overwritten by the refuter's verdict.
 const refuterSchema = {
   type: 'object',
-  required: ['survivor_ids'],
+  required: ['verdicts'],
   additionalProperties: false,
   properties: {
-    survivor_ids: { type: 'array', items: { type: 'string' } },
+    verdicts: {
+      type: 'array',
+      items: {
+        type: 'object',
+        required: ['id', 'retain', 'declared_in_report_s7'],
+        additionalProperties: false,
+        properties: {
+          id: { type: 'string' },
+          retain: { type: 'boolean' },
+          declared_in_report_s7: { type: 'boolean' },
+        },
+      },
+    },
   },
 }
 
+// POSIX single-quote escaping: wrap in single quotes, and any embedded single
+// quote becomes '"'"' (close the quote, emit an escaped single quote via
+// double quotes, reopen). Double-quoting alone (the previous form) still lets
+// $, `, and $() through if the path happens to contain them; single-quoting
+// disables all shell interpretation except the quote character itself, which
+// this handles explicitly.
+const shellQuote = (s) => "'" + String(s).split("'").join("'\"'\"'") + "'"
+
 const inputsBlock = () =>
-  '- the staged diff: git -C "' + args.inputs.wt + '" diff --cached (quote the' +
-  ' path yourself if you run this - it may contain spaces)\n' +
+  '- the staged diff: git -C ' + shellQuote(args.inputs.wt) + ' diff --cached\n' +
   '- spec: ' + args.inputs.spec + '\n' +
   '- handoff: ' + args.inputs.handoff + '\n' +
   '- report (§7, Deviations from spec, decides declared_in_report_s7): ' + args.inputs.report + '\n' +
@@ -96,51 +120,73 @@ const reviewed = await pipeline(
     'You are the "' + lens.id + '" lens of an ossify work-item close (impl-check.md §4b).\n\n' +
     'LENS TEXT (apply exactly as written):\n' + lens.text + '\n\n' +
     'Inputs (read them yourself):\n' + inputsBlock() + patternExtra(lens.id) +
-    'Return AT MOST 5 findings in the schema. Assign each a short unique id ' +
-    '(e.g. "f1", "f2") - the refuter pass will refer to findings by this id only. ' +
-    'Every finding cites evidence.file. For fidelity and pattern findings, also ' +
-    'cite evidence.line in the staged diff. For an absence finding - something ' +
-    'the spec requires that the diff does not contain at all - evidence.file names ' +
-    'where it should exist and evidence.line may be omitted; never invent a line ' +
-    'number to satisfy the schema. declared_in_report_s7 is true only when report ' +
-    '§7 declares the deviation the claim describes. An absence-shaped gap (the diff ' +
+    'Return AT MOST 5 findings in the schema. Assign each a SHORT, UNIQUE id ' +
+    '(e.g. "f1", "f2" - never reuse one within this response) - the refuter pass ' +
+    'will refer to findings by this id only. Every finding cites evidence.file. For ' +
+    'fidelity and pattern findings, also cite evidence.line in the staged diff. For an ' +
+    'absence finding - something the spec requires that the diff does not contain at all ' +
+    '- evidence.file names where it should exist and evidence.line may be omitted; never ' +
+    'invent a line number to satisfy the schema. declared_in_report_s7 is true only when ' +
+    'report §7 declares the deviation the claim describes. An absence-shaped gap (the diff ' +
     'never attempted something the spec required) is never a fidelity finding, even ' +
     'if it could also read as "fails to do something asked for" - that belongs to ' +
     'the absence lens.',
     { label: 'read:' + lens.id, phase: 'Read', model: 'sonnet', effort: 'medium', schema: readerSchemaFor(lens.id) },
-  ),
+  ).then((found) => {
+    if (!found) { return null }
+    const ids = found.findings.map((f) => f.id)
+    // Duplicate ids from the reader are ambiguous input no downstream check
+    // can safely resolve (which of two same-id findings does a verdict
+    // apply to?) - treat exactly like a reader that returned nothing.
+    if (new Set(ids).size !== ids.length) { return null }
+    return found
+  }),
   (found, lens) => {
-    if (!found) { throw new Error('reader for ' + lens.id + ' returned nothing') }
+    if (!found) { throw new Error('reader for ' + lens.id + ' returned nothing, or duplicate ids') }
     return counted(
       'You are the refuter for the "' + lens.id + '" lens of an ossify work-item close ' +
       '(impl-check.md §4b).\n\nLENS TEXT (the reader was held to this; check scope against ' +
       'it too, not just evidence):\n' + lens.text + '\n\n' +
       'Try to knock down EACH finding below by re-reading the same inputs. This gate must ' +
-      'not fail open: retain a finding UNLESS you find concrete evidence that refutes it - ' +
-      'never discard one merely because you are uncertain. A finding is refuted only when ' +
-      'it is actually out of this lens\'s scope, the evidence does not hold at the named ' +
-      'file (and line, when one is given - an absence finding may have none), or the ' +
-      'declared_in_report_s7 value is actually wrong against report §7\'s own text.\n\n' +
+      'not fail open: retain (retain=true) a finding UNLESS you find concrete evidence that ' +
+      'refutes it - never discard one merely because you are uncertain. Refute (retain=false) ' +
+      'only when it is actually out of this lens\'s scope, or the evidence does not hold at the ' +
+      'named file (and line, when one is given - an absence finding may have none). If your only ' +
+      'disagreement is the declared_in_report_s7 value, do NOT refute the finding for that alone - ' +
+      'retain it and correct the value instead; that field is exactly what you are re-verifying ' +
+      'against report §7\'s own text, and a wrong label is not the same as a false claim.\n\n' +
       'Inputs:\n' + inputsBlock() + patternExtra(lens.id) +
       'Findings (each already has an id):\n' + JSON.stringify(found.findings, null, 2) +
-      '\n\nReturn ONLY the ids of the findings that survive, as survivor_ids. Do not return ' +
-      'finding objects, rewritten claims, or new findings - an id from this list, or nothing.',
+      '\n\nReturn ONE verdict per finding id above, no more and no fewer - every id must appear ' +
+      'exactly once in verdicts, each with your own retain decision and your own re-verified ' +
+      'declared_in_report_s7. Do not return finding objects, claims, or evidence - ids and your ' +
+      'two judgments on each, nothing else.',
       { label: 'refute:' + lens.id, phase: 'Refute', model: 'sonnet', effort: 'low', schema: refuterSchema },
     ).then((verdict) => {
-      if (!verdict) { return null }
-      // The integrity boundary itself: only ids that were actually in the
-      // reader's own output can survive, and the finding CONTENT that reaches
-      // the caller is always the reader's object, never anything the refuter
-      // returned. A refuter hallucinating an id, or trying to smuggle content
-      // through some other channel, has no path to affect the result.
       // T3-ANCHOR-START (tests/test-workflows.sh extracts and executes this
       // exact block against fixtures - keep it self-contained: `found` and
       // `verdict` are its only free variables, and it must end in `return`.)
-      const validIds = new Set(found.findings.map((f) => f.id))
-      const survivorIds = new Set(
-        (verdict.survivor_ids || []).filter((id) => validIds.has(id)),
-      )
-      return { findings: found.findings.filter((f) => survivorIds.has(f.id)) }
+      if (!verdict) { return null }
+      const readerIds = found.findings.map((f) => f.id)
+      const readerIdSet = new Set(readerIds)
+      const entries = verdict.verdicts || []
+      const verdictIds = entries.map((v) => v.id)
+      // Coverage must be EXACT: same count, same set, no id repeated. Partial
+      // or padded coverage is untrustworthy - null this lens (-> inline
+      // fallback) rather than silently treat a missing id as "refuted" or an
+      // extra one as ignorable.
+      const coversExactly =
+        readerIds.length === entries.length &&
+        new Set(verdictIds).size === verdictIds.length &&
+        readerIds.every((id) => new Set(verdictIds).has(id)) &&
+        verdictIds.every((id) => readerIdSet.has(id))
+      if (!coversExactly) { return null }
+      const byId = new Map(entries.map((v) => [v.id, v]))
+      return {
+        findings: found.findings
+          .filter((f) => byId.get(f.id).retain)
+          .map((f) => ({ ...f, declared_in_report_s7: byId.get(f.id).declared_in_report_s7 })),
+      }
       // T3-ANCHOR-END
     })
   },

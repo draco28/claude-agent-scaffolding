@@ -10,13 +10,17 @@
 # T2 - lens-id parity: the ids declared in impl-check.md §4b and the ids the
 #      close passes in args (work-item-close.md §2) are the same set. A lens
 #      added to one file and not the other must go RED here.
-# T3 - refuter id-membership integrity: a refuter can only ever cause the
-#      SCRIPT to filter the reader's own finding objects by id, never inject
-#      content of its own (skill-first: this is a safety rail the agent must
-#      not argue past, not judgment - deterministic code is the right call
-#      here, unlike the lens texts). Extracts the exact filter block from
-#      verify-work-item.js by anchor comment and executes it in Node against
-#      fixtures, including a fabricated-id attack.
+# T3 - refuter verdict integrity: a refuter returns one verdict per reader
+#      finding id, never a finding object, so the SCRIPT (not the refuter)
+#      assembles the final content from the reader's own objects - the
+#      refuter can correct declared_in_report_s7 per id, but can never
+#      fabricate an id, rewrite a claim, or leave coverage incomplete without
+#      the whole lens nulling out to the inline fallback (skill-first: this is
+#      a safety rail the agent must not argue past, not judgment - code is the
+#      right call here, unlike the lens texts). Extracts the exact filter
+#      block from verify-work-item.js by anchor comment and executes it in
+#      Node against fixtures: a fabricated-id attack, an incomplete-coverage
+#      response, and a legitimate declared_in_report_s7 correction.
 #
 # Self-test: T1, T2 and T3 each run a second time against a planted-defect
 # fixture and must report exactly that defect (testing discipline: a green
@@ -92,22 +96,42 @@ run_t3() { # $1=extracted-body-file $2=found-json $3=verdict-json -> result JSON
   rm -rf "$TMP3"
   return "$rc"
 }
-FOUND_JSON='{"findings":[{"id":"f1","lens":"fidelity","claim":"real","evidence":{"file":"a.py","line":3},"declared_in_report_s7":false}]}'
-ATTACK_VERDICT='{"survivor_ids":["f1","FABRICATED_ID_NOT_FROM_READER"]}'
+FOUND_JSON='{"findings":[{"id":"f1","lens":"fidelity","claim":"real one","evidence":{"file":"a.py","line":3},"declared_in_report_s7":false},{"id":"f2","lens":"fidelity","claim":"real two","evidence":{"file":"b.py","line":9},"declared_in_report_s7":false}]}'
 T3TMP="$(mktemp -d)"
 extract_t3 "$VWI" > "$T3TMP/real.txt"
 [ -s "$T3TMP/real.txt" ] || { echo "FAIL: T3 anchor extraction found nothing in $VWI - anchors moved or renamed"; ck 1; }
-T3_RESULT="$(run_t3 "$T3TMP/real.txt" "$FOUND_JSON" "$ATTACK_VERDICT")" \
-  || { echo "FAIL: T3 harness errored on the real filter block: $T3_RESULT"; ck 1; }
-printf '%s' "$T3_RESULT" | grep -q 'FABRICATED_ID_NOT_FROM_READER' \
-  && { echo "FAIL: the real id-membership filter let a fabricated id through: $T3_RESULT"; ck 1; }
-printf '%s' "$T3_RESULT" | grep -q '"id":"f1"' \
-  || { echo "FAIL: the real id-membership filter dropped a legitimate survivor: $T3_RESULT"; ck 1; }
+
+# Scenario A - fabrication + incomplete coverage in one shot: a fabricated
+# extra id (not from the reader) AND f2 never gets a verdict at all. Either
+# defect alone should null the lens; both together must not cancel out.
+ATTACK_VERDICT='{"verdicts":[{"id":"f1","retain":true,"declared_in_report_s7":false},{"id":"FABRICATED_ID_NOT_FROM_READER","retain":true,"declared_in_report_s7":false}]}'
+T3_ATTACK="$(run_t3 "$T3TMP/real.txt" "$FOUND_JSON" "$ATTACK_VERDICT")" \
+  || { echo "FAIL: T3 harness errored on the fabrication+incomplete-coverage case: $T3_ATTACK"; ck 1; }
+[ "$T3_ATTACK" = "null" ] \
+  || { echo "FAIL: fabricated id + incomplete coverage should null the lens, got: $T3_ATTACK"; ck 1; }
+
+# Scenario B - legitimate full coverage, one retained with a correction to
+# declared_in_report_s7 (reader said false, refuter re-verified true), one
+# refuted. The survivor's claim/evidence must come through UNCHANGED from the
+# reader; only declared_in_report_s7 may differ.
+GOOD_VERDICT='{"verdicts":[{"id":"f1","retain":true,"declared_in_report_s7":true},{"id":"f2","retain":false,"declared_in_report_s7":false}]}'
+T3_GOOD="$(run_t3 "$T3TMP/real.txt" "$FOUND_JSON" "$GOOD_VERDICT")" \
+  || { echo "FAIL: T3 harness errored on the legitimate-coverage case: $T3_GOOD"; ck 1; }
+printf '%s' "$T3_GOOD" | grep -q '"id":"f1"' \
+  || { echo "FAIL: the legitimate survivor f1 did not come through: $T3_GOOD"; ck 1; }
+printf '%s' "$T3_GOOD" | grep -q '"id":"f2"' \
+  && { echo "FAIL: f2 was refuted (retain:false) but appeared in the result: $T3_GOOD"; ck 1; }
+printf '%s' "$T3_GOOD" | grep -q '"claim":"real one"' \
+  || { echo "FAIL: f1's claim did not come through verbatim from the reader: $T3_GOOD"; ck 1; }
+printf '%s' "$T3_GOOD" | grep -q '"declared_in_report_s7":true' \
+  || { echo "FAIL: the refuter's declared_in_report_s7 correction (false->true) was not applied: $T3_GOOD"; ck 1; }
+
 # Mutation-verify the harness itself: feed it a BROKEN filter (trusts the
-# refuter's ids with no membership check, as an unfixed script would) and
-# confirm the same attack now succeeds - proving run_t3 can tell safe from
-# broken, not just always agreeing with whatever it is handed.
-printf '%s\n' 'return { findings: (verdict.survivor_ids || []).map((id) => ({ id, injected: true })) }' \
+# refuter's verdicts with no id-membership or coverage check, as an unfixed
+# script would) and confirm the fabrication+incomplete-coverage attack now
+# succeeds - proving run_t3 can tell safe from broken, not just always
+# agreeing with whatever it is handed.
+printf '%s\n' 'return { findings: (verdict.verdicts || []).filter((v) => v.retain).map((v) => ({ id: v.id, declared_in_report_s7: v.declared_in_report_s7 })) }' \
   > "$T3TMP/broken.txt"
 T3_BROKEN="$(run_t3 "$T3TMP/broken.txt" "$FOUND_JSON" "$ATTACK_VERDICT")" \
   || { echo "FAIL: T3 harness errored on the planted-broken filter: $T3_BROKEN"; ck 1; }
