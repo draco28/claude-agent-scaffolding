@@ -26,9 +26,9 @@ const readerSchemaFor = (lensId) => ({
         required: ['id', 'lens', 'claim', 'evidence', 'declared_in_report_s7'],
         additionalProperties: false,
         properties: {
-          id: { type: 'string' },
+          id: { type: 'string', minLength: 1 },
           lens: { type: 'string', enum: [lensId] },
-          claim: { type: 'string' },
+          claim: { type: 'string', minLength: 1 },
           // `line` is required for `fidelity` and `pattern` - both point at a
           // hunk that exists in the staged diff - but NOT for `absence`: that
           // lens is about something the diff never contains at all, so there
@@ -75,7 +75,7 @@ const refuterSchema = {
         required: ['id', 'retain', 'declared_in_report_s7'],
         additionalProperties: false,
         properties: {
-          id: { type: 'string' },
+          id: { type: 'string', minLength: 1 },
           retain: { type: 'boolean' },
           declared_in_report_s7: { type: 'boolean' },
         },
@@ -104,9 +104,14 @@ const patternExtra = (lensId) =>
   lensId === 'pattern'
     ? 'This lens is about conventions the repo follows IN FACT, not just what ' +
       '03-code-patterns.md documents - the inputs above are a floor, not a ' +
-      'ceiling. Read the relevant neighbouring files in the worktree yourself ' +
-      'before judging; the fixed input list alone cannot establish an ' +
-      'undocumented convention.\n\n'
+      'ceiling. Read the relevant neighbouring files yourself before judging, ' +
+      'from the COMMITTED tree only (git -C ' + shellQuote(args.inputs.wt) + ' show HEAD:<path>), ' +
+      'never the raw worktree filesystem. An explained `partial` stage ' +
+      '(work-item-close.md §3) is allowed and can leave uncommitted edits sitting ' +
+      'in the worktree that were never meant to inform this judgment either ' +
+      'direction - inventing a convention from an edit that will not land, or ' +
+      'hiding a violation the committed diff actually has. The fixed input list ' +
+      'alone cannot establish an undocumented convention.\n\n'
     : ''
 
 let agentsRun = 0

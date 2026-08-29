@@ -137,6 +137,18 @@ citation check, not a second read of whether Layer 4 was right. If the cited
 evidence no longer holds in that form, mark the finding **superseded** and do
 not fold it into either axis as current.
 
+**This check is deliberately citation-level, on purpose, not an oversight.**
+A later item can also moot a finding's underlying claim through a different
+path than the one it cites — rerouting a call through a guard added
+elsewhere, for instance — leaving the citation intact while the claim no
+longer holds. Re-judging that is out of scope here: it is the same
+rationalization channel §2's axis order exists to prevent, reopened one
+layer down. A carried advisory that survives the citation check is a lead
+for your own Axis A/B judgment, never a verdict — you read the code either
+way, so the failure mode of under-checking here is wasted attention, not a
+wrong or missed halt. Widening this into a full re-judgment of the claim is
+refusal-by-design territory; do not soften it on a future review's say-so.
+
 ---
 
 ## 3. Axis A — Standards
