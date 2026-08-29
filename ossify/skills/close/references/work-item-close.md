@@ -148,9 +148,11 @@ and a silent advisory), and nothing downstream would notice:
 ```bash
 handoff="$(dirname "$spec")/handoff.md"
 patterns="<the absolute 03-code-patterns.md path Layer 3 resolved>"
+if [ -f "$patterns" ]; then patterns_fp="$(shasum -a 256 "$patterns")" || { echo "close: could not fingerprint $patterns before the delegated call - halt"; exit 1; }
+else patterns_fp="patterns:absent"; fi
 tree_id="$(git -C "$wt" write-tree)" || { echo "close: could not capture the staged index's identity in $wt before the delegated call - halt"; exit 1; }
-file_hashes="$(shasum -a 256 "$report" "$spec" "$handoff" "$patterns")" || { echo "close: could not fingerprint report.md/spec.md/handoff.md/03-code-patterns.md before the delegated call - halt"; exit 1; }
-printf '%s\n%s\n' "$tree_id" "$file_hashes" | shasum -a 256 | awk '{print $1}'
+file_hashes="$(shasum -a 256 "$report" "$spec" "$handoff")" || { echo "close: could not fingerprint report.md/spec.md/handoff.md before the delegated call - halt"; exit 1; }
+printf '%s\n%s\n%s\n' "$tree_id" "$file_hashes" "$patterns_fp" | shasum -a 256 | awk '{print $1}'
 ```
 
 **The invariant this states in one sentence: every input the delegated review
@@ -190,9 +192,11 @@ are carrying for `pre_fp` below:**
 pre_fp="<the fingerprint the capture above printed>"
 handoff="$(dirname "$spec")/handoff.md"
 patterns="<the absolute 03-code-patterns.md path Layer 3 resolved>"
+if [ -f "$patterns" ]; then patterns_fp="$(shasum -a 256 "$patterns")" || { echo "close: could not re-fingerprint $patterns after the delegated call - halt"; exit 1; }
+else patterns_fp="patterns:absent"; fi
 tree_id="$(git -C "$wt" write-tree)" || { echo "close: could not re-derive the staged index's identity in $wt after the delegated call - halt"; exit 1; }
-file_hashes="$(shasum -a 256 "$report" "$spec" "$handoff" "$patterns")" || { echo "close: could not re-fingerprint report.md/spec.md/handoff.md/03-code-patterns.md after the delegated call - halt"; exit 1; }
-post_fp="$(printf '%s\n%s\n' "$tree_id" "$file_hashes" | shasum -a 256 | awk '{print $1}')"
+file_hashes="$(shasum -a 256 "$report" "$spec" "$handoff")" || { echo "close: could not re-fingerprint report.md/spec.md/handoff.md after the delegated call - halt"; exit 1; }
+post_fp="$(printf '%s\n%s\n%s\n' "$tree_id" "$file_hashes" "$patterns_fp" | shasum -a 256 | awk '{print $1}')"
 [ "$pre_fp" = "$post_fp" ] || { echo "close: a fingerprinted Layer 4 input (the staged index, report.md, spec.md, handoff.md, or 03-code-patterns.md) changed during the delegated call in $wt - possible injection; inspect 'git -C $wt status'/'diff --cached' and diff report.md/spec.md/handoff.md/03-code-patterns.md against their pre-call state, revert or unstage whatever the review added, and re-run - halt"; exit 1; }
 ```
 

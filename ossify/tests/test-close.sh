@@ -932,10 +932,15 @@ if grep -Fq '<the fingerprint the capture above printed>' "$W3_POST"; then
 else
   T_FAIL=$((T_FAIL+1)); echo "FAIL: W3_POST no longer takes pre_fp as a placeholder - the cross-tool-call bug may be back"
 fi
-if grep -Fq '"$report" "$spec" "$handoff" "$patterns"' "$W3_POST"; then
+if grep -Fq '"$report" "$spec" "$handoff"' "$W3_POST" && grep -Fq 'patterns_fp' "$W3_POST"; then
   T_PASS=$((T_PASS+1))
 else
-  T_FAIL=$((T_FAIL+1)); echo "FAIL: W3_POST no longer fingerprints all four review documents - the round-12 gap may be back"
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: W3_POST no longer fingerprints report/spec/handoff plus a patterns fingerprint - the round-12 gap may be back"
+fi
+if grep -Fq 'patterns:absent' "$W3_POST"; then
+  T_PASS=$((T_PASS+1))
+else
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: W3_POST no longer tolerates an absent patterns file - the round-14 regression may be back"
 fi
 
 # Every fixture needs report/spec/patterns as REAL files outside $wt entirely -
@@ -1016,6 +1021,40 @@ printf 'report v1\nsection 7: declared\n' > "$W3_REPORT"
 _w3_run_post "$W3" "$W3_REPORT" "$W3_SPEC" "$W3_PATTERNS" "$W3C_PRE"
 t_assert_rc 1 "W3c: the fingerprint guard HALTS when report.md changed mid-review, even though the staged index did not"
 t_assert_contains "$T_OUT" "possible injection" "W3c: ...naming the risk"
+
+# W3d - THE LOAD-BEARING ROUND-14 ASSERTION, the regression's own repro
+# inverted. impl-check.md's own text ("if the project has no
+# 03-code-patterns.md, say that too") makes an absent patterns file a
+# DOCUMENTED, ALLOWED state - not a halt condition. Round 12's unconditional
+# `shasum ... "$patterns"` broke that: shasum given several files, one
+# missing, prints hashes for the ones that exist to stderr-silence and exits
+# 1 overall (verified directly against the real binary), so the whole
+# fingerprint capture died and the close could never reach the delegated
+# call. This is that exact scenario - no patterns file exists at all.
+git -C "$W3" reset -q --hard HEAD
+_w3_setup_docs "$W3DOCS"
+rm -f "$W3_PATTERNS"
+_w3_capture_pre "$W3" "$W3_REPORT" "$W3_SPEC" "$W3_PATTERNS"
+t_assert_rc 0 "W3d: capturing the pre-call fingerprint succeeds even when 03-code-patterns.md does not exist at all"
+W3D_PRE="$T_OUT"
+_w3_run_post "$W3" "$W3_REPORT" "$W3_SPEC" "$W3_PATTERNS" "$W3D_PRE"
+t_assert_rc 0 "W3d: the fingerprint guard is silent and the close reaches the delegated call when the patterns file is absent throughout"
+t_assert_contains "$T_OUT" "reached" "W3d: ...and execution reaches past the guard"
+
+# W3e - the sentinel must not silently disarm coverage in the direction that
+# matters: a patterns file that did NOT exist at the pre-call read but DOES
+# exist by the post-call read (an injected agent creating one, or one
+# genuinely landing mid-review from elsewhere) must still be caught, not
+# waved through because "patterns:absent" was the pre-call baseline.
+git -C "$W3" reset -q --hard HEAD
+_w3_setup_docs "$W3DOCS"
+rm -f "$W3_PATTERNS"
+_w3_capture_pre "$W3" "$W3_REPORT" "$W3_SPEC" "$W3_PATTERNS"
+W3E_PRE="$T_OUT"
+printf 'a pattern that was not there before\n' > "$W3_PATTERNS"
+_w3_run_post "$W3" "$W3_REPORT" "$W3_SPEC" "$W3_PATTERNS" "$W3E_PRE"
+t_assert_rc 1 "W3e: the fingerprint guard HALTS when a patterns file appears mid-review that did not exist before"
+t_assert_contains "$T_OUT" "possible injection" "W3e: ...naming the risk"
 
 # ---------------------------------------------------------------------------
 # D1-D4: the cumulative-demo MEASUREMENT block. Timing is advisory; the demo
