@@ -217,39 +217,55 @@ chooses the path; this section owns the lenses).
 Each lens is a reading of the staged diff. Apply them as written — they are the
 contract, not a summary of one:
 
-- `fidelity` — the diff does something `spec.md` does not ask for, or fails to do
-  something it does ask for. Report **every** such drift as a finding, whether or
-  not report §7 discloses it — declaration is not a gate on whether this is a
-  finding, it is a field *on* the finding. Set `declared_in_report_s7` from the
-  report's own §7 text, not your reconstruction of what the implementer meant;
-  the verdict rule below, not this lens, decides what a `true` or `false` value
-  means for the close.
-- `pattern` — the diff contradicts a convention the repo follows in fact. The
-  written half is `03-code-patterns.md`, and that half is Layer 3's — do not re-run
-  it. What is left is the defect classes a documented rule never captures: guards
-  that cannot fire (or fire always), ordering that inverts the contract, two files
-  contradicted by the same change, usage strings that disagree with what the code
-  does, prose claiming behaviour nothing implements, a gate whose status is
-  discarded. Same calibration rule as Layer 3: judge against what is there, not
-  what you would have written.
+- `fidelity` — the diff does something `spec.md` does not ask for, or does
+  something it asks for **in a way that contradicts the description** — existing
+  behaviour that diverges, not behaviour that was never attempted. **An outright
+  absence is never a fidelity finding**, however naturally "fails to do something
+  it asks for" reads as covering it too — that case belongs to `absence`, below,
+  full stop; a fidelity finding needs a hunk that does the wrong thing, not the
+  lack of one. Report **every** genuine drift as a finding, whether or not report
+  §7 discloses it — declaration is not a gate on whether this is a finding, it is
+  a field *on* the finding. Set `declared_in_report_s7` from the report's own §7
+  text, not your reconstruction of what the implementer meant; the verdict rule
+  below, not this lens, decides what a `true` or `false` value means for the
+  close.
+- `pattern` — the diff contradicts a convention the repo follows **in fact**, not
+  one written down — which means the diff and the four documents alone cannot
+  answer this lens; **read the relevant neighbouring files in the worktree** to
+  establish what the repo actually does before judging against it. (This is the
+  one lens the inline path and the delegated path both need worktree access
+  beyond the diff for — the input list below is a floor, not a ceiling, here.)
+  The written half is `03-code-patterns.md`, and that half is Layer 3's — do not
+  re-run it. What is left is the defect classes a documented rule never captures:
+  guards that cannot fire (or fire always), ordering that inverts the contract,
+  two files contradicted by the same change, usage strings that disagree with
+  what the code does, prose claiming behaviour nothing implements, a gate whose
+  status is discarded. Same calibration rule as Layer 3: judge against what is
+  there, not what you would have written.
 - `absence` — the spec requires an artifact, command, or wiring the diff does not
-  contain at all. Not "could be better" — **absent**.
+  contain at all. Not "could be better" — **absent**. Every case where the diff
+  never attempted something the spec required lands here, even one that could
+  also be read as "fails to do something spec.md asks for" — `fidelity` excludes
+  it by definition, above; there is no finding that legitimately belongs to both.
 
 ### The finding schema
 
 Every finding, from either execution path, is exactly:
 
 ```text
-{lens, claim, evidence: {file, line?}, declared_in_report_s7}
+{id, lens, claim, evidence: {file, line?}, declared_in_report_s7}
 ```
 
-`lens` is one of the three ids above; `claim` is one sentence naming the deviation
-and what it costs; `evidence.file` points into the staged diff, always — `line`
-is required for `fidelity` and `pattern` findings but optional for `absence`:
-the whole point of an absence finding is something the diff never contains, so
-there may be no line to cite, only the file where it should exist. Never invent
-a line number to satisfy the shape. `declared_in_report_s7` is answered from
-report §7's own text.
+`id` is a stable identifier the reader assigns (delegated path only — see the
+refuter note below; the inline path has no separate refuter pass to key
+against, so `id` is not load-bearing there). `lens` is one of the three ids
+above; `claim` is one sentence naming the deviation and what it costs;
+`evidence.file` points into the staged diff, always — `line` is required for
+`fidelity` and `pattern` findings but optional for `absence`: the whole point
+of an absence finding is something the diff never contains, so there may be
+no line to cite, only the file where it should exist. Never invent a line
+number to satisfy the shape. `declared_in_report_s7` is answered from report
+§7's own text.
 
 ### The verdict rule — identical on both paths
 
@@ -261,6 +277,12 @@ written to `<work-item-dir>/verify.md` and echoed in the close summary, and
 spine-close code review (`references/code-review.md`) reads that file as an input.
 Advisory means advisory: no pattern or absence finding halts, delays, or re-runs
 this close (D5).
+
+**If a `fidelity` and an `absence` finding land on the same underlying gap**
+(independent readers can both notice it despite the lenses' partition above) —
+normalize before applying the halt: an absence-shaped gap is `absence`, never
+`fidelity`, regardless of which lens's reader produced it. Re-tag rather than
+drop; the claim and evidence carry over.
 
 ### The relationship to its neighbours, so no axis ships twice
 
@@ -279,18 +301,35 @@ spine-level intent. Neither re-runs the other.
 
 After Layer 3, read the staged diff, `spec.md`, `handoff.md`, report §7 and the
 patterns file, apply the three lenses yourself, and emit findings in the schema.
-This is not a degraded mode — it is the same judgment with the host's own context,
-and it is the universal fallback (`work-item-close.md` §2).
+For `pattern` specifically, that list is a floor, not a ceiling: also read the
+relevant neighbouring files in the worktree before judging it — the lens is
+about conventions the repo follows in fact, and the fixed document list cannot
+establish those on its own. This is not a degraded mode — it is the same
+judgment with the host's own context, and it is the universal fallback
+(`work-item-close.md` §2).
 
 ### Delegated path — Claude Code on Anthropic only
 
 `ossify/workflows/verify-work-item.js`: one reader and one refuter per lens, six
 Sonnet agents, models pinned in the script (readers medium, refuters low). The
 script carries no lens text — the close passes the three lenses and the input
-paths in `args`. It returns `{findings, agents_run}`; it writes nothing, calls no
-`oss` verb, touches no git. Apply the verdict rule above to what returns exactly
-as if you had read the diff yourself: a delegated run changes who read the diff,
-never what the close asserts.
+paths in `args`. Every reader and refuter has ordinary tool access to the
+worktree beyond the fixed input list — the `pattern` reader specifically is
+told to use it, reading relevant neighbouring files before judging, the same
+requirement as the inline path above. It returns `{findings, agents_run}`; it
+writes nothing, calls no `oss` verb, touches no git. Apply the verdict rule
+above to what returns exactly as if you had read the diff yourself: a
+delegated run changes who read the diff, never what the close asserts.
+
+**Refuter output is never trusted as free text.** The reader assigns each
+finding a stable `id`; the refuter is given the same findings back and returns
+only which `id`s survive — never a re-serialized finding. The script accepts a
+survivor only if its `id` is actually a member of what that lens's reader
+produced, so a refuter cannot rewrite a claim's content or invent a finding
+the reader never made; the content that reaches the verdict rule is always the
+reader's own, filtered by the refuter's yes/no per id. This is deterministic
+membership-checking, not judgment, and it is enforced in the script — see
+`tests/test-workflows.sh` T3.
 
 ---
 

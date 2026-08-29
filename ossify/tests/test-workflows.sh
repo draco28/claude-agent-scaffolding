@@ -10,10 +10,17 @@
 # T2 - lens-id parity: the ids declared in impl-check.md §4b and the ids the
 #      close passes in args (work-item-close.md §2) are the same set. A lens
 #      added to one file and not the other must go RED here.
+# T3 - refuter id-membership integrity: a refuter can only ever cause the
+#      SCRIPT to filter the reader's own finding objects by id, never inject
+#      content of its own (skill-first: this is a safety rail the agent must
+#      not argue past, not judgment - deterministic code is the right call
+#      here, unlike the lens texts). Extracts the exact filter block from
+#      verify-work-item.js by anchor comment and executes it in Node against
+#      fixtures, including a fabricated-id attack.
 #
-# Self-test: both checks run a second time against a planted-defect fixture
-# and must report exactly that defect (testing discipline: a green sweep that
-# was never proved to be looking certifies nothing).
+# Self-test: T1, T2 and T3 each run a second time against a planted-defect
+# fixture and must report exactly that defect (testing discipline: a green
+# sweep that was never proved to be looking certifies nothing).
 # ---------------------------------------------------------------------------
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
@@ -65,6 +72,48 @@ wipass="$(awk '/^## 2\. The gate/{f=1;next} /^## 3\./{f=0} f' "$WC" | grep -oE '
 EXPECT="$(printf 'absence\nfidelity\npattern')"
 [ "$sec4b" = "$EXPECT" ] || { echo "FAIL: impl-check §4b lens ids are: [$sec4b]"; ck 1; }
 [ "$wipass" = "$EXPECT" ] || { echo "FAIL: work-item-close.md §2 passes lenses: [$wipass]"; ck 1; }
+
+# --- T3: refuter id-membership integrity ------------------------------------
+VWI="$WF/verify-work-item.js"
+extract_t3() { # $1=source file -> the anchored filter block's body lines
+  sed -n '/T3-ANCHOR-START/,/T3-ANCHOR-END/p' "$1" | grep -v 'T3-ANCHOR'
+}
+run_t3() { # $1=extracted-body-file $2=found-json $3=verdict-json -> result JSON
+  local body="$1" TMP3
+  TMP3="$(mktemp -d)"
+  {
+    echo 'function filterSurvivors(found, verdict) {'
+    cat "$body"
+    echo '}'
+    echo "console.log(JSON.stringify(filterSurvivors($2, $3)))"
+  } > "$TMP3/harness.cjs"
+  node "$TMP3/harness.cjs"
+  local rc=$?
+  rm -rf "$TMP3"
+  return "$rc"
+}
+FOUND_JSON='{"findings":[{"id":"f1","lens":"fidelity","claim":"real","evidence":{"file":"a.py","line":3},"declared_in_report_s7":false}]}'
+ATTACK_VERDICT='{"survivor_ids":["f1","FABRICATED_ID_NOT_FROM_READER"]}'
+T3TMP="$(mktemp -d)"
+extract_t3 "$VWI" > "$T3TMP/real.txt"
+[ -s "$T3TMP/real.txt" ] || { echo "FAIL: T3 anchor extraction found nothing in $VWI - anchors moved or renamed"; ck 1; }
+T3_RESULT="$(run_t3 "$T3TMP/real.txt" "$FOUND_JSON" "$ATTACK_VERDICT")" \
+  || { echo "FAIL: T3 harness errored on the real filter block: $T3_RESULT"; ck 1; }
+printf '%s' "$T3_RESULT" | grep -q 'FABRICATED_ID_NOT_FROM_READER' \
+  && { echo "FAIL: the real id-membership filter let a fabricated id through: $T3_RESULT"; ck 1; }
+printf '%s' "$T3_RESULT" | grep -q '"id":"f1"' \
+  || { echo "FAIL: the real id-membership filter dropped a legitimate survivor: $T3_RESULT"; ck 1; }
+# Mutation-verify the harness itself: feed it a BROKEN filter (trusts the
+# refuter's ids with no membership check, as an unfixed script would) and
+# confirm the same attack now succeeds - proving run_t3 can tell safe from
+# broken, not just always agreeing with whatever it is handed.
+printf '%s\n' 'return { findings: (verdict.survivor_ids || []).map((id) => ({ id, injected: true })) }' \
+  > "$T3TMP/broken.txt"
+T3_BROKEN="$(run_t3 "$T3TMP/broken.txt" "$FOUND_JSON" "$ATTACK_VERDICT")" \
+  || { echo "FAIL: T3 harness errored on the planted-broken filter: $T3_BROKEN"; ck 1; }
+printf '%s' "$T3_BROKEN" | grep -q 'FABRICATED_ID_NOT_FROM_READER' \
+  || { echo "FAIL: T3's own mutation-check is blind - the broken filter should have let the fabricated id through and did not: $T3_BROKEN"; ck 1; }
+rm -rf "$T3TMP"
 
 # --- self-test: planted defects must be caught -----------------------------
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
