@@ -263,11 +263,14 @@ Every finding, from either execution path, is exactly:
 refuter note below; the inline path has no separate refuter pass to key
 against, so `id` is not load-bearing there). `lens` is one of the three ids
 above; `claim` is one sentence naming the deviation and what it costs;
-`evidence.file` points into the staged diff, always — `line` is required for
-`fidelity` and `pattern` findings but optional for `absence`: the whole point
-of an absence finding is something the diff never contains, so there may be
-no line to cite, only the file where it should exist. Never invent a line
-number to satisfy the shape. `declared_in_report_s7` is answered from report
+`evidence.file` points into the staged diff, always, for `fidelity` and
+`pattern` findings. For `absence`, it names the path where the missing
+artifact should exist instead — which may not appear in the staged diff at
+all, since the whole point of an absence finding is something the diff never
+contains. `line` is required for `fidelity` and `pattern` findings but
+optional for `absence`, same reason: there may be no line to cite, only the
+file (real or prospective) where it should exist. Never invent a line number,
+or a diff-anchored file, to satisfy the shape. `declared_in_report_s7` is answered from report
 §7's own text.
 
 ### The verdict rule — identical on both paths
@@ -331,8 +334,9 @@ script carries no lens text — the close passes the three lenses and the input
 paths in `args`. Every reader and refuter has ordinary tool access to the
 worktree beyond the fixed input list — the `pattern` reader specifically is
 told to use it, reading relevant neighbouring files before judging, the same
-requirement as the inline path above. It returns `{findings, agents_run}`; it
-writes nothing, calls no `oss` verb, touches no git. Apply the verdict rule
+requirement as the inline path above. It returns
+`{findings, agents_run, fidelity_truncated}`; it writes nothing, calls no
+`oss` verb, touches no git. Apply the verdict rule
 above to what returns exactly as if you had read the diff yourself: a
 delegated run changes who read the diff, never what the close asserts.
 
@@ -425,6 +429,8 @@ reach it (`work-item-close.md` §5).
 - **Re-authoring an AC because the code failed it** (§6).
 - **Running `user:` rows here** (§2).
 - **Halting on a pattern or absence finding.** Advisory by decision (§4b); the
-  only Layer 4 halt is an undeclared fidelity deviation.
+  only Layer 4 halts are an undeclared fidelity deviation and the delegated
+  fidelity reader's own truncation (`fidelity_truncated: true`) — both under
+  the same `[fidelity]` tag.
 - **Letting `verify.md` advisories evaporate.** They are spine-close code
   review's input; advisory does not mean disposable.

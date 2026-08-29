@@ -888,15 +888,22 @@ t_assert_eq "" "$(git -C "$W2C" branch --list 'spine/*')" \
 
 # ---------------------------------------------------------------------------
 # W3: the Layer 4 input-fingerprint guard (round 9, PR #380; redesigned round
-# 10 for the tool-call boundary; extended round 12 to cover every input Layer
-# 4's delegated call reads, not just the staged index). The six delegated
-# reader/refuter agents get ordinary worktree and filesystem tool access, and
-# the read-only instruction in their prompts is prose, not enforcement (spec
-# residual R4) - an injected instruction in the staged diff or a reviewed doc
-# could get one of them to mutate the index OR one of the review documents
-# mid-review (report.md in particular, since it drives declared_in_report_s7),
-# and nothing else in the gate re-inspects what actually gets committed or
-# what report.md says by the time the verdict rule reads it.
+# 10 for the tool-call boundary; extended round 12 to cover report/spec/
+# handoff/patterns; NARROWED round 16, ratified policy #3, back down to the
+# two components whose mutation can flip the halt decision - the staged
+# index (write-tree) and report.md - plus HEAD, added the same round to close
+# the `git reset --soft` gap write-tree alone leaves (round-16 finding F4).
+# spec.md/handoff.md/03-code-patterns.md are now a documented, deliberately
+# unfingerprinted residual: they feed only advisory pattern/absence findings,
+# whose damage ceiling is wasted reviewer attention, never a wrong or missed
+# halt. The six delegated reader/refuter agents get ordinary worktree and
+# filesystem tool access, and the read-only instruction in their prompts is
+# prose, not enforcement (spec residual R4) - an injected instruction in the
+# staged diff or report.md could get one of them to mutate the index, move
+# HEAD without touching it, or edit report.md mid-review (report.md drives
+# declared_in_report_s7), and nothing else in the gate re-inspects what
+# actually gets committed or what report.md says by the time the verdict
+# rule reads it.
 #
 # THE BUG ROUND 10 CAUGHT: the two guard blocks are separated by the Workflow
 # tool call, which is NOT a bash block - it is a separate tool invocation, and
@@ -905,42 +912,52 @@ t_assert_eq "" "$(git -C "$W2C" branch --list 'spine/*')" \
 # fingerprint; the prose has the agent carry it forward as a literal and
 # substitute it into block 2's `pre_fp="<placeholder>"` line, exactly like
 # `$report`'s own `<report_path from the complete return>` convention (§1).
-# `patterns` is carried the same way in BOTH blocks, since - like `$report` -
-# nothing derives it from an already-carried variable. This test proves that
-# shape survives TWO GENUINELY SEPARATE bash processes with every placeholder
-# substituted exactly as an agent would, never sourcing the two blocks into a
-# shared shell.
+# `patterns` is still carried the same way in BOTH blocks (it remains an
+# input to the Workflow call's args, just no longer fingerprinted), since -
+# like `$report` - nothing derives it from an already-carried variable. This
+# test proves that shape survives TWO GENUINELY SEPARATE bash processes with
+# every placeholder substituted exactly as an agent would, never sourcing the
+# two blocks into a shared shell.
 #
-# THE ROUND-12 GAP: `git write-tree` fingerprints only $wt's index. report.md/
-# spec.md/handoff.md/patterns live outside $wt entirely (the AI workspace, a
-# different repo) - round 9-10's guard gave them zero coverage. W3c below
-# mutates report.md, not the index, and asserts the guard still halts.
+# THE ROUND-12 GAP, NOW SUPERSEDED: `git write-tree` fingerprints only $wt's
+# index; report.md/spec.md/handoff.md/patterns live outside $wt entirely (the
+# AI workspace, a different repo). Round 12 covered all four with a shasum
+# composite; round 16 narrows that to `report.md` alone via `git hash-object`
+# (the only one of the four whose content decides the halt), dropping the
+# `shasum` dependency (round-16 finding F1: not guaranteed present on a
+# minimal Linux install) and the round-14 `patterns:absent` sentinel it made
+# necessary. W3c below still proves report.md coverage. W3d below is new -
+# it is round-16 finding F4's actual repro (HEAD moves, index does not). The
+# old patterns-absent-throughout case is gone - patterns is no longer part of
+# this guard at all - and the patterns-appears case (formerly a halt) is
+# INVERTED below (still lettered W3e) to assert the now-ratified non-halt.
 # ---------------------------------------------------------------------------
 W3_PRE="$TMP/w3-pre.sh";   _extract_block "$WIC" 'before the delegated call' "$W3_PRE"
 W3_POST="$TMP/w3-post.sh"; _extract_block "$WIC" 'post_fp=' "$W3_POST"
-if [ -s "$W3_PRE" ] && grep -Fq 'shasum' "$W3_PRE" && [ -s "$W3_POST" ] && grep -Fq 'shasum' "$W3_POST"; then
+if [ -s "$W3_PRE" ] && grep -Fq 'write-tree' "$W3_PRE" && [ -s "$W3_POST" ] && grep -Fq 'write-tree' "$W3_POST"; then
   T_PASS=$((T_PASS+1))
 else
   T_FAIL=$((T_FAIL+1)); echo "FAIL: could not extract the W3 fingerprint-guard blocks - the assertions below are vacuous"
 fi
 # THE VACUOUSNESS GUARD ITSELF. If block 2 stopped taking pre_fp as a
-# placeholder (the round-10 bug's exact shape) or dropped report/spec/handoff/
-# patterns from the shasum call (a silent round-12 regression), this fixture
-# would still happen to run - so assert both survive.
+# placeholder (the round-10 bug's exact shape) or dropped write-tree/HEAD/
+# report.md from the narrowed fingerprint (a silent round-16 regression),
+# this fixture would still happen to run - so assert all three survive, and
+# that the superseded shasum/patterns-sentinel shape did not come back.
 if grep -Fq '<the fingerprint the capture above printed>' "$W3_POST"; then
   T_PASS=$((T_PASS+1))
 else
   T_FAIL=$((T_FAIL+1)); echo "FAIL: W3_POST no longer takes pre_fp as a placeholder - the cross-tool-call bug may be back"
 fi
-if grep -Fq '"$report" "$spec" "$handoff"' "$W3_POST" && grep -Fq 'patterns_fp' "$W3_POST"; then
+if grep -Fq 'rev-parse HEAD' "$W3_POST" && grep -Fq 'hash-object "$report"' "$W3_POST"; then
   T_PASS=$((T_PASS+1))
 else
-  T_FAIL=$((T_FAIL+1)); echo "FAIL: W3_POST no longer fingerprints report/spec/handoff plus a patterns fingerprint - the round-12 gap may be back"
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: W3_POST no longer fingerprints HEAD and report.md - the round-16 narrowing may have regressed to write-tree alone"
 fi
-if grep -Fq 'patterns:absent' "$W3_POST"; then
-  T_PASS=$((T_PASS+1))
+if grep -Fq 'shasum' "$W3_POST" || grep -Fq 'patterns:absent' "$W3_POST"; then
+  T_FAIL=$((T_FAIL+1)); echo "FAIL: W3_POST still fingerprints via shasum or carries the round-14 patterns:absent sentinel - the round-16 narrowing may not have landed"
 else
-  T_FAIL=$((T_FAIL+1)); echo "FAIL: W3_POST no longer tolerates an absent patterns file - the round-14 regression may be back"
+  T_PASS=$((T_PASS+1))
 fi
 
 # Every fixture needs report/spec/patterns as REAL files outside $wt entirely -
@@ -1009,10 +1026,12 @@ t_assert_rc 1 "W3b: the fingerprint guard HALTS when the staged index changed mi
 t_assert_contains "$T_OUT" "possible injection" "W3b: ...naming the risk"
 t_assert_contains "$T_OUT" "revert or unstage whatever the review added" "W3b: ...and the remedy"
 
-# W3c - THE LOAD-BEARING ROUND-12 ASSERTION. report.md changes, the index does
-# NOT - proving coverage extends past write-tree's blind spot. This is
-# exactly the round-12 finding's scenario: an injected reader edits report §7
-# between the two reads.
+# W3c - THE LOAD-BEARING ROUND-12 ASSERTION, preserved under the round-16
+# narrowing (ratified policy #3: report.md is one of the two kept
+# components). report.md changes, the index does NOT - proving coverage
+# extends past write-tree's blind spot. This is exactly the round-12
+# finding's scenario: an injected reader edits report §7 between the two
+# reads.
 git -C "$W3" reset -q --hard HEAD
 _w3_setup_docs "$W3DOCS"
 _w3_capture_pre "$W3" "$W3_REPORT" "$W3_SPEC" "$W3_PATTERNS"
@@ -1022,30 +1041,28 @@ _w3_run_post "$W3" "$W3_REPORT" "$W3_SPEC" "$W3_PATTERNS" "$W3C_PRE"
 t_assert_rc 1 "W3c: the fingerprint guard HALTS when report.md changed mid-review, even though the staged index did not"
 t_assert_contains "$T_OUT" "possible injection" "W3c: ...naming the risk"
 
-# W3d - THE LOAD-BEARING ROUND-14 ASSERTION, the regression's own repro
-# inverted. impl-check.md's own text ("if the project has no
-# 03-code-patterns.md, say that too") makes an absent patterns file a
-# DOCUMENTED, ALLOWED state - not a halt condition. Round 12's unconditional
-# `shasum ... "$patterns"` broke that: shasum given several files, one
-# missing, prints hashes for the ones that exist to stderr-silence and exits
-# 1 overall (verified directly against the real binary), so the whole
-# fingerprint capture died and the close could never reach the delegated
-# call. This is that exact scenario - no patterns file exists at all.
+# W3d - THE LOAD-BEARING ROUND-16 ASSERTION, finding F4's actual repro:
+# `git reset --soft` moves HEAD without touching the index at all, so
+# write-tree alone (the original round-9/10 guard) would see no change and
+# pass silently - exactly the gap the narrowed guard's added HEAD
+# fingerprint exists to close. Needs a second real commit to reset off of.
 git -C "$W3" reset -q --hard HEAD
 _w3_setup_docs "$W3DOCS"
-rm -f "$W3_PATTERNS"
+echo second > "$W3/second.txt"; git -C "$W3" add second.txt; git -C "$W3" commit -qm second
 _w3_capture_pre "$W3" "$W3_REPORT" "$W3_SPEC" "$W3_PATTERNS"
-t_assert_rc 0 "W3d: capturing the pre-call fingerprint succeeds even when 03-code-patterns.md does not exist at all"
 W3D_PRE="$T_OUT"
+git -C "$W3" reset -q --soft HEAD~1
 _w3_run_post "$W3" "$W3_REPORT" "$W3_SPEC" "$W3_PATTERNS" "$W3D_PRE"
-t_assert_rc 0 "W3d: the fingerprint guard is silent and the close reaches the delegated call when the patterns file is absent throughout"
-t_assert_contains "$T_OUT" "reached" "W3d: ...and execution reaches past the guard"
+t_assert_rc 1 "W3d: the fingerprint guard HALTS when HEAD moves mid-review (git reset --soft) even though the staged index (write-tree) does not change"
+t_assert_contains "$T_OUT" "possible injection" "W3d: ...naming the risk"
 
-# W3e - the sentinel must not silently disarm coverage in the direction that
-# matters: a patterns file that did NOT exist at the pre-call read but DOES
-# exist by the post-call read (an injected agent creating one, or one
-# genuinely landing mid-review from elsewhere) must still be caught, not
-# waved through because "patterns:absent" was the pre-call baseline.
+# W3e - INVERTED under the round-16 narrowing (ratified policy #3): a
+# patterns file appearing mid-review is no longer a guard-relevant mutation
+# at all - spec.md/handoff.md/03-code-patterns.md are the documented,
+# deliberately unfingerprinted residual (they feed only advisory findings;
+# damage ceiling is wasted reviewer attention, never a wrong or missed
+# halt). This now asserts the RATIFIED non-halt, inverted from the
+# pre-round-16 halt this same case used to assert.
 git -C "$W3" reset -q --hard HEAD
 _w3_setup_docs "$W3DOCS"
 rm -f "$W3_PATTERNS"
@@ -1053,8 +1070,8 @@ _w3_capture_pre "$W3" "$W3_REPORT" "$W3_SPEC" "$W3_PATTERNS"
 W3E_PRE="$T_OUT"
 printf 'a pattern that was not there before\n' > "$W3_PATTERNS"
 _w3_run_post "$W3" "$W3_REPORT" "$W3_SPEC" "$W3_PATTERNS" "$W3E_PRE"
-t_assert_rc 1 "W3e: the fingerprint guard HALTS when a patterns file appears mid-review that did not exist before"
-t_assert_contains "$T_OUT" "possible injection" "W3e: ...naming the risk"
+t_assert_rc 0 "W3e: the fingerprint guard does NOT halt when a patterns file appears mid-review - patterns is documented residual, not covered by the narrowed guard"
+t_assert_contains "$T_OUT" "reached" "W3e: ...and execution reaches past the guard"
 
 # ---------------------------------------------------------------------------
 # D1-D4: the cumulative-demo MEASUREMENT block. Timing is advisory; the demo

@@ -139,32 +139,39 @@ still reaches 6, and the gate reports green having verified nothing.
 the staged diff is nonempty** (`git -C "$wt" diff --cached --name-only` —
 step 3 below halts unconditionally on an empty index regardless of what
 Layer 4 finds, so dispatching six agents first is pure waste; take the
-inline path instead, which costs nothing extra here), first fingerprint
-every input the delegated agents read — the six delegated agents
+inline path instead, which costs nothing extra here), first fingerprint the
+two components whose mutation could turn a real halt into a silent pass —
+the worktree's identity (the staged index and `HEAD`) and `report.md` (§7 is
+the only field the halt decision, `declared_in_report_s7`, actually reads) —
+the six delegated agents
 get ordinary worktree and filesystem tool access, and the read-only
 instruction in their prompts is prose, not enforcement (the accepted spec
-residual R4); an injected instruction in the staged diff or a reviewed doc
-could get one of them to mutate the staged index OR one of the review
-documents mid-review (`report.md` in particular — it drives
-`declared_in_report_s7`, the one field standing between a real fidelity gap
-and a silent advisory), and nothing downstream would notice:
+residual R4); an injected instruction in the staged diff or `report.md`
+could get one of them to mutate the staged index, move `HEAD` without
+touching the index (`git reset --soft`, which `write-tree` alone would not
+detect), or edit `report.md` mid-review — the last of which could turn a
+real undeclared-fidelity finding into a silently advisory one by forging a
+§7 declaration — and nothing downstream would notice. `spec.md`,
+`handoff.md` and `03-code-patterns.md` stay unfingerprinted: they feed only
+`pattern`/`absence` findings, which are advisory by design (§4b) — the worst
+a mutated copy costs is noise in `verify.md`, never a wrong or missed halt,
+so they are an accepted residual (R4-style), not a gap in this guard:
 
 ```bash
 handoff="$(dirname "$spec")/handoff.md"
 patterns="<the absolute 03-code-patterns.md path Layer 3 resolved>"
-if [ -f "$patterns" ]; then patterns_fp="$(shasum -a 256 "$patterns")" || { echo "close: could not fingerprint $patterns before the delegated call - halt"; exit 1; }
-else patterns_fp="patterns:absent"; fi
 tree_id="$(git -C "$wt" write-tree)" || { echo "close: could not capture the staged index's identity in $wt before the delegated call - halt"; exit 1; }
-file_hashes="$(shasum -a 256 "$report" "$spec" "$handoff")" || { echo "close: could not fingerprint report.md/spec.md/handoff.md before the delegated call - halt"; exit 1; }
-printf '%s\n%s\n%s\n' "$tree_id" "$file_hashes" "$patterns_fp" | shasum -a 256 | awk '{print $1}'
+head_id="$(git -C "$wt" rev-parse HEAD)" || { echo "close: could not capture HEAD's identity in $wt before the delegated call - halt"; exit 1; }
+report_id="$(git -C "$wt" hash-object "$report")" || { echo "close: could not fingerprint $report before the delegated call - halt"; exit 1; }
+printf '%s:%s:%s\n' "$tree_id" "$head_id" "$report_id"
 ```
 
-**The invariant this states in one sentence: every input the delegated review
-reads is fingerprinted across the run; nothing else is.** `wt` (via
-`write-tree`, covering the staged index), `report`, `spec`, `handoff` and
-`patterns` are the complete list Layer 4 hands the Workflow call (below) — if
-a future input joins that list, it joins this fingerprint too, in the same
-pass, or this sentence is being violated knowingly rather than patched blind.
+**The invariant this states in one sentence: the staged index (`write-tree`),
+`HEAD` (closing the `git reset --soft` gap `write-tree` alone leaves) and
+`report.md` (the only file whose content decides the halt) are fingerprinted
+across the run; `spec.md`, `handoff.md` and `03-code-patterns.md` are not,
+because they feed only advisory findings whose damage ceiling is wasted
+reviewer attention, never a wrong or missed halt.**
 
 **Hold this command's output as `pre_fp` and carry it forward as a literal
 value, exactly as `$spec`/`$report`/`$wt` are carried (§1).** The Workflow call
@@ -194,25 +201,23 @@ are carrying for `pre_fp` below:**
 
 ```bash
 pre_fp="<the fingerprint the capture above printed>"
-handoff="$(dirname "$spec")/handoff.md"
-patterns="<the absolute 03-code-patterns.md path Layer 3 resolved>"
-if [ -f "$patterns" ]; then patterns_fp="$(shasum -a 256 "$patterns")" || { echo "close: could not re-fingerprint $patterns after the delegated call - halt"; exit 1; }
-else patterns_fp="patterns:absent"; fi
 tree_id="$(git -C "$wt" write-tree)" || { echo "close: could not re-derive the staged index's identity in $wt after the delegated call - halt"; exit 1; }
-file_hashes="$(shasum -a 256 "$report" "$spec" "$handoff")" || { echo "close: could not re-fingerprint report.md/spec.md/handoff.md after the delegated call - halt"; exit 1; }
-post_fp="$(printf '%s\n%s\n%s\n' "$tree_id" "$file_hashes" "$patterns_fp" | shasum -a 256 | awk '{print $1}')"
-[ "$pre_fp" = "$post_fp" ] || { echo "close: a fingerprinted Layer 4 input (the staged index, report.md, spec.md, handoff.md, or 03-code-patterns.md) changed during the delegated call in $wt - possible injection; inspect 'git -C $wt status'/'diff --cached' and diff report.md/spec.md/handoff.md/03-code-patterns.md against their pre-call state, revert or unstage whatever the review added, and re-run - halt"; exit 1; }
+head_id="$(git -C "$wt" rev-parse HEAD)" || { echo "close: could not re-derive HEAD's identity in $wt after the delegated call - halt"; exit 1; }
+report_id="$(git -C "$wt" hash-object "$report")" || { echo "close: could not re-fingerprint $report after the delegated call - halt"; exit 1; }
+post_fp="$(printf '%s:%s:%s\n' "$tree_id" "$head_id" "$report_id")"
+[ "$pre_fp" = "$post_fp" ] || { echo "close: a fingerprinted Layer 4 input (the staged index, HEAD, or report.md) changed during the delegated call in $wt - possible injection; inspect 'git -C $wt status'/'diff --cached', 'git -C $wt log -1 HEAD', and diff report.md against its pre-call state, revert or unstage whatever the review added, and re-run - halt"; exit 1; }
 ```
 
 A mismatch means one of the six agents wrote to something this pass never
-asked it to touch — the staged index, or one of the four review documents,
-including a `report.md` edit that would otherwise let an injected §7
-declaration turn a real undeclared-fidelity finding into a silently advisory
-one. This closes the mutation path across every input the delegated review
-actually reads — not the working tree files a delegated agent can still touch
-outside that list (an unfingerprinted neighbour file the `pattern` lens
-inspects, say); that read-path exposure is R4's accepted remainder, not this
-gate's job.
+asked it to touch — the staged index, `HEAD`, or `report.md`, the last of
+which would otherwise let an injected §7 declaration turn a real
+undeclared-fidelity finding into a silently advisory one. This closes the
+mutation path across the two components whose damage ceiling is a wrong or
+missed halt — not `spec.md`/`handoff.md`/`03-code-patterns.md` (advisory-only
+inputs, the accepted residual) or the working tree files a delegated agent
+can still touch outside this list (an unfingerprinted neighbour file the
+`pattern` lens inspects, say); that read-path exposure is R4's accepted
+remainder, not this gate's job.
 
 Apply the §4b verdict rule to the findings from whichever path ran: an undeclared
 `fidelity` finding fires the `[fidelity]` halt; on the delegated path, so does
