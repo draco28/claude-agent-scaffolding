@@ -7,7 +7,13 @@
   },
   "repository": "https://github.com/pulseai-labs/claude-agent-scaffolding",
   "license": "MIT",
-  "keywords": ["code-review", "architecture", "refactoring", "maintainability", "skills"],
+  "keywords": [
+    "code-review",
+    "architecture",
+    "refactoring",
+    "maintainability",
+    "skills"
+  ],
   "skills": "./skills/",
   "interface": {
     "displayName": "Code Judo",
@@ -15,7 +21,11 @@
     "longDescription": "Code Judo reviews a diff for maintainability with an unusually strict bar, and scans a codebase for shallow modules worth deepening. It is ambitious about structure: it hunts for restructurings that delete complexity rather than rearrange it. Ships the deep-module design vocabulary and a domain-modeling discipline the other two skills speak.",
     "developerName": "Pras",
     "category": "Coding",
-    "capabilities": ["Interactive", "Read"],
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
     "defaultPrompt": [
       "Deep review this branch for structure, not bugs.",
       "Where is this codebase shallow?",

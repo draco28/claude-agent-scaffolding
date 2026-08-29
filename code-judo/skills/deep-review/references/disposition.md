@@ -37,7 +37,14 @@ decomposition. Vague disapproval is not a finding.
 
 ## The verdict is advisory
 
-State it as *"the bar is not met, because …"*, naming the clauses above that it fails.
+The bar has two outcomes, and a clean change must be able to reach the good one. If no clause
+above is failed, say the bar is met, and say it plainly — a review that can only ever report
+failure teaches its reader to stop believing it. Otherwise state *"the bar is not met,
+because …"*, naming the clauses it fails.
+
+Meeting the bar is not the same as praise, and it is not an approval: it means this review
+found nothing on its own axis, which is a narrow claim about structure and says nothing about
+whether the code is correct.
 
 **This is not a merge gate.** This skill does not approve or block anything; it says what it
 found and why the bar is or is not met. Whether that stops a merge is a human decision made
@@ -51,11 +58,19 @@ Sort by **failure direction**, not by severity feel:
 | The finding says | Disposition |
 |---|---|
 | the code **admits what it cannot handle** — a case it silently mishandles, an invariant it breaks, an incoherence this change introduced | **fix** |
-| the code **refuses valid input**, or the finding is taste — a defensible structure you would have written differently | **the author's call**; record it, do not press it |
-| polish — naming, formatting, a nit with no structural consequence | **defer**; log it if it is worth logging, drop it otherwise |
+| the code **refuses a valid input** — it rejects something it promises to accept, so it is breaking its own contract | **fix** |
+| the code **correctly refuses an unsupported input** — the boundary is doing its job and the finding wants the boundary moved | **invalid, or defer**; a documented refusal is complete |
+| **taste** — a defensible structure you would have written differently | **the author's call**; record it, do not press it |
+| **polish** — naming, formatting, a nit with no structural consequence | **defer**; log it if it is worth logging, drop it otherwise |
 
 The sort is categorical on purpose. "How bad does this feel" produces a different answer on a
 different day, and a review whose severity drifts is a review nobody can act on consistently.
+
+The distinction that carries the weight is between the middle two rows, and collapsing them
+is the common mistake. *Refuses a valid input* and *correctly refuses an unsupported input*
+look identical from the outside — both are a rejection someone is unhappy about. What
+separates them is the contract: read what the code promises to accept, then decide which one
+you are looking at. Only then does the disposition follow.
 
 ## Stop
 

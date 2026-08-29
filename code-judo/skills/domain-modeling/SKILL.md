@@ -17,7 +17,7 @@ not this skill — that is a one-line habit any skill can have. This skill is fo
 
 Most repos have a single context:
 
-```
+```text
 /
 ├── CONTEXT.md
 ├── docs/
@@ -30,7 +30,7 @@ Most repos have a single context:
 A `CONTEXT-MAP.md` at the root means the repo has more than one context; the map says where
 each lives and how they relate:
 
-```
+```text
 /
 ├── CONTEXT-MAP.md
 ├── docs/adr/                    ← system-wide decisions
@@ -89,8 +89,12 @@ Offer to record an ADR only when **all three** are true:
 
 If any of the three is missing, skip it. Easy to reverse? You will just reverse it.
 Unsurprising? Nobody will wonder. No real alternative? There is nothing to record beyond "we
-did the obvious thing." The format, the numbering, and the full list of what qualifies are in
-`references/adr-format.md`.
+did the obvious thing."
+
+**Resolve which `docs/adr/` before you write or number.** In a repo with a `CONTEXT-MAP.md`,
+a decision local to one context belongs in that context's own directory and takes its number
+from that directory's sequence; the root directory is for system-wide decisions. The format,
+the numbering, and the full list of what qualifies are in `references/adr-format.md`.
 
 **A recorded ADR is not re-litigated.** Once a decision is written down, a later review does
 not get to re-open it as though it were never made. Surface a conflict with an ADR only when

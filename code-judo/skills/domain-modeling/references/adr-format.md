@@ -1,7 +1,22 @@
 # ADR format
 
-ADRs live in `docs/adr/` and are numbered sequentially: `0001-slug.md`, `0002-slug.md`, and
-so on. Create the directory lazily — only when the first ADR is actually needed.
+## Which directory
+
+**Resolve the ADR directory before writing or numbering anything.** ADRs are numbered
+sequentially within their own directory — `0001-slug.md`, `0002-slug.md` — so writing into
+the wrong one both files the decision away from the context it belongs to and mints a number
+from the wrong sequence.
+
+- **No `CONTEXT-MAP.md` at the root** — single context. ADRs live in `docs/adr/`.
+- **`CONTEXT-MAP.md` exists** — several contexts. A decision local to one context goes in
+  that context's own `docs/adr/` (`src/ordering/docs/adr/`, and so on, as laid out in
+  `SKILL.md`). The root `docs/adr/` is reserved for **system-wide** decisions: ones that
+  bind more than one context, or none in particular.
+- If it is genuinely unclear which context a decision belongs to, ask. Guessing files it
+  somewhere a future reader will not look.
+
+Create the resolved directory lazily — only when the first ADR that belongs in it is
+actually needed.
 
 ## Template
 
@@ -25,7 +40,10 @@ Include these only when they add something. Most ADRs need none of them.
 
 ## Numbering
 
-Scan `docs/adr/` for the highest existing number and add one.
+Scan **the resolved directory** — the one chosen above, not the root by default — for the
+highest existing number and add one. Each context's sequence is its own; numbering a
+context-local ADR from the root sequence produces two decisions with the same number in
+different places.
 
 ## When to offer an ADR
 

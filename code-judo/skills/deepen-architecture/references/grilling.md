@@ -22,12 +22,18 @@ delegating — that produces two interviews.
 
 ## Resolution order
 
-Probe, in this order, and use the first one available:
+Take the first of these that works:
 
-1. **`ossify:challenge`** — if the ossify plugin is installed. Its interview mode is the
-   normal case here.
-2. **`ai-mentor:grill-me`** — if ai-mentor is installed and ossify is not.
-3. **The protocol below** — always available, in-plugin, no dependency.
+1. **`ossify:challenge`** — the normal case, in interview mode.
+2. **`ai-mentor:grill-me`**.
+3. **The protocol below** — in-plugin, no dependency, always available.
+
+**How to probe: just call it.** Invoke the Skill tool with the name. If that plugin is not
+installed the call fails, and that failure *is* the answer — move to the next option without
+comment. Do not try to detect installation by looking for plugin directories on disk: the
+install path differs by host and by install mode, so a wrong guess reports "not installed"
+for a plugin that is right there, and silently downgrades a user who has the better griller.
+A failed Skill call costs one turn; a wrong filesystem guess costs the whole resolution.
 
 These are **soft** dependencies. Nothing about the correctness of this skill changes when
 neither plugin is installed; the third option is a complete griller, not a degraded one. Do
@@ -50,7 +56,7 @@ recommended answer. Then wait.
 
 Format a round like this:
 
-```
+```text
 ❓ **Q1** — **<question title>**: <question body, possibly several paragraphs, possibly with options>
 
 ➡️ <your recommended answer>

@@ -29,9 +29,12 @@ look before you look:
 
 - If the user named a direction — a module, a subsystem, a pain point — take it, and skip the
   inference below.
-- Otherwise walk back a good stretch of commit history (`git log --oneline`) to find the
-  codebase's hot spots: the files and areas that keep coming up. Let those paths pull your
-  attention first. **If the changes are scattered with no clear hot spot, widen the net.**
+- Otherwise walk back a good stretch of commit history to find the codebase's hot spots: the
+  files and areas that keep coming up. Read history that **carries paths** — `git log
+  --name-only`, `--name-status`, or `--stat`. `--oneline` prints commit subjects and no file
+  names at all, so it cannot answer the question being asked here. Let the paths that keep
+  recurring pull your attention first. **If the changes are scattered with no clear hot spot,
+  widen the net.**
 
 Read the project's domain glossary (`CONTEXT.md`) and any ADRs covering the area you are
 touching **first**, before forming opinions.
@@ -51,14 +54,20 @@ complexity, or just move it? A "yes, concentrates" is the signal you want.
 
 ## 2. Present the candidates as an HTML report
 
-Write a **self-contained** HTML file to the OS temp directory, so nothing lands in the repo.
-Resolve the temp directory from `$TMPDIR`, falling back to `/tmp` (or `%TEMP%` on Windows),
-and write `<tmpdir>/architecture-review-<timestamp>.html` so every run gets a fresh file.
-Open it for the user and tell them the **absolute path**.
+Write the report as a **single HTML file** to the OS temp directory, so nothing lands in the
+repo. Resolve the temp directory from `$TMPDIR`, falling back to `/tmp` (or `%TEMP%` on
+Windows), and write `<tmpdir>/architecture-review-<timestamp>-<unique>.html` so every run gets
+a fresh file. Open it for the user and tell them the **absolute path**.
+
+One file, but **not offline-capable**: styling and diagrams load from CDNs, so say plainly
+that the report needs network access to render. Do not describe it as self-contained.
 
 ```bash
 dir="${TMPDIR:-/tmp}"; dir="${dir%/}"
-report="$dir/architecture-review-$(date +%Y%m%d-%H%M%S).html"
+# The timestamp is for the reader; the pid and random suffix are what make the
+# path unique. Two runs in the same second would otherwise resolve to one file
+# and the second would overwrite the first.
+report="$dir/architecture-review-$(date +%Y%m%d-%H%M%S)-$$-${RANDOM}.html"
 # ... write the report to "$report" ...
 if command -v open >/dev/null 2>&1; then open "$report"
 elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$report"
@@ -71,7 +80,9 @@ The report is not published anywhere. It is a file on the user's machine that th
 opens; it may contain the names and shapes of private code, and it stays local.
 
 The report uses **Tailwind via CDN** for layout and styling, and **Mermaid via CDN** for
-diagrams wherever a graph, flow, or sequence communicates the structure reliably. Mix Mermaid
+diagrams wherever a graph, flow, or sequence communicates the structure reliably. Both are
+third-party scripts running in the same document as the review, so pin Mermaid to an exact
+version and keep Mermaid's security level strict — see `references/html-report.md`. Mix Mermaid
 with hand-crafted CSS and SVG: Mermaid when relationships are graph-shaped (call graphs,
 dependencies, sequences), hand-built divs and SVG when you want something more editorial
 (mass diagrams, cross-sections, collapses). **Every candidate gets a before/after

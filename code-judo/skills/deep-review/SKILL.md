@@ -7,8 +7,9 @@ disable-model-invocation: true
 # Deep review
 
 An unusually strict review of implementation quality, maintainability, abstraction quality,
-and codebase health. Not a correctness review and not a security review — those are different
-skills with different questions.
+and codebase health. **It does not look for bugs, breaking changes, or vulnerabilities**, and
+this plugin ships nothing that does. Correctness and security are a separate review with
+separate questions; run whatever your project already uses for them.
 
 Above all, be **ambitious** about structure. Do not stop at local cleanup. Actively hunt for
 **code judo** moves: restructurings that preserve behaviour while making the implementation

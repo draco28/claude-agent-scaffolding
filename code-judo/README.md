@@ -12,7 +12,7 @@ not to collect nits.
 | Skill | Scope | What it does |
 |---|---|---|
 | `deep-review` | diff / branch | An unusually strict maintainability review. The code-judo ambition standard, the 1000-line rule, spaghetti-growth suspicion, wrapper/cast/boundary rules, prioritized output, and a categorical approval bar. **Human-invoked only.** |
-| `deepen-architecture` | codebase | A proactive scan for deepening opportunities, presented as a self-contained HTML report opened in your browser, then a grilling loop on the candidate you pick. **Human-invoked only.** |
+| `deepen-architecture` | codebase | A proactive scan for deepening opportunities, presented as a single HTML report opened in your browser, then a grilling loop on the candidate you pick. **Human-invoked only.** |
 | `codebase-design` | any | The design vocabulary the other two speak: module, interface, depth, seam, adapter, leverage, locality. The deletion test, "the interface is the test surface", seam discipline, and the design-it-twice pattern. |
 | `domain-modeling` | any | The project's domain glossary (`CONTEXT.md`) and its ADRs. Adds terms as concepts get named, sharpens fuzzy ones in place, and offers an ADR only when a decision is hard to reverse, surprising, and a real trade-off. |
 
@@ -27,20 +27,22 @@ not to collect nits.
 
 ## What `deep-review` is not
 
-It is not a correctness review and not a security review. It does not look for bugs, breaking
-changes, or vulnerabilities — those are different questions asked by different tools, and
-mixing them into one pass makes both worse.
+It is not a correctness review and not a security review, and this plugin ships nothing that
+is. It does not look for bugs, breaking changes, or vulnerabilities; that is a separate
+review with separate questions, and mixing the two into one pass makes both worse. Run
+whatever your project already uses for that axis.
 
 It produces **one report and one disposition pass, and never re-reviews its own fixes.** A
 review that grades its own remedies always finds something, because every fix is new code and
 new code has findings; a self-reviewing loop has no natural end, and its later rounds measure
 the review rather than the change. A second review is a new human decision.
 
-Its verdict is **advisory** — "the bar is not met, because …" — never a merge gate.
+Its verdict is **advisory** and has two outcomes — the bar is met, or "the bar is not met,
+because …" naming the clauses it fails. Either way it is never a merge gate.
 
 ## The report
 
-`deepen-architecture` writes a self-contained HTML file to the OS temp directory and opens it
+`deepen-architecture` writes a single HTML file to the OS temp directory and opens it
 in your browser, telling you the absolute path. Nothing lands in the repo and nothing is
 published anywhere; the file may name private code and it stays on your machine. Tailwind and
 Mermaid load from CDNs, so rendering it needs a network connection.

@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 #
-# code-judo — frontmatter lint
+# code-judo — invocation and frontmatter lint
 #
-# Asserts each skills/*/SKILL.md complies with the plugin's frontmatter contract:
+# Asserts each skill declares the same thing on both surfaces it ships to.
 #
+# skills/*/SKILL.md — the Claude Code contract:
 #   - YAML frontmatter fenced by ---
-#   - `name` and `description` both present
+#   - exactly one `name` and exactly one `description` (a duplicate key means a
+#     YAML loader and this lint can disagree about what the skill declares)
 #   - `name` is kebab-case and matches its directory
 #   - `description` is non-empty and ≤1024 chars (Claude Code's limit)
 #   - NO `version` field, NO `when_to_use` field
@@ -14,11 +16,19 @@
 #   - the two human-invoked-only skills carry `disable-model-invocation: true`,
 #     and the two model-invocable skills do NOT carry the key
 #
-# The last two checks are a matched pair on purpose. Allowing a third field is a
-# LOOSENING of ai-mentor's exactly-two-fields rule, so the adjacent control is
-# the unknown-key check: widening the set by one named key must not stop the
-# lint detecting any other key. Both must hold, or the loosening has quietly
-# turned into "anything goes".
+# skills/*/agents/openai.yaml — the Codex contract, which is a SEPARATE
+# declaration because Codex does not read `disable-model-invocation`:
+#   - the file exists for every skill
+#   - the human-invoked-only skills carry `allow_implicit_invocation: false`,
+#     and the model-invocable ones do not
+#
+# Both postures are asserted in BOTH directions, and that is the point rather
+# than thoroughness for its own sake. A one-directional check passes just as
+# happily when every skill is human-only as when the split is right, so it
+# would not notice a skill drifting to the wrong side. The same reasoning
+# covers the unknown-key check: allowing a third frontmatter field is a
+# LOOSENING of ai-mentor's exactly-two rule, and the control that keeps it from
+# becoming "anything goes" is that any OTHER key is still rejected.
 #
 # Usage:   bash code-judo/tests/test-frontmatter-lint.sh
 # Exit:    0 if every skill passes every check; 1 if any check fails.
@@ -134,16 +144,21 @@ check_skill() {
 
   keys="$(extract_keys "$fm")"
 
-  # Required keys.
-  if [ "$(count_key "$keys" name)" -ge 1 ]; then
-    pass "$rel_path: has 'name'"
+  # Required keys, exactly once each. A duplicate is not a harmless typo: extract_value
+  # below reads the FIRST occurrence, while a YAML loader may reject the document or take
+  # the last — so a repeated key means this lint and the thing that consumes the file can
+  # disagree about what the skill declares.
+  n_name="$(count_key "$keys" name)"
+  if [ "$n_name" -eq 1 ]; then
+    pass "$rel_path: exactly one 'name'"
   else
-    fail "$rel_path: has 'name'" "missing"
+    fail "$rel_path: exactly one 'name'" "found $n_name"
   fi
-  if [ "$(count_key "$keys" description)" -ge 1 ]; then
-    pass "$rel_path: has 'description'"
+  n_desc="$(count_key "$keys" description)"
+  if [ "$n_desc" -eq 1 ]; then
+    pass "$rel_path: exactly one 'description'"
   else
-    fail "$rel_path: has 'description'" "missing"
+    fail "$rel_path: exactly one 'description'" "found $n_desc"
   fi
 
   # Banned keys.
@@ -196,7 +211,7 @@ check_skill() {
   dmi_count="$(count_key "$keys" disable-model-invocation)"
   dmi_val="$(extract_value "$fm" disable-model-invocation)"
   if is_human_only "$skill_name"; then
-    if [ "$dmi_count" -ge 1 ] && [ "$dmi_val" = "true" ]; then
+    if [ "$dmi_count" -eq 1 ] && [ "$dmi_val" = "true" ]; then
       pass "$rel_path: human-invoked only (disable-model-invocation: true)"
     else
       fail "$rel_path: human-invoked only (disable-model-invocation: true)" \
@@ -208,6 +223,40 @@ check_skill() {
     else
       fail "$rel_path: model-invocable (no disable-model-invocation key)" \
         "found the key with value '$dmi_val'; this skill is meant to be reachable by trigger"
+    fi
+  fi
+}
+
+# Codex does not read `disable-model-invocation`; it reads skills/<name>/agents/openai.yaml.
+# The two surfaces therefore declare the same posture in two files, and the failure mode is
+# that one is updated and the other is not — an "explicit only" skill quietly implicitly
+# invocable on Codex. Asserted in both directions, like the frontmatter check above.
+check_codex_policy() {
+  skill_name="$1"
+  yaml="$SKILLS_DIR/$skill_name/agents/openai.yaml"
+  rel="skills/$skill_name/agents/openai.yaml"
+
+  if [ ! -f "$yaml" ]; then
+    fail "$rel: exists" "every skill declares its Codex interface here"
+    return 0
+  fi
+  pass "$rel: exists"
+
+  # `allow_implicit_invocation: false`, flat, one line — the only shape we author.
+  denies="$(awk '/^[[:space:]]*allow_implicit_invocation:[[:space:]]*false[[:space:]]*$/ { n++ } END { print n+0 }' "$yaml")"
+  if is_human_only "$skill_name"; then
+    if [ "$denies" -eq 1 ]; then
+      pass "$rel: denies implicit invocation, matching its frontmatter"
+    else
+      fail "$rel: denies implicit invocation, matching its frontmatter" \
+        "found $denies occurrences of 'allow_implicit_invocation: false'; on Codex this skill is currently implicitly invocable"
+    fi
+  else
+    if [ "$denies" -eq 0 ]; then
+      pass "$rel: leaves implicit invocation open, matching its frontmatter"
+    else
+      fail "$rel: leaves implicit invocation open, matching its frontmatter" \
+        "this skill is model-invocable on Claude Code but denied on Codex; the two surfaces disagree"
     fi
   fi
 }
@@ -225,6 +274,7 @@ for skill_md in "$SKILLS_DIR"/*/SKILL.md; do
   [ -e "$skill_md" ] || continue
   found_any=1
   check_skill "$skill_md"
+  check_codex_policy "$(basename "$(dirname "$skill_md")")"
 done
 
 if [ "$found_any" -eq 0 ]; then

@@ -53,7 +53,7 @@ concentrate in one place instead of spreading across callers. Fix once, fixed ev
 
 A deep module is a small interface over a large implementation:
 
-```
+```text
 ┌─────────────────────┐
 │   small interface   │  few entry points, simple parameters
 ├─────────────────────┤
@@ -65,7 +65,7 @@ A deep module is a small interface over a large implementation:
 
 A shallow module is a large interface over a thin implementation, and is the thing to avoid:
 
-```
+```text
 ┌─────────────────────────────────┐
 │        large interface          │  many entry points, complex parameters
 ├─────────────────────────────────┤
@@ -105,7 +105,7 @@ Good interfaces make testing fall out naturally rather than requiring scaffoldin
 **Accept dependencies, don't create them.** A module that constructs its own collaborators
 decides for its callers, and for its tests, what those collaborators are.
 
-```
+```text
   testable:      process_order(order, payment_gateway)
   hard to test:  process_order(order)        # constructs a real gateway inside
 ```
@@ -113,7 +113,7 @@ decides for its callers, and for its tests, what those collaborators are.
 **Return results, don't produce side effects.** A function that computes and returns can be
 asserted on directly; one that reaches out and mutates has to be observed indirectly.
 
-```
+```text
   testable:      calculate_discount(cart) -> Discount
   hard to test:  apply_discount(cart)             # mutates cart in place
 ```

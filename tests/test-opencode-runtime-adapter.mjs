@@ -33,6 +33,7 @@ const architectCriticManifestUrl = new URL(
 );
 const ossifyReadmeUrl = new URL("ossify/README.md", root);
 const ossifyManifestUrl = new URL("ossify/.claude-plugin/plugin.json", root);
+const codeJudoManifestUrl = new URL("code-judo/.claude-plugin/plugin.json", root);
 const gitignoreUrl = new URL(".gitignore", root);
 const wrapperDirectory = fileURLToPath(new URL(".opencode/bin", root));
 const selectedPluginsEnvironment = "OPENCODE_SCAFFOLDING_PLUGINS";
@@ -399,16 +400,19 @@ test("Task 9 keeps root README versions aligned with parsed plugin manifests", a
     aiMentorManifestSource,
     architectCriticManifestSource,
     ossifyManifestSource,
+    codeJudoManifestSource,
   ] = await Promise.all([
     readFile(readmeUrl, "utf8"),
     readFile(aiMentorManifestUrl, "utf8"),
     readFile(architectCriticManifestUrl, "utf8"),
     readFile(ossifyManifestUrl, "utf8"),
+    readFile(codeJudoManifestUrl, "utf8"),
   ]);
   const manifests = [
     JSON.parse(aiMentorManifestSource),
     JSON.parse(architectCriticManifestSource),
     JSON.parse(ossifyManifestSource),
+    JSON.parse(codeJudoManifestSource),
   ];
   const pluginRows = parseMarkdownTable(markdownSection(rootReadme, "Plugins"));
   const layout = markdownSection(rootReadme, "Layout");

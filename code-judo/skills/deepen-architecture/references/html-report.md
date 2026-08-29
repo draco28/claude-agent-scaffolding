@@ -1,9 +1,23 @@
 # HTML report format
 
-The architecture review is rendered as a single self-contained HTML file in the OS temp
-directory. Tailwind and Mermaid both come from CDNs. Mermaid handles graph-shaped diagrams
-reliably; hand-built divs and inline SVG handle the more editorial visuals — mass diagrams,
-cross-sections. Mix the two. Leaning on Mermaid for everything makes the report look generic.
+The architecture review is rendered as a **single HTML file** in the OS temp directory.
+Mermaid handles graph-shaped diagrams reliably; hand-built divs and inline SVG handle the more
+editorial visuals — mass diagrams, cross-sections. Mix the two. Leaning on Mermaid for
+everything makes the report look generic.
+
+**One file is not the same as self-contained.** Tailwind and Mermaid load from CDNs, so the
+report needs network access to render: offline or on a restricted network it opens unstyled
+and without diagrams. Say so when you hand over the path, rather than describing the file as
+self-contained. Two consequences follow, and both are in the scaffold below:
+
+- **Pin Mermaid to an exact version**, not a major range. An unpinned dependency means the
+  report renders differently next month than it does today, and the report is the artifact
+  the decision gets made from.
+- **Keep `securityLevel: "strict"`.** Diagram labels are derived from the repository — module
+  names, file paths, sometimes identifiers pulled straight out of the code. Under `"loose"`
+  those labels are interpreted as HTML and click handlers are enabled, which turns repository
+  text into markup in the reader's browser. Escape any label you are unsure of, and reach for
+  a looser level only if a specific diagram genuinely needs interactivity.
 
 ## Scaffold
 
@@ -15,8 +29,8 @@ cross-sections. Mix the two. Leaning on Mermaid for everything makes the report 
     <title>Architecture review for {{repo name}}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
-      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
-      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "strict" });
     </script>
     <style>
       /* small custom layer for what Tailwind does not cover cleanly:
@@ -124,7 +138,8 @@ box, the now-internal calls shown faded inside it.
 - Use `text-xs uppercase tracking-wider` for module labels inside diagrams, so they read as
   schematic rather than as UI.
 - **The only scripts are the Tailwind CDN and the Mermaid ESM import.** The report is
-  otherwise static: no app code, no interactivity beyond Mermaid's own rendering.
+  otherwise static: no app code, no interactivity beyond Mermaid's own rendering. Do not add
+  a third script; every one of them runs in the same document as a review of private code.
 
 ## Top recommendation section
 

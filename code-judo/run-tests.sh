@@ -2,27 +2,35 @@
 #
 # code-judo — plugin test runner.
 #
-# Runs every suite under tests/. There is nothing under tests/ that this runner
-# skips: a gate the runner does not execute is a gate somebody walks by hand and
-# eventually forgets, so if a suite is added here it goes in this list.
+# Discovers every suite under tests/ by glob rather than listing them. A hand
+# list and this header's claim drift apart the moment someone adds a file: the
+# runner reports ALL GREEN while silently never executing the new suite, and
+# nothing in CI can tell the difference. The glob makes the claim true by
+# construction.
 
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR" || exit 1
 
-SUITES="
-tests/test-frontmatter-lint.sh
-tests/test-fidelity-pins.sh
-"
+shopt -s nullglob
+SUITES=(tests/test-*.sh)
+shopt -u nullglob
+
+# An empty glob would otherwise exit 0 having run nothing, which reads exactly
+# like a passing suite.
+if [ "${#SUITES[@]}" -eq 0 ]; then
+  printf 'code-judo: no suites found under tests/test-*.sh\n' >&2
+  exit 1
+fi
 
 failed=0
 ran=0
 
-for suite in $SUITES; do
-  [ -n "$suite" ] || continue
+for suite in "${SUITES[@]}"; do
   ran=$((ran + 1))
   printf '\n=== %s ===\n' "$suite"
-  if bash "$SCRIPT_DIR/$suite"; then
+  if bash "$suite"; then
     :
   else
     failed=$((failed + 1))
