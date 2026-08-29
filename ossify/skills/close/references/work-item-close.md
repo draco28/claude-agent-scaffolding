@@ -135,8 +135,12 @@ schema-valid empty `findings` object having never read the file, `agents_run`
 still reaches 6, and the gate reports green having verified nothing.
 
 **Layer 4 runs delegated where it can, inline where it cannot.** If
-`OSSIFY_NO_WORKFLOWS` is unset and a tool named `Workflow` is available, first
-fingerprint every input the delegated agents read — the six delegated agents
+`OSSIFY_NO_WORKFLOWS` is unset, a tool named `Workflow` is available, **and
+the staged diff is nonempty** (`git -C "$wt" diff --cached --name-only` —
+step 3 below halts unconditionally on an empty index regardless of what
+Layer 4 finds, so dispatching six agents first is pure waste; take the
+inline path instead, which costs nothing extra here), first fingerprint
+every input the delegated agents read — the six delegated agents
 get ordinary worktree and filesystem tool access, and the read-only
 instruction in their prompts is prose, not enforcement (the accepted spec
 residual R4); an injected instruction in the staged diff or a reviewed doc
@@ -211,7 +215,10 @@ inspects, say); that read-path exposure is R4's accepted remainder, not this
 gate's job.
 
 Apply the §4b verdict rule to the findings from whichever path ran: an undeclared
-`fidelity` finding fires the `[fidelity]` halt; the advisory findings are written
+`fidelity` finding fires the `[fidelity]` halt; on the delegated path, so does
+`fidelity_truncated: true` on its own, naming truncation as the reason, even
+if every finding actually returned is declared — the reader could not certify
+it saw every genuine deviation. The advisory findings are written
 to `<work-item-dir>/verify.md` — `$(dirname "$report")` on Route A, `$wi_dir` on
 Route B — and echoed in the close summary.
 

@@ -21,8 +21,15 @@
 #      block from verify-work-item.js by anchor comment and executes it in
 #      Node against fixtures: a fabricated-id attack, an incomplete-coverage
 #      response, and a legitimate declared_in_report_s7 correction.
+# T4 - fidelity_truncated propagation (round-15 P1): the fidelity reader's
+#      5-finding cap means a real undeclared deviation can be silently
+#      dropped unless the reader's own truncated:true survives to the final
+#      return. Extracts the final-return assembly block by anchor and
+#      executes it against fixture `results` arrays: a truncated fidelity
+#      lens must produce fidelity_truncated:true regardless of what the
+#      surviving findings say; an untruncated one must produce false.
 #
-# Self-test: T1, T2 and T3 each run a second time against a planted-defect
+# Self-test: T1, T2, T3 and T4 each run a second time against a planted-defect
 # fixture and must report exactly that defect (testing discipline: a green
 # sweep that was never proved to be looking certifies nothing).
 # ---------------------------------------------------------------------------
@@ -138,6 +145,58 @@ T3_BROKEN="$(run_t3 "$T3TMP/broken.txt" "$FOUND_JSON" "$ATTACK_VERDICT")" \
 printf '%s' "$T3_BROKEN" | grep -q 'FABRICATED_ID_NOT_FROM_READER' \
   || { echo "FAIL: T3's own mutation-check is blind - the broken filter should have let the fabricated id through and did not: $T3_BROKEN"; ck 1; }
 rm -rf "$T3TMP"
+
+# --- T4: fidelity_truncated propagation --------------------------------------
+extract_t4() { # $1=source file -> the anchored return-assembly block's body lines
+  sed -n '/T4-ANCHOR-START/,/T4-ANCHOR-END/p' "$1" | grep -v 'T4-ANCHOR'
+}
+run_t4() { # $1=extracted-body-file $2=results-json $3=agents-run -> result JSON
+  local body="$1" TMP4
+  TMP4="$(mktemp -d)"
+  {
+    echo 'function computeReturn(results, agentsRun) {'
+    cat "$body"
+    echo '}'
+    echo "console.log(JSON.stringify(computeReturn($2, $3)))"
+  } > "$TMP4/harness.cjs"
+  node "$TMP4/harness.cjs"
+  local rc=$?
+  rm -rf "$TMP4"
+  return "$rc"
+}
+T4TMP="$(mktemp -d)"
+extract_t4 "$VWI" > "$T4TMP/real.txt"
+[ -s "$T4TMP/real.txt" ] || { echo "FAIL: T4 anchor extraction found nothing in $VWI - anchors moved or renamed"; ck 1; }
+
+# Scenario A - THE LOAD-BEARING ROUND-15 ASSERTION. The fidelity lens hit its
+# cap (truncated:true) even though the two findings it DID keep are both
+# declared - exactly the shape that would otherwise pass silently. The final
+# return must surface fidelity_truncated:true regardless.
+TRUNC_RESULTS='[{"lens":"fidelity","truncated":true,"findings":[{"id":"f1","lens":"fidelity","declared_in_report_s7":true},{"id":"f2","lens":"fidelity","declared_in_report_s7":true}]},{"lens":"pattern","truncated":false,"findings":[]},{"lens":"absence","truncated":false,"findings":[]}]'
+T4_TRUNC="$(run_t4 "$T4TMP/real.txt" "$TRUNC_RESULTS" 6)" \
+  || { echo "FAIL: T4 harness errored on the truncated-fidelity case: $T4_TRUNC"; ck 1; }
+printf '%s' "$T4_TRUNC" | grep -q '"fidelity_truncated":true' \
+  || { echo "FAIL: fidelity_truncated did not surface true when the fidelity lens truncated, even with only declared findings surviving: $T4_TRUNC"; ck 1; }
+
+# Scenario B - the ordinary case: no lens truncated, fidelity_truncated must
+# be false, not merely falsy/absent (the close's prose checks it explicitly).
+CLEAN_RESULTS='[{"lens":"fidelity","truncated":false,"findings":[]},{"lens":"pattern","truncated":false,"findings":[]},{"lens":"absence","truncated":false,"findings":[]}]'
+T4_CLEAN="$(run_t4 "$T4TMP/real.txt" "$CLEAN_RESULTS" 6)" \
+  || { echo "FAIL: T4 harness errored on the clean case: $T4_CLEAN"; ck 1; }
+printf '%s' "$T4_CLEAN" | grep -q '"fidelity_truncated":false' \
+  || { echo "FAIL: fidelity_truncated was not false when no lens truncated: $T4_CLEAN"; ck 1; }
+
+# Mutation-verify the harness itself: feed it a planted-broken version that
+# never reads `truncated` at all (as an unfixed round-15 script would) and
+# confirm the truncated-fidelity case now silently loses the signal - proving
+# run_t4 can tell the flag being consumed from it being ignored.
+printf '%s\n' 'return { findings: results.flatMap((r) => r.findings), agents_run: agentsRun, fidelity_truncated: false }' \
+  > "$T4TMP/broken.txt"
+T4_BROKEN="$(run_t4 "$T4TMP/broken.txt" "$TRUNC_RESULTS" 6)" \
+  || { echo "FAIL: T4 harness errored on the planted-broken consumer: $T4_BROKEN"; ck 1; }
+printf '%s' "$T4_BROKEN" | grep -q '"fidelity_truncated":false' \
+  || { echo "FAIL: T4's own mutation-check is blind - the broken consumer should have dropped the truncated signal and did not: $T4_BROKEN"; ck 1; }
+rm -rf "$T4TMP"
 
 # --- self-test: planted defects must be caught -----------------------------
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT

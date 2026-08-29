@@ -10,12 +10,23 @@ export const meta = {
 // args.lenses: [{id, text}] - the three impl-check.md §4b lenses, verbatim.
 // args.inputs: {spec, report, handoff, patterns, wt} - absolute paths from the close.
 // Pure orchestration: the lens texts, the paths and the verdict rule all live
-// elsewhere (C1). Returns {findings, agents_run}; findings === null means the
-// close falls back inline.
+// elsewhere (C1). Returns {findings, agents_run, fidelity_truncated}; findings
+// === null means the close falls back inline. fidelity_truncated is true when
+// the fidelity reader hit its 5-finding cap and could not certify it reported
+// every genuine deviation - the verdict rule (impl-check.md) treats that as
+// halt-grade on its own, independent of any individual finding's content.
 
+// `truncated` exists ONLY for `fidelity` - the schema's `maxItems: 5` cap is a
+// cost bound, but impl-check.md requires every genuine fidelity drift to be
+// reported, and undeclared fidelity is the one finding class whose omission
+// silently defeats the halt guarantee (round-15 P1). Making the reader
+// declare "I hit the cap and dropped something real" turns an unenforceable
+// prompt instruction into a schema-required fact the verdict rule can act on.
+// `pattern`/`absence` truncation stays silent - they're advisory; their
+// damage ceiling is noise, not a missed halt.
 const readerSchemaFor = (lensId) => ({
   type: 'object',
-  required: ['findings'],
+  required: lensId === 'fidelity' ? ['findings', 'truncated'] : ['findings'],
   additionalProperties: false,
   properties: {
     findings: {
@@ -47,6 +58,7 @@ const readerSchemaFor = (lensId) => ({
         },
       },
     },
+    ...(lensId === 'fidelity' ? { truncated: { type: 'boolean' } } : {}),
   },
 })
 
@@ -116,6 +128,23 @@ const patternExtra = (lensId) =>
       'the committed diff actually has.\n\n'
     : ''
 
+// Undeclared fidelity is the one finding class the verdict rule halts on -
+// silently dropping one at the 5-cap defeats that guarantee (round-15 P1).
+// `truncated` only exists for this lens (readerSchemaFor); the instruction
+// only fires for it too.
+const truncatedExtra = (lensId) =>
+  lensId === 'fidelity'
+    ? 'If the diff has more genuine fidelity deviations than the 5-finding cap ' +
+      'lets you report, PRIORITIZE undeclared ones (declared_in_report_s7: ' +
+      'false) within your 5 - an undeclared deviation is the one that halts, ' +
+      'and it must not be the one you drop. Set truncated:true whenever you ' +
+      'omitted ANY genuine fidelity finding to stay at 5, even if every one ' +
+      'you kept happens to be declared - completeness cannot be certified ' +
+      'either way, and that fact matters more than which findings you were ' +
+      'able to fit. truncated:false only when you are reporting every genuine ' +
+      'fidelity deviation the diff actually has.\n\n'
+    : ''
+
 let agentsRun = 0
 const counted = (prompt, opts) =>
   agent(prompt, opts).then((r) => { if (r) { agentsRun += 1 } return r })
@@ -126,7 +155,7 @@ const reviewed = await pipeline(
   (lens) => counted(
     'You are the "' + lens.id + '" lens of an ossify work-item close (impl-check.md §4b).\n\n' +
     'LENS TEXT (apply exactly as written):\n' + lens.text + '\n\n' +
-    'Inputs (read them yourself):\n' + inputsBlock() + patternExtra(lens.id) +
+    'Inputs (read them yourself):\n' + inputsBlock() + patternExtra(lens.id) + truncatedExtra(lens.id) +
     'Return AT MOST 5 findings in the schema. Assign each a SHORT, UNIQUE id ' +
     '(e.g. "f1", "f2" - never reuse one within this response) - the refuter pass ' +
     'will refer to findings by this id only. Every finding cites evidence.file. For ' +
@@ -195,7 +224,7 @@ const reviewed = await pipeline(
           .map((f) => ({ ...f, declared_in_report_s7: byId.get(f.id).declared_in_report_s7 })),
       }
       // T3-ANCHOR-END
-    })
+    }).then((result) => result && { ...result, lens: lens.id, truncated: found.truncated })
   },
 )
 
@@ -203,4 +232,13 @@ const results = reviewed.filter(Boolean)
 if (results.length < args.lenses.length) {
   return { findings: null, agents_run: agentsRun }   // any null lens result -> inline fallback
 }
-return { findings: results.flatMap((r) => r.findings), agents_run: agentsRun }
+// T4-ANCHOR-START (tests/test-workflows.sh extracts and executes this exact
+// block against fixtures - keep it self-contained: `results` and `agentsRun`
+// are its only free variables, and it must end in `return`.)
+const fidelityResult = results.find((r) => r.lens === 'fidelity')
+return {
+  findings: results.flatMap((r) => r.findings),
+  agents_run: agentsRun,
+  fidelity_truncated: !!(fidelityResult && fidelityResult.truncated),
+}
+// T4-ANCHOR-END

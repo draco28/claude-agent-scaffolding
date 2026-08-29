@@ -287,6 +287,17 @@ normalize before applying the halt: an absence-shaped gap is `absence`, never
 `fidelity`, regardless of which lens's reader produced it. Re-tag rather than
 drop; the claim and evidence carry over.
 
+**Truncation itself halts, independent of any individual finding's content.**
+The delegated fidelity reader is capped at 5 findings (a cost bound, not a
+completeness claim); on a diff with more genuine deviations than that, an
+omitted one being undeclared would defeat this gate's one hard guarantee
+silently. `fidelity_truncated: true` on the delegated return means the reader
+could not certify it reported every genuine fidelity deviation — treat that
+as a `[fidelity]` halt on its own, naming truncation as the reason, even when
+every finding actually returned is declared. The inline path has no schema
+cap to hit — a free-form judgment reports what it finds, so this halt class
+does not arise there.
+
 ### The relationship to its neighbours, so no axis ships twice
 
 | | Reads | Asks | Stops the close? |
@@ -353,10 +364,13 @@ criterion:
 [report cross-check] report does not account for: AC-2
 [rule]               <file>:<line> - <the documented pattern it violates>
 [fidelity]           <file>:<line> - the diff deviates from spec.md: <claim>; report §7 does not declare it
+[fidelity]           the delegated reader hit its 5-finding cap and could not certify every genuine deviation is reported (truncated:true)
 ```
 
 Do not invent a fifth tag, do not translate one into prose, and do not merge two
-layers' findings under one tag. Four tags, spelled exactly as above.
+layers' findings under one tag. Four tags, spelled exactly as above — the two
+`[fidelity]` lines are the same tag on two distinct triggers (an undeclared
+finding, or unresolvable truncation), not a fifth.
 
 ---
 
