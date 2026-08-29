@@ -131,6 +131,10 @@ const excludedPlugins = [
   "scaffold-onboard",
   "scaffold-dev",
   "claude-security-audit",
+  // Deferred to code-judo v0.2, not forgotten: it ships on Claude Code and Codex
+  // only. Listing it here makes the exclusion a checked decision rather than an
+  // absence nobody can tell apart from an oversight.
+  "code-judo",
 ];
 
 const expectedAliases = {

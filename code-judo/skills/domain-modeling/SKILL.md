@@ -1,6 +1,6 @@
 ---
 name: domain-modeling
-description: Build and sharpen a project's domain model as you design. Use when discussing what a codebase's terms actually mean, when a term is fuzzy or overloaded, when writing or editing a CONTEXT.md glossary, or when recording an architecture decision as an ADR. Triggers on "what do we call this", "that term is overloaded", "add this to the glossary", "write a CONTEXT.md", "should this be an ADR", "record this decision", "domain model", "ubiquitous language".
+description: Build and sharpen a project's domain model as you design. Use when discussing what a codebase's terms actually mean, when a term is fuzzy or overloaded, when writing or editing a CONTEXT.md glossary, or when an architecture decision is worth recording as an ADR — which this skill composes and hands to whoever owns the ADR directory rather than filing itself. Triggers on "what do we call this", "that term is overloaded", "add this to the glossary", "write a CONTEXT.md", "should this be an ADR", "record this decision", "domain model", "ubiquitous language".
 ---
 
 # Domain modeling
@@ -43,9 +43,12 @@ each lives and how they relate:
         └── docs/adr/
 ```
 
-**Create files lazily** — only when there is something to write. No `CONTEXT.md` yet? Create
-it when the first term is resolved. No `docs/adr/` yet? Create it when the first ADR is
-needed. Do not scaffold empty structure.
+**Create `CONTEXT.md` lazily** — only when there is something to write, i.e. when the first
+term is resolved. Do not scaffold empty structure.
+
+**`docs/adr/` is different: this skill does not create it and does not write into it.** It
+composes ADRs and hands them to whoever owns that directory — see below and
+`references/adr-format.md`.
 
 **Projects with their own home for this.** A repo running an ossify lifecycle, or a dual-repo
 workspace, may already keep its domain language in a memory-bank document rather than at the

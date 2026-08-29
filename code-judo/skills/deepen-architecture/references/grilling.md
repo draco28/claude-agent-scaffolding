@@ -50,41 +50,28 @@ settled before you stop.
 
 ## The in-plugin protocol
 
-Interview the user until you reach a shared understanding. Map the work as a **design tree**:
-every decision branches into the decisions that hang off it.
+Compact by design. This is the fallback that ships with the plugin so the skill never depends
+on another being installed — not a second general-purpose interviewer. Two of those already
+exist in this marketplace, and a third written out at length would drift from both.
 
-Work the tree in **rounds**. The **frontier** is every decision whose prerequisites are
-already settled — the questions you can ask *now* without guessing at answers you have not
-heard yet. Ask the whole frontier in one round: number each question and give your
-recommended answer. Then wait.
+**Batch by dependency, not by topic.** Ask everything the agenda's current answers already
+let you ask, in one go. Hold back anything whose sensible phrasing depends on an answer you
+have not received — asking it now means guessing at that answer inside the question, and the
+user ends up correcting your premise instead of deciding anything.
 
-Format a round like this:
+**Number the questions and answer each one yourself first.** A recommendation is what makes a
+question cheap to answer: the user is confirming or overriding a position, not composing one
+from nothing. Say which way you lean and why, in a sentence.
 
-```text
-❓ **Q1** — **<question title>**: <question body, possibly several paragraphs, possibly with options>
+**Then stop and wait.** One batch, then silence until they reply. Answers reshape what is
+askable, so recompute the next batch from the agenda rather than working down a list you
+wrote earlier.
 
-➡️ <your recommended answer>
+**Look things up yourself.** Anything the repository, the tests, or the tools can tell you is
+yours to find — dispatch a sub-agent and keep going. Only decisions go to the user, and a
+lookup in flight blocks only the questions downstream of it, not the whole batch.
 
----
-
-❓ **Q2** — **<question title>**: <question body>
-
-➡️ <your recommended answer>
-```
-
-Each round of answers reshapes the tree: settled decisions push the frontier outward and
-unblock questions that depended on them. Recompute the frontier and ask the next round. **A
-question whose answer depends on another question still open in this round belongs to a later
-round**, not this one.
-
-**Finding facts is your job, never the user's.** When a frontier question needs a fact from
-the environment — the filesystem, the test suite, the call sites — dispatch a sub-agent and
-find it. Do not ask the user for anything you could look up. Do not block on it either: a
-running exploration is an unsettled prerequisite, so only the questions downstream of it
-wait. Ask the rest of the frontier now.
-
-**The decisions are the user's.** Put each one to them and wait.
-
-The session is done when the frontier is empty — every branch of the tree visited, nothing
-left silently assumed. **Do not act on it until the user confirms you have reached a shared
-understanding.**
+**Done is when the agenda is settled**, not when you run out of questions. All five items —
+constraints, dependencies, module shape, what sits behind the seam, surviving tests — have
+answers the user has actually given. Then say what you understood, and wait for them to
+confirm it before anything gets built.

@@ -13,11 +13,17 @@ humans and for agents.
 This skill is *informed* by the project's domain model and built on a shared design
 vocabulary:
 
-- Call the Skill tool with `code-judo:codebase-design` for the architecture vocabulary —
+- Load `code-judo:codebase-design` for the architecture vocabulary —
   **module**, **interface**, **depth**, **seam**, **adapter**, **leverage**, **locality** —
   and its principles: the deletion test, "the interface is the test surface", "one adapter is
   a hypothetical seam, two is a real one". Use those terms exactly in every suggestion. Do
   not drift into "component", "service", "API", or "boundary".
+
+  **How you load a sibling skill depends on the host.** In Claude Code that is the Skill tool.
+  Codex publishes `./skills/` and exposes them as explicit `$skill` invocations rather than a
+  tool call. If neither is available to you, read the sibling's `SKILL.md` from this plugin's
+  own directory — it is shipped alongside this file, so the vocabulary is never actually
+  absent. What must not happen is skipping it and inventing terms.
 - The domain language in `CONTEXT.md` gives names to good seams. ADRs in `docs/adr/` record
   decisions this skill does not re-litigate.
 
@@ -49,15 +55,26 @@ organically and note where *you* experience friction:
 - Where do tightly-coupled modules leak across their seams?
 - Which parts are untested, or hard to test through their current interface?
 
-Apply the **deletion test** to anything you suspect is shallow: would deleting it concentrate
-complexity, or just move it? A "yes, concentrates" is the signal you want.
+Apply the **deletion test** to anything you suspect is shallow. `code-judo:codebase-design`
+defines it; the direction that matters when you are scanning is: imagine the module gone. If
+the complexity **vanishes**, it was a pass-through — that is your deepening candidate. If the
+complexity **reappears, scattered across every caller** that used to go through it, the module
+was already earning its keep. Leave that one alone.
+
+Upstream states this test in two skills using opposite verbs — one asks whether deleting
+"concentrates" complexity, the other whether it "scatters" it — and porting both left two
+files telling a reader to look for opposite signals. The `codebase-design` wording is the one
+this plugin uses.
 
 ## 2. Present the candidates as an HTML report
 
 Write the report as a **single HTML file** to the OS temp directory, so nothing lands in the
 repo. Resolve the temp directory from `$TMPDIR`, then `$TEMP`, then `$TMP`, then `/tmp`, and
 write `<tmpdir>/architecture-review-<timestamp>-<unique>.html` so every run gets a fresh file.
-Open it for the user and tell them the **absolute path**.
+Open it for the user and tell them the **absolute path** — and tell them the path even when
+opening fails. `start` is a `cmd` builtin rather than a program on `PATH`, so `command -v
+start` can never succeed and the Windows branch has to go through `cmd.exe`; on a host with
+none of the three openers, naming the path is the whole deliverable.
 
 The `$TEMP` and `$TMP` steps are what make this work on Windows shells, where `$TMPDIR` is
 usually unset. `%TEMP%` is `cmd` syntax and expands to nothing in a POSIX shell, so naming it
@@ -67,21 +84,29 @@ One file, but **not offline-capable**: styling and diagrams load from CDNs, so s
 that the report needs network access to render. Do not describe it as self-contained.
 
 ```bash
+umask 077   # the report may name private code; do not leave it world-readable in /tmp
 dir="${TMPDIR:-${TEMP:-${TMP:-/tmp}}}"; dir="${dir%/}"
 # The timestamp is for the reader; the pid and random suffix are what make the
 # path unique. Two runs in the same second would otherwise resolve to one file
 # and the second would overwrite the first.
 report="$dir/architecture-review-$(date +%Y%m%d-%H%M%S)-$$-${RANDOM}.html"
 # ... write the report to "$report" ...
-if command -v open >/dev/null 2>&1; then open "$report"
-elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$report"
-elif command -v start >/dev/null 2>&1; then start "$report"
+if command -v open >/dev/null 2>&1; then open "$report"            # macOS
+elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$report"  # Linux
+elif command -v cmd.exe >/dev/null 2>&1; then cmd.exe /c start "" "$report"  # Windows
+else printf 'open this file in a browser: %s\n' "$report"
 fi
 printf 'report: %s\n' "$report"
 ```
 
 The report is not published anywhere. It is a file on the user's machine that their browser
 opens; it may contain the names and shapes of private code, and it stays local.
+
+**Local is not the same as private.** Under the usual `022` umask a file created in a shared
+`/tmp` is world-readable, so any other account on the host can read the review. Restrict the
+file to the owner — create it with a `077` umask, or `chmod 600` it immediately after writing
+and before opening it. The unique suffix in the filename makes the path hard to guess; it does
+not make the file unreadable, and guessing is not how someone finds it.
 
 The report uses **Tailwind via CDN** for layout and styling, and **Mermaid via CDN** for
 diagrams wherever a graph, flow, or sequence communicates the structure reliably. Both are
@@ -104,6 +129,13 @@ Each candidate is a card carrying:
 
 End the report with a **Top recommendation** section: which candidate you would tackle first,
 and why.
+
+**If the scan found nothing defensible, say so and stop.** Write the report with an empty
+result — the area examined, what you looked for, and why nothing met the bar — skip the Top
+recommendation, and do not ask which candidate to explore, because there are none. A small or
+already-deep module is a real outcome, and a scan that must always produce a candidate will
+manufacture one. An invented candidate is worse than a quiet report: it sends someone to
+restructure code that was fine.
 
 **Use `CONTEXT.md` vocabulary for the domain and the codebase-design vocabulary for the
 architecture.** If `CONTEXT.md` defines "Order", talk about "the Order intake module" — not
@@ -135,7 +167,7 @@ These happen as decisions crystallize, not in a batch at the end. Call the Skill
 `code-judo:domain-modeling` to keep the domain model current as you go.
 
 - **Naming a deepened module after a concept that is not in `CONTEXT.md`?** Add the term.
-  Create the file lazily if it does not exist.
+  Create `CONTEXT.md` lazily if it does not exist — that file has no other owner.
 - **Sharpening a fuzzy term during the conversation?** Update `CONTEXT.md` right there.
 - **User rejects the candidate for a load-bearing reason?** Offer an ADR, framed as: *"Want
   me to record this as an ADR so future architecture reviews don't re-suggest it?"* Offer it

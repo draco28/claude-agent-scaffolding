@@ -12,7 +12,7 @@ has both a unit suite and a live-loader integration test. `scaffold` is delibera
 from the Codex v0 set — check the deferred list before assuming a plugin ships everywhere.
 
 Shipped: `workspace-init`, `scaffold-onboard`, `scaffold-dev`, `scaffold`, `ai-mentor`,
-`architect-critic`, `claude-security-audit`. In development: `ossify`.
+`architect-critic`, `claude-security-audit`, `ossify`, `code-judo`.
 
 This repo is the **public canonical half** of a dual-repo project. Design specs, session
 handoffs, review records and process exhaust live in a private sibling workspace and must

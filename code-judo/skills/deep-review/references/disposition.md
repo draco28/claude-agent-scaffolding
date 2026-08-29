@@ -67,6 +67,13 @@ Sort by **failure direction**, not by severity feel:
 The sort is categorical on purpose. "How bad does this feel" produces a different answer on a
 different day, and a review whose severity drifts is a review nobody can act on consistently.
 
+Every row describes a **structural** property, including the two about inputs. This review
+does not hunt for bugs, and the refusal rows are not asking you to: they are about where a
+contract is drawn and whether the code's shape honours it. "This boundary accepts input it
+has no way to handle" is a design finding about a missing type or a missing check, not a
+report that some computation returns the wrong answer. If you find yourself dispositioning an
+actual bug here, it came from a different review.
+
 The structural row comes first because it is what this review exists to produce. Without it
 the sort has nowhere to put its own presumptive blockers, and a 1000-line file has to be
 miscast as taste to fit the table — which quietly converts a blocker into a shrug.

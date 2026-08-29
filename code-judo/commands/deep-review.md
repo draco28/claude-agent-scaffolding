@@ -5,18 +5,8 @@ allowed-tools: Bash(bash:*), Bash(git:*), Read, Glob, Grep, Task
 disable-model-invocation: true
 ---
 
-Parse the argument from `$ARGUMENTS` via the env-var bridge below — no positional `$1` /
-`$2` / `$N`, which this harness substitutes at render time.
-
-```bash
-ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
-  set -u
-  echo "deep-review: base=${ARGS_FROM_CLAUDE:-<none given, resolve per SKILL.md §1>}"
-'
-```
-
 **Read `${CLAUDE_PLUGIN_ROOT}/skills/deep-review/SKILL.md` end to end and follow it**, passing
-the base above if one was given. **Base resolution lives in the skill, not here** — Codex
+the base below if one was given. **Base resolution lives in the skill, not here** — Codex
 publishes `./skills/` and never loads this file, so a resolver written here would exist on one
 surface and not the other, which is how the two came to disagree in the first place.
 `references/rubric.md` carries the standards, questions, flags, and remedies;
@@ -24,3 +14,5 @@ surface and not the other, which is how the two came to disagree in the first pl
 
 This is a **quality** review, not a correctness or security review. It produces one report
 and one disposition pass, and never re-reviews its own fixes.
+
+Base ref to review against (may be empty — resolve per SKILL.md §1): $ARGUMENTS

@@ -52,10 +52,13 @@ Include these only when they add something. Most ADRs need none of them.
 ## Numbering
 
 **Not yours to assign.** Whoever owns the directory owns its sequence. When you hand off a
-composed ADR, hand over the title and the body and let the owner number it. If you are asked
-directly to write the file yourself, take the number from the destination directory at that
-moment — never from a scan you ran earlier in the conversation, which a concurrent write may
-already have invalidated.
+composed ADR, hand over the title and the body and let the owner number it.
+
+If the user asks you to write the file yourself, a fresh scan is still not enough: two
+workflows can both read the same "next number" before either writes, and the second silently
+overwrites or duplicates. **Create the file exclusively** — fail if the path already exists,
+and on collision re-read the directory and retry with the next number rather than clobbering
+what appeared in between.
 
 ## When to offer an ADR
 

@@ -16,6 +16,9 @@
 #   - the two human-invoked-only skills carry `disable-model-invocation: true`,
 #     and the two model-invocable skills do NOT carry the key
 #
+# commands/<name>.md — the surface a user actually types:
+#   - a command exists per skill, and carries the same posture as its skill
+#
 # skills/*/agents/openai.yaml — the Codex contract, which is a SEPARATE
 # declaration because Codex does not read `disable-model-invocation`:
 #   - the file matches one of exactly TWO shapes, byte for byte once the two
@@ -40,9 +43,17 @@
 
 set -u  # failures are counted explicitly; do not `set -e`
 
+# Lengths below are counted in BYTES, and the locale is pinned so they stay
+# bytes. awk's length() counts characters in a UTF-8 locale and bytes in C, so
+# an unpinned run measures a description containing an em-dash differently on
+# two machines — and the limit being checked is itself a byte limit.
+LC_ALL=C
+export LC_ALL
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SKILLS_DIR="$PLUGIN_ROOT/skills"
+COMMANDS_DIR="$PLUGIN_ROOT/commands"
 
 PASS=0
 FAIL=0
@@ -202,9 +213,23 @@ check_skill() {
     fail "$rel_path: 'name' matches directory" "directory='$skill_name' but name='$name_val'"
   fi
 
-  # description.
+  # description. Reject the YAML shapes this lint does not read rather than
+  # measuring them wrong: a folded (>) or literal (|) scalar puts the real text
+  # on following lines, where extract_value never looks, so the length check
+  # would silently pass on a 3000-character description by measuring the empty
+  # remainder of the first line. A documented refusal of exotic input beats a
+  # check that quietly stops checking.
   desc_val="$(extract_value "$fm" description)"
-  desc_len=$(printf '%s' "$desc_val" | awk '{ total += length($0) } END { print total+0 }')
+  case "$desc_val" in
+    ">"*|"|"*)
+      fail "$rel_path: 'description' is a single-line plain scalar" \
+        "starts with '${desc_val%%[![:space:]]*}${desc_val:0:1}' — folded and literal block scalars are not supported here; put the description on one line"
+      ;;
+    *)
+      pass "$rel_path: 'description' is a single-line plain scalar"
+      ;;
+  esac
+  desc_len=$(printf '%s' "$desc_val" | awk '{ total += length($0) } END { print total+0 }')  # bytes; LC_ALL=C above
   if [ "$desc_len" -eq 0 ]; then
     fail "$rel_path: 'description' is non-empty" "empty"
   elif [ "$desc_len" -le 1024 ]; then
@@ -277,6 +302,37 @@ $actual"
   fi
 }
 
+# A command file carries `disable-model-invocation` too, so it is a fourth
+# place the posture is declared and a fourth place it can drift. The command
+# is what a user actually types, so a command that is model-invocable while its
+# skill is not defeats the whole restriction.
+check_command_posture() {
+  skill_name="$1"
+  human_only="$2"
+  cmd="$COMMANDS_DIR/$skill_name.md"
+  rel="commands/$skill_name.md"
+
+  [ -f "$cmd" ] || { fail "$rel: exists" "every skill is reachable by a command of the same name"; return 0; }
+
+  fm="$(extract_frontmatter "$cmd")"
+  n="$(count_key "$(extract_keys "$fm")" disable-model-invocation)"
+  v="$(extract_value "$fm" disable-model-invocation)"
+  if [ "$human_only" = "yes" ]; then
+    if [ "$n" -eq 1 ] && [ "$v" = "true" ]; then
+      pass "$rel: human-invoked only, matching its skill"
+    else
+      fail "$rel: human-invoked only, matching its skill" \
+        "count=$n value='$v' — the skill cannot be model-triggered but this command can"
+    fi
+  else
+    if [ "$n" -eq 0 ]; then
+      pass "$rel: model-invocable, matching its skill"
+    else
+      fail "$rel: model-invocable, matching its skill" "found the key with value '$v'"
+    fi
+  fi
+}
+
 printf '%scode-judo frontmatter lint%s\n' "$DIM" "$RST"
 printf '%sskills dir: %s%s\n' "$DIM" "$SKILLS_DIR" "$RST"
 
@@ -292,11 +348,9 @@ for skill_md in "$SKILLS_DIR"/*/SKILL.md; do
   check_skill "$skill_md"
   skill_dir_name="$(basename "$(dirname "$skill_md")")"
   skill_desc="$(extract_value "$(extract_frontmatter "$skill_md")" description)"
-  if describes_human_only "$skill_desc"; then
-    check_codex_policy "$skill_dir_name" yes
-  else
-    check_codex_policy "$skill_dir_name" no
-  fi
+  if describes_human_only "$skill_desc"; then posture=yes; else posture=no; fi
+  check_codex_policy "$skill_dir_name" "$posture"
+  check_command_posture "$skill_dir_name" "$posture"
 done
 
 if [ "$found_any" -eq 0 ]; then
