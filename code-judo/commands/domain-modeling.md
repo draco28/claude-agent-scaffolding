@@ -9,7 +9,6 @@ allowed-tools: Read, Write, Edit, Glob, Grep
 `references/adr-format.md` carries the ADR template, numbering, and what qualifies.
 
 Update the glossary inline as terms resolve — never batch them. Offer an ADR only when all
-three conditions hold, and compose it rather than filing it: the ADR directory is a numbered
-sequence with one owner.
+three conditions hold; `references/adr-format.md` governs what happens after that.
 
 What to work on (may be empty — fall back to the current conversation): $ARGUMENTS

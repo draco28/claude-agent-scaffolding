@@ -173,9 +173,8 @@ These happen as decisions crystallize, not in a batch at the end. Call the Skill
   me to record this as an ADR so future architecture reviews don't re-suggest it?"* Offer it
   only when the reason is one a future explorer would actually need in order to avoid
   re-suggesting the same thing. Skip ephemeral reasons ("not worth it right now") and
-  self-evident ones. On yes, `code-judo:domain-modeling` composes it and names where it goes —
-  it does not file it, because the ADR sequence belongs to whatever already owns that
-  directory.
+  self-evident ones. On yes, hand it to `code-judo:domain-modeling`, whose
+  `references/adr-format.md` governs what happens next.
 - **Want to explore alternative interfaces for the deepened module?** Call the Skill tool
   with `code-judo:codebase-design` and use its design-it-twice parallel sub-agent pattern.
 

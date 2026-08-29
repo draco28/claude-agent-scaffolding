@@ -33,7 +33,7 @@ does not read the frontmatter field. The lint asserts the two agree, in both dir
 4. `domain-modeling` **composes** ADRs but does not file them — it names the destination and
    hands off. Upstream writes the file and mints the number by scanning the directory. An ADR
    directory is a numbered sequence with one owner, and in these repos something else already
-   owns it (ossify's ceremonies, and the deprecated `scaffold-dev`), so two tools scanning for
+   owns it (ossify's ceremonies, and `scaffold-dev`'s ADR skill), so two tools scanning for
    "the next number" collide silently. The guarantee is that the skill's flow never mutates a
    shared sequence unprompted; asked directly by the user, it will still write the file.
 

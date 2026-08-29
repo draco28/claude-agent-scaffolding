@@ -34,15 +34,10 @@ set -u
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-PASS=0
-FAIL=0
-PINS=0
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/_helpers.sh"   # counters, colours, pass/fail, report
 
-if [ -t 1 ]; then
-  GREEN=$(printf '\033[32m'); RED=$(printf '\033[31m'); DIM=$(printf '\033[2m'); RST=$(printf '\033[0m')
-else
-  GREEN=""; RED=""; DIM=""; RST=""
-fi
+PINS=0
 
 # Occurrences of a literal substring in a file. Literal, not regex: index().
 occurrences() {
@@ -65,24 +60,17 @@ pin() {
   path="$PLUGIN_ROOT/$rel"
 
   if [ ! -f "$path" ]; then
-    FAIL=$((FAIL+1))
-    printf '  %s✗%s %s\n      %sno such file: %s%s\n' "$RED" "$RST" "$label" "$DIM" "$rel" "$RST"
+    fail "$label" "no such file: $rel"
     return 0
   fi
 
   count="$(occurrences "$path" "$needle")"
   if [ "$count" -eq 1 ]; then
-    PASS=$((PASS+1))
-    printf '  %s✓%s %s\n' "$GREEN" "$RST" "$label"
+    pass "$label"
+  elif [ "$count" -eq 0 ]; then
+    fail "$label" "not found in $rel — either the rule was reworded away, or the pin now spans a line wrap and is checking nothing. pin: $needle"
   else
-    FAIL=$((FAIL+1))
-    printf '  %s✗%s %s\n' "$RED" "$RST" "$label"
-    if [ "$count" -eq 0 ]; then
-      printf '      %snot found in %s — either the rule was reworded away, or the pin now spans a line wrap and is checking nothing%s\n' "$DIM" "$rel" "$RST"
-    else
-      printf '      %sfound %s times in %s — a pin must be unique, or it guards an ambiguous occurrence%s\n' "$DIM" "$count" "$rel" "$RST"
-    fi
-    printf '      %spin: %s%s\n' "$DIM" "$needle" "$RST"
+    fail "$label" "found $count times in $rel — a pin must be unique, or it guards an ambiguous occurrence. pin: $needle"
   fi
 }
 
@@ -131,14 +119,9 @@ pin "skills/deepen-architecture/SKILL.md" \
 # The cap is the point of this file, so it is asserted rather than trusted.
 printf '\n'
 if [ "$PINS" -eq 10 ]; then
-  PASS=$((PASS+1))
-  printf '  %s✓%s pin list is capped at 10 (found %s)\n' "$GREEN" "$RST" "$PINS"
+  pass "pin list is capped at 10 (found $PINS)"
 else
-  FAIL=$((FAIL+1))
-  printf '  %s✗%s pin list is capped at 10\n      %sfound %s. Adding a pin means replacing one, not appending. See the header.%s\n' \
-    "$RED" "$RST" "$DIM" "$PINS" "$RST"
+  fail "pin list is capped at 10" "found $PINS. Adding a pin means replacing one, not appending. See the header."
 fi
 
-printf '\n%s──%s %d passed, %d failed\n' "$DIM" "$RST" "$PASS" "$FAIL"
-[ "$FAIL" -eq 0 ] || exit 1
-exit 0
+report

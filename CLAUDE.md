@@ -188,7 +188,7 @@ discovers only `tests/unit/` and `tests/integration/`, so its evaluator never ru
 them against what its own runner actually executes.** Whatever the runner does not execute is
 a gate you walk by hand.
 
-**Do not expect a consistent filename.** Across the seven shipped plugins the gate document is
+**Do not expect a consistent filename.** Across the shipped plugins the gate document is
 variously a `RUNBOOK.md`, a `tests/README.md`, or a directory of markdown fixtures — and two
 plugins have none at all. That is why this says *look* rather than naming a file to open:
 naming one is how the deleted command block started, and a pointer to a file that does not

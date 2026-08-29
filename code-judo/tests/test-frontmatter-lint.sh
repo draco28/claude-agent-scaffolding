@@ -2,127 +2,93 @@
 #
 # code-judo — invocation and frontmatter lint
 #
-# Asserts each skill declares the same thing on both surfaces it ships to.
+# Every skill declares its invocation posture on three surfaces, and this
+# asserts they agree. Posture is DERIVED from the description users read; the
+# other two are restatements of it, and each is checked in BOTH directions,
+# because a one-directional check passes just as happily when everything is
+# human-only as when the split is right.
 #
-# skills/*/SKILL.md — the Claude Code contract:
-#   - YAML frontmatter fenced by ---
-#   - exactly one `name` and exactly one `description` (a duplicate key means a
-#     YAML loader and this lint can disagree about what the skill declares)
-#   - `name` is kebab-case and matches its directory
-#   - `description` is non-empty and ≤1024 chars (Claude Code's limit)
-#   - NO `version` field, NO `when_to_use` field
-#   - the ONLY optional field is `disable-model-invocation`, and no other key
-#     may appear at all
-#   - the two human-invoked-only skills carry `disable-model-invocation: true`,
-#     and the two model-invocable skills do NOT carry the key
+#   skills/<n>/SKILL.md            name, description, disable-model-invocation
+#   commands/<n>.md                the surface a user types; same flag
+#   skills/<n>/agents/openai.yaml  Codex, which never reads the flag above
 #
-# commands/<name>.md — the surface a user actually types:
-#   - a command exists per skill, and carries the same posture as its skill
+# WHY THIS PARSES YAML INSTEAD OF SCANNING IT. Earlier versions extracted
+# frontmatter with awk and read values by splitting on the first colon. That
+# hand-rolled parser produced findings in three consecutive review rounds —
+# indentation-blindness, folded scalars measured as empty, continuation lines,
+# unanchored extraction, a missing exists-guard — and each fix revealed the
+# next hole, which is what a partial reimplementation of a real grammar does.
+# It is replaced by Ruby + Psych: the parser tests/test-codex-dual-publish.sh
+# already uses, and the parser Codex's own loader uses. A check that reads YAML
+# some other way is not checking what will actually load the file. The whole
+# class — anchoring, folding, nesting, colon-splitting — is gone by
+# construction rather than patched one hole at a time.
 #
-# skills/*/agents/openai.yaml — the Codex contract, which is a SEPARATE
-# declaration because Codex does not read `disable-model-invocation`:
-#   - the file matches one of exactly TWO shapes, byte for byte once the two
-#     quoted strings are blanked: with a `policy:` block, or without one
-#
-# Posture is DERIVED, never listed here. A skill is human-invoked-only if its
-# description says so, and the lint then requires all three surfaces to agree:
-# the description prose, the frontmatter flag, and the Codex policy block. A
-# hand list of which skills are human-only is the same drift class as #385, and
-# it fails OPEN — a fifth skill nobody adds to the list is silently treated as
-# model-invocable. Deriving it means a fifth skill is checked the day it lands,
-# and flipping a posture takes three deliberate edits that show up in the diff.
-#
-# The Codex file is compared by SHAPE rather than parsed. An earlier version
-# grepped for `allow_implicit_invocation: false` and passed when the key sat at
-# the wrong nesting entirely — under `interface:` instead of `policy:`. Shape
-# comparison has no indentation semantics to get wrong.
+# THE FILE SET IS DERIVED, NOT LISTED. Skills and commands are globbed
+# independently and the union is walked, so a skill with no command, or a
+# command with no skill, surfaces as a missing counterpart instead of as a file
+# nobody thought to look at.
 #
 # Usage:   bash code-judo/tests/test-frontmatter-lint.sh
-# Exit:    0 if every skill passes every check; 1 if any check fails.
-# Deps:    bash 3.2+ (no GNU-isms), awk. No jq, no yq.
+# Exit:    0 if every surface agrees; 1 otherwise.
+# Deps:    bash 3.2+, ruby with psych.
 
-set -u  # failures are counted explicitly; do not `set -e`
-
-# Lengths below are counted in BYTES, and the locale is pinned so they stay
-# bytes. awk's length() counts characters in a UTF-8 locale and bytes in C, so
-# an unpinned run measures a description containing an em-dash differently on
-# two machines — and the limit being checked is itself a byte limit.
-LC_ALL=C
-export LC_ALL
+set -u
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 SKILLS_DIR="$PLUGIN_ROOT/skills"
 COMMANDS_DIR="$PLUGIN_ROOT/commands"
 
-PASS=0
-FAIL=0
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/_helpers.sh"
 
-if [ -t 1 ]; then
-  GREEN=$(printf '\033[32m'); RED=$(printf '\033[31m'); DIM=$(printf '\033[2m'); RST=$(printf '\033[0m')
-else
-  GREEN=""; RED=""; DIM=""; RST=""
-fi
+DESC_LIMIT=1024              # Claude Code's cap, counted in bytes
+HUMAN_ONLY_MARKER="Human-invoked only."
 
-pass() { PASS=$((PASS+1)); printf '  %s✓%s %s\n' "$GREEN" "$RST" "$1"; }
-fail() {
-  FAIL=$((FAIL+1))
-  printf '  %s✗%s %s\n' "$RED" "$RST" "$1"
-  [ -n "${2:-}" ] && printf '      %s%s%s\n' "$DIM" "$2" "$RST"
-  return 0
+require_ruby_psych || { report; exit 1; }
+
+# Facts about a markdown file's frontmatter, one per line, TAB-separated:
+#   err <message>            parsing refused, with the reason
+#   key <name>               one line per top-level key, in document order
+#   val <name> <value>       scalars only; anything else reports its class
+fm_facts() {
+  "$RUBY_BIN" -ryaml -e '
+    lines = File.read(ARGV[0]).lines
+    unless lines[0] && lines[0].rstrip == "---"
+      puts "err\tno frontmatter: the file must open with --- on line 1"
+      exit
+    end
+    close = lines[1..-1].index { |l| l.rstrip == "---" }
+    if close.nil?
+      puts "err\tunterminated frontmatter: no closing --- after line 1"
+      exit
+    end
+    begin
+      doc = Psych.safe_load(lines[1, close].join, permitted_classes: [], aliases: false)
+    rescue => e
+      puts "err\tfrontmatter does not parse: #{e.class}"
+      exit
+    end
+    unless doc.is_a?(Hash)
+      puts "err\tfrontmatter is #{doc.class}, expected a mapping"
+      exit
+    end
+    doc.each do |k, v|
+      puts "key\t#{k}"
+      case v
+      when String then puts "val\t#{k}\t#{v.gsub(/\s+/, " ").strip}"
+      when true, false, Numeric then puts "val\t#{k}\t#{v}"
+      else puts "val\t#{k}\t<#{v.class}>"
+      end
+    end
+  ' "$1" 2>/dev/null
 }
 
-# Frontmatter block: the lines between the first two `---` fences.
-extract_frontmatter() {
-  awk '
-    BEGIN { state = 0 }
-    /^---[[:space:]]*$/ {
-      if (state == 0) { state = 1; next }
-      else if (state == 1) { state = 2; exit }
-    }
-    state == 1 { print }
-  ' "$1"
-}
-
-# Key names, one per line. Flat YAML only, which is the convention here.
-extract_keys() {
-  printf '%s\n' "$1" | awk '
-    /^[[:space:]]*$/ { next }
-    /^[[:space:]]*#/ { next }
-    {
-      idx = index($0, ":")
-      if (idx == 0) next
-      key = substr($0, 1, idx - 1)
-      sub(/^[[:space:]]+/, "", key)
-      sub(/[[:space:]]+$/, "", key)
-      if (key != "") print key
-    }
-  '
-}
-
-# Raw value of one key, as a single line (everything after the first colon).
-extract_value() {
-  printf '%s\n' "$1" | awk -v k="$2" '
-    {
-      idx = index($0, ":")
-      if (idx == 0) next
-      this_key = substr($0, 1, idx - 1)
-      this_val = substr($0, idx + 1)
-      sub(/^[[:space:]]+/, "", this_key)
-      sub(/[[:space:]]+$/, "", this_key)
-      if (this_key == k) {
-        sub(/^[[:space:]]+/, "", this_val)
-        sub(/[[:space:]]+$/, "", this_val)
-        print this_val
-        exit
-      }
-    }
-  '
-}
-
-count_key() {
-  printf '%s\n' "$1" | awk -v k="$2" '$0 == k { n++ } END { print n+0 }'
-}
+facts_error() { printf '%s\n' "$1" | awk -F'\t' '$1=="err"{print $2; exit}'; }
+facts_keys()  { printf '%s\n' "$1" | awk -F'\t' '$1=="key"{print $2}'; }
+facts_value() { printf '%s\n' "$1" | awk -F'\t' -v k="$2" '$1=="val" && $2==k{print $3; exit}'; }
+facts_count() { printf '%s\n' "$1" | awk -F'\t' -v k="$2" '$1=="key" && $2==k{n++} END{print n+0}'; }
 
 is_kebab_case() {
   case "$1" in
@@ -133,190 +99,77 @@ is_kebab_case() {
   esac
 }
 
-# A skill declares its own posture in the description users actually read.
-# That prose is the source; the frontmatter flag and the Codex policy block are
-# the two machine-readable restatements of it, and all three must agree.
-HUMAN_ONLY_MARKER="Human-invoked only."
-
 describes_human_only() {
-  case "$1" in
-    *"$HUMAN_ONLY_MARKER"*) return 0 ;;
-    *) return 1 ;;
-  esac
+  case "$1" in *"$HUMAN_ONLY_MARKER"*) return 0 ;; *) return 1 ;; esac
 }
+
+# Psych collapses a folded scalar into one string, so this is the real length
+# whatever shape the author used — the thing the awk version could not see.
+byte_len() { LC_ALL=C printf '%s' "$1" | LC_ALL=C wc -c | tr -d ' '; }
 
 check_skill() {
-  skill_md="$1"
-  skill_name="$(basename "$(dirname "$skill_md")")"
-  rel_path="skills/$skill_name/SKILL.md"
+  name="$1"; md="$SKILLS_DIR/$name/SKILL.md"; rel="skills/$name/SKILL.md"
+  facts="$(fm_facts "$md")"
 
-  printf '\n%s%s%s\n' "$DIM" "── $rel_path ──" "$RST"
-
-  fm="$(extract_frontmatter "$skill_md")"
-  if [ -z "$fm" ]; then
-    fail "$rel_path: has YAML frontmatter fenced by ---" "no frontmatter block found"
-    return 0
+  err="$(facts_error "$facts")"
+  if [ -n "$err" ]; then
+    fail "$rel: frontmatter parses" "$err"
+    return 1
   fi
-  pass "$rel_path: has YAML frontmatter fenced by ---"
+  pass "$rel: frontmatter parses"
 
-  keys="$(extract_keys "$fm")"
+  for required in name description; do
+    n="$(facts_count "$facts" "$required")"
+    if [ "$n" -eq 1 ]; then pass "$rel: exactly one '$required'"
+    else fail "$rel: exactly one '$required'" "found $n"; fi
+  done
 
-  # Required keys, exactly once each. A duplicate is not a harmless typo: extract_value
-  # below reads the FIRST occurrence, while a YAML loader may reject the document or take
-  # the last — so a repeated key means this lint and the thing that consumes the file can
-  # disagree about what the skill declares.
-  n_name="$(count_key "$keys" name)"
-  if [ "$n_name" -eq 1 ]; then
-    pass "$rel_path: exactly one 'name'"
-  else
-    fail "$rel_path: exactly one 'name'" "found $n_name"
-  fi
-  n_desc="$(count_key "$keys" description)"
-  if [ "$n_desc" -eq 1 ]; then
-    pass "$rel_path: exactly one 'description'"
-  else
-    fail "$rel_path: exactly one 'description'" "found $n_desc"
-  fi
-
-  # Banned keys.
-  if [ "$(count_key "$keys" version)" -eq 0 ]; then
-    pass "$rel_path: no 'version'"
-  else
-    fail "$rel_path: no 'version'" "skill frontmatter carries no version; the plugin manifest owns versioning"
-  fi
-  if [ "$(count_key "$keys" when_to_use)" -eq 0 ]; then
-    pass "$rel_path: no 'when_to_use'"
-  else
-    fail "$rel_path: no 'when_to_use'" "fold it into description"
-  fi
-
-  # Control for the loosening: nothing outside the allowed set may appear.
-  unknown="$(printf '%s\n' "$keys" | awk '
-    NF && $0 != "name" && $0 != "description" && $0 != "disable-model-invocation"
+  unknown="$(facts_keys "$facts" | awk '
+    $0 != "name" && $0 != "description" && $0 != "disable-model-invocation"
   ' | awk '{ printf "%s%s", sep, $0; sep = ", " }')"
-  if [ -z "$unknown" ]; then
-    pass "$rel_path: no unknown frontmatter keys"
-  else
-    fail "$rel_path: no unknown frontmatter keys" "found: [$unknown]"
-  fi
+  if [ -z "$unknown" ]; then pass "$rel: no unknown frontmatter keys"
+  else fail "$rel: no unknown frontmatter keys" "found: [$unknown]"; fi
 
-  # name.
-  name_val="$(extract_value "$fm" name)"
-  if is_kebab_case "$name_val"; then
-    pass "$rel_path: 'name' is kebab-case ('$name_val')"
-  else
-    fail "$rel_path: 'name' is kebab-case" "name='$name_val'"
-  fi
-  if [ "$name_val" = "$skill_name" ]; then
-    pass "$rel_path: 'name' matches directory"
-  else
-    fail "$rel_path: 'name' matches directory" "directory='$skill_name' but name='$name_val'"
-  fi
+  name_val="$(facts_value "$facts" name)"
+  if is_kebab_case "$name_val"; then pass "$rel: 'name' is kebab-case ('$name_val')"
+  else fail "$rel: 'name' is kebab-case" "name='$name_val'"; fi
+  if [ "$name_val" = "$name" ]; then pass "$rel: 'name' matches directory"
+  else fail "$rel: 'name' matches directory" "directory='$name' but name='$name_val'"; fi
 
-  # description. Reject the YAML shapes this lint does not read rather than
-  # measuring them wrong: a folded (>) or literal (|) scalar puts the real text
-  # on following lines, where extract_value never looks, so the length check
-  # would silently pass on a 3000-character description by measuring the empty
-  # remainder of the first line. A documented refusal of exotic input beats a
-  # check that quietly stops checking.
-  desc_val="$(extract_value "$fm" description)"
-  case "$desc_val" in
-    ">"*|"|"*)
-      fail "$rel_path: 'description' is a single-line plain scalar" \
-        "starts with '${desc_val%%[![:space:]]*}${desc_val:0:1}' — folded and literal block scalars are not supported here; put the description on one line"
-      ;;
-    *)
-      pass "$rel_path: 'description' is a single-line plain scalar"
-      ;;
-  esac
-  desc_len=$(printf '%s' "$desc_val" | awk '{ total += length($0) } END { print total+0 }')  # bytes; LC_ALL=C above
-  if [ "$desc_len" -eq 0 ]; then
-    fail "$rel_path: 'description' is non-empty" "empty"
-  elif [ "$desc_len" -le 1024 ]; then
-    pass "$rel_path: 'description' length ${desc_len}/1024"
-  else
-    fail "$rel_path: 'description' length ≤1024" "actual=${desc_len} (over by $((desc_len-1024)))"
-  fi
+  desc_val="$(facts_value "$facts" description)"
+  len="$(byte_len "$desc_val")"
+  if [ "$len" -eq 0 ]; then fail "$rel: 'description' is non-empty" "empty"
+  elif [ "$len" -le "$DESC_LIMIT" ]; then pass "$rel: 'description' length ${len}/${DESC_LIMIT} bytes"
+  else fail "$rel: 'description' length ≤${DESC_LIMIT} bytes" "actual=${len}"; fi
 
-  # Invocation posture — derived from the description, then asserted in BOTH
-  # directions against the frontmatter flag.
-  dmi_count="$(count_key "$keys" disable-model-invocation)"
-  dmi_val="$(extract_value "$fm" disable-model-invocation)"
+  dmi_n="$(facts_count "$facts" disable-model-invocation)"
+  dmi_v="$(facts_value "$facts" disable-model-invocation)"
   if describes_human_only "$desc_val"; then
-    if [ "$dmi_count" -eq 1 ] && [ "$dmi_val" = "true" ]; then
-      pass "$rel_path: description says human-invoked only, and the flag agrees"
+    if [ "$dmi_n" -eq 1 ] && [ "$dmi_v" = "true" ]; then
+      pass "$rel: description says human-invoked only, and the flag agrees"
     else
-      fail "$rel_path: description says human-invoked only, and the flag agrees" \
-        "description carries '$HUMAN_ONLY_MARKER' but disable-model-invocation is count=$dmi_count value='$dmi_val'"
+      fail "$rel: description says human-invoked only, and the flag agrees" \
+        "disable-model-invocation count=$dmi_n value='$dmi_v'"
     fi
+  elif [ "$dmi_n" -eq 0 ]; then
+    pass "$rel: description makes no human-only claim, and no flag is set"
   else
-    if [ "$dmi_count" -eq 0 ]; then
-      pass "$rel_path: description does not claim human-invoked only, and no flag is set"
-    else
-      fail "$rel_path: description does not claim human-invoked only, and no flag is set" \
-        "the flag is set to '$dmi_val' but the description never tells the user this skill cannot be triggered"
-    fi
+    fail "$rel: description makes no human-only claim, and no flag is set" \
+      "flag is '$dmi_v' but the description never tells the user the skill cannot be triggered"
   fi
+  return 0
 }
 
-# Codex reads skills/<name>/agents/openai.yaml, not the frontmatter flag. The
-# file is compared by SHAPE: blank the two quoted strings, then require an exact
-# match against one of two literals. Nothing to mis-parse, nothing to nest wrong.
-codex_shape() {
-  sed -e 's/"[^"]*"/<STR>/g' -e 's/[[:space:]]*$//' "$1"
-}
+check_command() {
+  name="$1"; human_only="$2"; md="$COMMANDS_DIR/$name.md"; rel="commands/$name.md"
+  facts="$(fm_facts "$md")"
 
-CODEX_SHAPE_OPEN='interface:
-  display_name: <STR>
-  short_description: <STR>'
+  err="$(facts_error "$facts")"
+  if [ -n "$err" ]; then fail "$rel: frontmatter parses" "$err"; return 0; fi
+  pass "$rel: frontmatter parses"
 
-CODEX_SHAPE_DENIED="$CODEX_SHAPE_OPEN
-policy:
-  allow_implicit_invocation: false"
-
-check_codex_policy() {
-  skill_name="$1"
-  human_only="$2"
-  yaml="$SKILLS_DIR/$skill_name/agents/openai.yaml"
-  rel="skills/$skill_name/agents/openai.yaml"
-
-  if [ ! -f "$yaml" ]; then
-    fail "$rel: exists" "every skill declares its Codex interface here"
-    return 0
-  fi
-
-  actual="$(codex_shape "$yaml")"
-  if [ "$human_only" = "yes" ]; then
-    expected="$CODEX_SHAPE_DENIED"
-    label="$rel: exact denied shape, matching the description and the flag"
-  else
-    expected="$CODEX_SHAPE_OPEN"
-    label="$rel: exact open shape, matching the description and the flag"
-  fi
-
-  if [ "$actual" = "$expected" ]; then
-    pass "$label"
-  else
-    fail "$label" "shape mismatch; got:
-$actual"
-  fi
-}
-
-# A command file carries `disable-model-invocation` too, so it is a fourth
-# place the posture is declared and a fourth place it can drift. The command
-# is what a user actually types, so a command that is model-invocable while its
-# skill is not defeats the whole restriction.
-check_command_posture() {
-  skill_name="$1"
-  human_only="$2"
-  cmd="$COMMANDS_DIR/$skill_name.md"
-  rel="commands/$skill_name.md"
-
-  [ -f "$cmd" ] || { fail "$rel: exists" "every skill is reachable by a command of the same name"; return 0; }
-
-  fm="$(extract_frontmatter "$cmd")"
-  n="$(count_key "$(extract_keys "$fm")" disable-model-invocation)"
-  v="$(extract_value "$fm" disable-model-invocation)"
+  n="$(facts_count "$facts" disable-model-invocation)"
+  v="$(facts_value "$facts" disable-model-invocation)"
   if [ "$human_only" = "yes" ]; then
     if [ "$n" -eq 1 ] && [ "$v" = "true" ]; then
       pass "$rel: human-invoked only, matching its skill"
@@ -324,40 +177,92 @@ check_command_posture() {
       fail "$rel: human-invoked only, matching its skill" \
         "count=$n value='$v' — the skill cannot be model-triggered but this command can"
     fi
+  elif [ "$n" -eq 0 ]; then
+    pass "$rel: model-invocable, matching its skill"
   else
-    if [ "$n" -eq 0 ]; then
-      pass "$rel: model-invocable, matching its skill"
-    else
-      fail "$rel: model-invocable, matching its skill" "found the key with value '$v'"
-    fi
+    fail "$rel: model-invocable, matching its skill" "found the key with value '$v'"
   fi
 }
 
-printf '%scode-judo frontmatter lint%s\n' "$DIM" "$RST"
-printf '%sskills dir: %s%s\n' "$DIM" "$SKILLS_DIR" "$RST"
+# Codex's contract, parsed rather than shape-matched: the mapping is what
+# matters, not the byte layout, and a key at the wrong nesting is simply not
+# the key.
+check_codex_policy() {
+  name="$1"; human_only="$2"
+  yaml="$SKILLS_DIR/$name/agents/openai.yaml"; rel="skills/$name/agents/openai.yaml"
 
-if [ ! -d "$SKILLS_DIR" ]; then
-  printf '%s✗%s skills directory missing at %s\n' "$RED" "$RST" "$SKILLS_DIR"
-  exit 1
+  if [ ! -f "$yaml" ]; then
+    fail "$rel: exists" "every skill declares its Codex interface here"
+    return 0
+  fi
+
+  verdict="$("$RUBY_BIN" -ryaml -e '
+    want_denied = ARGV[1] == "yes"
+    begin
+      doc = Psych.safe_load(File.read(ARGV[0]), permitted_classes: [], aliases: false)
+    rescue => e
+      puts "bad\tdoes not parse: #{e.class}"; exit
+    end
+    unless doc.is_a?(Hash)
+      puts "bad\ttop level is #{doc.class}, expected a mapping"; exit
+    end
+    extra = doc.keys - ["interface", "policy"]
+    unless extra.empty?
+      puts "bad\tunexpected top-level keys: #{extra.join(", ")}"; exit
+    end
+    iface = doc["interface"]
+    unless iface.is_a?(Hash) && iface["display_name"].is_a?(String) && iface["short_description"].is_a?(String)
+      puts "bad\tinterface must carry display_name and short_description as strings"; exit
+    end
+    denied = doc["policy"].is_a?(Hash) && doc["policy"]["allow_implicit_invocation"] == false
+    if want_denied && !denied
+      puts "bad\tpolicy.allow_implicit_invocation is not false — Codex can invoke this implicitly"; exit
+    end
+    if !want_denied && doc.key?("policy")
+      puts "bad\tcarries a policy block, but this skill is meant to be reachable by trigger"; exit
+    end
+    puts "good\t"
+  ' "$yaml" "$human_only" 2>/dev/null)"
+
+  case "$verdict" in
+    good*) pass "$rel: Codex posture matches the description and the flag" ;;
+    *)     fail "$rel: Codex posture matches the description and the flag" "$(printf '%s' "$verdict" | cut -f2-)" ;;
+  esac
+}
+
+printf '%scode-judo invocation and frontmatter lint%s\n' "$DIM" "$RST"
+
+# The union of both globs. An orphan on either side becomes a missing
+# counterpart rather than a file nobody looked at.
+names="$(
+  { ls -1 "$SKILLS_DIR" 2>/dev/null
+    ls -1 "$COMMANDS_DIR" 2>/dev/null | sed 's/\.md$//'
+  } | sort -u
+)"
+
+if [ -z "$names" ]; then
+  fail "at least one skill or command exists" "found neither skills/*/ nor commands/*.md"
+  report; exit 1
 fi
 
-found_any=0
-for skill_md in "$SKILLS_DIR"/*/SKILL.md; do
-  [ -e "$skill_md" ] || continue
-  found_any=1
-  check_skill "$skill_md"
-  skill_dir_name="$(basename "$(dirname "$skill_md")")"
-  skill_desc="$(extract_value "$(extract_frontmatter "$skill_md")" description)"
-  if describes_human_only "$skill_desc"; then posture=yes; else posture=no; fi
-  check_codex_policy "$skill_dir_name" "$posture"
-  check_command_posture "$skill_dir_name" "$posture"
+for name in $names; do
+  section "$name"
+  skill_md="$SKILLS_DIR/$name/SKILL.md"
+
+  if [ ! -f "$skill_md" ]; then
+    fail "skills/$name/SKILL.md: exists" "commands/$name.md has no skill of that name"
+    continue
+  fi
+  if [ ! -f "$COMMANDS_DIR/$name.md" ]; then
+    fail "commands/$name.md: exists" "skills/$name/ has no command of that name"
+    continue
+  fi
+
+  check_skill "$name" || continue
+  desc="$(facts_value "$(fm_facts "$skill_md")" description)"
+  if describes_human_only "$desc"; then posture=yes; else posture=no; fi
+  check_command "$name" "$posture"
+  check_codex_policy "$name" "$posture"
 done
 
-if [ "$found_any" -eq 0 ]; then
-  printf '\n%s✗%s no skills found under %s/*/SKILL.md\n' "$RED" "$RST" "$SKILLS_DIR"
-  exit 1
-fi
-
-printf '\n%s──%s %d passed, %d failed\n' "$DIM" "$RST" "$PASS" "$FAIL"
-[ "$FAIL" -eq 0 ] || exit 1
-exit 0
+report
