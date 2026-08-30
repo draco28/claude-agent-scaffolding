@@ -601,6 +601,7 @@ function assertSelection(config, skills, selected, caseRoot, expectedSpec) {
     "scaffold-onboard",
     "scaffold-dev",
     "claude-security-audit",
+    "code-judo",
   ]) {
     const excludedRoot = path.join(root, excluded) + path.sep;
     assert.ok(!config.skills.paths.some((entry) => entry.startsWith(excludedRoot)));
