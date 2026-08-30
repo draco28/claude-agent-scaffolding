@@ -24,13 +24,16 @@ vocabulary:
   tool call. If neither is available to you, read the sibling's `SKILL.md` from this plugin's
   own directory — it is shipped alongside this file, so the vocabulary is never actually
   absent. What must not happen is skipping it and inventing terms.
-- The domain language in the project's glossary gives names to good seams, and its ADRs record
-  decisions this skill does not re-litigate.
+- The project's domain language gives names to good seams, and its ADRs record decisions this
+  skill does not re-litigate.
 
-  **Resolve which glossary and which ADR directory apply before you read either.** Do not
-  assume either is at the repo root. `code-judo:domain-modeling` owns that inference — see
-  *Where the model lives* — and it is one lookup. Read the glossary and the ADRs the resolved
-  scope names; if the selected area spans more than one scope, resolve each.
+  **Resolve where the vocabulary lives, and which ADR directory applies, before you read
+  either.** Do not assume either sits at the repo root, and do not assume the vocabulary is in
+  a glossary file at all: *Where the model lives* also covers the case where a lifecycle
+  assigns terms an owner that is not a glossary — a journey map, the ADR whose decision defines
+  the term, a document regenerated from a spec. `code-judo:domain-modeling` owns that
+  inference and it is one lookup. Read whatever the resolution names, glossary or not; if the
+  selected area spans more than one scope, resolve each.
 
 ## 1. Explore
 
@@ -47,9 +50,9 @@ look before you look:
   recurring pull your attention first. **If the changes are scattered with no clear hot spot,
   widen the net.**
 
-Read the resolved glossary and the ADRs covering the area you are touching **first**, before
-forming opinions — the paths resolved under *Resolve which glossary and which ADR directory
-apply*, never whatever happens to sit at the repo root.
+Read the resolved vocabulary source and the ADRs covering the area you are touching **first**,
+before forming opinions — whatever was resolved under *Resolve where the vocabulary lives*,
+never whatever happens to sit at the repo root.
 
 Then spawn a sub-agent to walk the codebase. Do not follow rigid heuristics — explore
 organically and note where *you* experience friction:
@@ -158,8 +161,8 @@ already-deep module is a real outcome, and a scan that must always produce a can
 manufacture one. An invented candidate is worse than a quiet report: it sends someone to
 restructure code that was fine.
 
-**Use the resolved glossary's vocabulary for the domain and the codebase-design vocabulary for
-the architecture.** If the glossary covering this area defines "Order", talk about "the Order
+**Use the project's resolved vocabulary for the domain and the codebase-design vocabulary for
+the architecture.** If the source covering this area defines "Order", talk about "the Order
 intake module" — not "the FooBarHandler", and not "the Order service". In a multi-context repo
 the term that matters is the one *that context* defines; a same-named term in a sibling context
 is a different term.
@@ -193,9 +196,10 @@ the domain model current as you
 go. Route every glossary change through it rather than writing `CONTEXT.md` from here: that
 skill knows when the project's vocabulary has another owner, and this one does not.
 
-- **Naming a deepened module after a concept that is not in `CONTEXT.md`?** Add the term
-  through `code-judo:domain-modeling`, on its terms — it writes the glossary only where
-  nothing else owns the vocabulary, and otherwise names the owner and hands the term over.
+- **Naming a deepened module after a concept the project's vocabulary does not define?** Add
+  the term through `code-judo:domain-modeling`, on its terms — it writes the glossary only
+  where nothing else owns the vocabulary, and otherwise names the owner and hands the term
+  over.
 - **Sharpening a fuzzy term during the conversation?** Same route, same moment — not batched.
 - **User rejects the candidate for a load-bearing reason?** Offer an ADR, framed as: *"Want
   me to record this as an ADR so future architecture reviews don't re-suggest it?"* Offer it

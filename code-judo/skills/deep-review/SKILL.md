@@ -47,9 +47,11 @@ Gather two things, and do not start reviewing until you have both:
   which is the change under review.
 - **The full contents of every changed file** *that still exists*. A diff shows what moved,
   not what it landed in, and a hunk that looks fine in isolation is often the sixth special
-  case bolted onto a function you cannot see. Deleted paths have no current contents: read
-  them at `<base>:<path>` if you need to judge what was removed, and never treat a deletion as
-  a missing file that blocks the review.
+  case bolted onto a function you cannot see. Deleted paths have no current contents, and need
+  none: the three-dot diff above already carries every removed line. Read the deletion there,
+  and never treat it as a missing file that blocks the review. Do not resolve a second revision
+  to look the file up in — one comparison, one source, and nothing that can disagree with
+  itself about which commit the base is.
 
 Then:
 

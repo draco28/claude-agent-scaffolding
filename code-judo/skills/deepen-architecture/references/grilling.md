@@ -60,8 +60,8 @@ only how it renders on this surface is:
 - **Rendering.** One firm lean plus a one-line rationale on each numbered question in the
   batch. *"Number the questions and answer each one yourself first"* below **is** this policy,
   and the user's three dispositions on each are accept / rebut / defer.
-- **Grounding.** Ground in what the scan already **read**: the resolved glossary, the ADRs
-  covering the area, and the code itself. Cite the file. Where none of them reaches the
+- **Grounding.** Ground in what the scan already **read**: the resolved vocabulary source, the
+  ADRs covering the area, and the code itself. Cite the file. Where none of them reaches the
   question, say *"(general best practice — no project source found)"*. Never invent a citation.
 
   **The candidate card is not a source.** It is this scan's own recommendation — model-written,
@@ -69,7 +69,8 @@ only how it renders on this surface is:
   never count as the evidence that answers one. Citing it grounds a lean in the agent's own
   output, which is the `UNGROUNDED` case the policy escalates, wearing a citation.
 - **Triage.** A question whose answer is citable from an **independent project source you can
-  reach** — glossary, ADR, code — and which clears the policy's escalation predicate is not
+  reach** — the resolved vocabulary source, an ADR, the code — and which clears the policy's
+  escalation predicate is not
   asked at all: adopt the lean and carry it in a `⚡ Auto-applied` digest at the top of your
   next batch. Nothing this run produced can clear that bar; a question the card alone answers
   is `UNGROUNDED` and gets asked. **TOP SEVERITY on this surface is anything that moves
