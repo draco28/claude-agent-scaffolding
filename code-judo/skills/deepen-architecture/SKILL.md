@@ -80,7 +80,7 @@ The `$TEMP` and `$TMP` steps are what make this work on Windows shells, where `$
 usually unset. `%TEMP%` is `cmd` syntax and expands to nothing in a POSIX shell, so naming it
 in prose does not make the snippet portable — the variable has to be in the chain.
 
-One file, but **not offline-capable**: styling and diagrams load from CDNs, so say plainly
+One file, but **not offline-capable**: styling and diagrams load from a CDN, so say plainly
 that the report needs network access to render. Do not describe it as self-contained.
 
 ```bash
@@ -91,6 +91,10 @@ dir="${TMPDIR:-${TEMP:-${TMP:-/tmp}}}"; dir="${dir%/}"
 # and the second would overwrite the first.
 report="$dir/architecture-review-$(date +%Y%m%d-%H%M%S)-$$-${RANDOM}.html"
 # ... write the report to "$report" ...
+# The umask above only applies to files created BY THIS SHELL. If the report was
+# written by a tool in another process, that mask never applied to it — so set the
+# mode explicitly here, after the write and before opening.
+chmod 600 "$report"
 if command -v open >/dev/null 2>&1; then open "$report"            # macOS
 elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$report"  # Linux
 elif command -v cmd.exe >/dev/null 2>&1; then cmd.exe /c start "" "$report"  # Windows
@@ -100,7 +104,10 @@ printf 'report: %s\n' "$report"
 ```
 
 The report is not published anywhere. It is a file on the user's machine that their browser
-opens; it may contain the names and shapes of private code, and it stays local.
+opens, and it may contain the names and shapes of private code. **The file stays local; the
+render is not entirely local.** Opening it fetches two pinned scripts from a CDN, which
+discloses that a report was rendered — not what is in it. Nothing from the repository is sent
+anywhere. Say it that way rather than promising more.
 
 **Local is not the same as private.** Under the usual `022` umask a file created in a shared
 `/tmp` is world-readable, so any other account on the host can read the review. Restrict the
@@ -108,10 +115,12 @@ file to the owner — create it with a `077` umask, or `chmod 600` it immediatel
 and before opening it. The unique suffix in the filename makes the path hard to guess; it does
 not make the file unreadable, and guessing is not how someone finds it.
 
-The report uses **Tailwind via CDN** for layout and styling, and **Mermaid via CDN** for
-diagrams wherever a graph, flow, or sequence communicates the structure reliably. Both are
-third-party scripts running in the same document as the review, so pin Mermaid to an exact
-version and keep Mermaid's security level strict — see `references/html-report.md`. Mix Mermaid
+The report uses **Tailwind** for layout and styling and **Mermaid** for diagrams wherever a
+graph, flow, or sequence communicates the structure reliably, both from a CDN. Both are
+third-party scripts running in the same document as the review, so both are pinned to an exact
+version and loaded under subresource integrity, and every repository-derived value in the
+report is escaped before it is written — `references/html-report.md` carries both rules and
+the exact tags. Mix Mermaid
 with hand-crafted CSS and SVG: Mermaid when relationships are graph-shaped (call graphs,
 dependencies, sequences), hand-built divs and SVG when you want something more editorial
 (mass diagrams, cross-sections, collapses). **Every candidate gets a before/after
@@ -149,8 +158,9 @@ every theoretical refactor an ADR forbids.
 The full HTML scaffold, the diagram patterns, and the styling and tone rules are in
 `references/html-report.md`.
 
-**Do NOT propose interfaces yet.** After the file is written, ask the user: *"Which of these
-would you like to explore?"*
+**Do NOT propose interfaces yet.** After the file is written, and only if it carries at least
+one candidate, ask the user: *"Which of these would you like to explore?"* An empty report
+ends the flow — there is nothing to choose between.
 
 ## 3. Grilling loop
 
@@ -163,20 +173,24 @@ order, the probe, and the in-plugin protocol that runs when nothing else is inst
 
 ### Side effects, inline
 
-These happen as decisions crystallize, not in a batch at the end. Call the Skill tool with
-`code-judo:domain-modeling` to keep the domain model current as you go.
+These happen as decisions crystallize, not in a batch at the end. Load
+`code-judo:domain-modeling` — by the host rule in §1 — to keep the domain model current as you
+go. Route every glossary change through it rather than writing `CONTEXT.md` from here: that
+skill knows when the project's vocabulary has another owner, and this one does not.
 
-- **Naming a deepened module after a concept that is not in `CONTEXT.md`?** Add the term.
-  Create `CONTEXT.md` lazily if it does not exist — that file has no other owner.
-- **Sharpening a fuzzy term during the conversation?** Update `CONTEXT.md` right there.
+- **Naming a deepened module after a concept that is not in `CONTEXT.md`?** Add the term
+  through `code-judo:domain-modeling`, on its terms — it writes the glossary only where
+  nothing else owns the vocabulary, and otherwise names the owner and hands the term over.
+- **Sharpening a fuzzy term during the conversation?** Same route, same moment — not batched.
 - **User rejects the candidate for a load-bearing reason?** Offer an ADR, framed as: *"Want
   me to record this as an ADR so future architecture reviews don't re-suggest it?"* Offer it
   only when the reason is one a future explorer would actually need in order to avoid
   re-suggesting the same thing. Skip ephemeral reasons ("not worth it right now") and
   self-evident ones. On yes, hand it to `code-judo:domain-modeling`, whose
   `references/adr-format.md` governs what happens next.
-- **Want to explore alternative interfaces for the deepened module?** Call the Skill tool
-  with `code-judo:codebase-design` and use its design-it-twice parallel sub-agent pattern.
+- **Want to explore alternative interfaces for the deepened module?** Load
+  `code-judo:codebase-design` — again by the §1 host rule — and use its design-it-twice
+  parallel sub-agent pattern.
 
 ### In an ossify project
 

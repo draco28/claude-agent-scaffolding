@@ -189,8 +189,8 @@ them against what its own runner actually executes.** Whatever the runner does n
 a gate you walk by hand.
 
 **Do not expect a consistent filename.** Across the shipped plugins the gate document is
-variously a `RUNBOOK.md`, a `tests/README.md`, or a directory of markdown fixtures — and two
-plugins have none at all. That is why this says *look* rather than naming a file to open:
+variously a `RUNBOOK.md`, a `tests/README.md`, or a directory of markdown fixtures — and some
+have none at all. That is why this says *look* rather than naming a file to open:
 naming one is how the deleted command block started, and a pointer to a file that does not
 exist fails the same way a stale list does.
 

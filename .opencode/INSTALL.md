@@ -72,6 +72,22 @@ Ossify is not among the default three. To opt in, use OpenCode's native
 Restart OpenCode after changing the options. Ossify is in the Claude and Codex
 marketplaces as of v1.0.0; in this bundle it stays an explicit opt-in.
 
+## Plugins This Bundle Does Not Carry
+
+**The allowlist accepts only the names in the inventory below, and `code-judo` is
+not one of them.** It ships to the Claude and Codex marketplaces but is deliberately
+not in the OpenCode bundle yet.
+
+Adding a name the bundle does not carry does not produce a helpful error. The adapter
+throws `Unknown OpenCode plugin: <name>` from its config hook, OpenCode catches
+config-hook errors (see the diagnostics below), and `opencode debug config` can still
+exit 0 — with every skill, command, and alias from **every** selected plugin missing
+from resolved config. One unknown name silently disables the whole bundle, not just
+that plugin.
+
+If skills vanish after a config change, check the allowlist against the inventory
+first and read the ERROR log for the unknown-name line.
+
 ## Native Skills And Commands
 
 OpenCode discovers the package's canonical skills lazily and exposes every

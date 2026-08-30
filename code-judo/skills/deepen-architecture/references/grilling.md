@@ -28,7 +28,8 @@ Take the first of these that works:
 2. **`ai-mentor:grill-me`**.
 3. **The protocol below** — in-plugin, no dependency, always available.
 
-**How to probe: just call it.** Invoke the Skill tool with the name. Do not try to detect
+**How to probe: just call it**, the way your host invokes a skill — the Skill tool in Claude
+Code, an explicit `$skill` invocation on Codex. Do not try to detect
 installation by looking for plugin directories on disk — the install path differs by host and
 by install mode, so a wrong guess reports "not installed" for a plugin that is right there and
 silently downgrades a user who has the better griller.
@@ -47,6 +48,31 @@ not tell the user to install anything.
 `ai-mentor:grill-me` ask one question at a time. The protocol below asks a whole round at a
 time. What must not differ is the agenda: whichever resolver fires, all five items above get
 settled before you stop.
+
+## Recommendation policy
+
+The lean this protocol attaches to every question is the marketplace's recommend-by-default
+convention, not a local invention. The universal rule lives in
+`references/recommendation-policy.md` — a byte-identical copy of the marketplace
+source-of-truth, guarded by the repo-root parity test. Read it there. It is not restated here;
+only how it renders on this surface is:
+
+- **Rendering.** One firm lean plus a one-line rationale on each numbered question in the
+  batch. *"Number the questions and answer each one yourself first"* below **is** this policy,
+  and the user's three dispositions on each are accept / rebut / defer.
+- **Grounding.** Ground in what the scan already read — `CONTEXT.md`, the ADRs covering the
+  area, and the candidate's own card — and cite the file. Where none of them reaches the
+  question, say *"(general best practice — no project source found)"*. Never invent a citation.
+- **Triage.** A question whose answer is citable from those sources and clears the policy's
+  escalation predicate is not asked at all: adopt the lean and carry it in a `⚡ Auto-applied`
+  digest at the top of your next batch. **TOP SEVERITY on this surface is anything that moves
+  the seam** — what sits behind it, or what the deepened interface promises. Those are always
+  asked, never auto-applied.
+- **Opt-outs.** `--neutral` (or *"no recommendations"*) drops the leans and asks cold. `--walk`
+  keeps the leans but asks every question, disabling triage.
+
+When `ossify:challenge` or `ai-mentor:grill-me` runs instead, that skill brings its own
+adoption of the same policy — which is the point of there being one policy.
 
 ## The in-plugin protocol
 

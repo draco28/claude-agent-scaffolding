@@ -51,7 +51,8 @@ require_ruby_psych || { report; exit 1; }
 # Facts about a markdown file's frontmatter, one per line, TAB-separated:
 #   err <message>            parsing refused, with the reason
 #   key <name>               one line per top-level key, in document order
-#   val <name> <value>       scalars only; anything else reports its class
+#   val <name> <type> <val>  type is string|bool|number, or the YAML class for
+#                            anything non-scalar; callers requiring text check it
 fm_facts() {
   "$RUBY_BIN" -ryaml -e '
     lines = File.read(ARGV[0]).lines
@@ -64,8 +65,10 @@ fm_facts() {
       puts "err\tunterminated frontmatter: no closing --- after line 1"
       exit
     end
+    src = lines[1, close].join
     begin
-      doc = Psych.safe_load(lines[1, close].join, permitted_classes: [], aliases: false)
+      doc = Psych.safe_load(src, permitted_classes: [], aliases: false)
+      ast = Psych.parse(src)
     rescue => e
       puts "err\tfrontmatter does not parse: #{e.class}"
       exit
@@ -74,12 +77,22 @@ fm_facts() {
       puts "err\tfrontmatter is #{doc.class}, expected a mapping"
       exit
     end
+    # Keys come from the AST, never from the Hash. safe_load resolves a duplicate
+    # key last-wins and silently drops the first, so a Hash cannot show that a file
+    # declared the same key twice — which is the whole point of counting them.
+    ast.children[0].children.each_slice(2) do |k, _|
+      puts "key\t#{k.respond_to?(:value) ? k.value : k}"
+    end
+    # Values stay Hash-derived, and each one carries its parsed type. Flattening a
+    # sequence or a mapping into a printable string made it indistinguishable from
+    # real text: a description of [a, b] read as the seven-character "<Array>",
+    # which is non-empty and under the cap, so every scalar check passed on it.
     doc.each do |k, v|
-      puts "key\t#{k}"
       case v
-      when String then puts "val\t#{k}\t#{v.gsub(/\s+/, " ").strip}"
-      when true, false, Numeric then puts "val\t#{k}\t#{v}"
-      else puts "val\t#{k}\t<#{v.class}>"
+      when String then puts "val\t#{k}\tstring\t#{v.gsub(/\s+/, " ").strip}"
+      when true, false then puts "val\t#{k}\tbool\t#{v}"
+      when Numeric then puts "val\t#{k}\tnumber\t#{v}"
+      else puts "val\t#{k}\t#{v.class.to_s.downcase}\t"
       end
     end
   ' "$1" 2>/dev/null
@@ -87,7 +100,8 @@ fm_facts() {
 
 facts_error() { printf '%s\n' "$1" | awk -F'\t' '$1=="err"{print $2; exit}'; }
 facts_keys()  { printf '%s\n' "$1" | awk -F'\t' '$1=="key"{print $2}'; }
-facts_value() { printf '%s\n' "$1" | awk -F'\t' -v k="$2" '$1=="val" && $2==k{print $3; exit}'; }
+facts_type()  { printf '%s\n' "$1" | awk -F'\t' -v k="$2" '$1=="val" && $2==k{print $3; exit}'; }
+facts_value() { printf '%s\n' "$1" | awk -F'\t' -v k="$2" '$1=="val" && $2==k{print $4; exit}'; }
 facts_count() { printf '%s\n' "$1" | awk -F'\t' -v k="$2" '$1=="key" && $2==k{n++} END{print n+0}'; }
 
 is_kebab_case() {
@@ -122,6 +136,10 @@ check_skill() {
     n="$(facts_count "$facts" "$required")"
     if [ "$n" -eq 1 ]; then pass "$rel: exactly one '$required'"
     else fail "$rel: exactly one '$required'" "found $n"; fi
+
+    t="$(facts_type "$facts" "$required")"
+    if [ "$t" = "string" ]; then pass "$rel: '$required' is a scalar string"
+    else fail "$rel: '$required' is a scalar string" "parsed as ${t:-absent}"; fi
   done
 
   unknown="$(facts_keys "$facts" | awk '
@@ -144,12 +162,13 @@ check_skill() {
 
   dmi_n="$(facts_count "$facts" disable-model-invocation)"
   dmi_v="$(facts_value "$facts" disable-model-invocation)"
+  dmi_t="$(facts_type "$facts" disable-model-invocation)"
   if describes_human_only "$desc_val"; then
-    if [ "$dmi_n" -eq 1 ] && [ "$dmi_v" = "true" ]; then
+    if [ "$dmi_n" -eq 1 ] && [ "$dmi_t" = "bool" ] && [ "$dmi_v" = "true" ]; then
       pass "$rel: description says human-invoked only, and the flag agrees"
     else
       fail "$rel: description says human-invoked only, and the flag agrees" \
-        "disable-model-invocation count=$dmi_n value='$dmi_v'"
+        "disable-model-invocation count=$dmi_n type='${dmi_t:-absent}' value='$dmi_v'"
     fi
   elif [ "$dmi_n" -eq 0 ]; then
     pass "$rel: description makes no human-only claim, and no flag is set"
@@ -157,6 +176,12 @@ check_skill() {
     fail "$rel: description makes no human-only claim, and no flag is set" \
       "flag is '$dmi_v' but the description never tells the user the skill cannot be triggered"
   fi
+
+  # Publish the posture from THIS parse. The caller used to re-run fm_facts on the
+  # same file to re-derive it, which spawned a second Ruby per skill and — worse —
+  # let the posture driving the command and Codex checks come from a different
+  # parse than the verdicts just printed above. One parse, one posture.
+  if describes_human_only "$desc_val"; then SKILL_POSTURE=yes; else SKILL_POSTURE=no; fi
   return 0
 }
 
@@ -258,11 +283,10 @@ for name in $names; do
     continue
   fi
 
+  SKILL_POSTURE=
   check_skill "$name" || continue
-  desc="$(facts_value "$(fm_facts "$skill_md")" description)"
-  if describes_human_only "$desc"; then posture=yes; else posture=no; fi
-  check_command "$name" "$posture"
-  check_codex_policy "$name" "$posture"
+  check_command "$name" "$SKILL_POSTURE"
+  check_codex_policy "$name" "$SKILL_POSTURE"
 done
 
 report

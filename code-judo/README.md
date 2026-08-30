@@ -14,7 +14,7 @@ not to collect nits.
 | `deep-review` | diff / branch | An unusually strict maintainability review. The code-judo ambition standard, the 1000-line rule, spaghetti-growth suspicion, wrapper/cast/boundary rules, prioritized output, and a categorical approval bar. **Human-invoked only.** |
 | `deepen-architecture` | codebase | A proactive scan for deepening opportunities, presented as a single HTML report opened in your browser, then a grilling loop on the candidate you pick. **Human-invoked only.** |
 | `codebase-design` | any | The design vocabulary the other two speak: module, interface, depth, seam, adapter, leverage, locality. The deletion test, "the interface is the test surface", seam discipline, and the design-it-twice pattern. |
-| `domain-modeling` | any | The project's domain glossary (`CONTEXT.md`) and its ADRs. Adds terms as concepts get named, sharpens fuzzy ones in place, and offers an ADR only when a decision is hard to reverse, surprising, and a real trade-off. |
+| `domain-modeling` | any | The project's domain glossary (`CONTEXT.md`) and its ADRs — written where nothing else owns them, handed off where something does. Adds terms as concepts get named, sharpens fuzzy ones in place, and offers an ADR only when a decision is hard to reverse, surprising, and a real trade-off. |
 
 ## Commands
 
@@ -47,8 +47,10 @@ drifts by construction.
 
 `deepen-architecture` writes a single HTML file to the OS temp directory and opens it
 in your browser, telling you the absolute path. Nothing lands in the repo and nothing is
-published anywhere; the file may name private code and it stays on your machine. Tailwind and
-Mermaid load from CDNs, so rendering it needs a network connection.
+published anywhere; the file may name private code and it stays on your machine. Rendering it
+is not entirely local, though: Tailwind and Mermaid load from a CDN — pinned to exact versions
+and checked against a subresource-integrity hash — so the report needs a network connection,
+and opening it tells that CDN a report was rendered. Nothing from your repository is sent.
 
 ## Dependencies
 

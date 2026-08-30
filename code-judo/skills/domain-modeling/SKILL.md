@@ -49,10 +49,16 @@ term is resolved. Do not scaffold empty structure.
 **`docs/adr/` is different: this skill does not create it and does not write into it.** See
 `references/adr-format.md`.
 
-**Projects with their own home for this.** A repo running an ossify lifecycle, or a dual-repo
-workspace, may already keep its domain language in a memory-bank document rather than at the
-repo root. Where such a home exists, point at it and write there instead of creating a
-competing `CONTEXT.md`. One glossary per project; a second one is drift with a filename.
+**Projects whose vocabulary already has an owner.** Some lifecycles assign domain terms an
+owner that is not a glossary file — a journey map, the ADR whose decision defines the term, a
+document regenerated from a spec. Where that is so, `CONTEXT.md` is not where the definition
+belongs, and writing into the owner's document is either a mutation of state this skill does
+not own or an edit the next regeneration silently discards.
+
+**So point and hand off.** Name the owner, hand the resolved term over, and let the owner
+record it. Do not write into it, and do not create a competing `CONTEXT.md` beside it. This
+skill writes `CONTEXT.md` only where nothing else owns the project's vocabulary — the same
+rule `references/adr-format.md` applies to `docs/adr/`, for the same reason.
 
 ## During a session
 
@@ -81,22 +87,15 @@ scratch pad, and not a home for implementation decisions. It is a glossary and n
 
 ## Offering ADRs
 
-Offer to record an ADR only when **all three** are true:
+**`references/adr-format.md` is the contract** — when an ADR is worth offering, the format,
+who owns the directory, why, the destination rule, and what changes when the user asks you to
+write the file directly. Read it before offering one.
 
-1. **Hard to reverse** — the cost of changing your mind later is meaningful.
-2. **Surprising without context** — a future reader will look at this and wonder why on earth
-   it was done this way.
-3. **The result of a real trade-off** — there were genuine alternatives, and one was chosen
-   for specific reasons.
+It is genuinely not restated here, and the qualifying conditions least of all. A second copy
+of a three-part test drifts one gloss at a time until the two copies disagree about what
+qualifies, while the file carrying the copy still claims it holds none.
 
-If any of the three is missing, skip it. Easy to reverse? You will just reverse it.
-Unsurprising? Nobody will wonder. No real alternative? There is nothing to record beyond "we
-did the obvious thing."
-
-**This skill composes ADRs; it does not file them.** `references/adr-format.md` is the
-contract — the format, who owns the directory, why, the destination rule, what qualifies, and
-what changes when the user asks you to write the file directly. Read it before offering an
-ADR; it is not restated here.
+**This skill composes ADRs; it does not file them.**
 
 **A recorded ADR is not re-litigated.** Once a decision is written down, a later review does
 not get to re-open it as though it were never made. Surface a conflict with an ADR only when

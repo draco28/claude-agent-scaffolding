@@ -5,7 +5,14 @@ set -u
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MARKETPLACE="$ROOT/.agents/plugins/marketplace.json"
-V0_PLUGINS="ai-mentor architect-critic workspace-init scaffold-onboard scaffold-dev claude-security-audit ossify code-judo"
+
+# DERIVED, NOT LISTED. This was a hand-maintained ninth plugin list, and it was
+# one-directional: every listed plugin had to be in the marketplace, but nothing
+# required a marketplace entry to be listed here. A plugin added to both
+# marketplaces and missed here got zero Codex-contract coverage while CI reported
+# ALL GREEN. Deriving from the marketplace makes the missing direction impossible
+# rather than checked.
+V0_PLUGINS="$(jq -r '.plugins[].name' "$MARKETPLACE" 2>/dev/null | tr '\n' ' ')"
 DEFERRED_PLUGINS="scaffold"
 
 PASS=0
@@ -13,6 +20,25 @@ FAIL=0
 
 pass() { PASS=$((PASS + 1)); printf '  ok  %s\n' "$1"; }
 fail() { FAIL=$((FAIL + 1)); printf '  not ok  %s\n' "$1"; }
+
+# A derived list that comes back empty would make every loop below iterate zero
+# times and report ALL GREEN having checked nothing — the exact failure the
+# derivation is meant to remove. Fail closed before any of them run.
+if [[ -z "${V0_PLUGINS// /}" ]]; then
+  fail "V0 plugin set derived from $MARKETPLACE is non-empty"
+  printf '\nPassed: %d  Failed: %d\n' "$PASS" "$FAIL"
+  exit 1
+fi
+pass "V0 plugin set derived from the Codex marketplace ($(printf '%s' "$V0_PLUGINS" | wc -w | tr -d ' ') plugins)"
+
+# The deferred plugin is deferred by being ABSENT from the marketplace, so the
+# derivation above must never pick it up. Asserted rather than assumed.
+for deferred in $DEFERRED_PLUGINS; do
+  case " $V0_PLUGINS " in
+    *" $deferred "*) fail "deferred plugin '$deferred' stays out of the Codex v0 set" ;;
+    *)               pass "deferred plugin '$deferred' stays out of the Codex v0 set" ;;
+  esac
+done
 
 json_get() {
   jq -r "$1" "$2" 2>/dev/null

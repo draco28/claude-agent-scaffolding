@@ -5,19 +5,57 @@ Mermaid handles graph-shaped diagrams reliably; hand-built divs and inline SVG h
 editorial visuals — mass diagrams, cross-sections. Mix the two. Leaning on Mermaid for
 everything makes the report look generic.
 
-**One file is not the same as self-contained.** Tailwind and Mermaid load from CDNs, so the
+**One file is not the same as self-contained.** Tailwind and Mermaid load from a CDN, so the
 report needs network access to render: offline or on a restricted network it opens unstyled
 and without diagrams. Say so when you hand over the path, rather than describing the file as
-self-contained. Two consequences follow, and both are in the scaffold below:
+self-contained.
 
-- **Pin Mermaid to an exact version**, not a major range. An unpinned dependency means the
-  report renders differently next month than it does today, and the report is the artifact
-  the decision gets made from.
+Two third-party scripts execute in the same document as a review of private code, so both are
+loaded under the rules below. Use the scaffold's tags exactly; they are not decorative.
+
+- **Both assets are pinned to an exact version on an immutable path**, and both carry
+  `integrity`, `crossorigin="anonymous"`, and `referrerpolicy="no-referrer"`. Subresource
+  integrity is what makes the pin mean something: without it a pinned URL still ships whatever
+  the CDN returns. `crossorigin` is not optional decoration — integrity on a cross-origin
+  script is only checked when the response is CORS-eligible, so dropping it turns the guarantee
+  off silently rather than loudly.
+- **Mermaid is the UMD build, not the ESM module.** An `import` cannot carry an integrity
+  attribute, and the ESM entry additionally fetches diagram-type chunks at runtime that no
+  integrity attribute would cover — so the module form is not merely unattested, it is
+  unattested across an open-ended number of requests. The UMD file is one covered request and
+  sets the `mermaid` global, which the next script uses.
+- **Do not add a third script, and do not introduce a dynamic `import()` or a `fetch`.** The
+  two tags below are the report's entire network surface. Anything else is an uncovered
+  request in a document holding private code.
 - **Keep `securityLevel: "strict"`.** Diagram labels are derived from the repository — module
   names, file paths, sometimes identifiers pulled straight out of the code. Under `"loose"`
   those labels are interpreted as HTML and click handlers are enabled, which turns repository
-  text into markup in the reader's browser. Escape any label you are unsure of, and reach for
-  a looser level only if a specific diagram genuinely needs interactivity.
+  text into markup in the reader's browser.
+
+**If a version is changed, its hash changes with it.** Fetch the exact URL, compute
+`openssl dgst -sha384 -binary <file> | openssl base64 -A`, and paste the result. A stale hash
+does not degrade the report — it blocks the script outright and the report renders bare.
+
+## Escape everything the repository gives you
+
+The report is written from a repository the reviewer does not control and is then opened
+automatically in a browser. A module named with markup in it, or a branch or directory whose
+name carries a tag, executes in the document that holds the review. This has been demonstrated,
+not theorised: a single unescaped value in a card heading was enough to run script.
+
+**Escape every repository-derived value**, and escape it for the context it lands in:
+
+- **HTML text** — the report title, the header repo name, card titles, the file list, the
+  problem/solution/wins prose, ADR callouts, and the labels inside hand-built `div` and SVG
+  diagrams. Entity-encode `& < > " '`.
+- **HTML attributes** — anything interpolated into an `id`, an `href="#…"` anchor, or a
+  `class`. Entity-encode as above and always quote the attribute.
+- **Mermaid labels** — `securityLevel: "strict"` stops a label from rendering as markup, but it
+  does not stop a `"` or a `]` from breaking the diagram grammar. Quote the label and escape
+  those characters.
+
+`securityLevel: "strict"` covers the third context only. The first two are the larger surface
+and are yours to handle — most of the report is hand-built, not Mermaid.
 
 ## Scaffold
 
@@ -27,9 +65,18 @@ self-contained. Two consequences follow, and both are in the scaffold below:
   <head>
     <meta charset="utf-8" />
     <title>Architecture review for {{repo name}}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script type="module">
-      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.esm.min.mjs";
+    <script
+      src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3/dist/index.global.js"
+      integrity="sha384-2ql948lIdLcGEE0/qxNiudyTjgauA3RDJERu5xW75kFCvSl5a9odyQYCb6tEjnmB"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/mermaid@11.17.2/dist/mermaid.min.js"
+      integrity="sha384-EOXBFmc3gx5mb+vn0vPvvGqACToJD24hhacX5Yx+8NUUQrHIle/Qi5Bg9o3zKwW2"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"></script>
+    <script>
+      // Classic scripts run in document order, so `mermaid` is defined by here.
       mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "strict" });
     </script>
     <style>
@@ -137,9 +184,9 @@ box, the now-internal calls shown faded inside it.
 - Keep diagrams around 320px tall, so before and after sit side by side without scrolling.
 - Use `text-xs uppercase tracking-wider` for module labels inside diagrams, so they read as
   schematic rather than as UI.
-- **The only scripts are the Tailwind CDN and the Mermaid ESM import.** The report is
-  otherwise static: no app code, no interactivity beyond Mermaid's own rendering. Do not add
-  a third script; every one of them runs in the same document as a review of private code.
+- **The only scripts are the two pinned CDN tags and the one-line Mermaid init.** The report
+  is otherwise static: no app code, no interactivity beyond Mermaid's own rendering. Do not
+  add a third script; every one of them runs in the same document as a review of private code.
 
 ## Top recommendation section
 

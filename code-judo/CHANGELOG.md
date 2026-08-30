@@ -14,7 +14,8 @@ Initial release. Four prose skills, no runtime library.
   only.
 - `codebase-design` — the deep-module vocabulary and principles, plus the dependency
   categories, seam discipline, and the design-it-twice parallel pattern.
-- `domain-modeling` — `CONTEXT.md` glossary discipline and ADR authoring.
+- `domain-modeling` — `CONTEXT.md` glossary discipline and ADR authoring, both handed off
+  where another lifecycle already owns them.
 
 Invocation posture is declared on both surfaces, because they read different files:
 `disable-model-invocation: true` in SKILL.md frontmatter for Claude Code, and
@@ -35,7 +36,16 @@ does not read the frontmatter field. The lint asserts the two agree, in both dir
    directory is a numbered sequence with one owner, and in these repos something else already
    owns it (ossify's ceremonies, and `scaffold-dev`'s ADR skill), so two tools scanning for
    "the next number" collide silently. The guarantee is that the skill's flow never mutates a
-   shared sequence unprompted; asked directly by the user, it will still write the file.
+   shared sequence unprompted; asked directly by the user, it will still write the file. The
+   same rule governs the glossary: upstream writes `CONTEXT.md` unconditionally, and this
+   plugin writes it only where nothing else owns the project's vocabulary — where a lifecycle
+   already assigns terms an owner, it names the owner and hands the term over.
+
+Adopts the marketplace recommend-by-default convention
+(`docs/conventions/recommendation-policy.md`) for the grilling loop, shipped as a
+byte-identical copy at `skills/deepen-architecture/references/recommendation-policy.md` and
+guarded by the repo-root parity test `tests/test-recommendation-policy-parity.sh`.
+`references/grilling.md` carries only how the policy renders on this surface.
 
 Deferred to a later release: the OpenCode adapter surface, eval fixtures for the two review
 skills, and the upstream security/correctness review axis. Tracked on #382.
