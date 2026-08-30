@@ -88,8 +88,10 @@ scratch pad, and not a home for implementation decisions. It is a glossary and n
 ## Offering ADRs
 
 **`references/adr-format.md` is the contract** — when an ADR is worth offering, the format,
-who owns the directory, why, the destination rule, and what changes when the user asks you to
-write the file directly. Read it before offering one.
+who owns the directory, why, and the destination rule. Read it before offering one. There is
+no direct-write variant in it: this skill composes and hands off every ADR, including when
+asked outright to file one, because it cannot create a numbered file atomically and a
+non-atomic write into a directory another tool is numbering loses silently.
 
 It is genuinely not restated here, and the qualifying conditions least of all. A second copy
 of a three-part test drifts one gloss at a time until the two copies disagree about what

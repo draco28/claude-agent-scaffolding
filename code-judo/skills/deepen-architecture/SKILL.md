@@ -24,8 +24,16 @@ vocabulary:
   tool call. If neither is available to you, read the sibling's `SKILL.md` from this plugin's
   own directory — it is shipped alongside this file, so the vocabulary is never actually
   absent. What must not happen is skipping it and inventing terms.
-- The domain language in `CONTEXT.md` gives names to good seams. ADRs in `docs/adr/` record
+- The domain language in the project's glossary gives names to good seams, and its ADRs record
   decisions this skill does not re-litigate.
+
+  **Resolve which glossary and which ADR directory before you read either.**
+  `code-judo:domain-modeling` owns that rule; it is one lookup. A root `CONTEXT.md` and
+  `docs/adr/` mean a single context. A `CONTEXT-MAP.md` at the root means several, each with
+  its own `CONTEXT.md` and its own `docs/adr/` — and then the root `docs/adr/` holds only
+  system-wide decisions, so reading it alone gives you the decisions that bind every context
+  and none of the ones governing the area you are about to scan. Load the glossary and ADRs of
+  the context the selected area lives in. If the area spans contexts, load each.
 
 ## 1. Explore
 
@@ -42,8 +50,8 @@ look before you look:
   recurring pull your attention first. **If the changes are scattered with no clear hot spot,
   widen the net.**
 
-Read the project's domain glossary (`CONTEXT.md`) and any ADRs covering the area you are
-touching **first**, before forming opinions.
+Read the resolved glossary and the ADRs covering the area you are touching **first**, before
+forming opinions — resolved per §1, not assumed to be at the root.
 
 Then spawn a sub-agent to walk the codebase. Do not follow rigid heuristics — explore
 organically and note where *you* experience friction:
@@ -68,9 +76,9 @@ this plugin uses.
 
 ## 2. Present the candidates as an HTML report
 
-Write the report as a **single HTML file** to the OS temp directory, so nothing lands in the
-repo. Resolve the temp directory from `$TMPDIR`, then `$TEMP`, then `$TMP`, then `/tmp`, and
-write `<tmpdir>/architecture-review-<timestamp>-<unique>.html` so every run gets a fresh file.
+Write the report as a **single HTML file** inside a **private directory you create
+atomically**, so nothing lands in the repo. Resolve the temp root from `$TMPDIR`, then `$TEMP`,
+then `$TMP`, then `/tmp`, and create the directory with `mktemp -d` under it.
 Open it for the user and tell them the **absolute path** — and tell them the path even when
 opening fails. `start` is a `cmd` builtin rather than a program on `PATH`, so `command -v
 start` can never succeed and the Windows branch has to go through `cmd.exe`; on a host with
@@ -84,16 +92,15 @@ One file, but **not offline-capable**: styling and diagrams load from a CDN, so 
 that the report needs network access to render. Do not describe it as self-contained.
 
 ```bash
-umask 077   # the report may name private code; do not leave it world-readable in /tmp
-dir="${TMPDIR:-${TEMP:-${TMP:-/tmp}}}"; dir="${dir%/}"
-# The timestamp is for the reader; the pid and random suffix are what make the
-# path unique. Two runs in the same second would otherwise resolve to one file
-# and the second would overwrite the first.
-report="$dir/architecture-review-$(date +%Y%m%d-%H%M%S)-$$-${RANDOM}.html"
+root="${TMPDIR:-${TEMP:-${TMP:-/tmp}}}"; root="${root%/}"
+# mktemp -d CREATES the directory, 0700, failing if the name is taken. That is the
+# whole protection: the report's parent cannot be pre-created by anyone else, so
+# the path the write lands on cannot be swapped for a symlink first.
+dir="$(mktemp -d "$root/architecture-review-XXXXXXXX")" || exit 1
+report="$dir/report.html"
 # ... write the report to "$report" ...
-# The umask above only applies to files created BY THIS SHELL. If the report was
-# written by a tool in another process, that mask never applied to it — so set the
-# mode explicitly here, after the write and before opening.
+# The directory is already private. This is for the file itself, since the write
+# may happen in another process whose umask this shell never set.
 chmod 600 "$report"
 if command -v open >/dev/null 2>&1; then open "$report"            # macOS
 elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$report"  # Linux
@@ -109,11 +116,18 @@ render is not entirely local.** Opening it fetches two pinned scripts from a CDN
 discloses that a report was rendered — not what is in it. Nothing from the repository is sent
 anywhere. Say it that way rather than promising more.
 
-**Local is not the same as private.** Under the usual `022` umask a file created in a shared
-`/tmp` is world-readable, so any other account on the host can read the review. Restrict the
-file to the owner — create it with a `077` umask, or `chmod 600` it immediately after writing
-and before opening it. The unique suffix in the filename makes the path hard to guess; it does
-not make the file unreadable, and guessing is not how someone finds it.
+**Local is not the same as private, and an unguessable name is not a protection.** Two separate
+problems live in a shared `/tmp`. Under the usual `022` umask the file is world-readable, so
+any account on the host can read the review. And a path your script *computes* and then writes
+to can be created by someone else in between — as a symlink pointing anywhere you can write —
+so the write lands on their target and the `chmod` afterwards merely decorates it.
+
+A random-looking filename solves neither. It is not a permission, and an attacker racing the
+write does not have to guess: they watch the directory.
+
+**So do not compute a path — create one.** `mktemp -d` creates the directory itself, mode
+`0700`, and fails rather than reusing a name that already exists. The report goes inside it.
+Nothing else can pre-create the parent, so there is no window to swap the target in.
 
 The report uses **Tailwind** for layout and styling and **Mermaid** for diagrams wherever a
 graph, flow, or sequence communicates the structure reliably, both from a CDN. Both are
@@ -146,9 +160,11 @@ already-deep module is a real outcome, and a scan that must always produce a can
 manufacture one. An invented candidate is worse than a quiet report: it sends someone to
 restructure code that was fine.
 
-**Use `CONTEXT.md` vocabulary for the domain and the codebase-design vocabulary for the
-architecture.** If `CONTEXT.md` defines "Order", talk about "the Order intake module" — not
-"the FooBarHandler", and not "the Order service".
+**Use the resolved glossary's vocabulary for the domain and the codebase-design vocabulary for
+the architecture.** If the glossary covering this area defines "Order", talk about "the Order
+intake module" — not "the FooBarHandler", and not "the Order service". In a multi-context repo
+the term that matters is the one *that context* defines; a same-named term in a sibling context
+is a different term.
 
 **ADR conflicts.** If a candidate contradicts an existing ADR, surface it *only* when the
 friction is real enough to warrant revisiting that ADR, and mark it clearly in the card — a

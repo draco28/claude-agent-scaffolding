@@ -36,8 +36,9 @@ does not read the frontmatter field. The lint asserts the two agree, in both dir
    directory is a numbered sequence with one owner, and in these repos something else already
    owns it (ossify's ceremonies, and `scaffold-dev`'s ADR skill), so two tools scanning for
    "the next number" collide silently. The guarantee is that the skill's flow never mutates a
-   shared sequence unprompted; asked directly by the user, it will still write the file. The
-   same rule governs the glossary: upstream writes `CONTEXT.md` unconditionally, and this
+   shared sequence at all — there is no direct-write variant, because filing safely means
+   creating the numbered file atomically and a prose skill cannot, so a read-then-write loses
+   silently to whatever else is numbering the directory. The same rule governs the glossary: upstream writes `CONTEXT.md` unconditionally, and this
    plugin writes it only where nothing else owns the project's vocabulary — where a lifecycle
    already assigns terms an owner, it names the owner and hands the term over.
 

@@ -60,8 +60,8 @@ only how it renders on this surface is:
 - **Rendering.** One firm lean plus a one-line rationale on each numbered question in the
   batch. *"Number the questions and answer each one yourself first"* below **is** this policy,
   and the user's three dispositions on each are accept / rebut / defer.
-- **Grounding.** Ground in what the scan already read — `CONTEXT.md`, the ADRs covering the
-  area, and the candidate's own card — and cite the file. Where none of them reaches the
+- **Grounding.** Ground in what the scan already read — the resolved glossary, the ADRs
+  covering the area, and the candidate's own card — and cite the file. Where none of them reaches the
   question, say *"(general best practice — no project source found)"*. Never invent a citation.
 - **Triage.** A question whose answer is citable from those sources and clears the policy's
   escalation predicate is not asked at all: adopt the lean and carry it in a `⚡ Auto-applied`

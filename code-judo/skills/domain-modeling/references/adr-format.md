@@ -1,9 +1,10 @@
 # ADR format
 
-## This skill's flow does not write the file
+## This skill does not write the file
 
 **Compose the ADR, name where it belongs, and hand it off.** Do not create the file, do not
-scan for the next number, and do not create `docs/adr/`.
+scan for the next number, and do not create the ADR directory. This holds however the request
+arrives, including a direct instruction to write it — see below for why there is no exception.
 
 The reason is shared mutable state. An ADR directory is a **sequence**, and a sequence has
 exactly one owner. In the repos this plugin is built for, something else already owns it:
@@ -23,11 +24,17 @@ So the flow is:
    that path registers the decision properly rather than just leaving a file behind. Where
    nothing owns the directory, hand the composed ADR to the user and say where to put it.
 
-**What this guarantees is that the skill never mutates a shared sequence unprompted.** It is
-not a refusal to be useful: if the user reads the composed ADR and tells you to write it,
-write it — that is their call in their own repository, and it is outside this skill's flow
-rather than a violation of it. What must never happen is this skill deciding on its own to
-mint a number in a directory another tool is also numbering.
+**This skill never files an ADR — not on its own initiative, and not on request.** If the user
+reads the composed ADR and asks you to write the file, say what you can do instead: hand them
+the content and the destination, or hand it to whatever owns the sequence. That is not
+pedantry about permissions. Filing safely means creating the numbered file *atomically*, and
+this skill has no way to do that — a read-then-write, however careful, can be overtaken
+between the two steps by the other tool numbering the same directory, and the loser is
+overwritten silently. A guarantee that only holds when nothing else is running is not a
+guarantee.
+
+So there is no direct-write variant to fall back to. The composed ADR and its destination are
+the deliverable.
 
 ## Template
 
@@ -54,11 +61,9 @@ Include these only when they add something. Most ADRs need none of them.
 **Not yours to assign.** Whoever owns the directory owns its sequence. When you hand off a
 composed ADR, hand over the title and the body and let the owner number it.
 
-If the user asks you to write the file yourself, a fresh scan is still not enough: two
-workflows can both read the same "next number" before either writes, and the second silently
-overwrites or duplicates. **Create the file exclusively** — fail if the path already exists,
-and on collision re-read the directory and retry with the next number rather than clobbering
-what appeared in between.
+Do not scan for the next free number even to *suggest* one. A number read now is stale the
+moment another tool writes, and a suggested number that turns out to be taken is worse than no
+suggestion — it reads as authoritative and gets used.
 
 ## When to offer an ADR
 
