@@ -38,6 +38,13 @@ Gather two things, and do not start reviewing until you have both:
   there. A review scoped against a ref the author never branched from reports on commits they
   did not write, and it looks exactly like a real review while doing it. Asking costs one
   turn; guessing costs the whole review, silently.
+
+  **Then diff from the merge base, not between the two tips:** `git diff <base>...HEAD`, or
+  `git diff --merge-base <base> HEAD`, which is the same comparison spelled out. Two dots
+  compares the current state of both branches, so everything that landed on the base since the
+  author branched shows up as their work, inverted — their diff, plus other people's commits
+  presented as reversals. Three dots compares against the point they actually branched from,
+  which is the change under review.
 - **The full contents of every changed file** *that still exists*. A diff shows what moved,
   not what it landed in, and a hunk that looks fine in isolation is often the sixth special
   case bolted onto a function you cannot see. Deleted paths have no current contents: read

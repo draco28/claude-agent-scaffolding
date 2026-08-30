@@ -50,12 +50,31 @@ not theorised: a single unescaped value in a card heading was enough to run scri
   diagrams. Entity-encode `& < > " '`.
 - **HTML attributes** — anything interpolated into an `id`, an `href="#…"` anchor, or a
   `class`. Entity-encode as above and always quote the attribute.
-- **Mermaid labels** — `securityLevel: "strict"` stops a label from rendering as markup, but it
-  does not stop a `"` or a `]` from breaking the diagram grammar. Quote the label and escape
-  those characters.
+- **Mermaid labels — two encodings, in this order.** A label is Mermaid source that lives
+  *inside* an HTML element, so it passes through two parsers and needs escaping for both.
+  First encode it for the diagram grammar: quote the label and escape `"` and `]`, which would
+  otherwise end it. **Then HTML-entity-encode the resulting Mermaid source** before writing it
+  into the `<pre class="mermaid">` block, exactly as for HTML text above.
 
-`securityLevel: "strict"` covers the third context only. The first two are the larger surface
-and are yours to handle — most of the report is hand-built, not Mermaid.
+  The order matters and so does the second step. The browser parses the contents of that `<pre>`
+  as HTML **before Mermaid ever runs**, so a label carrying `</pre><img src=x onerror=…>` closes
+  the element and executes while Mermaid is still waiting to be called. `securityLevel: "strict"`
+  cannot prevent this — it governs what Mermaid does with a label it has been handed, and this
+  value never reaches Mermaid as a label at all.
+
+  **Encoding alone is still not enough, which is why the scaffold sets `htmlLabels: false`.**
+  Mermaid decodes the entities when it reads the label, and by default renders the result as
+  HTML inside a `foreignObject` — so `&lt;img src=y&gt;` becomes a real element that fetches
+  `y`. Strict mode strips the event handler, so nothing executes, but the report still makes
+  an outbound request to a URL the repository chose. `htmlLabels: false` renders labels as SVG
+  `<text>` instead, and the payload shows up as visible inert text. Measured: with encoding
+  alone, one `img` and one request to the attacker's path; with `htmlLabels: false` as well,
+  zero elements, zero `foreignObject`s, and no request.
+
+  Keep strict mode too. It is the guard for everything that does reach the renderer.
+
+Every context above is yours to handle. `securityLevel: "strict"` is a backstop inside the
+renderer, not an escaping layer, and nothing in the report is safe because of it alone.
 
 ## Scaffold
 
@@ -77,7 +96,13 @@ and are yours to handle — most of the report is hand-built, not Mermaid.
       referrerpolicy="no-referrer"></script>
     <script>
       // Classic scripts run in document order, so `mermaid` is defined by here.
-      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "strict" });
+      mermaid.initialize({
+        startOnLoad: true, theme: "neutral", securityLevel: "strict",
+        // Labels render as SVG <text>, never as HTML in a foreignObject. Without
+        // this, Mermaid decodes the entities in an escaped label and renders the
+        // result as markup — see the escaping section above.
+        htmlLabels: false, flowchart: { htmlLabels: false },
+      });
     </script>
     <style>
       /* small custom layer for what Tailwind does not cover cleanly:
@@ -150,6 +175,12 @@ six round-trips; after: one."
   </pre>
 </div>
 ```
+
+The identifiers above are clean, which is why they appear verbatim. A real one may not be:
+a module named `Order</pre><script>` is a valid path in someone's repository. Entity-encode
+every repository-derived identifier on its way into this block — `&lt;` for `<`, and so on —
+after quoting it for the diagram grammar. The encoded text renders as the original characters,
+so the diagram still reads correctly.
 
 ### Hand-built boxes and arrows — when Mermaid's layout fights you
 
