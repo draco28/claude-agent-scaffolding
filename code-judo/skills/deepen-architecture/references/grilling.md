@@ -60,12 +60,19 @@ only how it renders on this surface is:
 - **Rendering.** One firm lean plus a one-line rationale on each numbered question in the
   batch. *"Number the questions and answer each one yourself first"* below **is** this policy,
   and the user's three dispositions on each are accept / rebut / defer.
-- **Grounding.** Ground in what the scan already read — the resolved glossary, the ADRs
-  covering the area, and the candidate's own card — and cite the file. Where none of them reaches the
+- **Grounding.** Ground in what the scan already **read**: the resolved glossary, the ADRs
+  covering the area, and the code itself. Cite the file. Where none of them reaches the
   question, say *"(general best practice — no project source found)"*. Never invent a citation.
-- **Triage.** A question whose answer is citable from those sources and clears the policy's
-  escalation predicate is not asked at all: adopt the lean and carry it in a `⚡ Auto-applied`
-  digest at the top of your next batch. **TOP SEVERITY on this surface is anything that moves
+
+  **The candidate card is not a source.** It is this scan's own recommendation — model-written,
+  a few steps earlier in the same run. It may inform how a question is *phrased*, and it must
+  never count as the evidence that answers one. Citing it grounds a lean in the agent's own
+  output, which is the `UNGROUNDED` case the policy escalates, wearing a citation.
+- **Triage.** A question whose answer is citable from an **independent project source you can
+  reach** — glossary, ADR, code — and which clears the policy's escalation predicate is not
+  asked at all: adopt the lean and carry it in a `⚡ Auto-applied` digest at the top of your
+  next batch. Nothing this run produced can clear that bar; a question the card alone answers
+  is `UNGROUNDED` and gets asked. **TOP SEVERITY on this surface is anything that moves
   the seam** — what sits behind it, or what the deepened interface promises. Those are always
   asked, never auto-applied.
 - **Opt-outs.** `--neutral` (or *"no recommendations"*) drops the leans and asks cold. `--walk`
@@ -99,5 +106,8 @@ lookup in flight blocks only the questions downstream of it, not the whole batch
 
 **Done is when the agenda is settled**, not when you run out of questions. All five items —
 constraints, dependencies, module shape, what sits behind the seam, surviving tests — have
-answers the user has actually given. Then say what you understood, and wait for them to
-confirm it before anything gets built.
+answers that are either **given by the user** or **auto-applied under triage**, which is the
+standing delegation the policy defines: those are settled, not outstanding, and waiting for a
+user answer to a question triage decided not to ask would stall the grill forever. Then say
+what you understood — including the auto-applied answers, so the delegation is visible and can
+be reopened — and wait for them to confirm it before anything gets built.
