@@ -14,7 +14,7 @@ not to collect nits.
 | `deep-review` | diff / branch | An unusually strict maintainability review. The code-judo ambition standard, the 1000-line rule, spaghetti-growth suspicion, wrapper/cast/boundary rules, prioritized output, and a categorical approval bar. **Human-invoked only.** |
 | `deepen-architecture` | codebase | A proactive scan for deepening opportunities, presented as a single HTML report opened in your browser, then a grilling loop on the candidate you pick. **Human-invoked only.** |
 | `codebase-design` | any | The design vocabulary the other two speak: module, interface, depth, seam, adapter, leverage, locality. The deletion test, "the interface is the test surface", seam discipline, and the design-it-twice pattern. |
-| `domain-modeling` | any | The project's domain glossary (`CONTEXT.md`) and its ADRs — written where nothing else owns them, handed off where something does. Adds terms as concepts get named, sharpens fuzzy ones in place, and offers an ADR only when a decision is hard to reverse, surprising, and a real trade-off. |
+| `domain-modeling` | any | The project's domain glossary (`CONTEXT.md`), written where nothing else owns the project's vocabulary. Adds terms as concepts get named and sharpens fuzzy ones in place. ADRs are different: it offers one only when a decision is hard to reverse, surprising, and a real trade-off, and then **composes it and hands it off** to whoever owns the ADR directory — it never files one itself, including on a direct request. |
 
 ## Commands
 

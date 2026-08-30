@@ -117,6 +117,38 @@ describes_human_only() {
   case "$1" in *"$HUMAN_ONLY_MARKER"*) return 0 ;; *) return 1 ;; esac
 }
 
+# ONE validator for the flag, used by both surfaces it appears on.
+#
+# `disable-model-invocation` means the same thing in a SKILL.md and in a command
+# file, and it was previously validated by two parallel branches. They drifted
+# exactly as parallel branches do: the parsed-type requirement was added to the
+# skill branch only, so a command carrying the STRING "true" passed while the
+# equivalent skill failed. One function, both callers.
+#
+#   $1 facts   $2 want: yes (human-only) | no (model-invocable)
+# Echoes nothing when the posture is correct, or the reason when it is not.
+posture_problem() {
+  _n="$(facts_count "$1" disable-model-invocation)"
+  _v="$(facts_value "$1" disable-model-invocation)"
+  _t="$(facts_type  "$1" disable-model-invocation)"
+  if [ "$2" = "yes" ]; then
+    if [ "$_n" -ne 1 ]; then
+      printf 'expected exactly one disable-model-invocation, found %s' "$_n"; return
+    fi
+    if [ "$_t" != "bool" ]; then
+      printf 'disable-model-invocation must be a YAML boolean; parsed as %s' "${_t:-absent}"; return
+    fi
+    if [ "$_v" != "true" ]; then
+      printf 'disable-model-invocation is %s, expected true' "$_v"; return
+    fi
+  else
+    if [ "$_n" -ne 0 ]; then
+      printf 'carries disable-model-invocation (type %s, value %s) but is model-invocable' \
+        "${_t:-absent}" "$_v"; return
+    fi
+  fi
+}
+
 # Psych collapses a folded scalar into one string, so this is the real length
 # whatever shape the author used — the thing the awk version could not see.
 byte_len() { LC_ALL=C printf '%s' "$1" | LC_ALL=C wc -c | tr -d ' '; }
@@ -160,22 +192,14 @@ check_skill() {
   elif [ "$len" -le "$DESC_LIMIT" ]; then pass "$rel: 'description' length ${len}/${DESC_LIMIT} bytes"
   else fail "$rel: 'description' length ≤${DESC_LIMIT} bytes" "actual=${len}"; fi
 
-  dmi_n="$(facts_count "$facts" disable-model-invocation)"
-  dmi_v="$(facts_value "$facts" disable-model-invocation)"
-  dmi_t="$(facts_type "$facts" disable-model-invocation)"
-  if describes_human_only "$desc_val"; then
-    if [ "$dmi_n" -eq 1 ] && [ "$dmi_t" = "bool" ] && [ "$dmi_v" = "true" ]; then
-      pass "$rel: description says human-invoked only, and the flag agrees"
-    else
-      fail "$rel: description says human-invoked only, and the flag agrees" \
-        "disable-model-invocation count=$dmi_n type='${dmi_t:-absent}' value='$dmi_v'"
-    fi
-  elif [ "$dmi_n" -eq 0 ]; then
-    pass "$rel: description makes no human-only claim, and no flag is set"
+  if describes_human_only "$desc_val"; then want=yes; else want=no; fi
+  problem="$(posture_problem "$facts" "$want")"
+  if [ "$want" = yes ]; then
+    label="$rel: description says human-invoked only, and the flag agrees"
   else
-    fail "$rel: description makes no human-only claim, and no flag is set" \
-      "flag is '$dmi_v' but the description never tells the user the skill cannot be triggered"
+    label="$rel: description makes no human-only claim, and no flag is set"
   fi
+  if [ -z "$problem" ]; then pass "$label"; else fail "$label" "$problem"; fi
 
   # Publish the posture from THIS parse. The caller used to re-run fm_facts on the
   # same file to re-derive it, which spawned a second Ruby per skill and — worse —
@@ -193,19 +217,18 @@ check_command() {
   if [ -n "$err" ]; then fail "$rel: frontmatter parses" "$err"; return 0; fi
   pass "$rel: frontmatter parses"
 
-  n="$(facts_count "$facts" disable-model-invocation)"
-  v="$(facts_value "$facts" disable-model-invocation)"
+  problem="$(posture_problem "$facts" "$human_only")"
   if [ "$human_only" = "yes" ]; then
-    if [ "$n" -eq 1 ] && [ "$v" = "true" ]; then
+    if [ -z "$problem" ]; then
       pass "$rel: human-invoked only, matching its skill"
     else
       fail "$rel: human-invoked only, matching its skill" \
-        "count=$n value='$v' — the skill cannot be model-triggered but this command can"
+        "$problem — the skill cannot be model-triggered but this command can"
     fi
-  elif [ "$n" -eq 0 ]; then
+  elif [ -z "$problem" ]; then
     pass "$rel: model-invocable, matching its skill"
   else
-    fail "$rel: model-invocable, matching its skill" "found the key with value '$v'"
+    fail "$rel: model-invocable, matching its skill" "$problem"
   fi
 }
 

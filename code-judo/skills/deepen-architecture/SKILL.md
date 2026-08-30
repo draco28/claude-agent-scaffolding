@@ -27,13 +27,10 @@ vocabulary:
 - The domain language in the project's glossary gives names to good seams, and its ADRs record
   decisions this skill does not re-litigate.
 
-  **Resolve which glossary and which ADR directory before you read either.**
-  `code-judo:domain-modeling` owns that rule; it is one lookup. A root `CONTEXT.md` and
-  `docs/adr/` mean a single context. A `CONTEXT-MAP.md` at the root means several, each with
-  its own `CONTEXT.md` and its own `docs/adr/` — and then the root `docs/adr/` holds only
-  system-wide decisions, so reading it alone gives you the decisions that bind every context
-  and none of the ones governing the area you are about to scan. Load the glossary and ADRs of
-  the context the selected area lives in. If the area spans contexts, load each.
+  **Resolve which glossary and which ADR directory apply before you read either.** Do not
+  assume either is at the repo root. `code-judo:domain-modeling` owns that inference — see
+  *Where the model lives* — and it is one lookup. Read the glossary and the ADRs the resolved
+  scope names; if the selected area spans more than one scope, resolve each.
 
 ## 1. Explore
 
@@ -51,7 +48,8 @@ look before you look:
   widen the net.**
 
 Read the resolved glossary and the ADRs covering the area you are touching **first**, before
-forming opinions — resolved per §1, not assumed to be at the root.
+forming opinions — the paths resolved under *Resolve which glossary and which ADR directory
+apply*, never whatever happens to sit at the repo root.
 
 Then spawn a sub-agent to walk the codebase. Do not follow rigid heuristics — explore
 organically and note where *you* experience friction:
@@ -190,7 +188,8 @@ order, the probe, and the in-plugin protocol that runs when nothing else is inst
 ### Side effects, inline
 
 These happen as decisions crystallize, not in a batch at the end. Load
-`code-judo:domain-modeling` — by the host rule in §1 — to keep the domain model current as you
+`code-judo:domain-modeling` — by *How you load a sibling skill depends on the host* — to keep
+the domain model current as you
 go. Route every glossary change through it rather than writing `CONTEXT.md` from here: that
 skill knows when the project's vocabulary has another owner, and this one does not.
 
@@ -205,8 +204,8 @@ skill knows when the project's vocabulary has another owner, and this one does n
   self-evident ones. On yes, hand it to `code-judo:domain-modeling`, whose
   `references/adr-format.md` governs what happens next.
 - **Want to explore alternative interfaces for the deepened module?** Load
-  `code-judo:codebase-design` — again by the §1 host rule — and use its design-it-twice
-  parallel sub-agent pattern.
+  `code-judo:codebase-design` — again by *How you load a sibling skill depends on the host* —
+  and use its design-it-twice parallel sub-agent pattern.
 
 ### In an ossify project
 

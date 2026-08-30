@@ -5,15 +5,28 @@ set -u
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 MARKETPLACE="$ROOT/.agents/plugins/marketplace.json"
-
-# DERIVED, NOT LISTED. This was a hand-maintained ninth plugin list, and it was
-# one-directional: every listed plugin had to be in the marketplace, but nothing
-# required a marketplace entry to be listed here. A plugin added to both
-# marketplaces and missed here got zero Codex-contract coverage while CI reported
-# ALL GREEN. Deriving from the marketplace makes the missing direction impossible
-# rather than checked.
-V0_PLUGINS="$(jq -r '.plugins[].name' "$MARKETPLACE" 2>/dev/null | tr '\n' ' ')"
+CLAUDE_MARKETPLACE="$ROOT/.claude-plugin/marketplace.json"
 DEFERRED_PLUGINS="scaffold"
+
+# TWO SOURCES, COMPARED — not one source trusted.
+#
+# This began as a hand-maintained ninth plugin list and was one-directional: a
+# plugin added to both marketplaces but missed in the list got zero coverage while
+# CI reported ALL GREEN. Deriving the list from the Codex marketplace closed that
+# and opened its mirror image — a plugin DELETED from the Codex marketplace simply
+# vanished from every loop, and the suite passed while the Claude marketplace and
+# the plugin's own manifests still published it.
+#
+# Neither marketplace can be the sole authority, because the failure being caught
+# is one of them disagreeing with the other. So the expectation is derived from the
+# Claude marketplace minus the explicitly deferred plugins, the Codex marketplace is
+# compared against it as a set, and only that verified set is walked afterwards.
+EXPECTED_PLUGINS="$(jq -r --arg deferred "$DEFERRED_PLUGINS" '
+  ($deferred | split(" ")) as $skip
+  | [.plugins[].name | select(. as $n | $skip | index($n) | not)] | sort | join(" ")
+' "$CLAUDE_MARKETPLACE" 2>/dev/null)"
+CODEX_PLUGINS="$(jq -r '[.plugins[].name] | sort | join(" ")' "$MARKETPLACE" 2>/dev/null)"
+V0_PLUGINS="$EXPECTED_PLUGINS"
 
 PASS=0
 FAIL=0
@@ -21,24 +34,38 @@ FAIL=0
 pass() { PASS=$((PASS + 1)); printf '  ok  %s\n' "$1"; }
 fail() { FAIL=$((FAIL + 1)); printf '  not ok  %s\n' "$1"; }
 
-# A derived list that comes back empty would make every loop below iterate zero
-# times and report ALL GREEN having checked nothing — the exact failure the
-# derivation is meant to remove. Fail closed before any of them run.
-if [[ -z "${V0_PLUGINS// /}" ]]; then
-  fail "V0 plugin set derived from $MARKETPLACE is non-empty"
+# An empty expectation would make every loop below iterate zero times and report
+# ALL GREEN having checked nothing. Fail closed before any of them run.
+if [[ -z "${EXPECTED_PLUGINS// /}" ]]; then
+  fail "expected plugin set derived from $CLAUDE_MARKETPLACE is non-empty"
   printf '\nPassed: %d  Failed: %d\n' "$PASS" "$FAIL"
   exit 1
 fi
-pass "V0 plugin set derived from the Codex marketplace ($(printf '%s' "$V0_PLUGINS" | wc -w | tr -d ' ') plugins)"
+pass "expected plugin set derived from the Claude marketplace ($(printf '%s' "$EXPECTED_PLUGINS" | wc -w | tr -d ' ') plugins, minus deferred)"
 
-# The deferred plugin is deferred by being ABSENT from the marketplace, so the
-# derivation above must never pick it up. Asserted rather than assumed.
+# The deferred plugin ships on Claude and deliberately not on Codex, so it must be
+# excluded from the expectation rather than assumed absent from it.
 for deferred in $DEFERRED_PLUGINS; do
-  case " $V0_PLUGINS " in
-    *" $deferred "*) fail "deferred plugin '$deferred' stays out of the Codex v0 set" ;;
-    *)               pass "deferred plugin '$deferred' stays out of the Codex v0 set" ;;
+  case " $EXPECTED_PLUGINS " in
+    *" $deferred "*) fail "deferred plugin '$deferred' is excluded from the expected Codex set" ;;
+    *)               pass "deferred plugin '$deferred' is excluded from the expected Codex set" ;;
   esac
 done
+
+# SET PARITY, BOTH DIRECTIONS. Each half catches a different real mistake: a
+# missing entry is a plugin that stopped being validated, an extra one is a plugin
+# published to Codex that nothing else in the repo knows about.
+missing=""; extra=""
+for want in $EXPECTED_PLUGINS; do
+  case " $CODEX_PLUGINS " in *" $want "*) ;; *) missing="$missing $want" ;; esac
+done
+for have in $CODEX_PLUGINS; do
+  case " $EXPECTED_PLUGINS " in *" $have "*) ;; *) extra="$extra $have" ;; esac
+done
+if [[ -z "$missing" ]]; then pass "every expected plugin is published to the Codex marketplace"
+else fail "every expected plugin is published to the Codex marketplace" "absent from Codex:$missing"; fi
+if [[ -z "$extra" ]]; then pass "the Codex marketplace publishes nothing beyond the expected set"
+else fail "the Codex marketplace publishes nothing beyond the expected set" "unexpected in Codex:$extra"; fi
 
 json_get() {
   jq -r "$1" "$2" 2>/dev/null
