@@ -1,6 +1,6 @@
 ---
 name: doctor
-description: Diagnose an ossify project and name the remedy for what it finds — state health and state-vs-repo drift, rotting demo lines, outstanding fakes, patch records, orphan worktrees, lean-spec validation, machine-checkable-rule authoring, the Claude/Codex interop check, and the skill budgets. Use when the user says run doctor, check project health, validate the spec, add a project rule, check Codex interop, find orphan worktrees, or /ossify:doctor. Not the close gates (/close), not onboarding (/start).
+description: Diagnose an ossify project and name the remedy for what it finds — state health and state-vs-repo drift, rotting demo lines, outstanding fakes, patch records, orphan worktrees, lean-spec validation, machine-checkable-rule authoring, the Claude/Codex interop check, the skill budgets, and which ossify version actually answered. Use when the user says run doctor, check project health, validate the spec, add a project rule, check Codex interop, find orphan worktrees, check which ossify version is loaded, or /ossify:doctor. Not the close gates (/close), not onboarding (/start).
 ---
 
 # doctor
@@ -27,7 +27,7 @@ Where it sits: **nowhere in the chain.** `start` → `plan-release` → `plan-sp
 → `work-item` → `close` is a sequence; `doctor` is a peer to all five and runs at
 any point, including before `start` has ever run.
 
-Five surfaces:
+Six surfaces:
 
 | Surface | The question it answers | Go to |
 |---|---|---|
@@ -36,6 +36,7 @@ Five surfaces:
 | Rule authoring | What rules should `03-code-patterns.md` document for the work-item gate to apply? | §6 |
 | Interop check | Can Claude *and* Codex both drive this workspace safely? | §7 |
 | Budget check | Does the front-loaded surface still cost what it claims? | §8 |
+| Provenance | Which ossify actually answered — binary, loaded body, reference | §9 |
 
 **The guarantee, and it is the inverse of every other entry skill's:
 `doctor` runs on a broken project.** `start` refuses when a declared repo
@@ -50,7 +51,7 @@ of the read-out and mark the rest derived, so the sweep does not lead with three
 consequences of one cause. The one thing you may
 refuse is a request to *change* something you were not asked to change.
 
-**`doctor` reports; it does not mutate state.** Four of the five surfaces are
+**`doctor` reports; it does not mutate state.** Five of the six surfaces are
 strictly read-only. **Exactly one thing writes** — **rule authoring** (§6),
 which appends to `03-code-patterns.md`, and only because the user asked for a
 rule. Everything else names a remedy and stops. Running `oss state_restore`
@@ -59,7 +60,7 @@ the verb, let the user run it.
 
 **Trigger phrases (description-match):**
 
-- `/ossify:doctor [surface]` (slash command — see §12 for the `$ARGUMENTS` bridge)
+- `/ossify:doctor [surface]` (slash command — see §13 for the `$ARGUMENTS` bridge)
 - "run doctor", "check project health", "is my state healthy", "what's wrong
   with this project"
 - "validate the spec", "check my MASTER-SPEC"
@@ -67,6 +68,7 @@ the verb, let the user run it.
 - "check Codex interop", "can I switch between Claude and Codex here"
 - "find orphan worktrees"
 - "check the skill budget"
+- "which ossify version is loaded", "check plugin provenance"
 
 **Do NOT auto-invoke when:**
 
@@ -105,9 +107,10 @@ surface="<the surface token from $ARGUMENTS, lowercased; empty if none>"
 | `rules`, `rule` | §6 |
 | `interop`, `codex` | §7 |
 | `budget` | §8 |
+| `provenance` | §9 |
 
 **An unrecognised token runs the full sweep anyway**, prefaced by one line
-naming what was passed and listing the five surfaces. It does **not** refuse:
+naming what was passed and listing the six surfaces. It does **not** refuse:
 a user who mistypes a surface name still wants to know whether their project is
 healthy, and this is the one skill whose whole contract is that it answers.
 
@@ -115,7 +118,7 @@ healthy, and this is the one skill whose whole contract is that it answers.
 
 ## 3. The full sweep
 
-Run all five surfaces in the order of §4 → §8, and **report every one of them.**
+Run all six surfaces in the order of §4 → §9, and **report every one of them.**
 
 **No check halts another.** This is the sharpest difference between `doctor` and
 `close`, and copying `close`'s halt discipline here is the mistake to avoid: a
@@ -137,10 +140,10 @@ so the sweep's rule verdict is an *inspection*: how many `mcrule` blocks
 a type this build does not recognise. It never prompts for a rule and never
 writes. Authoring (§6's interactive flow) runs **only** on an explicit request
 for a rule — otherwise the sweep would have to either stall soliciting an
-unrelated write, or drop one of its five verdicts, and both break a contract
+unrelated write, or drop one of its six verdicts, and both break a contract
 stated three paragraphs above this one.
 
-Close with the read-out in §13.
+Close with the read-out in §14.
 
 ---
 
@@ -313,7 +316,7 @@ set over would report a correctly-configured ossify project as broken for
 lacking the previous stack's furniture.
 
 **Check only.** Spec §9.1 allocates `doctor` an *interop check*; the additive
-repair half was scaffold-onboard's own extension and does not ship here (§9).
+repair half was scaffold-onboard's own extension and does not ship here (§10).
 Report the failing line and name the fix; do not edit `AGENTS.md` yourself.
 
 Full detail — each check with what it protects, why an unrouted manifest is
@@ -349,7 +352,24 @@ same wrong claim in three documents — is in **`references/budget-check.md`**.
 
 ---
 
-## 9. What `doctor` deliberately does not do
+## 9. Provenance
+
+**Which ossify answered.** Three identities resolve independently — the `oss` on
+`$PATH`, the `SKILL.md` bodies this session loaded, and the reference.
+
+Report the binary and the loaded body as **two lines, each naming its resolved
+path**, even when they agree: one line cannot express a stale body under a current
+binary. Name the reference — a checkout's own manifest, or a consumer project's
+installed record; neither resolvable is `skip:`. Where loaded root and reference
+differ, report the `SKILL.md` delta **per ceremony** and stop; the operator judges
+impact. Say the limits: it ran on request, and nothing re-resolves it mid-session.
+
+Full detail — resolving each identity without `${CLAUDE_PLUGIN_ROOT}`, the
+reference rule, and the per-ceremony comparison — is in **`references/provenance-check.md`**.
+
+---
+
+## 10. What `doctor` deliberately does not do
 
 Named here rather than left to read as executed:
 
@@ -375,12 +395,12 @@ Named here rather than left to read as executed:
 
 ---
 
-## 10. Anti-patterns (do not do these)
+## 11. Anti-patterns (do not do these)
 
 - **Refusing because the project is broken.** That is the finding, not an
   obstacle to reporting it (§1).
 - **Halting the sweep on the first `fail:`.** Nothing here mutates, so nothing
-  downstream is unsafe. Report all five surfaces (§3).
+  downstream is unsafe. Report all six surfaces (§3).
 - **Letting a surface that could not run print nothing.** Silence reads as a
   pass (§3).
 - **Branching on `oss worktree_orphans`' rc.** rc 0 means it ran. The finding is
@@ -405,9 +425,9 @@ Named here rather than left to read as executed:
   name a type does not define (§6).
 - **Telling the user an authored rule is mechanically enforced.** It is
   documented, well-formed, and read by the work-item gate's agent — the
-  evaluator is wontfix (§6, §9).
+  evaluator is wontfix (§6, §10).
 - **Editing `AGENTS.md` or the pairing manifest to make the interop check
-  pass.** This surface checks; the user repairs (§7, §9).
+  pass.** This surface checks; the user repairs (§7, §10).
 - **Demanding `routing.roadmap`, `routing.sprint_specs` or `.workspace/locks`.**
   Those belong to the stack ossify replaced, and a project that lacks them is
   correct, not broken (§7).
@@ -419,7 +439,7 @@ Named here rather than left to read as executed:
 
 ---
 
-## 11. Notes on tool boundaries
+## 12. Notes on tool boundaries
 
 - **You** (Claude reading this body) make every judgment: whether a `warn:` is
   worth acting on now, whether a drift is the record's fault or the repo's,
@@ -443,7 +463,7 @@ Named here rather than left to read as executed:
 
 ---
 
-## 12. Slash-command interaction
+## 13. Slash-command interaction
 
 `/ossify:doctor [surface]` (`commands/doctor.md`) exports the raw argument string as
 `$ARGUMENTS` through an env-var bridge. **Parse `$ARGUMENTS` in bash; never
@@ -455,7 +475,7 @@ the full sweep.
 
 ---
 
-## 13. The doctor read-out
+## 14. The doctor read-out
 
 **The read-out is this skill's final assistant message.** It is a message, not a
 file: `doctor` writes no report artifact.
@@ -463,7 +483,7 @@ file: `doctor` writes no report artifact.
 It carries, in this order:
 
 1. **Each surface with its verdict** — including the ones that were skipped, and
-   why. The five lines are roll-ups: each is followed by that surface's own
+   why. The six lines are roll-ups: each is followed by that surface's own
    tagged lines verbatim. A `skip:` inside a surface never rolls up to `ok:` —
    the roll-up says `partial` and names which check did not run — and the
    `worktrees(<key>)` lines are never merged.

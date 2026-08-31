@@ -1,6 +1,6 @@
 ---
-description: Diagnose an ossify project — state health, spec validation, rule authoring, Claude/Codex interop, and the skill budgets
-argument-hint: "[state|spec|rules|interop|budget]"
+description: Diagnose an ossify project — state health, spec validation, rule authoring, Claude/Codex interop, the skill budgets, and which ossify version answered
+argument-hint: "[state|spec|rules|interop|budget|provenance]"
 allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep
 ---
 
@@ -23,7 +23,7 @@ optional surface token; empty runs the full sweep) → state inspection
 (`oss doctor`'s four gate lines, the remedy table, then the advisory reads the
 skill performs itself — lock, ledger, fakes, patches, worktrees) → lean-spec
 validation → machine-checkable-rule authoring → the Claude/Codex interop check
-→ the budget check.
+→ the budget check → the provenance check.
 
 It shells out to `oss` for mechanical facts **where a verb exists**. The interop
 surface no longer has one: `interop_check` was 175 lines of bash that opened
@@ -34,7 +34,7 @@ scan. What stays mechanical there is path
 *resolution* (`oss repo_root`, `oss state_path`), because every mutating verb
 routes through it.
 
-With no argument it runs all five surfaces and reports all five. Unlike `/close`,
+With no argument it runs all six surfaces and reports all six. Unlike `/close`,
 nothing here halts on a failure and nothing here is a gate: `doctor` reports, and
 the only thing it writes is a rule block the user asked for.
 

@@ -1,4 +1,4 @@
-# ossify (v1.6.0)
+# ossify (v1.7.0)
 
 Skeleton-first lifecycle plugin: Release 0 → MVP → v1, driven by bone and flesh
 spines against a cumulative demo ledger. Nine entry skills (`start`, `adopt`,
@@ -13,7 +13,11 @@ spine's hosting repos land on their base branches by PR where a remote exists
 line. Since 1.6.0 (#139) `close`'s impl-check gate gains Layer 4: a delegated
 semantic review over three lenses (fidelity, pattern, absence) at work-item
 close, applied inline on every harness or by a dedicated Workflow-tool pass
-on Claude Code on Anthropic.
+on Claude Code on Anthropic. Since 1.7.0 (#368) `doctor` gains an always-on
+sixth surface, `provenance`: which `oss` binary and which `SKILL.md` bodies
+actually answered this session, each with its resolved path, compared against
+the checkout's manifest or the installed record and reported as a per-ceremony
+delta the operator judges.
 
 `wayfinder` is both at once, which is why it is listed above rather than
 below: an entry skill with its own skill directory, and an any-repo one. It
