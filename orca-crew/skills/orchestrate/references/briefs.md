@@ -73,14 +73,14 @@ PLACEMENT: worktree <abs-path> checked out at PR <number>'s head <sha>.
 
 TASK: run `/code-review <number>` and let it finish. Then send worker_done with every
 finding in this body, one per line:
-  <file>:<line> | P1|P2|P3 | <claim in one sentence>
+  <file>:<line> | P0|P1|P2|P3 | <claim in one sentence>
 followed by:
   Reviewed head: <sha>
   Summary: <two sentences>
 
 NEVER: edit any file, post anything to GitHub, or run a second review. Your findings
 travel only in worker_done. If `/code-review` refuses or errors, report its output
-verbatim and stop.
+verbatim and stop. Use `ask` for a blocking question and `escalation` when stuck.
 ```
 
 ## Verifier (`claude-glm-flash`, or `claude-glm` for many-file judgment)
