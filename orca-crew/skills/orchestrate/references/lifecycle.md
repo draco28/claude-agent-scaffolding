@@ -10,8 +10,10 @@ command's syntax comes from `orca skills get orchestration`.
 2. **Decompose.** One `task-create` per brief, `--deps` for the DAG. One implementer per
    worktree. Items within a round may run in parallel; their merges are serial.
 3. **Launch.** `terminal create --command "<alias>"` in the target worktree, then
-   `dispatch --inject` (the mechanic in `roles.md`). Read the model line in the worker's
-   first reply. Wrong model: release and report.
+   `terminal wait --for tui-idle`, then one `terminal read` of the banner to confirm
+   the model, then `dispatch --inject` (the mechanic in `roles.md`). The "state your
+   model" line in the worker's first reply is the second check. Wrong model: release
+   and report.
 4. **Plan gate, planned work only.** The `claude-glm` brief says: post your plan with
    `orca orchestration ask`, wait for the reply, then implement. Approve or amend via
    `reply`. Flash briefs skip this.

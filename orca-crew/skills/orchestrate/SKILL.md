@@ -42,7 +42,8 @@ Three consequences:
   leave no Orca provenance. Every helper is an Orca session.
 - **`worker-read` only on `escalation` or a failed `worker_done`**, never to watch
   progress. Rolling `check --wait` is the wait primitive. A timeout is a checkpoint, not a
-  failure. A heartbeat means alive, not done.
+  failure. A heartbeat means alive, not done. The one `terminal read` of the launch
+  banner in `roles.md` is the single permitted read besides those two.
 - **Verifying a worker's claim is a verifier dispatch**, not an orchestrator read. "Tests
   pass" in a `worker_done` is a claim until CI on that head SHA, or a verifier, says so.
 

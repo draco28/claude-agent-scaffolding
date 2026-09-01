@@ -17,19 +17,23 @@ before sending work.
 
 **Alias, never `--model`.** Bare `claude --model glm-*` routes to the Anthropic default
 and fails or silently serves the wrong model. `worker-start --agent claude` launches bare
-`claude` and takes no custom alias. The launch is therefore two commands, and this is the
+`claude` and takes no custom alias. The launch is therefore this sequence, and it is the
 one Orca mechanic this skill states itself (take the exact flags from
 `orca skills get orchestration`):
 
 ```bash
 orca terminal create --worktree <selector> --command "<alias> [--effort max]" --json
+orca terminal wait --for tui-idle --terminal <handle> --json
+orca terminal read --terminal <handle> --json
 orca orchestration dispatch --task <task_id> --to <handle> --inject --json
 ```
 
 Read `agentTerminalHandle` (or `startupTerminal.handle` on older runtimes) from the
-create receipt for `--to`. Every brief asks the worker to state its model in its first
-reply; read that line before sending anything else. A wrong model is a failed launch:
-release the terminal and report it. Do not correct it with `--model`.
+create receipt for `--to`. The `wait` parks until the banner is up; the single `read`
+of that banner confirms the model before anything is dispatched. Every brief also asks
+the worker to state its model in its first reply — a second check, not the only one.
+A wrong model is a failed launch: release the terminal and report it. Do not correct
+it with `--model`.
 
 ## Retention follows artifacts
 
