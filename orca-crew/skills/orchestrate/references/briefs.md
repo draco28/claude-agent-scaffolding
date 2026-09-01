@@ -99,8 +99,9 @@ DONE: send worker_done with this body:
   Evidence: <commands and their output, verbatim>
   Caveats: <what the check could not see>
 
-NEVER: edit, commit, push, or write any file. If checking requires a write, stop and
-escalate instead.
+NEVER: edit a tracked file, commit, or push. Test scratch output is fine — write it,
+never commit it — and run in a disposable worktree. If checking requires any other
+write, stop and escalate instead.
 ```
 
 ## Fix-round brief (retained implementer, after disposition)
