@@ -56,6 +56,8 @@ No ossify contract changes.
 - Orca running with the orchestration feature enabled.
 - The aliases `claude-glm` and `claude-glm-flash` defined in the shell Orca's terminals
   inherit.
+- The `/code-review` skill available to the reviewer session. If it is unavailable, the
+  reviewer reports that in its `worker_done` and the operator decides.
 
 ## Tests
 

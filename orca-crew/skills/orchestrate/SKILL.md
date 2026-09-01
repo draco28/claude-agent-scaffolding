@@ -112,3 +112,6 @@ Two cases are named because they look like clashes and are not:
   substitute `claude --model`.
 - **A worker refuses on policy:** report the refusal verbatim. Do not retry it around, and
   do not rephrase the brief to slip past it.
+- **`/code-review` is unavailable in the reviewer session:** the reviewer reports that in
+  its `worker_done` and the operator decides what reviews the PR. Do not run the review
+  inline.
