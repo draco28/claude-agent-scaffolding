@@ -355,17 +355,17 @@ same wrong claim in three documents — is in **`references/budget-check.md`**.
 ## 9. Provenance
 
 **Which ossify answered.** Three identities resolve independently — the `oss` on
-`$PATH`, the `SKILL.md` bodies this session loaded, and the reference.
+`$PATH`, the skill bodies this session loaded, and the reference.
 
 Report the binary and the loaded body as **two lines, each naming its resolved
-path**, even when they agree: one line cannot express a stale body under a current
-binary. Name the reference — a checkout's own manifest, or a consumer project's
-installed record; neither resolvable is `skip:`. Where loaded root and reference
-differ, report the `SKILL.md` delta **per ceremony** and stop; the operator judges
-impact. Say the limits: it ran on request, and nothing re-resolves it mid-session.
+path**, even when they agree. Name the reference — a checkout's own manifest, or
+a consumer project's installed record. Compare the **union** of skill bodies under
+both roots, always, saying so when nothing differs; report each delta on its own
+line and stop, leaving impact to the operator. Limits: it ran on request, nothing
+re-resolves mid-session, and a body older than this surface cannot report provenance.
 
-Full detail — resolving each identity without `${CLAUDE_PLUGIN_ROOT}`, the
-reference rule, and the per-ceremony comparison — is in **`references/provenance-check.md`**.
+Full detail — resolution, the reference rule, the `skip:`/`partial` grammar and the
+comparison's limits — is in **`references/provenance-check.md`**.
 
 ---
 
