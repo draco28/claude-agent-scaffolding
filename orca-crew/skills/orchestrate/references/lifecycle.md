@@ -3,10 +3,11 @@
 One Run per objective. The orchestrator drives these twelve steps and nothing else. Every
 command's syntax comes from `orca skills get orchestration`.
 
-1. **Orient.** Single-command probes only: branch, `git status`, open PRs,
-   `orca status --json`, `orca orchestration task-list --brief --json`. Then
-   `run-create --objective "<objective>"`, or `run-use` when resuming a Run the operator
-   names.
+1. **Orient.** Your first Orca command is `orca skills get orchestration`; every
+   command's syntax comes from that guide. Single-command probes only: branch,
+   `git status`, open PRs, `orca status --json`, `orca orchestration task-list --brief
+   --json`. Then `run-create --objective "<objective>"`, or `run-use` when resuming a
+   Run the operator names.
 2. **Decompose.** One `task-create` per brief, `--deps` for the DAG. One implementer per
    worktree. Items within a round may run in parallel; their merges are serial.
 3. **Launch.** `terminal create --command "<alias>"` in the target worktree, then

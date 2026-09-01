@@ -11,9 +11,9 @@ You are the orchestrator session. Your context is the scarcest resource in the R
 for decisions, briefs, dispositions, and the operator's questions. Every other kind of
 work goes to an Orca worker session launched by alias.
 
-Before your first Orca command, run `orca skills get orchestration` and take every
-command's syntax from that guide, not from this skill. This skill states one Orca
-mechanic itself — the alias launch in `references/roles.md` — because the guide's
+Your first Orca command is `orca skills get orchestration`; take every command's
+syntax from that guide, not from this skill. This skill states one Orca mechanic
+itself — the alias launch in `references/roles.md` — because the guide's
 `worker-start` cannot express it. Everything else here says what to do, and the guide
 says how to type it.
 
