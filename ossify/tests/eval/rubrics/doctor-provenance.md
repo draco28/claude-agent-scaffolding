@@ -69,10 +69,10 @@ and `close-per-repo` use. There is no N/A.
    moment `doctor` ran. It is not a promise that the session will notice a later
    plugin update, nothing re-resolves the plugin table, and a session that loaded
    a body older than this surface gets no provenance line at all — so the cross-
-   check for that case has to come from outside the body. A read-out that
-   presents its verdict as a standing guarantee, or omits the limits, scores 1-2
-   — scored on a clean fixture exactly as on a mismatched one, because a clean
-   line read as durable is the failure this criterion names.
+   check for that case has to come from outside the body. All three are
+   required; omitting any one caps this criterion at 2. A read-out that presents
+   its verdict as a standing guarantee also scores 1-2. Score this on clean and
+   mismatched fixtures alike.
 
 ## Output format
 `{"scores":{"binary_and_body_separate":N,"reference_context_selected":N,"per_ceremony_deltas":N,"limits_stated":N},"pass":true|false,"notes":"<one sentence>"}`. Pass = all ≥4. JSON only.

@@ -181,8 +181,11 @@ one. A clean line read as a durable guarantee is this surface's own failure mode
 
 Same tagged grammar as every other surface (`SKILL.md` §14). At minimum: the
 binary identity line, the loaded-body identity line, the reference line naming
-its arm, and the per-body comparison lines — or a plain statement that nothing
-differs.
+its arm, the per-body comparison lines — or a plain statement that nothing
+differs — **and all three of §5's limits.**
+
+All three are required every time; omitting any one leaves that limit's failure
+mode unreported.
 
 The grammar, and nothing here is a gate:
 
