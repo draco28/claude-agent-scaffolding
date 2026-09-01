@@ -20,19 +20,9 @@ surface exists to make visible.
 in this session. Its plugin root is the parent of the `bin/` that holds it; read
 `.claude-plugin/plugin.json` there for the version.
 
-**Resolve symlinks before deriving that root.** A symlink on `$PATH` answers
-`command -v` with its own location, and the parent of *that* `bin/` is not the
-plugin root — it is whatever directory the link sits in. Follow the link to its
-target first, and derive the root from where the real file lives.
-
-**A regular wrapper is a different case, and it fails safe.** Where `command -v`
-resolves an ordinary file that is not itself a plugin-root binary — a launcher
-that execs the real `oss` from somewhere else — there is no link to follow and
-the plugin root cannot be derived from its location. The binary identity is then
-`skip:` naming that reason, unless the real target can be established some other
-way. Do not fall back to the loaded body's root, and do not read a version out of
-a cache directory name. Wrapper support for the OpenCode bundle specifically is
-deferred rather than solved here.
+Derive the binary identity only from an absolute executable path that, after
+following symlinks, resolves to a plugin-root `bin/oss`; otherwise emit `skip:` —
+never substitute the loaded body, installed record, or a cache directory name.
 
 **Never take the version from the cache directory's name.** #368's third
 instance had five version-named directories side by side and the one that
