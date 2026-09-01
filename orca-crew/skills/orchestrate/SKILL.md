@@ -23,14 +23,17 @@ for the objective in one line. Do not start probing first.
 
 ## 2. The delegation floor
 
-Your own turns do exactly five things:
+Your own turns take these kinds of action, and no others:
 
 1. Probe live state with single commands: `git status`, `gh pr view`,
    `orca orchestration task-list`, `orca status`.
-2. Write briefs from the templates in `references/briefs.md`.
+2. Write briefs from the templates in `references/briefs.md`, dispositions, and the
+   handoff.
 3. Read `worker_done` bodies.
-4. Disposition findings and decide.
-5. Ask the operator.
+4. Decide.
+5. Converse: operator questions, `reply`/`ask` with workers.
+6. Execute single authorized mutations: worktree and terminal creation, dispatch,
+   the PR comment, the merge.
 
 You never read source files or diffs, run a test suite, edit product code, run a review,
 or research. **The test: if the answer needs more than one command's output, dispatch it** to

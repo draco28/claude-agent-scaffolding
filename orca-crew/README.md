@@ -24,9 +24,11 @@ for the operator's word.
 
 ## The delegation floor
 
-The orchestrator's own turns do five things: probe live state with single commands,
-write briefs, read `worker_done` bodies, disposition and decide, ask the operator. If an
-answer needs more than one command's output, it is dispatched to a verifier session.
+The orchestrator's own turns take these kinds of action, and no others: single-command
+probes; writing briefs, dispositions, and the handoff; reading `worker_done` bodies;
+deciding; conversing with the operator and workers; executing single authorized
+mutations. If an answer needs more than one command's output, it is dispatched to a
+verifier session.
 
 ## Roles
 
