@@ -30,15 +30,20 @@ command's syntax comes from `orca skills get orchestration`.
    **reject** with a reason. Post that list as one PR comment so it survives the session.
 9. **Fix rounds.** The retained implementer gets the fix list plus the GitHub thread
    stream (Codex, CodeRabbit, humans) and works to zero unresolved threads by GraphQL
-   `reviewThreads` count, pushing as it goes. No second `/code-review`. Bot comments
-   after each push stay in this stream. With ossify installed, this dispatch is
-   `/ossify:work-pr <PR>` with the disposition embedded as a third signal.
+   `reviewThreads` count, pushing as it goes. Every surviving thread ends in exactly one
+   terminal state: **fixed**, resolved only after the fix is on the head the reviewer
+   can see; **deferred**, resolved with a comment linking the tracked issue; or
+   **rejected**, resolved with the evidence. P0 and P1 findings are never deferred. No
+   second `/code-review`. Bot comments after each push stay in this stream. With ossify
+   installed, this dispatch is `/ossify:work-pr <PR>` with the disposition embedded as
+   a third signal.
 10. **Stopping rule, agreed before the PR opens.** Default: when a round does not shrink
     or fixes generate new findings, stop fixing and defer the remaining P2s as tracked
     issues. A P1 is never deferred. A PR that reaches round five halts and examines
     process, not code.
 11. **Merge gate.** Re-fetch check-runs and unresolved threads for the head SHA
-    immediately before asking. Ask the operator for the merge word naming that SHA.
+    immediately before asking — the merge requires zero unresolved threads. Ask the
+    operator for the merge word naming that SHA.
     Merge only on that word, as a merge commit, never a squash, and bind the merge to
     the approved SHA: re-fetch check-runs and unresolved threads for that SHA once
     more, then `gh pr merge --merge --match-head-commit <sha>`. A moved head or a new
