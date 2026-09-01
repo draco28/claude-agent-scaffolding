@@ -103,7 +103,8 @@ escalate instead.
 
 ## Fix-round brief (retained implementer, after disposition)
 
-Attach it to the same terminal with `worker-start --terminal <handle>`. The body is the
+Attach it to the same terminal with `worker-start --task <next_task_id> --terminal
+<handle>` so Orca transfers the task's ownership with the terminal. The body is the
 fast-implementer brief with this TASK:
 
 ```text
