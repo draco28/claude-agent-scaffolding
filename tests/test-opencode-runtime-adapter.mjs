@@ -34,6 +34,7 @@ const architectCriticManifestUrl = new URL(
 const ossifyReadmeUrl = new URL("ossify/README.md", root);
 const ossifyManifestUrl = new URL("ossify/.claude-plugin/plugin.json", root);
 const codeJudoManifestUrl = new URL("code-judo/.claude-plugin/plugin.json", root);
+const orcaCrewManifestUrl = new URL("orca-crew/.claude-plugin/plugin.json", root);
 const gitignoreUrl = new URL(".gitignore", root);
 const wrapperDirectory = fileURLToPath(new URL(".opencode/bin", root));
 const selectedPluginsEnvironment = "OPENCODE_SCAFFOLDING_PLUGINS";
@@ -135,6 +136,9 @@ const excludedPlugins = [
   // only. Listing it here makes the exclusion a checked decision rather than an
   // absence nobody can tell apart from an oversight.
   "code-judo",
+  // Not in the OpenCode bundle in 0.1.0: it ships on Claude Code and Codex only.
+  // Listed so the exclusion is a checked decision, not an oversight.
+  "orca-crew",
 ];
 
 const expectedAliases = {
@@ -405,18 +409,21 @@ test("Task 9 keeps root README versions aligned with parsed plugin manifests", a
     architectCriticManifestSource,
     ossifyManifestSource,
     codeJudoManifestSource,
+    orcaCrewManifestSource,
   ] = await Promise.all([
     readFile(readmeUrl, "utf8"),
     readFile(aiMentorManifestUrl, "utf8"),
     readFile(architectCriticManifestUrl, "utf8"),
     readFile(ossifyManifestUrl, "utf8"),
     readFile(codeJudoManifestUrl, "utf8"),
+    readFile(orcaCrewManifestUrl, "utf8"),
   ]);
   const manifests = [
     JSON.parse(aiMentorManifestSource),
     JSON.parse(architectCriticManifestSource),
     JSON.parse(ossifyManifestSource),
     JSON.parse(codeJudoManifestSource),
+    JSON.parse(orcaCrewManifestSource),
   ];
   const pluginRows = parseMarkdownTable(markdownSection(rootReadme, "Plugins"));
   const layout = markdownSection(rootReadme, "Layout");

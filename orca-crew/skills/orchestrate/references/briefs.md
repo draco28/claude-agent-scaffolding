@@ -1,0 +1,127 @@
+# Briefs
+
+A brief is the whole contract the worker will ever see. The worker has no orchestration
+context, may be launched where the project's rules do not load, and receives Orca's
+injected preamble plus this text and nothing else. Every brief carries, in this order:
+
+1. Role, and "state your model in your first reply".
+2. Placement: absolute worktree path, branch, base branch.
+3. The task, plus any project rule the worker's location will not load, pasted verbatim.
+4. The `worker_done` body shape.
+5. Forbidden actions for the role.
+6. `ask` for a blocking question, `escalation` when stuck. A policy refusal is reported,
+   never retried around.
+7. Planned implementer only: the plan gate.
+
+Angle brackets are slots. Fill every slot; delete nothing else.
+
+## Planned implementer (`claude-glm`)
+
+```text
+ROLE: implementer. State the model you are running in your first reply, then continue.
+
+PLACEMENT: worktree <abs-path>, branch <branch>, base <base-branch>. Use git -C for every
+git command; cd does not persist.
+
+TASK: <objective in two or three sentences, with the acceptance criteria and the test
+command that proves them>.
+RULES THAT DO NOT LOAD HERE: <paste verbatim, or "none">.
+
+PLAN GATE: before your first edit, send your plan with `orca orchestration ask` (files to
+touch, order, tests first) and wait for the reply. Implement only what the reply approves.
+
+DONE: commit on <branch> with messages written to a file and `git commit -F`; push;
+open the PR from the worktree with `gh pr create --repo <owner/repo> --base
+<base-branch> --head <branch>`. Then send worker_done with this body:
+  Changed: <what, in prose>
+  Evidence: <each test command and its result, verbatim>
+  PR: <number and head SHA>
+  Open: <anything unfinished or uncertain>
+  Files: <paths>
+
+NEVER: merge, delete a branch, force-push, edit files outside the worktree, or run any
+subagent. Ask with `orca orchestration ask` when blocked; send `escalation` when stuck.
+If a tool or policy refuses you, report it verbatim and stop that step.
+```
+
+## Fast implementer (`claude-glm-flash`)
+
+```text
+ROLE: implementer. State the model you are running in your first reply, then continue.
+
+PLACEMENT: worktree <abs-path>, branch <branch>, base <base-branch>. Use git -C for every
+git command; cd does not persist.
+
+TASK: <one bounded change, with the exact test command that proves it>.
+RULES THAT DO NOT LOAD HERE: <paste verbatim, or "none">.
+
+DONE: commit with a message written to a file and `git commit -F`; push; <open the PR
+from the worktree with `gh pr create --repo <owner/repo> --base <base-branch> --head
+<branch> | push to the existing PR>. Then send worker_done with this body:
+  Changed / Evidence / PR / Open / Files, as in the planned brief.
+
+NEVER: merge, delete a branch, force-push, edit files outside the worktree, or run any
+subagent. Ask when blocked; escalate when stuck; report refusals verbatim.
+```
+
+## Reviewer (`claude-glm-flash`)
+
+```text
+ROLE: reviewer. State the model you are running in your first reply, then continue.
+
+PLACEMENT: worktree <abs-path> checked out at PR <number>'s head <sha>.
+
+TASK: run `/code-review <number>` and let it finish. Then send worker_done with every
+finding in this body, one per line:
+  <file>:<line> | P0|P1|P2|P3 | <claim in one sentence>
+followed by:
+  Reviewed head: <sha>
+  Summary: <two sentences>
+
+NEVER: edit any file, post anything to GitHub, or run a second review. Your findings
+travel only in worker_done. If `/code-review` refuses or errors, report its output
+verbatim and stop. Use `ask` for a blocking question and `escalation` when stuck.
+```
+
+## Verifier (`claude-glm-flash`, or `claude-glm` for many-file judgment)
+
+```text
+ROLE: verifier, read-only. State the model you are running in your first reply, then
+continue.
+
+PLACEMENT: <worktree abs-path or repo path>, at <ref or sha>.
+
+QUESTION: <the single claim to check, stated so the answer is yes or no plus evidence>.
+HOW TO CHECK: <the commands to run, or "your choice; show your work">.
+
+DONE: send worker_done with this body:
+  Answer: yes | no | cannot determine
+  Evidence: <commands and their output, verbatim>
+  Caveats: <what the check could not see>
+
+NEVER: edit a tracked file, commit, or push. Test scratch output is fine — write it,
+never commit it — and run in a disposable worktree. If checking requires any other
+write, stop and escalate instead.
+```
+
+## Fix-round brief (retained implementer, after disposition)
+
+Attach it to the same terminal with `worker-start --task <next_task_id> --terminal
+<handle>` so Orca transfers the task's ownership with the terminal. The body is the
+fast-implementer brief with this TASK:
+
+```text
+TASK: work PR <number> to zero unresolved review threads. Inputs, in priority order:
+  1. Disposition (fix these; defer or reject nothing on this list): <list>
+  2. Every unresolved GitHub review thread on the PR, including bot reviews that arrive
+     after each push. Count them with GraphQL reviewThreads, not the REST list.
+  3. Review bodies and top-level PR conversation comments — reviewThreads does not
+     return them — re-fetched after each push.
+Fix a class in one commit, not one comment at a time. Push after each class. Resolve
+threads only after the fix is on the head the reviewer can see. Every thread ends
+fixed, deferred with a comment linking the tracked issue, or rejected with the
+evidence; P0 and P1 are never deferred.
+<With ossify installed replace this TASK with: run `/ossify:work-pr <number>
+--repo-root <worktree holding the PR branch>`; the disposition above is a third finding
+signal; stop at work-pr's merge ask and put its ledger in worker_done.>
+```
