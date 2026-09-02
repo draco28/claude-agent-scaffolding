@@ -58,6 +58,8 @@ No ossify contract changes.
   inherit.
 - The `/code-review` skill available to the reviewer session. If it is unavailable, the
   reviewer reports that in its `worker_done` and the operator decides.
+- The target repository's ruleset requires conversation resolution before merge, so
+  GitHub itself refuses a merge while any review thread is open.
 
 ## Tests
 

@@ -47,10 +47,14 @@ command's syntax comes from `orca skills get orchestration`.
 11. **Merge gate.** Re-fetch check-runs and unresolved threads for the head SHA
     immediately before asking — the merge requires zero unresolved threads. Ask the
     operator for the merge word naming that SHA.
-    Merge only on that word, as a merge commit, never a squash, and bind the merge to
-    the approved SHA: re-fetch check-runs and unresolved threads for that SHA once
-    more, then `gh pr merge --merge --match-head-commit <sha>`. A moved head or a new
-    blocking signal returns to step 9 instead of merging. Then release every worker,
+    Merge only on that word, as a merge commit, never a squash, bound to the approved
+    SHA: re-fetch check-runs and unresolved threads for that SHA once more, then
+    `gh pr merge <number> --repo <owner/repo> --merge --match-head-commit <sha>` —
+    the orchestrator often sits in a checkout other than the PR's repository, so the
+    PR and the repo are always named. The read and the merge are two operations, so a
+    thread can still land between them: the operator's ruleset requires conversation
+    resolution, GitHub itself refuses the merge while any thread is open, and a merge
+    refused that way returns to step 9, never a retry. Then release every worker,
     close the Run, and delete the branch only after confirming a merged PR exists
     whose head OID equals the branch tip.
 12. **Handoff.** If the Run outlives the session, write a handoff naming the Run id,
