@@ -115,6 +115,8 @@ TASK: work PR <number> to zero unresolved review threads. Inputs, in priority or
   1. Disposition (fix these; defer or reject nothing on this list): <list>
   2. Every unresolved GitHub review thread on the PR, including bot reviews that arrive
      after each push. Count them with GraphQL reviewThreads, not the REST list.
+  3. Review bodies and top-level PR conversation comments — reviewThreads does not
+     return them — re-fetched after each push.
 Fix a class in one commit, not one comment at a time. Push after each class. Resolve
 threads only after the fix is on the head the reviewer can see. Every thread ends
 fixed, deferred with a comment linking the tracked issue, or rejected with the
