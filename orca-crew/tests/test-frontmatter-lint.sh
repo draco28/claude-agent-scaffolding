@@ -53,8 +53,9 @@ require_ruby_psych || { report; exit 1; }
 #   key <name>               one line per top-level key, in document order
 #   val <name> <type> <val>  type is string|bool|number, or the YAML class for
 #                            anything non-scalar; callers requiring text check it
+#   rawbytes <name> <n>      byte length of a String value BEFORE collapsing
 fm_facts() {
-  "$RUBY_BIN" -ryaml -e '
+  _facts="$("$RUBY_BIN" -ryaml -e '
     lines = File.read(ARGV[0]).lines
     unless lines[0] && lines[0].rstrip == "---"
       puts "err\tno frontmatter: the file must open with --- on line 1"
@@ -87,7 +88,14 @@ fm_facts() {
     # sequence or a mapping into a printable string made it indistinguishable from
     # real text: a description of [a, b] read as the seven-character "<Array>",
     # which is non-empty and under the cap, so every scalar check passed on it.
+    # The raw byte length ships as its own fact. The val line below is the
+    # COLLAPSED value — whitespace runs squeezed to one space — so measuring
+    # the cap on it lets a padded or folded description over the cap pass as
+    # under it. bytesize is taken before any collapsing.
     doc.each do |k, v|
+      if v.is_a?(String)
+        puts "rawbytes\t#{k}\t#{v.bytesize}"
+      end
       case v
       when String then puts "val\t#{k}\tstring\t#{v.gsub(/\s+/, " ").strip}"
       when true, false then puts "val\t#{k}\tbool\t#{v}"
@@ -95,7 +103,17 @@ fm_facts() {
       else puts "val\t#{k}\t#{v.class.to_s.downcase}\t"
       end
     end
-  ' "$1" 2>/dev/null
+  ' "$1" 2>/dev/null)"; _facts_rc=$?
+  # A Ruby that dies OUTSIDE the script's own rescue — ArgumentError from
+  # rstrip on an invalid-UTF-8 byte, a kill, an OOM — prints nothing and exits
+  # non-zero, and empty facts read as clean below: every count is zero, so the
+  # posture checks pass and a command file clears both its checks without ever
+  # being parsed. Route any non-zero exit into the err channel before that.
+  if [ "$_facts_rc" -ne 0 ]; then
+    printf 'err\tfrontmatter read failed: facts script exited %s\n' "$_facts_rc"
+    return 0
+  fi
+  printf '%s\n' "$_facts"
 }
 
 facts_error() { printf '%s\n' "$1" | awk -F'\t' '$1=="err"{print $2; exit}'; }
@@ -103,15 +121,20 @@ facts_keys()  { printf '%s\n' "$1" | awk -F'\t' '$1=="key"{print $2}'; }
 facts_type()  { printf '%s\n' "$1" | awk -F'\t' -v k="$2" '$1=="val" && $2==k{print $3; exit}'; }
 facts_value() { printf '%s\n' "$1" | awk -F'\t' -v k="$2" '$1=="val" && $2==k{print $4; exit}'; }
 facts_count() { printf '%s\n' "$1" | awk -F'\t' -v k="$2" '$1=="key" && $2==k{n++} END{print n+0}'; }
+facts_rawbytes() { printf '%s\n' "$1" | awk -F'\t' -v k="$2" '$1=="rawbytes" && $2==k{print $3; exit}'; }
 
-is_kebab_case() {
+# Byte test, not character test: the name grammar is ASCII, so the locale is
+# pinned. The subshell parens keep LC_ALL from leaking into the rest of the
+# suite, where it would change every later glob's collation.
+is_kebab_case() (
+  LC_ALL=C
   case "$1" in
     "" ) return 1 ;;
     -*|*-) return 1 ;;
     *[!a-z0-9-]* ) return 1 ;;
     *) return 0 ;;
   esac
-}
+)
 
 describes_human_only() {
   case "$1" in *"$HUMAN_ONLY_MARKER"*) return 0 ;; *) return 1 ;; esac
@@ -149,9 +172,10 @@ posture_problem() {
   fi
 }
 
-# Psych collapses a folded scalar into one string, so this is the real length
-# whatever shape the author used — the thing the awk version could not see.
-byte_len() { LC_ALL=C printf '%s' "$1" | LC_ALL=C wc -c | tr -d ' '; }
+# The description cap is measured on the RAW bytes (the rawbytes fact, from the
+# same single parse), never on the collapsed value: Psych folds a folded scalar
+# and the val line squeezes whitespace further, so a padded or folded
+# description over the cap would pass as under it.
 
 check_skill() {
   name="$1"; md="$SKILLS_DIR/$name/SKILL.md"; rel="skills/$name/SKILL.md"
@@ -187,8 +211,8 @@ check_skill() {
   else fail "$rel: 'name' matches directory" "directory='$name' but name='$name_val'"; fi
 
   desc_val="$(facts_value "$facts" description)"
-  len="$(byte_len "$desc_val")"
-  if [ "$len" -eq 0 ]; then fail "$rel: 'description' is non-empty" "empty"
+  len="$(facts_rawbytes "$facts" description)"
+  if [ -z "$desc_val" ]; then fail "$rel: 'description' is non-empty" "empty"
   elif [ "$len" -le "$DESC_LIMIT" ]; then pass "$rel: 'description' length ${len}/${DESC_LIMIT} bytes"
   else fail "$rel: 'description' length ≤${DESC_LIMIT} bytes" "actual=${len}"; fi
 
