@@ -34,6 +34,6 @@ ossify use:
 - Read loaded the 1.6.0 root's `skills/close/SKILL.md`; its body is `close contract: gates remain`.
 
 Under the 1.7.0 expected root, `commands/work-pr.md` says
-`review policy: two rounds`, while `skills/close/SKILL.md` is byte-for-byte
+`review policy: two rounds` and `skills/close/SKILL.md` says
 `close contract: gates remain`. No other ossify verb or product prose file was
 used before doctor. The conversation has not been compacted.
