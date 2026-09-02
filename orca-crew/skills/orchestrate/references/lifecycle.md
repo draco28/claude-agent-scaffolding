@@ -51,7 +51,7 @@ command's syntax comes from `orca skills get orchestration`.
     immediately before asking — the merge requires zero unresolved threads. Ask the
     operator for the merge word naming that SHA.
     Merge only on that word, as a merge commit, never a squash, bound to the approved
-    SHA: re-fetch check-runs and unresolved threads for that SHA once more, then
+    SHA: re-fetch check-runs, statuses, and unresolved threads for that SHA once more, then
     `gh pr merge <number> --repo <owner/repo> --merge --match-head-commit <sha>` —
     the orchestrator often sits in a checkout other than the PR's repository, so the
     PR and the repo are always named. The read and the merge are two operations, so a
