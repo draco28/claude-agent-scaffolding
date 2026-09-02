@@ -460,23 +460,22 @@ the full sweep.
 
 ## 13. Plugin provenance
 
-Run this surface in every full sweep and directly for `provenance`. Report three
-roles separately: **answering binary** from the executable `oss` path; **loaded
-doctor body** from this invocation's host metadata or concrete Read path; and
-**expected reference** from the current ossify checkout or Claude installed
-record. Each resolved role carries its concrete path and manifest version.
-Never substitute one role for another.
+Run this surface in every full sweep and directly for `provenance`. Report
+three roles separately — **answering binary**, **loaded doctor body**,
+**expected reference** — each resolved role with its concrete path and
+manifest version, never one substituted for another. All three resolved and
+both active versions equal to expected is `ok`; either differing is `warn`;
+any unresolved role is `partial`, with a resolved binary/body disagreement
+preserved inside the partial. Detection compares versions only; never derive
+a version from a cache-directory name.
 
-All three resolved with both active versions equal to expected is `ok`; either
-active version differing is `warn`; any unavailable role is `partial`. Preserve
-a disagreement between resolved active roles. Detection compares versions only.
-
-Only on mismatch, inspect ossify activity evidenced before this doctor
-invocation: name prior `oss` verbs and compare only concrete loaded command,
-`SKILL.md`, and reference prose at the expected relative paths. Never scan
-unused skills, reverse-map verbs through `bin/` or `lib/`, or decide reruns.
-Missing history or expected root makes impact partial. Follow
-`references/provenance-check.md`; report without updating or halting anything.
+Any version disagreement between resolved roles — including binary/body
+disagreement while expected is unresolved — triggers prior-use inspection:
+name prior `oss` verbs and compare only concrete ossify prose loaded before
+this invocation. Impact coverage that could not be completed is `incomplete`
+and never changes the surface verdict. Never scan unused skills, reverse-map
+verbs, or decide reruns. Follow `references/provenance-check.md`; report
+without updating or halting anything.
 
 ## 14. The doctor read-out
 

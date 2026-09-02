@@ -10,7 +10,9 @@ result is an absolute executable path which, after symlink resolution, is the
 `bin/oss` child of a readable plugin root. Read that root's
 `.claude-plugin/plugin.json` for the version. A function, alias, relative path,
 non-executable path, unexpected layout, unreadable manifest, or failed symlink
-resolution makes this role unavailable. Never use a cache-directory name.
+resolution makes this role unavailable. Never derive the version from a
+cache-directory name; a cache-resident install is valid when its manifest is
+read.
 
 **Loaded doctor body.** Use the host-supplied skill base directory for this
 invocation, or the concrete absolute Read-tool path that loaded this
@@ -21,8 +23,9 @@ role is unavailable. Do not use the answering binary's root and do not expect
 
 **Expected reference.** Resolve the current git worktree root from the absolute
 working directory. If that root contains
-`ossify/.claude-plugin/plugin.json`, use that checkout's `ossify/` directory and
-manifest. Otherwise, on Claude Code only, read
+`ossify/.claude-plugin/plugin.json`, the checkout is the selected authority:
+an unreadable or invalid checkout manifest makes expected unavailable, and the
+installed record is never a fallback. Otherwise, on Claude Code only, read
 `~/.claude/plugins/installed_plugins.json` (under the configured Claude home)
 and select records under `ossify@claude-agent-scaffolding`. A user-scope
 record is applicable; a project/local record is applicable only when its
@@ -31,7 +34,8 @@ record must remain. It must supply `version` and a readable `installPath`, and
 that root's manifest version must agree with the record. No candidate, multiple
 candidates, an unreadable root, or record/manifest disagreement makes expected
 unavailable. Codex and OpenCode have no installed-reference arm in this
-release.
+release; an OpenCode wrapper-style install stays unresolved (`partial`) with
+the wrapper named as the boundary, and #396 owns that adapter.
 
 Print one line per role. A resolved line carries role, version, and path; an
 unresolved line names the failed condition.
@@ -41,8 +45,9 @@ unresolved line names the failed condition.
 With all three roles resolved, compare each active version to expected:
 matching is `ok`; either mismatch is `warn`. Any unresolved role makes the
 surface `partial`. Preserve a binary/body disagreement as a warning inside a
-partial result. Version equality is the boundary: do not audit same-version
-content.
+partial result. Any disagreement between resolved roles — active-vs-expected
+or active-vs-active, including inside a partial — is a mismatch for §3.
+Version equality is the boundary: do not audit same-version content.
 
 ## 3. Inspect prior use only after mismatch
 
@@ -55,10 +60,13 @@ files loaded by the current doctor run.
 For each evidenced prose file, identify its owning loaded plugin root, map its
 relative path under the expected root, and report byte-identical, different,
 absent from one side, or unverifiable. Do not enumerate directories or unused
-skills. For prior verbs, report that they ran through the mismatched binary;
-do not recursively diff `bin/` or `lib/` and do not infer implementation
-impact. If history was compacted or the expected root is unavailable, say the
-impact view is partial.
+skills. For prior verbs, report that they ran through the answering binary
+under the detected disagreement — attribute the mismatch to no single role
+when the active roles disagree or expected did not resolve; do not recursively
+diff `bin/` or `lib/` and do not infer implementation impact. If history was
+compacted or the expected root is unavailable, say the impact coverage is
+`incomplete`: that label never changes the surface verdict and never
+downgrades a detected warning.
 
 ## 4. Report the boundary and remedy
 
