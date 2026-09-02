@@ -49,6 +49,10 @@ Three consequences:
   banner in `roles.md` is the single permitted read besides those two.
 - **Verifying a worker's claim is a verifier dispatch**, not an orchestrator read. "Tests
   pass" in a `worker_done` is a claim until CI on that head SHA, or a verifier, says so.
+  One narrow exception: lifecycle step 6's two single-command probes — `gh pr view` for
+  the PR's identity and state, `commits/<sha>/check-runs` for CI on the named SHA — are
+  the floor's probe kind; comparing outputs, judging a failure, or reading a diff past
+  those two is a dispatch.
 
 ## 3. Roles
 

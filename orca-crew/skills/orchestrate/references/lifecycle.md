@@ -24,8 +24,10 @@ command's syntax comes from `orca skills get orchestration`.
 6. **Implementer finishes.** Its `worker_done` names the branch, head SHA, the test
    command with its result, and the PR it opened. Check the PR with one `gh pr view` and
    read CI from `commits/<sha>/check-runs` plus the commit statuses when the repo's CI
-   reports through the Status API instead of Checks, never the status rollup. Anything
-   CI does not cover becomes a verifier dispatch.
+   reports through the Status API instead of Checks, never the status rollup. These two
+   reads are the floor's single-command probes — identity and state from the first, CI
+   for the named SHA from the second — and anything beyond reading them becomes a
+   verifier dispatch.
 7. **Review.** A review runs exactly once per PR: `claude-glm-flash` in a fresh worktree
    at the PR head, brief `/code-review <PR>`, every finding returned in the `worker_done`
    body as file, line, severity, claim. The reviewer posts nothing to GitHub and edits
