@@ -41,8 +41,8 @@ command's syntax comes from `orca skills get orchestration`.
    second `/code-review`. Bot comments after each push stay in this stream, and review
    bodies and top-level PR conversation comments are part of it too — `reviewThreads`
    does not return them — refreshed after each push alongside the thread count. With
-   ossify installed, this dispatch is `/ossify:work-pr <PR>` with the disposition
-   embedded as a third signal.
+   ossify installed, this dispatch is `/ossify:work-pr <PR> --repo-root <worktree
+   holding the PR branch>` with the disposition embedded as a third signal.
 10. **Stopping rule, agreed before the PR opens.** Default: when a round does not shrink
     or fixes generate new findings, stop fixing and defer the remaining P2s as tracked
     issues. A P1 is never deferred. A PR that reaches round five halts and examines

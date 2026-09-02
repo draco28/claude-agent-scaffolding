@@ -97,8 +97,10 @@ Two cases are named because they look like clashes and are not:
   tool, commits at each close, merges at the barrier. The `Agent`-tool ban in §2 applies
   to this session only. You wait on one `worker_done` per spine.
 - **`work-pr`.** After the single reviewer dispatch and your disposition, the fix dispatch
-  to the retained implementer is `/ossify:work-pr <PR>` with the disposition list embedded
-  as a third finding signal. `work-pr`'s "re-review on the new head" means re-fetching
+  to the retained implementer is `/ossify:work-pr <PR> --repo-root <worktree holding the
+  PR branch>` with the disposition list embedded as a third finding signal — work-pr
+  targets the invoking repository unless told otherwise, and the retained implementer
+  often sits elsewhere. `work-pr`'s "re-review on the new head" means re-fetching
   GitHub signals after a push, so no second `/code-review` occurs. The worker stops at
   `work-pr`'s merge ask and returns its ledger in `worker_done`; you relay the ask to the
   operator and merge on the word with one `gh` command.

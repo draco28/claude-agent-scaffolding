@@ -121,7 +121,7 @@ Fix a class in one commit, not one comment at a time. Push after each class. Res
 threads only after the fix is on the head the reviewer can see. Every thread ends
 fixed, deferred with a comment linking the tracked issue, or rejected with the
 evidence; P0 and P1 are never deferred.
-<With ossify installed replace this TASK with: run `/ossify:work-pr <number>`; the
-disposition above is a third finding signal; stop at work-pr's merge ask and put its
-ledger in worker_done.>
+<With ossify installed replace this TASK with: run `/ossify:work-pr <number>
+--repo-root <worktree holding the PR branch>`; the disposition above is a third finding
+signal; stop at work-pr's merge ask and put its ledger in worker_done.>
 ```
