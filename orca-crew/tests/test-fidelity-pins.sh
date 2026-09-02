@@ -36,7 +36,14 @@ PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PINS=0
 
 # Occurrences of a literal substring in a file. Literal, not regex: index().
+# An empty needle is refused, not counted: index(line, "") always returns 1
+# and substr(line, 1) returns the whole line, so the loop never advances —
+# the count climbs forever and the suite hangs instead of failing.
 occurrences() {
+  if [ -z "$2" ]; then
+    printf 'empty needle\n' >&2
+    return 1
+  fi
   awk -v needle="$2" '
     {
       line = $0
@@ -60,7 +67,10 @@ pin() {
     return 0
   fi
 
-  count="$(occurrences "$path" "$needle")"
+  count="$(occurrences "$path" "$needle")" || {
+    fail "$label" "pin needle is empty or the count failed — a pin must be a non-empty literal"
+    return 0
+  }
   if [ "$count" -eq 1 ]; then
     pass "$label"
   elif [ "$count" -eq 0 ]; then
