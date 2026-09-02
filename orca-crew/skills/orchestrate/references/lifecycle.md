@@ -23,8 +23,9 @@ command's syntax comes from `orca skills get orchestration`.
    `worker-read` only on `escalation` or a failed `worker_done`.
 6. **Implementer finishes.** Its `worker_done` names the branch, head SHA, the test
    command with its result, and the PR it opened. Check the PR with one `gh pr view` and
-   read CI from `commits/<sha>/check-runs`, never the status rollup. Anything CI does not
-   cover becomes a verifier dispatch.
+   read CI from `commits/<sha>/check-runs` plus the commit statuses when the repo's CI
+   reports through the Status API instead of Checks, never the status rollup. Anything
+   CI does not cover becomes a verifier dispatch.
 7. **Review.** A review runs exactly once per PR: `claude-glm-flash` in a fresh worktree
    at the PR head, brief `/code-review <PR>`, every finding returned in the `worker_done`
    body as file, line, severity, claim. The reviewer posts nothing to GitHub and edits
@@ -46,7 +47,7 @@ command's syntax comes from `orca skills get orchestration`.
     or fixes generate new findings, stop fixing and defer the remaining P2s as tracked
     issues. A P1 is never deferred. A PR that reaches round five halts and examines
     process, not code.
-11. **Merge gate.** Re-fetch check-runs and unresolved threads for the head SHA
+11. **Merge gate.** Re-fetch check-runs, statuses, and unresolved threads for the head SHA
     immediately before asking — the merge requires zero unresolved threads. Ask the
     operator for the merge word naming that SHA.
     Merge only on that word, as a merge commit, never a squash, bound to the approved
