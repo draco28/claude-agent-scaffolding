@@ -22,16 +22,20 @@ command's syntax comes from `orca skills get orchestration`.
    whole Delivery, answer every `question`, ack, wait again. A timeout is a checkpoint.
    `worker-read` only on `escalation` or a failed `worker_done`.
 6. **Implementer finishes.** Its `worker_done` names the branch, head SHA, the test
-   command with its result, and the PR it opened. Check the PR with one `gh pr view` and
-   read CI from `commits/<sha>/check-runs` plus the commit statuses when the repo's CI
-   reports through the Status API instead of Checks, never the status rollup. These
-   reads are the floor's PR-gate probes — identity and state from the first, CI for the
-   named SHA from the rest — and anything beyond reading them becomes a verifier
-   dispatch.
+   command with its result, and the PR it opened. Check the PR with one
+   `gh pr view <number> --repo <owner/repo>` and read CI from
+   `commits/<sha>/check-runs` plus the commit statuses when the repo's CI reports
+   through the Status API instead of Checks, never the status rollup, both fetched
+   against `--repo <owner/repo>`. These reads are the floor's PR-gate probes — identity
+   and state from the first, CI for the named SHA from the rest — and anything beyond
+   reading them becomes a verifier dispatch.
 7. **Review.** A review runs exactly once per PR: `claude-glm-flash` in a fresh worktree
    at the PR head, brief `/code-review <PR>`, every finding returned in the `worker_done`
    body as file, line, severity, claim. The reviewer posts nothing to GitHub and edits
-   nothing. Release it on receipt.
+   nothing, so that body is the sole copy of the review. Release the reviewer only after
+   its `worker_done` validates — findings lines present in the stated schema, reviewed
+   head equal to the PR head; on a malformed body, send one bounded correction request
+   before release.
 8. **Disposition.** Each finding becomes **fix**, **defer** as a tracked issue, or
    **reject** with a reason. Post that list as one PR comment so it survives the session.
 9. **Fix rounds.** The retained implementer gets the fix list plus the GitHub thread
@@ -50,19 +54,23 @@ command's syntax comes from `orca skills get orchestration`.
     issues. A P1 is never deferred. A PR that reaches round five halts the deferrable
     work and examines process, not code; P0 and P1 remediation continues past round
     five until each is fixed or rejected with evidence.
-11. **Merge gate.** Re-fetch check-runs, statuses, and unresolved threads for the head SHA
-    immediately before asking — the merge requires zero unresolved threads. Ask the
-    operator for the merge word naming that SHA.
+11. **Merge gate.** Fetch the full gate set against `--repo <owner/repo>` for the head
+    SHA immediately before asking: `isDraft`, `mergeable`, `mergeStateStatus`, every
+    relevant check-run and status context — all must be successful — the unresolved
+    threads, and the non-thread signals of review bodies and PR conversation comments.
+    Ask only when every one is clean: a non-mergeable state is surfaced to the operator
+    as the blocker instead of asking, and a new actionable finding returns to step 9.
+    Ask the operator for the merge word naming that SHA.
     Merge only on that word, as a merge commit, never a squash, bound to the approved
-    SHA: re-fetch check-runs, statuses, and unresolved threads for that SHA once more, then
+    SHA: re-fetch the same full gate set for that SHA once more, then
     `gh pr merge <number> --repo <owner/repo> --merge --match-head-commit <sha>` —
-    the orchestrator often sits in a checkout other than the PR's repository, so the
-    PR and the repo are always named. The read and the merge are two operations, so a
-    thread can still land between them: the operator's ruleset requires conversation
-    resolution, GitHub itself refuses the merge while any thread is open, and a merge
-    refused that way returns to step 9, never a retry. Then release every worker,
-    close the Run, and delete the branch only after confirming a merged PR exists
-    whose head OID equals the branch tip.
+    the orchestrator often sits in a checkout other than the PR's repository, so every
+    read and the merge itself always name the repo. The read and the merge are two
+    operations, so a signal can still land between them: the operator's ruleset
+    requires conversation resolution, GitHub itself refuses the merge while any thread
+    is open, and a merge refused that way returns to step 9, never a retry. Then
+    release every worker, close the Run, and delete the branch only after confirming
+    a merged PR exists whose head OID equals the branch tip.
 12. **Handoff.** If the Run outlives the session, write a handoff naming the Run id,
     task ids, terminal handles, head SHA, and the next step. With ossify installed, that
     is `/ossify:handoff`.
