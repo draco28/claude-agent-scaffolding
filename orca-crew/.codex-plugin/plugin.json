@@ -18,7 +18,7 @@
   "interface": {
     "displayName": "Orca Crew",
     "shortDescription": "Orchestrator/worker session model over Orca.",
-    "longDescription": "Orca Crew states who does what when one orchestrator session drives GLM worker sessions through Orca orchestration: which alias fills each role, what a brief must carry, where the orchestrator stops and dispatches instead, one code review per PR with findings returned through worker_done, GitHub threads worked to zero, and a merge only on the operator's explicit word. It defers every Orca command to the Orca binary's own version-matched guide.",
+    "longDescription": "Orca Crew states who does what when one orchestrator session drives GLM worker sessions through Orca orchestration: which alias fills each role, what a brief must carry, where the orchestrator stops and dispatches instead, one code review per PR with findings returned through worker_done, GitHub threads worked to zero, and a merge only on the operator's explicit word. It defers every other Orca command to the Orca binary's own version-matched guide.",
     "developerName": "Pras",
     "category": "Coding",
     "capabilities": [

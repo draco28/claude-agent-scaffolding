@@ -14,7 +14,7 @@ for the operator's word.
 
 | Skill | What it does |
 |---|---|
-| `orchestrate` | The playbook for the orchestrator session: the delegation floor and its decidable test, the role table, the twelve-step run, four self-contained brief templates, the ossify seam, and the refusals. Defers every Orca command to `orca skills get orchestration`. |
+| `orchestrate` | The playbook for the orchestrator session: the delegation floor and its decidable test, the role table, the twelve-step run, four self-contained brief templates, the ossify seam, and the refusals. Defers every other Orca command to `orca skills get orchestration`. |
 
 ## Command
 
@@ -47,7 +47,7 @@ never substitutes `claude --model`.
 ## With ossify
 
 ossify's ceremonies (`start`, `adopt`, `plan-release`, `plan-spine`, `wayfinder`,
-`challenge`, `handoff`) run in the orchestrator session. Its execution lanes
+`challenge`, `handoff`, `handoff-resume`) run in the orchestrator session. Its execution lanes
 (`run-spine`, `work-item`, `close`, `work-pr`, `doctor`) are dispatched to Orca sessions.
 No ossify contract changes.
 
