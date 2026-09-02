@@ -45,8 +45,9 @@ command's syntax comes from `orca skills get orchestration`.
    holding the PR branch>` with the disposition embedded as a third signal.
 10. **Stopping rule, agreed before the PR opens.** Default: when a round does not shrink
     or fixes generate new findings, stop fixing and defer the remaining P2s as tracked
-    issues. A P1 is never deferred. A PR that reaches round five halts and examines
-    process, not code.
+    issues. A P1 is never deferred. A PR that reaches round five halts the deferrable
+    work and examines process, not code; P0 and P1 remediation continues past round
+    five until each is fixed or rejected with evidence.
 11. **Merge gate.** Re-fetch check-runs, statuses, and unresolved threads for the head SHA
     immediately before asking — the merge requires zero unresolved threads. Ask the
     operator for the merge word naming that SHA.
