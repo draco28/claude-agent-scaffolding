@@ -1,4 +1,4 @@
-# ossify (v1.6.0)
+# ossify (v1.7.0)
 
 Skeleton-first lifecycle plugin: Release 0 → MVP → v1, driven by bone and flesh
 spines against a cumulative demo ledger. Nine entry skills (`start`, `adopt`,
@@ -14,6 +14,15 @@ line. Since 1.6.0 (#139) `close`'s impl-check gate gains Layer 4: a delegated
 semantic review over three lenses (fidelity, pattern, absence) at work-item
 close, applied inline on every harness or by a dedicated Workflow-tool pass
 on Claude Code on Anthropic.
+
+Since 1.7.0 (#368), every bare `doctor` sweep includes plugin provenance and
+`doctor provenance` runs it alone. It reports the answering `oss` binary, the
+loaded doctor body, and the expected checkout or Claude installed version
+separately. A version mismatch exposes prior `oss` verbs and compares only
+product prose actually loaded earlier in the session; it does not scan unused
+skills or decide reruns. The guarantee starts after one update and fresh
+session. Codex and OpenCode installed-reference resolution remains partial
+(#396, #399).
 
 `wayfinder` is both at once, which is why it is listed above rather than
 below: an entry skill with its own skill directory, and an any-repo one. It
