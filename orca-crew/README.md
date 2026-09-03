@@ -14,7 +14,7 @@ for the operator's word.
 
 | Skill | What it does |
 |---|---|
-| `orchestrate` | The playbook for the orchestrator session: the delegation floor and its decidable test, the role table, the thirteen-step run, five self-contained brief templates, the ossify seam, and the refusals. Defers every other Orca command to `orca skills get orchestration`. |
+| `orchestrate` | The playbook for the orchestrator session: the delegation floor and its decidable test, the role table, the thirteen-step run, five dispatched brief templates plus a correction-request message template, the ossify seam, and the refusals. Defers every other Orca command to `orca skills get orchestration`. |
 
 ## Command
 
@@ -38,7 +38,7 @@ verifier session.
 | Implementer, planned | `claude-glm` (high; `--effort max` on demand) | `contract`, and the default when unclassified |
 | Implementer, fast | `claude-glm-flash` | `bounded` |
 | Reviewer | `claude-glm-flash`, `/code-review <PR>` once | |
-| Verifier | `claude-glm` at high; `claude-glm-flash` for purely mechanical runs. Read-only | |
+| Verifier | `claude-glm` at high — the work-item verify; `claude-glm-flash` for read-only probes and mechanical runs outside it. Read-only | |
 | Operator | the human: the merge word | |
 
 Aliases are shell profiles that carry provider routing and pinned defaults. The skill

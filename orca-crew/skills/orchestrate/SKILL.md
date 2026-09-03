@@ -53,9 +53,9 @@ Three consequences:
   leave no Orca provenance. Every helper is an Orca session.
 - **`worker-read` only on `escalation` or a failed `worker_done`**, never to watch
   progress. Rolling `check --wait` is the wait primitive. A timeout is a checkpoint, not a
-  failure. A heartbeat means alive, not done. The two permitted bounded reads besides
-  those two are the launch-banner `terminal read` in `roles.md` and the one `/context`
-  reply at each task boundary.
+  failure. A heartbeat means alive, not done. Beyond those `worker-read` cases, the only
+  bounded reads are the launch-banner `terminal read` in `roles.md` and the one
+  `/context` reply at each task boundary.
 - **Verifying a worker's claim is a verifier dispatch**, not an orchestrator read. "Tests
   pass" in a `worker_done` is a claim until CI on that head SHA, or a verifier, says so.
   One narrow exception: lifecycle step 6's PR gate — `gh pr view` for identity and
@@ -92,11 +92,13 @@ merge gate, handoff. One Run per objective. You drive the steps and nothing else
 
 ## 5. Briefs
 
-`references/briefs.md` ships five templates: planned implementer, fast implementer,
-reviewer, verifier, correction request. A brief is the whole contract the worker will
-ever see, because a worker session has no orchestration context and may be launched
-somewhere its project rules do not load. Every brief asks the worker to state its model
-in its first reply, and you read that line before sending anything else.
+`references/briefs.md` ships five dispatched briefs — planned implementer, fast
+implementer, fix round, reviewer, verifier — plus the correction-request message
+template, which is a `send`, not a session. A brief is the whole contract the worker
+will ever see, because a worker session has no orchestration context and may be
+launched somewhere its project rules do not load. Every brief asks the worker to
+state its model in its first reply, and you read that line before sending anything
+else.
 
 ## 6. With ossify
 
