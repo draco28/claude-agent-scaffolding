@@ -113,14 +113,12 @@ fast-implementer brief with this TASK:
 
 ```text
 TASK: work PR <number> to zero unresolved review threads. Inputs, in priority order:
-  1. Disposition (fix these): <list>
+  1. Disposition: <list>. Fix every item on it as dispositioned; defer or reject
+     nothing on it yourself.
   2. Every unresolved GitHub review thread on the PR, including bot reviews that arrive
      after each push. Count them with GraphQL reviewThreads, not the REST list.
   3. Review bodies and top-level PR conversation comments — reviewThreads does not
      return them — re-fetched after each push.
-A finding that is not on the disposition list is returned to the orchestrator via
-`ask` (blocking) or listed under Open in `worker_done`; resolve it only after the
-orchestrator's reply.
 Fix a class in one commit, not one comment at a time. Push after each class. Resolve
 threads only after the fix is on the head the reviewer can see. Every thread ends
 fixed, deferred with a comment linking the tracked issue, or rejected with the
@@ -129,6 +127,11 @@ evidence; P0 and P1 are never deferred.
 --repo-root <worktree holding the PR branch>`; the disposition above is a third finding
 signal; stop at work-pr's merge ask and put its ledger in worker_done.>
 ```
+
+A finding that arrives after the disposition is not on that list. Return it to the
+orchestrator via `ask` (blocking) or list it under Open in `worker_done`, and resolve
+it only after the orchestrator's reply. This paragraph sits outside the TASK block so
+the ossify replacement keeps it.
 
 ## Correction request (one `send`, no new session)
 
