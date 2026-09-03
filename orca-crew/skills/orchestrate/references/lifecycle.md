@@ -56,12 +56,13 @@ Every command's syntax comes from `orca skills get orchestration`.
    **reject** with a reason. Post that list as one PR comment so it survives the session.
 10. **Fix rounds.** The retained implementer gets the fix list plus the GitHub thread
     stream (Codex, CodeRabbit, humans) and works to zero unresolved threads by GraphQL
-    `reviewThreads` count, pushing as it goes. Every surviving thread ends in exactly one
+    `reviewThreads` count, pushing as it goes. Every surviving review signal —
+    thread, review body, or conversation comment — ends in exactly one
     terminal state: **fixed**, resolved only after the fix is on the head the reviewer
     can see; **deferred**, resolved with a comment linking the tracked issue; or
     **rejected**, resolved with the evidence. P0 and P1 findings are never deferred. A
     new bot or human finding that arrives after the disposition returns to the
-    orchestrator via `ask` or `worker_done` — the implementer resolves a thread only
+    orchestrator via `ask` or `worker_done` — the implementer resolves it only
     after the orchestrator's decision (#410). No second `/code-review`. Bot comments
     after each push stay in this stream, and review bodies and top-level PR
     conversation comments are part of it too — `reviewThreads` does not return them —
@@ -69,10 +70,10 @@ Every command's syntax comes from `orca skills get orchestration`.
     dispatch is `/ossify:work-pr <PR> --repo-root <worktree holding the PR branch>`
     with the disposition embedded as a third signal.
 11. **Stopping rule, agreed before the PR opens.** Default: when a round does not shrink
-    or fixes generate new findings, stop fixing and defer the remaining P2s as tracked
-    issues. A P1 is never deferred. A PR that reaches round five halts the deferrable
-    work and examines process, not code; P0 and P1 remediation continues past round
-    five until each is fixed or rejected with evidence.
+    or fixes generate new findings, stop fixing and defer the remaining P2s and P3s as
+    tracked issues. P0 and P1 are never deferred. A PR that reaches round five halts
+    the deferrable work and examines process, not code; P0 and P1 remediation
+    continues past round five until each is fixed or rejected with evidence.
 12. **Merge gate.** Fetch the full gate set against `--repo <owner/repo>` for the head
     SHA immediately before asking: `isDraft`, `mergeable`, `mergeStateStatus`, every
     relevant check-run and status context — all must be successful — the unresolved
