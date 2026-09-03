@@ -91,15 +91,15 @@ continue.
 
 PLACEMENT: <worktree abs-path or repo path>, at <ref or sha>.
 
-CLAIMS: the work item's acceptance criteria, the diff against the requirement, and
-the mutation of any new test (revert the edit in a disposable worktree and watch the
-check fail), one per number, each with how to check it:
+CLAIMS:, a numbered list the orchestrator fills from the work item's spec:
+  1. <acceptance criterion or requirement>: <how to check>
+  2. The diff matches the requirement: read the requirement, then the diff.
+  3. A new test fails when its edit is reverted in a disposable worktree.
 
 DONE: send worker_done with one report, one line per claim, then the caveats:
   1. <claim>: pass | fail | cannot determine — <evidence, commands and output verbatim>
-  `Cannot determine` counts as fail. The suite on the head is not a claim: the
-  orchestrator has read that SHA's check-runs before dispatching you.
-  Caveats: <what the check could not see>
+  `Cannot determine` counts as fail; the suite on the head is not a claim (its
+  check-runs were read before dispatch). Caveats: <what the check could not see>
 
 NEVER: edit a tracked file, commit, or push. Test scratch output is fine — write it,
 never commit it — and run in a disposable worktree. If checking requires any other
@@ -129,10 +129,9 @@ evidence; P0 and P1 are never deferred.
 signal; stop at work-pr's merge ask and put its ledger in worker_done.>
 ```
 
-A finding that arrives after the disposition is not on that list. Return it to the
-orchestrator via `ask` (blocking) or list it under Open in `worker_done`, and resolve
-it only after the orchestrator's reply. This paragraph sits outside the TASK block so
-the ossify replacement keeps it.
+A finding that arrives after the disposition is not on that list: return it via `ask`
+(blocking) or under Open in `worker_done`, resolving only after the orchestrator's
+reply; outside the TASK block so the ossify replacement keeps it.
 
 ## Correction request (one `send`, no new session)
 
