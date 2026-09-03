@@ -36,7 +36,7 @@ Every command's syntax comes from `orca skills get orchestration`.
 7. **Verify, once per work item.** One verifier session per work item, one brief
    listing every claim: the suite result on the head SHA, each acceptance criterion,
    the mutation of any new test, and the diff against the requirement. `claude-glm`
-   at high unless every claim is mechanical. A fail returns to the implementer as one
+   at high — the claims include judgment. A fail returns to the implementer as one
    fix message, and the re-check attaches its task to the same verifier session; a
    second fail on the same item goes to the operator. The verifier is released only
    at pass or escalation.

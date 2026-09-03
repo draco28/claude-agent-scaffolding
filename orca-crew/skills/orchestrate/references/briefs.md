@@ -84,7 +84,7 @@ travel only in worker_done. If `/code-review` refuses or errors, report its outp
 verbatim and stop. Use `ask` for a blocking question and `escalation` when stuck.
 ```
 
-## Verifier (`claude-glm` at high; `claude-glm-flash` when every claim is mechanical)
+## Verifier (`claude-glm` at high)
 
 ```text
 ROLE: verifier, read-only. State the model you are running in your first reply, then
