@@ -131,8 +131,8 @@ evidence; P0 and P1 are never deferred.
 signal; stop at work-pr's merge ask and put its ledger in worker_done.>
 ```
 
-A finding that arrives after the disposition is not on that list: return it via `ask`
-(blocking) or under Open in `worker_done`, resolving only after the orchestrator's
+A finding that arrives after the disposition is not on that list: return it through
+the blocking `orca orchestration ask` and wait, resolving only on the orchestrator's
 reply; outside the TASK block so the ossify replacement keeps it.
 
 ## Correction request (one `send`, no new session)

@@ -69,8 +69,9 @@ Every command's syntax comes from `orca skills get orchestration`.
     #<issue>, rejected with the reason. A signal is clean when every finding in it
     has a terminal state so recorded. P0 and P1 findings are never deferred. A new
     bot or human finding that arrives after the disposition returns to the
-    orchestrator via `ask` or `worker_done` — the implementer resolves it only
-    after the orchestrator's decision (#410). No second `/code-review`. Bot comments
+    orchestrator through the blocking `ask`, and the implementer waits — it
+    resolves the finding only after the orchestrator's decision (#410). No second
+    `/code-review`. Bot comments
     after each push stay in this stream, and review bodies and top-level PR
     conversation comments are part of it too — `reviewThreads` does not return them —
     refreshed after each push alongside the thread count. With ossify installed, this
