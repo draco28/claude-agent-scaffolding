@@ -43,8 +43,9 @@ a verifier session.
 How many sessions may exist is the session budget in `references/roles.md` — one
 implementer seat and one verifier seat per work item, one reviewer per PR — stated
 once there; any session outside those seats is a planning defect. A malformed or
-incomplete report is corrected by one bounded `send` or `reply` to the live session
-that wrote it; a correction session is never created.
+incomplete report is corrected by the correction-request template in
+`references/briefs.md` — one bounded `send` to the live session that wrote it; a
+correction session is never created.
 
 Three consequences:
 

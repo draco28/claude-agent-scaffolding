@@ -71,8 +71,8 @@ ROLE: reviewer. State the model you are running in your first reply, then contin
 
 PLACEMENT: worktree <abs-path> checked out at PR <number>'s head <sha>.
 
-TASK: run `/code-review <number>` and let it finish. Then send worker_done with every
-finding in this body, one per line:
+TASK: run `/code-review <number>` and let it finish. Then send worker_done with
+`Findings: none` on a clean review, else every finding in this body, one per line:
   <file>:<line> | P0|P1|P2|P3 | <claim in one sentence>
 followed by:
   Reviewed head: <sha>
@@ -137,13 +137,13 @@ the ossify replacement keeps it.
 ## Correction request (one `send`, no new session)
 
 A malformed, incomplete, or wrongly-shaped report from a live session is corrected in
-place. One `send` to that session, nothing else:
+place — never by a new session. One `send` to that session, nothing else:
 
 ```text
 Your worker_done for <task-id> is malformed or incomplete: <the missing or wrong
 field, and what is wrong with it>. Send the exact shape wanted: <the field, restated
-from your brief>. No other work; reply with the corrected body.
+from your brief>. No other work; return the corrected body via `orca orchestration
+ask` — the orchestrator's wait loop already receives it.
 ```
 
-A correction session is never created. If one `send` does not fix the report, that is
-an `escalation`.
+If one `send` does not fix the report, that is an `escalation`.

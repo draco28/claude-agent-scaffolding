@@ -48,8 +48,9 @@ Every command's syntax comes from `orca skills get orchestration`.
    at the PR head, brief `/code-review <PR>`, every finding returned in the `worker_done`
    body as file, line, severity, claim. The reviewer posts nothing to GitHub and edits
    nothing, so that body is the sole copy of the review. Release the reviewer only after
-   its `worker_done` validates — findings lines present in the stated schema, reviewed
-   head equal to the PR head; on a malformed body, send one bounded correction request
+   its `worker_done` validates — findings lines present in the stated schema, or
+   `Findings: none` on a clean review, with the reviewed head equal to the PR head; on
+   a malformed body, send one bounded correction request
    before release.
 9. **Disposition.** Each finding becomes **fix**, **defer** as a tracked issue, or
    **reject** with a reason. Post that list as one PR comment so it survives the session.
