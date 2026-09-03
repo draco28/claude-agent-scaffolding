@@ -40,10 +40,9 @@ You never read source files or diffs, run a test suite, edit product code, run a
 or research. **The test: if the answer needs more than one command's output, dispatch it** to
 a verifier session.
 
-The same floor bounds how many sessions exist: per work item, one implementer and at
-most one verifier; per PR, one reviewer and at most one verifier per fix round. A
-further read-only question goes to the existing session by `send`; a work item that
-needs a fourth session is a planning defect — stop and re-plan it. A malformed or
+How many sessions may exist is the session budget in `references/roles.md` — one
+implementer seat and one verifier seat per work item, one reviewer per PR — stated
+once there; any session outside those seats is a planning defect. A malformed or
 incomplete report is corrected by one bounded `send` or `reply` to the live session
 that wrote it; a correction session is never created.
 

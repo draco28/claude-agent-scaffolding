@@ -46,12 +46,13 @@ never substitutes `claude --model`.
 
 ## Session budget
 
-Per work item: one implementer and at most one verifier. Per PR: one reviewer and at
-most one verifier per fix round. Further read-only questions go to the existing
-session by `send`; a work item that needs a fourth session is a planning defect, and
-the orchestrator stops to re-plan it. The implementer is retained across consecutive
-work items until it passes ~50% of its context window (checked by `/context` at each
-task boundary), then writes a handoff and the next item starts fresh with it.
+One implementer seat and one verifier seat per work item; one reviewer per PR. A fix
+round may re-use the verifier seat, and a context-rotation replacement occupies the
+seat it replaces; any session outside those seats is a planning defect, and the
+orchestrator stops to re-plan the item. The authority is the skill's `roles.md`.
+The implementer is retained across consecutive work items until it passes ~50% of
+its context window (checked by `/context` at each task boundary), then writes a
+handoff and the next item starts fresh with it.
 
 ## With ossify
 

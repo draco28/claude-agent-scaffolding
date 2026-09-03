@@ -51,10 +51,11 @@ close it with `orca terminal close`; read the release receipt rather than assumi
 
 ## Session budget
 
-One implementer and at most one verifier per work item; one reviewer per PR and at
-most one verifier per fix round. A further read-only question goes to the existing
-verifier or implementer by `send`, never to a new session. A work item that needs a
-fourth session is a planning defect: stop and re-plan it.
+One implementer seat and one verifier seat per work item; one reviewer per PR. A fix
+round may re-use the verifier seat, and a context-rotation replacement occupies the
+seat it replaces. Any session outside those seats is a planning defect: stop and
+re-plan the item. A further read-only question goes to the existing verifier or
+implementer by `send`, never to a new session.
 
 ## Placement
 
