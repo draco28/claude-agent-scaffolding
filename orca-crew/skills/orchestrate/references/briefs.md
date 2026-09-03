@@ -91,12 +91,14 @@ continue.
 
 PLACEMENT: <worktree abs-path or repo path>, at <ref or sha>.
 
-CLAIMS: every claim from the brief, numbered, each with its check:
-  1. <claim>: <how to check>
-  2. <claim>: <how to check>
+CLAIMS: the work item's acceptance criteria, the diff against the requirement, and
+the mutation of any new test (revert the edit in a disposable worktree and watch the
+check fail), one per number, each with how to check it:
 
 DONE: send worker_done with one report, one line per claim, then the caveats:
   1. <claim>: pass | fail | cannot determine — <evidence, commands and output verbatim>
+  `Cannot determine` counts as fail. The suite on the head is not a claim: the
+  orchestrator has read that SHA's check-runs before dispatching you.
   Caveats: <what the check could not see>
 
 NEVER: edit a tracked file, commit, or push. Test scratch output is fine — write it,
