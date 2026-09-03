@@ -37,6 +37,7 @@ open the PR from the worktree with `gh pr create --repo <owner/repo> --base
   Evidence: <each test command and its result, verbatim>
   PR: <number and head SHA>
   Open: <anything unfinished or uncertain>
+  Context: <percent, from /context>
   Files: <paths>
 
 NEVER: merge, delete a branch, force-push, edit files outside the worktree, or run any
@@ -58,7 +59,7 @@ RULES THAT DO NOT LOAD HERE: <paste verbatim, or "none">.
 DONE: commit with a message written to a file and `git commit -F`; push; <open the PR
 from the worktree with `gh pr create --repo <owner/repo> --base <base-branch> --head
 <branch> | push to the existing PR>. Then send worker_done with this body:
-  Changed / Evidence / PR / Open / Files, as in the planned brief.
+  Changed / Evidence / PR / Open / Context / Files, as in the planned brief.
 
 NEVER: merge, delete a branch, force-push, edit files outside the worktree, or run any
 subagent. Ask when blocked; escalate when stuck; report refusals verbatim.
@@ -83,7 +84,7 @@ travel only in worker_done. If `/code-review` refuses or errors, report its outp
 verbatim and stop. Use `ask` for a blocking question and `escalation` when stuck.
 ```
 
-## Verifier (`claude-glm-flash`, or `claude-glm` for many-file judgment)
+## Verifier (`claude-glm` at high; `claude-glm-flash` when every claim is mechanical)
 
 ```text
 ROLE: verifier, read-only. State the model you are running in your first reply, then
@@ -91,12 +92,12 @@ continue.
 
 PLACEMENT: <worktree abs-path or repo path>, at <ref or sha>.
 
-QUESTION: <the single claim to check, stated so the answer is yes or no plus evidence>.
-HOW TO CHECK: <the commands to run, or "your choice; show your work">.
+CLAIMS: every claim from the brief, numbered, each with its check:
+  1. <claim>: <how to check>
+  2. <claim>: <how to check>
 
-DONE: send worker_done with this body:
-  Answer: yes | no | cannot determine
-  Evidence: <commands and their output, verbatim>
+DONE: send worker_done with one report, one line per claim, then the caveats:
+  1. <claim>: pass | fail | cannot determine — <evidence, commands and output verbatim>
   Caveats: <what the check could not see>
 
 NEVER: edit a tracked file, commit, or push. Test scratch output is fine — write it,
@@ -112,11 +113,14 @@ fast-implementer brief with this TASK:
 
 ```text
 TASK: work PR <number> to zero unresolved review threads. Inputs, in priority order:
-  1. Disposition (fix these; defer or reject nothing on this list): <list>
+  1. Disposition (fix these): <list>
   2. Every unresolved GitHub review thread on the PR, including bot reviews that arrive
      after each push. Count them with GraphQL reviewThreads, not the REST list.
   3. Review bodies and top-level PR conversation comments — reviewThreads does not
      return them — re-fetched after each push.
+A finding that is not on the disposition list is returned to the orchestrator via
+`ask` (blocking) or listed under Open in `worker_done`; resolve it only after the
+orchestrator's reply.
 Fix a class in one commit, not one comment at a time. Push after each class. Resolve
 threads only after the fix is on the head the reviewer can see. Every thread ends
 fixed, deferred with a comment linking the tracked issue, or rejected with the
@@ -125,3 +129,17 @@ evidence; P0 and P1 are never deferred.
 --repo-root <worktree holding the PR branch>`; the disposition above is a third finding
 signal; stop at work-pr's merge ask and put its ledger in worker_done.>
 ```
+
+## Correction request (one `send`, no new session)
+
+A malformed, incomplete, or wrongly-shaped report from a live session is corrected in
+place. One `send` to that session, nothing else:
+
+```text
+Your worker_done for <task-id> is malformed or incomplete: <the missing or wrong
+field, and what is wrong with it>. Send the exact shape wanted: <the field, restated
+from your brief>. No other work; reply with the corrected body.
+```
+
+A correction session is never created. If one `send` does not fix the report, that is
+an `escalation`.

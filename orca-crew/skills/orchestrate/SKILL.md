@@ -91,11 +91,11 @@ merge gate, handoff. One Run per objective. You drive the steps and nothing else
 
 ## 5. Briefs
 
-`references/briefs.md` ships four templates: planned implementer, fast implementer,
-reviewer, verifier. A brief is the whole contract the worker will ever see, because a
-worker session has no orchestration context and may be launched somewhere its project
-rules do not load. Every brief asks the worker to state its model in its first reply, and
-you read that line before sending anything else.
+`references/briefs.md` ships five templates: planned implementer, fast implementer,
+reviewer, verifier, correction request. A brief is the whole contract the worker will
+ever see, because a worker session has no orchestration context and may be launched
+somewhere its project rules do not load. Every brief asks the worker to state its model
+in its first reply, and you read that line before sending anything else.
 
 ## 6. With ossify
 
