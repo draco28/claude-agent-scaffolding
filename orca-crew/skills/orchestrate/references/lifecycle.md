@@ -8,10 +8,12 @@ Every command's syntax comes from `orca skills get orchestration`.
    `git status`, open PRs, `orca status --json`, `orca orchestration task-list --brief
    --json`. Then `run-create --objective "<objective>"`, or `run-use` when resuming a
    Run the operator names.
-2. **Decompose.** One `task-create` per brief, `--deps` for the DAG, each carrying its
-   complexity class — `contract` or `bounded` — in the spec; when ossify `plan-spine`
-   wrote the class on the work item, copy it. One implementer per worktree. Items
-   within a round may run in parallel; their merges are serial.
+2. **Decompose.** One `task-create` per brief, `--deps` for the DAG, each carrying
+   the complexity class the orchestrator derives from the work item's spec and its
+   spine's bone/flesh class: `contract` if it touches an interface, schema, or
+   contract, or belongs to a bone spine, else `bounded`; an item that classifies
+   nowhere defaults to `contract`. One implementer per worktree. Items within a
+   round may run in parallel; their merges are serial.
 3. **Launch.** `terminal create --command "<alias>"` in the target worktree, then
    `terminal wait --for tui-idle`, then one `terminal read` of the banner to confirm
    the model, then `dispatch --inject` (the mechanic in `roles.md`). The "state your
