@@ -85,9 +85,9 @@ single-writer rules are in the reference.
 
 ## 4. The run
 
-`references/lifecycle.md` is the twelve-step run: orient, decompose, launch, plan gate,
-wait, implementer done, review, disposition, fix rounds, stopping rule, merge gate,
-handoff. One Run per objective. You drive the steps and nothing else.
+`references/lifecycle.md` is the thirteen-step run: orient, decompose, launch, plan
+gate, wait, implementer done, verify, review, disposition, fix rounds, stopping rule,
+merge gate, handoff. One Run per objective. You drive the steps and nothing else.
 
 ## 5. Briefs
 
