@@ -4,13 +4,13 @@ One session owns each active role. A session's name or suffix is not its identit
 resuming, ask each candidate to state its role and assignment and wait for the reply
 before sending work.
 
-| Role | Alias | Effort | Lifetime | Pick when |
+| Role | Alias | Effort | Lifetime | Class |
 |---|---|---|---|---|
 | Orchestrator | `claude` (Fable) or `claude-sol` | alias default | one per Run; the operator launches it | always |
-| Implementer, planned | `claude-glm` | high by default; `--effort max` when the brief needs a plan first, touches an interface or contract, or a prior attempt failed | retained across the PR's fix rounds | multi-file work, new behaviour, anything that needs a plan |
-| Implementer, fast | `claude-glm-flash` | alias default | retained if a fix round follows, else released | bounded, mechanical, one-file, fast |
+| Implementer, planned | `claude-glm` | high by default; `--effort max` on demand | retained across work items and the PR's fix rounds, to the threshold below | `contract`: an interface, schema, contract, or architectural change, or a plan gate needed; the default when unclassified |
+| Implementer, fast | `claude-glm-flash` | alias default | retained if a fix round follows, else released | `bounded`: one-file, mechanical, read-heavy |
 | Reviewer | `claude-glm-flash` | alias default | disposable; released after `worker_done` | once per PR; first task `/code-review <PR>`; never implements |
-| Verifier | `claude-glm-flash`; `claude-glm` only when the check needs judgment across many files | alias default | disposable; released after `worker_done` | any read-only research, check, audit, or claim verification the orchestrator would otherwise do itself |
+| Verifier | `claude-glm`; `claude-glm-flash` for purely mechanical runs (a suite, a count) | high by default; alias default on flash | disposable; released after `worker_done` | any read-only research, check, audit, or claim verification the orchestrator would otherwise do itself |
 | Operator | the human | | | the merge word, and decisions no session can own |
 
 ## The launch
@@ -37,11 +37,22 @@ it with `--model`.
 
 ## Retention follows artifacts
 
-The session that built the PR fixes the PR. Attach its next task with
-`worker-start --task <next> --terminal <handle>` so Orca transfers ownership. Reviewer
+The session that built the PR fixes the PR, and an implementer is retained across
+consecutive work items. Attach its next task with `worker-start --task <next>
+--terminal <handle>` so Orca transfers ownership. At each task boundary send
+`/context` to the live terminal and read the one reply: past ~50% of the window
+(500k tokens on `glm-5.3`) or an auto-compact, the implementer writes a handoff and
+the next item goes to a fresh implementer with that handoff in its brief. Reviewer
 and verifier own nothing durable and are released the moment their `worker_done` is
 processed. If `worker-release` retains a terminal you created with `terminal create`,
 close it with `orca terminal close`; read the release receipt rather than assuming.
+
+## Session budget
+
+One implementer and at most one verifier per work item; one reviewer per PR and at
+most one verifier per fix round. A further read-only question goes to the existing
+verifier or implementer by `send`, never to a new session. A work item that needs a
+fourth session is a planning defect: stop and re-plan it.
 
 ## Placement
 
