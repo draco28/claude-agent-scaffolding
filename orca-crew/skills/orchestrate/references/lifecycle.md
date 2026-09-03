@@ -55,17 +55,20 @@ Every command's syntax comes from `orca skills get orchestration`.
    a malformed body, send one bounded correction request
    before release.
 9. **Disposition.** Each finding becomes **fix**, **defer** as a tracked issue, or
-   **reject** with a reason. Post that list as one PR comment so it survives the session.
+   **reject** with a reason. Post that list as one PR comment — the disposition
+   ledger — so it survives the session.
 10. **Fix rounds.** The retained implementer gets the fix list plus the GitHub thread
     stream (Codex, CodeRabbit, humans) and works to zero unresolved threads by GraphQL
     `reviewThreads` count, pushing as it goes. The unit that reaches a terminal state
     is each finding, including each finding inside a review body or PR comment: every
     finding ends **fixed**, resolved only after the fix is on the head the reviewer
     can see; **deferred**, resolved with a comment linking the tracked issue; or
-    **rejected**, resolved with the evidence. A signal is clean when every finding in
-    it has a terminal state recorded in the disposition comment. P0 and P1 findings
-    are never deferred. A
-    new bot or human finding that arrives after the disposition returns to the
+    **rejected**, resolved with the evidence. After each fix round's `worker_done`,
+    and after each later-finding disposition, edit the disposition comment so every
+    finding's terminal state is recorded there — fixed in <sha>, deferred →
+    #<issue>, rejected with the reason. A signal is clean when every finding in it
+    has a terminal state so recorded. P0 and P1 findings are never deferred. A new
+    bot or human finding that arrives after the disposition returns to the
     orchestrator via `ask` or `worker_done` — the implementer resolves it only
     after the orchestrator's decision (#410). No second `/code-review`. Bot comments
     after each push stay in this stream, and review bodies and top-level PR
@@ -82,7 +85,8 @@ Every command's syntax comes from `orca skills get orchestration`.
     SHA immediately before asking: `isDraft`, `mergeable`, `mergeStateStatus`, every
     relevant check-run and status context — all must be successful — the unresolved
     threads, and the non-thread signals of review bodies and PR conversation comments,
-    which are clean when every finding in them has a terminal state (step 10).
+    which are clean when every finding in them has a terminal state recorded in the
+    disposition comment (step 10).
     Ask only when every one is clean: a non-mergeable state is surfaced to the operator
     as the blocker instead of asking, and a new actionable finding returns to step 10.
     Ask the operator for the merge word naming that SHA.
