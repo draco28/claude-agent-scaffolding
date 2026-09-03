@@ -41,10 +41,11 @@ Every command's syntax comes from `orca skills get orchestration`.
    mutation of any new test, and the diff against the requirement. The suite result
    on the head is not a claim — the orchestrator reads that SHA's check-runs before
    dispatching the verifier. `claude-glm` at high — the claims include judgment, and
-   `cannot determine` counts as fail. A fail returns to the implementer as one fix
-   message, and the re-check attaches its task to the same verifier session; a second
-   fail on the same item goes to the operator. The verifier is released only at pass
-   or escalation.
+   `cannot determine` counts as fail. On a fail, attach a fix task to the retained
+   implementer with `worker-start --task <fix-task> --terminal <handle>`, wait for its
+   `worker_done` naming the new head SHA, read that SHA's check-runs, then re-check on
+   the retained verifier; a second fail on the same item goes to the operator. The
+   verifier is released only at pass or escalation.
 8. **Review.** A review runs exactly once per PR: `claude-glm-flash` in a fresh worktree
    at the PR head, brief `/code-review <PR>`, every finding returned in the `worker_done`
    body as file, line, severity, claim. The reviewer posts nothing to GitHub and edits
