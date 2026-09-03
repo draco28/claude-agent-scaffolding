@@ -37,7 +37,9 @@ Every command's syntax comes from `orca skills get orchestration`.
    listing every claim: the suite result on the head SHA, each acceptance criterion,
    the mutation of any new test, and the diff against the requirement. `claude-glm`
    at high unless every claim is mechanical. A fail returns to the implementer as one
-   fix message; a second fail on the same item goes to the operator.
+   fix message, and the re-check attaches its task to the same verifier session; a
+   second fail on the same item goes to the operator. The verifier is released only
+   at pass or escalation.
 8. **Review.** A review runs exactly once per PR: `claude-glm-flash` in a fresh worktree
    at the PR head, brief `/code-review <PR>`, every finding returned in the `worker_done`
    body as file, line, severity, claim. The reviewer posts nothing to GitHub and edits

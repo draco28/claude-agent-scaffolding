@@ -75,7 +75,7 @@ Three consequences:
   mechanical, read-heavy).
 - **Reviewer** — `claude-glm-flash` running `/code-review <PR>` once per PR. Disposable.
 - **Verifier** — `claude-glm` at high, read-only; `claude-glm-flash` for probes and
-  purely mechanical verification. Disposable.
+  purely mechanical verification. Retained until its item passes or escalates.
 - **Operator** — the human. The merge word, and every decision no session can own.
 
 Every worker is launched by its alias, never by `claude --model`. A work item's

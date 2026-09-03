@@ -10,7 +10,7 @@ before sending work.
 | Implementer, planned | `claude-glm` | high by default; `--effort max` on demand | retained across work items and the PR's fix rounds, to the threshold below | `contract`: an interface, schema, contract, or architectural change, or a plan gate needed; the default when unclassified |
 | Implementer, fast | `claude-glm-flash` | alias default | retained if a fix round follows, else released | `bounded`: one-file, mechanical, read-heavy |
 | Reviewer | `claude-glm-flash` | alias default | disposable; released after `worker_done` | once per PR; first task `/code-review <PR>`; never implements |
-| Verifier | `claude-glm`; `claude-glm-flash` for purely mechanical runs (a suite, a count) | high by default; alias default on flash | disposable; released after `worker_done` | any read-only research, check, audit, or claim verification the orchestrator would otherwise do itself |
+| Verifier | `claude-glm`; `claude-glm-flash` for purely mechanical runs (a suite, a count) | high by default; alias default on flash | retained until its item passes or escalates to the operator | any read-only research, check, audit, or claim verification the orchestrator would otherwise do itself |
 | Operator | the human | | | the merge word, and decisions no session can own |
 
 ## The launch
@@ -42,9 +42,11 @@ consecutive work items. Attach its next task with `worker-start --task <next>
 --terminal <handle>` so Orca transfers ownership. At each task boundary send
 `/context` to the live terminal and read the one reply: past ~50% of the window
 (500k tokens on `glm-5.3`) or an auto-compact, the implementer writes a handoff and
-the next item goes to a fresh implementer with that handoff in its brief. Reviewer
-and verifier own nothing durable and are released the moment their `worker_done` is
-processed. If `worker-release` retains a terminal you created with `terminal create`,
+the next item goes to a fresh implementer with that handoff in its brief. The reviewer
+owns nothing durable and is released the moment its `worker_done` is processed; the
+verifier seat is retained across a fail-and-fix cycle on the same item — the re-check
+attaches its task to the same verifier — and is released only when the item passes or
+goes to the operator. If `worker-release` retains a terminal you created with `terminal create`,
 close it with `orca terminal close`; read the release receipt rather than assuming.
 
 ## Session budget
