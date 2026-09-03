@@ -94,16 +94,18 @@ PLACEMENT: <worktree abs-path or repo path>, at <ref or sha>.
 CLAIMS:, a numbered list the orchestrator fills from the work item's spec:
   1. <acceptance criterion or requirement>: <how to check>
   2. The diff matches the requirement: read the requirement, then the diff.
-  3. A new test fails when its edit is reverted in a disposable worktree.
+  3. When the item adds or changes a test: that test fails when its edit is reverted
+     in a disposable worktree; no new test, delete this claim (never `cannot determine`).
 
 DONE: send worker_done with one report, one line per claim, then the caveats:
   1. <claim>: pass | fail | cannot determine — <evidence, commands and output verbatim>
   `Cannot determine` counts as fail; the suite on the head is not a claim (its
   check-runs were read before dispatch). Caveats: <what the check could not see>
 
-NEVER: edit a tracked file, commit, or push. Test scratch output is fine — write it,
-never commit it — and run in a disposable worktree. If checking requires any other
-write, stop and escalate instead.
+NEVER: commit or push, or edit a tracked file outside the mutation check. That check
+may temporarily edit one — in the disposable worktree, reverted before the report.
+Scratch output is fine — write it, never commit it — and run in a disposable
+worktree. Any other write: stop and escalate instead.
 ```
 
 ## Fix-round brief (retained implementer, after disposition)
@@ -136,13 +138,12 @@ reply; outside the TASK block so the ossify replacement keeps it.
 ## Correction request (one `send`, no new session)
 
 A malformed, incomplete, or wrongly-shaped report from a live session is corrected in
-place — never by a new session. One `send` to that session, nothing else:
+place, never by a new session: one `send` to that session, nothing else.
 
 ```text
 Your worker_done for <task-id> is malformed or incomplete: <the missing or wrong
 field, and what is wrong with it>. Send the exact shape wanted: <the field, restated
-from your brief>. No other work; return the corrected body via `orca orchestration
-ask` — the orchestrator's wait loop already receives it.
+from your brief>. No other work; return the corrected body via `orca orchestration ask`.
 ```
 
 If one `send` does not fix the report, that is an `escalation`.
