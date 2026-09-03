@@ -40,9 +40,12 @@ it with `--model`.
 The session that built the PR fixes the PR, and an implementer is retained across
 consecutive work items. Attach its next task with `worker-start --task <next>
 --terminal <handle>` so Orca transfers ownership. At each task boundary send
-`/context` to the live terminal and read the one reply: past ~50% of the window
-(500k tokens on `glm-5.3`) or an auto-compact, the implementer writes a handoff and
-the next item goes to a fresh implementer with that handoff in its brief. The reviewer
+`/context` to the live terminal and read the one reply — the orchestrator's one
+context source: past half its window, as `/context` reports, or an auto-compact, the
+next item goes to a fresh implementer. The implementer returns its handoff inputs in
+`worker_done`; the orchestrator writes the handoff into the next brief. Rotation
+happens between work items, never mid-PR: the retained implementer finishes the PR's
+fix rounds unless the harness auto-compacts. The reviewer
 owns nothing durable and is released the moment its `worker_done` is processed; the
 verifier seat is retained across a fail-and-fix cycle on the same item — the re-check
 attaches its task to the same verifier — and is released only when the item passes or

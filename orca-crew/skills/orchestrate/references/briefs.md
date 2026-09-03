@@ -37,7 +37,6 @@ open the PR from the worktree with `gh pr create --repo <owner/repo> --base
   Evidence: <each test command and its result, verbatim>
   PR: <number and head SHA>
   Open: <anything unfinished or uncertain>
-  Context: <percent, from your transcript's latest usage record; the orchestrator can also read /context in your terminal>
   Files: <paths>
 
 NEVER: merge, delete a branch, force-push, edit files outside the worktree, or run any
@@ -59,7 +58,7 @@ RULES THAT DO NOT LOAD HERE: <paste verbatim, or "none">.
 DONE: commit with a message written to a file and `git commit -F`; push; <open the PR
 from the worktree with `gh pr create --repo <owner/repo> --base <base-branch> --head
 <branch> | push to the existing PR>. Then send worker_done with this body:
-  Changed / Evidence / PR / Open / Context / Files, as in the planned brief.
+  Changed / Evidence / PR / Open / Files, as in the planned brief.
 
 NEVER: merge, delete a branch, force-push, edit files outside the worktree, or run any
 subagent. Ask when blocked; escalate when stuck; report refusals verbatim.

@@ -50,9 +50,10 @@ One implementer seat and one verifier seat per work item; one reviewer per PR. A
 round may re-use the verifier seat, and a context-rotation replacement occupies the
 seat it replaces; any session outside those seats is a planning defect, and the
 orchestrator stops to re-plan the item. The authority is the skill's `roles.md`.
-The implementer is retained across consecutive work items until it passes ~50% of
-its context window (checked by `/context` at each task boundary), then writes a
-handoff and the next item starts fresh with it.
+The implementer is retained across consecutive work items until it passes half its
+context window (checked by `/context` at each task boundary) or the harness
+auto-compacts; the next item starts fresh with the handoff the orchestrator writes
+from the inputs in its `worker_done`.
 
 ## With ossify
 
