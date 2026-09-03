@@ -1,7 +1,7 @@
 {
   "name": "orca-crew",
-  "version": "0.1.0",
-  "description": "The orchestrator/worker session model over Orca orchestration: roles by alias, the twelve-step run, brief templates, one review per PR.",
+  "version": "0.2.0",
+  "description": "The orchestrator/worker session model over Orca orchestration: roles by alias and complexity class, the thirteen-step run with a verify step per work item, a session budget of one implementer and one verifier per work item, brief templates, one review per PR.",
   "author": {
     "name": "Pras"
   },

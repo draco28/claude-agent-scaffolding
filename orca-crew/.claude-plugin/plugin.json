@@ -1,7 +1,7 @@
 {
   "name": "orca-crew",
-  "version": "0.1.0",
-  "description": "The orchestrator/worker session model over Orca orchestration, as one prose skill. An orchestrator session (claude on Fable, or claude-sol) keeps its context for decisions and dispatches everything else to GLM sessions launched by alias: claude-glm or claude-glm-flash implement, one claude-glm-flash session runs /code-review once per PR and returns findings via worker_done, the retained implementer works GitHub threads to zero, merge only on the operator's word. Defers every other Orca command to the Orca binary's own guide. No lib, no hooks, no state.",
+  "version": "0.2.0",
+  "description": "The orchestrator/worker session model over Orca orchestration. An orchestrator session (claude on Fable, or claude-sol) keeps its context for decisions and dispatches everything else to GLM sessions launched by alias: claude-glm or claude-glm-flash implement by complexity class, one claude-glm-flash session runs /code-review once per PR, the retained implementer works GitHub threads to zero, merge only on the operator's word. A session budget caps each work item at one implementer and one verifier. Defers every other Orca command to the Orca binary's own guide. No lib, no hooks, no state.",
   "author": {
     "name": "Pras"
   }

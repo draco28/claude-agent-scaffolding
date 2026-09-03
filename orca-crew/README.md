@@ -14,7 +14,7 @@ for the operator's word.
 
 | Skill | What it does |
 |---|---|
-| `orchestrate` | The playbook for the orchestrator session: the delegation floor and its decidable test, the role table, the twelve-step run, four self-contained brief templates, the ossify seam, and the refusals. Defers every other Orca command to `orca skills get orchestration`. |
+| `orchestrate` | The playbook for the orchestrator session: the delegation floor and its decidable test, the role table, the thirteen-step run, five self-contained brief templates, the ossify seam, and the refusals. Defers every other Orca command to `orca skills get orchestration`. |
 
 ## Command
 
@@ -32,17 +32,26 @@ verifier session.
 
 ## Roles
 
-| Role | Alias |
-|---|---|
-| Orchestrator | `claude` or `claude-sol` |
-| Implementer, planned | `claude-glm` (high; `--effort max` on demand) |
-| Implementer, fast | `claude-glm-flash` |
-| Reviewer | `claude-glm-flash`, `/code-review <PR>` once |
-| Verifier | `claude-glm-flash`, read-only |
-| Operator | the human: the merge word |
+| Role | Alias | Class |
+|---|---|---|
+| Orchestrator | `claude` or `claude-sol` | |
+| Implementer, planned | `claude-glm` (high; `--effort max` on demand) | `contract`, and the default when unclassified |
+| Implementer, fast | `claude-glm-flash` | `bounded` |
+| Reviewer | `claude-glm-flash`, `/code-review <PR>` once | |
+| Verifier | `claude-glm` at high; `claude-glm-flash` for purely mechanical runs. Read-only | |
+| Operator | the human: the merge word | |
 
 Aliases are shell profiles that carry provider routing and pinned defaults. The skill
 never substitutes `claude --model`.
+
+## Session budget
+
+Per work item: one implementer and at most one verifier. Per PR: one reviewer and at
+most one verifier per fix round. Further read-only questions go to the existing
+session by `send`; a work item that needs a fourth session is a planning defect, and
+the orchestrator stops to re-plan it. The implementer is retained across consecutive
+work items until it passes ~50% of its context window (checked by `/context` at each
+task boundary), then writes a handoff and the next item starts fresh with it.
 
 ## With ossify
 
