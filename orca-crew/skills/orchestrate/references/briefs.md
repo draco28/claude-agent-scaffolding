@@ -93,9 +93,9 @@ PLACEMENT: <worktree abs-path or repo path>, at <ref or sha>.
 CLAIMS:, a numbered list the orchestrator fills from the work item's spec:
   1. <acceptance criterion or requirement>: <how to check>
   2. The diff matches the requirement: read the requirement, then the diff.
-  3. When the item adds or changes a test: that test fails when its edit is reverted
-     in a disposable worktree; when no test is added or changed, delete this claim
-     (never `cannot determine`).
+  3. When the item adds or changes a test: that test fails when the item's implementation
+     edits, not the test, are reverted in a disposable worktree; when no test is added or
+     changed, delete this claim (never `cannot determine`).
 
 DONE: send worker_done with one report, one line per claim, then the caveats:
   1. <claim>: pass | fail | cannot determine — <evidence, commands and output verbatim>
