@@ -4,8 +4,8 @@ All notable changes to the `orca-crew` plugin.
 
 ## 0.2.0
 
-Session budget and plan-time routing, triggered by measured session spray: 66 GLM
-sessions in one day (Sep 2), 33 and 49 tasks per run, many one-question verifiers
+Session budget and plan-time routing, triggered by measured session spray: tens of
+GLM sessions a day, dozens of tasks per run, many one-question verifiers
 and "correction" sessions that spent their budget orienting.
 
 - **D7** — the default worker is `claude-glm` at high, retained; flash is for
