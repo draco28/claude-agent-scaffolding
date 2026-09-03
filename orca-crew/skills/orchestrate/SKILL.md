@@ -40,14 +40,22 @@ You never read source files or diffs, run a test suite, edit product code, run a
 or research. **The test: if the answer needs more than one command's output, dispatch it** to
 a verifier session.
 
+How many sessions may exist is the session budget in `references/roles.md` — one
+implementer seat and one verifier seat per work item, one reviewer per PR — stated
+once there; any session outside those seats is a planning defect. A malformed or
+incomplete report is corrected by the correction-request template in
+`references/briefs.md` — one bounded `send` to the live session that wrote it; a
+correction session is never created.
+
 Three consequences:
 
 - **No `Agent` tool from the orchestrator.** Subagents spend orchestrator-tier tokens and
   leave no Orca provenance. Every helper is an Orca session.
 - **`worker-read` only on `escalation` or a failed `worker_done`**, never to watch
   progress. Rolling `check --wait` is the wait primitive. A timeout is a checkpoint, not a
-  failure. A heartbeat means alive, not done. The one `terminal read` of the launch
-  banner in `roles.md` is the single permitted read besides those two.
+  failure. A heartbeat means alive, not done. Beyond those `worker-read` cases, the only
+  bounded reads are the launch-banner `terminal read` in `roles.md` and the one
+  `/context` reply at each task boundary.
 - **Verifying a worker's claim is a verifier dispatch**, not an orchestrator read. "Tests
   pass" in a `worker_done` is a claim until CI on that head SHA, or a verifier, says so.
   One narrow exception: lifecycle step 6's PR gate — `gh pr view` for identity and
@@ -61,29 +69,36 @@ Three consequences:
 `references/roles.md` is the table. In one line each:
 
 - **Orchestrator** — you: `claude` (Fable) or `claude-sol`. One per Run.
-- **Implementer, planned** — `claude-glm`, effort high by default, `--effort max` on
-  demand. Retained across the PR's fix rounds.
-- **Implementer, fast** — `claude-glm-flash`. Bounded, mechanical, one-file work.
+- **Implementer, planned** — `claude-glm` at high, `--effort max` on demand; the
+  `contract` class and the default when unclassified.
+- **Implementer, fast** — `claude-glm-flash`; the `bounded` class (one-file,
+  mechanical, read-heavy).
 - **Reviewer** — `claude-glm-flash` running `/code-review <PR>` once per PR. Disposable.
-- **Verifier** — `claude-glm-flash`, read-only. Disposable.
+- **Verifier** — `claude-glm` at high, read-only: it runs the work-item verify, whose
+  claims include judgment. `claude-glm-flash` covers read-only probes and mechanical
+  runs outside that verify. Retained until its item passes or escalates.
 - **Operator** — the human. The merge word, and every decision no session can own.
 
-Every worker is launched by its alias, never by `claude --model`. The mechanic and the
-retention, placement, and single-writer rules are in the reference.
+Every worker is launched by its alias, never by `claude --model`. A work item's
+complexity class is assigned at plan time and read at dispatch, so picking the alias
+is a lookup, not a judgment. The mechanic and the retention, placement, and
+single-writer rules are in the reference.
 
 ## 4. The run
 
-`references/lifecycle.md` is the twelve-step run: orient, decompose, launch, plan gate,
-wait, implementer done, review, disposition, fix rounds, stopping rule, merge gate,
-handoff. One Run per objective. You drive the steps and nothing else.
+`references/lifecycle.md` is the thirteen-step run: orient, decompose, launch, plan
+gate, wait, implementer done, verify, review, disposition, fix rounds, stopping rule,
+merge gate, handoff. One Run per objective. You drive the steps and nothing else.
 
 ## 5. Briefs
 
-`references/briefs.md` ships four templates: planned implementer, fast implementer,
-reviewer, verifier. A brief is the whole contract the worker will ever see, because a
-worker session has no orchestration context and may be launched somewhere its project
-rules do not load. Every brief asks the worker to state its model in its first reply, and
-you read that line before sending anything else.
+`references/briefs.md` ships five dispatched briefs — planned implementer, fast
+implementer, fix round, reviewer, verifier — plus the correction-request message
+template, which is a `send`, not a session. A brief is the whole contract the worker
+will ever see, because a worker session has no orchestration context and may be
+launched somewhere its project rules do not load. Every brief asks the worker to
+state its model in its first reply, and you read that line before sending anything
+else.
 
 ## 6. With ossify
 

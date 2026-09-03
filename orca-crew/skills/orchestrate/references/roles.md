@@ -4,14 +4,14 @@ One session owns each active role. A session's name or suffix is not its identit
 resuming, ask each candidate to state its role and assignment and wait for the reply
 before sending work.
 
-| Role | Alias | Effort | Lifetime | Pick when |
+| Role | Alias | Effort | Lifetime | Class |
 |---|---|---|---|---|
-| Orchestrator | `claude` (Fable) or `claude-sol` | alias default | one per Run; the operator launches it | always |
-| Implementer, planned | `claude-glm` | high by default; `--effort max` when the brief needs a plan first, touches an interface or contract, or a prior attempt failed | retained across the PR's fix rounds | multi-file work, new behaviour, anything that needs a plan |
-| Implementer, fast | `claude-glm-flash` | alias default | retained if a fix round follows, else released | bounded, mechanical, one-file, fast |
-| Reviewer | `claude-glm-flash` | alias default | disposable; released after `worker_done` | once per PR; first task `/code-review <PR>`; never implements |
-| Verifier | `claude-glm-flash`; `claude-glm` only when the check needs judgment across many files | alias default | disposable; released after `worker_done` | any read-only research, check, audit, or claim verification the orchestrator would otherwise do itself |
-| Operator | the human | | | the merge word, and decisions no session can own |
+| Orchestrator | `claude` (Fable) or `claude-sol` | alias default | one per Run; the operator launches it | |
+| Implementer, planned | `claude-glm` | high by default; `--effort max` when the plan (spine plan or decompose) marks the item, or a prior attempt on it failed | retained across work items and the PR's fix rounds, to the threshold below | `contract`: an interface, schema, contract, or architectural change, or a plan gate; the default when the item is not `bounded` |
+| Implementer, fast | `claude-glm-flash` | alias default | retained if a fix round follows, else released | `bounded` only when the item is one-file, mechanical, or read-only |
+| Reviewer | `claude-glm-flash` — once per PR; first task `/code-review <PR>`; never implements | alias default | disposable; released after `worker_done` validates | |
+| Verifier | `claude-glm` — the work-item verify; `claude-glm-flash` for read-only probes and mechanical runs outside it (a suite, a count, a fact) | high | retained until its item passes or escalates to the operator | |
+| Operator | the human — the merge word, and decisions no session can own | | | |
 
 ## The launch
 
@@ -37,11 +37,28 @@ it with `--model`.
 
 ## Retention follows artifacts
 
-The session that built the PR fixes the PR. Attach its next task with
-`worker-start --task <next> --terminal <handle>` so Orca transfers ownership. Reviewer
-and verifier own nothing durable and are released the moment their `worker_done` is
-processed. If `worker-release` retains a terminal you created with `terminal create`,
+The session that built the PR fixes the PR, and an implementer is retained across
+consecutive work items. Attach its next task with `worker-start --task <next>
+--terminal <handle>` so Orca transfers ownership. At each task boundary send
+`/context` to the live terminal and read the one reply — the orchestrator's one
+context source: past half its window, as `/context` reports, or an auto-compact, the
+next item goes to a fresh implementer. The implementer returns its handoff inputs in
+`worker_done`; the orchestrator writes the handoff into the next brief. Rotation
+happens between work items, never mid-PR: the retained implementer finishes the PR's
+fix rounds unless the harness auto-compacts. The reviewer
+owns nothing durable and is released the moment its `worker_done` is processed; the
+verifier seat is retained across a fail-and-fix cycle on the same item — the re-check
+attaches its task to the same verifier — and is released only when the item passes or
+goes to the operator. If `worker-release` retains a terminal you created with `terminal create`,
 close it with `orca terminal close`; read the release receipt rather than assuming.
+
+## Session budget
+
+One implementer seat and one verifier seat per work item; one reviewer per PR. A fix
+round may re-use the verifier seat, and a context-rotation replacement occupies the
+seat it replaces. Any session outside those seats is a planning defect: stop and
+re-plan the item. A further read-only question goes to the existing verifier or
+implementer by `send`, never to a new session.
 
 ## Placement
 

@@ -7,11 +7,10 @@ injected preamble plus this text and nothing else. Every brief carries, in this 
 1. Role, and "state your model in your first reply".
 2. Placement: absolute worktree path, branch, base branch.
 3. The task, plus any project rule the worker's location will not load, pasted verbatim.
-4. The `worker_done` body shape.
-5. Forbidden actions for the role.
-6. `ask` for a blocking question, `escalation` when stuck. A policy refusal is reported,
+4. The `worker_done` body shape, and the forbidden actions for the role.
+5. `ask` for a blocking question, `escalation` when stuck. A policy refusal is reported,
    never retried around.
-7. Planned implementer only: the plan gate.
+6. Planned implementer only: the plan gate.
 
 Angle brackets are slots. Fill every slot; delete nothing else.
 
@@ -71,8 +70,8 @@ ROLE: reviewer. State the model you are running in your first reply, then contin
 
 PLACEMENT: worktree <abs-path> checked out at PR <number>'s head <sha>.
 
-TASK: run `/code-review <number>` and let it finish. Then send worker_done with every
-finding in this body, one per line:
+TASK: run `/code-review <number>` and let it finish. Then send worker_done with
+`Findings: none` on a clean review, else every finding in this body, one per line:
   <file>:<line> | P0|P1|P2|P3 | <claim in one sentence>
 followed by:
   Reviewed head: <sha>
@@ -83,7 +82,7 @@ travel only in worker_done. If `/code-review` refuses or errors, report its outp
 verbatim and stop. Use `ask` for a blocking question and `escalation` when stuck.
 ```
 
-## Verifier (`claude-glm-flash`, or `claude-glm` for many-file judgment)
+## Verifier (`claude-glm` at high)
 
 ```text
 ROLE: verifier, read-only. State the model you are running in your first reply, then
@@ -91,17 +90,22 @@ continue.
 
 PLACEMENT: <worktree abs-path or repo path>, at <ref or sha>.
 
-QUESTION: <the single claim to check, stated so the answer is yes or no plus evidence>.
-HOW TO CHECK: <the commands to run, or "your choice; show your work">.
+CLAIMS:, a numbered list the orchestrator fills from the work item's spec:
+  1. <acceptance criterion or requirement>: <how to check>
+  2. The diff matches the requirement: read the requirement, then the diff.
+  3. When the item adds or changes a test: that test fails when the item's implementation
+     edits, not the test, are reverted in a disposable worktree; when no test is added or
+     changed, delete this claim (never `cannot determine`).
 
-DONE: send worker_done with this body:
-  Answer: yes | no | cannot determine
-  Evidence: <commands and their output, verbatim>
-  Caveats: <what the check could not see>
+DONE: send worker_done with one report, one line per claim, then the caveats:
+  1. <claim>: pass | fail | cannot determine — <evidence, commands and output verbatim>
+  `Cannot determine` counts as fail; the suite on the head is not a claim (its
+  check-runs were read before dispatch). Caveats: <what the check could not see>
 
-NEVER: edit a tracked file, commit, or push. Test scratch output is fine — write it,
-never commit it — and run in a disposable worktree. If checking requires any other
-write, stop and escalate instead.
+NEVER: commit or push, or edit a tracked file outside the mutation check. That check
+may temporarily edit one — in the disposable worktree, reverted before the report.
+Scratch output is fine — write it, never commit it — and run in a disposable
+worktree. Any other write: stop and escalate instead.
 ```
 
 ## Fix-round brief (retained implementer, after disposition)
@@ -112,7 +116,8 @@ fast-implementer brief with this TASK:
 
 ```text
 TASK: work PR <number> to zero unresolved review threads. Inputs, in priority order:
-  1. Disposition (fix these; defer or reject nothing on this list): <list>
+  1. Disposition: <list>. Fix every item on it as dispositioned; defer or reject
+     nothing on it yourself.
   2. Every unresolved GitHub review thread on the PR, including bot reviews that arrive
      after each push. Count them with GraphQL reviewThreads, not the REST list.
   3. Review bodies and top-level PR conversation comments — reviewThreads does not
@@ -125,3 +130,20 @@ evidence; P0 and P1 are never deferred.
 --repo-root <worktree holding the PR branch>`; the disposition above is a third finding
 signal; stop at work-pr's merge ask and put its ledger in worker_done.>
 ```
+
+A finding that arrives after the disposition is not on that list: return it through
+the blocking `orca orchestration ask` and wait, resolving only on the orchestrator's
+reply; outside the TASK block so the ossify replacement keeps it.
+
+## Correction request (one `send`, no new session)
+
+A malformed, incomplete, or wrongly-shaped report from a live session is corrected in
+place, never by a new session: one `send` to that session, nothing else.
+
+```text
+Your worker_done for <task-id> is malformed or incomplete: <the missing or wrong
+field, and what is wrong with it>. Send the exact shape wanted: <the field, restated
+from your brief>. No other work; return the corrected body via `orca orchestration ask`.
+```
+
+If one `send` does not fix the report, that is an `escalation`.

@@ -1,5 +1,5 @@
 ---
-description: Start or resume an orchestrator Run over Orca — bind the objective, then drive GLM worker sessions by role (claude-glm / claude-glm-flash implementers, one flash reviewer per PR, disposable verifiers) while this session keeps its context for decisions.
+description: Start or resume an orchestrator Run over Orca — bind the objective, then drive GLM worker sessions by role (claude-glm / claude-glm-flash implementers, one flash reviewer per PR, one retained verifier per work item) while this session keeps its context for decisions.
 argument-hint: "[objective]"
 allowed-tools: Bash(bash:*), Bash(orca:*), Bash(git:*), Bash(gh:*), Read, Write
 ---

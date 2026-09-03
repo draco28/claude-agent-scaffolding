@@ -14,7 +14,7 @@ for the operator's word.
 
 | Skill | What it does |
 |---|---|
-| `orchestrate` | The playbook for the orchestrator session: the delegation floor and its decidable test, the role table, the twelve-step run, four self-contained brief templates, the ossify seam, and the refusals. Defers every other Orca command to `orca skills get orchestration`. |
+| `orchestrate` | The playbook for the orchestrator session: the delegation floor and its decidable test, the role table, the thirteen-step run, five dispatched brief templates plus a correction-request message template, the ossify seam, and the refusals. Defers every other Orca command to `orca skills get orchestration`. |
 
 ## Command
 
@@ -32,17 +32,28 @@ verifier session.
 
 ## Roles
 
-| Role | Alias |
-|---|---|
-| Orchestrator | `claude` or `claude-sol` |
-| Implementer, planned | `claude-glm` (high; `--effort max` on demand) |
-| Implementer, fast | `claude-glm-flash` |
-| Reviewer | `claude-glm-flash`, `/code-review <PR>` once |
-| Verifier | `claude-glm-flash`, read-only |
-| Operator | the human: the merge word |
+| Role | Alias | Class |
+|---|---|---|
+| Orchestrator | `claude` or `claude-sol` | |
+| Implementer, planned | `claude-glm` (high; `--effort max` on demand) | `contract`, and the default when unclassified |
+| Implementer, fast | `claude-glm-flash` | `bounded` |
+| Reviewer | `claude-glm-flash`, `/code-review <PR>` once | |
+| Verifier | `claude-glm` at high — the work-item verify; `claude-glm-flash` for read-only probes and mechanical runs outside it. Read-only | |
+| Operator | the human: the merge word | |
 
 Aliases are shell profiles that carry provider routing and pinned defaults. The skill
 never substitutes `claude --model`.
+
+## Session budget
+
+One implementer seat and one verifier seat per work item; one reviewer per PR. A fix
+round may re-use the verifier seat, and a context-rotation replacement occupies the
+seat it replaces; any session outside those seats is a planning defect, and the
+orchestrator stops to re-plan the item. The authority is the skill's `roles.md`.
+The implementer is retained across consecutive work items until it passes half its
+context window (checked by `/context` at each task boundary) or the harness
+auto-compacts; the next item starts fresh with the handoff the orchestrator writes
+from the inputs in its `worker_done`.
 
 ## With ossify
 
