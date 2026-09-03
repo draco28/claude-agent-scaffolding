@@ -7,11 +7,10 @@ injected preamble plus this text and nothing else. Every brief carries, in this 
 1. Role, and "state your model in your first reply".
 2. Placement: absolute worktree path, branch, base branch.
 3. The task, plus any project rule the worker's location will not load, pasted verbatim.
-4. The `worker_done` body shape.
-5. Forbidden actions for the role.
-6. `ask` for a blocking question, `escalation` when stuck. A policy refusal is reported,
+4. The `worker_done` body shape, and the forbidden actions for the role.
+5. `ask` for a blocking question, `escalation` when stuck. A policy refusal is reported,
    never retried around.
-7. Planned implementer only: the plan gate.
+6. Planned implementer only: the plan gate.
 
 Angle brackets are slots. Fill every slot; delete nothing else.
 
@@ -95,7 +94,8 @@ CLAIMS:, a numbered list the orchestrator fills from the work item's spec:
   1. <acceptance criterion or requirement>: <how to check>
   2. The diff matches the requirement: read the requirement, then the diff.
   3. When the item adds or changes a test: that test fails when its edit is reverted
-     in a disposable worktree; no new test, delete this claim (never `cannot determine`).
+     in a disposable worktree; when no test is added or changed, delete this claim
+     (never `cannot determine`).
 
 DONE: send worker_done with one report, one line per claim, then the caveats:
   1. <claim>: pass | fail | cannot determine — <evidence, commands and output verbatim>
