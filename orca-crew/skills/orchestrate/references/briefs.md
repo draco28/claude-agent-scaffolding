@@ -37,7 +37,7 @@ open the PR from the worktree with `gh pr create --repo <owner/repo> --base
   Evidence: <each test command and its result, verbatim>
   PR: <number and head SHA>
   Open: <anything unfinished or uncertain>
-  Context: <percent, from /context>
+  Context: <percent, from your transcript's latest usage record; the orchestrator can also read /context in your terminal>
   Files: <paths>
 
 NEVER: merge, delete a branch, force-push, edit files outside the worktree, or run any
