@@ -7,8 +7,8 @@ before sending work.
 | Role | Alias | Effort | Lifetime | Class |
 |---|---|---|---|---|
 | Orchestrator | `claude` (Fable) or `claude-sol` | alias default | one per Run; the operator launches it | |
-| Implementer, planned | `claude-glm` | high by default; `--effort max` when the brief needs a plan first, touches an interface or contract, or a prior attempt failed | retained across work items and the PR's fix rounds, to the threshold below | `contract`: an interface, schema, contract, or architectural change, or a plan gate needed; the default when unclassified |
-| Implementer, fast | `claude-glm-flash` | alias default | retained if a fix round follows, else released | `bounded`: one-file, mechanical, read-heavy |
+| Implementer, planned | `claude-glm` | high by default; `--effort max` when the brief needs a plan first, touches an interface or contract, or a prior attempt failed | retained across work items and the PR's fix rounds, to the threshold below | `contract`: an interface, schema, contract, or architectural change, or a plan gate; the default when the item is not `bounded` |
+| Implementer, fast | `claude-glm-flash` | alias default | retained if a fix round follows, else released | `bounded` only when the item is one-file, mechanical, or read-only |
 | Reviewer | `claude-glm-flash` — once per PR; first task `/code-review <PR>`; never implements | alias default | disposable; released after `worker_done` validates | |
 | Verifier | `claude-glm` — the work-item verify; `claude-glm-flash` for read-only probes and mechanical runs outside it (a suite, a count, a fact) | high | retained until its item passes or escalates to the operator | |
 | Operator | the human — the merge word, and decisions no session can own | | | |

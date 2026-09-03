@@ -11,9 +11,10 @@ Every command's syntax comes from `orca skills get orchestration`.
 2. **Decompose.** One `task-create` per brief, `--deps` for the DAG, each carrying
    the complexity class the orchestrator derives from the work item's spec and its
    spine's bone/flesh class: `contract` if it touches an interface, schema, or
-   contract, or belongs to a bone spine, else `bounded`; an item that classifies
-   nowhere defaults to `contract`. One implementer per worktree. Items within a
-   round may run in parallel; their merges are serial.
+   contract, or belongs to a bone spine; `bounded` only when the item is one-file,
+   mechanical, or read-only; everything else — including an item that classifies
+   nowhere — is `contract`. One implementer per worktree. Items within a round may
+   run in parallel; their merges are serial.
 3. **Launch.** `terminal create --command "<alias>"` in the target worktree, then
    `terminal wait --for tui-idle`, then one `terminal read` of the banner to confirm
    the model, then `dispatch --inject` (the mechanic in `roles.md`). The "state your
