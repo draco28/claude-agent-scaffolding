@@ -40,14 +40,22 @@ You never read source files or diffs, run a test suite, edit product code, run a
 or research. **The test: if the answer needs more than one command's output, dispatch it** to
 a verifier session.
 
+The same floor bounds how many sessions exist: per work item, one implementer and at
+most one verifier; per PR, one reviewer and at most one verifier per fix round. A
+further read-only question goes to the existing session by `send`; a work item that
+needs a fourth session is a planning defect — stop and re-plan it. A malformed or
+incomplete report is corrected by one bounded `send` or `reply` to the live session
+that wrote it; a correction session is never created.
+
 Three consequences:
 
 - **No `Agent` tool from the orchestrator.** Subagents spend orchestrator-tier tokens and
   leave no Orca provenance. Every helper is an Orca session.
 - **`worker-read` only on `escalation` or a failed `worker_done`**, never to watch
   progress. Rolling `check --wait` is the wait primitive. A timeout is a checkpoint, not a
-  failure. A heartbeat means alive, not done. The one `terminal read` of the launch
-  banner in `roles.md` is the single permitted read besides those two.
+  failure. A heartbeat means alive, not done. The two permitted bounded reads besides
+  those two are the launch-banner `terminal read` in `roles.md` and the one `/context`
+  reply at each task boundary.
 - **Verifying a worker's claim is a verifier dispatch**, not an orchestrator read. "Tests
   pass" in a `worker_done` is a claim until CI on that head SHA, or a verifier, says so.
   One narrow exception: lifecycle step 6's PR gate — `gh pr view` for identity and
@@ -61,15 +69,19 @@ Three consequences:
 `references/roles.md` is the table. In one line each:
 
 - **Orchestrator** — you: `claude` (Fable) or `claude-sol`. One per Run.
-- **Implementer, planned** — `claude-glm`, effort high by default, `--effort max` on
-  demand. Retained across the PR's fix rounds.
-- **Implementer, fast** — `claude-glm-flash`. Bounded, mechanical, one-file work.
+- **Implementer, planned** — `claude-glm` at high, `--effort max` on demand; the
+  `contract` class and the default when unclassified.
+- **Implementer, fast** — `claude-glm-flash`; the `bounded` class (one-file,
+  mechanical, read-heavy).
 - **Reviewer** — `claude-glm-flash` running `/code-review <PR>` once per PR. Disposable.
-- **Verifier** — `claude-glm-flash`, read-only. Disposable.
+- **Verifier** — `claude-glm` at high, read-only; `claude-glm-flash` for probes and
+  purely mechanical verification. Disposable.
 - **Operator** — the human. The merge word, and every decision no session can own.
 
-Every worker is launched by its alias, never by `claude --model`. The mechanic and the
-retention, placement, and single-writer rules are in the reference.
+Every worker is launched by its alias, never by `claude --model`. A work item's
+complexity class is assigned at plan time and read at dispatch, so picking the alias
+is a lookup, not a judgment. The mechanic and the retention, placement, and
+single-writer rules are in the reference.
 
 ## 4. The run
 
