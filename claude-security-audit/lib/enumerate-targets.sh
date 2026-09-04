@@ -69,8 +69,8 @@ _csa_enum_extensionless_hook_handlers() {
     case "${handler##*/}" in
       *.*) : ;;
       *) if [[ -x "$handler" ]]; then
-           if [[ "$handler" == *$'\n'* ]]; then
-             printf 'refusing newline-containing executable hook handler\n' >&2
+           if [[ "$handler" == *$'\n'* || "$handler" == *$'\t'* ]]; then
+             printf 'refusing newline-or-tab-containing executable hook handler\n' >&2
              return 2
            fi
            printf '%s\n' "$handler"
