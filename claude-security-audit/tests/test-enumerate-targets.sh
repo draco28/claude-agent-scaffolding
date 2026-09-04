@@ -141,15 +141,37 @@ test_enum_paranoid_candidates_exact_membership_under_pipefail() {
   local fake_home; fake_home="$(mktemp -d "${TMPDIR:-/tmp}/csa-paranoid-home.XXXXXX")"
   local fixture; fixture="$(mktemp -d "${TMPDIR:-/tmp}/csa-paranoid-project.XXXXXX")"
   mkdir -p "$fake_home/.claude/plugins/cache/alpha" \
-    "$fake_home/.claude/plugins/cache/beta" "$fixture/.claude"
-  {
-    printf '{"enabledPlugins":["alpha"'
-    awk 'BEGIN { for (i = 0; i < 512; i++) { printf ",\"z%04d", i; for (j = 0; j < 800; j++) printf "a"; printf "\"" } }'
-    printf ']}\n'
-  } > "$fixture/.claude/settings.json"
+    "$fake_home/.claude/plugins/cache/beta"
 
+  # This mock isolates the membership predicate from the production jq
+  # --argjson transport. It emits alpha first, then a pipe-buffer-exceeding
+  # newline-delimited set that would make the old grep -q pipeline SIGPIPE.
   local out
-  out="$(set -o pipefail; HOME="$fake_home" CSA_PROJECT_ROOT="$fixture" csa_enum_paranoid_candidates)"
+  if ! out="$(
+    set -o pipefail
+    csa_enum_enabled_plugins() {
+      printf 'alpha\n'
+      awk 'BEGIN { for (i = 0; i < 512; i++) { printf "z%04d", i; for (j = 0; j < 800; j++) printf "a"; printf "\n" } }'
+    }
+    mock_enabled="$(csa_enum_enabled_plugins)"
+    if [[ "$mock_enabled" != *$'alpha\nz0000'* ]]; then
+      printf '    mock did not begin with enabled alpha\n' >&2
+      exit 1
+    fi
+    if [[ "${#mock_enabled}" -le 131072 ]]; then
+      printf '    mock enabled set did not exceed Linux single-argument limit\n' >&2
+      exit 1
+    fi
+    mock_line_count="$(printf '%s\n' "$mock_enabled" | awk 'END { print NR }')"
+    if [[ "$mock_line_count" -ne 513 ]]; then
+      printf '    mock emitted %s lines, expected 513\n' "$mock_line_count" >&2
+      exit 1
+    fi
+    HOME="$fake_home" CSA_PROJECT_ROOT="$fixture" csa_enum_paranoid_candidates
+  )"; then
+    rm -rf "$fixture" "$fake_home"
+    return 1
+  fi
   assert_eq "beta" "$out" "only non-enabled plugin is paranoid candidate" || {
     rm -rf "$fixture" "$fake_home"
     return 1
