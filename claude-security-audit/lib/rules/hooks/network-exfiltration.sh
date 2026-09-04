@@ -24,8 +24,9 @@ source "$_RULE_DIR/helpers.sh" 2>/dev/null || true
 detect() {
   local target_file="$1"
   [[ -r "$target_file" ]] || return 0
-  # Only scan known hook and wrapper script surfaces.
-  if [[ "$target_file" != */.claude/hooks* && "$target_file" != *.sh \
+  # Only scan known hook configuration, handler and wrapper surfaces.
+  if [[ "$target_file" != */.claude/hooks* && "$target_file" != */.claude/settings.json \
+        && "$target_file" != */.claude/settings.local.json && "$target_file" != *.sh \
         && "$target_file" != */.opencode/bin/* ]]; then
     return 0
   fi
