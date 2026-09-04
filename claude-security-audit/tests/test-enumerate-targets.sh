@@ -141,6 +141,7 @@ test_enum_paranoid_candidates_exact_membership_under_pipefail() {
   local fake_home; fake_home="$(mktemp -d "${TMPDIR:-/tmp}/csa-paranoid-home.XXXXXX")"
   local fixture; fixture="$(mktemp -d "${TMPDIR:-/tmp}/csa-paranoid-project.XXXXXX")"
   mkdir -p "$fake_home/.claude/plugins/cache/alpha" \
+    "$fake_home/.claude/plugins/cache/alpha-extra" \
     "$fake_home/.claude/plugins/cache/beta"
 
   # This mock isolates the membership predicate from the production jq
@@ -172,7 +173,7 @@ test_enum_paranoid_candidates_exact_membership_under_pipefail() {
     rm -rf "$fixture" "$fake_home"
     return 1
   fi
-  assert_eq "beta" "$out" "only non-enabled plugin is paranoid candidate" || {
+  assert_eq $'alpha-extra\nbeta' "$out" "only non-enabled plugins are paranoid candidates" || {
     rm -rf "$fixture" "$fake_home"
     return 1
   }

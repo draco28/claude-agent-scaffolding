@@ -73,7 +73,12 @@ csa_enum_project_targets() {
       find "$root/.claude/hooks" -type f -print 2>/dev/null | while IFS= read -r handler; do
         case "${handler##*/}" in
           *.*) ;;
-          *) [[ -x "$handler" ]] && printf '%s\n' "$handler" ;;
+          *) if [[ -x "$handler" ]]; then
+               printf '%s\n' "$handler"
+             else
+               :
+             fi
+             ;;
         esac
       done
     fi
