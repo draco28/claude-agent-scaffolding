@@ -11,6 +11,27 @@ trap 'rm -rf "$_tmp"' EXIT
 
 run_rule() { ( source "$1"; detect "$2" ); }
 
+# assert_hook_finding_jsonl <output> <rule-id> <target-file>
+# Every line must be a finding JSON object for the expected rule and target.
+assert_hook_finding_jsonl() {
+  local out="$1" expected="$2" target="$3"
+  if ! printf '%s\n' "$out" | jq -s -e --arg rule "$expected" --arg target "$target" '
+    length > 0 and all(.[];
+      type == "object"
+      and .rule_id == $rule
+      and .file == $target
+      and (.line | type == "number" and . >= 1)
+      and (.offset | type == "number" and . >= 0)
+      and (.preview | type == "string" and length > 0)
+      and (.severity | type == "string" and length > 0)
+      and (.finding_uid | type == "string" and length > 0)
+    )
+  ' >/dev/null; then
+    printf '    invalid finding JSONL for %s at %s: %s\n' "$expected" "$target" "$out" >&2
+    return 1
+  fi
+}
+
 # Helper: create a hook file under a proper .claude/hooks-handlers/ path
 make_hook() {
   local name="$1"; local content="$2"
@@ -133,8 +154,7 @@ test_hook_rules_scan_claude_settings_json() {
       expected="${rule##*:}"
       rule="${rule%%:*}"
       out="$(run_rule "$CSA_RULES_DIR/hooks/$rule.sh" "$target")"
-      assert_contains "$out" "$expected" \
-        "$expected must scan Claude settings JSON" || return 1
+      assert_hook_finding_jsonl "$out" "$expected" "$target" || return 1
     done
   done
 }
