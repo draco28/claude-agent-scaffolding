@@ -139,12 +139,28 @@ _csa_target_matches_aspect() {
   esac
 }
 
+# _csa_rule_engine_validate_focus <focus>
+# Accept all or an aspect directory shipped in CSA_RULES_DIR.
+_csa_rule_engine_validate_focus() {
+  local focus="$1" aspect_dir
+  [[ "$focus" == "all" ]] && return 0
+  for aspect_dir in "$CSA_RULES_DIR"/*; do
+    [[ -d "$aspect_dir" ]] || continue
+    [[ "$(basename "$aspect_dir")" == "$focus" ]] && return 0
+  done
+  printf 'Unknown rule aspect: %s\n' "$focus" >&2
+  return 2
+}
+
 # csa_rule_engine_scan_all <project_root> [<focus>]
 # Discovers all rule files (filtered by focus aspect), runs the matrix.
 # Uses aspect-based pre-filtering to reduce rule×target cross-product.
 # Emits SCANNER-002 banner on stderr if 3+ SCANNER-002 findings emerge.
 csa_rule_engine_scan_all() {
   local root="$1"; local focus="${2:-all}"
+  if ! _csa_rule_engine_validate_focus "$focus"; then
+    return 2
+  fi
   local rules_glob="$CSA_RULES_DIR"
   if [[ "$focus" != "all" ]]; then
     rules_glob="$CSA_RULES_DIR/$focus"
@@ -153,7 +169,12 @@ csa_rule_engine_scan_all() {
   local findings_out; findings_out="$(mktemp)"
   # Pre-collect targets once (avoids re-running enumeration per rule).
   local targets_file; targets_file="$(mktemp)"
-  csa_enum_targets_all "$root" 2>/dev/null > "$targets_file"
+  local enum_error
+  if ! enum_error="$(csa_enum_targets_all "$root" 2>&1 > "$targets_file")"; then
+    printf '%s\n' "$enum_error" >&2
+    rm -f "$findings_out" "$targets_file"
+    return 2
+  fi
   while read -r rule_file; do
     [[ -z "$rule_file" ]] && continue
     local aspect; aspect="$(_csa_rule_aspect_from_file "$rule_file")"

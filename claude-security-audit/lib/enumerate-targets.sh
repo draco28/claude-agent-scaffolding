@@ -59,29 +59,40 @@ csa_enum_opencode_project_targets() {
   done
 }
 
+# _csa_enum_extensionless_hook_handlers <project-root>
+# Emit safe extensionless executable handlers or reject newline-containing ones.
+_csa_enum_extensionless_hook_handlers() {
+  local root="$1" hooks="$1/.claude/hooks"
+  [[ -d "$hooks" ]] || return 0
+
+  find "$hooks" -type f -print0 2>/dev/null | while IFS= read -r -d '' handler; do
+    case "${handler##*/}" in
+      *.*) : ;;
+      *) if [[ -x "$handler" ]]; then
+           if [[ "$handler" == *$'\n'* ]]; then
+             printf 'refusing newline-containing executable hook handler\n' >&2
+             return 2
+           fi
+           printf '%s\n' "$handler"
+         else
+           :
+         fi
+         ;;
+    esac
+  done
+}
+
 csa_enum_project_targets() {
   local root="$1"
   if [[ -d "$root/.claude" ]]; then
+    if ! _csa_enum_extensionless_hook_handlers "$root"; then
+      return 2
+    fi
     # Exclude .claude/audits/ — it holds audit state/reports and must not be scanned.
     find "$root/.claude" -type f \
          -not -path "$root/.claude/audits/*" \
          \( -name '*.md' -o -name '*.json' -o -name '*.sh' \
             -o -name '*.py' -o -name '*.js' -o -name '*.ts' \) 2>/dev/null
-    # Concrete executable handlers are a deterministic hook safety rail.
-    # Settings-declared non-executable handlers are reviewed by skill prose.
-    if [[ -d "$root/.claude/hooks" ]]; then
-      find "$root/.claude/hooks" -type f -print 2>/dev/null | while IFS= read -r handler; do
-        case "${handler##*/}" in
-          *.*) ;;
-          *) if [[ -x "$handler" ]]; then
-               printf '%s\n' "$handler"
-             else
-               :
-             fi
-             ;;
-        esac
-      done
-    fi
     find "$root/.claude" -type l \
          -not -path "$root/.claude/audits/*" 2>/dev/null | while read -r sl; do
       printf 'info: symlink at %s not followed\n' "$sl" >&2
@@ -133,9 +144,12 @@ csa_enum_resolve_plugin_path() {
 }
 
 csa_enum_targets_all() {
-  local root="$1"
+  local root="$1" project_targets
+  if ! project_targets="$(csa_enum_project_targets "$root")"; then
+    return 2
+  fi
   {
-    csa_enum_project_targets "$root"
+    [[ -n "$project_targets" ]] && printf '%s\n' "$project_targets"
     while read -r plugin_name; do
       [[ -z "$plugin_name" ]] && continue
       local plugin_path
