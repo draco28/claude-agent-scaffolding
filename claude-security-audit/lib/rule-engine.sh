@@ -98,8 +98,7 @@ _csa_target_matches_aspect() {
       return 1
       ;;
     hooks)
-      [[ "$target" == *.sh || "$target" == */.opencode/bin/* \
-         || "$target" == */.claude/settings.json || "$target" == */.claude/settings.local.json ]] && return 0
+      [[ "$target" == *.sh || "$target" == */.opencode/bin/* || "$target" == */.claude/hooks/* ]] && return 0
       return 1
       ;;
     marketplace)

@@ -67,6 +67,16 @@ csa_enum_project_targets() {
          -not -path "$root/.claude/audits/*" \
          \( -name '*.md' -o -name '*.json' -o -name '*.sh' \
             -o -name '*.py' -o -name '*.js' -o -name '*.ts' \) 2>/dev/null
+    # Concrete executable handlers are a deterministic hook safety rail.
+    # Settings-declared non-executable handlers are reviewed by skill prose.
+    if [[ -d "$root/.claude/hooks" ]]; then
+      find "$root/.claude/hooks" -type f -print 2>/dev/null | while IFS= read -r handler; do
+        case "${handler##*/}" in
+          *.*) ;;
+          *) [[ -x "$handler" ]] && printf '%s\n' "$handler" ;;
+        esac
+      done
+    fi
     find "$root/.claude" -type l \
          -not -path "$root/.claude/audits/*" 2>/dev/null | while read -r sl; do
       printf 'info: symlink at %s not followed\n' "$sl" >&2
@@ -141,10 +151,11 @@ csa_enum_paranoid_candidates() {
   [[ -d "$cache" ]] || return 0
   local enabled
   enabled="$(csa_enum_enabled_plugins "${CSA_PROJECT_ROOT:-$PWD}" | sort -u)"
+  local enabled_lines=$'\n'"$enabled"$'\n'
   find "$cache" -maxdepth 1 -mindepth 1 -type d 2>/dev/null \
     | xargs -n1 basename 2>/dev/null \
     | sort -u \
     | while read -r p; do
-        printf '%s\n' "$enabled" | grep -qx "$p" || printf '%s\n' "$p"
+        [[ "$enabled_lines" == *$'\n'"$p"$'\n'* ]] || printf '%s\n' "$p"
       done
 }
