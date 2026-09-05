@@ -20,6 +20,8 @@
 #   - zero subagent-invocation forms in the activated path's own references
 #   - the exact command the spine session is briefed to run
 #   - the four parent identities its brief must carry
+#   - the nested Run's own mechanical values: the flag child traffic names and
+#     the required nested worker depth
 #   - the line budget these references are held to
 #
 # Counting is one awk index() pass: `grep -c` counts LINES, and `… | grep -q`
@@ -37,6 +39,7 @@ PLUGIN_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 REF="$PLUGIN_ROOT/skills/orchestrate/references"
 EXEC_MD="$REF/ossify-execution.md"
 BRIEFS_MD="$REF/ossify-briefs.md"
+NESTED_MD="$REF/ossify-nested-run.md"
 
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/_helpers.sh"
@@ -153,7 +156,8 @@ rm -f "$tmpl"
 section "no subagent invocation in the activated path"
 
 nonempty "$BRIEFS_MD" "references/ossify-briefs.md exists"
-for f in "$EXEC_MD" "$BRIEFS_MD"; do
+nonempty "$NESTED_MD" "references/ossify-nested-run.md exists"
+for f in "$EXEC_MD" "$NESTED_MD" "$BRIEFS_MD"; do
   for form in 'Task(' 'Agent(' 'subagent_type'; do
     absent "$f" "$form" "${f##*/} invokes no subagent ('$form')"
   done
@@ -172,9 +176,20 @@ for id in PARENT_RUN_ID SPINE_TASK_ID SPINE_DISPATCH_ID SPINE_ID ORCA_EXECUTION_
   pin "$BRIEFS_MD" "$id=" "the brief injects $id exactly once"
 done
 
+section "the nested Run's mechanical values"
+
+# Mechanical, not judgment: an exact flag and an exact number. The prose that
+# carries them moved out of ossify-execution.md, so without these two the split
+# would leave them asserted nowhere.
+pin "$NESTED_MD" '--run $CHILD_RUN_ID' \
+  "child task traffic names the child Run explicitly"
+pin "$NESTED_MD" 'must be `2`' \
+  "the required nested worker depth is byte-exact"
+
 section "reference line budgets"
 
 budget "$EXEC_MD" "ossify-execution.md is within the reference budget"
+budget "$NESTED_MD" "ossify-nested-run.md is within the reference budget"
 budget "$BRIEFS_MD" "ossify-briefs.md is within the reference budget"
 
 report

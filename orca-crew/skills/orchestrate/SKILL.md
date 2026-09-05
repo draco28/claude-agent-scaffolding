@@ -132,7 +132,8 @@ Two cases are named because they look like clashes and are not:
   and drives fresh external terminals per item — no subagent anywhere in that path.
   Its four briefs are in `references/ossify-briefs.md`. Activation needs all four facts
   that file lists; installation alone is not one of them, so an ossify spine you did
-  not plan here stays on the bullet above.
+  not plan here stays on the bullet above. The nested Run's mechanics — depth, routing,
+  the round procedure and the close — are in `references/ossify-nested-run.md`.
 - **`work-pr`.** After the single reviewer dispatch and your disposition, the fix dispatch
   to the retained implementer is `/ossify:work-pr <PR> --repo-root <worktree holding the
   PR branch>` with the disposition list embedded as a third finding signal — work-pr
