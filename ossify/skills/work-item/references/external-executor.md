@@ -121,34 +121,33 @@ finished: the staged index (`git write-tree`), `HEAD`, and the blob ids of
 
 ## 5a. A complete result
 
-The record in §4 is what a **finished** item returns. Five checks before any of
-it reaches close, and **every one of them is terminal**:
+**First, across both envelopes.** Exactly one envelope per request — §4 and §5b
+records counted together, no missing, extra or duplicate `work_item_id` — and
+only then does each reach its own list; a round failing this halts before either.
 
-1. **Item-set equality.** Exactly one record for every request — no missing
-   item, no extra item, no duplicate `work_item_id`.
-2. **Field parity.** Every field in §4 and no other, with `implementer_return`
-   carrying exactly the four keys of the complete return
-   (`references/returns.md` §2): `mode`, `report_path`, `summary`,
-   `stage_status`.
-3. **`coordinator_verdict` is `accepted`.** Any other value, including one that
-   reads as a softer accept, is not an accepted result.
-4. **`mode` is `complete`.** An item that surfaced gaps did not finish and does
-   not come back as a §4 record at all — it comes back as §5b's, which this list
-   never sees. A §4 record whose `mode` is anything but `complete` is malformed.
-5. **The fingerprint still holds, and the item never left the worktree.**
-   Recompute all four ids and compare against what the record declared; a
-   mismatch means the item moved after the caller finished, so halt and name
-   which of the four changed. **Then check `head_oid` and the recomputed `HEAD`
-   against the request's `base_sha`: all three must be equal.** Freshness alone
-   does not catch an executor that committed its work and then staged more —
-   declared and recomputed agree, every field is present, and the item would
-   reach the spine having crossed the commit boundary that belongs to close.
-   `HEAD` moving at all is the defect, whether or not anything else drifted.
+The §4 record is what a **finished** item returns. Four checks, all terminal:
 
-A malformed, non-accepted, stale or moved record halts the round. It never
-degrades into the default nested path, and there is no stop-and-reinvoke step to
-reach for: the lane holds the state lock and the operator owns the recovery
-choice, exactly as everywhere else.
+1. **Field parity.** Every field in §4 and no other, `implementer_return` carrying
+   exactly the complete return's four keys (`references/returns.md` §2):
+   `mode`, `report_path`, `summary`, `stage_status`.
+2. **`coordinator_verdict` is `accepted`** — not a softer accept that reads like one.
+3. **`mode` is `complete`.** An item that surfaced gaps did not finish and comes
+   back as §5b's record; any other `mode` here is malformed.
+4. **The item is the request's worktree, unmoved, fully staged, with the
+   request's documents.** Recompute every row — against the **request** (§3),
+   not only against the record — and halt naming any row that fails:
+
+   | Recomputed | Must equal |
+   |---|---|
+   | the checked-out branch | the request's `branch` |
+   | `HEAD` | the request's `base_sha`, **and** the declared `head_oid` — an executor that commits and then stages again agrees with itself while having crossed the commit boundary that belongs to close |
+   | the staged tree (`write-tree`) | the declared `tree_oid` |
+   | `git status --porcelain` | staged entries only, no unstaged and no untracked — so `stage_status: all_staged` is **recomputed here, never trusted** |
+   | the report's path | the `report.md` beside the request's `spec_path` and `handoff_path`, not any file that happens to hash right |
+   | that report's and that spec's blob ids | the declared `report_oid` and `spec_oid` |
+
+A malformed, non-accepted or moved record halts the round — never a degrade into
+the nested path, no stop-and-reinvoke step, and the operator owns the recovery.
 
 Records that pass are fed into close **in declared decomposition order, never
 arrival order** — `round-orchestration.md` §7's rule, unchanged and doubly
@@ -182,7 +181,18 @@ is still `accepted`: the caller accepted the *return*, not a finished item.
 §3), unextended — `mode`, and a non-empty `gaps` whose every element carries
 `section`, `question` and `severity`.
 
-**This record routes; it never halts and it never reaches close.** The item
+**It is validated before it routes.** Exactly those three fields and no other;
+`coordinator_verdict` is `accepted`; `mode` is `gaps-surfaced`; `gaps` is
+non-empty and every element carries `section`, `question` and `severity`. A
+malformed gaps record halts like any other malformed envelope — only a valid one
+routes.
+
+**And the worktree is checked before the replacement request goes out**, because
+this record carries no identity of its own: `git status --porcelain` must be
+empty and `HEAD` must equal the request's `base_sha`. A pre-flight that stopped
+leaves nothing behind; anything there means something else ran.
+
+**A valid record routes; it never halts and it never reaches close.** The item
 enters `round-orchestration.md` §6's gap loop with **one step replaced**: the
 lane surfaces the gaps and appends the clarifications to that item's handoff
 exactly as §6 says, and then — instead of §6's own dispatch — builds **one new
@@ -216,6 +226,10 @@ A result that close rejects cannot simply be re-dispatched: ordinary
 `/work-item` begins with a clean-tree pre-flight that correctly refuses a
 worktree holding staged output. `references/correction-continuation.md` is the
 provider-neutral continuation for that case, and it goes to the **same**
-executor the caller used for that item. Everything else about recovery —
+executor the caller used for that item. **What comes back is a fresh §4 record
+that passes the whole of §5a again, identity table included** — the
+continuation's own `complete` shape is never accepted on its own, because a
+repaired item has moved and its identity has to be re-established, not carried
+over. Everything else about recovery —
 who chooses, what the menu offers, the second-failure escalation — is
 `close/references/impl-check.md` §6's and stays there.

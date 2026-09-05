@@ -17,9 +17,9 @@ Four facts, **all** of them, and each about the session you are in right now:
 
 Absent any one, this file does not apply and ossify runs as `SKILL.md` §6 says.
 **None of these activates it**: orca-crew or ossify merely installed; an environment
-variable; an `orca-execution.md` found on disk; a `/plan-spine` run in a session that
-is not the top. Discovery is not authority — the phase begins because *this* session
-planned *this* spine.
+variable; an `orca-execution.md` on disk; a `/plan-spine` in a session that is not the
+top. Discovery is not authority — the phase begins because *this* session planned
+*this* spine.
 
 ## 2. The three layers
 
@@ -73,21 +73,21 @@ above are fixed for every item on every spine, recorded so the spine session can
 them rather than choose among them. No reviewer row, no spine-session row — §8 says why.
 
 **Authoring it.** After `/plan-spine`, recommend one implementer and one verifier
-profile per item from its scope, risk and cost. Present **every** row to the operator
-in one ratification phase and write nothing until every row is decided — a
-half-ratified sidecar looks binding and is not. Record the recommendation and any
-override.
+profile per item from its scope, risk and cost. Present **every** row to the operator in
+one ratification phase and write nothing until every row is decided — a half-ratified
+sidecar looks binding and is not. Record the recommendation and any override.
 
 **Reading it.** Before dispatching the spine session, and again before every
-item launch, the reader checks: `git hash-object SPINE.md` — the git blob id,
-the same command that produced the value at authoring — equals `spine_plan_oid`; every planned item has exactly one complete row; no row names
+item launch, the reader checks: the plan's blob id **at its real path** —
+`git hash-object "$SPINE_DIR/SPINE.md"`, resolving `spine_plan` against the directory
+of `ORCA_EXECUTION_PATH`, the same command that produced the value at authoring —
+equals `spine_plan_oid`; every planned item has exactly one complete row; no row names
 an item the plan does not; `ratification` reads exactly `operator-approved`;
 `ratified_in_run` equals the injected `PARENT_RUN_ID`; `spine_id` equals the
 spine being run. **Those last three are value checks, not presence checks** — a field
 that merely exists admits `rejected`, another Run's ratification, and another spine's
-sidecar, each reading as authority it never had. Any failure halts. A profile that
-needs to change is a new operator decision and a rewrite by you, never a dispatch-time
-substitution.
+sidecar, each reading as authority it never had. Any failure halts; a profile that needs
+to change is a new operator decision and a rewrite by you, never a substitution.
 
 ## 4. Nested depth is a prerequisite, not a fallback
 
@@ -111,34 +111,32 @@ nested depth.
   `--run $CHILD_RUN_ID`;
 - plan, gap, depth and other spine-level questions come up as `ask --run $PARENT_RUN_ID`;
 - replies to item questions go back on each original child message id;
-- the spine session's final completion uses the **injected parent** task and dispatch
-  ids, settling your Dispatch while the child Run is still bound;
+- its final completion uses the **injected parent** task and dispatch ids, settling
+  your Dispatch while the child Run is still bound;
 - the spine session is the only waiter on the child Run; you, on the parent.
 
 The child Run keeps item plan traffic and item `worker_done` out of your inbox: you see
 a batched plan relay, genuine spine-level decisions, and one final completion.
 
 **Teardown is the pairs, not the Run.** The spine session releases every item pair
-before its final `worker_done` and names the child Run id in that body, so nothing of
-its own outlives the spine. There is no close-the-Run step: the CLI exposes none.
+before its final `worker_done` and names the child Run id in that body. There is no
+close-the-Run step: the CLI exposes none.
 
 ## 6. The round procedure, as the spine session runs it
 
 1. Validate `SPINE.md`, the sidecar and the round's item set (§3).
 2. Invoke the ossify lane in external-executor mode. ossify prepares every
    same-round worktree and handoff first, then hands over one request per item.
-3. For each item, launch a **fresh implementer terminal** from that row's exact
-   command — the verifier is not created yet; it has nothing to verify until
-   step 5. Where a custom alias is required, create the terminal directly and
-   inject the Dispatch.
+3. For each item, launch a **fresh implementer terminal** from that row's exact command
+   — the verifier is not created yet; it has nothing to verify until step 5. Where a
+   custom alias is required, create the terminal directly and inject the Dispatch.
 4. Each implementer confirms its model, reads, and posts a detailed plan, then waits.
    Gather the round's plans into **one** ordered ask to you; return an independent
    approve-or-amend per item; reply on each original child id, before which no edit
    starts.
-5. On each complete return, capture the item's four-part fingerprint, then
-   create and dispatch that item's **fresh verifier terminal** from its row's
-   exact command, in the same worktree, against the fixed all-claims procedure.
-   `cannot determine` counts as fail.
+5. On each complete return, capture the item's four-part fingerprint, then create and
+   dispatch that item's **fresh verifier terminal** from its row's exact command, in the
+   same worktree, against the fixed all-claims procedure. `cannot determine` = fail.
 6. On a verifier failure, send one consolidated correction to the **same** implementer
    terminal, then the full recheck to the **same** verifier. A second failure escalates
    to you; a replacement writer is never created silently.
@@ -156,14 +154,19 @@ round barrier is ossify's, unchanged.
 
 The spine session stops at the final round barrier — where `/ossify:run-spine` hands
 the baton to `/close <spine-id>` — and never runs the close on its own initiative.
-When its `worker_done` lands, **you dispatch** `/ossify:close <spine-id>` as a task and
-wait on that task's `worker_done`, which returns the PR number. You do not run it here:
-SKILL.md §6 lists `close` among the dispatched commands, and the delegation floor keeps
-suites out of your session. **Target:** a follow-up task on the spine session's own
-terminal while that session is under `roles.md`'s retention threshold — it holds the
-state lock and the context — else a fresh lane-driver session. The dispatch is yours
-either way. The close runs the cumulative demo, the harvest and the retro and opens the
-PR; only then does the run rejoin `lifecycle.md` at step 8.
+When its `worker_done` lands, **you dispatch** `/ossify:close <spine-id>` as a task. You
+do not run it here: SKILL.md §6 lists `close` among the dispatched commands, and the
+delegation floor keeps suites out of your session. **Target:** a follow-up task on the
+spine session's own terminal while it is under `roles.md`'s retention threshold — it
+holds the state lock and the context — else a fresh lane-driver session.
+
+**That close runs in two passes, and you dispatch it twice.** The first runs the
+cumulative demo, the harvest and the retro and opens the spine PR, then reaches its own
+named halt state: with a PR still open it halts, recording nothing, and surfaces the PR
+URL (`close/references/spine-close.md`). Its `worker_done` returns at that halt, with
+that URL. `lifecycle.md` steps 8-13 then own the review, the fix rounds and the merge.
+**After the merge you dispatch `/ossify:close <spine-id>` a second time** to run the
+record pass the first one refused to run.
 
 ## 7. Scope of the fresh-pair rule
 
@@ -176,25 +179,22 @@ across ordinary consecutive work items is still correct.
 Reviewer profile is absent from spine planning and from the sidecar on purpose: the PR
 does not exist yet, and a profile chosen before there is a diff to read is a guess
 recorded as a decision. At the PR transition ask for the reviewer's command, expected
-model, effort and `/code-review` level, and put **all four** in the reviewer task's
-brief — on an activated spine the reviewer launches from the decided command and its
-model is confirmed from the banner and first reply exactly as an item row is;
-`lifecycle.md` step 8's `claude-glm-flash` is the default only outside such a spine.
-Neither the spine session nor the sidecar selects it.
+model, effort and `/code-review` level, and put **all four** in the reviewer task's brief
+— the reviewer launches from the decided command and its model is confirmed from the
+banner and first reply exactly as an item row is; step 8's `claude-glm-flash` is the
+default only outside such a spine. Neither the spine session nor the sidecar selects it.
 
 **Decide the PR-fix implementer in the same breath.** Every item pair was released at
 its item's close and the spine session was a coordinator, not a writer — so step 10's
 *retained implementer* does not exist here. Ask for one PR-fix profile (command,
-expected model, effort) alongside the reviewer's. The seat is **decided** now and may
-be launched now, but **its fix task is dispatched only once step 9's disposition ledger
-exists** — there is nothing to fix before the findings are dispositioned. Dispatch it
-in the **parent** Run on `briefs.md`'s **fix-round brief**, never the
-planned-implementer brief, whose DONE opens a new PR: this worker works the PR that
+expected model, effort) alongside the reviewer's. The seat is **decided** now and may be
+launched now, but **its fix task is dispatched only once step 9's disposition ledger
+exists**. Dispatch it in the **parent** Run on `briefs.md`'s **fix-round brief**, never
+the planned-implementer brief, whose DONE opens a new PR: this worker works the PR that
 already exists, returns its fix ledger, and stops at the merge ask. One seat per PR,
 released at merge.
 
 ## 9. Briefs
 
-This phase's four briefs — spine session, item implementer, item verifier, the
-correction message — are in `references/ossify-briefs.md`; `references/briefs.md`'s
+This phase's four briefs are in `references/ossify-briefs.md`; `references/briefs.md`'s
 templates are unchanged and still apply elsewhere, its fix-round brief included (§8).

@@ -40,28 +40,33 @@ that fact and decides on it is.
    items in the order their results arrived is a wrong answer even if every item
    eventually closes.
 3. **Validating a COMPLETE result is a real gate, and every one of its checks
-   is terminal.** A finished item returns the §4 record, and all five checks
-   apply to that record alone: exactly one per request with no extras and no
-   duplicates; every declared field and no other, with `implementer_return`
-   carrying exactly the four complete-return keys; `coordinator_verdict` is
-   `accepted`; `mode` is `complete`; and the four-part fingerprint (staged tree,
-   HEAD, report, spec) is **recomputed** and compared, not trusted from the
-   result — **and `head_oid`, the recomputed `HEAD` and the request's `base_sha`
-   must all three be equal**, because an executor that commits its work and then
-   stages more passes a freshness check while having crossed the commit boundary
-   that belongs to close. Branching this list on `mode` is a wrong answer: the
-   two shapes are separate records (criterion 4), not one record checked two
-   ways. A failure of any
-   of these halts the round and never degrades into the nested dispatch, and
-   there is no stop-and-reinvoke path. Accepting a result because it "looks
-   complete", or reading the declared fingerprint back as if it were the
-   recomputed one, is a wrong answer.
+   is terminal.** Item-set equality runs first and spans **both** envelope kinds
+   — exactly one envelope per request across the complete records and the gaps
+   records together — and only then does each go to its own list. For a §4
+   record: every declared field and no other, with `implementer_return` carrying
+   exactly the four complete-return keys; `coordinator_verdict` is `accepted`;
+   `mode` is `complete`; and one **identity** check recomputed against the
+   **request**, not merely against the record — the checked-out branch is the
+   request's `branch`; `HEAD` equals both the request's `base_sha` and the
+   declared `head_oid`; the staged tree equals `tree_oid`; the working tree
+   carries nothing beyond the index, so `all_staged` is recomputed rather than
+   trusted; the report is the one beside the request's `spec_path` and
+   `handoff_path` rather than any file that hashes right; and those two files'
+   blob ids equal `report_oid` and `spec_oid`. Branching this list on `mode` is a
+   wrong answer: the two shapes are separate records (criterion 4). So is
+   accepting a record because it "looks complete", reading a declared id back as
+   if it were the recomputed one, or checking identity only against the record —
+   an executor that commits and then stages again agrees with itself.
 4. **A gaps-surfaced return is its own record, and it routes rather than
    halting.** An item stopped at pre-flight produced no report, no staged tree
    and no commit, so it comes back under a **separate marker** carrying only
    `work_item_id`, `coordinator_verdict` and an `implementer_return` in the gaps
    shape — **no `*_oid` of any kind**, and a record carrying one is describing
-   work that did not happen. It enters `round-orchestration.md`
+   work that did not happen. **It is validated before it routes** — exactly those
+   three fields, `accepted`, `gaps-surfaced`, a non-empty schema-valid `gaps` —
+   and the worktree is checked clean at `base_sha` before the replacement request
+   goes out, because this record carries no identity of its own. A valid one then
+   enters `round-orchestration.md`
    §6's gap loop **with that loop's dispatch step replaced**: gaps surfaced,
    clarifications appended to **that item's handoff**, then **one new
    single-item request** issued through the caller-supplied procedure, counted
@@ -78,7 +83,10 @@ that fact and decides on it is.
    handoff/spec/report, refuses on any item/branch/HEAD/staged-tree mismatch,
    writes the targeted regression before the fix, reruns every verification
    command, updates the same report, stages, and returns the **existing**
-   `complete` shape — no third return mode and no commit. Separately, external
+   `complete` shape — no third return mode and no commit — and the repaired item
+   comes back to the lane as a fresh §4 record that passes the whole of criterion
+   3 again, identity included, rather than being accepted on the continuation's
+   inner shape. Separately, external
    mode runs Layer 4 **inline** even where the delegated path's own conditions
    are otherwise satisfied, while the no-flag path's choice of the delegated
    path is unchanged. Inventing a new return mode, sending the correction to a

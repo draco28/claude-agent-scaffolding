@@ -31,8 +31,8 @@ ORCA_EXECUTION_PATH=<abs path to $SPINE_DIR/orca-execution.md>
 
 TASK: drive spine SPINE_ID to its final round barrier.
   1. Read ORCA_EXECUTION_PATH and validate it against SPINE.md before anything
-     else: `git hash-object SPINE.md` (the git blob id) must equal
-     spine_plan_oid; every planned item must have
+     else: `git hash-object "$SPINE_DIR/SPINE.md"` (the plan's blob id at the path
+     ORCA_EXECUTION_PATH's directory resolves) must equal spine_plan_oid; every planned item must have
      exactly one complete row; no row may name an item the plan does not;
      ratification must read exactly `operator-approved`; ratified_in_run must
      equal PARENT_RUN_ID; and spine_id must equal SPINE_ID. Any failure halts —

@@ -101,6 +101,11 @@ full, unchanged. The commit boundary is still the orchestrator's.
   is not a fourth option and it is not chosen here.
 - **The 3-iteration cap.** A continuation is a dispatch of that item and counts
   as one (`round-orchestration.md` §6).
+- **The lane's own validation.** Under external mode the repaired item returns to
+  the lane as a fresh `external_execution_result` and passes the whole of
+  `references/external-executor.md` §5a again, identity table included. The
+  `complete` shape this file returns is the executor's half of that record, never
+  a substitute for it.
 - **The second-failure escalation.** A correction that fails its recheck goes
   to the operator, exactly as before.
 - **Merge-conflict and post-commit recovery.** Untouched
