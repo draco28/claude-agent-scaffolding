@@ -1,15 +1,18 @@
 ---
 scenario_id: 05-reviewer-chosen-later
 expected_outcome: refuse
-expected_reason: 'Two halves. The refusal: the reviewer''s command, model, effort
-  and review level are NOT ratified during spine planning and get no sidecar row -
-  the PR does not exist yet, and a reviewer profile chosen before there is a diff
-  to read is a guess recorded as a decision. So the operator''s request to settle
-  it now, however efficient, is declined and the sidecar is written with its seven
-  columns and no reviewer column. The positive half: at the spine''s PR transition
-  the top asks separately for reviewer command, expected model, effort and /code-review
-  level, records it in the reviewer task''s own brief, and the review runs once from
-  there — neither the spine session nor the sidecar selects it. The wrong answers
+expected_reason: 'Two halves. The refusal: the reviewers command, model, effort and
+  review level are NOT ratified during spine planning and get no sidecar row - the
+  PR does not exist yet, and a reviewer profile chosen before there is a diff to read
+  is a guess recorded as a decision. So the operators request to settle it now, however
+  efficient, is declined and the sidecar is written with its seven columns and no
+  reviewer column. The positive half: at the spines PR transition the top asks separately
+  for reviewer command, expected model, effort and /code-review level, records it
+  in the reviewer tasks own brief, and the review runs once from there - neither the
+  spine session nor the sidecar selects it. TWO profiles are decided at that transition,
+  not one: alongside the reviewer the top also decides a single PR-fix implementer,
+  because every item pair was released at its items close and no implementer survives
+  to the PR; naming that second decision is correct, not invention. The wrong answers
   this fixture falsifies are: adding a reviewer column or a reviewer row because the
   operator asked; and deferring the choice but leaving it to the spine session to
   make later'

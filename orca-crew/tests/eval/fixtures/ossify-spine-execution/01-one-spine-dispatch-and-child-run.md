@@ -4,14 +4,19 @@ expected_outcome: proceed
 expected_reason: 'All four activation facts hold, so the phase applies. The top ratifies
   every row with the operator in ONE phase and writes nothing until every row is decided,
   writes the sidecar, confirms nested worker depth is 2 (no CLI read proves it), and
-  starts EXACTLY ONE spine session — it launches no item terminal itself. The spine
-  session validates SPINE.md against the recorded digest and the row set, creates
-  and binds a CHILD Run for item tasks, and runs the lane in external-executor mode.
+  starts EXACTLY ONE spine session - it launches no item terminal itself - injecting
+  that sessions identities including the spine id it will spend. The spine session
+  validates SPINE.md against the recorded digest and the row set AND runs the three
+  value checks (ratification reading exactly operator-approved, ratified_in_run equal
+  to the injected parent Run, spine_id equal to the spine being run), then creates
+  and binds a CHILD Run for item tasks and runs the lane in external-executor mode.
   The wrong answers this fixture falsifies are: the top creating one dispatch per
   work item (three dispatches instead of one); the top launching the item terminals
-  because it is the session holding the sidecar; and skipping the depth confirmation
-  because no command can read the setting, which is the reason it is confirmed with
-  the operator rather than a reason to skip it'
+  because it is the session holding the sidecar; skipping the depth confirmation because
+  no command can read the setting, which is the reason it is confirmed with the operator
+  rather than a reason to skip it; and treating the sidecars ratification as a presence
+  check when it is a value check. An answer that also notes the spine close is the
+  tops to run after the spine sessions completion is correct, not out of scope'
 ---
 
 You are the orchestrator session. A Run is bound for the objective, this session

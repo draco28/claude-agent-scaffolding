@@ -42,7 +42,9 @@ that fact and decides on it is.
 3. **Result validation is a real gate, and its failures are terminal.** Before
    any result reaches close: exactly one result per request with no extras and
    no duplicates; every declared field and no other, with `implementer_return`
-   carrying the ordinary complete-return keys; `coordinator_verdict` is
+   carrying the keys of **the return shape its own `mode` names** — the
+   complete keys for `complete`, the gaps shape for `gaps-surfaced`, never the
+   complete shape imposed on both; `coordinator_verdict` is
    `accepted`; and the four-part fingerprint (staged tree, HEAD, report, spec)
    is **recomputed** and compared, not trusted from the result. A failure of any
    of these halts the round and never degrades into the nested dispatch, and
@@ -51,11 +53,15 @@ that fact and decides on it is.
    recomputed one, is a wrong answer.
 4. **A gaps-surfaced return routes; it does not halt.** An item whose
    `implementer_return` reports `gaps-surfaced` enters `round-orchestration.md`
-   §6's existing gap loop — gaps surfaced, clarifications appended to **that
-   item's handoff**, the same live implementer re-dispatched, counted against
-   the 3-iteration cap — and it never reaches close as a result. Calling it a
-   halt, a malformed result, or a reason to abandon the round is a wrong answer;
-   so is routing it past the gap loop straight into close.
+   §6's gap loop **with that loop's dispatch step replaced**: gaps surfaced,
+   clarifications appended to **that item's handoff**, then **one new
+   single-item request** issued through the caller-supplied procedure, counted
+   against the 3-iteration cap — and it never reaches close as a result.
+   Calling it a halt, a malformed result, or a reason to abandon the round is a
+   wrong answer; so is routing it past the gap loop straight into close. **In
+   this mode the lane dispatches nothing itself**, and it does not say which
+   executor the caller reuses — an answer that has ossify re-dispatching "the
+   same live implementer" is describing the default nested path, not this one.
 5. **Correction is same-executor, and Layer 4 goes inline under this mode.** A
    rejected item is repaired by a continuation sent to the **same** executor
    that produced it, because the ordinary command's clean-tree pre-flight would

@@ -29,8 +29,9 @@ The ratified sidecar's binding assignments read:
 | r5.s2.w2 | claude-glm-flash | glm-5.3-flash | (alias default) | claude-glm --effort high | glm-5.3 | high |
 
 `SPINE.md` hashes to the sidecar's recorded plan digest, both items have exactly
-one complete row, ratification is present, and no row names an item the plan
-does not have. A `claude-glm` implementer terminal from an earlier, unrelated
+one complete row, and no row names an item the plan does not have. The sidecar's
+`ratification` reads `operator-approved`, its `ratified_in_run` is the parent Run
+you were dispatched from, and its `spine_id` is `r5.s2`. A `claude-glm` implementer terminal from an earlier, unrelated
 work item in this Run is still alive and idle.
 
 State exactly which terminals you create for this round and with what commands,

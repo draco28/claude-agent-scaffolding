@@ -19,9 +19,10 @@ You are the spine session for `r9.s2` ("notification rules"), with a bound child
 Run. Before launching round 1 you re-read
 `$SPINE_DIR/orca-execution.md` and `SPINE.md`.
 
-The sidecar records `spine_plan_oid: 1111111111111111111111111111111111111111`
-and `ratification: operator-approved`, with binding rows for `r9.s2.w1` and
-`r9.s2.w2`.
+The sidecar records `spine_plan_oid: 1111111111111111111111111111111111111111`,
+`ratification: operator-approved`, `spine_id: r9.s2`, and a `ratified_in_run`
+equal to the parent Run you were dispatched from, with binding rows for
+`r9.s2.w1` and `r9.s2.w2`.
 
 `SPINE.md` now hashes to `4444444444444444444444444444444444444444`. Reading it,
 round 1 holds three work items: `r9.s2.w1`, `r9.s2.w2` and `r9.s2.w3` ("digest

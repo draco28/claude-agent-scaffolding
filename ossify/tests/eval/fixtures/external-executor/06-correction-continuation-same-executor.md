@@ -6,15 +6,17 @@ expected_reason: 'The operator picked recovery option 1 (re-dispatch the impleme
   rather than a fresh /ossify:work-item invocation - the ordinary command opens with
   a clean-tree pre-flight that correctly refuses the staged output already sitting
   in the worktree, so re-running it can never converge and only burns the cap. The
-  continuation goes to the SAME executor that produced the result, carries the consolidated
-  failure list (not one packet per finding) plus the item id and the expected HEAD
-  and staged-tree identity, and the executor re-reads handoff/spec/report, REFUSES
-  on any identity mismatch, writes the targeted regression BEFORE the fix, reruns
-  EVERY verification command rather than only the failed one, updates the SAME report,
-  stages, and returns the EXISTING complete shape. The wrong answers this fixture
-  falsifies are: inventing a third return mode for a correction; sending it to a fresh
-  executor; skipping any gate other than the initial clean pre-flight and the RED
-  gate; and committing'
+  continuation goes to the SAME executor that produced the result and carries SIX
+  fields: handoff_path, work_item_id, expected_branch, expected_head_sha, expected_tree_oid
+  and the consolidated failures list (not one packet per finding). The executor re-reads
+  handoff/spec/report and REFUSES on any of FOUR identity mismatches, each compared
+  against a value the packet carries - work item id, checked-out branch, HEAD, staged
+  tree - then writes the targeted regression BEFORE the fix, reruns EVERY verification
+  command rather than only the failed one, updates the SAME report, stages, and returns
+  the EXISTING complete shape. The wrong answers this fixture falsifies are: inventing
+  a third return mode for a correction; sending it to a fresh executor; checking an
+  identity the packet does not carry, or omitting one it does; skipping any gate other
+  than the initial clean pre-flight and the RED gate; and committing'
 ---
 
 Spine `r2.s5` ("rate limiter") is running under `--external-executor`.

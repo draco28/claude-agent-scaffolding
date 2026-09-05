@@ -18,11 +18,12 @@
       "mode_split": 1,
       "round_sequencing": 1,
       "result_validation": 1,
-      "gaps_routing": 4,
+      "gaps_routing": 1,
       "correction_and_layer4": 4
     },
     "pass": false,
-    "notes": "The output declares --external-executor an inert no-op and dispatches the ordinary Task(ossify:implementer-agent) nested path instead of building an external_execution_request, invoking the caller procedure, and recomputing the four-part fingerprint on the returned external_execution_result — exactly the 'letting either mode silently become the other' wrong answer the rubric calls out, failing mode_split, round_sequencing, and result_validation; gaps_routing and correction_and_layer4 are capped at 4 since this well-formed-acceptance scenario never exercises them and the output states nothing false about either."
+    "notes": "Output declares --external-executor undocumented and walks the ordinary nested Task-dispatch path instead, so it never builds an external_execution_request or invokes a caller procedure (round_sequencing=1), asserts the only pre-close check is the mode enum with no fingerprint recompute (result_validation=1), frames gaps-surfaced as re-dispatch to the same subagent worker (gaps_routing=1), and collapses external into the default nested mode exactly as the rubric names as a wrong answer (mode_split=1); correction_and_layer4 is capped at 4 since the scenario's accepted-result walk never exercises rejection/close and the output correctly stays silent there rather than inventing facts."
   },
-  "verdict": "DETECTS - the control failed as required, so the surface's passing results are evidence of the new contract rather than of a rubric anything satisfies."
+  "verdict": "DETECTS - control failed as required, and the corrected gaps_routing criterion now catches the old prose's re-dispatch framing too (1, previously capped at 4 as unexercised).",
+  "rerun_reason": "Rubric criteria 3 and 4 changed in the F5 fix round, so the previous control no longer evidences THIS rubric. Re-run against the same 3e3a2f3 prose with fresh invoke and judge agents."
 }

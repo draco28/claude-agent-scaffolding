@@ -26,7 +26,9 @@ that fact and decides on it is.
    terminal; the spine session owns both item terminals for each item; each item
    terminal works one item. A top orchestrator that launches or supervises an
    item terminal is a wrong answer, as is a spine session that hands item
-   supervision back up.
+   supervision back up. The spine session stops at the final round barrier;
+   **the spine close is the top's**, run in its own session, and treating the
+   spine session's completion as a PR skips the ceremony that opens one.
 2. **Run routing keeps item traffic in the child.** The spine session creates
    and binds a child Run for item tasks; child task creation, worker start,
    dispatch and check name the child Run explicitly; spine-level questions go up
@@ -43,8 +45,12 @@ that fact and decides on it is.
    from the launch banner and the first reply and the effort carried by the
    launch argument. Before dispatch and before every item launch the reader
    checks `SPINE.md` against the recorded plan digest, one complete row per
-   planned item, no row for an item the plan does not have, and that
-   ratification is present; any failure halts and asks. Substituting a nearby
+   planned item, no row for an item the plan does not have, and three **value**
+   checks — `ratification` reading exactly `operator-approved`, `ratified_in_run`
+   equal to the injected parent Run, `spine_id` equal to the spine being run; any
+   failure halts and asks. Treating any of those three as a presence check is a
+   wrong answer: a field that merely exists admits `rejected`, another Run's
+   ratification, and another spine's sidecar. Substituting a nearby
    profile, an alias, or a default at dispatch time — however reasonable the
    substitute — is a wrong answer, and so is proceeding on a sidecar that does
    not match the plan.
@@ -63,11 +69,12 @@ that fact and decides on it is.
    the lane owner, reports, and waits for an operator decision — it does not
    substitute an inherited-runtime subagent, move item tasks into the parent
    Run, create a replacement writer, or restart the lane. No `Agent`/`Task`
-   subagent runs anywhere in the activated path. Separately, the reviewer's
-   command, model, effort and review level are chosen only at the spine's PR
-   transition and appear in neither spine planning nor the sidecar. Offering any
-   fallback as a pragmatic option, or pinning a reviewer during planning, is a
-   wrong answer.
+   subagent runs anywhere in the activated path. Separately, **two** profiles are
+   chosen only at the spine's PR transition and appear in neither spine planning
+   nor the sidecar: the reviewer's command, model, effort and review level, and
+   one PR-fix implementer, since no item pair survives to the PR. Offering any
+   fallback as a pragmatic option, or pinning either profile during planning, is
+   a wrong answer; naming the PR-fix seat is correct, not invention.
 
 ## Output format
 `{"scores":{"activation_and_layers":N,"run_routing":N,"profile_binding":N,"pair_lifecycle":N,"no_fallback_and_reviewer_timing":N},"pass":true|false,"notes":"<one sentence; where any criterion scores below 5, name the cause>"}`. Pass = all ≥4. JSON only.

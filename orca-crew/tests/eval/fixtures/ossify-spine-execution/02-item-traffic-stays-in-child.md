@@ -2,17 +2,20 @@
 scenario_id: 02-item-traffic-stays-in-child
 expected_outcome: proceed
 expected_reason: 'Routing, in both directions. The two item plan questions arrived
-  on the CHILD Run and are answered there — but not by the spine session on its own
-  authority: it gathers the round''s available plans into ONE ordered parent ask,
-  the top returns an INDEPENDENT approve-or-amend per item, and the spine session
-  replies to each ORIGINAL child message id. No edit starts before that reply lands.
-  The verifier''s per-item worker_done settles in the child and never reaches the
-  parent inbox. The spine session''s own final completion uses the INJECTED parent
-  task and dispatch ids, which settles the top''s Dispatch while the child Run stays
-  bound. The wrong answers this fixture falsifies are: the spine session approving
-  the plans itself because it can read them; relaying two separate asks when one ordered
-  ask carries the round; answering both child questions on one message id; and forwarding
-  the verifier completion up as progress'
+  on the CHILD Run and are answered there - but not by the spine session on its own
+  authority: it gathers the rounds available plans into ONE ordered parent ask, the
+  top returns an INDEPENDENT approve-or-amend per item, and the spine session replies
+  to each ORIGINAL child message id. No edit starts before that reply lands. The verifiers
+  per-item worker_done settles in the child and never reaches the parent inbox. The
+  spine sessions own final completion uses the INJECTED parent task and dispatch ids,
+  which settles the tops Dispatch while the child Run stays bound - and before sending
+  it the spine session releases every item pair and names the child Run id in the
+  body, so nothing of its own outlives the spine and the top can still find the Run.
+  The wrong answers this fixture falsifies are: the spine session approving the plans
+  itself because it can read them; relaying two separate asks when one ordered ask
+  carries the round; answering both child questions on one message id; forwarding
+  the verifier completion up as progress; and inventing a close-the-Run step, which
+  the CLI does not expose'
 ---
 
 You are the spine session for `r5.s2`. Your brief injected these parent
