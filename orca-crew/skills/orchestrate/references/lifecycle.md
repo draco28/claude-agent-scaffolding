@@ -20,8 +20,10 @@ Every command's syntax comes from `orca skills get orchestration`.
    session — and wait on its `worker_done`, which returns **every** PR it opened, one
    per hosting repo; `close` is a dispatched command (§6), not one you run here. Only
    then do steps 8-13 resume, where the reviewer **and** the PR-fix implementer are
-   chosen for the first time — 8-12 run for **each** returned PR before you dispatch
-   the second close for the record pass, which halts if any is still open. Absent any
+   chosen for the first time — 8-12 run for **each** returned PR, its merge included,
+   before you dispatch the second close for the record pass, which halts if any is
+   still open. **Hold step 12's teardown — worker release, branch deletion — until
+   that record pass has returned**; it resolves the spine branch again. Absent any
    of those four facts, continue at step 2.
 2. **Decompose.** One `task-create` per brief, `--deps` for the DAG, each carrying
    the complexity class the orchestrator derives from the work item's spec and its
@@ -118,8 +120,9 @@ Every command's syntax comes from `orca skills get orchestration`.
     operations, so a signal can still land between them: the operator's ruleset
     requires conversation resolution, GitHub itself refuses the merge while any thread
     is open, and a merge refused that way returns to step 10, never a retry. Then
-    release every worker, close the Run, and delete the branch only after confirming
-    a merged PR exists whose head OID equals the branch tip.
+    release every worker and delete the branch only after confirming a merged PR
+    exists whose head OID equals the branch tip — on an activated ossify spine (1b),
+    both wait until the second close's record pass has returned.
 13. **Handoff.** If the Run outlives the session, write a handoff naming the Run id,
     task ids, terminal handles, head SHA, and the next step. With ossify installed, that
     is `/ossify:handoff`.

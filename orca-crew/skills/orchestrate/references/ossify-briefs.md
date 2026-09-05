@@ -113,8 +113,10 @@ DONE: worker_done carrying the work-item return verbatim, plus:
   Changed / Evidence / Open / Files.
 
 NEVER: commit, push, merge, edit outside this worktree, run a subagent, or work
-a second work item. Ask when blocked; escalate when stuck; report a refusal
-verbatim.
+a second work item. The one exception to that scope is this item's own
+report.md, which the work-item contract has you author beside the handoff and
+spec and update on a correction; nothing else outside the worktree. Ask when
+blocked; escalate when stuck; report a refusal verbatim.
 ```
 
 ---

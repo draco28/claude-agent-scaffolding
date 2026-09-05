@@ -162,11 +162,11 @@ holds the state lock and the context — else a fresh lane-driver session.
 
 **That close runs in two passes, and you dispatch it twice.** The first runs the
 cumulative demo, the harvest and the retro and opens **one PR per hosting repo**, then
-reaches its named halt state: while any of them is open it halts, recording nothing
-(`close/references/spine-close.md`). Its `worker_done` returns at that halt naming
-**every** PR it opened, repo and number, and `lifecycle.md` steps 8-12 then run for
-**each** of them. **Once all of them have merged you dispatch `/ossify:close
-<spine-id>` a second time** for the record pass, which halts again on any PR still open.
+halts while any is open, recording nothing (`close/references/spine-close.md`), its
+`worker_done` naming **every** PR it opened, repo and number. `lifecycle.md` steps 8-12
+run for **each**, its merge included; then a second `/ossify:close <spine-id>` runs the
+record pass, halting again on any PR still open. **Hold step 12's teardown — worker
+release, branch deletion — until that pass returns:** it resolves the spine branch again.
 
 ## 7. Scope of the fresh-pair rule
 
