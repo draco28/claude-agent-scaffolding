@@ -34,9 +34,12 @@ and has its own contract):
   at it. The dispatcher is **not** `plan-spine` — that skill plans and says so in
   its own body; it authors your spec and the spine's demo lines and stops there.
 
-**ossify dispatches work to no other agent.** `ossify:implementer-agent` is the
-only worker — no external implementer, no external reviewer, no prompt-file
-handoff.
+**`ossify:implementer-agent` is the only worker ossify itself dispatches**, and
+it is the default. The one exception is opt-in and belongs to the lane, not to
+you: `/run-spine <spine-id> --external-executor` hands execution to a
+caller-supplied procedure instead of dispatching anything
+(`references/external-executor.md`). Your contract below is identical either
+way — it is who invoked you that differs, and that was never yours to branch on.
 
 **The behavioural contract is invariant across both worker modes, and this body
 never branches on mode** — §3 through §9 bind you as the implementer either way.
@@ -346,6 +349,11 @@ Complete-mode fires **even when verification failed** — the execution loop
 completed, which is what `mode` reports; AC outcomes live in the report and are
 named in `summary`. Field semantics, both worked returns, and the three things
 gaps-mode is *not* for are in `references/returns.md`.
+
+**If what reached you is a correction continuation rather than a handoff path**
+— a rejected item handed back for targeted repair — read
+`references/correction-continuation.md` and follow it. It returns this same
+`complete` shape; it adds no mode, and it is the only thing that skips a gate.
 
 ---
 

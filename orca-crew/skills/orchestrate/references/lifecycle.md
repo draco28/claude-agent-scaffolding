@@ -8,6 +8,14 @@ Every command's syntax comes from `orca skills get orchestration`.
    `git status`, open PRs, `orca status --json`, `orca orchestration task-list --brief
    --json`. Then `run-create --objective "<objective>"`, or `run-use` when resuming a
    Run the operator names.
+1b. **Ossify spine planned here?** If this session just completed `/ossify:plan-spine`
+   against a concrete spine directory with a Run bound, step 2 is replaced by
+   `references/ossify-execution.md`: ratify one implementer/verifier profile per work
+   item with the operator, write the sidecar, confirm nested worker depth is 2, and
+   start **one** spine session that creates its own child Run and launches every item
+   pair. You approve relayed worker plans and wait on that one completion; you launch
+   no item terminal. Steps 8-13 below resume at the spine's PR, where the reviewer is
+   chosen for the first time. Absent any of those four facts, continue at step 2.
 2. **Decompose.** One `task-create` per brief, `--deps` for the DAG, each carrying
    the complexity class the orchestrator derives from the work item's spec and its
    spine's bone/flesh class: `contract` if it touches an interface, schema, or

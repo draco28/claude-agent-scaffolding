@@ -52,6 +52,22 @@ attaches its task to the same verifier — and is released only when the item pa
 goes to the operator. If `worker-release` retains a terminal you created with `terminal create`,
 close it with `orca terminal close`; read the release receipt rather than assuming.
 
+## The activated-ossify-spine exception
+
+On a spine this session planned (`ossify-execution.md`), two rows above are
+superseded **for that spine's work items only**: the implementer and the verifier
+are launched from the operator-ratified sidecar row, whose value may be a native
+`claude --model <id> --effort <level>` command rather than an alias; the model is
+confirmed from the banner and the first reply exactly as *The launch* requires; and
+each item gets a
+**fresh** pair, retained across that item's corrections and released when it closes or
+escalates. A pair never crosses work items there.
+
+Everything else on this page — the class routing, the retention rule, the placement
+and writer rules, and the budget below — is unchanged and still governs every session
+outside such a spine. The spine session itself is launched by the ordinary lane-driver
+policy; it is not a sidecar row.
+
 ## Session budget
 
 One implementer seat and one verifier seat per work item; one reviewer per PR. A fix

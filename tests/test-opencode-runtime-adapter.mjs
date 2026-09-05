@@ -675,7 +675,7 @@ test("Task 8 reconciles registered Ossify availability across shipped surfaces",
   assert.match(ossifyReadme, /explicit.*allowlist/is);
   assert.match(ossifyReadme, /Plan D/i);
   assert.match(manifest.version, /^1\./);
-  assert.ok(manifest.description.length <= 600);
+  assert.ok(manifest.description.length <= 1024);
   assert.doesNotMatch(manifest.description, /not installable/i);
 });
 

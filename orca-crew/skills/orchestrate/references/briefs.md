@@ -14,6 +14,12 @@ injected preamble plus this text and nothing else. Every brief carries, in this 
 
 Angle brackets are slots. Fill every slot; delete nothing else.
 
+**An activated ossify spine has four briefs of its own** — spine session, item
+implementer, item verifier, and the correction message — in
+`references/ossify-briefs.md`. They do not replace the five below, which still govern
+every other dispatch; the item verifier there reuses this file's verifier CLAIMS body
+verbatim rather than restating it.
+
 ## Planned implementer (`claude-glm`)
 
 ```text
