@@ -189,8 +189,13 @@ routes.
 
 **And the worktree is checked before the replacement request goes out**, because
 this record carries no identity of its own: `git status --porcelain` must be
-empty and `HEAD` must equal the request's `base_sha`. A pre-flight that stopped
-leaves nothing behind; anything there means something else ran.
+empty, `HEAD` must equal the request's `base_sha`, and the checked-out branch
+must equal the request's `branch` — a pre-flight that stopped leaves nothing
+behind, so anything there means something else ran. **The replacement request
+(§3) carries the original request's `branch` and `worktree_path` unchanged**,
+read off that request and never re-read from the worktree, so an executor that
+left the worktree on some other branch cannot have that branch become the
+expected one on the retry.
 
 **A valid record routes; it never halts and it never reaches close.** The item
 enters `round-orchestration.md` §6's gap loop with **one step replaced**: the

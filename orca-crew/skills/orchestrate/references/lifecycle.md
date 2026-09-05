@@ -17,9 +17,11 @@ Every command's syntax comes from `orca skills get orchestration`.
    no item terminal. **That completion is the final round barrier, not a PR.** When it
    lands you **dispatch** `/ossify:close <spine-id>` as a task — to the spine session's
    own terminal while it is under the retention threshold, else a fresh lane-driver
-   session — and wait on its `worker_done`, which returns the PR number; `close` is a
-   dispatched command (§6), not one you run here. Only then do steps 8-13 resume, where
-   the reviewer **and** the PR-fix implementer are chosen for the first time. Absent any
+   session — and wait on its `worker_done`, which returns **every** PR it opened, one
+   per hosting repo; `close` is a dispatched command (§6), not one you run here. Only
+   then do steps 8-13 resume, where the reviewer **and** the PR-fix implementer are
+   chosen for the first time — 8-12 run for **each** returned PR before you dispatch
+   the second close for the record pass, which halts if any is still open. Absent any
    of those four facts, continue at step 2.
 2. **Decompose.** One `task-create` per brief, `--deps` for the DAG, each carrying
    the complexity class the orchestrator derives from the work item's spec and its

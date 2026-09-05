@@ -79,9 +79,9 @@ sidecar looks binding and is not. Record the recommendation and any override.
 
 **Reading it.** Before dispatching the spine session, and again before every
 item launch, the reader checks: the plan's blob id **at its real path** —
-`git hash-object "$SPINE_DIR/SPINE.md"`, resolving `spine_plan` against the directory
-of `ORCA_EXECUTION_PATH`, the same command that produced the value at authoring —
-equals `spine_plan_oid`; every planned item has exactly one complete row; no row names
+`git hash-object "$(dirname "$ORCA_EXECUTION_PATH")/SPINE.md"`, which resolves
+`spine_plan` against the sidecar's own directory exactly as authoring did — equals
+`spine_plan_oid`; every planned item has exactly one complete row; no row names
 an item the plan does not; `ratification` reads exactly `operator-approved`;
 `ratified_in_run` equals the injected `PARENT_RUN_ID`; `spine_id` equals the
 spine being run. **Those last three are value checks, not presence checks** — a field
@@ -161,12 +161,12 @@ spine session's own terminal while it is under `roles.md`'s retention threshold 
 holds the state lock and the context — else a fresh lane-driver session.
 
 **That close runs in two passes, and you dispatch it twice.** The first runs the
-cumulative demo, the harvest and the retro and opens the spine PR, then reaches its own
-named halt state: with a PR still open it halts, recording nothing, and surfaces the PR
-URL (`close/references/spine-close.md`). Its `worker_done` returns at that halt, with
-that URL. `lifecycle.md` steps 8-13 then own the review, the fix rounds and the merge.
-**After the merge you dispatch `/ossify:close <spine-id>` a second time** to run the
-record pass the first one refused to run.
+cumulative demo, the harvest and the retro and opens **one PR per hosting repo**, then
+reaches its named halt state: while any of them is open it halts, recording nothing
+(`close/references/spine-close.md`). Its `worker_done` returns at that halt naming
+**every** PR it opened, repo and number, and `lifecycle.md` steps 8-12 then run for
+**each** of them. **Once all of them have merged you dispatch `/ossify:close
+<spine-id>` a second time** for the record pass, which halts again on any PR still open.
 
 ## 7. Scope of the fresh-pair rule
 

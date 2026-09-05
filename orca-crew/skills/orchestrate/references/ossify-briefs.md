@@ -31,12 +31,12 @@ ORCA_EXECUTION_PATH=<abs path to $SPINE_DIR/orca-execution.md>
 
 TASK: drive spine SPINE_ID to its final round barrier.
   1. Read ORCA_EXECUTION_PATH and validate it against SPINE.md before anything
-     else: `git hash-object "$SPINE_DIR/SPINE.md"` (the plan's blob id at the path
-     ORCA_EXECUTION_PATH's directory resolves) must equal spine_plan_oid; every planned item must have
-     exactly one complete row; no row may name an item the plan does not;
-     ratification must read exactly `operator-approved`; ratified_in_run must
-     equal PARENT_RUN_ID; and spine_id must equal SPINE_ID. Any failure halts —
-     ask, never substitute.
+     else: `git hash-object "$(dirname "$ORCA_EXECUTION_PATH")/SPINE.md"` (the
+     plan's blob id beside the sidecar) must equal spine_plan_oid; every planned
+     item must have exactly one complete row; no row may name an item the plan
+     does not; ratification must read exactly `operator-approved`;
+     ratified_in_run must equal PARENT_RUN_ID; and spine_id must equal SPINE_ID.
+     Any failure halts — ask, never substitute.
   2. Create and bind a CHILD Run for item tasks. Every child task-create,
      worker-start, dispatch and check names --run <child run id>. Every question
      for the top names --run PARENT_RUN_ID. Replies to item questions go on each
@@ -67,7 +67,9 @@ parent ids, so the top's Dispatch settles while your child Run stays bound:
   Changed / Evidence / Open / Files, as in the planned-implementer brief, and
   name the child Run id you bound so the top can find it afterwards.
 The spine is at its final round barrier when you finish; the close ceremony is
-the top's and runs after this worker_done.
+the top's and runs after this worker_done — and if the top attaches that close
+here as a follow-up task, its return names EVERY PR the close opened, repo and
+number, one per hosting repo.
 
 NEVER: launch an item terminal in the parent Run; run a Claude subagent for a
 work item; fall back to the default nested dispatch after a depth error;
