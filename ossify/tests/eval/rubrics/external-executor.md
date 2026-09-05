@@ -6,9 +6,9 @@ own `ossify:implementer-agent` per work item. `external` = the lane hands the
 round to the caller-supplied in-session procedure and processes the results it
 returns. `halt` = the lane stops the round, naming the failing check, without
 falling back to the nested path. `gap-loop` = the item re-enters
-`round-orchestration.md` §6 (clarifications appended to the handoff, the same
-live implementer re-dispatched under the 3-iteration cap) rather than halting or
-reaching close.
+`round-orchestration.md` §6 (clarifications appended to the handoff, then one
+new single-item request through the caller, under the 3-iteration cap) rather
+than halting or reaching close.
 
 **Every criterion is scored on every fixture.** A criterion whose own condition
 never fires on a fixture is scored on whether the output stayed correctly silent
@@ -39,20 +39,29 @@ that fact and decides on it is.
    and merges stay serial; the round barrier is unchanged. An output that closes
    items in the order their results arrived is a wrong answer even if every item
    eventually closes.
-3. **Result validation is a real gate, and its failures are terminal.** Before
-   any result reaches close: exactly one result per request with no extras and
-   no duplicates; every declared field and no other, with `implementer_return`
-   carrying the keys of **the return shape its own `mode` names** — the
-   complete keys for `complete`, the gaps shape for `gaps-surfaced`, never the
-   complete shape imposed on both; `coordinator_verdict` is
-   `accepted`; and the four-part fingerprint (staged tree, HEAD, report, spec)
-   is **recomputed** and compared, not trusted from the result. A failure of any
+3. **Validating a COMPLETE result is a real gate, and every one of its checks
+   is terminal.** A finished item returns the §4 record, and all five checks
+   apply to that record alone: exactly one per request with no extras and no
+   duplicates; every declared field and no other, with `implementer_return`
+   carrying exactly the four complete-return keys; `coordinator_verdict` is
+   `accepted`; `mode` is `complete`; and the four-part fingerprint (staged tree,
+   HEAD, report, spec) is **recomputed** and compared, not trusted from the
+   result — **and `head_oid`, the recomputed `HEAD` and the request's `base_sha`
+   must all three be equal**, because an executor that commits its work and then
+   stages more passes a freshness check while having crossed the commit boundary
+   that belongs to close. Branching this list on `mode` is a wrong answer: the
+   two shapes are separate records (criterion 4), not one record checked two
+   ways. A failure of any
    of these halts the round and never degrades into the nested dispatch, and
    there is no stop-and-reinvoke path. Accepting a result because it "looks
    complete", or reading the declared fingerprint back as if it were the
    recomputed one, is a wrong answer.
-4. **A gaps-surfaced return routes; it does not halt.** An item whose
-   `implementer_return` reports `gaps-surfaced` enters `round-orchestration.md`
+4. **A gaps-surfaced return is its own record, and it routes rather than
+   halting.** An item stopped at pre-flight produced no report, no staged tree
+   and no commit, so it comes back under a **separate marker** carrying only
+   `work_item_id`, `coordinator_verdict` and an `implementer_return` in the gaps
+   shape — **no `*_oid` of any kind**, and a record carrying one is describing
+   work that did not happen. It enters `round-orchestration.md`
    §6's gap loop **with that loop's dispatch step replaced**: gaps surfaced,
    clarifications appended to **that item's handoff**, then **one new
    single-item request** issued through the caller-supplied procedure, counted

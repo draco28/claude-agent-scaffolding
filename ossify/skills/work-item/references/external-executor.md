@@ -56,7 +56,7 @@ caller-supplied procedure **once for the round**, handing it the whole set.
 The caller may execute the round's requests concurrently; nothing here requires
 otherwise, and §7's note that items within a round are parallel by construction
 is exactly as true through this seam as through the default one. What stays
-serial is everything after the returns — see §5.
+serial is everything after the returns — see §5a.
 
 ---
 
@@ -119,51 +119,78 @@ finished: the staged index (`git write-tree`), `HEAD`, and the blob ids of
 
 ---
 
-## 5. Validating the round's results
+## 5a. A complete result
 
-Five checks before any result reaches close. **Checks 1, 2, 3 and 5 halt;
-check 4 routes.**
+The record in §4 is what a **finished** item returns. Five checks before any of
+it reaches close, and **every one of them is terminal**:
 
-1. **Item-set equality.** Exactly one result for every request — no missing
+1. **Item-set equality.** Exactly one record for every request — no missing
    item, no extra item, no duplicate `work_item_id`.
-2. **Field parity, judged by mode.** Every result carries every field in §4 and
-   no other. `implementer_return` is then checked against **the return shape its
-   own `mode` names** (`references/returns.md` §1): for `complete`, exactly
-   `mode`, `report_path`, `summary`, `stage_status`; for `gaps-surfaced`,
-   exactly `mode` and a non-empty `gaps`, each element carrying `section`,
-   `question` and `severity`. Checking every return against the complete shape
-   would reject every gaps return as malformed and make check 4's route
-   unreachable — the two shapes are alternatives, not a shape and a deviation
-   from it.
+2. **Field parity.** Every field in §4 and no other, with `implementer_return`
+   carrying exactly the four keys of the complete return
+   (`references/returns.md` §2): `mode`, `report_path`, `summary`,
+   `stage_status`.
 3. **`coordinator_verdict` is `accepted`.** Any other value, including one that
    reads as a softer accept, is not an accepted result.
-4. **`mode` is `complete` — or the item enters the gap loop.** This one is a
-   route, not a halt. A `gaps-surfaced` return enters `round-orchestration.md`
-   §6's loop with **one step replaced**: the lane surfaces the gaps and appends
-   the clarifications to that item's handoff exactly as §6 says, and then —
-   instead of §6's own dispatch — builds **one new single-item request** (§3)
-   for that item and issues it through the caller-supplied procedure. It counts
-   against the same 3-iteration cap. The lane dispatches nothing itself in this
-   mode, and it does not say which executor the caller uses: reuse is the
-   caller's business, not ossify's. The item **never reaches close as a
-   result** — the round continues, and it returns as a §4 result record when it
-   completes.
-5. **The fingerprint still holds.** Recompute all four ids from the worktree and
-   the two documents, and compare against what the result declared. A mismatch
-   means the item moved after the caller finished — halt and name which of the
-   four changed.
+4. **`mode` is `complete`.** An item that surfaced gaps did not finish and does
+   not come back as a §4 record at all — it comes back as §5b's, which this list
+   never sees. A §4 record whose `mode` is anything but `complete` is malformed.
+5. **The fingerprint still holds, and the item never left the worktree.**
+   Recompute all four ids and compare against what the record declared; a
+   mismatch means the item moved after the caller finished, so halt and name
+   which of the four changed. **Then check `head_oid` and the recomputed `HEAD`
+   against the request's `base_sha`: all three must be equal.** Freshness alone
+   does not catch an executor that committed its work and then staged more —
+   declared and recomputed agree, every field is present, and the item would
+   reach the spine having crossed the commit boundary that belongs to close.
+   `HEAD` moving at all is the defect, whether or not anything else drifted.
 
-**Checks 1, 2, 3 and 5 are terminal.** A malformed, non-accepted, stale or
-mismatched result halts the round; it never degrades into the default nested
-path, and there is no stop-and-reinvoke step to reach for. The lane holds the
-state lock and the operator owns the recovery choice, exactly as everywhere
-else. Check 4 is the exception and it is not a halt: an under-specified item is
-a round-trip the lane already knows how to make.
+A malformed, non-accepted, stale or moved record halts the round. It never
+degrades into the default nested path, and there is no stop-and-reinvoke step to
+reach for: the lane holds the state lock and the operator owns the recovery
+choice, exactly as everywhere else.
 
-Results that pass are fed into close **in declared decomposition order, never
+Records that pass are fed into close **in declared decomposition order, never
 arrival order** — `round-orchestration.md` §7's rule, unchanged and doubly
 relevant here because a concurrent caller makes out-of-order arrival the normal
 case. Closes and merges stay serial; the round barrier is untouched.
+
+---
+
+## 5b. A gaps-surfaced return
+
+An item whose pre-flight stopped it never produced a report, a staged tree or a
+commit, so it has no fingerprint to carry and returns a **different, smaller
+record** under its own marker:
+
+```yaml
+external_execution_gaps:
+  work_item_id: r7.s2.w1
+  coordinator_verdict: accepted
+  implementer_return:
+    mode: gaps-surfaced
+    gaps:
+      - section: AC-2
+        question: Does an exhausted budget raise, or return a sentinel?
+        severity: blocking
+```
+
+Three fields, and **no `*_oid` of any kind** — there is nothing to fingerprint,
+and a record that carries one is describing work that happened. `coordinator_verdict`
+is still `accepted`: the caller accepted the *return*, not a finished item.
+`implementer_return` is ossify's existing gaps shape (`references/returns.md`
+§3), unextended — `mode`, and a non-empty `gaps` whose every element carries
+`section`, `question` and `severity`.
+
+**This record routes; it never halts and it never reaches close.** The item
+enters `round-orchestration.md` §6's gap loop with **one step replaced**: the
+lane surfaces the gaps and appends the clarifications to that item's handoff
+exactly as §6 says, and then — instead of §6's own dispatch — builds **one new
+single-item request** (§3) for that item and issues it through the
+caller-supplied procedure. It counts against the same 3-iteration cap. The lane
+dispatches nothing itself in this mode and does not say which executor the
+caller uses: reuse is the caller's business, not ossify's. When the item
+finishes, it comes back as a §4 record and goes through §5a.
 
 ---
 

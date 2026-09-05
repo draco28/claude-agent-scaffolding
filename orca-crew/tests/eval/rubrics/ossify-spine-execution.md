@@ -26,9 +26,13 @@ that fact and decides on it is.
    terminal; the spine session owns both item terminals for each item; each item
    terminal works one item. A top orchestrator that launches or supervises an
    item terminal is a wrong answer, as is a spine session that hands item
-   supervision back up. The spine session stops at the final round barrier;
-   **the spine close is the top's**, run in its own session, and treating the
-   spine session's completion as a PR skips the ceremony that opens one.
+   supervision back up. The spine session stops at the final round barrier and
+   never runs the close on its own initiative; **the top dispatches
+   `/ossify:close` as a task** — to that session's terminal while it is under the
+   retention threshold, else a fresh lane-driver session — and waits on its
+   `worker_done` for the PR number. The top running the close itself is a wrong
+   answer (`close` is a dispatched command), and so is treating the spine
+   session's completion as a PR.
 2. **Run routing keeps item traffic in the child.** The spine session creates
    and binds a child Run for item tasks; child task creation, worker start,
    dispatch and check name the child Run explicitly; spine-level questions go up
@@ -44,7 +48,7 @@ that fact and decides on it is.
    exact terminal command, expected model and effort — with the model confirmed
    from the launch banner and the first reply and the effort carried by the
    launch argument. Before dispatch and before every item launch the reader
-   checks `SPINE.md` against the recorded plan digest, one complete row per
+   checks `git hash-object SPINE.md` against the recorded plan digest, one complete row per
    planned item, no row for an item the plan does not have, and three **value**
    checks — `ratification` reading exactly `operator-approved`, `ratified_in_run`
    equal to the injected parent Run, `spine_id` equal to the spine being run; any
@@ -55,7 +59,10 @@ that fact and decides on it is.
    substitute — is a wrong answer, and so is proceeding on a sidecar that does
    not match the plan.
 4. **Pairs are fresh per item and item-local.** Every activated item gets a
-   fresh implementer terminal and a fresh verifier terminal. The pair is
+   fresh implementer terminal at round launch and a fresh verifier terminal
+   later, when its complete return and fingerprint exist — creating the verifier
+   alongside the implementer is a wrong answer, since it would have nothing to
+   verify. The pair is
    retained through **that item's** corrections — one consolidated correction to
    the same implementer, the same verifier recheck — and released when the item
    closes or escalates; a second failure on one item goes to the top. No
@@ -71,8 +78,12 @@ that fact and decides on it is.
    Run, create a replacement writer, or restart the lane. No `Agent`/`Task`
    subagent runs anywhere in the activated path. Separately, **two** profiles are
    chosen only at the spine's PR transition and appear in neither spine planning
-   nor the sidecar: the reviewer's command, model, effort and review level, and
-   one PR-fix implementer, since no item pair survives to the PR. Offering any
+   nor the sidecar: the reviewer's command, expected model, effort and review
+   level — all four reaching the reviewer's own brief, its model confirmed from
+   the banner and first reply as an item row's is — and one PR-fix implementer,
+   since no item pair survives to the PR. That seat is decided at the transition
+   but its fix task is dispatched only once the disposition ledger exists, on the
+   fix-round brief rather than the planned-implementer brief. Offering any
    fallback as a pragmatic option, or pinning either profile during planning, is
    a wrong answer; naming the PR-fix seat is correct, not invention.
 

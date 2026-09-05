@@ -2,18 +2,22 @@
 scenario_id: 03-parallel-fresh-pairs-exact-profiles
 expected_outcome: proceed
 expected_reason: 'THE DISCRIMINATING FIXTURE for this surface. Each item gets its
-  own FRESH implementer terminal and FRESH verifier terminal launched from that item''s
-  ratified sidecar row, using the exact command as written — including a native claude
-  --model ... --effort ... command, which is a legitimate row value here even though
-  the generic role table launches by alias. Four terminals for two items, all in the
-  child Run, and the two items may run concurrently. The model is confirmed from the
-  launch banner and the first reply; the effort is the launch argument, with no runtime
-  attestation. The wrong answers this fixture falsifies are: dispatching one lane-driver
-  session that spawns per-item subagents through the Agent tool (which is what the
-  pre-change contract prescribed); reusing one implementer across both items because
-  it is retained by the generic rule; and rewriting the native command to an alias
-  because "alias, never --model" is the general rule — that rule governs the generic
-  seats, not a ratified sidecar row'
+  own FRESH implementer terminal launched from that items ratified sidecar row, using
+  the exact command as written - including a native claude --model ... --effort ...
+  command, which is a legitimate row value here even though the generic role table
+  launches by alias. TWO terminals for two items at this point, not four: the verifier
+  is NOT created at round launch, because it has nothing to verify until that items
+  complete return and fingerprint exist; it is created and dispatched later, from
+  its own row command. Both terminals live in the child Run and the two items may
+  run concurrently. The model is confirmed from the launch banner and the first reply;
+  the effort is the launch argument, with no runtime attestation. The wrong answers
+  this fixture falsifies are: dispatching one lane-driver session that spawns per-item
+  subagents through the Agent tool (which is what the pre-change contract prescribed);
+  creating all four terminals now, which gives each verifier nothing to do and a stale
+  worktree to sit on; reusing one implementer across both items because it is retained
+  by the generic rule; and rewriting the native command to an alias because alias,
+  never --model is the general rule - that rule governs the generic seats, not a ratified
+  sidecar row'
 ---
 
 You are the spine session for `r5.s2`, with a bound child Run. Round 1 holds two

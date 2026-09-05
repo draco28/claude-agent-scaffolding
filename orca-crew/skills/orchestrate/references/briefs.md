@@ -77,7 +77,9 @@ ROLE: reviewer. State the model you are running in your first reply, then contin
 PLACEMENT: worktree <abs-path> checked out at PR <number>'s head <sha>.
 
 TASK: run `/code-review <number> <level>` — the level the orchestrator decided, not
-one you pick — and let it finish. Then send worker_done with
+one you pick. Your first reply must state the model you are running; it is expected to
+be <expected-model>, and a mismatch is a failed launch to report, not to work around.
+Let the review finish, then send worker_done with
 `Findings: none` on a clean review, else every finding in this body, one per line:
   <file>:<line> | P0|P1|P2|P3 | <claim in one sentence>
 followed by:

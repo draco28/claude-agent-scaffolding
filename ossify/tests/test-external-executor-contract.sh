@@ -135,6 +135,19 @@ assert_keyset "$EXT" 'external_execution_result:' 2 \
   "mode report_path summary stage_status" \
   "implementer_return is the existing complete-return shape, unextended"
 
+# A gaps-surfaced item never produced a report, a staged tree or a commit, so it
+# returns a SEPARATE, smaller record under its own marker — three fields and no
+# `*_oid` of any kind. Asserting it under its own marker is what lets §5a stay a
+# single unbranched check list: the two shapes are different records, not one
+# record checked two ways.
+assert_keyset "$EXT" 'external_execution_gaps:' 1 \
+  "work_item_id coordinator_verdict implementer_return" \
+  "external_execution_gaps carries exactly its three fields and no oid"
+
+assert_keyset "$EXT" 'external_execution_gaps:' 2 \
+  "mode gaps" \
+  "the gaps record's implementer_return is the existing gaps shape, unextended"
+
 # ---------------------------------------------------------------------------
 # 3. The no-flag control — the default nested dispatch must survive every edit
 # ---------------------------------------------------------------------------

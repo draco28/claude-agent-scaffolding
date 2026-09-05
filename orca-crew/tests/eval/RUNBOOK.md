@@ -6,6 +6,13 @@ conventions here are ossify's — `ossify/tests/eval/README.md` and
 shared parts; this file states what a reader needs to run **this** plugin's
 surfaces and does not restate the reasoning behind the conventions.
 
+**Working directory: the repository root**, the same place ossify's RUNBOOK is run
+from. Every runnable command below is written repo-root-prefixed
+(`bash orca-crew/tests/eval/...`) so it can be pasted as-is; every bare
+`tests/eval/...` path is relative to `orca-crew/`, exactly as ossify's bare paths are
+relative to `ossify/`. There is no `cd` step — introducing one here would diverge from
+the file this harness copies.
+
 ## Surfaces → owning prose
 
 | Surface | Owning prose | The judgment |

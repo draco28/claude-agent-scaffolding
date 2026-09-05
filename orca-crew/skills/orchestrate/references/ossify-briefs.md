@@ -31,7 +31,8 @@ ORCA_EXECUTION_PATH=<abs path to $SPINE_DIR/orca-execution.md>
 
 TASK: drive spine SPINE_ID to its final round barrier.
   1. Read ORCA_EXECUTION_PATH and validate it against SPINE.md before anything
-     else: SPINE.md must hash to spine_plan_oid; every planned item must have
+     else: `git hash-object SPINE.md` (the git blob id) must equal
+     spine_plan_oid; every planned item must have
      exactly one complete row; no row may name an item the plan does not;
      ratification must read exactly `operator-approved`; ratified_in_run must
      equal PARENT_RUN_ID; and spine_id must equal SPINE_ID. Any failure halts —
@@ -41,16 +42,17 @@ TASK: drive spine SPINE_ID to its final round barrier.
      for the top names --run PARENT_RUN_ID. Replies to item questions go on each
      original child message id.
   3. Run `/ossify:run-spine $SPINE_ID --external-executor`. When it hands you a
-     round's execution requests, launch one fresh implementer terminal and one
-     fresh verifier terminal per item from that item's exact sidecar command —
-     never a substitute command, model or effort. Confirm each model from the
-     launch banner and the first reply; the effort is the launch argument you
-     were given.
+     round's execution requests, launch one fresh IMPLEMENTER terminal per item
+     from that item's exact sidecar command — never a substitute command, model
+     or effort. The verifier is not created here; step 5 creates it, once there
+     is a complete return to verify. Confirm each model from the launch banner
+     and the first reply; the effort is the launch argument you were given.
   4. Gather the round's implementation plans into ONE ordered ask to the top and
      wait. Relay the top's per-item decision to each implementer on its own
      original message id before any edit starts.
-  5. Verify each complete return with that item's own verifier against the fixed
-     all-claims procedure; `cannot determine` counts as fail. On failure send one
+  5. On each complete return, create and dispatch that item's fresh VERIFIER
+     terminal from its exact sidecar command and run the fixed all-claims
+     procedure; `cannot determine` counts as fail. On failure send one
      consolidated correction to the SAME implementer, then the full recheck to
      the SAME verifier. A second failure escalates to the top.
   6. Return accepted results to the lane in declared decomposition order. Keep
@@ -69,7 +71,8 @@ the top's and runs after this worker_done.
 
 NEVER: launch an item terminal in the parent Run; run a Claude subagent for a
 work item; fall back to the default nested dispatch after a depth error;
-restart the lane; select the reviewer; run `/ossify:close`. On
+restart the lane; select the reviewer; run `/ossify:close` on your own — the top
+dispatches that close as a task, and you run it only when it attaches one. On
 `nested_worker_depth_exceeded`, stay alive, report it to the top, and wait for
 the operator's decision.
 ```

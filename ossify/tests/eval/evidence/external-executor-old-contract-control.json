@@ -18,12 +18,12 @@
       "mode_split": 1,
       "round_sequencing": 1,
       "result_validation": 1,
-      "gaps_routing": 1,
+      "gaps_routing": 2,
       "correction_and_layer4": 4
     },
     "pass": false,
-    "notes": "Output declares --external-executor undocumented and walks the ordinary nested Task-dispatch path instead, so it never builds an external_execution_request or invokes a caller procedure (round_sequencing=1), asserts the only pre-close check is the mode enum with no fingerprint recompute (result_validation=1), frames gaps-surfaced as re-dispatch to the same subagent worker (gaps_routing=1), and collapses external into the default nested mode exactly as the rubric names as a wrong answer (mode_split=1); correction_and_layer4 is capped at 4 since the scenario's accepted-result walk never exercises rejection/close and the output correctly stays silent there rather than inventing facts."
+    "notes": "Output asserts --external-executor is undefined by the authority docs (missing skills/work-item/references/external-executor.md, which exists and specifies the mode) and instead executes the nested Task-dispatch path throughout, so mode_split, round_sequencing, and result_validation all describe the wrong mode's mechanics rather than the external_execution_request/result contract, and gaps_routing invents nested-mode redispatch instead of staying silent or routing via the caller; correction_and_layer4 is untouched by the fixture and the output invents nothing there, so it caps at 4."
   },
-  "verdict": "DETECTS - control failed as required, and the corrected gaps_routing criterion now catches the old prose's re-dispatch framing too (1, previously capped at 4 as unexercised).",
-  "rerun_reason": "Rubric criteria 3 and 4 changed in the F5 fix round, so the previous control no longer evidences THIS rubric. Re-run against the same 3e3a2f3 prose with fresh invoke and judge agents."
+  "verdict": "DETECTS - control failed as required, and sharper than the previous round: gaps_routing moved 4 -> 2 now that criterion 4 describes a separate gaps RECORD, so the old prose's nested-redispatch framing is a positive wrong answer rather than mere silence.",
+  "rerun_reason": "Round-two restructure (R2-1) split section 5 into 5a/5b and rewrote rubric criteria 3 and 4, so the previous control no longer evidences THIS rubric. Re-run against the same 3e3a2f3 prose with fresh invoke and judge agents."
 }
