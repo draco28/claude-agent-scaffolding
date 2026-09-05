@@ -1,0 +1,28 @@
+{
+  "control": "old-contract detection control",
+  "surface": "external-executor",
+  "fixture": "02-external-request-result-handling",
+  "why_this_fixture": "The most discriminating of the seven: it is the core in-session contract, so an invoke agent reading prose that predates the seam cannot answer it correctly by accident. The negative control 01 is deliberately NOT used here - it would pass against the old prose, which is what makes it a control rather than a discriminator.",
+  "pre_change_sha": "3e3a2f3",
+  "pre_change_prose": [
+    "ossify/skills/work-item/SKILL.md",
+    "ossify/skills/work-item/references/round-orchestration.md",
+    "ossify/skills/close/references/work-item-close.md",
+    "ossify/commands/run-spine.md"
+  ],
+  "note_on_prose_set": "references/external-executor.md and references/correction-continuation.md do not exist at 3e3a2f3; their absence is the change under test.",
+  "must_fail": true,
+  "observed_pass": false,
+  "result": {
+    "scores": {
+      "mode_split": 1,
+      "round_sequencing": 1,
+      "result_validation": 1,
+      "gaps_routing": 4,
+      "correction_and_layer4": 4
+    },
+    "pass": false,
+    "notes": "The output declares --external-executor an inert no-op and dispatches the ordinary Task(ossify:implementer-agent) nested path instead of building an external_execution_request, invoking the caller procedure, and recomputing the four-part fingerprint on the returned external_execution_result — exactly the 'letting either mode silently become the other' wrong answer the rubric calls out, failing mode_split, round_sequencing, and result_validation; gaps_routing and correction_and_layer4 are capped at 4 since this well-formed-acceptance scenario never exercises them and the output states nothing false about either."
+  },
+  "verdict": "DETECTS - the control failed as required, so the surface's passing results are evidence of the new contract rather than of a rubric anything satisfies."
+}

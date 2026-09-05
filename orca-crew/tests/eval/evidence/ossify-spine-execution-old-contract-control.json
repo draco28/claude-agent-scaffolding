@@ -1,0 +1,28 @@
+{
+  "control": "old-contract detection control",
+  "surface": "ossify-spine-execution",
+  "fixture": "03-parallel-fresh-pairs-exact-profiles",
+  "why_this_fixture": "The most discriminating of the eight: the pre-change contract actively prescribes the opposite arrangement (one lane-driver session spawning per-item subagents, launch by alias never --model), so an invoke agent reading it produces a confidently wrong answer rather than an absence.",
+  "pre_change_sha": "3e3a2f3",
+  "pre_change_prose": [
+    "orca-crew/skills/orchestrate/SKILL.md",
+    "orca-crew/skills/orchestrate/references/roles.md",
+    "orca-crew/skills/orchestrate/references/lifecycle.md",
+    "orca-crew/skills/orchestrate/references/briefs.md"
+  ],
+  "note_on_prose_set": "references/ossify-execution.md and references/ossify-briefs.md do not exist at 3e3a2f3; their absence is the change under test.",
+  "must_fail": true,
+  "observed_pass": false,
+  "result": {
+    "scores": {
+      "activation_and_layers": 4,
+      "run_routing": 4,
+      "profile_binding": 1,
+      "pair_lifecycle": 1,
+      "no_fallback_and_reviewer_timing": 4
+    },
+    "pass": false,
+    "notes": "activation, run_routing, and reviewer_timing cap at 4 as merely unexercised/not-violated by this round-1 scenario, while profile_binding and pair_lifecycle score 1 because the output invented an alias-only launch rule (from outside the sidecar contract) to refuse w1's validly ratified native claude --model claude-opus-5 --effort xhigh row and produced only one terminal total (w2 implementer, no verifiers, no w1 at all) instead of the four fresh implementer+verifier terminals the ratified sidecar calls for — precisely the wrong answer this discriminating fixture exists to falsify."
+  },
+  "verdict": "DETECTS - the control failed as required."
+}
