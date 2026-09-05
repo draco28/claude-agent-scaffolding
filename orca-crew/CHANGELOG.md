@@ -2,6 +2,53 @@
 
 All notable changes to the `orca-crew` plugin.
 
+## 0.3.0
+
+Three session layers, **on a spine this session just planned** — the four-fact
+activation in D14 is the whole switch. They replace the single dispatched lane driver
+whose subagents inherited its runtime and so could not honour a per-item model or
+effort. **Everywhere else nothing moves:** `/ossify:run-spine <id>` with no flag is
+unchanged and still dispatches `ossify:implementer-agent`, and the generic role
+table, class routing and retention still govern every session outside such a spine.
+
+- **D14** — activation is four facts about the current session: orca-crew is the top
+  orchestrator, a Run is bound, this session just completed `/ossify:plan-spine`, and a
+  concrete spine directory exists. Installation, environment, and finding a sidecar on
+  disk activate nothing.
+- **D15** — `$SPINE_DIR/orca-execution.md` (`orca-execution/v1`), written by the top
+  orchestrator alone after the operator ratifies every row in one phase. Rows carry
+  only terminal command, expected model, and effort; the implementation-plan gate, the
+  implementer entry point, and the verifier procedure are fixed for every item.
+- **D16** — every activated item gets a fresh implementer and a fresh verifier at its
+  exact ratified profile, retained only through that item's corrections and never
+  crossing work items. Generic class routing and retention are unchanged outside such
+  a spine.
+- **D17** — three session layers: the top starts **one** spine session, that session
+  creates a child Run and owns both item terminals per item, and item plan traffic and
+  item completions never reach the parent inbox. No Agent/Task subagent runs anywhere
+  in the activated path.
+- **D18** — each implementer reads, posts a detailed plan, and waits; the spine session
+  relays a round's plans up in one ordered ask and the top decides each independently.
+  No edit starts before the relayed decision.
+- **D19** — fixed procedures, selectable runtimes: the implementation-plan gate, the
+  `/ossify:work-item` entry point and the all-claims verifier procedure are the same on
+  every item; only the terminal command, the expected model and the effort vary. The
+  model is checked from the launch banner and the first reply; the effort is the exact
+  approved launch argument, with no attestation mechanism behind it.
+- **D21** — nested worker depth must be `2`. No CLI read proves it, so the operator
+  confirms before launch. `nested_worker_depth_exceeded` halts and asks; it never falls
+  back to a subagent, to the parent Run, or to a lane restart.
+- **D22** — corrections are item-local: one consolidated correction to the same
+  implementer, the same verifier rechecks it, and a second failure on that item
+  escalates to the top. No replacement writer is created silently. The
+  continuation packet carries all four identities the executor must confirm
+  before it touches anything — work item id, branch, `HEAD` and staged tree.
+- **D23** — Layer 4 runs inline under external mode, and the reviewer is chosen only at
+  the spine's PR transition — not in spine planning and not in the sidecar.
+
+D20 is ossify's own half of the seam (the provider-neutral `--external-executor`
+contract) and ships in that plugin, not this one.
+
 ## 0.2.0
 
 Session budget and plan-time routing, triggered by measured session spray: tens of

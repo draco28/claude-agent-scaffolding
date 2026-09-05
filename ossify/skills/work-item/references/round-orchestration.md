@@ -288,6 +288,19 @@ its pre-flight expects the file to exist.
 
 ## 5. Dispatch
 
+**This step, and only this step, has two forms.** Which one you are in was
+decided by the command that started you and never changes mid-spine:
+
+- **`/run-spine <spine-id>`** — the default, below. The lane dispatches its own
+  nested implementer per work item.
+- **`/run-spine <spine-id> --external-executor`** — the caller supplies the
+  execution procedure. **Read `references/external-executor.md` and follow it**
+  instead of the block below; it owns the round sequencing, the two records, the
+  validation and the halts. Come back here for §6 and §7, which it does not
+  change. That mode calls no subagent and never falls back to one.
+
+### The default dispatch
+
 ```text
 Task(subagent_type="ossify:implementer-agent", prompt=<invocation block naming the absolute handoff path>)
 ```
@@ -399,6 +412,11 @@ branch through close, one at a time, and a conflict halts (never auto-resolve).
 yet. It binds here, where it costs something: when a concurrent round's items
 come back out of order, **work item N+1 is not verified, closed or merged until
 N is fully committed and merged**. Hold the early return and wait.
+
+**The barrier is identical in both dispatch forms.** An external caller may run
+a round's items concurrently — that is expected, not a variation — and it
+changes nothing here: the returns still queue into close in declared order, the
+merges are still serial, and the next round still waits.
 
 This is spec §6's strict-order verification, and dispatching concurrently is
 exactly what makes it easy to violate — an orchestrator that closes items as

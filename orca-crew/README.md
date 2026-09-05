@@ -14,7 +14,7 @@ for the operator's word.
 
 | Skill | What it does |
 |---|---|
-| `orchestrate` | The playbook for the orchestrator session: the delegation floor and its decidable test, the role table, the thirteen-step run, five dispatched brief templates plus a correction-request message template, the ossify seam, and the refusals. Defers every other Orca command to `orca skills get orchestration`. |
+| `orchestrate` | The playbook for the orchestrator session: the delegation floor and its decidable test, the role table, the thirteen-step run, five dispatched brief templates plus a correction-request message template, the ossify seam — including the spine execution-assignment phase and its four further briefs — and the refusals. Defers every other Orca command to `orca skills get orchestration`. |
 
 ## Command
 
@@ -61,6 +61,39 @@ ossify's ceremonies (`start`, `adopt`, `plan-release`, `plan-spine`, `wayfinder`
 `challenge`, `handoff`, `handoff-resume`) run in the orchestrator session. Its execution lanes
 (`run-spine`, `work-item`, `close`, `work-pr`, `doctor`) are dispatched to Orca sessions.
 No ossify contract changes.
+
+## Spine execution assignments (0.3.0)
+
+When this session has just planned an ossify spine — and only then; installation, an
+environment variable, or a sidecar found on disk activate nothing — the run takes three
+layers instead of one dispatched lane driver:
+
+1. The **top orchestrator** recommends one implementer and one verifier profile per work
+   item, has the operator ratify every row in a single phase, writes
+   `$SPINE_DIR/orca-execution.md` (`orca-execution/v1`), and starts one spine session. It
+   approves each relayed worker plan and later chooses the reviewer. It launches no item
+   terminal.
+2. The **spine session** runs the ossify lane in external-executor mode and creates a
+   child Run of its own, which keeps item plan traffic and item completions out of the
+   parent inbox. It launches and supervises both terminals for each item.
+3. Each **work item** gets a fresh implementer terminal and a fresh verifier terminal at
+   its exact ratified command, model and effort. A pair is retained across that item's
+   corrections and never crosses work items.
+
+Sidecar rows vary only the terminal command, the expected model, and the effort. The
+implementation-plan gate, the implementer entry point (`/ossify:work-item`) and the
+verifier procedure are fixed. There is no reviewer row and no whole-spine profile: the
+reviewer is chosen when the spine's PR reaches review, because before that there is no
+diff to choose against.
+
+**Nested worker depth must be `2`.** No CLI read exposes that setting, so the operator
+confirms it before launch and the first child dispatch is the proof. On
+`nested_worker_depth_exceeded` the spine session stays alive and asks — it never falls
+back to an inherited-runtime subagent, to the parent Run, or to restarting the lane. No
+Agent or Task subagent runs anywhere in this path.
+
+Outside an activated spine, the role table, complexity-class routing and retention above
+are unchanged.
 
 ## Requirements
 

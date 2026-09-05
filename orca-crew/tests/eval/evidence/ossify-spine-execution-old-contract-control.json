@@ -1,0 +1,29 @@
+{
+  "control": "old-contract detection control",
+  "surface": "ossify-spine-execution",
+  "fixture": "03-parallel-fresh-pairs-exact-profiles",
+  "why_this_fixture": "The most discriminating of the eight: the pre-change contract actively prescribes the opposite arrangement (one lane-driver session spawning per-item subagents, launch by alias never --model), so an invoke agent reading it produces a confidently wrong answer rather than an absence.",
+  "pre_change_sha": "3e3a2f3",
+  "pre_change_prose": [
+    "orca-crew/skills/orchestrate/SKILL.md",
+    "orca-crew/skills/orchestrate/references/roles.md",
+    "orca-crew/skills/orchestrate/references/lifecycle.md",
+    "orca-crew/skills/orchestrate/references/briefs.md"
+  ],
+  "note_on_prose_set": "references/ossify-execution.md and references/ossify-briefs.md do not exist at 3e3a2f3; their absence is the change under test.",
+  "must_fail": true,
+  "observed_pass": false,
+  "result": {
+    "scores": {
+      "activation_and_layers": 4,
+      "run_routing": 3,
+      "profile_binding": 1,
+      "pair_lifecycle": 2,
+      "no_fallback_and_reviewer_timing": 4
+    },
+    "pass": false,
+    "notes": "Central failure: treated the generic alias-only launch rule as overriding the fully-validated ratified sidecar row and refused to launch w1's exact native `claude --model claude-opus-5 --effort xhigh` command (the fixture's discriminating test, expected_outcome=proceed), which also left w1 without its fresh round-launch implementer terminal and never stated that terminals live in the child Run despite the prompt asking where they live."
+  },
+  "verdict": "DETECTS - control failed as required, and sharper than the previous round: run_routing 4 -> 3 and pair_lifecycle 4 -> 2, because the corrected criteria now catch the old prose's silence on child-Run placement and its failure to produce w1's round-launch implementer.",
+  "rerun_reason": "Round two changed orca rubric criteria 1, 3, 4 and 5 (close is dispatched not run; git hash-object digest; verifier created at the complete return, not at round launch; two PR-transition profiles with the fix task gated on the disposition ledger), so the previous control no longer evidences THIS rubric. Re-run against the same 3e3a2f3 prose with fresh agents."
+}

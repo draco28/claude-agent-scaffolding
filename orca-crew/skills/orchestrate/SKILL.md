@@ -1,6 +1,6 @@
 ---
 name: orchestrate
-description: The orchestrator/worker session model over Orca — one orchestrator session (claude on Fable, or claude-sol) that spends its context on decisions and dispatches everything else to GLM worker sessions launched by alias (claude-glm, claude-glm-flash) through Orca orchestration. One /code-review per PR in a flash session, findings returned by worker_done, GitHub threads worked to zero, merge only on the operator's word. Use when the user says orchestrator session, spawn a worker, dispatch to a session, claude-glm, claude-glm-flash, orca worker, review this PR in a session, or runs /orca-crew:orchestrate. Not Orca's command reference (orca skills get orchestration owns that), and not a PR loop of its own where ossify's work-pr is installed.
+description: The orchestrator/worker session model over Orca — one orchestrator session (claude on Fable, or claude-sol) that spends its context on decisions and dispatches everything else to GLM worker sessions launched by alias (claude-glm, claude-glm-flash) through Orca orchestration. One /code-review per PR in a flash session, findings returned by worker_done, GitHub threads worked to zero, merge only on the operator's word. On a spine this session just planned, it ratifies a per-item implementer/verifier profile into an orca-execution sidecar and starts one spine session that runs the items in fresh external terminals. Use when the user says orchestrator session, spawn a worker, dispatch to a session, claude-glm, claude-glm-flash, orca worker, review this PR in a session, execution assignments for a spine, or runs /orca-crew:orchestrate. Not Orca's command reference (orca skills get orchestration owns that), and not a PR loop of its own where ossify's work-pr is installed.
 ---
 
 # Orchestrate — the orchestrator/worker session model
@@ -84,6 +84,12 @@ complexity class is assigned at plan time and read at dispatch, so picking the a
 is a lookup, not a judgment. The mechanic and the retention, placement, and
 single-writer rules are in the reference.
 
+One phase overrides that lookup: on an **activated ossify spine** (§6) the item's
+implementer and verifier come from an operator-ratified sidecar row rather than from
+its complexity class, a native `claude --model … --effort …` command is a legitimate
+row value there, and each pair is fresh per item. That scope is exactly the activated
+spine; everywhere else the table above is unchanged.
+
 ## 4. The run
 
 `references/lifecycle.md` is the thirteen-step run: orient, decompose, launch, plan
@@ -112,11 +118,21 @@ command by the delegation floor: does it need the operator turn by turn?
 
 Two cases are named because they look like clashes and are not:
 
-- **`run-spine`.** Dispatch `/ossify:run-spine <id>` to one `claude-glm --effort max`
-  session, the lane driver. From ossify's point of view that session is its orchestrator:
-  it holds the state lock, spawns `ossify:implementer-agent` subagents through the `Agent`
-  tool, commits at each close, merges at the barrier. The `Agent`-tool ban in §2 applies
-  to this session only. You wait on one `worker_done` per spine.
+- **`run-spine`, by default.** Dispatch `/ossify:run-spine <id>` to one
+  `claude-glm --effort max` session, the lane driver. From ossify's point of view that
+  session is its orchestrator: it holds the state lock, spawns
+  `ossify:implementer-agent` subagents through the `Agent` tool, commits at each close,
+  merges at the barrier. The `Agent`-tool ban in §2 applies to this session only. You
+  wait on one `worker_done` per spine.
+- **`run-spine`, when this session just planned the spine.** Then the items deserve
+  their own models, and inherited-runtime subagents cannot give them that.
+  **Read `references/ossify-execution.md` and follow it**: you ratify one
+  implementer/verifier profile per item with the operator, write the
+  `orca-execution/v1` sidecar, and start one spine session that creates a child Run
+  and drives fresh external terminals per item — no subagent anywhere in that path.
+  Its four briefs are in `references/ossify-briefs.md`. Activation needs all four facts
+  that file lists; installation alone is not one of them, so an ossify spine you did
+  not plan here stays on the bullet above.
 - **`work-pr`.** After the single reviewer dispatch and your disposition, the fix dispatch
   to the retained implementer is `/ossify:work-pr <PR> --repo-root <worktree holding the
   PR branch>` with the disposition list embedded as a third finding signal — work-pr

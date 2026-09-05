@@ -8,6 +8,23 @@ Every command's syntax comes from `orca skills get orchestration`.
    `git status`, open PRs, `orca status --json`, `orca orchestration task-list --brief
    --json`. Then `run-create --objective "<objective>"`, or `run-use` when resuming a
    Run the operator names.
+1b. **Ossify spine planned here?** If this session just completed `/ossify:plan-spine`
+   against a concrete spine directory with a Run bound, step 2 is replaced by
+   `references/ossify-execution.md`: ratify one implementer/verifier profile per work
+   item with the operator, write the sidecar, confirm nested worker depth is 2, and
+   start **one** spine session that creates its own child Run and launches every item
+   pair. You approve relayed worker plans and wait on that one completion; you launch
+   no item terminal. **That completion is the final round barrier, not a PR.** When it
+   lands you **dispatch** `/ossify:close <spine-id>` as a task — to the spine session's
+   own terminal while it is under the retention threshold, else a fresh lane-driver
+   session — and wait on its `worker_done`, which returns **every** PR it opened, one
+   per hosting repo; `close` is a dispatched command (§6), not one you run here. Only
+   then do steps 8-13 resume, where the reviewer **and** the PR-fix implementer are
+   chosen for the first time — 8-12 run for **each** returned PR, its merge included,
+   before you dispatch the second close for the record pass, which halts if any is
+   still open. **Hold step 12's teardown — worker release, branch deletion — until
+   that record pass has returned**; it resolves the spine branch again. Absent any
+   of those four facts, continue at step 2.
 2. **Decompose.** One `task-create` per brief, `--deps` for the DAG, each carrying
    the complexity class the orchestrator derives from the work item's spec and its
    spine's bone/flesh class: `contract` if it touches an interface, schema, or
@@ -57,7 +74,11 @@ Every command's syntax comes from `orca skills get orchestration`.
 9. **Disposition.** Each finding becomes **fix**, **defer** as a tracked issue, or
    **reject** with a reason. Post that list as one PR comment — the disposition
    ledger — so it survives the session.
-10. **Fix rounds.** The retained implementer gets the fix list plus the GitHub thread
+10. **Fix rounds.** The retained implementer — on an activated ossify spine (1b) there
+    is none, because every item pair was released at its item's close, so the top decided
+    one PR-fix implementer at step 8's transition and dispatches its fix task here, once
+    step 9's ledger exists; that seat is the retained one — gets the fix list plus the
+    GitHub thread
     stream (Codex, CodeRabbit, humans) and works to zero unresolved threads by GraphQL
     `reviewThreads` count, pushing as it goes. The unit that reaches a terminal state
     is each finding, including each finding inside a review body or PR comment: every
@@ -99,8 +120,9 @@ Every command's syntax comes from `orca skills get orchestration`.
     operations, so a signal can still land between them: the operator's ruleset
     requires conversation resolution, GitHub itself refuses the merge while any thread
     is open, and a merge refused that way returns to step 10, never a retry. Then
-    release every worker, close the Run, and delete the branch only after confirming
-    a merged PR exists whose head OID equals the branch tip.
+    release every worker and delete the branch only after confirming a merged PR
+    exists whose head OID equals the branch tip — on an activated ossify spine (1b),
+    both wait until the second close's record pass has returned.
 13. **Handoff.** If the Run outlives the session, write a handoff naming the Run id,
     task ids, terminal handles, head SHA, and the next step. With ossify installed, that
     is `/ossify:handoff`.

@@ -134,8 +134,13 @@ check does not fail loudly: a reader or refuter can still return a
 schema-valid empty `findings` object having never read the file, `agents_run`
 still reaches 6, and the gate reports green having verified nothing.
 
-**Layer 4 runs delegated where it can, inline where it cannot.** If
-`OSSIFY_NO_WORKFLOWS` is unset, a tool named `Workflow` is available, **and
+**Layer 4 runs delegated where it can, inline where it cannot — and inline,
+by choice, under external-executor mode.** If `OSSIFY_NO_WORKFLOWS` is unset, a
+tool named `Workflow` is available, **the lane is not in external-executor mode**
+(`work-item/references/external-executor.md` §6 — the caller has already put its
+own reviewer on this item, so six delegated agents behind it buy a second review
+nobody asked for; take the inline path, which is the same judgment with the
+host's own context), **and
 the staged diff is nonempty** (`git -C "$wt" diff --cached --name-only` —
 step 3 below halts unconditionally on an empty index regardless of what
 Layer 4 finds, so dispatching six agents first is pure waste; take the

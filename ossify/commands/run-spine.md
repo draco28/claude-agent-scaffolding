@@ -1,6 +1,6 @@
 ---
 description: Drive a planned ossify spine's rounds end to end (spine-branch cut, one worktree per work item, implementer dispatch in decomposition order, the round barrier)
-argument-hint: "<spine-id>"
+argument-hint: "<spine-id> [--external-executor]"
 allowed-tools: Bash(bash:*), Read, Write, Edit, Glob, Grep, Task, Skill, Workflow
 ---
 
@@ -14,6 +14,22 @@ ARGS_FROM_CLAUDE="$ARGUMENTS" bash -c '
   echo "run-spine: ARGS=${ARGS:-<none>}"
 '
 ```
+
+**Exactly two command shapes are accepted**, and the grammar is closed:
+
+- `/run-spine <spine-id>` — the default. The lane dispatches its own nested
+  implementer per work item, unchanged.
+- `/run-spine <spine-id> --external-executor` — the caller supplies the
+  execution procedure instead. `skills/work-item/references/external-executor.md`
+  is that mode's contract.
+
+Anything else is a refusal, and the refusal comes **before the spine-branch cut,
+before any worktree, and before any state write** — a lane that mutates first and
+validates second has already changed the repository by the time it reports the
+typo. Refuse a flag you do not recognise, a flag spelled differently, the flag
+given twice, the flag given before the spine id, and any extra argument. Name
+what you saw and the two shapes above; do not guess which one was meant, and do
+not silently drop the token and run the default.
 
 Now load the lane contract and follow it:
 

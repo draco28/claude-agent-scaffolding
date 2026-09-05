@@ -14,6 +14,12 @@ injected preamble plus this text and nothing else. Every brief carries, in this 
 
 Angle brackets are slots. Fill every slot; delete nothing else.
 
+**An activated ossify spine has four briefs of its own** — spine session, item
+implementer, item verifier, and the correction message — in
+`references/ossify-briefs.md`. They do not replace the five below, which still govern
+every other dispatch; the item verifier there reuses this file's verifier CLAIMS body
+verbatim rather than restating it.
+
 ## Planned implementer (`claude-glm`)
 
 ```text
@@ -70,7 +76,10 @@ ROLE: reviewer. State the model you are running in your first reply, then contin
 
 PLACEMENT: worktree <abs-path> checked out at PR <number>'s head <sha>.
 
-TASK: run `/code-review <number>` and let it finish. Then send worker_done with
+TASK: run `/code-review <number> <level>` — the level the orchestrator decided, not
+one you pick. Your first reply must state the model you are running; it is expected to
+be <expected-model>, and a mismatch is a failed launch to report, not to work around.
+Let the review finish, then send worker_done with
 `Findings: none` on a clean review, else every finding in this body, one per line:
   <file>:<line> | P0|P1|P2|P3 | <claim in one sentence>
 followed by:

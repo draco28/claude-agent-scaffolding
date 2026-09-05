@@ -1,4 +1,4 @@
-# ossify (v1.7.0)
+# ossify (v1.8.0)
 
 Skeleton-first lifecycle plugin: Release 0 → MVP → v1, driven by bone and flesh
 spines against a cumulative demo ledger. Nine entry skills (`start`, `adopt`,
@@ -14,6 +14,19 @@ line. Since 1.6.0 (#139) `close`'s impl-check gate gains Layer 4: a delegated
 semantic review over three lenses (fidelity, pattern, absence) at work-item
 close, applied inline on every harness or by a dedicated Workflow-tool pass
 on Claude Code on Anthropic.
+
+Since 1.8.0, `/ossify:run-spine <spine-id> --external-executor` is an optional,
+provider-neutral execution seam: instead of dispatching its own nested
+implementer, the lane prepares every same-round worktree and handoff, hands the
+round out as one `external_execution_request` per item, and takes back one
+`external_execution_result` each. It names no tool, product or model; the caller
+supplies the procedure. Everything on either side of that one step is unchanged
+— worktrees, handoffs, the return contract, declared-order closes, serial
+merges, the round barrier, the 3-dispatch cap. The mode adds no return mode: a
+rejected item is repaired through a correction continuation that returns the
+same `complete` shape, and Layer 4 runs inline there because the caller has
+already reviewed the item. **`/ossify:run-spine <spine-id>` with no flag is
+completely unchanged** and still dispatches `ossify:implementer-agent`.
 
 Since 1.7.0 (#368), every bare `doctor` sweep includes plugin provenance and
 `doctor provenance` runs it alone. It reports the answering `oss` binary, the

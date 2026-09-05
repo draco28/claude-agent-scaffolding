@@ -1,0 +1,29 @@
+{
+  "control": "old-contract detection control",
+  "surface": "external-executor",
+  "fixture": "02-external-request-result-handling",
+  "why_this_fixture": "The most discriminating of the seven: it is the core in-session contract, so an invoke agent reading prose that predates the seam cannot answer it correctly by accident. The negative control 01 is deliberately NOT used here - it would pass against the old prose, which is what makes it a control rather than a discriminator.",
+  "pre_change_sha": "3e3a2f3",
+  "pre_change_prose": [
+    "ossify/skills/work-item/SKILL.md",
+    "ossify/skills/work-item/references/round-orchestration.md",
+    "ossify/skills/close/references/work-item-close.md",
+    "ossify/commands/run-spine.md"
+  ],
+  "note_on_prose_set": "references/external-executor.md and references/correction-continuation.md do not exist at 3e3a2f3; their absence is the change under test.",
+  "must_fail": true,
+  "observed_pass": false,
+  "result": {
+    "scores": {
+      "mode_split": 1,
+      "round_sequencing": 1,
+      "result_validation": 1,
+      "gaps_routing": 2,
+      "correction_and_layer4": 2
+    },
+    "pass": false,
+    "notes": "The output declares --external-executor has no hook in the docs and answers by walking the ordinary nested Task(ossify:implementer-agent) dispatch path instead, which is exactly the disqualified 'either mode silently becomes the other' answer and misses the entire external_execution_request/result envelope, the four *_oid identity recomputation before close, and any external-mode gaps/correction/Layer4 mechanics."
+  },
+  "verdict": "DETECTS - control failed as required, and sharper again: correction_and_layer4 moved 4 -> 2 now that criterion 5 also requires a corrected item to re-enter the identity table as a fresh record, which the old prose has no notion of.",
+  "rerun_reason": "Round three restructured section 5a into the request-anchored identity table and re-aligned rubric criteria 3, 4 and 5, so the previous control no longer evidences THIS rubric. Re-run against the same 3e3a2f3 prose with fresh invoke and judge agents."
+}
