@@ -64,8 +64,9 @@ that fact and decides on it is.
    shape — **no `*_oid` of any kind**, and a record carrying one is describing
    work that did not happen. **It is validated before it routes** — exactly those
    three fields, `accepted`, `gaps-surfaced`, a non-empty schema-valid `gaps` —
-   and the worktree is checked clean at `base_sha` before the replacement request
-   goes out, because this record carries no identity of its own. A valid one then
+   and the worktree is checked clean at `base_sha`, and on the request's `branch`,
+   before the replacement request goes out, because this record carries no identity
+   of its own. A valid one then
    enters `round-orchestration.md`
    §6's gap loop **with that loop's dispatch step replaced**: gaps surfaced,
    clarifications appended to **that item's handoff**, then **one new

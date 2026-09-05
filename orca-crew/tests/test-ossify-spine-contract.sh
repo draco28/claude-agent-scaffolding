@@ -40,6 +40,11 @@ REF="$PLUGIN_ROOT/skills/orchestrate/references"
 EXEC_MD="$REF/ossify-execution.md"
 BRIEFS_MD="$REF/ossify-briefs.md"
 NESTED_MD="$REF/ossify-nested-run.md"
+PRBRIEFS_MD="$REF/ossify-pr-briefs.md"
+LIFECYCLE_MD="$REF/lifecycle.md"
+ROLES_MD="$REF/roles.md"
+GENERIC_BRIEFS_MD="$REF/briefs.md"
+SKILL_MD="$PLUGIN_ROOT/skills/orchestrate/SKILL.md"
 
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/_helpers.sh"
@@ -121,10 +126,29 @@ assert_set "$(keys "$EXEC_MD" '## Fixed procedures' '')" \
 
 pin "$EXEC_MD" 'implementation_plan_gate: worker-authored/top-orchestrator-approved' \
   "the plan gate's value is byte-exact"
-pin "$EXEC_MD" 'implementer_entrypoint: /ossify:work-item $HANDOFF_PATH' \
+pin "$EXEC_MD" 'implementer_entrypoint: /ossify:work-item <handoff path>' \
   "the implementer entry point's value is byte-exact"
+# #435: an angle-bracket slot, not a $NAME the sidecar never injects.
+absent "$EXEC_MD" '$HANDOFF_PATH' \
+  "the entry point spends no uninjected \$NAME"
 pin "$EXEC_MD" 'verifier_procedure: all-claims-work-item-verify/v1' \
   "the verifier procedure's value is byte-exact"
+
+# D24: the spine-session seat is a ratified block BESIDE the item table, so the
+# table's item-set equality is untouched. Four keys by set equality — a fifth, or
+# a reviewer key smuggled in here, is as red as a missing one. This set is also
+# the control for dropping the two 'spine_*' needles from the template's absent
+# list below, which D24 turned from absences into real keys.
+assert_set "$(keys "$EXEC_MD" '## Spine session' '')" \
+  "spine_command spine_effort spine_expected_model spine_profile_reason" \
+  "the spine-session block carries exactly its four keys"
+
+pin "$EXEC_MD" 'ratified with the item rows in the same phase' \
+  "the spine-session block is ratified with the item rows, not separately"
+pin "$EXEC_MD" 'its absence halts on an activated spine' \
+  "a sidecar with no spine-session block halts"
+absent "$EXEC_MD" "follows this skill's lane-driver policy" \
+  "the spine-session profile is no longer excluded from the sidecar"
 
 # The assignment table's columns, by set equality: an added reviewer_* or
 # spine_* column is as red as a dropped implementer_effort.
@@ -148,7 +172,7 @@ awk '!seen && index($0, "# Orca execution assignments") > 0 { seen = 1 }
      seen && /^```[[:space:]]*$/ && printed { exit }
      seen { printed = 1 }' "$EXEC_MD" > "$tmpl"
 nonempty "$tmpl" "the sidecar template block extracts (control for the counts below)"
-for k in 'reviewer_' 'code_review' 'spine_terminal_command' 'spine_expected_model'; do
+for k in 'reviewer_' 'code_review'; do
   absent "$tmpl" "$k" "the sidecar schema carries no '$k' field"
 done
 rm -f "$tmpl"
@@ -157,7 +181,8 @@ section "no subagent invocation in the activated path"
 
 nonempty "$BRIEFS_MD" "references/ossify-briefs.md exists"
 nonempty "$NESTED_MD" "references/ossify-nested-run.md exists"
-for f in "$EXEC_MD" "$NESTED_MD" "$BRIEFS_MD"; do
+nonempty "$PRBRIEFS_MD" "references/ossify-pr-briefs.md exists"
+for f in "$EXEC_MD" "$NESTED_MD" "$BRIEFS_MD" "$PRBRIEFS_MD"; do
   for form in 'Task(' 'Agent(' 'subagent_type'; do
     absent "$f" "$form" "${f##*/} invokes no subagent ('$form')"
   done
@@ -175,6 +200,12 @@ pin "$BRIEFS_MD" '/ossify:run-spine $SPINE_ID --external-executor' \
 for id in PARENT_RUN_ID SPINE_TASK_ID SPINE_DISPATCH_ID SPINE_ID ORCA_EXECUTION_PATH; do
   pin "$BRIEFS_MD" "$id=" "the brief injects $id exactly once"
 done
+# D24/D28: the ratified model the banner must match, and the revalidation that
+# runs before EVERY item launch rather than once at step 1.
+pin "$BRIEFS_MD" 'SPINE_EXPECTED_MODEL=' \
+  "the spine brief injects the ratified expected model exactly once"
+pin "$BRIEFS_MD" 'immediately before each item terminal is created' \
+  "the sidecar is revalidated before every item launch"
 
 section "the nested Run's mechanical values"
 
@@ -186,10 +217,86 @@ pin "$NESTED_MD" '--run $CHILD_RUN_ID' \
 pin "$NESTED_MD" 'must be `2`' \
   "the required nested worker depth is byte-exact"
 
+section "the first verifier failure blocks and asks"
+
+# D25. Mechanical, not judgment: an exact option SET, an exact ORDER (release
+# before create), and the absence of the silent path this replaces.
+pin "$NESTED_MD" 'correct with the same pair, replace the pair, halt' \
+  "the first-failure ask carries exactly its three options"
+pin "$NESTED_MD" 'blocks: the pair idles' \
+  "the ask blocks; nothing on that item runs until the reply"
+pin "$NESTED_MD" 'the old pair is released first' \
+  "a replacement releases before it creates"
+pin "$NESTED_MD" 'never two pairs live on one item' \
+  "one pair per item survives the replacement exception"
+pin "$NESTED_MD" 'a sidecar rewrite' \
+  "a replacement at a different profile goes back through ratification"
+# The obvious needle here, 'A second failure escalates to you', spans a line wrap
+# in the prose it is meant to forbid, so it would have passed while the sentence
+# was still there. Pinned to the contiguous half instead, which counts 1 today.
+absent "$NESTED_MD" 'A second failure escalates' \
+  "the silent first correction and second-failure escalation are gone"
+
+section "four seats, one voice"
+
+# D26. Mechanical: the close seat's freshness, the record pass's precondition,
+# the exact work-pr invocation the brief injects, and the two names without which
+# that invocation cannot be built.
+pin "$NESTED_MD" 'always a fresh terminal' \
+  "the close session is a fresh terminal, never the spine driver's"
+pin "$NESTED_MD" 'once every returned PR has merged' \
+  "the record pass waits for every returned PR"
+absent "$NESTED_MD" 'retention threshold' \
+  "the close no longer reuses the spine driver under retention"
+pin "$PRBRIEFS_MD" 'REPO_ROOT=' \
+  "the work-PR brief injects the repo root exactly once"
+pin "$PRBRIEFS_MD" '/ossify:work-pr $PR_NUMBER --repo-root $REPO_ROOT' \
+  "the work-PR brief names its invocation exactly once"
+pin "$PRBRIEFS_MD" 'REVIEW_LEVEL=' \
+  "the work-PR brief injects the decided review level"
+pin "$PRBRIEFS_MD" 'merge bound to the named SHA' \
+  "the work-PR session merges bound to the SHA the top relayed"
+pin "$LIFECYCLE_MD" 'dispatch a work-PR session' \
+  "1b dispatches a work-PR session per returned PR"
+pin "$SKILL_MD" 'the `orca-execution.md` sidecar' \
+  "SKILL.md's write set names the sidecar"
+pin "$ROLES_MD" 'three seats' \
+  "roles.md budgets three seats outside the per-item budget"
+
+section "the record pass is conditional and single"
+
+# D27 and the two brief clauses that ride with it (#438, #441).
+pin "$NESTED_MD" 'only when the first returned at its open-PR halt' \
+  "the record pass has a precondition, not a schedule"
+pin "$NESTED_MD" 'is the whole ceremony' \
+  "a close that recorded outright gets no second dispatch"
+pin "$GENERIC_BRIEFS_MD" 'the level is `medium` unless' \
+  "the ordinary reviewer path has a defined default level"
+pin "$BRIEFS_MD" 'exactly as found before `worker_done`' \
+  "the item verifier leaves the worktree as it found it"
+
+section "the release is declared once and agreed everywhere"
+
+# The CHANGELOG's head version is the single declaration; both manifests are
+# checked AGAINST it rather than against a literal repeated here, so a bump edits
+# one file. The literal below is what stops that from being a round trip.
+CHANGELOG_MD="$PLUGIN_ROOT/CHANGELOG.md"
+pin "$CHANGELOG_MD" '## 0.4.0' "the CHANGELOG opens a 0.4.0 section"
+for d in D24 D25 D26 D27 D28; do
+  pin "$CHANGELOG_MD" "- **$d" "the CHANGELOG records $d exactly once"
+done
+head_ver="$(awk '/^## /{sub(/^## /, ""); print; exit}' "$CHANGELOG_MD")"
+for m in "$PLUGIN_ROOT/.claude-plugin/plugin.json" "$PLUGIN_ROOT/.codex-plugin/plugin.json"; do
+  mv_="$(awk -F'"' '/"version"/{print $4; exit}' "$m")"
+  if [ "$mv_" = "$head_ver" ]; then pass "${m%/*.json} manifest version matches the CHANGELOG head ($mv_)"
+  else fail "${m%/*.json} manifest version matches the CHANGELOG head" "manifest '$mv_' vs CHANGELOG '$head_ver'"; fi
+done
+
 section "reference line budgets"
 
 budget "$EXEC_MD" "ossify-execution.md is within the reference budget"
 budget "$NESTED_MD" "ossify-nested-run.md is within the reference budget"
+budget "$PRBRIEFS_MD" "ossify-pr-briefs.md is within the reference budget"
 budget "$BRIEFS_MD" "ossify-briefs.md is within the reference budget"
 
 report

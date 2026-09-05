@@ -51,9 +51,18 @@ close-the-Run step: the CLI exposes none.
 5. On each complete return, capture the item's four-part fingerprint, then create and
    dispatch that item's **fresh verifier terminal** from its row's exact command, in the
    same worktree, against the fixed all-claims procedure. `cannot determine` = fail.
-6. On a verifier failure, send one consolidated correction to the **same** implementer
-   terminal, then the full recheck to the **same** verifier. A second failure escalates
-   to you; a replacement writer is never created silently.
+6. On the **first** verifier failure, send one `ask --run $PARENT_RUN_ID` with the
+   verifier's summary and three options —
+   correct with the same pair, replace the pair, halt — and it **blocks: the pair idles**
+   and nothing on that item moves until the reply. *Correct* is one consolidated
+   correction to the same implementer, then the full recheck to the same verifier.
+   *Replace* is the one exception to one pair per item: the old pair is released first,
+   then a fresh pair at that item's ratified row, in the same worktree and at the
+   branch, `HEAD` and staged tree the correction packet names, confirmed before any
+   edit — never two pairs live on one item. A replacement at a **different** profile is
+   a sidecar rewrite: the top rewrites the row, the operator ratifies it, the digest
+   updates, and you revalidate before launching. A second failure asks again, with the
+   same three options.
 7. Initial gaps are handled inside the spine session: it asks you for the operator's
    answers, remains the handoff writer, appends clarifications, and re-requests the item
    within ossify's three-attempt cap.
@@ -68,16 +77,32 @@ round barrier is ossify's, unchanged.
 
 The spine session stops at the final round barrier — where `/ossify:run-spine` hands
 the baton to `/close <spine-id>` — and never runs the close on its own initiative.
-When its `worker_done` lands, **you dispatch** `/ossify:close <spine-id>` as a task. You
-do not run it here: SKILL.md §6 lists `close` among the dispatched commands, and the
-delegation floor keeps suites out of your session. **Target:** a follow-up task on the
-spine session's own terminal while it is under `roles.md`'s retention threshold — it
-holds the state lock and the context — else a fresh lane-driver session.
+When its `worker_done` lands, **you dispatch** `/ossify:close <spine-id>` to a close
+session that is **always a fresh terminal** you create, never the spine driver's: it
+creates nothing, runs the close, and returns what the close opened
+(`ossify-pr-briefs.md`). You do not run it here — SKILL.md §6 lists `close` among the
+dispatched commands, and the delegation floor keeps suites out of your session.
 
-**That close runs in two passes, and you dispatch it twice.** The first runs the
-cumulative demo, the harvest and the retro and opens **one PR per hosting repo**, then
-halts while any is open, recording nothing (`close/references/spine-close.md`), its
-`worker_done` naming **every** PR it opened, repo and number. `lifecycle.md` steps 8-12
-run for **each**, its merge included; then a second `/ossify:close <spine-id>` runs the
-record pass, halting again on any PR still open. **Hold step 12's teardown — worker
-release, branch deletion — until that pass returns:** it resolves the spine branch again.
+**The first close opens one PR per hosting repo and halts while any is open**,
+recording nothing (`close/references/spine-close.md`); its `worker_done` names **every**
+PR it opened, repo and number — or the single word `closed`, when every hosting repo
+was remote-less and it recorded the spine outright.
+
+**Then one work-PR session per returned PR**, each created in that PR's own
+hosting-repo worktree and briefed with the two profiles you decided at the PR
+transition (`ossify-execution.md` §5). It owns both PR seats in a child Run of its own,
+relays one summary per round, and asks you for the merge word; you ask the operator,
+and it merges bound to the SHA the reply names. `lifecycle.md` steps 8-12 are that
+session's loop, not yours.
+
+**Then, once every returned PR has merged, one record pass** — a second
+`/ossify:close <spine-id>`, to another fresh close session. **Hold step 12's teardown —
+worker release, branch deletion — until that pass returns:** it resolves the spine
+branch again.
+
+That second dispatch is **conditional and single**: it happens
+only when the first returned at its open-PR halt naming at least one PR, and only once
+every one of those has merged — one record pass per spine, never a scheduled step. A
+first close that returned `closed` — every hosting repo remote-less, so it landed and
+recorded outright — is the whole ceremony, and dispatching a second one against it is
+a wrong turn, not a safety net.

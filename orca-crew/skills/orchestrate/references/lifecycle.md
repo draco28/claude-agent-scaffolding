@@ -15,16 +15,16 @@ Every command's syntax comes from `orca skills get orchestration`.
    start **one** spine session that creates its own child Run and launches every item
    pair. You approve relayed worker plans and wait on that one completion; you launch
    no item terminal. **That completion is the final round barrier, not a PR.** When it
-   lands you **dispatch** `/ossify:close <spine-id>` as a task — to the spine session's
-   own terminal while it is under the retention threshold, else a fresh lane-driver
-   session — and wait on its `worker_done`, which returns **every** PR it opened, one
-   per hosting repo; `close` is a dispatched command (§6), not one you run here. Only
-   then do steps 8-13 resume, where the reviewer **and** the PR-fix implementer are
-   chosen for the first time — 8-12 run for **each** returned PR, its merge included,
-   before you dispatch the second close for the record pass, which halts if any is
-   still open. **Hold step 12's teardown — worker release, branch deletion — until
-   that record pass has returned**; it resolves the spine branch again. Absent any
-   of those four facts, continue at step 2.
+   lands you **dispatch** `/ossify:close <spine-id>` to a **fresh** close session, never
+   the spine driver's terminal, and wait on its `worker_done`, which returns **every** PR
+   it opened, one per hosting repo, or `closed`; `close` is a dispatched command (§6),
+   not one you run here. Then **dispatch a work-PR session** per returned PR, in that
+   PR's own hosting-repo worktree, carrying the reviewer **and** PR-fix profiles you
+   decide now: steps 8-12 are that session's loop, and you relay the merge word to it
+   rather than merging yourself. Once every returned PR has merged, dispatch the record
+   pass — a second close — and only then tear down: **step 12's worker release and
+   branch deletion wait for that pass**. Absent any of those four facts, continue at
+   step 2.
 2. **Decompose.** One `task-create` per brief, `--deps` for the DAG, each carrying
    the complexity class the orchestrator derives from the work item's spec and its
    spine's bone/flesh class: `contract` if it touches an interface, schema, or
@@ -74,10 +74,11 @@ Every command's syntax comes from `orca skills get orchestration`.
 9. **Disposition.** Each finding becomes **fix**, **defer** as a tracked issue, or
    **reject** with a reason. Post that list as one PR comment — the disposition
    ledger — so it survives the session.
-10. **Fix rounds.** The retained implementer — on an activated ossify spine (1b) there
-    is none, because every item pair was released at its item's close, so the top decided
-    one PR-fix implementer at step 8's transition and dispatches its fix task here, once
-    step 9's ledger exists; that seat is the retained one — gets the fix list plus the
+10. **Fix rounds.** The retained implementer — on an activated ossify spine (1b) this
+    whole step runs inside that PR's work-PR session, which creates the PR-fix seat from
+    the profile the top decided at step 8's transition and dispatches its fix task here
+    once step 9's ledger exists; no implementer is retained into a spine PR — gets the
+    fix list plus the
     GitHub thread
     stream (Codex, CodeRabbit, humans) and works to zero unresolved threads by GraphQL
     `reviewThreads` count, pushing as it goes. The unit that reaches a terminal state
@@ -121,8 +122,9 @@ Every command's syntax comes from `orca skills get orchestration`.
     requires conversation resolution, GitHub itself refuses the merge while any thread
     is open, and a merge refused that way returns to step 10, never a retry. Then
     release every worker and delete the branch only after confirming a merged PR
-    exists whose head OID equals the branch tip — on an activated ossify spine (1b),
-    both wait until the second close's record pass has returned.
+    exists whose head OID equals the branch tip — on an activated ossify spine (1b) the
+    work-PR session merges on the word you relay, and both of these wait until the
+    second close's record pass has returned.
 13. **Handoff.** If the Run outlives the session, write a handoff naming the Run id,
     task ids, terminal handles, head SHA, and the next step. With ossify installed, that
     is `/ossify:handoff`.

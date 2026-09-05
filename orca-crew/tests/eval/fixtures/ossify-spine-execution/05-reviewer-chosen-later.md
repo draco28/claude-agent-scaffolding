@@ -5,17 +5,22 @@ expected_reason: 'Two halves. The refusal: the reviewers command, model, effort 
   review level are NOT ratified during spine planning and get no sidecar row - the
   PR does not exist yet, and a reviewer profile chosen before there is a diff to read
   is a guess recorded as a decision. So the operators request to settle it now, however
-  efficient, is declined and the sidecar is written with its seven columns and no
-  reviewer column. The positive half: at the spines PR transition the top asks separately
-  for reviewer command, expected model, effort and /code-review level, records it
-  in the reviewer tasks own brief, and the review runs once from there - neither the
-  spine session nor the sidecar selects it. TWO profiles are decided at that transition,
-  not one: alongside the reviewer the top also decides a single PR-fix implementer,
-  because every item pair was released at its items close and no implementer survives
-  to the PR; naming that second decision is correct, not invention. The wrong answers
-  this fixture falsifies are: adding a reviewer column or a reviewer row because the
-  operator asked; and deferring the choice but leaving it to the spine session to
-  make later'
+  efficient, is declined and the sidecar is written with its seven item columns and
+  no reviewer column. Note that a spine_session block IS ratified in that same phase
+  - the spine seat is a ratified block beside the table - so declining the reviewer
+  is not a general rule that nothing but item rows may be ratified. The positive half:
+  at the spines PR transition the top asks separately for reviewer command, expected
+  model, effort and /code-review level, and TWO profiles are decided there, not one
+  - alongside the reviewer the top also decides a single PR-fix implementer, because
+  every item pair was released at its items close and no implementer survives to the
+  PR. Both go into the WORK-PR SESSIONS brief, not into a reviewer task the top runs:
+  the top dispatches one work-PR session per returned PR, that session creates the
+  reviewer and the PR-fix seat inside its own child Run and runs the whole review-fix
+  loop, and the top only relays the merge word it gets from the operator. The wrong
+  answers this fixture falsifies are: adding a reviewer column or a reviewer row because
+  the operator asked; deferring the choice but leaving it to the spine session to
+  make later; and having the top create the reviewer terminal or run the fix rounds
+  itself once the PR exists'
 ---
 
 You are the orchestrator session. Activation holds for spine `r6.s3` ("import

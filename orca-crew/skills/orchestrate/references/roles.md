@@ -76,13 +76,14 @@ seat it replaces. Any session outside those seats is a planning defect: stop and
 re-plan the item. A further read-only question goes to the existing verifier or
 implementer by `send`, never to a new session.
 
-**Activated ossify spines add two seats, both outside the per-item budget above:
-the spine session, one per spine, launched by the ordinary lane-driver policy; and a
-PR-fix implementer, one per PR.** Its item pairs are all released at their items'
-closes, so no implementer is retained into the PR; the top decides that seat at the PR
-transition alongside the reviewer, dispatches its fix task in the parent Run once the
-disposition ledger exists, and releases it at merge. It is the seat `lifecycle.md`
-step 10 calls the retained implementer. Neither seat exists anywhere else.
+**Activated ossify spines add three seats, all outside the per-item budget above:
+the spine session, one per spine, launched from its ratified sidecar block; a close
+session, a fresh terminal per close dispatch; and a work-PR session, one per returned
+PR.** The work-PR session owns the reviewer and the PR-fix seat inside a child Run of
+its own, so those two are budgeted there rather than here — the top decides both
+profiles at the PR transition and injects them, and neither survives the merge. No
+implementer is retained into a spine PR: every item pair was released at its item's
+close. None of these seats exists anywhere else.
 
 ## Placement
 

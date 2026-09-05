@@ -27,9 +27,11 @@ PARENT_RUN_ID=<run id>
 SPINE_TASK_ID=<task id>
 SPINE_DISPATCH_ID=<dispatch id>
 SPINE_ID=<spine id>
+SPINE_EXPECTED_MODEL=<model id the banner must show>
 ORCA_EXECUTION_PATH=<abs path to $SPINE_DIR/orca-execution.md>
 
-TASK: drive spine SPINE_ID to its final round barrier.
+TASK: drive spine SPINE_ID to its final round barrier. A first reply whose model
+is not SPINE_EXPECTED_MODEL is a failed launch to report, not to work around.
   1. Read ORCA_EXECUTION_PATH and validate it against SPINE.md before anything
      else: `git hash-object "$(dirname "$ORCA_EXECUTION_PATH")/SPINE.md"` (the
      plan's blob id beside the sidecar) must equal spine_plan_oid; every planned
@@ -47,14 +49,20 @@ TASK: drive spine SPINE_ID to its final round barrier.
      or effort. The verifier is not created here; step 5 creates it, once there
      is a complete return to verify. Confirm each model from the launch banner
      and the first reply; the effort is the launch argument you were given.
+     Re-run step 1's validation, the spine_session block included,
+     immediately before each item terminal is created; any drift halts that
+     launch and asks the top.
   4. Gather the round's implementation plans into ONE ordered ask to the top and
      wait. Relay the top's per-item decision to each implementer on its own
      original message id before any edit starts.
   5. On each complete return, create and dispatch that item's fresh VERIFIER
      terminal from its exact sidecar command and run the fixed all-claims
-     procedure; `cannot determine` counts as fail. On failure send one
-     consolidated correction to the SAME implementer, then the full recheck to
-     the SAME verifier. A second failure escalates to the top.
+     procedure; `cannot determine` counts as fail. On the FIRST failure ask the
+     top, with the verifier's summary and the three options — correct, replace,
+     halt — and block: the pair idles until the reply. Correct sends one
+     consolidated correction to the SAME implementer and the full recheck to the
+     SAME verifier; replace releases the old pair BEFORE a fresh one is created
+     at that item's ratified row; a second failure asks again.
   6. Return accepted results to the lane in declared decomposition order. Keep
      each pair until its item closes or escalates; never move a terminal to
      another item.
@@ -67,14 +75,13 @@ parent ids, so the top's Dispatch settles while your child Run stays bound:
   Changed / Evidence / Open / Files, as in the planned-implementer brief, and
   name the child Run id you bound so the top can find it afterwards.
 The spine is at its final round barrier when you finish; the close ceremony is
-the top's and runs after this worker_done — and if the top attaches that close
-here as a follow-up task, its return names EVERY PR the close opened, repo and
-number, one per hosting repo.
+the top's and runs after this worker_done, in a fresh close session that is
+never this terminal.
 
 NEVER: launch an item terminal in the parent Run; run a Claude subagent for a
 work item; fall back to the default nested dispatch after a depth error;
-restart the lane; select the reviewer; run `/ossify:close` on your own — the top
-dispatches that close as a task, and you run it only when it attaches one. On
+restart the lane; select the reviewer; run `/ossify:close` at all — the top
+dispatches it to a fresh close session, never to you. On
 `nested_worker_depth_exceeded`, stay alive, report it to the top, and wait for
 the operator's decision.
 ```
@@ -140,8 +147,11 @@ DONE: worker_done with one line per claim — pass | fail | cannot determine, wi
 commands and output verbatim — then the caveats. `Cannot determine` counts as
 fail.
 
-NEVER: commit, push, or edit a tracked file outside the mutation check. Do not
-verify a second work item; you are retained for this one until it passes or
+NEVER: commit, push, or edit a tracked file outside the mutation check. Leave
+`HEAD`, the staged tree and `git status --porcelain`
+exactly as found before `worker_done`; scratch goes under the session
+scratchpad, never the worktree. Do
+not verify a second work item; you are retained for this one until it passes or
 escalates.
 ```
 
@@ -166,3 +176,5 @@ failures:
 
 The implementer's own contract says what to do with it. Do not restate that
 contract here, and do not send a second packet while the first is being worked.
+On a *replace* decision this same packet is what the fresh pair confirms before it
+touches anything: the same worktree, branch, `HEAD` and staged tree.
