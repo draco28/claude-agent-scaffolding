@@ -163,7 +163,12 @@ section "the spine session's briefed command and identities"
 
 pin "$BRIEFS_MD" '/ossify:run-spine $SPINE_ID --external-executor' \
   "the spine-session brief names the external command shape exactly once"
-for id in PARENT_RUN_ID SPINE_TASK_ID SPINE_DISPATCH_ID ORCA_EXECUTION_PATH; do
+# SPINE_ID is in this list because the brief's TASK spends it — `/ossify:run-spine
+# $SPINE_ID --external-executor` — and a brief that spends a name it never injects
+# leaves the worker to rediscover it, which is the one thing the block forbids.
+# `SPINE_ID=` is not a substring of `SPINE_TASK_ID=` or `SPINE_DISPATCH_ID=`, so the
+# exactly-once count is unambiguous.
+for id in PARENT_RUN_ID SPINE_TASK_ID SPINE_DISPATCH_ID SPINE_ID ORCA_EXECUTION_PATH; do
   pin "$BRIEFS_MD" "$id=" "the brief injects $id exactly once"
 done
 

@@ -14,8 +14,11 @@ Every command's syntax comes from `orca skills get orchestration`.
    item with the operator, write the sidecar, confirm nested worker depth is 2, and
    start **one** spine session that creates its own child Run and launches every item
    pair. You approve relayed worker plans and wait on that one completion; you launch
-   no item terminal. Steps 8-13 below resume at the spine's PR, where the reviewer is
-   chosen for the first time. Absent any of those four facts, continue at step 2.
+   no item terminal. **That completion is the final round barrier, not a PR.** When it
+   lands you run `/ossify:close <spine-id>` yourself, in this session — the spine
+   session is forbidden to — and that ceremony is what opens the PR. Only then do
+   steps 8-13 resume, where the reviewer **and** the PR-fix implementer are chosen for
+   the first time. Absent any of those four facts, continue at step 2.
 2. **Decompose.** One `task-create` per brief, `--deps` for the DAG, each carrying
    the complexity class the orchestrator derives from the work item's spec and its
    spine's bone/flesh class: `contract` if it touches an interface, schema, or
@@ -65,7 +68,10 @@ Every command's syntax comes from `orca skills get orchestration`.
 9. **Disposition.** Each finding becomes **fix**, **defer** as a tracked issue, or
    **reject** with a reason. Post that list as one PR comment — the disposition
    ledger — so it survives the session.
-10. **Fix rounds.** The retained implementer gets the fix list plus the GitHub thread
+10. **Fix rounds.** The retained implementer — on an activated ossify spine (1b) there
+    is none, because every item pair was released at its item's close, so the top
+    dispatched one PR-fix implementer in the parent Run at step 8's transition and that
+    seat is the retained one here — gets the fix list plus the GitHub thread
     stream (Codex, CodeRabbit, humans) and works to zero unresolved threads by GraphQL
     `reviewThreads` count, pushing as it goes. The unit that reaches a terminal state
     is each finding, including each finding inside a review body or PR comment: every

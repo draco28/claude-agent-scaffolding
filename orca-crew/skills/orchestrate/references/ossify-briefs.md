@@ -22,17 +22,20 @@ running in your first reply, then continue.
 
 PLACEMENT: <abs path of the repo or worktree the lane runs from>.
 
-PARENT IDENTITIES — use these verbatim; do not rediscover them:
+INJECTED IDENTITIES — use these verbatim; do not rediscover them:
 PARENT_RUN_ID=<run id>
 SPINE_TASK_ID=<task id>
 SPINE_DISPATCH_ID=<dispatch id>
+SPINE_ID=<spine id>
 ORCA_EXECUTION_PATH=<abs path to $SPINE_DIR/orca-execution.md>
 
-TASK: drive spine <spine-id> to its final round barrier.
+TASK: drive spine SPINE_ID to its final round barrier.
   1. Read ORCA_EXECUTION_PATH and validate it against SPINE.md before anything
-     else: SPINE.md must hash to spine_plan_oid, every planned item must have
-     exactly one complete row, no row may name an item the plan does not, and
-     ratification must be present. Any failure halts — ask, never substitute.
+     else: SPINE.md must hash to spine_plan_oid; every planned item must have
+     exactly one complete row; no row may name an item the plan does not;
+     ratification must read exactly `operator-approved`; ratified_in_run must
+     equal PARENT_RUN_ID; and spine_id must equal SPINE_ID. Any failure halts —
+     ask, never substitute.
   2. Create and bind a CHILD Run for item tasks. Every child task-create,
      worker-start, dispatch and check names --run <child run id>. Every question
      for the top names --run PARENT_RUN_ID. Replies to item questions go on each
@@ -56,14 +59,19 @@ TASK: drive spine <spine-id> to its final round barrier.
 
 RULES THAT DO NOT LOAD HERE: <paste verbatim, or "none">.
 
-DONE: one worker_done using SPINE_TASK_ID and SPINE_DISPATCH_ID — the injected
+DONE: release every item pair first — no terminal of yours outlives the spine —
+then one worker_done using SPINE_TASK_ID and SPINE_DISPATCH_ID, the injected
 parent ids, so the top's Dispatch settles while your child Run stays bound:
-  Changed / Evidence / Open / Files, as in the planned-implementer brief.
+  Changed / Evidence / Open / Files, as in the planned-implementer brief, and
+  name the child Run id you bound so the top can find it afterwards.
+The spine is at its final round barrier when you finish; the close ceremony is
+the top's and runs after this worker_done.
 
 NEVER: launch an item terminal in the parent Run; run a Claude subagent for a
 work item; fall back to the default nested dispatch after a depth error;
-restart the lane; select the reviewer. On `nested_worker_depth_exceeded`, stay
-alive, report it to the top, and wait for the operator's decision.
+restart the lane; select the reviewer; run `/ossify:close`. On
+`nested_worker_depth_exceeded`, stay alive, report it to the top, and wait for
+the operator's decision.
 ```
 
 ---
@@ -142,6 +150,7 @@ terminal, once, with every finding consolidated:
 OSSIFY CORRECTION CONTINUATION v1
 handoff_path: <abs path>
 work_item_id: <work-item-id>
+expected_branch: <branch from the item's execution request>
 expected_head_sha: <head oid from the accepted result>
 expected_tree_oid: <tree oid from the accepted result>
 failures:

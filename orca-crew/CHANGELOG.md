@@ -4,9 +4,12 @@ All notable changes to the `orca-crew` plugin.
 
 ## 0.3.0
 
-Three session layers for an ossify spine, replacing the single dispatched lane driver
+Three session layers, **on a spine this session just planned** — the four-fact
+activation in D14 is the whole switch. They replace the single dispatched lane driver
 whose subagents inherited its runtime and so could not honour a per-item model or
-effort.
+effort. **Everywhere else nothing moves:** `/ossify:run-spine <id>` with no flag is
+unchanged and still dispatches `ossify:implementer-agent`, and the generic role
+table, class routing and retention still govern every session outside such a spine.
 
 - **D14** — activation is four facts about the current session: orca-crew is the top
   orchestrator, a Run is bound, this session just completed `/ossify:plan-spine`, and a
@@ -37,7 +40,9 @@ effort.
   back to a subagent, to the parent Run, or to a lane restart.
 - **D22** — corrections are item-local: one consolidated correction to the same
   implementer, the same verifier rechecks it, and a second failure on that item
-  escalates to the top. No replacement writer is created silently.
+  escalates to the top. No replacement writer is created silently. The
+  continuation packet carries all four identities the executor must confirm
+  before it touches anything — work item id, branch, `HEAD` and staged tree.
 - **D23** — Layer 4 runs inline under external mode, and the reviewer is chosen only at
   the spine's PR transition — not in spine planning and not in the sidecar.
 

@@ -30,17 +30,20 @@ gate.
 OSSIFY CORRECTION CONTINUATION v1
 handoff_path: /abs/docs/specs/r7/r7.s2-schema/work-r7.s2.w1/handoff.md
 work_item_id: r7.s2.w1
+expected_branch: work/r7.s2.w1-schema
 expected_head_sha: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 expected_tree_oid: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
 failures:
 - AC-2 fails when the persisted record is reloaded after restart
 ```
 
-Five fields, all required. `expected_head_sha` and `expected_tree_oid` are the
-`head_oid` and `tree_oid` the item's result declared
-(`references/external-executor.md` §4), carried back unchanged. `failures` is
-the **consolidated** list — every finding from the rejection in one packet, not
-one packet per finding.
+Six fields, all required. `expected_branch` is the `branch` the item's execution
+request carried (`references/external-executor.md` §3); `expected_head_sha` and
+`expected_tree_oid` are the `head_oid` and `tree_oid` its result declared (§4),
+carried back unchanged. **All four identities the check in §3 compares are in the
+packet** — that is the point of carrying them rather than re-deriving them.
+`failures` is the **consolidated** list — every finding from the rejection in one
+packet, not one packet per finding.
 
 The packet names no tool, no session and no model. Who delivers it is the
 caller's business; what it means is this file's.
@@ -55,9 +58,11 @@ In order. The first step is a gate and it fails closed.
    continuation is not a substitute for them and does not restate them. If the
    rejection added clarifications, they are in the handoff, which is why the
    re-read is first and not optional.
-2. **Confirm identity, and refuse on any mismatch.** The work item id, the
-   checked-out branch, `HEAD`, and the staged tree must all be what the packet
-   says. A mismatch means this is not the run that produced the rejected result
+2. **Confirm identity, and refuse on any mismatch.** Four comparisons, each
+   against a value the packet carries: the work item id against `work_item_id`,
+   the checked-out branch against `expected_branch`, `HEAD` against
+   `expected_head_sha`, and the staged tree against `expected_tree_oid`. A
+   mismatch means this is not the run that produced the rejected result
    — someone else's work, a different item, a moved branch, a re-staged tree —
    and continuing would edit a state nobody reviewed. Refuse, name which of the
    four disagreed, and stop. Do not re-derive the packet's values from what you

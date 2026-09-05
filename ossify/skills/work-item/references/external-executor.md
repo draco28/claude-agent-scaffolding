@@ -126,17 +126,28 @@ check 4 routes.**
 
 1. **Item-set equality.** Exactly one result for every request — no missing
    item, no extra item, no duplicate `work_item_id`.
-2. **Field parity.** Every result carries every field in §4 and no other, and
-   `implementer_return` carries exactly the four keys of the complete return.
+2. **Field parity, judged by mode.** Every result carries every field in §4 and
+   no other. `implementer_return` is then checked against **the return shape its
+   own `mode` names** (`references/returns.md` §1): for `complete`, exactly
+   `mode`, `report_path`, `summary`, `stage_status`; for `gaps-surfaced`,
+   exactly `mode` and a non-empty `gaps`, each element carrying `section`,
+   `question` and `severity`. Checking every return against the complete shape
+   would reject every gaps return as malformed and make check 4's route
+   unreachable — the two shapes are alternatives, not a shape and a deviation
+   from it.
 3. **`coordinator_verdict` is `accepted`.** Any other value, including one that
    reads as a softer accept, is not an accepted result.
 4. **`mode` is `complete` — or the item enters the gap loop.** This one is a
-   route, not a halt. A `gaps-surfaced` return goes to
-   `round-orchestration.md` §6 exactly as it always has: the lane surfaces the
-   gaps, appends the clarifications to that item's handoff, and re-dispatches
-   the same live implementer within the 3-iteration cap. It **never reaches
-   close as a result** — the round continues, and the item returns as a §4
-   result record when it completes.
+   route, not a halt. A `gaps-surfaced` return enters `round-orchestration.md`
+   §6's loop with **one step replaced**: the lane surfaces the gaps and appends
+   the clarifications to that item's handoff exactly as §6 says, and then —
+   instead of §6's own dispatch — builds **one new single-item request** (§3)
+   for that item and issues it through the caller-supplied procedure. It counts
+   against the same 3-iteration cap. The lane dispatches nothing itself in this
+   mode, and it does not say which executor the caller uses: reuse is the
+   caller's business, not ossify's. The item **never reaches close as a
+   result** — the round continues, and it returns as a §4 result record when it
+   completes.
 5. **The fingerprint still holds.** Recompute all four ids from the worktree and
    the two documents, and compare against what the result declared. A mismatch
    means the item moved after the caller finished — halt and name which of the

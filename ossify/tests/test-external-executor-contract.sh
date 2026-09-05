@@ -176,9 +176,12 @@ t_assert_eq "$(printf 'complete\ngaps-surfaced\n')" "$modes" \
 nonempty "$CORR" "correction-continuation.md exists"
 pin "$CORR" 'OSSIFY CORRECTION CONTINUATION v1' \
   "the continuation packet declares its versioned header exactly once"
+# Six fields, not five: `expected_branch` joined them because §3's identity check
+# compares the checked-out branch, and a check whose expected value is not in the
+# packet is a check the executor has to invent an expectation for.
 assert_keyset "$CORR" 'OSSIFY CORRECTION CONTINUATION v1' 0 \
-  "handoff_path work_item_id expected_head_sha expected_tree_oid failures" \
-  "the continuation packet carries exactly its five fields"
+  "handoff_path work_item_id expected_branch expected_head_sha expected_tree_oid failures" \
+  "the continuation packet carries exactly its six fields"
 for form in 'Task(' 'Agent(' 'subagent_type'; do
   absent "$CORR" "$form" "correction-continuation.md invokes no subagent ('$form')"
 done
