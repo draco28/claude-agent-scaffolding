@@ -302,14 +302,30 @@ pin "$PRBRIEFS_MD" 'review bodies and top-level PR comments' \
 
 # R2-2/R2-7. The reviewer body is the sole copy of its findings, and a pushed head
 # invalidates the verdict that preceded it.
+# R3-1. briefs.md's fix-round brief swaps its TASK for /ossify:work-pr when ossify is
+# installed; inside a work-PR session that recurses into a second merge loop.
+pin "$PRBRIEFS_MD" 'without the ossify replacement clause' \
+  "the PR-fix seat gets the fix-round brief with the recursion removed"
+pin "$PRBRIEFS_MD" 'fixed in <sha>' \
+  "the fix seat returns per-finding evidence, not a merge"
+pin "$GENERIC_BRIEFS_MD" 'except inside a work-PR session' \
+  "the replacement clause excludes the seat that would recurse"
+
+# R3-3. work-pr's loop can end at wait or leave-open; DONE could only carry a merge.
+pin "$PRBRIEFS_MD" 'open: <PR url> at <head sha>' \
+  "an unmerged outcome has a result shape and settles the dispatch"
+
 pin "$PRBRIEFS_MD" 'ONE bounded correction request' \
   "a malformed reviewer body is corrected once, then escalated"
-pin "$PRBRIEFS_MD" 'retained until merge' \
-  "the reviewer seat survives to re-review each pushed head"
-pin "$PRBRIEFS_MD" 'per head, not once per PR' \
-  "the work-PR reviewer is per head; roles.md governs the generic path"
-absent "$PRBRIEFS_MD" 'run a second `/code-review`' \
-  "the once-per-PR prohibition no longer contradicts staleness"
+# R3-2 reverts to exactly-once: the reviewer template and lifecycle step 8 forbid a
+# second review, so a compliant reviewer would refuse. Staleness is answered by
+# re-fetching GitHub's own signals, which the bots regenerate on every push.
+pin "$PRBRIEFS_MD" 'released after its worker_done validates' \
+  "the delegated review runs once and its seat is released"
+pin "$PRBRIEFS_MD" 're-fetch the GitHub review signals' \
+  "each new head is covered by re-fetching the signals, not by a second review"
+absent "$PRBRIEFS_MD" 'review a head twice' \
+  "the per-head review that contradicted the reviewer template is gone"
 
 # R2-4/R2-5/R2-9/R2-11. The close seat: partial halts, the ceremony own review,
 # the ledger the record pass needs, and the route out of a halt.

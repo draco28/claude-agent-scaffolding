@@ -110,15 +110,24 @@ TASK: drive PR_NUMBER to a merge on the top's word.
   4. Disposition every finding — the reviewer's, the bot threads, and the
      review bodies and top-level PR comments that `reviewThreads` does not
      return — post the ledger, file deferrals as tracked issues in PR_REPO, and
-     dispatch fix tasks to a PR-fix seat you create from PRFIX_COMMAND at
+     dispatch fix tasks to a PR-fix seat — briefed from `briefs.md`'s fix-round
+     brief but **without the ossify replacement clause**, which would start a
+     second review-fix-merge loop with a merge ask of its own inside this one; it
+     works the fix list you give it, pushes, and returns `fixed in <sha>` per
+     finding, never running work-pr and never asking for a merge — created from
+     PRFIX_COMMAND at
      PRFIX_EFFORT — confirm PRFIX_EXPECTED_MODEL from its banner and first reply
      before the first fix task, a mismatch being a failed launch to stop and ask
-     about, never to work around. The reviewer seat is **retained until merge**:
-     each time the PR-fix seat pushes, the head it reviewed is stale, so re-run
-     `/code-review PR_NUMBER REVIEW_LEVEL` on the new head and feed those findings
-     into the next disposition round. That is per head, not once per PR —
-     `roles.md`'s once-per-PR reviewer governs the generic path, not this seat. Relay ONE batched summary per round to the top. STOPPING_RULE decides
-     when fixing stops.
+     about, never to work around. The delegated review ran once, on the head it
+     was briefed with, and that seat is
+     released after its worker_done validates.
+     Each time the PR-fix seat pushes, the head moves under that verdict — so
+     before the next disposition round,
+     re-fetch the GitHub review signals
+     and the thread state on the new head. The bots review every push, so the
+     current-head verdict is there to be read rather than re-commissioned. Relay
+     ONE batched summary per round to the top. STOPPING_RULE decides when fixing
+     stops.
   5. When the gate is clean, `ask` the top for the merge word. On the reply,
      re-fetch the whole gate set once more and
      merge bound to the named SHA, as a merge commit. Then release both seats.
@@ -126,9 +135,14 @@ TASK: drive PR_NUMBER to a merge on the top's word.
 RULES THAT DO NOT LOAD HERE: <paste verbatim, or "none">.
 
 DONE: one worker_done on WORKPR_TASK_ID and WORKPR_DISPATCH_ID returning PR_REPO,
-PR_NUMBER, the merge SHA and every ledger comment id — checkable artifacts, never
-narrative. Then: Changed / Evidence / Open / Files.
+PR_NUMBER and every ledger comment id, plus one of two outcomes: the merge SHA; or
+`open: <PR url> at <head sha>` when the word you were relayed was wait or leave
+open. Both settle this dispatch and release both seats — checkable artifacts, never
+narrative. On the open shape the top does not advance to the record pass, and a
+later merge is a new work-PR dispatch, not a resumption of this one.
+Then: Changed / Evidence / Open / Files.
 
 NEVER: talk to the operator — every question goes up to the top; squash; merge
-without the top's relayed word; delete a branch; or review a head twice.
+without the top's relayed word; delete a branch; or dispatch a second review —
+one delegated review per PR, exactly as `roles.md` and step 8 have it.
 ```

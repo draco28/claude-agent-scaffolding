@@ -138,7 +138,9 @@ fixed, deferred with a comment linking the tracked issue, or rejected with the
 evidence; P0 and P1 are never deferred.
 <With ossify installed replace this TASK with: run `/ossify:work-pr <number>
 --repo-root <worktree holding the PR branch>`; the disposition above is a third finding
-signal; stop at work-pr's merge ask and put its ledger in worker_done.>
+signal; stop at work-pr's merge ask and put its ledger in worker_done —
+except inside a work-PR session, whose fix seat works the fix list only
+and would otherwise open a second merge loop inside the one that briefed it.>
 ```
 
 A finding that arrives after the disposition is not on that list: return it through
