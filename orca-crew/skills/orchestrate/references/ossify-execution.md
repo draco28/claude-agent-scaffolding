@@ -106,7 +106,10 @@ an item the plan does not; `ratification` reads exactly `operator-approved`;
 spine being run. **Those last three are value checks, not presence checks** — a field
 that merely exists admits `rejected`, another Run's ratification, and another spine's
 sidecar, each reading as authority it never had. Any failure halts; a profile that needs
-to change is a new operator decision and a rewrite by you, never a substitution.
+to change is a new operator decision and a rewrite by you, never a substitution. **Those
+checks establish validity, not identity** — an edited but still-valid row passes every
+one — so the spine session also pins the sidecar's own blob id at step 1 and requires it
+unchanged at each launch (`ossify-nested-run.md` §3).
 
 **The `## Spine session` block is read the same way** — its four keys value-checked
 beside the item rows, and **its absence halts on an activated spine**. It is
@@ -122,7 +125,9 @@ across ordinary consecutive work items is still correct.
 
 The single exception inside a spine is a *replace* decision at the first-failure ask
 (`ossify-nested-run.md` §3): the old pair is released before its replacement exists, so
-one-pair-per-item is preserved by that ordering rather than broken by the exception.
+one-pair-per-item is preserved by that ordering rather than broken by the exception. The
+replacement starts from a worktree reset to the request's `base_sha`, so it is an
+ordinary first run of the item, not an inheritance of the rejected work.
 
 ## 5. Two profiles are chosen at the PR, not before
 

@@ -12,9 +12,10 @@ every slot and delete nothing else.
 
 ## Spine session (one per spine, dispatched by the top orchestrator)
 
-The lane driver, launched by this skill's existing lane-driver policy. It is
-also a coordinator, which is why its brief carries parent identities it could
-not otherwise know.
+The lane driver, launched **from the ratified spine_session block** in the
+sidecar — command, expected model and effort — not from this skill's generic
+lane-driver policy. It is also a coordinator, which is why its brief carries
+parent identities it could not otherwise know.
 
 ```text
 ROLE: ossify spine session and nested coordinator. State the model you are
@@ -38,7 +39,9 @@ is not SPINE_EXPECTED_MODEL is a failed launch to report, not to work around.
      item must have exactly one complete row; no row may name an item the plan
      does not; ratification must read exactly `operator-approved`;
      ratified_in_run must equal PARENT_RUN_ID; and spine_id must equal SPINE_ID.
-     Any failure halts — ask, never substitute.
+     Any failure halts — ask, never substitute. Then record the SIDECAR's own
+     blob id, `git hash-object ORCA_EXECUTION_PATH`; the checks above prove the
+     file valid, not unchanged, so an edited-but-valid row would pass them.
   2. Create and bind a CHILD Run for item tasks. Every child task-create,
      worker-start, dispatch and check names --run <child run id>. Every question
      for the top names --run PARENT_RUN_ID. Replies to item questions go on each
@@ -50,8 +53,10 @@ is not SPINE_EXPECTED_MODEL is a failed launch to report, not to work around.
      is a complete return to verify. Confirm each model from the launch banner
      and the first reply; the effort is the launch argument you were given.
      Re-run step 1's validation, the spine_session block included,
-     immediately before each item terminal is created; any drift halts that
-     launch and asks the top.
+     immediately before each item terminal is created, and require
+     the sidecar blob id you recorded at step 1
+     to be unchanged; any drift halts that launch and asks the top. Only a reply from the top naming a new blob id, after it
+     rewrote and the operator re-ratified, moves that baseline.
   4. Gather the round's implementation plans into ONE ordered ask to the top and
      wait. Relay the top's per-item decision to each implementer on its own
      original message id before any edit starts.
@@ -61,8 +66,10 @@ is not SPINE_EXPECTED_MODEL is a failed launch to report, not to work around.
      top, with the verifier's summary and the three options — correct, replace,
      halt — and block: the pair idles until the reply. Correct sends one
      consolidated correction to the SAME implementer and the full recheck to the
-     SAME verifier; replace releases the old pair BEFORE a fresh one is created
-     at that item's ratified row; a second failure asks again.
+     SAME verifier; replace releases the old pair, resets that item's worktree to
+     the request's base_sha with a clean porcelain (the rejected staged work is
+     discarded), and re-requests the item so the fresh pair runs the ordinary
+     work-item entry from clean; a second failure asks again.
   6. Return accepted results to the lane in declared decomposition order. Keep
      each pair until its item closes or escalates; never move a terminal to
      another item.
@@ -176,5 +183,6 @@ failures:
 
 The implementer's own contract says what to do with it. Do not restate that
 contract here, and do not send a second packet while the first is being worked.
-On a *replace* decision this same packet is what the fresh pair confirms before it
-touches anything: the same worktree, branch, `HEAD` and staged tree.
+This packet is for a *correct* decision only. A *replace* sends none: it resets the
+worktree to the request's `base_sha` and re-requests the item, so the fresh pair has
+nothing to adopt and starts as an ordinary first run.

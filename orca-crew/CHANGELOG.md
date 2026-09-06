@@ -19,9 +19,12 @@ role table, class routing and retention still govern every session outside such 
 - **D25** — the **first** verifier failure sends one `ask` up the parent Run carrying the
   verifier's summary and three options — correct with the same pair, replace the pair,
   halt — and **blocks**: the pair idles until the reply. *Replace* is the one exception to
-  one pair per item, and it releases the old pair before creating the new one; a
-  replacement at a different profile is a sidecar rewrite the operator ratifies. Replaces
-  0.3.0's silent first correction and second-failure escalation.
+  one pair per item: it releases the old pair, resets the item's worktree to the request's
+  `base_sha` with a clean porcelain — the rejected staged work is discarded — and
+  re-requests the item, so the fresh pair runs the ordinary entry point from clean rather
+  than adopting a staged tree no pre-flight would accept; the correction packet is for
+  *correct* only. A replacement at a different profile is a sidecar rewrite the operator
+  ratifies. Replaces 0.3.0's silent first correction and second-failure escalation.
 - **D26** — four seats, one voice. Only the top talks to the operator; every other seat
   asks upward one hop. The close runs in a **fresh** terminal the top creates (the
   retention reuse is gone) and returns every PR it opened; each returned PR gets its own

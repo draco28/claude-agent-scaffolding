@@ -65,8 +65,9 @@ escalates. A pair never crosses work items there.
 
 Everything else on this page — the class routing, the retention rule, the placement
 and writer rules, and the budget below — is unchanged and still governs every session
-outside such a spine. The spine session itself is launched by the ordinary lane-driver
-policy; it is not a sidecar row.
+outside such a spine. The spine session itself is launched
+**from the ratified spine_session block** in that spine's sidecar — a block beside the
+item table, never a row in it — so the generic lane-driver policy does not select it.
 
 ## Session budget
 

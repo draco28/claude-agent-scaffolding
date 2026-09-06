@@ -9,18 +9,22 @@ expected_reason: 'Retention is item-local, has an end, and its first failure is 
   then, the SAME implementer takes ONE consolidated correction carrying both findings
   (not one message per finding) and the SAME verifier does the full recheck - the
   pair is retained precisely because the item is still open. On a replace reply the
-  old pair is RELEASED FIRST and a fresh pair is created at that item''s ratified
-  row against the same worktree, branch, HEAD and staged tree the correction packet
-  names; never two pairs live on one item. When w1 passes, that pair is released.
-  Round 2''s w3 then gets a FRESH pair from its own ratified row, even though w1''s
-  implementer is alive, idle, well-warmed on this spine and cheaper to reuse. A second
-  failure asks again with the same three options rather than escalating silently.
-  The wrong answers this fixture falsifies are: correcting on the first failure without
-  asking, which is the pre-0.4.0 behaviour; carrying w1''s implementer into w3 because
-  the generic retention rule retains implementers across consecutive work items (that
-  rule is unchanged OUTSIDE an activated spine, and this is inside one); sending two
-  separate corrections; and creating a new writer for the correction instead of using
-  the terminal that holds the item''s context'
+  old pair is RELEASED FIRST, that item''s worktree is RESET to the request''s base_sha
+  with a clean porcelain - the rejected staged work is discarded, which is what replacing
+  means - and the item is re-requested as a fresh execution request carrying the original
+  branch and worktree_path, so the new pair runs the ordinary work-item entry from
+  clean. The correction packet is for CORRECT only: it is same-executor by construction,
+  and a fresh session could not adopt another''s staged tree anyway, because that
+  entry point''s pre-flight requires an empty porcelain. Never two pairs live on one
+  item. When w1 passes, that pair is released. Round 2''s w3 then gets a FRESH pair
+  from its own ratified row, even though w1''s implementer is alive, idle, well-warmed
+  on this spine and cheaper to reuse. A second failure asks again with the same three
+  options rather than escalating silently. The wrong answers this fixture falsifies
+  are: correcting on the first failure without asking, which is the pre-0.4.0 behaviour;
+  carrying w1''s implementer into w3 because the generic retention rule retains implementers
+  across consecutive work items (that rule is unchanged OUTSIDE an activated spine,
+  and this is inside one); sending two separate corrections; and creating a new writer
+  for the correction instead of using the terminal that holds the item''s context'
 ---
 
 You are the spine session for `r5.s2`, with a bound child Run. Round 1's

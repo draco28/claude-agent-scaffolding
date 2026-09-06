@@ -217,6 +217,18 @@ pin "$NESTED_MD" '--run $CHILD_RUN_ID' \
 pin "$NESTED_MD" 'must be `2`' \
   "the required nested worker depth is byte-exact"
 
+section "the sidecar is identical at every launch, not merely valid"
+
+# R1-1. The value checks pass on an edited-but-still-valid row, so identity of the
+# FILE is what catches a changed terminal command. Mechanical: a recorded blob id
+# and an equality requirement, plus the one way the baseline may move.
+pin "$NESTED_MD" 'Every item launch requires that same blob id' \
+  "the recorded sidecar blob id gates every item launch"
+pin "$NESTED_MD" 'names the new blob id' \
+  "a sidecar rewrite moves the baseline through the reply, not by re-reading"
+pin "$BRIEFS_MD" 'the sidecar blob id you recorded at step 1' \
+  "the spine brief carries the same baseline into its per-launch check"
+
 section "the first verifier failure blocks and asks"
 
 # D25. Mechanical, not judgment: an exact option SET, an exact ORDER (release
@@ -236,6 +248,27 @@ pin "$NESTED_MD" 'a sidecar rewrite' \
 # was still there. Pinned to the contiguous half instead, which counts 1 today.
 absent "$NESTED_MD" 'A second failure escalates' \
   "the silent first correction and second-failure escalation are gone"
+
+# R1-3. A fresh pair cannot adopt a staged tree: the ordinary entry point's
+# pre-flight requires an empty porcelain, and the correction packet is
+# same-executor by construction. So *replace* resets and restarts.
+pin "$NESTED_MD" 'the rejected staged work is discarded' \
+  "a replacement discards the staged work rather than adopting it"
+pin "$NESTED_MD" 'The correction packet is for' \
+  "the correction packet is scoped to the correct branch of the ask"
+
+section "the PR lane runs the review before the command that consumes it"
+
+# R1-2/R1-4/R1-7/R1-10. Order, the second model confirmation, the close's third
+# result shape, and the full signal set a disposition covers.
+pin "$PRBRIEFS_MD" 'carrying those findings in as its disposition inputs' \
+  "the reviewer runs before work-pr, whose disposition takes its findings"
+pin "$PRBRIEFS_MD" 'confirm PRFIX_EXPECTED_MODEL from its banner' \
+  "the PR-fix seat's ratified model is spent, not merely injected"
+pin "$PRBRIEFS_MD" 'halted: <step>' \
+  "the close brief has a third result shape for a halt before any PR opens"
+pin "$PRBRIEFS_MD" 'review bodies and top-level PR comments' \
+  "a disposition covers all three finding sources, not the bot threads alone"
 
 section "four seats, one voice"
 
@@ -262,6 +295,18 @@ pin "$SKILL_MD" 'the `orca-execution.md` sidecar' \
   "SKILL.md's write set names the sidecar"
 pin "$ROLES_MD" 'three seats' \
   "roles.md budgets three seats outside the per-item budget"
+
+# R1-5/R1-6/R1-9. The record pass has a precondition a `closed` return fails; the
+# spine seat is launched from its ratified block, not the generic policy; and the
+# close is named in ossify's namespace everywhere.
+pin "$LIFECYCLE_MD" 'a closed return skips the record pass' \
+  "a close that recorded outright goes straight to teardown"
+pin "$ROLES_MD" 'from the ratified spine_session block' \
+  "roles.md launches the spine seat from the sidecar block"
+pin "$BRIEFS_MD" 'from the ratified spine_session block' \
+  "the spine brief header launches from the sidecar block"
+absent "$NESTED_MD" '/close <' \
+  "the close is always named /ossify:close, never a bare /close"
 
 section "the record pass is conditional and single"
 

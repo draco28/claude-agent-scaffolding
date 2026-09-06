@@ -32,9 +32,12 @@ off, you do not drive: if it opens PRs and halts, that halt is your result.
 
 RULES THAT DO NOT LOAD HERE: <paste verbatim, or "none">.
 
-DONE: one worker_done on CLOSE_TASK_ID and CLOSE_DISPATCH_ID carrying EVERY PR
-the close opened — one line per hosting repo, `<repo> #<number> <url>` — or the
-single word `closed` when it recorded the spine with no PR open. Then:
+DONE: one worker_done on CLOSE_TASK_ID and CLOSE_DISPATCH_ID carrying exactly one
+of three results: EVERY PR the close opened — one line per hosting repo, `<repo>
+#<number> <url>`; the single word `closed` when it recorded the spine with no PR
+open; or `halted: <step> — <evidence>` when it stopped before opening any PR, say
+at the cumulative demo or a gate. A halt is a result, not a PR list with none in
+it, and the top settles it without advancing the lifecycle. Then:
   Changed / Evidence / Open / Files.
 
 NEVER: create a terminal, run a review or a fix, merge, ask the operator anything
@@ -76,15 +79,25 @@ TASK: drive PR_NUMBER to a merge on the top's word.
   1. Bind a CHILD Run for your two seats. Every seat's task-create,
      worker-start, dispatch and check names --run <child run id>; every question
      for the top names --run PARENT_RUN_ID.
-  2. Run `/ossify:work-pr $PR_NUMBER --repo-root $REPO_ROOT`.
-  3. Create the reviewer from REVIEWER_COMMAND at REVIEWER_EFFORT, confirm
+  2. Create the reviewer FIRST, from REVIEWER_COMMAND at REVIEWER_EFFORT, confirm
      REVIEWER_EXPECTED_MODEL from its banner and first reply, and brief it to run
      `/code-review PR_NUMBER REVIEW_LEVEL`. Read the findings from its
      worker_done; it posts nothing itself.
-  4. Disposition every finding against the bot threads, post the ledger, file
-     deferrals as tracked issues in PR_REPO, and dispatch fix tasks to a PR-fix
-     seat you create from PRFIX_COMMAND at PRFIX_EFFORT. Relay ONE batched
-     summary per round to the top. STOPPING_RULE decides when fixing stops.
+  3. THEN run `/ossify:work-pr $PR_NUMBER --repo-root $REPO_ROOT`,
+     carrying those findings in as its disposition inputs.
+     It owns the whole review-fix-merge
+     loop, so starting it first would let it reach its merge ask on pre-existing
+     signals with your review never run. In this seat its "drive the fixes" is a
+     dispatch to the PR-fix seat — you edit nothing yourself — and its merge ask
+     is the `ask` to the top in step 5.
+  4. Disposition every finding — the reviewer's, the bot threads, and the
+     review bodies and top-level PR comments that `reviewThreads` does not
+     return — post the ledger, file deferrals as tracked issues in PR_REPO, and
+     dispatch fix tasks to a PR-fix seat you create from PRFIX_COMMAND at
+     PRFIX_EFFORT — confirm PRFIX_EXPECTED_MODEL from its banner and first reply
+     before the first fix task, a mismatch being a failed launch to stop and ask
+     about, never to work around. Relay ONE batched summary per round to the top. STOPPING_RULE decides
+     when fixing stops.
   5. When the gate is clean, `ask` the top for the merge word. On the reply,
      re-fetch the whole gate set once more and
      merge bound to the named SHA, as a merge commit. Then release both seats.

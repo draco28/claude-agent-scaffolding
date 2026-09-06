@@ -23,8 +23,9 @@ Every command's syntax comes from `orca skills get orchestration`.
    decide now: steps 8-12 are that session's loop, and you relay the merge word to it
    rather than merging yourself. Once every returned PR has merged, dispatch the record
    pass — a second close — and only then tear down: **step 12's worker release and
-   branch deletion wait for that pass**. Absent any of those four facts, continue at
-   step 2.
+   branch deletion wait for that pass**. **But a closed return skips the record pass**
+   and goes straight to teardown: the pass exists to record PRs, and that return named
+   none. Absent any of those four facts, continue at step 2.
 2. **Decompose.** One `task-create` per brief, `--deps` for the DAG, each carrying
    the complexity class the orchestrator derives from the work item's spec and its
    spine's bone/flesh class: `contract` if it touches an interface, schema, or

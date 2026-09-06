@@ -38,7 +38,13 @@ close-the-Run step: the CLI exposes none.
 ## 3. The round procedure, as the spine session runs it
 
 1. Validate `SPINE.md`, the sidecar and the round's item set
-   (`ossify-execution.md` §3).
+   (`ossify-execution.md` §3), and record the **sidecar's own blob id** —
+   `git hash-object` on `ORCA_EXECUTION_PATH` — as this spine's baseline.
+   **Every item launch requires that same blob id.** The §3 checks are value
+   checks, so an edited-but-still-valid row — a changed terminal command — passes
+   them all; only the file's identity catches it. A mismatch halts that launch and
+   asks. When the top rewrites the sidecar, its reply
+   names the new blob id, and that becomes the baseline.
 2. Invoke the ossify lane in external-executor mode. ossify prepares every
    same-round worktree and handoff first, then hands over one request per item.
 3. For each item, launch a **fresh implementer terminal** from that row's exact command
@@ -57,9 +63,14 @@ close-the-Run step: the CLI exposes none.
    and nothing on that item moves until the reply. *Correct* is one consolidated
    correction to the same implementer, then the full recheck to the same verifier.
    *Replace* is the one exception to one pair per item: the old pair is released first,
-   then a fresh pair at that item's ratified row, in the same worktree and at the
-   branch, `HEAD` and staged tree the correction packet names, confirmed before any
-   edit — never two pairs live on one item. A replacement at a **different** profile is
+   the item's worktree is **reset to the request's `base_sha` with a clean porcelain**
+   — the rejected staged work is discarded, which is what replacing means — and the
+   item is re-requested as a fresh `external_execution_request` carrying the original
+   `branch` and `worktree_path`. The fresh pair then runs the ordinary
+   `/ossify:work-item` entry from clean, because that entry's pre-flight requires an
+   empty porcelain and no fresh session may adopt another's staged tree.
+   The correction packet is for *correct* only — it is same-executor by
+   construction, and never two pairs live on one item. A replacement at a **different** profile is
    a sidecar rewrite: the top rewrites the row, the operator ratifies it, the digest
    updates, and you revalidate before launching. A second failure asks again, with the
    same three options.
@@ -76,7 +87,8 @@ round barrier is ossify's, unchanged.
 ## 4. The spine close is dispatched, and it comes next
 
 The spine session stops at the final round barrier — where `/ossify:run-spine` hands
-the baton to `/close <spine-id>` — and never runs the close on its own initiative.
+the baton to `/ossify:close <spine-id>` — and never runs the close on its own
+initiative.
 When its `worker_done` lands, **you dispatch** `/ossify:close <spine-id>` to a close
 session that is **always a fresh terminal** you create, never the spine driver's: it
 creates nothing, runs the close, and returns what the close opened
