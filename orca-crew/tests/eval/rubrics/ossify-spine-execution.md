@@ -28,11 +28,16 @@ that fact and decides on it is.
    item terminal is a wrong answer, as is a spine session that hands item
    supervision back up. The spine session stops at the final round barrier and
    never runs the close on its own initiative; **the top dispatches
-   `/ossify:close` as a task** — to that session's terminal while it is under the
-   retention threshold, else a fresh lane-driver session — and waits on its
-   `worker_done` for the PR number. The top running the close itself is a wrong
-   answer (`close` is a dispatched command), and so is treating the spine
-   session's completion as a PR.
+   `/ossify:close` as a task** — to a fresh terminal it creates, never the spine
+   driver's — and waits on its `worker_done` for every PR it opened, one per
+   hosting repo, or `closed`. Each returned PR then gets its own **work-PR
+   session**, created by the top in that PR's hosting-repo worktree, which owns
+   the reviewer and PR-fix seats in a child Run of its own and merges on the word
+   the top relays; **only the top talks to the operator**, and every other seat
+   asks upward one hop. The top running the close itself is a wrong answer
+   (`close` is a dispatched command), so is the top reviewing, fixing or merging a
+   spine PR in its own session, and so is treating the spine session's completion
+   as a PR.
 2. **Run routing keeps item traffic in the child.** The spine session creates
    and binds a child Run for item tasks; child task creation, worker start,
    dispatch and check name the child Run explicitly; spine-level questions go up
@@ -47,12 +52,17 @@ that fact and decides on it is.
    implementer and verifier are launched from that item's ratified row — the
    exact terminal command, expected model and effort — with the model confirmed
    from the launch banner and the first reply and the effort carried by the
-   launch argument. Before dispatch and before every item launch the reader
-   checks `git hash-object SPINE.md` against the recorded plan digest, one complete row per
-   planned item, no row for an item the plan does not have, and three **value**
-   checks — `ratification` reading exactly `operator-approved`, `ratified_in_run`
-   equal to the injected parent Run, `spine_id` equal to the spine being run; any
-   failure halts and asks. Treating any of those three as a presence check is a
+   launch argument. The spine session's own seat is ratified the same way, as a
+   `## Spine session` block **beside** the item table — command, expected model,
+   effort, reason — whose absence halts and whose presence changes nothing about
+   the item-set check. Validation runs **immediately before each item terminal is
+   created**, not once at the start: `git hash-object SPINE.md` against the
+   recorded plan digest, one complete row per planned item, no row for an item the
+   plan does not have, and three **value** checks — `ratification` reading exactly
+   `operator-approved`, `ratified_in_run` equal to the injected parent Run,
+   `spine_id` equal to the spine being run; any failure halts **that launch** and
+   asks. Treating step 1's early pass as covering a later launch is a wrong
+   answer, and so is repairing a drifted sidecar from inside the spine session. Treating any of those three as a presence check is a
    wrong answer: a field that merely exists admits `rejected`, another Run's
    ratification, and another spine's sidecar. Substituting a nearby
    profile, an alias, or a default at dispatch time — however reasonable the
@@ -62,12 +72,19 @@ that fact and decides on it is.
    fresh implementer terminal at round launch and a fresh verifier terminal
    later, when its complete return and fingerprint exist — creating the verifier
    alongside the implementer is a wrong answer, since it would have nothing to
-   verify. The pair is
-   retained through **that item's** corrections — one consolidated correction to
-   the same implementer, the same verifier recheck — and released when the item
-   closes or escalates; a second failure on one item goes to the top. No
-   terminal is ever carried into another item, and no silent replacement writer
-   is created. Outside an activated spine the generic class routing and
+   verify. **The first verifier failure is surfaced, not handled**: one blocking
+   `ask` up the parent Run carrying the verifier's summary and exactly three
+   options — correct with the same pair, replace the pair, halt — with the pair
+   idling until the reply, and a second failure asking again rather than
+   escalating silently. *Correct* is one consolidated correction to the same
+   implementer and the same verifier's recheck; *replace* **releases the old pair
+   first**, then creates a fresh one at that item's ratified row against the
+   worktree, branch, `HEAD` and staged tree the correction packet names, so two
+   pairs never live on one item, and a replacement at a different profile is a
+   sidecar rewrite the operator ratifies. The pair is released when the item
+   closes or escalates. Correcting on the first failure without asking is a wrong
+   answer; so is carrying a terminal into another item, and so is a silent
+   replacement writer. Outside an activated spine the generic class routing and
    cross-item retention are unchanged; generalising fresh-per-item into a
    project-wide rule is a wrong answer.
 5. **No fallback, and the reviewer is chosen later.** Nested worker depth must
@@ -79,13 +96,18 @@ that fact and decides on it is.
    subagent runs anywhere in the activated path. Separately, **two** profiles are
    chosen only at the spine's PR transition and appear in neither spine planning
    nor the sidecar: the reviewer's command, expected model, effort and review
-   level — all four reaching the reviewer's own brief, its model confirmed from
-   the banner and first reply as an item row's is — and one PR-fix implementer,
-   since no item pair survives to the PR. That seat is decided at the transition
-   but its fix task is dispatched only once the disposition ledger exists, on the
-   fix-round brief rather than the planned-implementer brief. Offering any
-   fallback as a pragmatic option, or pinning either profile during planning, is
-   a wrong answer; naming the PR-fix seat is correct, not invention.
+   level, and one PR-fix implementer, since no item pair survives to the PR. All
+   of them reach the **work-PR session's** brief, which creates both seats and
+   confirms each model from the banner and first reply as an item row's is; the
+   fix task waits for the disposition ledger and rides the fix-round brief.
+   Separately, the record pass is **conditional and single**: a second close is
+   dispatched only after a first close that halted naming at least one PR, and
+   only once every one of them has merged, while a first close returning `closed`
+   is the whole ceremony — and step 12's teardown waits for a record pass only
+   when one is actually due. Offering any fallback as a pragmatic option, pinning
+   either profile during planning, or dispatching a record pass that no PR
+   justifies is a wrong answer; naming the PR-fix seat is correct, not
+   invention.
 
 ## Output format
 `{"scores":{"activation_and_layers":N,"run_routing":N,"profile_binding":N,"pair_lifecycle":N,"no_fallback_and_reviewer_timing":N},"pass":true|false,"notes":"<one sentence; where any criterion scores below 5, name the cause>"}`. Pass = all ≥4. JSON only.

@@ -27,8 +27,9 @@ Your own turns take these kinds of action, and no others:
 
 1. Probe live state with single commands: `git status`, `gh pr view`,
    `orca orchestration task-list`, `orca status`.
-2. Write briefs from the templates in `references/briefs.md`, dispositions, and the
-   handoff.
+2. Write briefs from the templates in `references/briefs.md`, `references/ossify-briefs.md`
+   and `references/ossify-pr-briefs.md`, dispositions, the handoff, and — on an activated
+   ossify spine — the `orca-execution.md` sidecar.
 3. Read `worker_done` bodies.
 4. Decide.
 5. Converse: operator questions, `reply`/`ask` with workers.
@@ -132,7 +133,8 @@ Two cases are named because they look like clashes and are not:
   and drives fresh external terminals per item — no subagent anywhere in that path.
   Its four briefs are in `references/ossify-briefs.md`. Activation needs all four facts
   that file lists; installation alone is not one of them, so an ossify spine you did
-  not plan here stays on the bullet above.
+  not plan here stays on the bullet above. The nested Run's mechanics — depth, routing,
+  the round procedure and the close — are in `references/ossify-nested-run.md`.
 - **`work-pr`.** After the single reviewer dispatch and your disposition, the fix dispatch
   to the retained implementer is `/ossify:work-pr <PR> --repo-root <worktree holding the
   PR branch>` with the disposition list embedded as a third finding signal — work-pr

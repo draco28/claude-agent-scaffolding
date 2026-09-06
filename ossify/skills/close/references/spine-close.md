@@ -343,7 +343,8 @@ is `merge-conflict-resolution.md` — hunk by hunk, by each side's recorded
 intent. Resuming means finishing *this* repo's landing and continuing from
 there, not re-running the layer or restarting a repo that already landed.
 
-**Between the passes: hand every open PR to `/ossify:work-pr`, one at a time.**
+**Between the passes: hand every open PR to `/ossify:work-pr`, one at a time** — each
+in its own session where the caller supplies one.
 The invocation states, in full: the spine context (this PR *is* the spine's
 accumulated diff landing — the smallest independently meaningful diff, which is
 why the tier sits here and not at the work item, whose merges stay local); the

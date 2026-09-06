@@ -77,7 +77,8 @@ ROLE: reviewer. State the model you are running in your first reply, then contin
 PLACEMENT: worktree <abs-path> checked out at PR <number>'s head <sha>.
 
 TASK: run `/code-review <number> <level>` — the level the orchestrator decided, not
-one you pick. Your first reply must state the model you are running; it is expected to
+one you pick; outside an activated ossify spine the level is `medium` unless the
+orchestrator names another. Your first reply must state the model you are running; it is expected to
 be <expected-model>, and a mismatch is a failed launch to report, not to work around.
 Let the review finish, then send worker_done with
 `Findings: none` on a clean review, else every finding in this body, one per line:
@@ -137,7 +138,9 @@ fixed, deferred with a comment linking the tracked issue, or rejected with the
 evidence; P0 and P1 are never deferred.
 <With ossify installed replace this TASK with: run `/ossify:work-pr <number>
 --repo-root <worktree holding the PR branch>`; the disposition above is a third finding
-signal; stop at work-pr's merge ask and put its ledger in worker_done.>
+signal; stop at work-pr's merge ask and put its ledger in worker_done —
+except inside a work-PR session, whose fix seat works the fix list only
+and would otherwise open a second merge loop inside the one that briefed it.>
 ```
 
 A finding that arrives after the disposition is not on that list: return it through

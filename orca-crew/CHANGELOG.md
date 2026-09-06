@@ -2,6 +2,52 @@
 
 All notable changes to the `orca-crew` plugin.
 
+## 0.4.0
+
+The seats an activated spine spends are now **ratified, surfaced and separated**. 0.3.0
+made the item pairs bindable; this makes the spine session's own seat ratifiable too,
+stops the first verifier failure from being handled silently, and moves the close and
+every PR loop out of the top's session into seats of their own. **Everywhere else
+nothing moves:** `/ossify:run-spine <id>` with no flag is unchanged, and the generic
+role table, class routing and retention still govern every session outside such a spine.
+
+- **D24** — the sidecar gains a `## Spine session` block — command, expected model,
+  effort, and the reason — **beside** the item table, never a row in it, so the item-set
+  equality check is untouched. The reader value-checks it with the item rows and halts on
+  its absence; the top launches the spine terminal from that exact command and confirms
+  the model from the banner and the first reply, exactly as for an item row.
+- **D25** — the **first** verifier failure sends one `ask` up the parent Run carrying the
+  verifier's summary and three options — correct with the same pair, replace the pair,
+  halt — and **blocks**: the pair idles until the reply. *Replace* is the one exception to
+  one pair per item: it releases the old pair, resets the item's worktree to the request's
+  `base_sha` with a clean porcelain — the rejected staged work is discarded — and
+  re-requests the item, so the fresh pair runs the ordinary entry point from clean rather
+  than adopting a staged tree no pre-flight would accept; the correction packet is for
+  *correct* only. A replacement at a different profile is a sidecar rewrite the operator
+  ratifies. Replaces 0.3.0's silent first correction and second-failure escalation.
+- **D26** — four seats, one voice. Only the top talks to the operator; every other seat
+  asks upward one hop. The close runs in a **fresh** terminal the top creates (the
+  retention reuse is gone) and returns every PR it opened; each returned PR gets its own
+  **work-PR session** in that PR's hosting-repo worktree, owning the reviewer and PR-fix
+  seats in a child Run and merging bound to the SHA the top relays. Every dispatched
+  session returns a checkable artifact — PR list, ledger comment id, merge SHA.
+- **D27** — the record pass is **conditional and single**: dispatched only when the first
+  close returned at its open-PR halt naming at least one PR, and only once every one of
+  them has merged. A close that returned `closed` is the whole ceremony.
+- **D28** — the sidecar is revalidated **immediately before every item launch**, the
+  spine-session block included; any drift halts that launch and asks the top.
+
+**Clause fixes.** #435 the sidecar's implementer entry point is an angle-bracket slot
+rather than a `$NAME` nothing injects; #438 the ordinary reviewer path has a defined
+default `/code-review` level; #441 the item verifier leaves `HEAD`, the staged tree and
+the porcelain status exactly as found; #442 `orchestrate/SKILL.md`'s write set names the
+sidecar.
+
+**Files.** `references/ossify-execution.md` keeps the contract — activation, the sidecar,
+the seats, the PR transition — while `references/ossify-nested-run.md` takes the
+mechanics (depth, routing, the round procedure, the close) and `references/ossify-pr-briefs.md`
+takes the close and work-PR briefs. Every reference stays at or under 200 lines.
+
 ## 0.3.0
 
 Three session layers, **on a spine this session just planned** — the four-fact

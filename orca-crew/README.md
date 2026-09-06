@@ -14,7 +14,7 @@ for the operator's word.
 
 | Skill | What it does |
 |---|---|
-| `orchestrate` | The playbook for the orchestrator session: the delegation floor and its decidable test, the role table, the thirteen-step run, five dispatched brief templates plus a correction-request message template, the ossify seam — including the spine execution-assignment phase and its four further briefs — and the refusals. Defers every other Orca command to `orca skills get orchestration`. |
+| `orchestrate` | The playbook for the orchestrator session: the delegation floor and its decidable test, the role table, the thirteen-step run, five dispatched brief templates plus a correction-request message template, the ossify seam — including the spine execution-assignment phase and its six further briefs — and the refusals. Defers every other Orca command to `orca skills get orchestration`. |
 
 ## Command
 
@@ -62,7 +62,7 @@ ossify's ceremonies (`start`, `adopt`, `plan-release`, `plan-spine`, `wayfinder`
 (`run-spine`, `work-item`, `close`, `work-pr`, `doctor`) are dispatched to Orca sessions.
 No ossify contract changes.
 
-## Spine execution assignments (0.3.0)
+## Spine execution assignments (0.3.0, amended 0.4.0)
 
 When this session has just planned an ossify spine — and only then; installation, an
 environment variable, or a sidecar found on disk activate nothing — the run takes three
@@ -94,6 +94,22 @@ Agent or Task subagent runs anywhere in this path.
 
 Outside an activated spine, the role table, complexity-class routing and retention above
 are unchanged.
+
+**0.4.0 amends the seats, not the activation.** The sidecar gains a `## Spine session`
+block beside the item table — command, expected model, effort, reason — ratified with
+the item rows and halting on its absence (D24), and it is revalidated immediately before
+**every** item launch rather than once at the start (D28). The first verifier failure no
+longer resolves itself: it sends one blocking `ask` carrying the verifier's summary and
+three options — correct with the same pair, replace the pair, halt — and *replace*
+releases the old pair before creating its successor (D25). The close and every PR loop
+leave the top's session: the close always runs in a fresh terminal and returns every PR
+it opened, each returned PR gets its own work-PR session owning the reviewer and PR-fix
+seats and merging on the word the top relays, and only the top talks to the operator
+(D26). The record pass that follows is conditional and single — dispatched only after a
+first close that halted naming PRs, and only once all of them have merged (D27). The
+phase's prose is three references now: `ossify-execution.md` (the contract),
+`ossify-nested-run.md` (the mechanics) and `ossify-pr-briefs.md` (the close and work-PR
+briefs).
 
 ## Requirements
 
