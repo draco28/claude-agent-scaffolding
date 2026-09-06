@@ -224,10 +224,28 @@ section "the sidecar is identical at every launch, not merely valid"
 # and an equality requirement, plus the one way the baseline may move.
 pin "$NESTED_MD" 'Every item launch requires that same blob id' \
   "the recorded sidecar blob id gates every item launch"
-pin "$NESTED_MD" 'names the new blob id' \
+# R2-3 re-words this rule around the injected name; the rule is unchanged.
+pin "$NESTED_MD" 'names the new `SIDECAR_OID`' \
   "a sidecar rewrite moves the baseline through the reply, not by re-reading"
-pin "$BRIEFS_MD" 'the sidecar blob id you recorded at step 1' \
+pin "$BRIEFS_MD" 'require the hash to still equal the baseline' \
   "the spine brief carries the same baseline into its per-launch check"
+
+section "the sidecar baseline is the top's, and it is quoted"
+
+# R2-1/R2-3. The child cannot be the source of its own baseline: a sidecar edited
+# between ratification and step 1 would become it. The top records the oid when it
+# writes the file and injects it; step 1 proves equality. And the hash is of the
+# PATH's contents, so the expansion must be quoted.
+pin "$BRIEFS_MD" 'git hash-object "$ORCA_EXECUTION_PATH"' \
+  "the sidecar hash reads the injected path, quoted"
+absent "$BRIEFS_MD" 'git hash-object ORCA_EXECUTION_PATH' \
+  "the unquoted literal-name form is gone"
+pin "$BRIEFS_MD" 'SIDECAR_OID=' \
+  "the spine brief injects the ratified sidecar oid exactly once"
+pin "$BRIEFS_MD" 'must equal SIDECAR_OID' \
+  "step 1 proves the file on disk is the ratified one"
+pin "$EXEC_MD" 'records that blob id as SIDECAR_OID' \
+  "the top records the oid at write time, not the child at read time"
 
 section "the first verifier failure blocks and asks"
 
@@ -257,6 +275,18 @@ pin "$NESTED_MD" 'the rejected staged work is discarded' \
 pin "$NESTED_MD" 'The correction packet is for' \
   "the correction packet is scoped to the correct branch of the ask"
 
+section "halt is a terminal state, and the cap ends in halt only"
+
+# R2-8/R2-12. The third option had no behaviour, and the cap counts executions.
+pin "$NESTED_MD" 'halt-shaped worker_done' \
+  "a halted item returns a halt-shaped completion on the injected parent ids"
+pin "$BRIEFS_MD" 'halt-shaped worker_done' \
+  "the spine brief carries the same halt return"
+pin "$NESTED_MD" 'the ask offers halt only' \
+  "an exhausted cap leaves one option"
+pin "$BRIEFS_MD" 'the ask offers halt only' \
+  "the spine brief carries the exhausted-cap rule"
+
 section "the PR lane runs the review before the command that consumes it"
 
 # R1-2/R1-4/R1-7/R1-10. Order, the second model confirmation, the close's third
@@ -269,6 +299,36 @@ pin "$PRBRIEFS_MD" 'halted: <step>' \
   "the close brief has a third result shape for a halt before any PR opens"
 pin "$PRBRIEFS_MD" 'review bodies and top-level PR comments' \
   "a disposition covers all three finding sources, not the bot threads alone"
+
+# R2-2/R2-7. The reviewer body is the sole copy of its findings, and a pushed head
+# invalidates the verdict that preceded it.
+pin "$PRBRIEFS_MD" 'ONE bounded correction request' \
+  "a malformed reviewer body is corrected once, then escalated"
+pin "$PRBRIEFS_MD" 'retained until merge' \
+  "the reviewer seat survives to re-review each pushed head"
+pin "$PRBRIEFS_MD" 'per head, not once per PR' \
+  "the work-PR reviewer is per head; roles.md governs the generic path"
+absent "$PRBRIEFS_MD" 'run a second `/code-review`' \
+  "the once-per-PR prohibition no longer contradicts staleness"
+
+# R2-4/R2-5/R2-9/R2-11. The close seat: partial halts, the ceremony own review,
+# the ledger the record pass needs, and the route out of a halt.
+pin "$PRBRIEFS_MD" 'opened: none' \
+  "a halt names the PRs already opened, even when there are none"
+pin "$PRBRIEFS_MD" 'the close review the ceremony itself runs' \
+  "the ceremony's own review is the seat's work, not a /code-review"
+absent "$PRBRIEFS_MD" 'run a review or a fix' \
+  "the NEVER no longer forbids the ceremony its own review"
+pin "$PRBRIEFS_MD" 'CLOSE_REVIEW_LEDGER=' \
+  "the record pass receives the close-review ledger exactly once"
+pin "$PRBRIEFS_MD" 'the top dispatches a fresh close session' \
+  "a halt settles the dispatch; the top re-dispatches after remediation"
+absent "$PRBRIEFS_MD" 're-invoke close after a halt' \
+  "the dead-end NEVER clause is gone"
+pin "$NESTED_MD" 'a complete PR list or `closed`' \
+  "nothing downstream starts on a partial close"
+pin "$NESTED_MD" 'one SUCCESSFUL record pass' \
+  "single means one that succeeded, not one attempt"
 
 section "four seats, one voice"
 
@@ -301,6 +361,9 @@ pin "$ROLES_MD" 'three seats' \
 # close is named in ossify's namespace everywhere.
 pin "$LIFECYCLE_MD" 'a closed return skips the record pass' \
   "a close that recorded outright goes straight to teardown"
+# R2-10. The teardown gate names a merged PR; a `closed` spine never had one.
+pin "$LIFECYCLE_MD" 'closed spine has no PR to confirm' \
+  "teardown after a closed return validates the local landing instead"
 pin "$ROLES_MD" 'from the ratified spine_session block' \
   "roles.md launches the spine seat from the sidecar block"
 pin "$BRIEFS_MD" 'from the ratified spine_session block' \

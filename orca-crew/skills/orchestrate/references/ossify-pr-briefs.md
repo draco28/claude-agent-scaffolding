@@ -26,23 +26,36 @@ PARENT_RUN_ID=<run id>
 CLOSE_TASK_ID=<task id>
 CLOSE_DISPATCH_ID=<dispatch id>
 SPINE_ID=<spine id>
+CLOSE_REVIEW_LEDGER=<verbatim ledger from the first close, or "none">
 
 TASK: run `/ossify:close SPINE_ID` and let it complete or halt. Whatever it hands
 off, you do not drive: if it opens PRs and halts, that halt is your result.
+The ceremony's own steps are yours to perform, including
+the close review the ceremony itself runs over the accumulated diff before any PR
+opens and the fix-now edits its findings require — that is `/ossify:close` doing
+its job, not a `/code-review` you dispatch. On a record pass, write the accepted
+findings CLOSE_REVIEW_LEDGER carries into the retrospective's carried-and-lessons
+section, by class.
 
 RULES THAT DO NOT LOAD HERE: <paste verbatim, or "none">.
 
 DONE: one worker_done on CLOSE_TASK_ID and CLOSE_DISPATCH_ID carrying exactly one
 of three results: EVERY PR the close opened — one line per hosting repo, `<repo>
 #<number> <url>`; the single word `closed` when it recorded the spine with no PR
-open; or `halted: <step> — <evidence>` when it stopped before opening any PR, say
-at the cumulative demo or a gate. A halt is a result, not a PR list with none in
-it, and the top settles it without advancing the lifecycle. Then:
+open; or `halted: <step> — <evidence>` when it stopped, naming the failing step and
+repo and, on its own line, what it had already opened: `opened: <repo> #<n> <url> …`
+or `opened: none`. A multi-repo close can open in one repo and halt on the next, so
+a halt that hides those PRs strands them. A halt is a result, not a PR list with
+none in it, and the top settles it without advancing the lifecycle. Whenever the
+close review ran, carry its ledger verbatim too — each finding, its decision and
+the reason — because the record pass runs in a different session and cannot
+reconstruct it. Then:
   Changed / Evidence / Open / Files.
 
-NEVER: create a terminal, run a review or a fix, merge, ask the operator anything
-(questions go up to the top with `ask`), or re-invoke close after a halt. Report a
-refusal verbatim.
+NEVER: create a terminal, merge, ask the operator anything (questions go up to the
+top with `ask`), or re-invoke `/ossify:close` yourself — a halt settles this
+dispatch, and once the blocker is remediated
+the top dispatches a fresh close session. Report a refusal verbatim.
 ```
 
 ---
@@ -82,7 +95,11 @@ TASK: drive PR_NUMBER to a merge on the top's word.
   2. Create the reviewer FIRST, from REVIEWER_COMMAND at REVIEWER_EFFORT, confirm
      REVIEWER_EXPECTED_MODEL from its banner and first reply, and brief it to run
      `/code-review PR_NUMBER REVIEW_LEVEL`. Read the findings from its
-     worker_done; it posts nothing itself.
+     worker_done; it posts nothing itself, so that body is the only copy. Validate
+     it against the reviewer brief's schema — `Findings: none`, or finding lines
+     plus `Reviewed head:` and `Summary:` — before you pass anything on; on a
+     malformed body send ONE bounded correction request to that reviewer and
+     re-validate, and escalate a second malformed body to the top.
   3. THEN run `/ossify:work-pr $PR_NUMBER --repo-root $REPO_ROOT`,
      carrying those findings in as its disposition inputs.
      It owns the whole review-fix-merge
@@ -96,7 +113,11 @@ TASK: drive PR_NUMBER to a merge on the top's word.
      dispatch fix tasks to a PR-fix seat you create from PRFIX_COMMAND at
      PRFIX_EFFORT — confirm PRFIX_EXPECTED_MODEL from its banner and first reply
      before the first fix task, a mismatch being a failed launch to stop and ask
-     about, never to work around. Relay ONE batched summary per round to the top. STOPPING_RULE decides
+     about, never to work around. The reviewer seat is **retained until merge**:
+     each time the PR-fix seat pushes, the head it reviewed is stale, so re-run
+     `/code-review PR_NUMBER REVIEW_LEVEL` on the new head and feed those findings
+     into the next disposition round. That is per head, not once per PR —
+     `roles.md`'s once-per-PR reviewer governs the generic path, not this seat. Relay ONE batched summary per round to the top. STOPPING_RULE decides
      when fixing stops.
   5. When the gate is clean, `ask` the top for the merge word. On the reply,
      re-fetch the whole gate set once more and
@@ -109,5 +130,5 @@ PR_NUMBER, the merge SHA and every ledger comment id — checkable artifacts, ne
 narrative. Then: Changed / Evidence / Open / Files.
 
 NEVER: talk to the operator — every question goes up to the top; squash; merge
-without the top's relayed word; delete a branch; or run a second `/code-review`.
+without the top's relayed word; delete a branch; or review a head twice.
 ```

@@ -125,7 +125,9 @@ Every command's syntax comes from `orca skills get orchestration`.
     release every worker and delete the branch only after confirming a merged PR
     exists whose head OID equals the branch tip — on an activated ossify spine (1b) the
     work-PR session merges on the word you relay, and both of these wait until the
-    second close's record pass has returned.
+    second close's record pass has returned. **A closed spine has no PR to confirm**,
+    so its teardown validates the close's own result instead — the local landing it
+    recorded in each hosting repo — and waits for no record pass.
 13. **Handoff.** If the Run outlives the session, write a handoff naming the Run id,
     task ids, terminal handles, head SHA, and the next step. With ossify installed, that
     is `/ossify:handoff`.

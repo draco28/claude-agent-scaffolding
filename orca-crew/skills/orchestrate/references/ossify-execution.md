@@ -95,6 +95,11 @@ session is a block beside the table, never a row in it.
 profile per item from its scope, risk and cost. Present **every** row to the operator in
 one ratification phase and write nothing until every row is decided — a half-ratified
 sidecar looks binding and is not. Record the recommendation and any override.
+**On writing the ratified file, hash it** — `git hash-object` on the sidecar — and keep
+that value: the brief injects it as `SIDECAR_OID` and the spine session proves equality
+before it does anything. A child that sampled its own baseline after launch would
+adopt an edit made between your ratification and its first read;
+**the top records that blob id as SIDECAR_OID**, so the baseline is the operator-approved file.
 
 **Reading it.** Before dispatching the spine session, and again before every
 item launch, the reader checks: the plan's blob id **at its real path** —

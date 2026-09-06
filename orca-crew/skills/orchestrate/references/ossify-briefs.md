@@ -13,9 +13,8 @@ every slot and delete nothing else.
 ## Spine session (one per spine, dispatched by the top orchestrator)
 
 The lane driver, launched **from the ratified spine_session block** in the
-sidecar — command, expected model and effort — not from this skill's generic
-lane-driver policy. It is also a coordinator, which is why its brief carries
-parent identities it could not otherwise know.
+sidecar, not from this skill's generic lane-driver policy. It is also a
+coordinator, which is why its brief carries parent identities.
 
 ```text
 ROLE: ossify spine session and nested coordinator. State the model you are
@@ -30,6 +29,7 @@ SPINE_DISPATCH_ID=<dispatch id>
 SPINE_ID=<spine id>
 SPINE_EXPECTED_MODEL=<model id the banner must show>
 ORCA_EXECUTION_PATH=<abs path to $SPINE_DIR/orca-execution.md>
+SIDECAR_OID=<blob id the top recorded when it wrote the ratified sidecar>
 
 TASK: drive spine SPINE_ID to its final round barrier. A first reply whose model
 is not SPINE_EXPECTED_MODEL is a failed launch to report, not to work around.
@@ -39,9 +39,11 @@ is not SPINE_EXPECTED_MODEL is a failed launch to report, not to work around.
      item must have exactly one complete row; no row may name an item the plan
      does not; ratification must read exactly `operator-approved`;
      ratified_in_run must equal PARENT_RUN_ID; and spine_id must equal SPINE_ID.
-     Any failure halts — ask, never substitute. Then record the SIDECAR's own
-     blob id, `git hash-object ORCA_EXECUTION_PATH`; the checks above prove the
-     file valid, not unchanged, so an edited-but-valid row would pass them.
+     Any failure halts — ask, never substitute. Then
+     `git hash-object "$ORCA_EXECUTION_PATH"` must equal SIDECAR_OID: the checks
+     above prove the file valid, not the file the operator ratified, and an
+     edited-but-valid row passes every one of them. That value is the baseline
+     for every launch below.
   2. Create and bind a CHILD Run for item tasks. Every child task-create,
      worker-start, dispatch and check names --run <child run id>. Every question
      for the top names --run PARENT_RUN_ID. Replies to item questions go on each
@@ -53,10 +55,11 @@ is not SPINE_EXPECTED_MODEL is a failed launch to report, not to work around.
      is a complete return to verify. Confirm each model from the launch banner
      and the first reply; the effort is the launch argument you were given.
      Re-run step 1's validation, the spine_session block included,
-     immediately before each item terminal is created, and require
-     the sidecar blob id you recorded at step 1
-     to be unchanged; any drift halts that launch and asks the top. Only a reply from the top naming a new blob id, after it
-     rewrote and the operator re-ratified, moves that baseline.
+     immediately before each item terminal is created, and
+     require the hash to still equal the baseline;
+     any drift halts that launch and asks. Only a top reply
+     naming a new SIDECAR_OID, after it rewrote and the operator re-ratified,
+     moves it.
   4. Gather the round's implementation plans into ONE ordered ask to the top and
      wait. Relay the top's per-item decision to each implementer on its own
      original message id before any edit starts.
@@ -69,7 +72,12 @@ is not SPINE_EXPECTED_MODEL is a failed launch to report, not to work around.
      SAME verifier; replace releases the old pair, resets that item's worktree to
      the request's base_sha with a clean porcelain (the rejected staged work is
      discarded), and re-requests the item so the fresh pair runs the ordinary
-     work-item entry from clean; a second failure asks again.
+     work-item entry from clean; a second failure asks again. Every execution of
+     an item — the initial run, each correction, each replacement — counts against
+     ossify's three-iteration cap, and once it is spent the ask offers halt only.
+     On halt, release that item's pair, mark the item halted, and if no other item
+     can proceed send a halt-shaped worker_done on the injected parent ids naming
+     the item and the reason; the spine stays at its current round barrier.
   6. Return accepted results to the lane in declared decomposition order. Keep
      each pair until its item closes or escalates; never move a terminal to
      another item.
@@ -79,11 +87,9 @@ RULES THAT DO NOT LOAD HERE: <paste verbatim, or "none">.
 DONE: release every item pair first — no terminal of yours outlives the spine —
 then one worker_done using SPINE_TASK_ID and SPINE_DISPATCH_ID, the injected
 parent ids, so the top's Dispatch settles while your child Run stays bound:
-  Changed / Evidence / Open / Files, as in the planned-implementer brief, and
-  name the child Run id you bound so the top can find it afterwards.
+  Changed / Evidence / Open / Files, and the child Run id you bound.
 The spine is at its final round barrier when you finish; the close ceremony is
-the top's and runs after this worker_done, in a fresh close session that is
-never this terminal.
+the top's, in a fresh close session that is never this terminal.
 
 NEVER: launch an item terminal in the parent Run; run a Claude subagent for a
 work item; fall back to the default nested dispatch after a depth error;

@@ -38,13 +38,15 @@ close-the-Run step: the CLI exposes none.
 ## 3. The round procedure, as the spine session runs it
 
 1. Validate `SPINE.md`, the sidecar and the round's item set
-   (`ossify-execution.md` §3), and record the **sidecar's own blob id** —
-   `git hash-object` on `ORCA_EXECUTION_PATH` — as this spine's baseline.
+   (`ossify-execution.md` §3), then prove the sidecar on disk is the ratified one:
+   its blob id must equal the **`SIDECAR_OID` your brief injected**, which the top
+   recorded when it wrote the file.
    **Every item launch requires that same blob id.** The §3 checks are value
-   checks, so an edited-but-still-valid row — a changed terminal command — passes
-   them all; only the file's identity catches it. A mismatch halts that launch and
-   asks. When the top rewrites the sidecar, its reply
-   names the new blob id, and that becomes the baseline.
+   checks, so an edited-but-still-valid row — a
+   changed terminal command — passes them all; only the file's identity catches
+   it, and a baseline you sampled yourself would adopt any edit made before your
+   first read. A mismatch halts that launch and asks. When the top rewrites the
+   sidecar, its reply names the new `SIDECAR_OID`, and that becomes the baseline.
 2. Invoke the ossify lane in external-executor mode. ossify prepares every
    same-round worktree and handoff first, then hands over one request per item.
 3. For each item, launch a **fresh implementer terminal** from that row's exact command
@@ -73,7 +75,14 @@ close-the-Run step: the CLI exposes none.
    construction, and never two pairs live on one item. A replacement at a **different** profile is
    a sidecar rewrite: the top rewrites the row, the operator ratifies it, the digest
    updates, and you revalidate before launching. A second failure asks again, with the
-   same three options.
+   same three options — except that **every execution of an item counts against
+   ossify's three-iteration cap**, the initial run and each correction and each
+   replacement alike, so once it is spent the ask offers halt only.
+   *Halt* is terminal for that item: release its pair, mark it halted in your own
+   state, and when no other item can proceed send a **halt-shaped worker_done** on
+   the injected parent ids naming the item and the reason. The top settles that
+   dispatch and the spine stays at its current round barrier — no close is
+   dispatched off a halt.
 7. Initial gaps are handled inside the spine session: it asks you for the operator's
    answers, remains the handoff writer, appends clarifications, and re-requests the item
    within ossify's three-attempt cap.
@@ -100,6 +109,12 @@ recording nothing (`close/references/spine-close.md`); its `worker_done` names *
 PR it opened, repo and number — or the single word `closed`, when every hosting repo
 was remote-less and it recorded the spine outright.
 
+A multi-repo close can also open a PR in one repo and then halt on a later one, so it
+returns `halted:` naming what it opened so far. **Dispatch nothing downstream — no
+work-PR session, no record pass — until a close returns a complete PR list or `closed`.**
+A halt settles that dispatch only: remediate the blocker it names, then dispatch a
+**fresh** close session, as many times as that takes.
+
 **Then one work-PR session per returned PR**, each created in that PR's own
 hosting-repo worktree and briefed with the two profiles you decided at the PR
 transition (`ossify-execution.md` §5). It owns both PR seats in a child Run of its own,
@@ -114,7 +129,8 @@ branch again.
 
 That second dispatch is **conditional and single**: it happens
 only when the first returned at its open-PR halt naming at least one PR, and only once
-every one of those has merged — one record pass per spine, never a scheduled step. A
+every one of those has merged — one SUCCESSFUL record pass per spine, never a
+scheduled step; a close that halted consumed nothing and is simply re-dispatched. A
 first close that returned `closed` — every hosting repo remote-less, so it landed and
 recorded outright — is the whole ceremony, and dispatching a second one against it is
 a wrong turn, not a safety net.
